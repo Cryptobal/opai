@@ -42,7 +42,6 @@ import { Section25Comparacion } from './sections/Section25Comparacion';
 import { Section26PorqueEligen } from './sections/Section26PorqueEligen';
 import { Section27Implementacion } from './sections/Section27Implementacion';
 import { Section28Cierre } from './sections/Section28Cierre';
-import { Section29Contacto } from './sections/Section29Contacto';
 import { PlaceholderSection } from './sections/PlaceholderSection';
 
 interface PresentationRendererProps {
@@ -150,8 +149,7 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
           {/* S28 - Cierre + CTA */}
           <Section28Cierre data={sections.s28_cierre} />
           
-          {/* S29 - Contacto */}
-          <Section29Contacto data={sections.s29_contacto} />
+          {/* S29 - Contacto ELIMINADO (redundante con Footer) */}
         </main>
         
         {/* Footer */}

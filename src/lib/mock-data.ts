@@ -102,16 +102,16 @@ export function getMockPresentationPayload(): PresentationPayload {
     
     // CTA y contacto
     cta: {
-      meeting_link: 'https://calendly.com/gard-security/visita-tecnica',
-      whatsapp_link: 'https://wa.me/56912345678',
-      phone: '+56 9 8765 4321',
-      email: 'comercial@gard.cl',
+      meeting_link: 'https://calendar.app.google/pZyyqzUgXoMgacYz7',
+      whatsapp_link: 'https://wa.me/56982307771',
+      phone: '+56 98 230 7771',
+      email: 'carlos.irigoyen@gard.cl',
     },
     
     contact: {
       name: 'Carlos Irigoyen',
       email: 'carlos.irigoyen@gard.cl',
-      phone: '+56 9 8765 4321',
+      phone: '+56 98 230 7771',
       position: 'Gerente Comercial',
     },
     
@@ -790,16 +790,16 @@ export function getMockPresentationPayload(): PresentationPayload {
         microcopy: 'Respuesta en 24 horas hábiles',
       },
       
-      // S29 - Contacto
+      // S29 - Contacto (ELIMINADO - solo Footer)
       s29_contacto: {
-        email: 'comercial@gard.cl',
-        phone: '+56 2 2345 6789',
+        email: 'carlos.irigoyen@gard.cl',
+        phone: '+56 98 230 7771',
         website: 'www.gard.cl',
-        address: 'Av. Providencia 1234, Of. 567, Providencia, Santiago',
+        address: 'Lo Fontecilla 201, Las Condes, Chile',
         social_media: {
           linkedin: 'https://www.linkedin.com/company/gard-security',
-          instagram: 'https://www.instagram.com/gardsecurity',
-          youtube: 'https://www.youtube.com/@gardsecurity',
+          instagram: 'https://www.instagram.com/gardsecuritycl/',
+          x: 'https://x.com/gard_cl?lang=es',
         },
       },
     },

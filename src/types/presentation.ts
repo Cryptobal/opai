@@ -407,6 +407,7 @@ export interface Section29_Contacto {
   social_media: {
     linkedin?: string;
     instagram?: string;
+    x?: string;
     youtube?: string;
   };
 }
