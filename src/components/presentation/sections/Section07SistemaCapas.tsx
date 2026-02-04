@@ -36,7 +36,7 @@ export function Section07SistemaCapas({ data }: Section07SistemaCapasProps) {
         
         {/* Pyramid layers */}
         <StaggerContainer className="max-w-3xl mx-auto space-y-4">
-          {data.layers.reverse().map((layer, index) => {
+          {[...data.layers].reverse().map((layer, index) => {
             const width = `${60 + (layer.level * 8)}%`;
             const isTop = layer.level === 5;
             
