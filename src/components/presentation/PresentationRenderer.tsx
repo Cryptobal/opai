@@ -61,6 +61,9 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
         <PresentationHeader 
           logo={assets.logo}
           cta={cta}
+          contactName={payload.client.contact_first_name || payload.client.contact_name}
+          companyName={payload.client.company_name}
+          quoteName={payload.quote.number}
         />
         
         {/* Secciones S01-S29 */}
@@ -147,7 +150,11 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
           <Section27Implementacion data={sections.s27_implementacion} />
           
           {/* S28 - Cierre + CTA */}
-          <Section28Cierre data={sections.s28_cierre} />
+          <Section28Cierre 
+            data={sections.s28_cierre}
+            contactEmail={contact.email}
+            contactPhone={contact.phone}
+          />
           
           {/* S29 - Contacto ELIMINADO (redundante con Footer) */}
         </main>

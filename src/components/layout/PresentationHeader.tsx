@@ -6,26 +6,35 @@
 
 import { CTALinks } from '@/types';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Calendar, Phone } from 'lucide-react';
+import { Calendar, Phone, MessageCircle } from 'lucide-react';
 
 interface PresentationHeaderProps {
   logo?: string;
   cta: CTALinks;
+  contactName?: string;
+  companyName?: string;
+  quoteName?: string;
   className?: string;
 }
 
 export function PresentationHeader({ 
   logo = '/Logo Gard Blanco.png', 
-  cta, 
+  cta,
+  contactName = 'Interesado',
+  companyName = 'tu empresa',
+  quoteName = 'la cotización',
   className 
 }: PresentationHeaderProps) {
+  // Mensaje de WhatsApp predefinido
+  const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
+  const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
+  
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/90 border-b border-teal-500/20 shadow-2xl">
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-20 md:h-24">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0 group">
+          <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="flex-shrink-0 group">
             <div className="relative w-32 h-12 md:w-40 md:h-14 transition-transform group-hover:scale-110">
               <Image
                 src={logo}
@@ -35,17 +44,28 @@ export function PresentationHeader({
                 priority
               />
             </div>
-          </Link>
+          </a>
           
           {/* CTA Principal (Desktop) - VISIBLE Y PULSANDO */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4">
+            {/* WhatsApp */}
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-green-600 hover:bg-green-500 transition-all hover:scale-105 shadow-lg shadow-green-600/30"
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span>WhatsApp</span>
+            </a>
+            
             {/* Teléfono */}
             {cta.phone && (
               <a
                 href={`tel:${cta.phone}`}
-                className="flex items-center gap-2 text-base font-bold text-white hover:text-teal-400 transition-colors"
+                className="flex items-center gap-2 text-sm font-bold text-white/80 hover:text-teal-400 transition-colors"
               >
-                <Phone className="w-5 h-5" />
+                <Phone className="w-4 h-4" />
                 <span>{cta.phone}</span>
               </a>
             )}

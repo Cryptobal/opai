@@ -51,7 +51,7 @@ export function Section01Hero({ data, payload }: Section01HeroProps) {
       </div>
       
       {/* Content */}
-      <ContainerWrapper size="xl" className="relative z-10 min-h-screen flex flex-col justify-center py-24 md:py-32">
+      <ContainerWrapper size="xl" className="relative z-10 flex flex-col justify-center py-32 md:py-40 min-h-[85vh] md:min-h-screen">
         {/* KPI Overlay (esquina superior derecha) con glassmorphism */}
         {data.kpi_overlay && (
           <motion.div

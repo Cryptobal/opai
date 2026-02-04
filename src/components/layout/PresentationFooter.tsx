@@ -54,14 +54,16 @@ export function PresentationFooter({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <div className="relative w-40 h-16 mb-6">
-              <Image
-                src={logo}
-                alt="Gard Security"
-                fill
-                className="object-contain drop-shadow-[0_0_10px_rgba(0,212,170,0.3)]"
-              />
-            </div>
+            <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="inline-block group">
+              <div className="relative w-40 h-16 mb-6 transition-transform group-hover:scale-110">
+                <Image
+                  src={logo}
+                  alt="Gard Security"
+                  fill
+                  className="object-contain drop-shadow-[0_0_10px_rgba(0,212,170,0.3)]"
+                />
+              </div>
+            </a>
             <p className="text-base text-white/70 mb-6 leading-relaxed">
               Seguridad privada diseñada para continuidad operacional
             </p>

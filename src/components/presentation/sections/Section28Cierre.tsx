@@ -9,18 +9,27 @@ import { Section28_Cierre } from '@/types/presentation';
 import { SectionWrapper, ContainerWrapper } from '../SectionWrapper';
 import { useThemeClasses } from '../ThemeProvider';
 import { cn } from '@/lib/utils';
-import { Calendar, Mail, ArrowRight, Sparkles, Zap, CheckCircle2 } from 'lucide-react';
+import { Calendar, MessageCircle, ArrowRight, Sparkles, Zap, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Section28CierreProps {
   data: Section28_Cierre;
 }
 
-export function Section28Cierre({ data }: Section28CierreProps) {
+interface Section28CierrePropsExtended {
+  data: Section28_Cierre;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+export function Section28Cierre({ data, contactEmail = 'carlos.irigoyen@gard.cl', contactPhone = '+56982307771' }: Section28CierrePropsExtended) {
   const theme = useThemeClasses();
   
+  // WhatsApp link para hablar con quien envió la propuesta
+  const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent('Hola, vi la propuesta y me gustaría conversar')}`;
+  
   return (
-    <SectionWrapper id="s28-cierre" animation="scale" className="relative overflow-hidden min-h-screen flex items-center">
+    <SectionWrapper id="s28-cierre" animation="scale" className="relative overflow-hidden">
       {/* Background espectacular con múltiples gradientes */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
       <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-blue-500/10" />
@@ -33,8 +42,8 @@ export function Section28Cierre({ data }: Section28CierreProps) {
       <Sparkles className="absolute top-20 right-20 w-8 h-8 text-teal-400/30 animate-pulse" />
       <Zap className="absolute bottom-20 left-20 w-10 h-10 text-blue-400/30 animate-pulse" style={{ animationDelay: '0.5s' }} />
       
-      <ContainerWrapper className="relative z-10 py-32">
-        <div className="text-center max-w-5xl mx-auto">
+      <ContainerWrapper className="relative z-10 py-24 md:py-32">
+        <div className="text-center max-w-5xl mx-auto px-4">
           {/* Headline épico */}
           <motion.h2
             initial={{ opacity: 0, y: 50 }}
@@ -90,20 +99,22 @@ export function Section28Cierre({ data }: Section28CierreProps) {
             </a>
             
             <a
-              href={data.cta_secondary.link}
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
               className={cn(
                 'group',
                 'inline-flex items-center justify-center gap-4',
                 'px-12 py-6 rounded-2xl',
                 'text-xl md:text-2xl font-black text-white',
-                'glass-card border-4 border-white/30',
-                'hover:bg-white/20 hover:border-white/60',
+                'bg-green-600 hover:bg-green-500',
+                'border-4 border-green-500/50 hover:border-green-400',
                 'transition-all duration-300 hover:scale-105',
-                'shadow-2xl'
+                'shadow-2xl shadow-green-600/30'
               )}
             >
-              <Mail className="w-7 h-7" />
-              <span>{data.cta_secondary.text}</span>
+              <MessageCircle className="w-7 h-7" />
+              <span>Hablar por WhatsApp</span>
             </a>
           </motion.div>
           
