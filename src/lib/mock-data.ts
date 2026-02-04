@@ -125,7 +125,7 @@ export function getMockPresentationPayload(): PresentationPayload {
         personalization: 'Propuesta para [ACCOUNT_NAME] — COT-2026-00342',
         cta_primary_text: 'Agendar visita técnica sin costo',
         cta_secondary_text: 'Solicitar propuesta directa',
-        background_image: '/hero_guardias.webp',
+        background_image: '/guardia_hero.jpg',
         kpi_overlay: {
           value: '99,5%',
           label: 'Cobertura de turnos',
