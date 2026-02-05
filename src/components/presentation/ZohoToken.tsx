@@ -12,7 +12,7 @@ interface ZohoTokenProps {
 }
 
 export function ZohoToken({ token, className, inline = false }: ZohoTokenProps) {
-  const baseClasses = "font-mono font-bold bg-yellow-400/90 text-slate-900 px-2 py-0.5 rounded shadow-lg border-2 border-yellow-500";
+  const baseClasses = "font-mono text-[10px] font-semibold bg-yellow-400/80 text-slate-900 px-1.5 py-0.5 rounded border border-yellow-500";
   
   if (inline) {
     return (
