@@ -122,23 +122,16 @@ export function mapZohoDataToPresentation(
           // Mapear productos de Zoho si existen
           items: zohoData.product_details && zohoData.product_details.length > 0
             ? zohoData.product_details.map((product: any) => {
-                // Construir descripción completa: Nombre + Descripción (si existe)
-                let fullDescription = product.product_name || 'Servicio';
-                
-                // Si hay descripción del producto, agregarla
-                if (product.description && product.description.trim() !== '') {
-                  fullDescription = product.description;
-                }
-                
                 return {
-                  description: fullDescription,
+                  name: product.product_name || undefined, // Nombre del producto
+                  description: product.description && product.description.trim() !== '' 
+                    ? product.description 
+                    : product.product_name || 'Servicio', // Descripción detallada
                   quantity: product.quantity || 1,
                   unit_price: product.unit_price || 0,
                   subtotal: product.subtotal || (product.quantity * product.unit_price) || 0,
                   currency: (zohoData.quote?.Currency || 'CLP') as any,
-                  notes: product.description && product.description !== fullDescription 
-                    ? product.description 
-                    : undefined, // Descripción en notas si es diferente
+                  notes: undefined, // Las notas adicionales si se necesitan
                 };
               })
             : base.sections.s23_propuesta_economica.pricing.items,

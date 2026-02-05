@@ -114,7 +114,21 @@ export function Section23PropuestaEconomica({
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
                   >
                     <td className="px-6 py-5">
-                      <div className="font-semibold text-white text-sm leading-relaxed">
+                      {/* Nombre del producto */}
+                      {showTokens ? (
+                        <div className="font-bold text-white text-base mb-2">
+                          {item.description.includes('Guardias') 
+                            ? '[ITEM_NAME_1]' 
+                            : item.description.includes('Supervisor')
+                            ? '[ITEM_NAME_2]'
+                            : '[ITEM_NAME_N]'}
+                        </div>
+                      ) : item.name ? (
+                        <div className="font-bold text-white text-base mb-2">{item.name}</div>
+                      ) : null}
+                      
+                      {/* Descripción detallada */}
+                      <div className="font-normal text-white/80 text-sm leading-relaxed">
                         {showTokens && item.description.includes('Guardias') 
                           ? '[ITEM_DESCRIPTION_1]' 
                           : showTokens && item.description.includes('Supervisor')
@@ -123,6 +137,8 @@ export function Section23PropuestaEconomica({
                           ? '[ITEM_DESCRIPTION_N]'
                           : item.description}
                       </div>
+                      
+                      {/* Notas adicionales */}
                       {item.notes && !showTokens && (
                         <div className="text-xs mt-1 text-white/50">{item.notes}</div>
                       )}
@@ -172,7 +188,17 @@ export function Section23PropuestaEconomica({
               transition={{ delay: index * 0.1 }}
               className="glass-card rounded-xl p-5 border border-white/10"
             >
-              <div className="font-bold text-white mb-3">
+              {/* Nombre del producto */}
+              {showTokens ? (
+                <div className="font-bold text-white text-base mb-2">
+                  {`[ITEM_NAME_${index + 1}]`}
+                </div>
+              ) : item.name ? (
+                <div className="font-bold text-white text-base mb-2">{item.name}</div>
+              ) : null}
+              
+              {/* Descripción */}
+              <div className="font-normal text-white/80 text-sm mb-3">
                 {showTokens ? `[ITEM_${index + 1}_DESC]` : item.description}
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">

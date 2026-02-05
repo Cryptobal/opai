@@ -76,6 +76,7 @@ export interface ServiceData {
 // ============================================
 
 export interface PricingItem {
+  name?: string; // Nombre del producto/servicio (ej: "Puesto de Seguridad (PSEG)")
   description: string;
   quantity: number;
   unit_price: number;
