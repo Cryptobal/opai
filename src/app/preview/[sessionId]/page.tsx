@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import { PresentationRenderer } from '@/components/presentation/PresentationRenderer';
 import { mapZohoDataToPresentation } from '@/lib/zoho-mapper';
 import { PreviewActions } from '@/components/preview/PreviewActions';
+import { PreviewSidebar } from '@/components/preview/PreviewSidebar';
 
 interface PreviewPageProps {
   params: Promise<{
@@ -78,7 +79,11 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
   // 5. Mapear datos de Zoho a PresentationPayload
   const presentationData = mapZohoDataToPresentation(zohoData, sessionId, template.slug);
 
-  // 6. Renderizar presentación
+  // 6. Extraer datos del contacto
+  const contactName = `${zohoData.contact?.First_Name || ''} ${zohoData.contact?.Last_Name || ''}`.trim();
+  const contactEmail = zohoData.contact?.Email || '';
+
+  // 7. Renderizar presentación
   return (
     <div className="relative">
       {/* Banner de preview */}
@@ -93,13 +98,21 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
         </div>
       </div>
 
+      {/* Sidebar flotante */}
+      <PreviewSidebar sessionId={sessionId} zohoData={zohoData} />
+
       {/* Presentación */}
       <div className="pt-14">
         <PresentationRenderer payload={presentationData} />
       </div>
 
       {/* Botones de acción */}
-      <PreviewActions sessionId={sessionId} companyName={presentationData.client.company_name} />
+      <PreviewActions 
+        sessionId={sessionId} 
+        companyName={presentationData.client.company_name}
+        contactName={contactName}
+        contactEmail={contactEmail}
+      />
       
       {/* Espaciador para los botones */}
       <div className="h-24" />

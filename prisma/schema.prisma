@@ -77,9 +77,18 @@ model Presentation {
   // Delivery
   recipientEmail   String?             // Email del destinatario
   recipientName    String?             // Nombre del destinatario
+  ccEmails         String[]            @default([]) // Copias adicionales
   emailSentAt      DateTime?           // Cuándo se envió el email
   emailProvider    String?             // "resend", "sendgrid", etc.
   emailMessageId   String?             // ID del mensaje en el proveedor
+  
+  // Email tracking (Resend webhooks)
+  deliveredAt      DateTime?           // Cuándo se entregó el email
+  firstOpenedAt    DateTime?           // Primera apertura del email
+  lastOpenedAt     DateTime?           // Última apertura del email
+  openCount        Int                 @default(0) // Cantidad de veces que se abrió
+  clickCount       Int                 @default(0) // Cantidad de clicks en links
+  lastClickedAt    DateTime?           // Último click registrado
   
   whatsappSharedAt DateTime?           // Cuándo se compartió por WhatsApp
   whatsappNumber   String?             // Número de WhatsApp
