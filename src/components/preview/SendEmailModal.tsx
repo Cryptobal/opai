@@ -79,6 +79,7 @@ export function SendEmailModal({ sessionId, companyName, contactName, contactEma
         uniqueId: data.presentation.uniqueId,
         publicUrl: data.presentation.publicUrl,
         recipientEmail: data.email.sentTo,
+        recipientPhone: data.email.recipientPhone,
       });
 
     } catch (err: any) {

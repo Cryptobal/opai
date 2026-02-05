@@ -12,10 +12,11 @@ interface SuccessModalProps {
   publicUrl: string;
   recipientEmail: string;
   companyName: string;
+  recipientPhone?: string;
   onClose: () => void;
 }
 
-export function SuccessModal({ publicUrl, recipientEmail, companyName, onClose }: SuccessModalProps) {
+export function SuccessModal({ publicUrl, recipientEmail, companyName, recipientPhone, onClose }: SuccessModalProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -28,7 +29,11 @@ export function SuccessModal({ publicUrl, recipientEmail, companyName, onClose }
     const message = encodeURIComponent(
       `Hola! Te envié nuestra propuesta para ${companyName}. Puedes verla aquí: ${publicUrl}`
     );
-    window.open(`https://wa.me/?text=${message}`, '_blank');
+    // Si hay número de teléfono, usarlo. Si no, WhatsApp genérico
+    const whatsappUrl = recipientPhone 
+      ? `https://wa.me/${recipientPhone.replace(/\D/g, '')}?text=${message}`
+      : `https://wa.me/?text=${message}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (

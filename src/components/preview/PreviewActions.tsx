@@ -22,6 +22,7 @@ interface SendResult {
   uniqueId: string;
   publicUrl: string;
   recipientEmail: string;
+  recipientPhone?: string;
 }
 
 export function PreviewActions({ sessionId, companyName, contactName, contactEmail }: PreviewActionsProps) {
@@ -83,6 +84,7 @@ export function PreviewActions({ sessionId, companyName, contactName, contactEma
           publicUrl={sendResult.publicUrl}
           recipientEmail={sendResult.recipientEmail}
           companyName={companyName}
+          recipientPhone={sendResult.recipientPhone}
           onClose={() => {
             setShowSuccessModal(false);
             // Cerrar ventana o redirigir

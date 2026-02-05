@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     // Usar el email custom si viene del modal, si no usar el de Zoho
     const recipientEmail = customEmail || zohoData.contact?.Email;
     const recipientName = customName || `${zohoData.contact?.First_Name || ''} ${zohoData.contact?.Last_Name || ''}`.trim();
+    const recipientPhone = zohoData.contact?.Mobile || zohoData.contact?.Phone || '';
     const companyName = zohoData.account?.Account_Name || 'Cliente';
     const quoteSubject = zohoData.quote?.Subject || 'Propuesta de Servicios';
     const quoteNumber = zohoData.quote?.Quote_Number || '';
@@ -66,7 +67,8 @@ export async function POST(req: NextRequest) {
 
     // 4. Generar uniqueId para URL pública
     const uniqueId = nanoid(12); // Ej: "xyz123abc456"
-    const presentationUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/p/${uniqueId}`;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://docs.gard.cl';
+    const presentationUrl = `${siteUrl}/p/${uniqueId}`;
 
     // 5. Obtener template (commercial por defecto)
     const template = await prisma.template.findFirst({
@@ -179,6 +181,7 @@ export async function POST(req: NextRequest) {
         messageId: emailResponse.data?.id,
         sentTo: recipientEmail,
         cc: ccEmails,
+        recipientPhone,
       },
     });
 
