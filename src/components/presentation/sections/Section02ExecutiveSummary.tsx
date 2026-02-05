@@ -111,8 +111,8 @@ export function Section02ExecutiveSummary({
           </motion.div>
         )}
         
-        {/* Por Qué GARD vs Modelo Tradicional */}
-        <div className="grid lg:grid-cols-2 gap-8 mb-16">
+        {/* Por Qué GARD vs Modelo Tradicional - SIMÉTRICAS */}
+        <div className="grid lg:grid-cols-2 gap-8 mb-16 items-stretch">
           {/* GARD - MÁS FUERTE */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -123,7 +123,7 @@ export function Section02ExecutiveSummary({
           >
             <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 to-blue-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
             
-            <div className="relative glass-card rounded-2xl p-8 border-2 border-teal-400/30 hover:border-teal-400/50 transition-all">
+            <div className="relative glass-card rounded-2xl p-8 border-2 border-teal-400/30 hover:border-teal-400/50 transition-all h-full flex flex-col">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center glow-teal">
                   <CheckCircle className="w-7 h-7 text-white" strokeWidth={3} />
@@ -156,7 +156,7 @@ export function Section02ExecutiveSummary({
           >
             <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
             
-            <div className="relative glass-card rounded-2xl p-8 border-2 border-red-500/30 hover:border-red-500/50 transition-all">
+            <div className="relative glass-card rounded-2xl p-8 border-2 border-red-500/30 hover:border-red-500/50 transition-all h-full flex flex-col">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/30">
                   <XCircle className="w-7 h-7 text-white" strokeWidth={3} />

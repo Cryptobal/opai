@@ -89,12 +89,26 @@ export function getMockPresentationPayload(): PresentationPayload {
         '/guardia_conserje.jpeg',
         '/guardia_caseta.jpeg',
         '/guardia_cims.jpg',
+        '/guardia_cims_1.jpg',
+        '/guardia_conserje_1.jpeg',
       ],
       client_logos: [
         '/clientes_Polpaico.png',
         '/clientes_International Paper.png',
         '/clientes_Tritec.webp',
         '/clientes_Sparta.webp',
+        '/clientes_Tattersall.png',
+        '/clientes_Transmat.webp',
+        '/clientes_Zerando.webp',
+        '/clientes_bbosch.webp',
+        '/clientes_Delegacion.png',
+        '/clientes_Dhemax.png',
+        '/clientes_Embajada Brasil.png',
+        '/clientes_Emecar.jpg',
+        '/clientes_Forestal Santa Blanca.png',
+        '/clientes_GL Events.png',
+        '/clientes_Newtree.png',
+        '/clientes_eCars.png',
       ],
       hero_image: '/hero_guardias.webp',
       os10_qr_url: '/QR OS10.png',
@@ -360,6 +374,7 @@ export function getMockPresentationPayload(): PresentationPayload {
           'Máximo 4 horas sin verificación',
           'Mínimo 2 supervisiones por turno',
           'Respuesta a incidentes < 15 minutos',
+          'Cobertura de turnos 99,5%',
         ],
       },
       
@@ -464,6 +479,9 @@ export function getMockPresentationPayload(): PresentationPayload {
           '/guardia_recepcion.jpg',
           '/guardia_conserje.jpeg',
           '/guardia_caseta.jpeg',
+          '/guardia_cims.jpg',
+          '/guardia_cims_1.jpg',
+          '/guardia_conserje_1.jpeg',
         ],
         values: [
           { title: 'Profesionalismo', description: 'Capacitación continua y certificaciones' },
@@ -585,7 +603,7 @@ export function getMockPresentationPayload(): PresentationPayload {
       },
       
       // S20 - Clientes
-      s20_clientes: {
+        s20_clientes: {
         client_logos: [
           '/clientes_Polpaico.png',
           '/clientes_International Paper.png',
@@ -595,6 +613,14 @@ export function getMockPresentationPayload(): PresentationPayload {
           '/clientes_Transmat.webp',
           '/clientes_Zerando.webp',
           '/clientes_bbosch.webp',
+          '/clientes_Delegacion.png',
+          '/clientes_Dhemax.png',
+          '/clientes_Embajada Brasil.png',
+          '/clientes_Emecar.jpg',
+          '/clientes_Forestal Santa Blanca.png',
+          '/clientes_GL Events.png',
+          '/clientes_Newtree.png',
+          '/clientes_eCars.png',
         ],
         confidentiality_note: 'Algunos clientes no autorizan uso de su marca por políticas de confidencialidad.',
       },
