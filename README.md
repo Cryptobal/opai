@@ -65,21 +65,26 @@ http://localhost:3000/templates/pricing-format?admin=true
 
 ## 📖 Documentación completa
 
-Ver **[ESTADO-PROYECTO.md](ESTADO-PROYECTO.md)** para:
+Ver **[docs/ESTADO-PROYECTO.md](docs/ESTADO-PROYECTO.md)** para:
 - Estado actual detallado
 - Componentes implementados
 - Tokens dinámicos
 - Próximos pasos
 
-Ver **[DOCUMENTO-MAESTRO-APLICACION.md](DOCUMENTO-MAESTRO-APLICACION.md)** para:
+Ver **[docs/DOCUMENTO-MAESTRO-APLICACION.md](docs/DOCUMENTO-MAESTRO-APLICACION.md)** para:
 - Especificación técnica completa
 - Arquitectura del sistema
 - Roadmap de implementación
 
-Ver **[PRESENTACION-COMERCIAL-BASE.md](PRESENTACION-COMERCIAL-BASE.md)** para:
+Ver **[docs/PRESENTACION-COMERCIAL-BASE.md](docs/PRESENTACION-COMERCIAL-BASE.md)** para:
 - Contenido de las 29 secciones
 - Principios de conversión
 - Variables dinámicas
+
+Ver **[docs/ZOHO-INTEGRATION.md](docs/ZOHO-INTEGRATION.md)** para:
+- Código Deluge de Zoho CRM
+- Configuración del webhook
+- Testing y troubleshooting
 
 ## 📊 Estado
 
