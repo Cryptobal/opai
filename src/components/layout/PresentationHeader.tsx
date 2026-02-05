@@ -6,7 +6,7 @@
 
 import { CTALinks } from '@/types';
 import Image from 'next/image';
-import { Calendar, MessageCircle } from 'lucide-react';
+import { Calendar, MessageCircle, Sparkles } from 'lucide-react';
 
 interface PresentationHeaderProps {
   logo?: string;
@@ -14,6 +14,7 @@ interface PresentationHeaderProps {
   contactName?: string;
   companyName?: string;
   quoteName?: string;
+  quoteNumber?: string;
   className?: string;
 }
 
@@ -23,15 +24,33 @@ export function PresentationHeader({
   contactName = 'Interesado',
   companyName = 'tu empresa',
   quoteName = 'la cotización',
+  quoteNumber = '',
   className 
 }: PresentationHeaderProps) {
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
   
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/90 border-b border-teal-500/20 shadow-2xl">
+    <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/95 border-b border-teal-500/20 shadow-2xl">
       <div className="w-full px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+        {/* Info propuesta - NUEVA LÍNEA */}
+        {(companyName || quoteNumber) && companyName !== 'tu empresa' && (
+          <div className="py-2 border-b border-white/5">
+            <div className="flex items-center justify-center gap-2 text-xs text-white/70">
+              <Sparkles className="w-3 h-3 text-teal-400" />
+              <span>
+                Propuesta para <span className="font-bold text-white">{companyName}</span>
+                {quoteNumber && (
+                  <> — <span className="font-bold text-teal-400">{quoteNumber}</span></>
+                )}
+              </span>
+              <span className="hidden sm:inline">• Preparado para {contactName}</span>
+            </div>
+          </div>
+        )}
+        
+        {/* Main header */}
+        <div className="flex items-center justify-between h-16 sm:h-18">
           {/* Logo */}
           <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="flex-shrink-0 group">
             <div className="relative w-24 h-8 sm:w-32 sm:h-12 transition-transform group-hover:scale-110">

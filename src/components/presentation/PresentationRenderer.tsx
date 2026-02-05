@@ -64,7 +64,8 @@ export function PresentationRenderer({ payload, showTokens = false }: Presentati
           cta={cta}
           contactName={payload.client.contact_first_name || payload.client.contact_name}
           companyName={payload.client.company_name}
-          quoteName={payload.quote.number}
+          quoteName={payload.quote.subject || 'la propuesta'}
+          quoteNumber={payload.quote.number}
         />
         
         {/* Secciones S01-S29 */}
