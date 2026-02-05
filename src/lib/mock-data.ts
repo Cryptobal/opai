@@ -703,7 +703,7 @@ export function getMockPresentationPayload(): PresentationPayload {
               quantity: 1,
               unit_price: 100,
               subtotal: 100,
-              currency: 'CLF',
+              currency: 'UF',
             },
             {
               name: 'Puesto de Seguridad (PSEG)',
@@ -711,7 +711,7 @@ export function getMockPresentationPayload(): PresentationPayload {
               quantity: 1,
               unit_price: 50,
               subtotal: 50,
-              currency: 'CLF',
+              currency: 'UF',
             },
           ],
           subtotal: 5300000,
