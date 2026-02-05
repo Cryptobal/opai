@@ -30,7 +30,7 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
   
   return (
     <SectionWrapper id="s01-hero" animation="none" className="relative overflow-hidden p-0">
-      {/* Background Image */}
+      {/* Background Image - SOLO en esta sección */}
       <div className="absolute inset-0 z-0">
         <Image
           src={data.background_image}
@@ -41,15 +41,18 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
           quality={90}
           sizes="100vw"
         />
+        {/* Overlay gradient FUERTE en bottom para corte limpio */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950/70 via-slate-900/60 to-slate-950/80" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-900/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
+        
+        {/* Glows */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
       
-      {/* Content - OPTIMIZADO SIN BADGE (va en header) */}
-      <div className="relative z-10 h-screen flex flex-col justify-center px-4 sm:px-6 md:px-12 max-w-6xl mx-auto">
-        {/* Main Content - SIN BADGE */}
+      {/* Content - NO h-screen, usa min-h y padding */}
+      <div className="relative z-10 min-h-[85vh] flex items-center px-4 sm:px-6 md:px-12 py-32 md:py-40 max-w-6xl mx-auto">
+        {/* Main Content */}
         <div className="w-full max-w-5xl">
           
           {/* Headline - OPTIMIZADO */}
