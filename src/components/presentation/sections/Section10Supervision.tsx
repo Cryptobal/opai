@@ -1,17 +1,15 @@
 'use client';
 
 /**
- * Section10Supervision - Supervisión activa en 4 niveles
- * Corazón del sistema de control
+ * Section10Supervision - Rediseñado con timeline visual
  */
 
 import { Section10_Supervision } from '@/types/presentation';
 import { SectionWrapper, ContainerWrapper, StaggerContainer, StaggerItem } from '../SectionWrapper';
 import { useThemeClasses } from '../ThemeProvider';
 import { cn } from '@/lib/utils';
-import { Eye, Clock } from 'lucide-react';
-import { TrustBadges } from '../shared/TrustBadges';
-import { YouTubeEmbed, extractYouTubeId } from '../shared/YouTubeEmbed';
+import { Eye, Clock, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Section10SupervisionProps {
   data: Section10_Supervision;
@@ -25,49 +23,40 @@ export function Section10Supervision({ data }: Section10SupervisionProps) {
       <ContainerWrapper size="xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <Eye className={cn('w-16 h-16 mx-auto mb-6', theme.accent.replace('bg-', 'text-'))} />
+          <Eye className="w-14 h-14 mx-auto mb-6 text-teal-400" />
           
-          <h2 className={cn('text-3xl md:text-5xl font-bold mb-4', theme.text, theme.headlineWeight)}>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 text-white leading-tight">
             Supervisión activa
           </h2>
           
-          <p className={cn('text-lg md:text-xl max-w-3xl mx-auto', theme.textMuted)}>
-            El corazón del sistema: verificación permanente en 4 niveles
+          <p className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto">
+            4 niveles de verificación permanente
           </p>
         </div>
         
-        {/* Levels */}
-        <StaggerContainer className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        {/* Levels - Grid compacto */}
+        <StaggerContainer className="grid md:grid-cols-4 gap-6 mb-16">
           {data.levels.map((level, index) => (
             <StaggerItem key={index}>
               <div className={cn(
-                'p-6 rounded-lg border text-center',
-                theme.border,
-                level.level === 1 ? theme.accent : theme.secondary,
-                level.level === 1 && 'text-white'
+                'glass-card p-6 rounded-xl text-center border transition-all hover:scale-105',
+                level.level === 1 
+                  ? 'border-teal-400/50 bg-teal-500/10' 
+                  : 'border-white/10'
               )}>
                 <div className={cn(
-                  'text-3xl font-bold mb-2',
-                  level.level === 1 ? 'text-white' : theme.text
+                  'text-4xl font-black mb-2',
+                  level.level === 1 ? 'text-teal-400' : 'text-white'
                 )}>
                   {level.level}
                 </div>
-                <h4 className={cn(
-                  'text-lg font-bold mb-2',
-                  level.level === 1 ? 'text-white' : theme.text
-                )}>
+                <h4 className="text-base font-bold text-white mb-2">
                   {level.name}
                 </h4>
-                <p className={cn(
-                  'text-sm mb-3',
-                  level.level === 1 ? 'text-white/90' : theme.textMuted
-                )}>
+                <p className="text-sm text-white/60 mb-3">
                   {level.description}
                 </p>
-                <div className={cn(
-                  'text-xs font-semibold',
-                  level.level === 1 ? 'text-white/80' : theme.accent.replace('bg-', 'text-')
-                )}>
+                <div className="text-xs font-semibold text-teal-400">
                   {level.frequency}
                 </div>
               </div>
@@ -75,68 +64,77 @@ export function Section10Supervision({ data }: Section10SupervisionProps) {
           ))}
         </StaggerContainer>
         
-        {/* Night shift timeline */}
-        <div className="max-w-4xl mx-auto mb-12">
-          <h3 className={cn('text-2xl font-bold text-center mb-8', theme.text)}>
+        {/* Timeline nocturno - VISUAL MEJORADO */}
+        <div className="max-w-5xl mx-auto mb-16">
+          <h3 className="text-2xl font-bold text-center mb-10 text-white">
             Ejemplo: Turno nocturno (20:00 - 08:00)
           </h3>
           
-          <div className={cn('rounded-lg border overflow-hidden', theme.border)}>
-            {data.night_shift_timeline.map((item, index) => (
-              <div
-                key={index}
-                className={cn(
-                  'flex items-center gap-4 p-4',
-                  index % 2 === 0 ? theme.secondary : 'bg-transparent',
-                  index < data.night_shift_timeline.length - 1 && 'border-b',
-                  theme.border
-                )}
-              >
-                <div className={cn(
-                  'w-20 h-20 rounded-full flex items-center justify-center flex-shrink-0',
-                  theme.accent,
-                  'bg-opacity-20'
-                )}>
-                  <Clock className={cn('w-6 h-6', theme.accent.replace('bg-', 'text-'))} />
-                  <span className={cn('text-sm font-bold ml-2', theme.text)}>
+          {/* Timeline visual */}
+          <div className="relative">
+            {/* Línea de tiempo */}
+            <div className="absolute left-0 right-0 top-8 h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0" />
+            
+            <div className="grid grid-cols-5 gap-2">
+              {data.night_shift_timeline.map((item, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.15, type: 'spring' }}
+                  className="relative text-center"
+                >
+                  {/* Punto en timeline */}
+                  <div className="relative z-10 w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-teal-500 to-teal-400 flex items-center justify-center shadow-lg shadow-teal-500/30 mb-4">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
+                  
+                  {/* Hora */}
+                  <div className="text-lg font-black text-teal-400 mb-2">
                     {item.time}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <p className={cn('text-base', theme.text)}>
-                    {item.activity}
-                  </p>
-                </div>
-              </div>
-            ))}
+                  </div>
+                  
+                  {/* Actividad */}
+                  <div className="glass-card p-3 rounded-lg border border-white/10">
+                    <p className="text-xs text-white/80 leading-tight">
+                      {item.activity}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
         
-        {/* Video: Control de rondas y supervisión */}
-        <div className="mb-12 max-w-4xl mx-auto">
-          <h3 className={cn('text-2xl font-bold text-center mb-8', theme.text)}>
-            Control de rondas y supervisión en acción
-          </h3>
-          <YouTubeEmbed 
-            videoId={extractYouTubeId('https://www.youtube.com/watch?v=bRo7dBBb0MQ')}
-            title="Control de rondas y supervisión"
-          />
-        </div>
-        
-        {/* SLA badges */}
+        {/* SLA badges - GRID 2x2 */}
         <div className="max-w-4xl mx-auto">
-          <h3 className={cn('text-xl font-bold text-center mb-6', theme.text)}>
+          <h3 className="text-xl font-bold text-center mb-8 text-white">
             Compromisos de servicio (SLA)
           </h3>
           
-          <TrustBadges
-            badges={data.sla.map((sla, i) => ({
-              icon: 'shield',
-              title: `SLA ${i + 1}`,
-              value: sla.split(':')[0],
-              description: sla,
-            }))}
-          />
+          <div className="grid md:grid-cols-2 gap-6">
+            {data.sla.map((sla, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="glass-card p-6 rounded-xl border border-white/10 hover:border-teal-400/30 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500/20 to-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Shield className="w-6 h-6 text-teal-400" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-white/50 mb-1">SLA {index + 1}</div>
+                    <div className="text-sm font-bold text-white">{sla}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </ContainerWrapper>
     </SectionWrapper>

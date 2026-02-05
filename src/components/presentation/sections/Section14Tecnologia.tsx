@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * Section14Tecnologia - Tecnología que controla
- * No marketing, beneficios reales
+ * Section14Tecnologia - Feature cards modernas
  */
 
 import { Section14_Tecnologia } from '@/types/presentation';
@@ -11,6 +10,7 @@ import { useThemeClasses } from '../ThemeProvider';
 import { cn } from '@/lib/utils';
 import { Smartphone, Camera, BarChart, Info } from 'lucide-react';
 import { YouTubeEmbed, extractYouTubeId } from '../shared/YouTubeEmbed';
+import { motion } from 'framer-motion';
 
 interface Section14TecnologiaProps {
   data: Section14_Tecnologia;
@@ -18,7 +18,6 @@ interface Section14TecnologiaProps {
 
 export function Section14Tecnologia({ data }: Section14TecnologiaProps) {
   const theme = useThemeClasses();
-  
   const icons = [Smartphone, Camera, BarChart];
   
   return (
@@ -26,85 +25,77 @@ export function Section14Tecnologia({ data }: Section14TecnologiaProps) {
       <ContainerWrapper size="xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <Smartphone className={cn('w-16 h-16 mx-auto mb-6', theme.accent.replace('bg-', 'text-'))} />
+          <Smartphone className="w-14 h-14 mx-auto mb-6 text-teal-400" />
           
-          <h2 className={cn('text-3xl md:text-5xl font-bold mb-4', theme.text, theme.headlineWeight)}>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 text-white leading-tight">
             Tecnología que controla
           </h2>
           
-          <p className={cn('text-lg md:text-xl max-w-3xl mx-auto', theme.textMuted)}>
-            No vendemos tecnología. La usamos para verificar que el servicio se cumple.
+          <p className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto">
+            No vendemos tecnología. La usamos para verificar cumplimiento.
           </p>
         </div>
         
-        {/* Tools grid */}
-        <StaggerContainer className="space-y-6 max-w-4xl mx-auto mb-12">
+        {/* Tools grid - 3 COLUMNAS COMPACTAS */}
+        <StaggerContainer className="grid md:grid-cols-3 gap-6 mb-12">
           {data.tools.map((tool, index) => {
             const Icon = icons[index % icons.length];
             
             return (
               <StaggerItem key={index}>
-                <div className={cn(
-                  'p-6 md:p-8 rounded-lg border',
-                  theme.border,
-                  theme.secondary
-                )}>
-                  <div className="grid md:grid-cols-[auto,1fr] gap-6">
-                    {/* Icon */}
-                    <div className={cn(
-                      'w-16 h-16 rounded-lg flex items-center justify-center',
-                      theme.accent,
-                      'bg-opacity-20'
-                    )}>
-                      <Icon className={cn('w-8 h-8', theme.accent.replace('bg-', 'text-'))} />
+                <motion.div
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  className="glass-card rounded-2xl p-6 border border-white/10 hover:border-teal-400/30 transition-all h-full group"
+                >
+                  {/* Icon grande */}
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500/20 to-blue-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                    <Icon className="w-8 h-8 text-teal-400" />
+                  </div>
+                  
+                  {/* Título */}
+                  <h3 className="text-lg font-black text-white mb-4">
+                    {tool.name}
+                  </h3>
+                  
+                  {/* Info grid */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">
+                        ¿Qué es?
+                      </p>
+                      <p className="text-sm text-white/80">
+                        {tool.what_is_it}
+                      </p>
                     </div>
                     
-                    {/* Content */}
                     <div>
-                      <h3 className={cn('text-xl font-bold mb-4', theme.text)}>
-                        {tool.name}
-                      </h3>
-                      
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div>
-                          <p className={cn('text-xs font-semibold mb-1', theme.textMuted)}>
-                            ¿Qué es?
-                          </p>
-                          <p className={cn('text-sm', theme.text)}>
-                            {tool.what_is_it}
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <p className={cn('text-xs font-semibold mb-1', theme.textMuted)}>
-                            ¿Para qué?
-                          </p>
-                          <p className={cn('text-sm', theme.text)}>
-                            {tool.purpose}
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <p className={cn('text-xs font-semibold mb-1', theme.accent.replace('bg-', 'text-'))}>
-                            Beneficio real
-                          </p>
-                          <p className={cn('text-sm font-semibold', theme.text)}>
-                            {tool.real_benefit}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">
+                        ¿Para qué?
+                      </p>
+                      <p className="text-sm text-white/80">
+                        {tool.purpose}
+                      </p>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-white/10">
+                      <p className="text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">
+                        Beneficio real
+                      </p>
+                      <p className="text-sm font-bold text-white">
+                        {tool.real_benefit}
+                      </p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </StaggerItem>
             );
           })}
         </StaggerContainer>
         
-        {/* Video: Control de acceso */}
+        {/* Video */}
         <div className="mb-12 max-w-4xl mx-auto">
-          <h3 className={cn('text-2xl font-bold text-center mb-8', theme.text)}>
-            Sistema de control de acceso en funcionamiento
+          <h3 className="text-xl font-bold text-center mb-6 text-white">
+            Sistema en funcionamiento
           </h3>
           <YouTubeEmbed 
             videoId={extractYouTubeId('https://youtu.be/rGbyIwpIkYU')}
@@ -112,10 +103,10 @@ export function Section14Tecnologia({ data }: Section14TecnologiaProps) {
           />
         </div>
         
-        {/* Important note */}
-        <div className={cn('p-6 rounded-lg border text-center max-w-3xl mx-auto', theme.border, theme.accent, 'bg-opacity-10')}>
-          <Info className={cn('w-8 h-8 mx-auto mb-3', theme.accent.replace('bg-', 'text-'))} />
-          <p className={cn('text-base font-semibold', theme.text)}>
+        {/* Note */}
+        <div className="glass-card p-6 rounded-xl border border-teal-400/30 text-center max-w-3xl mx-auto">
+          <Info className="w-8 h-8 mx-auto mb-3 text-teal-400" />
+          <p className="text-base font-semibold text-white">
             {data.note}
           </p>
         </div>

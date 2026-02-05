@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * Section18KPIs - Indicadores de gestión
- * 6 KPIs principales con targets
+ * Section18KPIs - Grid 3x2 ordenado tipo dashboard
  */
 
 import { Section18_KPIs } from '@/types/presentation';
@@ -10,6 +9,7 @@ import { SectionWrapper, ContainerWrapper, StaggerContainer, StaggerItem } from 
 import { useThemeClasses } from '../ThemeProvider';
 import { cn } from '@/lib/utils';
 import { BarChart3, Target } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Section18KPIsProps {
   data: Section18_KPIs;
@@ -23,66 +23,59 @@ export function Section18KPIs({ data }: Section18KPIsProps) {
       <ContainerWrapper size="xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <BarChart3 className={cn('w-16 h-16 mx-auto mb-6', theme.accent.replace('bg-', 'text-'))} />
+          <BarChart3 className="w-14 h-14 mx-auto mb-6 text-teal-400" />
           
-          <h2 className={cn('text-3xl md:text-5xl font-bold mb-4', theme.text, theme.headlineWeight)}>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 text-white leading-tight">
             Indicadores de gestión (KPIs)
           </h2>
           
-          <p className={cn('text-lg md:text-xl max-w-3xl mx-auto', theme.textMuted)}>
+          <p className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto">
             Lo que se mide, se controla. Lo que se controla, mejora.
           </p>
         </div>
         
-        {/* KPIs grid */}
-        <StaggerContainer className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mb-12">
+        {/* KPIs Grid 3x2 ORDENADO */}
+        <StaggerContainer className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
           {data.indicators.map((indicator, index) => (
             <StaggerItem key={index}>
-              <div className={cn(
-                'p-6 rounded-lg border',
-                theme.border,
-                theme.secondary
-              )}>
+              <motion.div
+                whileHover={{ scale: 1.03, y: -5 }}
+                className="glass-card rounded-xl p-6 border border-white/10 hover:border-teal-400/30 transition-all h-full"
+              >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className={cn('text-lg font-bold mb-1', theme.text)}>
-                      {indicator.name}
-                    </h3>
-                    <p className={cn('text-sm', theme.textMuted)}>
-                      {indicator.description}
-                    </p>
-                  </div>
-                  
-                  <Target className={cn('w-6 h-6 flex-shrink-0', theme.accent.replace('bg-', 'text-'))} />
+                  <h3 className="text-lg font-bold text-white flex-1">
+                    {indicator.name}
+                  </h3>
+                  <Target className="w-5 h-5 flex-shrink-0 text-teal-400" />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <p className="text-sm text-white/60 mb-4">
+                  {indicator.description}
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
                   <div>
-                    <p className={cn('text-xs font-semibold mb-1', theme.textMuted)}>
-                      Target
-                    </p>
-                    <p className={cn('text-xl font-bold', theme.accent.replace('bg-', 'text-'))}>
+                    <p className="text-xs text-white/50 mb-1">Target</p>
+                    <p className="text-xl font-black text-teal-400">
                       {indicator.target}
                     </p>
                   </div>
                   
                   <div>
-                    <p className={cn('text-xs font-semibold mb-1', theme.textMuted)}>
-                      Medición
-                    </p>
-                    <p className={cn('text-sm font-semibold', theme.text)}>
+                    <p className="text-xs text-white/50 mb-1">Medición</p>
+                    <p className="text-sm font-semibold text-white">
                       {indicator.measurement_frequency}
                     </p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </StaggerItem>
           ))}
         </StaggerContainer>
         
         {/* Review note */}
-        <div className={cn('p-6 rounded-lg border text-center max-w-3xl mx-auto', theme.border, theme.secondary)}>
-          <p className={cn('text-base', theme.text)}>
+        <div className="glass-card p-6 rounded-xl border border-white/10 text-center max-w-3xl mx-auto">
+          <p className="text-base text-white">
             {data.review_note}
           </p>
         </div>
