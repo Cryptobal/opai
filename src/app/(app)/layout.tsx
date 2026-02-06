@@ -32,11 +32,12 @@ export default async function AppLayout({
   const userRole = session.user?.role;
   const canManageUsers = userRole === 'owner' || userRole === 'admin';
 
-  // Delegar UI al Client Component
+  // Delegar UI al Client Component (con rol para App Access)
   return (
     <AppLayoutClient
       userName={session.user?.name}
       userEmail={session.user?.email}
+      userRole={userRole}
       canManageUsers={canManageUsers}
     >
       {children}

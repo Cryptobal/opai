@@ -46,10 +46,35 @@ OPAI es una suite SaaS para empresas de seguridad que unifica:
 - **Regla actual:** Cada usuario pertenece a un único tenant vía Admin.tenantId.
 - **Futuro:** Memberships multi-tenant cuando se requiera (guardias, multi-empresa).
 
-## 5. Autorización (RBAC + Scopes)
-Roles implementados: owner, admin, editor, viewer (ver src/lib/rbac.ts).
+## 5. Autorización (RBAC + App Access)
+
+### 5.1 Roles RBAC
+Roles implementados: owner, admin, editor, viewer (ver `src/lib/rbac.ts`).
 Roles futuros: sales, ops_manager, supervisor, guard, client.
-Scopes (futuro): installation_id, client_id, guard_id (self), region_id.
+
+### 5.2 App Access (Phase 1 - Hardcodeado)
+**Estado:** ✅ Implementado (Febrero 2026)
+
+Control de acceso a módulos por rol, hardcodeado en código (sin DB).
+
+**Matriz de acceso actual:**
+- `owner` / `admin` → Acceso total a todos los módulos
+- `editor` → hub, docs, crm, cpq
+- `viewer` → hub, docs (solo lectura)
+
+**Implementación:**
+- Archivo central: `src/lib/app-access.ts`
+- Función principal: `hasAppAccess(role, appKey)`
+- Integrado en: Sidebar (UI) + Route protection (Server)
+- NO requiere cambios en DB ni migraciones
+
+**Evolución a Phase 2:**
+- Mismo modelo, pero fuente de verdad desde DB (tabla `app_permissions`)
+- Permitirá configuración por tenant y roles customizados
+- La interfaz de código permanece igual (solo cambia la fuente)
+
+### 5.3 Permisos granulares (Futuro)
+Scopes: installation_id, client_id, guard_id (self), region_id.
 Policies por acción: docs.proposal.send, crm.deal.update, ops.incident.create, etc.
 
 ## 6. Datos

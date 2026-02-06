@@ -5,6 +5,9 @@
  * Incluirá integración con Zoho CRM, pipeline de ventas, y reportes.
  */
 
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasAppAccess } from '@/lib/app-access';
 import { PageHeader } from '@/components/opai';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +15,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Users, Building, TrendingUp, DollarSign, Calendar, FileText } from 'lucide-react';
 
-export default function CRMPage() {
+export default async function CRMPage() {
+  // Verificar autenticación y acceso al módulo CRM
+  const session = await auth();
+  if (!session?.user) {
+    redirect('/opai/login?callbackUrl=/crm');
+  }
+
+  if (!hasAppAccess(session.user.role, 'crm')) {
+    redirect('/hub');
+  }
   return (
     <>
       <PageHeader

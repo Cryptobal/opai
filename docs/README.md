@@ -56,6 +56,7 @@ Documentación técnica de la arquitectura del sistema:
 - Seguridad y JWT
 - 🆕 **Sistema de invitación de usuarios**
 - 🆕 **RBAC y gestión de roles**
+- 🆕 **App Access Phase 1** (control de acceso a módulos por rol)
 
 📄 **[Multi-Tenancy](./01-architecture/multitenancy.md)**
 - Modelo SaaS
@@ -223,6 +224,16 @@ Para dudas o actualizaciones de la documentación:
 
 ## 🔄 Historial de Actualizaciones
 
+### v2.1 - 06 de Febrero de 2026
+
+**App Access Phase 1:**
+- ✅ Control de acceso a módulos por rol (hardcodeado)
+- ✅ Matriz de permisos en `src/lib/app-access.ts`
+- ✅ Protección de rutas: `/hub`, `/crm`, `/cpq`
+- ✅ Sidebar adaptativo según permisos
+- ✅ Sin cambios en DB (implementación no invasiva)
+- ✅ Preparado para migración a Phase 2 (DB-driven)
+
 ### v2.0 - 05 de Febrero de 2026
 
 **Nuevas Funcionalidades:**
@@ -256,4 +267,4 @@ Estos archivos se mantienen solo para compatibilidad. **Usar siempre las ubicaci
 ---
 
 **Última actualización:** 06 de Febrero de 2026  
-**Versión de la documentación:** 2.1 (Organización mejorada)
+**Versión de la documentación:** 2.1 (App Access Phase 1 + Organización mejorada)

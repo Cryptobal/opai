@@ -9,13 +9,16 @@ import {
   Building2,
   Grid3x3,
   LayoutTemplate,
+  DollarSign,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
+import { hasAppAccess } from '@/lib/app-access';
 
 interface AppLayoutClientProps {
   children: ReactNode;
   userName?: string;
   userEmail?: string;
+  userRole: string;
   canManageUsers: boolean;
 }
 
@@ -23,39 +26,46 @@ export function AppLayoutClient({
   children, 
   userName, 
   userEmail,
+  userRole,
   canManageUsers 
 }: AppLayoutClientProps) {
-  // Nav items con iconos (ahora en Client Component)
+  // Nav items con App Access control
   const navItems: NavItem[] = [
     { 
       href: '/hub', 
       label: 'Inicio', 
       icon: Grid3x3,
-      show: canManageUsers // Solo owner/admin
+      show: hasAppAccess(userRole, 'hub')
     },
     { 
       href: '/opai/inicio', 
       label: 'Documentos', 
       icon: FileText,
-      show: true 
+      show: hasAppAccess(userRole, 'docs')
     },
     { 
       href: '/opai/templates', 
       label: 'Templates', 
       icon: LayoutTemplate,
-      show: true 
+      show: hasAppAccess(userRole, 'docs') // Templates son parte de Docs
     },
     { 
       href: '/opai/usuarios', 
       label: 'Usuarios', 
       icon: Users,
-      show: canManageUsers 
+      show: hasAppAccess(userRole, 'admin')
     },
     { 
       href: '/crm', 
       label: 'CRM', 
       icon: Building2,
-      show: canManageUsers // Solo owner/admin
+      show: hasAppAccess(userRole, 'crm')
+    },
+    { 
+      href: '/cpq', 
+      label: 'CPQ', 
+      icon: DollarSign,
+      show: hasAppAccess(userRole, 'cpq')
     },
   ];
 

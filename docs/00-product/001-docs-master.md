@@ -81,6 +81,29 @@ Comportamiento: alias de opai.gard.cl/opai/*
 
 ---
 
+## Autorización
+
+### App Access Control (Phase 1)
+**Estado:** ✅ Implementado (Febrero 2026)
+
+Control de acceso al módulo Docs por rol:
+
+**Roles que pueden acceder a Docs:**
+- `owner` → Acceso completo
+- `admin` → Acceso completo
+- `editor` → Acceso completo
+- `viewer` → Solo lectura (visualización de propuestas)
+
+**Implementación:**
+- Sistema hardcodeado en código (`src/lib/app-access.ts`)
+- NO requiere DB ni migraciones (esto es Phase 2)
+- Protección en rutas: `/opai/inicio`, `/opai/templates`
+- UI adaptativa: sidebar muestra solo módulos permitidos
+
+**Nota:** El módulo Docs usa el sistema de App Access centralizado de OPAI Suite. Para detalles completos del modelo de permisos, ver: [000-opai-suite-master.md](./000-opai-suite-master.md#52-app-access-phase-1---hardcodeado)
+
+---
+
 ## Multi-Tenancy
 - Todas las entidades internas pertenecen a un tenant
 - tenantId es obligatorio en:

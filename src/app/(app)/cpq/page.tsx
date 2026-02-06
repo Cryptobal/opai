@@ -5,6 +5,9 @@
  * Incluirá catálogo de productos, reglas de pricing y generación de cotizaciones.
  */
 
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasAppAccess } from '@/lib/app-access';
 import { PageHeader } from '@/components/opai';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +15,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { DollarSign, Package, Settings, FileText, Calculator, Percent } from 'lucide-react';
 
-export default function CPQPage() {
+export default async function CPQPage() {
+  // Verificar autenticación y acceso al módulo CPQ
+  const session = await auth();
+  if (!session?.user) {
+    redirect('/opai/login?callbackUrl=/cpq');
+  }
+
+  if (!hasAppAccess(session.user.role, 'cpq')) {
+    redirect('/hub');
+  }
   return (
     <>
       <PageHeader

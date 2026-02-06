@@ -15,7 +15,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { hasHubAccess } from '@/lib/access';
+import { hasAppAccess } from '@/lib/app-access';
 import { PageHeader } from '@/components/opai';
 import { KpiCard } from '@/components/opai/KpiCard';
 import { Button } from '@/components/ui/button';
@@ -47,8 +47,8 @@ export default async function HubPage() {
     redirect('/opai/login?callbackUrl=/hub');
   }
 
-  // Verificar que sea admin o owner
-  if (!hasHubAccess(session.user.role)) {
+  // Verificar acceso al módulo Hub (App Access)
+  if (!hasAppAccess(session.user.role, 'hub')) {
     redirect('/opai/inicio');
   }
 
