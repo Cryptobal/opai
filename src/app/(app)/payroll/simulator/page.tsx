@@ -5,18 +5,25 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/opai";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calculator } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ArrowLeft, Calculator, Info, Settings } from "lucide-react";
 import Link from "next/link";
 
 export default function PayrollSimulator() {
-  // Haberes
+  // Estados
   const [baseSalary, setBaseSalary] = useState("550000");
   const [includeGrat, setIncludeGrat] = useState(true);
   const [overtimeHours, setOvertimeHours] = useState("");
@@ -25,17 +32,32 @@ export default function PayrollSimulator() {
   const [transport, setTransport] = useState("");
   const [meal, setMeal] = useState("");
   const [numDependents, setNumDependents] = useState("");
-  
-  // Descuentos
   const [contractType, setContractType] = useState<"indefinite" | "fixed_term">("indefinite");
   const [afpName, setAfpName] = useState("capital");
   const [healthSystem, setHealthSystem] = useState<"fonasa" | "isapre">("fonasa");
   const [isapre_additional, setIsapreAdditional] = useState("");
   const [apv, setApv] = useState("");
-  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [parameters, setParameters] = useState<any>(null);
+
+  // Cargar parámetros al iniciar (para UF/UTM y modal)
+  useEffect(() => {
+    fetchParameters();
+  }, []);
+
+  const fetchParameters = async () => {
+    try {
+      const response = await fetch("/api/payroll/parameters?active_only=true");
+      const data = await response.json();
+      if (data.success) {
+        setParameters(data.data.current_version);
+      }
+    } catch (err) {
+      console.error("Error loading parameters:", err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,27 +66,17 @@ export default function PayrollSimulator() {
 
     try {
       const base = Number(baseSalary);
-      
-      // HE - Fórmula OFICIAL Dirección del Trabajo (jornada 45h)
-      // (Sueldo ÷ 30) × 28 ÷ 180 × 1,5 = Sueldo × 0,0077777
       const overtime = overtimeHours ? Math.round(Number(overtimeHours) * base * 0.0077777) : 0;
-      
-      // Gratificación se calcula sobre (Base + HE)
       const baseForGratification = base + overtime;
       const gratification = includeGrat ? Math.round(baseForGratification * 0.25) : 0;
       
-      // Calcular asignación familiar (tramos 2026) - sobre total imponible
       const totalIncome = base + gratification + overtime + (commissions ? Number(commissions) : 0) + (bonuses ? Number(bonuses) : 0);
       let familyAllowance = 0;
       if (numDependents && Number(numDependents) > 0) {
         const deps = Number(numDependents);
-        if (totalIncome <= 631976) {
-          familyAllowance = deps * 22007;
-        } else if (totalIncome <= 923067) {
-          familyAllowance = deps * 13505;
-        } else if (totalIncome <= 1439668) {
-          familyAllowance = deps * 4267;
-        }
+        if (totalIncome <= 631976) familyAllowance = deps * 22007;
+        else if (totalIncome <= 923067) familyAllowance = deps * 13505;
+        else if (totalIncome <= 1439668) familyAllowance = deps * 4267;
       }
 
       const response = await fetch("/api/payroll/simulator/compute", {
@@ -82,9 +94,7 @@ export default function PayrollSimulator() {
           afp_name: afpName,
           health_system: healthSystem,
           health_plan_pct: healthSystem === "isapre" && isapre_additional ? 0.07 + Number(isapre_additional) / 100 : 0.07,
-          additional_deductions: {
-            other: apv ? Number(apv) : 0,
-          },
+          additional_deductions: { other: apv ? Number(apv) : 0 },
           save_simulation: true,
         }),
       });
@@ -100,27 +110,150 @@ export default function PayrollSimulator() {
     }
   };
 
-  // Formato chileno: punto para miles, SIN decimales
-  const fmt = (v: number) => {
-    const formatted = Math.round(v).toLocaleString("es-CL");
-    return `$${formatted}`;
-  };
-  
-  // Preview de gratificación: 25% de (Base + HE)
+  const fmt = (v: number) => `$${Math.round(v).toLocaleString("es-CL")}`;
   const baseNum = Number(baseSalary || 0);
-  // HE con fórmula oficial DT: Sueldo × 0,0077777 × horas (jornada 45h)
   const overtimeNum = overtimeHours ? Math.round(Number(overtimeHours) * baseNum * 0.0077777) : 0;
   const gratPreview = includeGrat ? Math.round((baseNum + overtimeNum) * 0.25) : 0;
 
+  // UF/UTM desde parámetros
+  const ufValue = parameters?.parameters_snapshot?.references_at_calculation?.uf_clp || 39703.50;
+  const utmValue = parameters?.parameters_snapshot?.references_at_calculation?.utm_clp || 69611;
+  const ufDate = parameters?.parameters_snapshot?.references_at_calculation?.uf_date || "2026-02-01";
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <Link href="/payroll">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <PageHeader title="Simulador de Liquidación" description="Cálculo completo según ley chilena" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/payroll">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <PageHeader title="Simulador de Liquidación" description="Cálculo completo según ley chilena" />
+        </div>
+
+        {/* Botón Modal Parámetros + UF/UTM */}
+        <div className="flex items-center gap-2">
+          {/* UF/UTM Badge */}
+          <div className="rounded-lg border border-border bg-card px-3 py-1.5">
+            <div className="flex items-center gap-3 text-[10px]">
+              <div>
+                <span className="text-muted-foreground">UF:</span>
+                <span className="ml-1 font-mono font-medium">${ufValue.toLocaleString("es-CL")}</span>
+              </div>
+              <div className="h-3 w-px bg-border" />
+              <div>
+                <span className="text-muted-foreground">UTM:</span>
+                <span className="ml-1 font-mono font-medium">${utmValue.toLocaleString("es-CL")}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Parámetros */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Parámetros
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Parámetros Legales Vigentes</DialogTitle>
+              </DialogHeader>
+              
+              {parameters && (
+                <div className="space-y-4">
+                  <Badge variant="default" className="text-xs">
+                    {parameters.effective_from}
+                  </Badge>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {/* AFP */}
+                    <div className="rounded-lg border bg-card p-3">
+                      <h4 className="mb-2 text-xs font-semibold">AFP</h4>
+                      <div className="space-y-1 text-[10px]">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Base:</span>
+                          <span className="font-mono">10%</span>
+                        </div>
+                        <div className="mt-2 space-y-0.5 border-t pt-1">
+                          {Object.entries(parameters.data.afp.commissions).map(([name, config]: any) => (
+                            <div key={name} className="flex justify-between">
+                              <span className="capitalize text-muted-foreground">{name}</span>
+                              <span className="font-mono">{((parameters.data.afp.base_rate + config.commission_rate) * 100).toFixed(2).replace(".", ",")}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SIS */}
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <h4 className="mb-2 text-xs font-semibold">SIS (Empleador)</h4>
+                      <div className="text-[10px]">
+                        <div className="flex justify-between">
+                          <span className="text-emerald-400">Tasa:</span>
+                          <span className="font-mono font-semibold text-emerald-400">
+                            {(parameters.data.sis.employer_rate * 100).toFixed(2).replace(".", ",")}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mutual */}
+                    <div className="rounded-lg border bg-card p-3">
+                      <h4 className="mb-2 text-xs font-semibold">Mutual</h4>
+                      <div className="text-[10px]">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Base legal:</span>
+                          <span className="font-mono">{(parameters.data.work_injury.base_rate * 100).toFixed(2).replace(".", ",")}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topes */}
+                  <div className="rounded-lg border bg-card p-3">
+                    <h4 className="mb-2 text-xs font-semibold">Topes Imponibles 2026</h4>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pensiones:</span>
+                        <span className="font-mono">{parameters.data.caps.pension_uf} UF</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">AFC:</span>
+                        <span className="font-mono">{parameters.data.caps.afc_uf} UF</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Referencias */}
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-blue-400">
+                      <Info className="h-3 w-3" />
+                      Referencias Vigentes
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">UF ({ufDate}):</span>
+                        <span className="font-mono">${ufValue.toLocaleString("es-CL")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">UTM:</span>
+                        <span className="font-mono">${utmValue.toLocaleString("es-CL")}</span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[9px] text-muted-foreground">
+                      💡 UF se actualiza diariamente (SBIF). UTM mensualmente (SII). 
+                      Valores capturados en snapshot inmutable.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -133,14 +266,7 @@ export default function PayrollSimulator() {
               
               <div className="space-y-1">
                 <Label className="text-[10px]">Sueldo Base</Label>
-                <Input 
-                  type="number" 
-                  value={baseSalary} 
-                  onChange={(e) => setBaseSalary(e.target.value)} 
-                  className="h-8 bg-background font-mono text-sm" 
-                  placeholder="550000"
-                  required 
-                />
+                <Input type="number" value={baseSalary} onChange={(e) => setBaseSalary(e.target.value)} className="h-8 bg-background font-mono text-sm" required />
               </div>
 
               <div className="flex items-center justify-between rounded-md border bg-muted/30 px-2 py-1.5">
@@ -192,42 +318,30 @@ export default function PayrollSimulator() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[10px]">Contrato</Label>
-                  <select 
-                    value={contractType} 
-                    onChange={(e) => setContractType(e.target.value as any)} 
-                    className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="indefinite" className="bg-card">Indefinido</option>
-                    <option value="fixed_term" className="bg-card">Plazo Fijo</option>
+                  <select value={contractType} onChange={(e) => setContractType(e.target.value as any)} className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground">
+                    <option value="indefinite">Indefinido</option>
+                    <option value="fixed_term">Plazo Fijo</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px]">Salud</Label>
-                  <select 
-                    value={healthSystem} 
-                    onChange={(e) => setHealthSystem(e.target.value as any)} 
-                    className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="fonasa" className="bg-card">Fonasa 7%</option>
-                    <option value="isapre" className="bg-card">Isapre</option>
+                  <select value={healthSystem} onChange={(e) => setHealthSystem(e.target.value as any)} className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground">
+                    <option value="fonasa">Fonasa 7%</option>
+                    <option value="isapre">Isapre</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <Label className="text-[10px]">AFP</Label>
-                <select 
-                  value={afpName} 
-                  onChange={(e) => setAfpName(e.target.value)} 
-                  className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="capital" className="bg-card">Capital (11.44%)</option>
-                  <option value="cuprum" className="bg-card">Cuprum (11.44%)</option>
-                  <option value="habitat" className="bg-card">Habitat (11.27%)</option>
-                  <option value="modelo" className="bg-card">Modelo (10.58%)</option>
-                  <option value="planvital" className="bg-card">PlanVital (11.16%)</option>
-                  <option value="provida" className="bg-card">Provida (11.45%)</option>
-                  <option value="uno" className="bg-card">Uno (10.46%)</option>
+                <select value={afpName} onChange={(e) => setAfpName(e.target.value)} className="flex h-8 w-full appearance-none rounded-md border border-input bg-card px-3 text-xs text-foreground">
+                  <option value="capital">Capital (11,44%)</option>
+                  <option value="cuprum">Cuprum (11,44%)</option>
+                  <option value="habitat">Habitat (11,27%)</option>
+                  <option value="modelo">Modelo (10,58%)</option>
+                  <option value="planvital">PlanVital (11,16%)</option>
+                  <option value="provida">Provida (11,45%)</option>
+                  <option value="uno">Uno (10,46%)</option>
                 </select>
               </div>
 
@@ -273,7 +387,6 @@ export default function PayrollSimulator() {
 
               <Card className="p-4">
                 <div className="space-y-3">
-                  {/* Haberes */}
                   <div>
                     <h4 className="mb-2 text-[10px] font-semibold uppercase text-emerald-400">+ Haberes</h4>
                     <div className="space-y-0.5 text-[11px]">
@@ -294,7 +407,6 @@ export default function PayrollSimulator() {
                     </div>
                   </div>
 
-                  {/* Descuentos */}
                   <div>
                     <h4 className="mb-2 text-[10px] font-semibold uppercase text-red-400">− Descuentos</h4>
                     <div className="space-y-0.5 text-[11px]">
@@ -306,7 +418,6 @@ export default function PayrollSimulator() {
                     </div>
                   </div>
 
-                  {/* Líquido */}
                   <div className="rounded-lg border-2 border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                     <div className="flex items-baseline justify-between">
                       <span className="text-[10px] font-semibold uppercase text-emerald-300">Líquido</span>
@@ -314,7 +425,6 @@ export default function PayrollSimulator() {
                     </div>
                   </div>
 
-                  {/* Costo Empleador */}
                   <div className="border-t pt-2">
                     <h4 className="mb-1.5 text-[10px] font-semibold uppercase text-blue-400">Aportes Empleador</h4>
                     <div className="space-y-0.5 text-[11px]">
