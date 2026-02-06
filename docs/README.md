@@ -1,14 +1,14 @@
-# 📚 Documentación OPAI Docs
+# 📚 Documentación OPAI Suite
 
-**Resumen:** Índice completo de la documentación del módulo Docs de OPAI Suite.
+**Resumen:** Índice completo de la documentación de OPAI Suite con Hub ejecutivo y módulo Docs operativos.
 
-**Estado:** Vigente - Índice actualizado
+**Estado:** Vigente - Phase 1 completada (Hub + Docs activos)
 
-**Scope:** OPAI Docs
+**Scope:** OPAI Suite
 
 ---
 
-Bienvenido a la documentación completa del **módulo Docs de OPAI Suite**, la plataforma de presentaciones comerciales inteligente accesible en `opai.gard.cl/docs`.
+Bienvenido a la documentación completa de **OPAI Suite**, la plataforma SaaS unificada para empresas de seguridad accesible en `opai.gard.cl`.
 
 ---
 
@@ -19,14 +19,16 @@ El punto de partida para entender el producto completo:
 📄 **[OPAI Suite - Documento Maestro Global](./00-product/000-opai-suite-master.md)**
 - Visión completa de OPAI Suite
 - Arquitectura single-domain MONOREPO
-- Módulos: /docs, /hub, /crm, /ops, /portal, /admin
+- ✅ Phase 1: Multi-tenant estructural, UX single-tenant
+- ✅ Hub ejecutivo implementado (/hub)
+- ✅ Módulo Docs operativo (/opai/inicio)
 - Dominio principal: opai.gard.cl
 
 📄 **[OPAI Docs - Documento Maestro del Módulo](./00-product/001-docs-master.md)**
-- Visión del módulo Docs
-- Características implementadas
-- Rutas y funcionalidades
-- Integración con Zoho CRM
+- Visión del módulo Docs (Proposals)
+- Dashboard de propuestas y tracking
+- Templates dinámicos con tokens
+- Vista pública /p/[id] sin auth
 
 📄 **[Repo Playbook](./00-product/010-repo-playbook.md)** (⚠️ Deprecated)
 - Documento histórico de arquitectura multi-repo

@@ -1,6 +1,6 @@
 # OPAI Suite — Documento Maestro Global
 
-**Resumen:** Visión estratégica completa de OPAI Suite, la plataforma SaaS unificada para empresas de seguridad con arquitectura single-domain y módulos por ruta.
+**Resumen:** Plataforma SaaS unificada multi-tenant para empresas de seguridad con arquitectura single-domain (opai.gard.cl) y UX single-tenant en Phase 1.
 
 **Estado:** Vigente
 
@@ -30,23 +30,27 @@ OPAI es una suite SaaS para empresas de seguridad que unifica:
 - Hardening por etapas: RLS en Postgres (fase 2).
 
 ## 3. Módulos (rutas bajo opai.gard.cl)
-- `/docs`    → Propuestas/Presentaciones + tracking (IMPLEMENTADO)
-- `/hub`     → Dashboard central + app switcher + (futuro) tenant switcher/billing (PLACEHOLDER)
+- `/hub`     → Centro de control ejecutivo + app switcher + KPIs globales (IMPLEMENTADO - Phase 1)
+- `/opai/inicio` → Propuestas/Presentaciones + tracking (IMPLEMENTADO - legacy /docs)
 - `/crm`     → Pipeline comercial, contactos, actividades, emails, IA (PLACEHOLDER)
+- `/cpq`     → Configure, Price, Quote - Configurador de productos (PLACEHOLDER)
 - `/ops`     → Operación: turnos, incidentes, rondas, cumplimiento (NO IMPLEMENTADO)
 - `/portal`  → Guardias/clientes: tickets, documentos, solicitudes, SLA (NO IMPLEMENTADO)
-- `/admin`   → Configuración tenant, usuarios/roles/scopes, integraciones, billing (NO IMPLEMENTADO)
+- `/opai/usuarios` → Gestión de usuarios y permisos RBAC (IMPLEMENTADO)
 
-## 4. Multi-tenancy
-- Un usuario puede pertenecer a varios tenants vía memberships.
-- Regla de negocio típica: salvo guardias (y casos especiales), usuarios operan con 1 tenant activo.
-- Cada request opera en un “tenant activo” (tenant context).
-- En V1, la selección de tenant se hace por UI (tenant switcher), no por subdominio por tenant.
+## 4. Multi-tenancy (Phase 1: Estructural, UX Single-Tenant)
+- **Arquitectura:** Multi-tenant desde día 1 (tenant_id en todas las tablas).
+- **UX Phase 1:** Single-tenant aparente (sin selector de tenant en UI).
+- **Resolución de tenant:** Automática desde la sesión del usuario autenticado.
+- **Escalabilidad:** Preparado para Phase 2 (tenant switcher UI cuando se necesite).
+- **Regla actual:** Cada usuario pertenece a un único tenant vía Admin.tenantId.
+- **Futuro:** Memberships multi-tenant cuando se requiera (guardias, multi-empresa).
 
 ## 5. Autorización (RBAC + Scopes)
-Roles base: owner, admin, sales, ops_manager, supervisor, guard, client.
-Scopes: installation_id, client_id, guard_id (self), region_id (si aplica).
-Policies por acción: ops.incident.create, docs.proposal.send, portal.ticket.read, etc.
+Roles implementados: owner, admin, editor, viewer (ver src/lib/rbac.ts).
+Roles futuros: sales, ops_manager, supervisor, guard, client.
+Scopes (futuro): installation_id, client_id, guard_id (self), region_id.
+Policies por acción: docs.proposal.send, crm.deal.update, ops.incident.create, etc.
 
 ## 6. Datos
 - `tenant_id` en todas las tablas.
@@ -67,11 +71,12 @@ Policies por acción: ops.incident.create, docs.proposal.send, portal.ticket.rea
   - Zoho CRM → solo legacy durante transición (después CRM OPAI será fuente principal)
 
 ## 8. Roadmap (alto nivel)
-Fase 0: estabilizar docs/proposals y tracking + base multi-tenant.
-Fase 1: Hub (launcher) + CRM mínimo.
-Fase 2: Ops (incidentes + pauta/turnos base).
-Fase 3: Portal guardias (tickets + docs + SLA).
-Fase 4: Admin SaaS (tenants, billing, roles/scopes UI, integraciones).
+✅ Fase 0: Docs/proposals + tracking + base multi-tenant estructural.
+✅ Fase 1: Hub ejecutivo (KPIs, quick actions, apps launcher) + UX single-tenant.
+🔜 Fase 2: CRM básico (contactos, pipeline, oportunidades).
+🔜 Fase 3: CPQ (catálogo, pricing, configurador).
+🔜 Fase 4: Ops (incidentes, turnos, supervisión).
+🔜 Fase 5: Portal guardias/clientes + tenant switcher UI (Phase 2 multi-tenant UX).
 
 ## 9. Convenciones
 - Naming: {domain}.{entity} en DB. Ej: ops.incidents, crm.deals.
@@ -80,13 +85,17 @@ Fase 4: Admin SaaS (tenants, billing, roles/scopes UI, integraciones).
 - Events: {domain}.{entity}.{verb}
 
 ## 10. Arquitectura Actual: MONOREPO Single-Domain
-**Estado:** ✅ Implementado (Fase 1 completada)
-- **Dominio principal:** `opai.gard.cl`
-- **Dominio legacy:** `docs.gard.cl` (alias para compatibilidad)
-- **Estructura:** `src/app/{module}/` donde cada módulo tiene su propio layout, páginas y API routes
-- **Módulo activo:** `/docs` (Proposals/Presentaciones) - completamente funcional
-- **Módulos futuros:** `/hub`, `/crm`, `/ops`, `/portal`, `/admin` (placeholders/no implementados)
-- **Rutas públicas:** URLs como `opai.gard.cl/docs/p/{uniqueId}` para presentaciones de clientes
+**Estado:** ✅ Implementado (Phase 1 completada - Hub ejecutivo activo)
+- **Dominio único:** `opai.gard.cl`
+- **Dominio legacy:** `docs.gard.cl` (alias temporal para /opai/*)
+- **Estructura:** `src/app/(app)/{module}/` con layout compartido
+- **Módulos operativos:**
+  - `/hub` - Centro de control ejecutivo (owner/admin only)
+  - `/opai/inicio` - Dashboard de propuestas (Docs)
+  - `/opai/usuarios` - Gestión de usuarios RBAC
+  - `/p/[id]` - Vista pública de presentaciones (sin auth)
+- **Módulos placeholder:** `/crm`, `/cpq` (navegación lista, funcionalidad pendiente)
+- **Multi-tenancy:** Estructural completo, UX single-tenant (Phase 1)
 
 ### Convenciones de Desarrollo
 - Un único repositorio para todos los módulos

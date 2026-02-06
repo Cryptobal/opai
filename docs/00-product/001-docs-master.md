@@ -1,6 +1,6 @@
 # OPAI Docs (Proposals) — Documento Maestro del Módulo
 
-**Resumen:** Módulo de propuestas y presentaciones comerciales dinámicas dentro de OPAI Suite, accesible en opai.gard.cl/docs.
+**Resumen:** Módulo de propuestas comerciales dinámicas con tracking, accesible en opai.gard.cl/opai/inicio.
 
 **Estado:** Vigente - Implementado y operativo
 
@@ -28,14 +28,17 @@ No contiene CRM ni Operaciones. Consume datos desde integraciones o, en el futur
 ### Dominio Principal
 ```
 Dominio: opai.gard.cl
-Módulo: /docs
-Rutas: /docs/inicio, /docs/login, /docs/p/[id]
+Rutas principales:
+  - /hub              → Centro de control ejecutivo (owner/admin)
+  - /opai/inicio      → Dashboard de propuestas (Docs)
+  - /opai/usuarios    → Gestión de usuarios
+  - /p/[uniqueId]     → Vista pública de presentaciones
 ```
 
 ### Dominio Legacy (Alias)
 ```
 Dominio: docs.gard.cl (compatibilidad temporal)
-Comportamiento: funciona como alias de opai.gard.cl/docs
+Comportamiento: alias de opai.gard.cl/opai/*
 ```
 
 ### Arquitectura
@@ -47,22 +50,25 @@ Comportamiento: funciona como alias de opai.gard.cl/docs
 ---
 
 ## Rutas
-### Privadas (requieren login)
-- `/docs/inicio` → Dashboard principal
-- `/docs/templates/*` → Gestión de templates
-- `/docs/preview/*` → Preview de borradores desde Zoho
-- `/docs/usuarios` → Gestión de usuarios (admin/owner)
+### Hub (Centro de Control)
+- `/hub` → Dashboard ejecutivo con KPIs, apps launcher, work queue (owner/admin only)
+
+### Docs - Privadas (requieren login)
+- `/opai/inicio` → Dashboard principal de propuestas
+- `/opai/templates` → Gestión de templates
+- `/opai/usuarios` → Gestión de usuarios y permisos RBAC (admin/owner)
+- `/preview/*` → Preview de borradores desde Zoho
 
 ### Públicas
-- `/docs/p/{uniqueId}` → Vista pública de presentación (sin login, con tracking)
-- `/docs/login` → Página de autenticación
-- `/docs/activate` → Activación de invitaciones
+- `/p/{uniqueId}` → Vista pública de presentación (sin login, con tracking)
+- `/opai/login` → Página de autenticación
+- `/activate` → Activación de invitaciones
 
 ### API Routes
-- `/docs/api/auth/*` → NextAuth endpoints
-- `/docs/api/presentations` → CRUD de presentaciones
-- `/docs/api/webhook/zoho` → Ingesta de datos Zoho
-- `/docs/api/pdf/*` → Generación de PDFs
+- `/api/auth/*` → NextAuth endpoints (global)
+- `/api/presentations` → CRUD de presentaciones
+- `/api/webhook/zoho` → Ingesta de datos Zoho
+- `/api/pdf/*` → Generación de PDFs
 
 ---
 
@@ -102,11 +108,12 @@ Comportamiento: funciona como alias de opai.gard.cl/docs
 ---
 
 ## Estado actual
-- ✅ Auth: implementado (NextAuth v5)
-- ✅ Multi-tenant: implementado
-- ✅ Tracking: operativo
-- ✅ MONOREPO: migración fase 1 completada
-- ⏳ Documentación: actualizada para MONOREPO
+- ✅ Auth: implementado (NextAuth v5 + RBAC)
+- ✅ Multi-tenant: estructural completo, UX single-tenant (Phase 1)
+- ✅ Tracking: operativo con métricas completas
+- ✅ Hub ejecutivo: implementado (owner/admin)
+- ✅ MONOREPO: fase 1 completada
+- ✅ Documentación: actualizada para Phase 1
 
 ---
 

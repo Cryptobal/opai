@@ -1,8 +1,8 @@
 /**
- * CRM - Customer Relationship Management
+ * CPQ - Configure, Price, Quote
  * 
- * Módulo de gestión de clientes (próximamente).
- * Incluirá integración con Zoho CRM, pipeline de ventas, y reportes.
+ * Módulo de configuración de productos y cotización (próximamente).
+ * Incluirá catálogo de productos, reglas de pricing y generación de cotizaciones.
  */
 
 import { PageHeader } from '@/components/opai';
@@ -10,14 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Users, Building, TrendingUp, DollarSign, Calendar, FileText } from 'lucide-react';
+import { DollarSign, Package, Settings, FileText, Calculator, Percent } from 'lucide-react';
 
-export default function CRMPage() {
+export default function CPQPage() {
   return (
     <>
       <PageHeader
-        title="CRM"
-        description="Customer Relationship Management"
+        title="CPQ"
+        description="Configure, Price, Quote"
         className="mb-6"
       />
 
@@ -25,15 +25,15 @@ export default function CRMPage() {
       <div className="flex min-h-[600px] items-center justify-center">
         <Card className="max-w-2xl">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-              <Users className="h-8 w-8 text-green-500" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
+              <DollarSign className="h-8 w-8 text-purple-500" />
             </div>
             <Badge variant="outline" className="mx-auto mb-4 w-fit">
               Próximamente
             </Badge>
-            <CardTitle className="text-2xl">CRM OPAI</CardTitle>
+            <CardTitle className="text-2xl">CPQ OPAI</CardTitle>
             <CardDescription className="text-base">
-              Gestión completa de relaciones con clientes
+              Configurador inteligente de productos y cotizaciones
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -41,36 +41,36 @@ export default function CRMPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex items-start gap-3 rounded-lg border p-4">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
-                  <Building className="h-4 w-4 text-blue-500" />
+                  <Package className="h-4 w-4 text-blue-500" />
                 </div>
                 <div>
-                  <p className="font-medium">Base de Clientes</p>
+                  <p className="font-medium">Catálogo de Productos</p>
                   <p className="text-sm text-muted-foreground">
-                    Gestión centralizada de contactos y cuentas
+                    Gestión centralizada de servicios y SKUs
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-lg border p-4">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
-                  <TrendingUp className="h-4 w-4 text-purple-500" />
+                  <Calculator className="h-4 w-4 text-purple-500" />
                 </div>
                 <div>
-                  <p className="font-medium">Pipeline de Ventas</p>
+                  <p className="font-medium">Reglas de Pricing</p>
                   <p className="text-sm text-muted-foreground">
-                    Seguimiento de oportunidades y forecast
+                    Lógica de precios dinámica y descuentos
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-lg border p-4">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
-                  <Calendar className="h-4 w-4 text-orange-500" />
+                  <Settings className="h-4 w-4 text-orange-500" />
                 </div>
                 <div>
-                  <p className="font-medium">Gestión de Actividades</p>
+                  <p className="font-medium">Configurador Visual</p>
                   <p className="text-sm text-muted-foreground">
-                    Tareas, llamadas, reuniones y seguimientos
+                    Builder interactivo de propuestas
                   </p>
                 </div>
               </div>
@@ -80,9 +80,9 @@ export default function CRMPage() {
                   <FileText className="h-4 w-4 text-green-500" />
                 </div>
                 <div>
-                  <p className="font-medium">Reportes y Analytics</p>
+                  <p className="font-medium">Generación de Quotes</p>
                   <p className="text-sm text-muted-foreground">
-                    Métricas de desempeño y conversión
+                    Cotizaciones profesionales automáticas
                   </p>
                 </div>
               </div>
@@ -94,19 +94,19 @@ export default function CRMPage() {
               <ul className="space-y-1.5 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Integración bidireccional con Zoho CRM
+                  Configurador visual de productos y servicios
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Sincronización de contactos y oportunidades
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Dashboard ejecutivo con KPIs de ventas
+                  Motor de pricing con reglas de descuento
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
-                  Automatización de workflows
+                  Aprobación de cotizaciones multi-nivel
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                  Integración con ERP y sistemas de facturación
                 </li>
               </ul>
             </div>

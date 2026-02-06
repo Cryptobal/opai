@@ -1,8 +1,8 @@
 # 📋 OPAI Suite - Gard Security
 
-**Resumen:** Suite SaaS unificada con arquitectura single-domain MONOREPO para gestión integral de empresas de seguridad.
+**Resumen:** Suite SaaS multi-tenant con UX single-tenant (Phase 1) en opai.gard.cl, Hub ejecutivo y módulo Docs operativos.
 
-**Estado:** Vigente - Módulo Docs operativo, otros módulos en desarrollo
+**Estado:** Vigente - Phase 1 completada (Hub + Docs + RBAC)
 
 **Scope:** OPAI Suite
 
@@ -12,11 +12,13 @@ Suite SaaS accesible en `opai.gard.cl` con módulos especializados.
 
 ## 🎯 ¿Qué es?
 
-**OPAI Suite** es una plataforma single-domain MONOREPO que unifica múltiples módulos bajo `opai.gard.cl`. Actualmente implementa:
+**OPAI Suite** es una plataforma single-domain MONOREPO con multi-tenancy estructural y UX single-tenant (Phase 1) bajo `opai.gard.cl`:
 
-- ✅ **Docs** - Sistema de presentaciones comerciales (anteriormente Gard Docs)
-- 🔜 **Hub** - App switcher y dashboard central
-- 🔜 **CRM** - Pipeline comercial y gestión de clientes
+- ✅ **Hub** - Centro de control ejecutivo con KPIs, apps launcher, work queue (owner/admin)
+- ✅ **Docs** - Sistema de presentaciones comerciales con tracking completo
+- ✅ **Admin** - Gestión de usuarios y permisos RBAC (owner/admin/editor/viewer)
+- 🔜 **CRM** - Pipeline comercial y gestión de clientes (placeholder navegable)
+- 🔜 **CPQ** - Configure, Price, Quote - Configurador de productos (placeholder)
 - 🔜 **Ops** - Operaciones, turnos e incidentes
 - 🔜 **Portal** - Portal de guardias y clientes
 
@@ -60,41 +62,52 @@ El proyecto estará disponible en `http://localhost:3000`
 
 ## 🌐 Rutas principales
 
+### Hub Ejecutivo (owner/admin)
+
+**Centro de control:**
+```
+http://localhost:3000/hub
+Producción: opai.gard.cl/hub
+```
+
 ### Módulo Docs
 
 **Dashboard (requiere login):**
 ```
-http://localhost:3000/docs/inicio
-Producción: opai.gard.cl/docs/inicio
+http://localhost:3000/opai/inicio
+Producción: opai.gard.cl/opai/inicio
 ```
 
 **Login:**
 ```
-http://localhost:3000/docs/login
-Producción: opai.gard.cl/docs/login
+http://localhost:3000/opai/login
+Producción: opai.gard.cl/opai/login
 ```
 
-**Presentación pública (cliente):**
+**Gestión de usuarios (admin/owner):**
 ```
-http://localhost:3000/docs/p/{uniqueId}
-Producción: opai.gard.cl/docs/p/{uniqueId}
-```
-
-**Preview admin (edición):**
-```
-http://localhost:3000/docs/templates/commercial/preview?admin=true
+http://localhost:3000/opai/usuarios
+Producción: opai.gard.cl/opai/usuarios
 ```
 
-### Placeholders
+**Presentación pública (sin auth):**
+```
+http://localhost:3000/p/{uniqueId}
+Producción: opai.gard.cl/p/{uniqueId}
+```
 
-**Hub:**
-```
-http://localhost:3000/hub
-```
+### Placeholders Navegables
 
 **CRM:**
 ```
 http://localhost:3000/crm
+Producción: opai.gard.cl/crm
+```
+
+**CPQ:**
+```
+http://localhost:3000/cpq
+Producción: opai.gard.cl/cpq
 ```
 
 ## 🏗️ Stack
@@ -125,20 +138,23 @@ Ver carpeta `docs/` para más documentación técnica y de negocio.
 
 ## 📊 Estado
 
-**Arquitectura:** Single-domain MONOREPO  
-**Dominio:** opai.gard.cl (principal) + docs.gard.cl (alias legacy)  
-**Estado:** ✅ Módulo Docs completamente funcional  
-**Siguiente paso:** Implementar Hub y CRM
+**Arquitectura:** Single-domain MONOREPO con multi-tenancy estructural  
+**Dominio:** opai.gard.cl  
+**Phase:** 1 completada (UX single-tenant, estructura multi-tenant)  
+**Estado:** ✅ Hub ejecutivo + Docs + RBAC operativos  
+**Siguiente paso:** CRM y CPQ funcionales
 
-### Implementación MONOREPO Single-Domain
-- ✅ Estructura creada (`/docs`, `/hub`, `/crm`)
-- ✅ Dominio principal: opai.gard.cl
-- ✅ Dominio legacy: docs.gard.cl (alias)
-- ✅ Rutas bajo `/docs/*` funcionando
-- ✅ Auth.js v5 + multi-tenancy operativo
-- ✅ APIs actualizadas y funcionando
+### Phase 1 Completada
+- ✅ Hub ejecutivo en `/hub` (owner/admin only)
+- ✅ Docs operativo en `/opai/inicio`
+- ✅ Gestión de usuarios RBAC en `/opai/usuarios`
+- ✅ Vista pública `/p/[id]` sin auth
+- ✅ Multi-tenancy estructural (tenant_id en todas las tablas)
+- ✅ UX single-tenant (sin selector de tenant)
+- ✅ Auth.js v5 + RBAC (owner/admin/editor/viewer)
+- ✅ Placeholders navegables: CRM y CPQ
 - ✅ Build exitoso en Vercel
-- ✅ Documentación normalizada
+- ✅ Documentación actualizada para Phase 1
 
 ## 👨‍💻 Equipo
 

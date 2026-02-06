@@ -60,27 +60,27 @@ export function KpiCard({
   const TrendIcon = trend ? trendIcons[trend] : null;
 
   return (
-    <Card className={cn("relative overflow-hidden", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card className={cn("relative flex h-full flex-col overflow-hidden", className)}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+        <CardTitle className="text-xs font-medium text-muted-foreground">
           {title}
         </CardTitle>
         {icon && (
-          <div className="text-muted-foreground opacity-70">
+          <div className="text-muted-foreground opacity-60">
             {icon}
           </div>
         )}
       </CardHeader>
-      <CardContent>
-        <div className="space-y-1">
-          <div className="text-3xl font-bold tracking-tight">
+      <CardContent className="flex-1 pb-3">
+        <div className="flex h-full flex-col justify-between">
+          <div className="text-2xl font-bold tracking-tight">
             {value}
           </div>
           {(description || (trend && trendValue)) && (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="mt-1 flex items-center gap-2 text-xs">
               {trend && TrendIcon && trendValue && (
                 <div className={cn("flex items-center gap-1", trendColors[trend])}>
-                  <TrendIcon className="h-4 w-4" />
+                  <TrendIcon className="h-3 w-3" />
                   <span className="font-medium">{trendValue}</span>
                 </div>
               )}

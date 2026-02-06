@@ -28,6 +28,12 @@ export function AppLayoutClient({
   // Nav items con iconos (ahora en Client Component)
   const navItems: NavItem[] = [
     { 
+      href: '/hub', 
+      label: 'Inicio', 
+      icon: Grid3x3,
+      show: canManageUsers // Solo owner/admin
+    },
+    { 
       href: '/opai/inicio', 
       label: 'Documentos', 
       icon: FileText,
@@ -49,13 +55,7 @@ export function AppLayoutClient({
       href: '/crm', 
       label: 'CRM', 
       icon: Building2,
-      show: true 
-    },
-    { 
-      href: '/hub', 
-      label: 'Hub', 
-      icon: Grid3x3,
-      show: true 
+      show: canManageUsers // Solo owner/admin
     },
   ];
 
