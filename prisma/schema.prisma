@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public", "payroll", "fx"]
 }
 
 model Tenant {
@@ -23,6 +25,7 @@ model Tenant {
 
   @@index([slug])
   @@index([active])
+  @@schema("public")
 }
 
 model WebhookSession {
@@ -40,6 +43,7 @@ model WebhookSession {
   @@index([status])
   @@index([tenantId])
   @@index([tenantId, createdAt])
+  @@schema("public")
 }
 
 model Template {
@@ -66,6 +70,7 @@ model Template {
   @@index([type])
   @@index([tenantId])
   @@index([tenantId, active])
+  @@schema("public")
 }
 
 model Presentation {
@@ -111,6 +116,7 @@ model Presentation {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@schema("public")
 }
 
 model PresentationView {
@@ -130,6 +136,7 @@ model PresentationView {
   @@index([presentationId])
   @@index([viewedAt])
   @@index([sessionId])
+  @@schema("public")
 }
 
 model Admin {
@@ -152,6 +159,7 @@ model Admin {
   @@index([status])
   @@index([tenantId])
   @@index([tenantId, status])
+  @@schema("public")
 }
 
 model UserInvitation {
@@ -172,6 +180,7 @@ model UserInvitation {
   @@index([tenantId])
   @@index([expiresAt])
   @@index([tenantId, email])
+  @@schema("public")
 }
 
 model PasswordResetToken {
@@ -186,6 +195,7 @@ model PasswordResetToken {
   @@index([token])
   @@index([email])
   @@index([expiresAt])
+  @@schema("public")
 }
 
 model AuditLog {
@@ -207,6 +217,7 @@ model AuditLog {
   @@index([entity])
   @@index([createdAt])
   @@index([tenantId])
+  @@schema("public")
 }
 
 model Setting {
@@ -223,4 +234,131 @@ model Setting {
   @@index([key])
   @@index([category])
   @@index([tenantId])
+  @@schema("public")
+}
+
+// ============================================
+// FX MODULE (Financial Rates)
+// ============================================
+
+model FxUfRate {
+  date      DateTime @id @db.Date
+  value     Decimal  @db.Decimal(10, 2)
+  fetchedAt DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  source    String?  @default("SBIF")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([date(sort: Desc)], map: "idx_uf_rates_date_desc")
+  @@index([fetchedAt(sort: Desc)], map: "idx_uf_rates_fetched")
+  @@map("uf_rates")
+  @@schema("fx")
+}
+
+model FxUtmRate {
+  month     DateTime @id @db.Date
+  value     Decimal  @db.Decimal(10, 2)
+  fetchedAt DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  source    String?  @default("SII")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([month(sort: Desc)], map: "idx_utm_rates_month_desc")
+  @@index([fetchedAt(sort: Desc)], map: "idx_utm_rates_fetched")
+  @@map("utm_rates")
+  @@schema("fx")
+}
+
+// ============================================
+// PAYROLL MODULE
+// ============================================
+
+model PayrollParameterVersion {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String
+  description    String?
+  effectiveFrom  DateTime @map("effective_from") @db.Date
+  effectiveUntil DateTime? @map("effective_until") @db.Date
+  data           Json     @db.JsonB
+  isActive       Boolean  @default(false) @map("is_active")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  simulations PayrollSimulation[]
+
+  @@index([effectiveFrom(sort: Desc)], map: "idx_param_versions_effective")
+  @@index([isActive], map: "idx_param_versions_active")
+  @@index([effectiveFrom, effectiveUntil], map: "idx_param_versions_dates")
+  @@map("parameter_versions")
+  @@schema("payroll")
+}
+
+model PayrollAssumption {
+  id                       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                     String
+  description              String?
+  vacationProvisionPct     Decimal  @default(0.0833) @map("vacation_provision_pct") @db.Decimal(5, 4)
+  severanceProvisionPct    Decimal  @default(0.0000) @map("severance_provision_pct") @db.Decimal(5, 4)
+  holidayBonusPct          Decimal  @default(0.0000) @map("holiday_bonus_pct") @db.Decimal(5, 4)
+  christmasBonusPct        Decimal  @default(0.0000) @map("christmas_bonus_pct") @db.Decimal(5, 4)
+  workInjuryBasicRate      Decimal? @map("work_injury_basic_rate") @db.Decimal(6, 5)
+  workInjuryAdditionalRate Decimal? @map("work_injury_additional_rate") @db.Decimal(6, 5)
+  workInjuryExtraRate      Decimal? @map("work_injury_extra_rate") @db.Decimal(6, 5)
+  workInjuryTotalRate      Decimal? @map("work_injury_total_rate") @db.Decimal(6, 5)
+  workInjuryRiskLevel      String   @default("medium") @map("work_injury_risk_level")
+  isDefault                Boolean  @default(false) @map("is_default")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  simulations PayrollSimulation[]
+
+  @@index([isDefault], map: "idx_assumptions_default")
+  @@map("assumptions")
+  @@schema("payroll")
+}
+
+model PayrollSimulation {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  simulationType      String   @map("simulation_type")
+  paramsVersionId     String   @map("params_version_id") @db.Uuid
+  assumptionsId       String?  @map("assumptions_id") @db.Uuid
+  inputs              Json     @db.JsonB
+  results             Json     @db.JsonB
+  parametersSnapshot  Json     @map("parameters_snapshot") @db.JsonB
+  createdByUserId     String?  @map("created_by_user_id")
+  tenantId            String?  @map("tenant_id")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  clientInfo          Json?    @map("client_info") @db.JsonB
+
+  parameterVersion PayrollParameterVersion @relation(fields: [paramsVersionId], references: [id])
+  assumptions      PayrollAssumption?      @relation(fields: [assumptionsId], references: [id])
+
+  @@index([simulationType], map: "idx_simulations_type")
+  @@index([createdAt(sort: Desc)], map: "idx_simulations_created_at")
+  @@index([createdByUserId], map: "idx_simulations_user")
+  @@index([tenantId], map: "idx_simulations_tenant")
+  @@index([paramsVersionId], map: "idx_simulations_params_version")
+  @@map("simulations")
+  @@schema("payroll")
+}
+
+model PayrollSalaryComponent {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code          String   @unique
+  name          String
+  description   String?
+  componentType String   @map("component_type")
+  isTaxable     Boolean  @default(true) @map("is_taxable")
+  isTributable  Boolean  @default(true) @map("is_tributable")
+  isActive      Boolean  @default(true) @map("is_active")
+  displayOrder  Int?     @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([componentType], map: "idx_components_type")
+  @@index([isActive], map: "idx_components_active")
+  @@index([code], map: "idx_components_code")
+  @@map("salary_components_catalog")
+  @@schema("payroll")
 }

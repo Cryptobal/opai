@@ -35,6 +35,7 @@ import {
   Settings,
   Clock,
   TrendingUp,
+  Calculator,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -145,7 +146,7 @@ export default async function HubPage() {
       {/* Apps Launcher */}
       <div className="mb-6">
         <h2 className="mb-3 text-base font-semibold">Aplicaciones</h2>
-        <div className="grid auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-5">
           {/* Docs - Operativo */}
           <Link href="/opai/inicio">
             <Card className="flex h-full cursor-pointer flex-col transition-all hover:border-primary hover:shadow-md">
@@ -195,6 +196,24 @@ export default async function HubPage() {
                 <CardTitle className="text-sm">CPQ</CardTitle>
                 <CardDescription className="text-xs">
                   Configurador de precios
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Payroll - Operativo */}
+          <Link href="/payroll">
+            <Card className="flex h-full cursor-pointer flex-col transition-all hover:border-primary hover:shadow-md">
+              <CardHeader className="pb-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <Calculator className="h-4 w-4" />
+                  </div>
+                  <Badge variant="default" className="text-xs">Activo</Badge>
+                </div>
+                <CardTitle className="text-sm">Payroll</CardTitle>
+                <CardDescription className="text-xs">
+                  Liquidaciones Chile
                 </CardDescription>
               </CardHeader>
             </Card>

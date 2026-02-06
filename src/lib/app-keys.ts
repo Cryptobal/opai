@@ -13,6 +13,7 @@ export type AppKey =
   | "docs"      // Presentaciones comerciales (Docs/Proposals)
   | "crm"       // Customer Relationship Management
   | "cpq"       // Configure, Price, Quote
+  | "payroll"   // Sistema de liquidaciones Chile
   | "ops"       // Operaciones (futuro)
   | "portal"    // Portal de clientes (futuro)
   | "admin";    // Gestión de usuarios y configuración
@@ -25,6 +26,7 @@ export const ALL_APPS: AppKey[] = [
   "docs",
   "crm",
   "cpq",
+  "payroll",
   "ops",
   "portal",
   "admin",
@@ -49,6 +51,10 @@ export const APP_METADATA: Record<AppKey, { name: string; description: string }>
   cpq: {
     name: "CPQ",
     description: "Configurador de precios",
+  },
+  payroll: {
+    name: "Payroll",
+    description: "Liquidaciones y costeo Chile",
   },
   ops: {
     name: "Ops",

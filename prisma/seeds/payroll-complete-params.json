@@ -1,0 +1,157 @@
+{
+  "version_metadata": {
+    "name": "Parámetros Legales Chile - Febrero 2026 (COMPLETO)",
+    "effective_from": "2026-02-01",
+    "effective_until": "2026-02-29",
+    "source": "SII, Previred, Superintendencia de Pensiones, IPS"
+  },
+  
+  "afp": {
+    "base_rate": 0.10,
+    "commissions": {
+      "capital": { "commission_rate": 0.0144, "sis_included": false, "last_updated": "2025-07-01" },
+      "cuprum": { "commission_rate": 0.0144, "sis_included": false, "last_updated": "2025-07-01" },
+      "habitat": { "commission_rate": 0.0127, "sis_included": false, "last_updated": "2025-07-01" },
+      "modelo": { "commission_rate": 0.0058, "sis_included": false, "last_updated": "2025-07-01" },
+      "planvital": { "commission_rate": 0.0116, "sis_included": false, "last_updated": "2025-07-01" },
+      "provida": { "commission_rate": 0.0145, "sis_included": false, "last_updated": "2025-07-01" },
+      "uno": { "commission_rate": 0.0046, "sis_included": false, "last_updated": "2025-07-01" }
+    }
+  },
+  
+  "sis": {
+    "employer_rate": 0.0154,
+    "applies_to": "employer",
+    "base": "pension_cap",
+    "imponible_previsional": false,
+    "imponible_tributario": false
+  },
+  
+  "health": {
+    "fonasa": { "rate": 0.07, "is_fixed": true },
+    "isapre": { "min_rate": 0.07, "is_fixed": false }
+  },
+  
+  "afc": {
+    "indefinite": {
+      "worker": {
+        "cic_rate": 0.006,
+        "fcs_rate": 0.0,
+        "total_rate": 0.006,
+        "imponible_previsional": false,
+        "imponible_tributario": false
+      },
+      "employer": {
+        "cic_rate": 0.016,
+        "fcs_rate": 0.008,
+        "total_rate": 0.024
+      }
+    },
+    "fixed_term": {
+      "worker": {
+        "cic_rate": 0.0,
+        "fcs_rate": 0.0,
+        "total_rate": 0.0,
+        "imponible_previsional": false,
+        "imponible_tributario": false
+      },
+      "employer": {
+        "cic_rate": 0.028,
+        "fcs_rate": 0.002,
+        "total_rate": 0.03
+      }
+    }
+  },
+  
+  "caps": {
+    "pension_uf": 89.9,
+    "health_uf": 89.9,
+    "work_injury_uf": 89.9,
+    "afc_uf": 135.1
+  },
+  
+  "tax_brackets": [
+    { "from_clp": 0, "to_clp": 939748.5, "factor": 0, "rebate_clp": 0, "effective_rate_max": 0 },
+    { "from_clp": 939748.51, "to_clp": 2088330.0, "factor": 0.04, "rebate_clp": 37589.94, "effective_rate_max": 0.022 },
+    { "from_clp": 2088330.01, "to_clp": 3480550.0, "factor": 0.08, "rebate_clp": 121123.14, "effective_rate_max": 0.0452 },
+    { "from_clp": 3480550.01, "to_clp": 4872770.0, "factor": 0.135, "rebate_clp": 312553.39, "effective_rate_max": 0.0709 },
+    { "from_clp": 4872770.01, "to_clp": 6264990.0, "factor": 0.23, "rebate_clp": 775466.54, "effective_rate_max": 0.1062 },
+    { "from_clp": 6264990.01, "to_clp": 8353320.0, "factor": 0.304, "rebate_clp": 1239075.8, "effective_rate_max": 0.1557 },
+    { "from_clp": 8353320.01, "to_clp": 21579410.0, "factor": 0.35, "rebate_clp": 1623328.52, "effective_rate_max": 0.2748 },
+    { "from_clp": 21579410.01, "to_clp": null, "factor": 0.4, "rebate_clp": 2702299.02, "effective_rate_max": 0.4 }
+  ],
+  
+  "work_injury": {
+    "base_rate": 0.0093,
+    "additional_rate_default": 0.0002,
+    "employer_rate_default": 0.0095,
+    "risk_levels": {
+      "low": 0.0093,
+      "medium": 0.0095,
+      "high": 0.0134,
+      "security_industry": 0.0120
+    },
+    "base": "pension_cap",
+    "imponible_previsional": false,
+    "imponible_tributario": false
+  },
+  
+  "gratification": {
+    "regime_25_monthly": {
+      "enabled": true,
+      "monthly_rate": 0.25,
+      "annual_cap_imm_multiple": 4.75,
+      "imponible_previsional": true,
+      "imponible_tributario": true
+    },
+    "regime_30_annual": {
+      "enabled": false,
+      "annual_rate": 0.30,
+      "imponible_previsional": true,
+      "imponible_tributario": true
+    }
+  },
+  
+  "family_allowance": {
+    "enabled": true,
+    "tranches": [
+      {
+        "from_clp": 0,
+        "to_clp": 431558,
+        "amount_per_dependent": 16132,
+        "amount_maternal": 12661,
+        "amount_invalidity": 64525
+      },
+      {
+        "from_clp": 431558.01,
+        "to_clp": 631058,
+        "amount_per_dependent": 10115,
+        "amount_maternal": 7939,
+        "amount_invalidity": 64525
+      },
+      {
+        "from_clp": 631058.01,
+        "to_clp": 982273,
+        "amount_per_dependent": 3189,
+        "amount_maternal": 2506,
+        "amount_invalidity": 64525
+      },
+      {
+        "from_clp": 982273.01,
+        "to_clp": null,
+        "amount_per_dependent": 0,
+        "amount_maternal": 0,
+        "amount_invalidity": 64525
+      }
+    ],
+    "imponible_previsional": false,
+    "imponible_tributario": false
+  },
+  
+  "imm": {
+    "value_clp": 500000,
+    "effective_from": "2024-07-01",
+    "imponible_previsional": true,
+    "imponible_tributario": true
+  }
+}

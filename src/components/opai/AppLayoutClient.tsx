@@ -10,6 +10,7 @@ import {
   Grid3x3,
   LayoutTemplate,
   DollarSign,
+  Calculator,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { hasAppAccess } from '@/lib/app-access';
@@ -66,6 +67,12 @@ export function AppLayoutClient({
       label: 'CPQ', 
       icon: DollarSign,
       show: hasAppAccess(userRole, 'cpq')
+    },
+    { 
+      href: '/payroll', 
+      label: 'Payroll', 
+      icon: Calculator,
+      show: hasAppAccess(userRole, 'payroll')
     },
   ];
 

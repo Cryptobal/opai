@@ -23,11 +23,11 @@ import { type AppKey } from './app-keys';
  */
 export const ROLE_APP_ACCESS: Record<Role, AppKey[]> = {
   // Owner y Admin: acceso completo a todos los módulos
-  owner: ["hub", "docs", "crm", "cpq", "ops", "portal", "admin"],
-  admin: ["hub", "docs", "crm", "cpq", "ops", "portal", "admin"],
+  owner: ["hub", "docs", "crm", "cpq", "payroll", "ops", "portal", "admin"],
+  admin: ["hub", "docs", "crm", "cpq", "payroll", "ops", "portal", "admin"],
 
   // Editor: acceso a hub y módulos operativos (sin admin)
-  editor: ["hub", "docs", "crm", "cpq"],
+  editor: ["hub", "docs", "crm", "cpq", "payroll"],
 
   // Viewer: solo lectura (hub y docs)
   viewer: ["hub", "docs"],
