@@ -4,8 +4,5 @@
       "memory": 3008,
       "maxDuration": 60
     }
-  },
-  "env": {
-    "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": ""
   }
 }

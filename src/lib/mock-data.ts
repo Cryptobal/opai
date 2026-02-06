@@ -831,8 +831,8 @@ export function getMockPresentationPayload(): PresentationPayload {
       
       // S29 - Contacto (ELIMINADO - solo Footer)
       s29_contacto: {
-        email: 'carlos.irigoyen@gard.cl',
-        phone: '+56 98 230 7771',
+        email: 'comercial@gard.cl',
+        phone: '+56 9 8230 7771',
         website: 'www.gard.cl',
         address: 'Lo Fontecilla 201, Las Condes, Chile',
         social_media: {
