@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  admins          Admin[]
+  auditLogs       AuditLog[]
+  presentations   Presentation[]
+  settings        Setting[]
+  templates       Template[]
+  webhookSessions WebhookSession[]
+
+  @@index([slug])
+  @@index([active])
+}
+
+model WebhookSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  zohoData  Json
+  status    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+}
+
+model Template {
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  description   String?
+  type          String
+  category      String?
+  active        Boolean        @default(true)
+  isDefault     Boolean        @default(false)
+  thumbnailUrl  String?
+  createdBy     String?
+  lastEditedBy  String?
+  usageCount    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  tenantId      String
+  presentations Presentation[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([slug])
+  @@index([active])
+  @@index([type])
+  @@index([tenantId])
+  @@index([tenantId, active])
+}
+
+model Presentation {
+  id               String             @id @default(cuid())
+  uniqueId         String             @unique
+  templateId       String
+  clientData       Json
+  renderedContent  Json?
+  status           String             @default("draft")
+  recipientEmail   String?
+  recipientName    String?
+  emailSentAt      DateTime?
+  emailProvider    String?
+  emailMessageId   String?
+  whatsappSharedAt DateTime?
+  whatsappNumber   String?
+  viewCount        Int                @default(0)
+  firstViewedAt    DateTime?
+  lastViewedAt     DateTime?
+  expiresAt        DateTime?
+  notes            String?
+  tags             String[]
+  createdBy        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  ccEmails         String[]           @default([])
+  clickCount       Int                @default(0)
+  deliveredAt      DateTime?
+  firstOpenedAt    DateTime?
+  lastClickedAt    DateTime?
+  lastOpenedAt     DateTime?
+  openCount        Int                @default(0)
+  tenantId         String
+  template         Template           @relation(fields: [templateId], references: [id])
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  views            PresentationView[]
+
+  @@index([uniqueId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([templateId])
+  @@index([recipientEmail])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model PresentationView {
+  id             String       @id @default(cuid())
+  presentationId String
+  ipAddress      String?
+  userAgent      String?
+  country        String?
+  city           String?
+  device         String?
+  browser        String?
+  viewedAt       DateTime     @default(now())
+  duration       Int?
+  sessionId      String?
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@index([presentationId])
+  @@index([viewedAt])
+  @@index([sessionId])
+}
+
+model Admin {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  role        String    @default("admin")
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tenantId    String
+  status      String    @default("active")
+  invitedBy   String?
+  invitedAt   DateTime?
+  activatedAt DateTime?
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model UserInvitation {
+  id         String    @id @default(cuid())
+  email      String
+  role       String
+  tenantId   String
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  invitedBy  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([token])
+  @@index([email])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@index([tenantId, email])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userEmail String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([key])
+  @@index([category])
+  @@index([tenantId])
+}

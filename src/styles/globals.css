@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ============================================
+       OPAI Design System - CSS Variables (shadcn)
+       Dark-first theme tokens
+       ============================================ */
+    
+    /* Background & Foreground */
+    --background: 222.2 84% 4.9%;        /* #0a0e17 - Fondo principal oscuro */
+    --foreground: 210 40% 98%;           /* #f8fafc - Texto principal claro */
+
+    /* Cards & Containers */
+    --card: 222.2 84% 10%;               /* #1a1f2e - Fondo de cards */
+    --card-foreground: 210 40% 98%;      /* #f8fafc - Texto en cards */
+    
+    /* Popovers & Dropdowns */
+    --popover: 222.2 84% 10%;            /* #1a1f2e - Fondo popovers */
+    --popover-foreground: 210 40% 98%;   /* #f8fafc - Texto en popovers */
+
+    /* Borders & Inputs */
+    --border: 217.2 32.6% 17.5%;         /* #1e293b - Bordes sutiles */
+    --input: 217.2 32.6% 17.5%;          /* #1e293b - Input borders */
+
+    /* Muted (Estados secundarios) */
+    --muted: 217.2 32.6% 17.5%;          /* #1e293b - Fondo muted */
+    --muted-foreground: 215 20.2% 65.1%; /* #94a3b8 - Texto muted */
+
+    /* Accent (Hover/Focus states) */
+    --accent: 217.2 32.6% 20%;           /* #273548 - Fondo accent (más claro que muted) */
+    --accent-foreground: 210 40% 98%;    /* #f8fafc - Texto accent */
+
+    /* Primary (Teal GARD - Acción principal) */
+    --primary: 173 80% 40%;              /* #00d4aa - Teal principal */
+    --primary-foreground: 222.2 47.4% 11.2%; /* #0f1729 - Texto oscuro en primary */
+
+    /* Secondary (Blue GARD - Acción secundaria) */
+    --secondary: 217.2 91.2% 59.8%;      /* #0056e0 - Azul principal */
+    --secondary-foreground: 210 40% 98%; /* #f8fafc - Texto claro en secondary */
+
+    /* Destructive (Errores/Eliminar) */
+    --destructive: 0 84.2% 60.2%;        /* #ef4444 - Rojo error */
+    --destructive-foreground: 210 40% 98%; /* #f8fafc - Texto en destructive */
+
+    /* Ring (Focus indicators) */
+    --ring: 173 80% 40%;                 /* #00d4aa - Teal para focus ring */
+
+    /* Border Radius (default para componentes) */
+    --radius: 0.5rem;                    /* 8px - Border radius estándar */
+
+    /* Chart Colors */
+    --chart-1: 173 80% 40%;              /* #00d4aa - Teal */
+    --chart-2: 217.2 91.2% 59.8%;        /* #0056e0 - Blue */
+    --chart-3: 142 71% 45%;              /* #10b981 - Green */
+    --chart-4: 47 96% 53%;               /* #fbbf24 - Amber */
+    --chart-5: 340 82% 52%;              /* #ec4899 - Pink */
+
+    /* ============================================
+       Legacy Variables (para templates/presentaciones)
+       ============================================ */
+    --glow-color: 0, 212, 170; /* Teal RGB para efectos glow */
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Estilos específicos para templates (aislados con scope) */
+  .template-ui-scope body,
+  .template-ui-scope {
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(0, 86, 224, 0.1) 0, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(0, 212, 170, 0.1) 0, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(0, 86, 224, 0.05) 0, transparent 50%);
+  }
+}
+
+@layer components {
+  /* Glassmorphism cards */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    box-shadow: 
+      0 8px 32px 0 rgba(0, 0, 0, 0.37),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02];
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent;
+  }
+
+  /* Glow effects */
+  .glow-teal {
+    box-shadow: 0 0 20px rgba(var(--glow-color), 0.3);
+  }
+  
+  .glow-teal-strong {
+    box-shadow: 0 0 40px rgba(var(--glow-color), 0.5);
+  }
+
+  /* Premium button */
+  .btn-premium {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-premium::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  
+  .btn-premium:hover::before {
+    transform: translateX(100%);
+  }
+
+  /* Sticky header premium */
+  .sticky-header {
+    @apply sticky top-0 z-50 border-b border-white/10;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(10, 14, 23, 0.85);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Section backgrounds alternados */
+  .section-dark {
+    @apply bg-slate-950;
+  }
+  
+  .section-darker {
+    @apply bg-slate-900/50;
+    background-image: radial-gradient(circle at 50% 50%, rgba(0, 212, 170, 0.03) 0, transparent 50%);
+  }
+  
+  .section-gradient {
+    @apply bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900;
+  }
+
+  /* Animated gradient background */
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+  
+  .animated-gradient {
+    background: linear-gradient(-45deg, #0a0e17, #1e293b, #0f172a, #00d4aa);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+}
+
+@layer utilities {
+  /* Text shadows para mejor legibilidad */
+  .text-shadow {
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  }
+  
+  .text-shadow-lg {
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Backdrop blur utilities */
+  .backdrop-blur-subtle {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .backdrop-blur-premium {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
