@@ -143,7 +143,7 @@ string button.crearDocumento(String quoteId)
         
         // 11. Enviar webhook
         info "📤 Enviando webhook a Gard Docs...";
-        webhookUrl = "https://opai.gard.cl/docs/api/webhook/zoho"; // También funciona: docs.gard.cl/api/webhook/zoho
+        webhookUrl = "https://opai.gard.cl/api/webhook/zoho";
         
         response = invokeurl
         [
