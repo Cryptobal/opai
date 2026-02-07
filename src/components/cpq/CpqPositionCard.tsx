@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditPositionModal } from "@/components/cpq/EditPositionModal";
+import { CostBreakdownModal } from "@/components/cpq/CostBreakdownModal";
 import { formatCurrency, sortWeekdays } from "@/components/cpq/utils";
 import type { CpqPosition } from "@/types/cpq";
 import { MoreVertical } from "lucide-react";
@@ -27,6 +28,7 @@ interface CpqPositionCardProps {
 
 export function CpqPositionCard({ quoteId, position, onUpdated }: CpqPositionCardProps) {
   const [openEdit, setOpenEdit] = useState(false);
+  const [openBreakdown, setOpenBreakdown] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRecalculate = async () => {
@@ -62,6 +64,19 @@ export function CpqPositionCard({ quoteId, position, onUpdated }: CpqPositionCar
 
   const daysLabel = sortWeekdays(position.weekdays || []).join(", ");
   const title = position.customName || position.puestoTrabajo?.name || "Puesto";
+  const shiftHours = (() => {
+    if (!position.startTime || !position.endTime) return null;
+    const [startH, startM] = position.startTime.split(":").map(Number);
+    const [endH, endM] = position.endTime.split(":").map(Number);
+    if (Number.isNaN(startH) || Number.isNaN(startM) || Number.isNaN(endH) || Number.isNaN(endM)) {
+      return null;
+    }
+    const startMinutes = startH * 60 + startM;
+    let endMinutes = endH * 60 + endM;
+    if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+    return (endMinutes - startMinutes) / 60;
+  })();
+  const healthLabel = position.healthSystem === "isapre" ? "Isapre" : "Fonasa";
 
   return (
     <Card className="overflow-hidden border border-muted/40">
@@ -75,6 +90,12 @@ export function CpqPositionCard({ quoteId, position, onUpdated }: CpqPositionCar
           </div>
           <p className="text-[11px] text-muted-foreground">
             {daysLabel || "Días por definir"} · {position.startTime} - {position.endTime}
+            {" · "}
+            {shiftHours === null
+              ? "Jornada --"
+              : `Jornada ${shiftHours % 1 === 0 ? shiftHours.toFixed(0) : shiftHours.toFixed(1)} h`}
+            {" · "}
+            {healthLabel}
           </p>
         </div>
         <DropdownMenu>
@@ -129,12 +150,22 @@ export function CpqPositionCard({ quoteId, position, onUpdated }: CpqPositionCar
             {formatCurrency(Number(position.monthlyPositionCost))}
           </span>
         </p>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => setOpenBreakdown(true)}>
+            Ver desglose
+          </Button>
+        </div>
         <EditPositionModal
           quoteId={quoteId}
           position={position}
           open={openEdit}
           onOpenChange={setOpenEdit}
           onUpdated={onUpdated}
+        />
+        <CostBreakdownModal
+          open={openBreakdown}
+          onOpenChange={setOpenBreakdown}
+          position={position}
         />
       </div>
     </Card>

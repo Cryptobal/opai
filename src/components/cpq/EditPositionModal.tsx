@@ -22,6 +22,50 @@ interface EditPositionModalProps {
   onUpdated?: () => void;
 }
 
+const TIME_OPTIONS = [
+  "07:00",
+  "07:30",
+  "08:00",
+  "08:30",
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "12:00",
+  "12:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+  "17:00",
+  "17:30",
+  "18:00",
+  "18:30",
+  "19:00",
+  "19:30",
+  "20:00",
+];
+
+const getShiftHours = (startTime: string, endTime: string) => {
+  if (!startTime || !endTime) return null;
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  if (Number.isNaN(startH) || Number.isNaN(startM) || Number.isNaN(endH) || Number.isNaN(endM)) {
+    return null;
+  }
+  const startMinutes = startH * 60 + startM;
+  let endMinutes = endH * 60 + endM;
+  if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+  const diffMinutes = endMinutes - startMinutes;
+  return diffMinutes / 60;
+};
+
 export function EditPositionModal({
   quoteId,
   position,
@@ -107,6 +151,8 @@ export function EditPositionModal({
     if (form.healthSystem === "fonasa") return 0.07;
     return form.healthPlanPct || 0.07;
   }, [form.healthPlanPct, form.healthSystem]);
+
+  const shiftHours = useMemo(() => getShiftHours(form.startTime, form.endTime), [form.startTime, form.endTime]);
 
   const handleCalculate = async () => {
     setCalculating(true);
@@ -200,22 +246,36 @@ export function EditPositionModal({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[10px]">Hora inicio</Label>
-                  <Input
-                    type="time"
+                  <select
+                    className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
                     value={form.startTime}
                     onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}
-                    className="h-8 bg-background text-xs"
-                  />
+                  >
+                    {TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px]">Hora término</Label>
-                  <Input
-                    type="time"
+                  <select
+                    className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
                     value={form.endTime}
                     onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}
-                    className="h-8 bg-background text-xs"
-                  />
+                  >
+                    {TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+              <div className="text-[10px] text-slate-400">
+                Jornada:{" "}
+                <span className="font-medium text-slate-200">
+                  {shiftHours === null
+                    ? "--"
+                    : `${shiftHours % 1 === 0 ? shiftHours.toFixed(0) : shiftHours.toFixed(1)} h`}
+                </span>
               </div>
 
               <div className="space-y-1">
@@ -236,13 +296,15 @@ export function EditPositionModal({
 
               <div className="space-y-1">
                 <Label className="text-[10px]">Cantidad de guardias</Label>
-                <Input
-                  type="number"
-                  min={1}
+                <select
+                  className="flex h-8 w-20 rounded-md border border-input bg-card px-2 text-xs"
                   value={form.numGuards}
                   onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}
-                  className="h-8 bg-background text-xs"
-                />
+                >
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((count) => (
+                    <option key={count} value={count}>{count}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -338,13 +400,13 @@ export function EditPositionModal({
               {preview && (
                 <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[10px]">
                   <div className="flex items-center justify-between">
-                    <span className="text-emerald-400">Empresa c/u</span>
+                    <span className="text-emerald-400">Costo empresa por guardia</span>
                     <span className="font-mono text-emerald-400">
                       {formatCurrency(preview.monthly_employer_cost_clp)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-blue-400">Líquido c/u</span>
+                    <span className="text-blue-400">Líquido por guardia</span>
                     <span className="font-mono text-blue-400">
                       {formatCurrency(preview.worker_net_salary_estimate)}
                     </span>
