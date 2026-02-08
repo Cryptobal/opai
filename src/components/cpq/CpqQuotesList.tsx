@@ -27,6 +27,8 @@ export function CpqQuotesList({ quotes, loading }: CpqQuotesListProps) {
   const statusLabel = (status: string) => {
     if (status === "sent") return "Enviada";
     if (status === "draft") return "Borrador";
+    if (status === "approved") return "Aprobada";
+    if (status === "rejected") return "Rechazada";
     return status;
   };
 
@@ -36,6 +38,12 @@ export function CpqQuotesList({ quotes, loading }: CpqQuotesListProps) {
     }
     if (status === "draft") {
       return "bg-slate-500/15 text-slate-200 border-slate-500/30";
+    }
+    if (status === "approved") {
+      return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+    }
+    if (status === "rejected") {
+      return "bg-rose-500/15 text-rose-300 border-rose-500/30";
     }
     return "bg-muted/20 text-muted-foreground border-border/40";
   };

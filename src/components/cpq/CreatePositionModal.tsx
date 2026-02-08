@@ -321,86 +321,105 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Sueldo base</Label>
-                <Input
-                  type="number"
-                  value={form.baseSalary}
-                  onChange={(e) => setForm((p) => ({ ...p, baseSalary: Number(e.target.value) }))}
-                  className="h-11 sm:h-9 bg-background text-sm"
-                />
-              </div>
+              <details className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase text-purple-300">
+                  Compensación y previsión
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs sm:text-sm">Sueldo base</Label>
+                    <Input
+                      type="number"
+                      value={form.baseSalary}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, baseSalary: Number(e.target.value) }))
+                      }
+                      className="h-11 sm:h-9 bg-background text-sm"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">AFP</Label>
-                  <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
-                    value={form.afpName}
-                    onChange={(e) => setForm((p) => ({ ...p, afpName: e.target.value }))}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs sm:text-sm">AFP</Label>
+                      <select
+                        className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                        value={form.afpName}
+                        onChange={(e) => setForm((p) => ({ ...p, afpName: e.target.value }))}
+                      >
+                        <option value="modelo">Modelo</option>
+                        <option value="habitat">Habitat</option>
+                        <option value="capital">Capital</option>
+                        <option value="cuprum">Cuprum</option>
+                        <option value="planvital">PlanVital</option>
+                        <option value="provida">Provida</option>
+                        <option value="uno">Uno</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs sm:text-sm">Salud</Label>
+                      <select
+                        className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                        value={form.healthSystem}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, healthSystem: e.target.value }))
+                        }
+                      >
+                        <option value="fonasa">Fonasa</option>
+                        <option value="isapre">Isapre</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {form.healthSystem === "isapre" && (
+                    <div className="space-y-1">
+                      <Label className="text-xs sm:text-sm">Plan Isapre (%)</Label>
+                      <Input
+                        type="number"
+                        value={form.healthPlanPct}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, healthPlanPct: Number(e.target.value) }))
+                        }
+                        step="0.01"
+                        className="h-11 sm:h-9 bg-background text-sm"
+                      />
+                    </div>
+                  )}
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={handleCalculate}
                   >
-                    <option value="modelo">Modelo</option>
-                    <option value="habitat">Habitat</option>
-                    <option value="capital">Capital</option>
-                    <option value="cuprum">Cuprum</option>
-                    <option value="planvital">PlanVital</option>
-                    <option value="provida">Provida</option>
-                    <option value="uno">Uno</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Salud</Label>
-                  <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
-                    value={form.healthSystem}
-                    onChange={(e) => setForm((p) => ({ ...p, healthSystem: e.target.value }))}
-                  >
-                    <option value="fonasa">Fonasa</option>
-                    <option value="isapre">Isapre</option>
-                  </select>
-                </div>
-              </div>
+                    <Calculator className="h-3 w-3" />
+                    {calculating ? "Calculando..." : "Calcular costo"}
+                  </Button>
 
-              {form.healthSystem === "isapre" && (
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Plan Isapre (%)</Label>
-                  <Input
-                    type="number"
-                    value={form.healthPlanPct}
-                    onChange={(e) => setForm((p) => ({ ...p, healthPlanPct: Number(e.target.value) }))}
-                    step="0.01"
-                    className="h-11 sm:h-9 bg-background text-sm"
-                  />
+                  {preview && (
+                    <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-emerald-400">Costo empresa por guardia</span>
+                        <span className="font-mono text-emerald-400">
+                          {formatCurrency(preview.monthly_employer_cost_clp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-blue-400">Líquido por guardia</span>
+                        <span className="font-mono text-blue-400">
+                          {formatCurrency(preview.worker_net_salary_estimate)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between border-t pt-1">
+                        <span>Total puesto</span>
+                        <span className="font-mono">
+                          {formatCurrency(preview.monthly_employer_cost_clp * form.numGuards)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <Button type="button" size="sm" variant="outline" className="w-full gap-2" onClick={handleCalculate}>
-                <Calculator className="h-3 w-3" />
-                {calculating ? "Calculando..." : "Calcular costo"}
-              </Button>
-
-              {preview && (
-                <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-emerald-400">Costo empresa por guardia</span>
-                    <span className="font-mono text-emerald-400">
-                      {formatCurrency(preview.monthly_employer_cost_clp)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-blue-400">Líquido por guardia</span>
-                    <span className="font-mono text-blue-400">
-                      {formatCurrency(preview.worker_net_salary_estimate)}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between border-t pt-1">
-                    <span>Total puesto</span>
-                    <span className="font-mono">
-                      {formatCurrency(preview.monthly_employer_cost_clp * form.numGuards)}
-                    </span>
-                  </div>
-                </div>
-              )}
+              </details>
             </div>
           </div>
 

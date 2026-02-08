@@ -29,6 +29,7 @@ import { toast } from "sonner";
 
 interface CpqQuoteCostsProps {
   quoteId: string;
+  variant?: "modal" | "inline";
 }
 
 const DEFAULT_PARAMS: CpqQuoteParameters = {
@@ -61,10 +62,11 @@ const normalizeCostItems = (items: CpqQuoteCostItem[]) =>
     unitPriceOverride: item.unitPriceOverride ?? null,
   }));
 
-export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
+export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeSection, setActiveSection] = useState<"directos" | "indirectos" | "financieros">("directos");
   const [catalog, setCatalog] = useState<CpqCatalogItem[]>([]);
   const [summary, setSummary] = useState<CpqQuoteCostSummary | null>(null);
   const [parameters, setParameters] = useState<CpqQuoteParameters>(DEFAULT_PARAMS);
@@ -78,6 +80,7 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
   const inputClass =
     "h-11 sm:h-9 bg-card text-foreground border-border placeholder:text-muted-foreground";
   const sectionBoxClass = "rounded-md border border-border bg-muted/20 p-3 sm:p-2";
+  const isInline = variant === "inline";
 
   const loadData = async () => {
     setLoading(true);
@@ -239,11 +242,12 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
   }, [quoteId]);
 
   useEffect(() => {
-    if (open) {
+    if (open || isInline) {
       defaultsApplied.current = false;
       loadData();
+      setActiveSection("directos");
     }
-  }, [open]);
+  }, [open, isInline]);
 
   useEffect(() => {
     defaultsApplied.current = false;
@@ -486,9 +490,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
   };
 
   useEffect(() => {
-    if (!open || !catalog.length) return;
+    if ((!open && !isInline) || !catalog.length) return;
     applyDefaults();
-  }, [open, catalog, uniforms.length, exams.length, meals.length, costItems.length]);
+  }, [open, isInline, catalog, uniforms.length, exams.length, meals.length, costItems.length]);
 
   const extraItemsCatalog = useMemo(() => {
     return catalog.filter((item) => item.type === "system");
@@ -647,6 +651,34 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                 <div className="text-sm text-muted-foreground">Cargando...</div>
               ) : (
                 <div className="space-y-4 text-sm">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={activeSection === "directos" ? "default" : "outline"}
+                      className={activeSection === "directos" ? "bg-primary/90" : "bg-transparent"}
+                      onClick={() => setActiveSection("directos")}
+                    >
+                      Directos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={activeSection === "indirectos" ? "default" : "outline"}
+                      className={activeSection === "indirectos" ? "bg-primary/90" : "bg-transparent"}
+                      onClick={() => setActiveSection("indirectos")}
+                    >
+                      Indirectos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={activeSection === "financieros" ? "default" : "outline"}
+                      className={activeSection === "financieros" ? "bg-primary/90" : "bg-transparent"}
+                      onClick={() => setActiveSection("financieros")}
+                    >
+                      Financieros
+                    </Button>
+                  </div>
+
+                  {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -742,7 +774,10 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  
+                  )}
 
+                  {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -838,7 +873,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -936,7 +973,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1000,7 +1039,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1064,7 +1105,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1128,7 +1171,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1192,7 +1237,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1265,7 +1312,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "financieros" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
@@ -1378,7 +1427,9 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                         })}
                     </div>
                   </div>
+                  )}
 
+                  {activeSection === "financieros" && (
                   <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
                     <h3 className="text-[11px] font-semibold uppercase text-foreground">
                       Margen y parámetros
@@ -1415,6 +1466,7 @@ export function CpqQuoteCosts({ quoteId }: CpqQuoteCostsProps) {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 

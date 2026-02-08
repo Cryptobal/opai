@@ -3,8 +3,9 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/components/cpq/utils";
@@ -38,6 +39,13 @@ export function CpqPricingCalc({
   systemTotal,
 }: CpqPricingCalcProps) {
   const [localMargin, setLocalMargin] = useState(marginPct);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalMargin(marginPct);
+    setDirty(false);
+  }, [marginPct]);
 
   if (!summary) {
     return (
@@ -77,6 +85,17 @@ export function CpqPricingCalc({
   const marginAmount = priceBeforeTaxes * margin;
   const financialAmount = summary.monthlyFinancial;
   const policyAmount = summary.monthlyPolicy;
+
+  const handleSaveMargin = async () => {
+    if (!onMarginChange) return;
+    setSaving(true);
+    try {
+      await Promise.resolve(onMarginChange(localMargin));
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Card className="p-4 space-y-3">
@@ -149,7 +168,7 @@ export function CpqPricingCalc({
           <span className="font-mono font-semibold">{formatCurrency(costsBase + financialAmount + policyAmount)}</span>
         </div>
         
-        <div className="flex justify-between items-center text-emerald-300 mt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-emerald-300 mt-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold">Margen</span>
             <Input
@@ -159,12 +178,22 @@ export function CpqPricingCalc({
               onChange={(e) => {
                 const value = Number(e.target.value || 0);
                 setLocalMargin(value);
-                onMarginChange?.(value);
+                setDirty(true);
               }}
               onFocus={(e) => e.currentTarget.select()}
               className="h-7 w-16 text-xs bg-slate-900/80 text-white border-emerald-600/40 placeholder:text-slate-400"
             />
             <span className="text-xs">%</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[10px]"
+              onClick={handleSaveMargin}
+              disabled={!dirty || saving}
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
           </div>
           <span className="font-mono font-semibold">{formatCurrency(marginAmount)}</span>
         </div>

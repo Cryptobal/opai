@@ -25,7 +25,9 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   const [quotes, setQuotes] = useState<CpqQuote[]>(initialQuotes || []);
   const [loading, setLoading] = useState(!initialQuotes);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "sent">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "draft" | "sent" | "approved" | "rejected"
+  >("all");
 
   const refresh = async () => {
     setLoading(true);
@@ -120,7 +122,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
             placeholder="Buscar por código o cliente"
             className="h-10 sm:h-9 bg-slate-900/80 text-white border-blue-600/40 placeholder:text-slate-400"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -144,6 +146,22 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               className={statusFilter === "sent" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
             >
               Enviadas
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setStatusFilter("approved")}
+              className={statusFilter === "approved" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+            >
+              Aprobadas
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setStatusFilter("rejected")}
+              className={statusFilter === "rejected" ? "bg-rose-600/20 border-rose-500/50 text-rose-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+            >
+              Rechazadas
             </Button>
           </div>
         </div>

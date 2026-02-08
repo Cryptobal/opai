@@ -5,6 +5,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ interface CreateQuoteModalProps {
 }
 
 export function CreateQuoteModal({ onCreated }: CreateQuoteModalProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -38,6 +40,9 @@ export function CreateQuoteModal({ onCreated }: CreateQuoteModalProps) {
       setValidUntil("");
       setNotes("");
       onCreated?.();
+      if (data?.data?.id) {
+        router.push(`/cpq/${data.data.id}`);
+      }
     } catch (err) {
       console.error("Error creating CPQ quote:", err);
     } finally {
@@ -86,7 +91,7 @@ export function CreateQuoteModal({ onCreated }: CreateQuoteModalProps) {
             />
           </div>
           <Button type="submit" size="sm" className="w-full" disabled={loading}>
-            {loading ? "Creando..." : "Crear"}
+            {loading ? "Creando..." : "Crear y continuar"}
           </Button>
         </form>
       </DialogContent>
