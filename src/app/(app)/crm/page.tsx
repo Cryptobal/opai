@@ -8,10 +8,11 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasAppAccess } from '@/lib/app-access';
 import { PageHeader } from '@/components/opai';
+import { CrmSubnav } from '@/components/crm/CrmSubnav';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Users, Building, TrendingUp, FileText, Contact } from 'lucide-react';
+import { Users, Building, TrendingUp, FileText, Contact, DollarSign } from 'lucide-react';
 
 export default async function CRMPage() {
   // Verificar autenticación y acceso al módulo CRM
@@ -30,6 +31,8 @@ export default async function CRMPage() {
         description="Pipeline comercial y gestión de clientes"
         className="mb-6"
       />
+
+      <CrmSubnav />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -106,6 +109,25 @@ export default async function CRMPage() {
           <CardContent>
             <Link href="/crm/contacts">
               <Button variant="outline">Ver contactos</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10">
+                <DollarSign className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <CardTitle>Cotizaciones</CardTitle>
+                <CardDescription>Configurador de precios CPQ.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/crm/cotizaciones">
+              <Button>Ver cotizaciones</Button>
             </Link>
           </CardContent>
         </Card>
