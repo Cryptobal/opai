@@ -16,7 +16,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { hasAppAccess } from '@/lib/app-access';
-import { PageHeader } from '@/components/opai';
+import { timeAgo } from '@/lib/utils';
+import { PageHeader, Avatar } from '@/components/opai';
 import { KpiCard } from '@/components/opai/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,12 +108,20 @@ export default async function HubPage() {
     ? new Date(latestUtm.month).toLocaleDateString("es-CL", { month: "long", year: "numeric" })
     : null;
 
+  // Saludo personalizado
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const firstName = session.user.name?.split(' ')[0] || 'Usuario';
+  const subtitle = unread > 0
+    ? `Tienes ${unread} ${unread === 1 ? 'propuesta sin leer' : 'propuestas sin leer'}`
+    : 'Todo al día';
+
   return (
     <div className="space-y-8">
       {/* Page Header + Indicadores */}
       <PageHeader
-        title="Inicio"
-        description="Centro de control OPAI Suite"
+        title={`${greeting}, ${firstName}`}
+        description={subtitle}
         actions={
           <div className="flex items-center gap-2">
             {ufValue && (
@@ -231,18 +240,19 @@ export default async function HubPage() {
                       href={`/opai/inicio?highlight=${p.id}`}
                       className="block rounded-lg border p-3 transition-colors hover:bg-accent"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-1">
-                          <p className="font-medium leading-none">{clientName}</p>
-                          <p className="text-sm text-muted-foreground">
+                      <div className="flex items-start gap-3">
+                        <Avatar name={clientName} size="sm" />
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="font-medium leading-none truncate">{clientName}</p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {p.recipientEmail || 'Sin email'}
                           </p>
                         </div>
-                        <Badge variant="secondary">Sin leer</Badge>
+                        <Badge variant="secondary" className="shrink-0">Sin leer</Badge>
                       </div>
                       {p.emailSentAt && (
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Enviada {new Date(p.emailSentAt).toLocaleDateString('es-CL')}
+                          Enviada {timeAgo(p.emailSentAt)}
                         </p>
                       )}
                     </Link>
@@ -281,21 +291,22 @@ export default async function HubPage() {
                       target="_blank"
                       className="block rounded-lg border p-3 transition-colors hover:bg-accent"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-1">
-                          <p className="font-medium leading-none">{clientName}</p>
-                          <p className="text-sm text-muted-foreground">
+                      <div className="flex items-start gap-3">
+                        <Avatar name={clientName} size="sm" />
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="font-medium leading-none truncate">{clientName}</p>
+                          <p className="text-xs text-muted-foreground">
                             {p.viewCount} {p.viewCount === 1 ? 'vista' : 'vistas'}
                           </p>
                         </div>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="shrink-0">
                           <Eye className="mr-1 h-3 w-3" />
                           {p.viewCount}
                         </Badge>
                       </div>
                       {lastView && (
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Última vista: {lastView.toLocaleDateString('es-CL')} {lastView.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                          {timeAgo(lastView)}
                         </p>
                       )}
                     </Link>

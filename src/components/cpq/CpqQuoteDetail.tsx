@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, KpiCard } from "@/components/opai";
+import { PageHeader, KpiCard, Stepper } from "@/components/opai";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
@@ -203,7 +203,22 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     activeStep === steps.length - 1 || (activeStep === 0 && savingQuote);
 
   if (loading && !quote) {
-    return <div className="text-sm text-muted-foreground">Cargando...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-48 rounded bg-muted/60 animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-lg border border-border bg-muted/20 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!quote) {
@@ -263,29 +278,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {steps.map((step, index) => {
-          const active = index === activeStep;
-          const Icon = stepIcons[index];
-          return (
-            <Button
-              key={step}
-              size="sm"
-              variant={active ? "default" : "outline"}
-              className={`${active ? "bg-primary/90" : "bg-transparent"} gap-1`}
-              onClick={() => void goToStep(index)}
-            >
-              {index < activeStep ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <span className="text-xs">{index + 1}</span>
-              )}
-              <Icon className="h-3 w-3" />
-              <span className="ml-1 text-xs">{step}</span>
-            </Button>
-          );
-        })}
-      </div>
+      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} className="mb-6" />
 
       <div className="grid gap-3 grid-cols-3 md:grid-cols-3">
         <KpiCard

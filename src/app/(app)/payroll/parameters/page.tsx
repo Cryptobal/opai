@@ -38,8 +38,19 @@ export default function PayrollParameters() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <div className="text-sm text-muted-foreground">Cargando parámetros...</div>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-48 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-64 rounded bg-muted/60 animate-pulse" />
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-32 rounded-lg border border-border bg-muted/20 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }

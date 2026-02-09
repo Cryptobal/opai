@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useState } from 'react';
 
 /**
  * Combina clases de Tailwind evitando conflictos
@@ -123,4 +124,63 @@ export function formatDateShort(date: Date | string): string {
  */
 export function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Convierte fecha a formato relativo en español
+ * @example timeAgo(new Date('2026-02-06')) → "hace 3 días"
+ */
+export function timeAgo(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return 'hace unos segundos';
+  if (diffInSeconds < 3600) {
+    const mins = Math.floor(diffInSeconds / 60);
+    return `hace ${mins} ${mins === 1 ? 'minuto' : 'minutos'}`;
+  }
+  if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  }
+  if (diffInSeconds < 2592000) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `hace ${days} ${days === 1 ? 'día' : 'días'}`;
+  }
+  if (diffInSeconds < 31536000) {
+    const months = Math.floor(diffInSeconds / 2592000);
+    return `hace ${months} ${months === 1 ? 'mes' : 'meses'}`;
+  }
+  const years = Math.floor(diffInSeconds / 31536000);
+  return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
+}
+
+/**
+ * Hook para persistir estado en localStorage
+ */
+export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+  if (typeof window === 'undefined') {
+    return [initialValue, () => {}];
+  }
+
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  const setValue = (value: T) => {
+    try {
+      setStoredValue(value);
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Silent fail
+    }
+  };
+
+  return [storedValue, setValue];
 }

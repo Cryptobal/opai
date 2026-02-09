@@ -4,6 +4,7 @@ import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useSt
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BottomNav } from './BottomNav';
+import { CommandPalette } from './CommandPalette';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -139,6 +140,9 @@ export function AppShell({ sidebar, topbar, children, userName, className }: App
 
       {/* ── Mobile bottom nav ── */}
       <BottomNav />
+
+      {/* ── Command Palette ── */}
+      <CommandPalette />
     </div>
   );
 }

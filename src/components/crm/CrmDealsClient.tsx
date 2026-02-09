@@ -38,7 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, useLocalStorage } from "@/lib/utils";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { GripVertical, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -253,7 +253,7 @@ export function CrmDealsClient({
   const [selectedQuotes, setSelectedQuotes] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
-  const [view, setView] = useState<"kanban" | "list">("kanban");
+  const [view, setView] = useLocalStorage<"kanban" | "list">("crm-deals-view", "kanban");
   const [filters, setFilters] = useState({
     stageId: "",
     accountId: "",

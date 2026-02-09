@@ -30,6 +30,12 @@ export type { EmptyStateProps } from './EmptyState';
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 
+export { Avatar } from './Avatar';
+export { Stepper } from './Stepper';
+export { Breadcrumb } from './Breadcrumb';
+export type { BreadcrumbItem } from './Breadcrumb';
+export { StatusBadge } from './StatusBadge';
+
 // Topbar Components
 export { TemplatesDropdown } from './TemplatesDropdown';
 export { NotificationBell } from './NotificationBell';
@@ -40,6 +46,7 @@ export { ReloadButton } from './ReloadButton';
 export { SubNav } from './SubNav';
 export type { SubNavItem } from './SubNav';
 export { BottomNav } from './BottomNav';
+export { CommandPalette } from './CommandPalette';
 
 // Page Components
 export { DocumentosContent } from './DocumentosContent';

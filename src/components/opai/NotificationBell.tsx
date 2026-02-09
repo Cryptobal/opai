@@ -48,7 +48,7 @@ export function NotificationBell({ presentations }: NotificationBellProps) {
           {hasNotifications && (
             <Badge 
               variant="destructive" 
-              className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+              className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center animate-pulse"
             >
               {notifications.length}
             </Badge>
