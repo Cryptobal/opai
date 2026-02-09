@@ -26,8 +26,10 @@ import {
   User,
   FileText,
   MessageCircle,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Presentation, Template, PresentationView } from '@prisma/client';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -43,17 +45,24 @@ interface PresentationsListProps {
   initialFilter?: string;
 }
 
-export function PresentationsList({ presentations, initialFilter = 'all' }: PresentationsListProps) {
+export function PresentationsList({ presentations: initialPresentations, initialFilter = 'all' }: PresentationsListProps) {
+  const [presentations, setPresentations] = useState(initialPresentations);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewFilter, setViewFilter] = useState<string>(initialFilter); // Sincronizado con initialFilter
+  const [viewFilter, setViewFilter] = useState<string>(initialFilter);
   const [emailStatusFilter, setEmailStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Sincronizar viewFilter cuando cambia initialFilter (KPIs clickeables)
   useEffect(() => {
     setViewFilter(initialFilter);
   }, [initialFilter]);
+
+  // Sincronizar presentations cuando cambia initialPresentations
+  useEffect(() => {
+    setPresentations(initialPresentations);
+  }, [initialPresentations]);
 
   // Filtrar presentaciones
   const filteredPresentations = useMemo(() => {
@@ -129,7 +138,7 @@ export function PresentationsList({ presentations, initialFilter = 'all' }: Pres
 
   // Compartir por WhatsApp (SIN preview=true para que el cliente sí trackee)
   const shareWhatsApp = (uniqueId: string, clientData: any) => {
-    const url = `${window.location.origin}/p/${uniqueId}`; // Sin preview=true
+    const url = `${window.location.origin}/p/${uniqueId}`;
     const phone = clientData?.contact?.Mobile || clientData?.contact?.Phone || '';
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const companyName = clientData?.account?.Account_Name || 'Cliente';
@@ -140,6 +149,33 @@ export function PresentationsList({ presentations, initialFilter = 'all' }: Pres
     );
     
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+  };
+
+  // Eliminar presentación (solo drafts)
+  const deletePresentation = async (id: string, companyName: string) => {
+    if (!window.confirm(`¿Eliminar el borrador de "${companyName}"?\n\nEsta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/presentations/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Error al eliminar');
+      }
+
+      // Actualizar lista localmente
+      setPresentations((prev) => prev.filter((p) => p.id !== id));
+      toast.success('Borrador eliminado correctamente');
+    } catch (error: any) {
+      toast.error(error.message || 'No se pudo eliminar el documento');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -293,7 +329,7 @@ export function PresentationsList({ presentations, initialFilter = 'all' }: Pres
                     <button
                       onClick={() => copyToClipboard(presentation.uniqueId)}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 transition-colors"
-                      title="Copiar"
+                      title="Copiar link"
                     >
                       {copiedId === presentation.uniqueId ? (
                         <Check className="w-4 h-4" />
@@ -304,11 +340,20 @@ export function PresentationsList({ presentations, initialFilter = 'all' }: Pres
                     <button
                       onClick={() => shareWhatsApp(presentation.uniqueId, clientData)}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-green-500/20 hover:bg-green-500/30 text-green-300 transition-colors"
-                      title="WhatsApp"
+                      title="Compartir por WhatsApp"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </button>
-                    {zohoQuoteUrl && (
+                    {presentation.status === 'draft' ? (
+                      <button
+                        onClick={() => deletePresentation(presentation.id, companyName)}
+                        disabled={deletingId === presentation.id}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors disabled:opacity-50"
+                        title="Eliminar borrador"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : zohoQuoteUrl ? (
                       <a
                         href={zohoQuoteUrl}
                         target="_blank"
@@ -318,7 +363,7 @@ export function PresentationsList({ presentations, initialFilter = 'all' }: Pres
                       >
                         <Building2 className="w-4 h-4" />
                       </a>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
