@@ -1,0 +1,2 @@
+-- Placeholder migration (already applied in database).
+-- This file exists to keep Prisma migrations in sync with the database.

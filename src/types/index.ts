@@ -29,3 +29,4 @@ export interface CompanyAssets {
 }
 
 export * from "./cpq";
+export * from "./crm";

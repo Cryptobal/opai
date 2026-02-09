@@ -4,13 +4,13 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { 
   FileText, 
-  Users, 
   LogOut,
   Building2,
   Grid3x3,
   LayoutTemplate,
   DollarSign,
   Calculator,
+  Settings,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { hasAppAccess } from '@/lib/app-access';
@@ -51,12 +51,6 @@ export function AppLayoutClient({
       show: hasAppAccess(userRole, 'docs') // Templates son parte de Docs
     },
     { 
-      href: '/opai/usuarios', 
-      label: 'Usuarios', 
-      icon: Users,
-      show: hasAppAccess(userRole, 'admin')
-    },
-    { 
       href: '/crm', 
       label: 'CRM', 
       icon: Building2,
@@ -73,6 +67,12 @@ export function AppLayoutClient({
       label: 'Payroll', 
       icon: Calculator,
       show: hasAppAccess(userRole, 'payroll')
+    },
+    {
+      href: '/opai/configuracion/integraciones',
+      label: 'Configuración',
+      icon: Settings,
+      show: canManageUsers,
     },
   ];
 

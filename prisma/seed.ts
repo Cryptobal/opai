@@ -10,6 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { seedPayrollData } from './seeds/payroll-initial-data';
 import { seedCpqData } from './seeds/cpq-initial-data';
+import { seedCrmData } from './seeds/crm-initial-data';
 
 const prisma = new PrismaClient();
 
@@ -102,6 +103,8 @@ async function main() {
   await seedPayrollData();
   // 5. Seed CPQ data
   await seedCpqData();
+  // 6. Seed CRM data
+  await seedCrmData(tenant.id);
 
   console.log('🎉 Seeding completed!');
 }

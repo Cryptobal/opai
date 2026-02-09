@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   FileText, 
-  Users, 
+  Settings, 
   LogOut, 
   Bell,
   UserCircle,
@@ -38,7 +38,7 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
 
   const navItems = [
     { href: '/opai/inicio', label: 'Documentos', icon: FileText, show: true },
-    { href: '/opai/usuarios', label: 'Usuarios', icon: Users, show: canManageUsers },
+    { href: '/opai/configuracion/usuarios', label: 'Configuración', icon: Settings, show: canManageUsers },
   ];
 
   return (

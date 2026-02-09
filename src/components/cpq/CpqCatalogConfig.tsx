@@ -73,7 +73,7 @@ const makeNewItemState = (type: string): NewItemState => ({
   isDefault: false,
 });
 
-export function CpqCatalogConfig() {
+export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -224,20 +224,130 @@ export function CpqCatalogConfig() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          title="Configuración CPQ"
-          description="Catálogo maestro global para todas las cotizaciones"
-        />
-        <div className="flex items-center gap-2">
-          <Link href="/cpq">
-            <Button variant="outline" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Volver
-            </Button>
-          </Link>
+      {showHeader && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <PageHeader
+            title="Configuración CPQ"
+            description="Catálogo maestro global para todas las cotizaciones"
+          />
+          <div className="flex items-center gap-2">
+            <Link href="/cpq">
+              <Button variant="outline" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
+
+      <Card className="p-3 sm:p-4 space-y-2 border-border/40 bg-card/50">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Parámetros globales</h2>
+            <p className="text-[11px] text-muted-foreground">
+              Se aplican como valores base en todas las cotizaciones.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Horas mensuales</span>
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground"
+                title="Horas base para el cálculo mensual por guardia."
+              >
+                ?
+              </button>
+            </div>
+            <Input
+              inputMode="numeric"
+              value={formatNumber(globalParams.monthlyHoursStandard)}
+              onChange={(e) =>
+                setGlobalParams((prev) => ({
+                  ...prev,
+                  monthlyHoursStandard: parseNumber(e.target.value),
+                }))
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Meses de estadía</span>
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground"
+                title="Promedio de permanencia para calcular exámenes."
+              >
+                ?
+              </button>
+            </div>
+            <Input
+              inputMode="numeric"
+              value={formatNumber(globalParams.avgStayMonths)}
+              onChange={(e) =>
+                setGlobalParams((prev) => ({
+                  ...prev,
+                  avgStayMonths: parseNumber(e.target.value),
+                }))
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Cambios uniforme/año</span>
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground"
+                title="Número de cambios de uniforme por año para prorrateo."
+              >
+                ?
+              </button>
+            </div>
+            <Input
+              inputMode="numeric"
+              value={formatNumber(globalParams.uniformChangesPerYear)}
+              onChange={(e) =>
+                setGlobalParams((prev) => ({
+                  ...prev,
+                  uniformChangesPerYear: parseNumber(e.target.value),
+                }))
+              }
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={async () => {
+              setSavingGlobals(true);
+              try {
+                const res = await fetch("/api/cpq/settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(globalParams),
+                });
+                const data = await res.json();
+                if (!data?.success) throw new Error(data?.error || "Error");
+                toast.success("Parámetros globales guardados");
+              } catch (error) {
+                console.error("Error saving CPQ settings:", error);
+                toast.error("No se pudieron guardar los parámetros");
+              } finally {
+                setSavingGlobals(false);
+              }
+            }}
+            disabled={savingGlobals}
+          >
+            {savingGlobals ? "Guardando..." : "Guardar parámetros"}
+          </Button>
+        </div>
+      </Card>
 
       {GROUPS.map((group) => {
         const sectionItems = grouped[group.id] || [];
@@ -417,114 +527,6 @@ export function CpqCatalogConfig() {
           </Card>
         );
       })}
-
-      <Card className="p-3 sm:p-4 space-y-2 border-border/40 bg-card/50">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold">Parámetros globales</h2>
-            <p className="text-[11px] text-muted-foreground">
-              Se aplican como valores base en todas las cotizaciones.
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Horas mensuales</span>
-              <button
-                type="button"
-                className="text-[11px] text-muted-foreground"
-                title="Horas base para el cálculo mensual por guardia."
-              >
-                ?
-              </button>
-            </div>
-            <Input
-              inputMode="numeric"
-              value={formatNumberLocal(globalParams.monthlyHoursStandard)}
-              onChange={(e) =>
-                setGlobalParams((prev) => ({
-                  ...prev,
-                  monthlyHoursStandard: parseNumber(e.target.value),
-                }))
-              }
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Meses de estadía</span>
-              <button
-                type="button"
-                className="text-[11px] text-muted-foreground"
-                title="Promedio de permanencia para calcular exámenes."
-              >
-                ?
-              </button>
-            </div>
-            <Input
-              inputMode="numeric"
-              value={formatNumberLocal(globalParams.avgStayMonths)}
-              onChange={(e) =>
-                setGlobalParams((prev) => ({
-                  ...prev,
-                  avgStayMonths: parseNumber(e.target.value),
-                }))
-              }
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Cambios uniforme/año</span>
-              <button
-                type="button"
-                className="text-[11px] text-muted-foreground"
-                title="Número de cambios de uniforme por año para prorrateo."
-              >
-                ?
-              </button>
-            </div>
-            <Input
-              inputMode="numeric"
-              value={formatNumberLocal(globalParams.uniformChangesPerYear)}
-              onChange={(e) =>
-                setGlobalParams((prev) => ({
-                  ...prev,
-                  uniformChangesPerYear: parseNumber(e.target.value),
-                }))
-              }
-              className={inputClass}
-            />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            onClick={async () => {
-              setSavingGlobals(true);
-              try {
-                const res = await fetch("/api/cpq/settings", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(globalParams),
-                });
-                const data = await res.json();
-                if (!data?.success) throw new Error(data?.error || "Error");
-                toast.success("Parámetros globales guardados");
-              } catch (error) {
-                console.error("Error saving CPQ settings:", error);
-                toast.error("No se pudieron guardar los parámetros");
-              } finally {
-                setSavingGlobals(false);
-              }
-            }}
-            disabled={savingGlobals}
-          >
-            {savingGlobals ? "Guardando..." : "Guardar parámetros"}
-          </Button>
-        </div>
-      </Card>
 
       {loading && (
         <div className="text-xs text-muted-foreground">Cargando catálogo...</div>

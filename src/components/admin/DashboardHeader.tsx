@@ -14,7 +14,7 @@ import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Sparkles, X, Bell, LogOut, LayoutDashboard, Users } from 'lucide-react';
+import { FileText, Sparkles, X, Bell, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import { Presentation, Template, PresentationView } from '@prisma/client';
 
 type PresentationWithRelations = Presentation & {
@@ -111,13 +111,13 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                     Presentaciones
                   </Link>
                   <Link
-                    href="/opai/usuarios"
+                    href="/opai/configuracion/usuarios"
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      pathname === '/opai/usuarios' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
+                      pathname.startsWith('/opai/configuracion') ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <Users className="w-4 h-4" />
-                    Usuarios
+                    <Settings className="w-4 h-4" />
+                    Configuración
                   </Link>
                 </nav>
               )}

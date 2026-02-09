@@ -1,8 +1,7 @@
 /**
  * CRM - Customer Relationship Management
- * 
- * Módulo de gestión de clientes (próximamente).
- * Incluirá integración con Zoho CRM, pipeline de ventas, y reportes.
+ *
+ * Módulo de gestión de clientes y pipeline comercial.
  */
 
 import { redirect } from 'next/navigation';
@@ -10,10 +9,9 @@ import { auth } from '@/lib/auth';
 import { hasAppAccess } from '@/lib/app-access';
 import { PageHeader } from '@/components/opai';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Users, Building, TrendingUp, DollarSign, Calendar, FileText } from 'lucide-react';
+import { Users, Building, TrendingUp, FileText, Contact } from 'lucide-react';
 
 export default async function CRMPage() {
   // Verificar autenticación y acceso al módulo CRM
@@ -29,113 +27,105 @@ export default async function CRMPage() {
     <>
       <PageHeader
         title="CRM"
-        description="Customer Relationship Management"
+        description="Pipeline comercial y gestión de clientes"
         className="mb-6"
       />
 
-      {/* Empty State Premium */}
-      <div className="flex min-h-[600px] items-center justify-center">
-        <Card className="max-w-2xl">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-              <Users className="h-8 w-8 text-green-500" />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
+                <Users className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <CardTitle>Prospectos</CardTitle>
+                <CardDescription>
+                  Solicitudes entrantes y aprobación manual.
+                </CardDescription>
+              </div>
             </div>
-            <Badge variant="outline" className="mx-auto mb-4 w-fit">
-              Próximamente
-            </Badge>
-            <CardTitle className="text-2xl">CRM OPAI</CardTitle>
-            <CardDescription className="text-base">
-              Gestión completa de relaciones con clientes
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Features Grid */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
-                  <Building className="h-4 w-4 text-blue-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Base de Clientes</p>
-                  <p className="text-sm text-muted-foreground">
-                    Gestión centralizada de contactos y cuentas
-                  </p>
-                </div>
-              </div>
+          <CardContent>
+            <Link href="/crm/leads">
+              <Button>Ir a prospectos</Button>
+            </Link>
+          </CardContent>
+        </Card>
 
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
-                  <TrendingUp className="h-4 w-4 text-purple-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Pipeline de Ventas</p>
-                  <p className="text-sm text-muted-foreground">
-                    Seguimiento de oportunidades y forecast
-                  </p>
-                </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+                <Building className="h-5 w-5 text-blue-500" />
               </div>
-
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
-                  <Calendar className="h-4 w-4 text-orange-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Gestión de Actividades</p>
-                  <p className="text-sm text-muted-foreground">
-                    Tareas, llamadas, reuniones y seguimientos
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
-                  <FileText className="h-4 w-4 text-green-500" />
-                </div>
-                <div>
-                  <p className="font-medium">Reportes y Analytics</p>
-                  <p className="text-sm text-muted-foreground">
-                    Métricas de desempeño y conversión
-                  </p>
-                </div>
+              <div>
+                <CardTitle>Clientes</CardTitle>
+                <CardDescription>Base de cuentas y contactos.</CardDescription>
               </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/crm/accounts">
+              <Button variant="outline">Ver clientes</Button>
+            </Link>
+          </CardContent>
+        </Card>
 
-            {/* Roadmap */}
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <h3 className="mb-2 font-semibold">Roadmap</h3>
-              <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Integración bidireccional con Zoho CRM
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Sincronización de contactos y oportunidades
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  Dashboard ejecutivo con KPIs de ventas
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
-                  Automatización de workflows
-                </li>
-              </ul>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10">
+                <TrendingUp className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <CardTitle>Negocios</CardTitle>
+                <CardDescription>Oportunidades y pipeline.</CardDescription>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/crm/deals">
+              <Button>Ir al pipeline</Button>
+            </Link>
+          </CardContent>
+        </Card>
 
-            {/* CTA */}
-            <div className="flex justify-center gap-3 pt-4">
-              <Link href="/hub">
-                <Button variant="outline">
-                  Volver al Hub
-                </Button>
-              </Link>
-              <Link href="/opai/inicio">
-                <Button>
-                  Ir a Docs
-                </Button>
-              </Link>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/10">
+                <Contact className="h-5 w-5 text-sky-500" />
+              </div>
+              <div>
+                <CardTitle>Contactos</CardTitle>
+                <CardDescription>Personas clave por cliente.</CardDescription>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/crm/contacts">
+              <Button variant="outline">Ver contactos</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10">
+                <FileText className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <CardTitle>Reportes</CardTitle>
+                <CardDescription>Métricas y conversiones.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" disabled>
+              Próximamente
+            </Button>
           </CardContent>
         </Card>
       </div>

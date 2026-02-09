@@ -105,7 +105,7 @@ export default async function HubPage() {
             Nueva Propuesta
           </Button>
         </Link>
-        <Link href="/opai/usuarios">
+        <Link href="/opai/configuracion/usuarios">
           <Button variant="outline" size="default" className="gap-2">
             <UserPlus className="h-4 w-4" />
             Invitar Usuario
@@ -220,7 +220,7 @@ export default async function HubPage() {
           </Link>
 
           {/* Admin - Operativo */}
-          <Link href="/opai/usuarios">
+          <Link href="/opai/configuracion/usuarios">
             <Card className="flex h-full cursor-pointer flex-col transition-all hover:border-primary hover:shadow-md">
               <CardHeader className="pb-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -229,9 +229,9 @@ export default async function HubPage() {
                   </div>
                   <Badge variant="default" className="text-xs">Activo</Badge>
                 </div>
-                <CardTitle className="text-sm">Admin</CardTitle>
+                <CardTitle className="text-sm">Configuración</CardTitle>
                 <CardDescription className="text-xs">
-                  Usuarios y permisos
+                  Usuarios, integraciones, templates
                 </CardDescription>
               </CardHeader>
             </Card>

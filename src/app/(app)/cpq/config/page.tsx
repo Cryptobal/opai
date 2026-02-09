@@ -1,5 +1,5 @@
-import { CpqCatalogConfig } from "@/components/cpq/CpqCatalogConfig";
+import { redirect } from "next/navigation";
 
 export default function CpqConfigPage() {
-  return <CpqCatalogConfig />;
+  redirect("/opai/configuracion/cpq");
 }

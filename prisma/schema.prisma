@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "payroll", "fx", "cpq"]
+  schemas  = ["public", "payroll", "fx", "cpq", "crm"]
 }
 
 model Tenant {
@@ -649,4 +649,371 @@ model CpqQuoteInfrastructure {
   @@index([quoteId], map: "idx_cpq_infra_quote")
   @@map("quote_infrastructure")
   @@schema("cpq")
+}
+
+// ============================================
+// CRM MODULE (Leads, Accounts, Deals, Email)
+// ============================================
+
+model CrmLead {
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String    @map("tenant_id")
+  status             String    @default("pending")
+  source             String?
+  name               String?
+  email              String?
+  phone              String?
+  companyName        String?   @map("company_name")
+  notes              String?
+  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
+  approvedBy         String?   @map("approved_by")
+  convertedAccountId String?   @map("converted_account_id") @db.Uuid
+  convertedContactId String?   @map("converted_contact_id") @db.Uuid
+  convertedDealId    String?   @map("converted_deal_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_leads_tenant")
+  @@index([status], map: "idx_crm_leads_status")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_leads_created_desc")
+  @@map("leads")
+  @@schema("crm")
+}
+
+model CrmAccount {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  name      String
+  rut       String?
+  industry  String?
+  size      String?
+  segment   String?
+  ownerId   String?  @map("owner_id")
+  status    String   @default("active")
+  website   String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contacts CrmContact[]
+  deals    CrmDeal[]
+
+  @@index([tenantId], map: "idx_crm_accounts_tenant")
+  @@index([status], map: "idx_crm_accounts_status")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
+  @@map("accounts")
+  @@schema("crm")
+}
+
+model CrmContact {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  accountId  String   @map("account_id") @db.Uuid
+  name       String
+  email      String?
+  phone      String?
+  roleTitle  String?  @map("role_title")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  deals   CrmDeal[]  @relation("crm_deal_primary_contact")
+
+  @@index([tenantId], map: "idx_crm_contacts_tenant")
+  @@index([accountId], map: "idx_crm_contacts_account")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_contacts_created_desc")
+  @@map("contacts")
+  @@schema("crm")
+}
+
+model CrmPipelineStage {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id")
+  name         String
+  order        Int
+  color        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  isClosedWon  Boolean  @default(false) @map("is_closed_won")
+  isClosedLost Boolean  @default(false) @map("is_closed_lost")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deals        CrmDeal[]
+  historyFrom  CrmDealStageHistory[] @relation("crm_history_from_stage")
+  historyTo    CrmDealStageHistory[] @relation("crm_history_to_stage")
+
+  @@index([tenantId], map: "idx_crm_pipeline_tenant")
+  @@index([isActive], map: "idx_crm_pipeline_active")
+  @@index([order], map: "idx_crm_pipeline_order")
+  @@unique([tenantId, name], map: "uq_crm_pipeline_tenant_name")
+  @@map("pipeline_stages")
+  @@schema("crm")
+}
+
+model CrmDeal {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String   @map("tenant_id")
+  accountId          String   @map("account_id") @db.Uuid
+  primaryContactId   String?  @map("primary_contact_id") @db.Uuid
+  title              String
+  amount             Decimal  @default(0) @db.Decimal(14, 2)
+  stageId            String   @map("stage_id") @db.Uuid
+  probability        Int      @default(0)
+  expectedCloseDate  DateTime? @map("expected_close_date") @db.Date
+  status             String   @default("open")
+  lostReason         String?  @map("lost_reason")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account        CrmAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  primaryContact CrmContact?      @relation("crm_deal_primary_contact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  stage          CrmPipelineStage @relation(fields: [stageId], references: [id])
+  stageHistory   CrmDealStageHistory[]
+  quotes         CrmDealQuote[]
+  tasks          CrmTask[]
+
+  @@index([tenantId], map: "idx_crm_deals_tenant")
+  @@index([status], map: "idx_crm_deals_status")
+  @@index([stageId], map: "idx_crm_deals_stage")
+  @@index([accountId], map: "idx_crm_deals_account")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_deals_created_desc")
+  @@map("deals")
+  @@schema("crm")
+}
+
+model CrmDealStageHistory {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  dealId      String   @map("deal_id") @db.Uuid
+  fromStageId String?  @map("from_stage_id") @db.Uuid
+  toStageId   String   @map("to_stage_id") @db.Uuid
+  changedBy   String?  @map("changed_by")
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  deal      CrmDeal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  fromStage CrmPipelineStage? @relation("crm_history_from_stage", fields: [fromStageId], references: [id])
+  toStage   CrmPipelineStage  @relation("crm_history_to_stage", fields: [toStageId], references: [id])
+
+  @@index([tenantId], map: "idx_crm_deal_stage_tenant")
+  @@index([dealId], map: "idx_crm_deal_stage_deal")
+  @@index([changedAt(sort: Desc)], map: "idx_crm_deal_stage_changed_desc")
+  @@map("deal_stage_history")
+  @@schema("crm")
+}
+
+model CrmDealQuote {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  dealId    String   @map("deal_id") @db.Uuid
+  quoteId   String   @map("quote_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  deal CrmDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_deal_quotes_tenant")
+  @@index([dealId], map: "idx_crm_deal_quotes_deal")
+  @@index([quoteId], map: "idx_crm_deal_quotes_quote")
+  @@unique([dealId, quoteId], map: "uq_crm_deal_quote")
+  @@map("deal_quotes")
+  @@schema("crm")
+}
+
+model CrmTask {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  dealId     String?  @map("deal_id") @db.Uuid
+  leadId     String?  @map("lead_id") @db.Uuid
+  title      String
+  status     String   @default("open")
+  type       String   @default("followup")
+  dueAt      DateTime? @map("due_at") @db.Timestamptz(6)
+  assignedTo String?  @map("assigned_to")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deal CrmDeal? @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_tasks_tenant")
+  @@index([status], map: "idx_crm_tasks_status")
+  @@index([dueAt], map: "idx_crm_tasks_due")
+  @@index([dealId], map: "idx_crm_tasks_deal")
+  @@map("tasks")
+  @@schema("crm")
+}
+
+model CrmEmailAccount {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String   @map("tenant_id")
+  userId               String   @map("user_id")
+  provider             String
+  email                String
+  accessTokenEncrypted String?  @map("access_token_encrypted")
+  refreshTokenEncrypted String? @map("refresh_token_encrypted")
+  tokenExpiresAt       DateTime? @map("token_expires_at") @db.Timestamptz(6)
+  status               String   @default("active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_email_accounts_tenant")
+  @@index([userId], map: "idx_crm_email_accounts_user")
+  @@index([provider], map: "idx_crm_email_accounts_provider")
+  @@map("email_accounts")
+  @@schema("crm")
+}
+
+model CrmEmailThread {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id")
+  accountId     String?  @map("account_id") @db.Uuid
+  contactId     String?  @map("contact_id") @db.Uuid
+  dealId        String?  @map("deal_id") @db.Uuid
+  subject       String
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  messages CrmEmailMessage[]
+
+  @@index([tenantId], map: "idx_crm_email_threads_tenant")
+  @@index([accountId], map: "idx_crm_email_threads_account")
+  @@index([dealId], map: "idx_crm_email_threads_deal")
+  @@map("email_threads")
+  @@schema("crm")
+}
+
+model CrmEmailMessage {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String   @map("tenant_id")
+  threadId          String   @map("thread_id") @db.Uuid
+  providerMessageId String?  @map("provider_message_id")
+  direction         String   @default("out")
+  fromEmail         String   @map("from_email")
+  toEmails          String[] @map("to_emails")
+  ccEmails          String[] @default([]) @map("cc_emails")
+  bccEmails         String[] @default([]) @map("bcc_emails")
+  subject           String
+  htmlBody          String?  @map("html_body")
+  textBody          String?  @map("text_body")
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz(6)
+  receivedAt        DateTime? @map("received_at") @db.Timestamptz(6)
+  createdBy         String?  @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_email_messages_tenant")
+  @@index([threadId], map: "idx_crm_email_messages_thread")
+  @@index([sentAt], map: "idx_crm_email_messages_sent")
+  @@map("email_messages")
+  @@schema("crm")
+}
+
+model CrmEmailTemplate {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  name      String
+  subject   String
+  body      String
+  scope     String   @default("global")
+  stageId   String?  @map("stage_id") @db.Uuid
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_email_templates_tenant")
+  @@index([scope], map: "idx_crm_email_templates_scope")
+  @@index([stageId], map: "idx_crm_email_templates_stage")
+  @@map("email_templates")
+  @@schema("crm")
+}
+
+model CrmFile {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  fileName        String   @map("file_name")
+  mimeType        String   @map("mime_type")
+  size            Int
+  storageProvider String   @map("storage_provider")
+  storageKey      String   @map("storage_key")
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  links CrmFileLink[]
+
+  @@index([tenantId], map: "idx_crm_files_tenant")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_files_created_desc")
+  @@map("files")
+  @@schema("crm")
+}
+
+model CrmFileLink {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  fileId     String   @map("file_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  file CrmFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_file_links_tenant")
+  @@index([fileId], map: "idx_crm_file_links_file")
+  @@index([entityType, entityId], map: "idx_crm_file_links_entity")
+  @@map("file_links")
+  @@schema("crm")
+}
+
+model CrmCustomField {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  entityType String   @map("entity_type")
+  name       String
+  type       String
+  options    Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  values CrmCustomFieldValue[]
+
+  @@index([tenantId], map: "idx_crm_custom_fields_tenant")
+  @@index([entityType], map: "idx_crm_custom_fields_entity")
+  @@map("custom_fields")
+  @@schema("crm")
+}
+
+model CrmCustomFieldValue {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  fieldId   String   @map("field_id") @db.Uuid
+  entityId  String   @map("entity_id")
+  value     Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  field CrmCustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_custom_values_tenant")
+  @@index([fieldId], map: "idx_crm_custom_values_field")
+  @@index([entityId], map: "idx_crm_custom_values_entity")
+  @@map("custom_field_values")
+  @@schema("crm")
+}
+
+model CrmHistoryLog {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  details    Json?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_history_tenant")
+  @@index([entityType, entityId], map: "idx_crm_history_entity")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_history_created_desc")
+  @@map("history_logs")
+  @@schema("crm")
 }

@@ -38,3 +38,6 @@ export { ReloadButton } from './ReloadButton';
 
 // Page Components
 export { DocumentosContent } from './DocumentosContent';
+export { IntegrationsGmailClient } from './IntegrationsGmailClient';
+export { EmailTemplatesClient } from './EmailTemplatesClient';
+export { ConfigSubnav } from './ConfigSubnav';
