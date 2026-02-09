@@ -201,12 +201,21 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       )
     : 0;
 
+  // Validación crítica: si los porcentajes suman >= 100%, el margen es 0%
   const totalRatePct = marginPct + financialRatePct + policyRatePct;
+  if (totalRatePct >= 0.99) {
+    console.warn(`[CPQ ${quoteId}] totalRatePct >= 99% (${(totalRatePct * 100).toFixed(1)}%). Margen insuficiente.`);
+  }
+
+  // Precio de venta: costo base / (1 - porcentajes totales)
+  // Si totalRatePct >= 1, no hay markup (precio = costo)
   const salePriceMonthly =
     totalRatePct < 1 ? costsBase / (1 - totalRatePct) : costsBase;
 
+  // Costo financiero: se calcula sobre el precio de venta
   const monthlyFinancial = salePriceMonthly * financialRatePct;
 
+  // Costo de póliza: se prorratea según duración del contrato
   const contractMonths = parameters?.contractMonths ?? 12;
   const policyContractMonths = parameters?.policyContractMonths ?? 12;
   const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct || 100));
@@ -214,16 +223,10 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const policyTotal = policyContractAmount * policyRatePct;
   const monthlyPolicy = contractMonths > 0 ? policyTotal / contractMonths : 0;
 
-  const monthlyExtras =
-    monthlyUniforms +
-    monthlyExams +
-    monthlyMeals +
-    monthlyVehicles +
-    monthlyInfrastructure +
-    monthlyCostItems +
-    monthlyFinancial +
-    monthlyPolicy;
+  // monthlyExtras: solo costos financieros y póliza (NO duplicar costos base)
+  const monthlyExtras = monthlyFinancial + monthlyPolicy;
 
+  // Costo total mensual: costo base + costos financieros
   const monthlyTotal = costsBase + monthlyFinancial + monthlyPolicy;
 
   return {

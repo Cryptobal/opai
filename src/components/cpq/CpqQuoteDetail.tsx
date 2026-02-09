@@ -17,10 +17,11 @@ import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
+import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote, CpqPosition, CpqQuoteCostSummary, CpqQuoteParameters } from "@/types/cpq";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2, Download, Send } from "lucide-react";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -36,6 +37,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [marginPct, setMarginPct] = useState(20);
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [quoteForm, setQuoteForm] = useState({
@@ -161,13 +163,42 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         throw new Error(data.error || "Error");
       }
       toast.success("Cotización eliminada");
-      router.push("/cpq");
+      router.push("/crm/cotizaciones");
       router.refresh();
     } catch (error) {
       console.error("Error deleting quote:", error);
       toast.error("No se pudo eliminar la cotización");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch(`/api/cpq/quotes/${quoteId}/export-pdf`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Error al generar PDF");
+      }
+      const html = await response.text();
+      
+      // Abrir en nueva ventana para imprimir como PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 500);
+      }
+      
+      toast.success("PDF generado. Usa Imprimir → Guardar como PDF");
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast.error("No se pudo generar el PDF");
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -247,9 +278,23 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-2" onClick={refresh}>
-            <RefreshCw className="h-3 w-3" />
-            <span className="hidden sm:inline">Actualizar</span>
+          <SendCpqQuoteModal
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            clientName={quote.clientName || undefined}
+            disabled={!quote || positions.length === 0}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf || !quote}
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">
+              {downloadingPdf ? "Generando..." : "PDF"}
+            </span>
           </Button>
           <Button
             size="sm"
@@ -258,10 +303,18 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             onClick={handleClone}
             disabled={cloning}
           >
-            <Copy className="h-3 w-3" />
+            <Copy className="h-4 w-4" />
             <span className="hidden sm:inline">
               {cloning ? "Clonando..." : "Clonar"}
             </span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={refresh}
+          >
+            <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
@@ -270,7 +323,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             onClick={handleDelete}
             disabled={deleting}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-4 w-4" />
             <span className="hidden sm:inline">
               {deleting ? "Eliminando..." : "Eliminar"}
             </span>
