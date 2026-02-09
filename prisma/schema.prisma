@@ -735,21 +735,24 @@ model CrmIndustry {
 }
 
 model CrmAccount {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  name      String
-  rut       String?
-  industry  String?
-  size      String?
-  segment   String?
-  ownerId   String?  @map("owner_id")
-  type      String   @default("prospect") // "prospect" | "client"
-  status    String   @default("active")
-  website   String?
-  address   String?
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                String   @map("tenant_id")
+  name                    String
+  rut                     String?
+  legalName              String?  @map("legal_name") // Razón social
+  legalRepresentativeName String?  @map("legal_representative_name")
+  legalRepresentativeRut  String?  @map("legal_representative_rut")
+  industry                String?
+  size                    String?
+  segment                 String?
+  ownerId                 String?  @map("owner_id")
+  type                    String   @default("prospect") // "prospect" | "client"
+  status                  String   @default("active")
+  website                 String?
+  address                 String?
+  notes                   String?
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   contacts      CrmContact[]
   deals         CrmDeal[]
@@ -837,19 +840,35 @@ model CrmPipelineStage {
 }
 
 model CrmDeal {
-  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId           String   @map("tenant_id")
-  accountId          String   @map("account_id") @db.Uuid
-  primaryContactId   String?  @map("primary_contact_id") @db.Uuid
-  title              String
-  amount             Decimal  @default(0) @db.Decimal(14, 2)
-  stageId            String   @map("stage_id") @db.Uuid
-  probability        Int      @default(0)
-  expectedCloseDate  DateTime? @map("expected_close_date") @db.Date
-  status             String   @default("open")
-  lostReason         String?  @map("lost_reason")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  accountId            String    @map("account_id") @db.Uuid
+  primaryContactId     String?   @map("primary_contact_id") @db.Uuid
+  title                String
+  amount               Decimal   @default(0) @db.Decimal(14, 2)
+  stageId              String    @map("stage_id") @db.Uuid
+  probability          Int       @default(0)
+  expectedCloseDate    DateTime?  @map("expected_close_date") @db.Date
+  status               String    @default("open")
+  lostReason           String?   @map("lost_reason")
+  // Campos adicionales migración Soho CRM
+  proposalLink        String?   @map("proposal_link") // Link a propuesta PandaDoc
+  proposalSentAt      DateTime? @map("proposal_sent_at") @db.Date
+  dealType            String?   @map("deal_type") // newbusiness, Cotización, Wherex, Licitación
+  notes               String?
+  driveFolderLink     String?   @map("drive_folder_link")
+  installationName    String?   @map("installation_name")
+  technicalVisitDate  DateTime? @map("technical_visit_date") @db.Date
+  service             String?
+  street              String?
+  address             String?
+  city                String?
+  commune             String?
+  lat                 Float?
+  lng                 Float?
+  installationWebsite String?   @map("installation_website")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   account        CrmAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   primaryContact CrmContact?      @relation("crm_deal_primary_contact", fields: [primaryContactId], references: [id], onDelete: SetNull)

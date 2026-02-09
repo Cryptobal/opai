@@ -36,6 +36,9 @@ export interface CrmAccount {
   id: string;
   name: string;
   rut?: string | null;
+  legalName?: string | null;
+  legalRepresentativeName?: string | null;
+  legalRepresentativeRut?: string | null;
   industry?: string | null;
   size?: string | null;
   segment?: string | null;
@@ -86,6 +89,21 @@ export interface CrmDeal {
   probability: number;
   expectedCloseDate?: string | null;
   createdAt: string;
+  proposalLink?: string | null;
+  proposalSentAt?: string | null;
+  dealType?: string | null;
+  notes?: string | null;
+  driveFolderLink?: string | null;
+  installationName?: string | null;
+  technicalVisitDate?: string | null;
+  service?: string | null;
+  street?: string | null;
+  address?: string | null;
+  city?: string | null;
+  commune?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  installationWebsite?: string | null;
   account: CrmAccount;
   stage: CrmPipelineStage;
   primaryContact?: {
