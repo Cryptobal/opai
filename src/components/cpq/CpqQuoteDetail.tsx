@@ -19,7 +19,7 @@ import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote, CpqPosition, CpqQuoteCostSummary, CpqQuoteParameters } from "@/types/cpq";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check } from "lucide-react";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -35,6 +35,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [marginPct, setMarginPct] = useState(20);
   const [cloning, setCloning] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [quoteForm, setQuoteForm] = useState({
     clientName: "",
     validUntil: "",
@@ -48,6 +49,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const steps = ["Datos", "Puestos", "Costos", "Resumen"];
   const stepIcons = [FileText, Users, Layers, Calculator];
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
+  const formatTime = (value: Date) =>
+    value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
 
   const refresh = async () => {
     setLoading(true);
@@ -89,7 +92,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     setQuoteDirty(false);
   }, [quote]);
 
-  const saveQuoteBasics = async (options?: { goNext?: boolean }) => {
+  const saveQuoteBasics = async (options?: { nextStep?: number }) => {
     setSavingQuote(true);
     setQuoteError(null);
     try {
@@ -107,13 +110,24 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       if (!data.success) throw new Error(data.error || "Error");
       setQuote(data.data);
       setQuoteDirty(false);
-      if (options?.goNext) setActiveStep(1);
+      setLastSavedAt(new Date());
+      if (options?.nextStep !== undefined) setActiveStep(options.nextStep);
     } catch (error) {
       console.error("Error saving CPQ quote:", error);
       setQuoteError("No se pudo guardar la cotización.");
     } finally {
       setSavingQuote(false);
     }
+  };
+
+  const goToStep = async (nextStep: number) => {
+    const clamped = Math.max(0, Math.min(steps.length - 1, nextStep));
+    if (clamped === activeStep) return;
+    if (activeStep === 0 && quoteDirty) {
+      await saveQuoteBasics({ nextStep: clamped });
+      return;
+    }
+    setActiveStep(clamped);
   };
 
   const handleClone = async () => {
@@ -148,6 +162,21 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     : 0;
   const monthlyHours = costParams?.monthlyHoursStandard ?? 180;
   const monthlyTotal = costSummary?.monthlyTotal ?? stats.monthly + additionalCostsTotal;
+  const saveLabel = savingQuote
+    ? "Guardando..."
+    : quoteDirty
+    ? "Cambios sin guardar"
+    : lastSavedAt
+    ? `Guardado ${formatTime(lastSavedAt)}`
+    : "Sin cambios";
+  const nextLabel =
+    activeStep === steps.length - 1
+      ? "Listo"
+      : activeStep === 0 && quoteDirty
+      ? "Guardar y seguir"
+      : "Siguiente";
+  const nextDisabled =
+    activeStep === steps.length - 1 || (activeStep === 0 && savingQuote);
 
   if (loading && !quote) {
     return <div className="text-sm text-muted-foreground">Cargando...</div>;
@@ -208,9 +237,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               size="sm"
               variant={active ? "default" : "outline"}
               className={`${active ? "bg-primary/90" : "bg-transparent"} gap-1`}
-              onClick={() => setActiveStep(index)}
+              onClick={() => void goToStep(index)}
             >
-              <span className="text-[10px]">{index + 1}</span>
+              {index < activeStep ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <span className="text-[10px]">{index + 1}</span>
+              )}
               <Icon className="h-3 w-3" />
               <span className="ml-1 text-xs">{step}</span>
             </Button>
@@ -245,12 +278,21 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             <div>
               <h2 className="text-sm font-semibold">Datos básicos</h2>
               <p className="text-xs text-muted-foreground">
-                Completa la información principal de la cotización.
+                Se guarda automáticamente al avanzar.
               </p>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {quote.status}
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="outline" className="text-xs">
+                {quote.status}
+              </Badge>
+              <span
+                className={`text-[10px] ${
+                  quoteDirty ? "text-amber-400" : "text-muted-foreground"
+                }`}
+              >
+                {saveLabel}
+              </span>
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -326,7 +368,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             </Button>
             <Button
               size="sm"
-              onClick={() => saveQuoteBasics({ goNext: true })}
+              onClick={() => saveQuoteBasics({ nextStep: 1 })}
               disabled={savingQuote}
             >
               Guardar y seguir
@@ -346,6 +388,9 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             </div>
             <CreatePositionModal quoteId={quoteId} onCreated={refresh} />
           </div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Agrega uno o más puestos. Puedes editar o duplicar luego.
+          </p>
 
           {positions.length === 0 ? (
             <div className="text-sm text-muted-foreground">
@@ -383,7 +428,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               <div>
                 <h2 className="text-sm font-semibold">Resumen y precio</h2>
                 <p className="text-xs text-muted-foreground">
-                  Revisa los totales antes de enviar la cotización.
+                  Revisa totales y margen antes de enviar la cotización.
                 </p>
               </div>
               <Badge variant="outline" className="text-xs">
@@ -445,7 +490,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             size="sm"
             variant="outline"
             className="gap-1"
-            onClick={() => setActiveStep((prev) => Math.max(0, prev - 1))}
+            onClick={() => void goToStep(activeStep - 1)}
             disabled={activeStep === 0}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -457,12 +502,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           <Button
             size="sm"
             className="gap-1"
-            onClick={() =>
-              setActiveStep((prev) => Math.min(steps.length - 1, prev + 1))
-            }
-            disabled={activeStep === steps.length - 1}
+            onClick={() => void goToStep(activeStep + 1)}
+            disabled={nextDisabled}
           >
-            {activeStep === steps.length - 1 ? "Listo" : "Siguiente"}
+            {nextLabel}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

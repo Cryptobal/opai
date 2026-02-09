@@ -119,6 +119,22 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
     }));
   };
 
+  const applyWeekdayPreset = (preset: "weekdays" | "weekend" | "all" | "clear") => {
+    if (preset === "clear") {
+      setForm((prev) => ({ ...prev, weekdays: [] }));
+      return;
+    }
+    if (preset === "all") {
+      setForm((prev) => ({ ...prev, weekdays: [...WEEKDAY_ORDER] }));
+      return;
+    }
+    if (preset === "weekdays") {
+      setForm((prev) => ({ ...prev, weekdays: WEEKDAY_ORDER.slice(0, 5) }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, weekdays: WEEKDAY_ORDER.slice(5) }));
+  };
+
   const healthPlanPct = useMemo(() => {
     if (form.healthSystem === "fonasa") return 0.07;
     return form.healthPlanPct || 0.07;
@@ -263,6 +279,44 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
                 <div className="flex items-center justify-between">
                   <Label className="text-xs sm:text-sm">Días de servicio</Label>
                   <span className="text-[10px] text-muted-foreground">Toca para activar</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("weekdays")}
+                  >
+                    Lun–Vie
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("weekend")}
+                  >
+                    Sáb–Dom
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("all")}
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[10px] text-muted-foreground"
+                    onClick={() => applyWeekdayPreset("clear")}
+                  >
+                    Limpiar
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {WEEKDAY_ORDER.map((day) => {

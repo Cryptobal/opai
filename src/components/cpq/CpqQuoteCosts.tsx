@@ -1446,7 +1446,13 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         )}
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${
+          isInline
+            ? "sticky bottom-0 border-t border-border/60 bg-background/95 px-2 py-3 backdrop-blur"
+            : "mt-4"
+        }`}
+      >
         <Badge variant="outline" className="text-xs">
           Mobile-first · Los cambios se guardan al presionar "Guardar cambios"
         </Badge>
@@ -1488,7 +1494,10 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               <DialogHeader>
                 <DialogTitle>Configurar costos adicionales</DialogTitle>
               </DialogHeader>
+              {costForm}
 
+              {false && (
+                <>
               {loading ? (
                 <div className="text-sm text-muted-foreground">Cargando...</div>
               ) : (
@@ -2325,6 +2334,8 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {saving ? "Guardando..." : "Guardar cambios"}
                 </Button>
               </div>
+                </>
+              )}
             </DialogContent>
           </Dialog>
           )}
