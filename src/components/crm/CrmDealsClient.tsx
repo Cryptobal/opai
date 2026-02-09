@@ -38,7 +38,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn, useLocalStorage } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { GripVertical, Plus } from "lucide-react";
 import { toast } from "sonner";

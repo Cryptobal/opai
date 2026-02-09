@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { useState } from 'react';
 
 /**
  * Combina clases de Tailwind evitando conflictos
@@ -154,33 +153,4 @@ export function timeAgo(date: Date | string): string {
   }
   const years = Math.floor(diffInSeconds / 31536000);
   return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
-}
-
-/**
- * Hook para persistir estado en localStorage
- */
-export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
-  if (typeof window === 'undefined') {
-    return [initialValue, () => {}];
-  }
-
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch {
-      return initialValue;
-    }
-  });
-
-  const setValue = (value: T) => {
-    try {
-      setStoredValue(value);
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // Silent fail
-    }
-  };
-
-  return [storedValue, setValue];
 }
