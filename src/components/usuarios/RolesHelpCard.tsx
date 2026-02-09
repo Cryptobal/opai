@@ -109,7 +109,7 @@ export default function RolesHelpCard() {
                               {has ? (
                                 <Check className="w-5 h-5 text-emerald-400 mx-auto" />
                               ) : (
-                                <XIcon className="w-5 h-5 text-slate-600 mx-auto" />
+                                <XIcon className="w-5 h-5 text-muted-foreground/50 mx-auto" />
                               )}
                             </td>
                           );

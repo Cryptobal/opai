@@ -37,7 +37,7 @@ export function CpqQuotesList({ quotes, loading }: CpqQuotesListProps) {
       return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
     }
     if (status === "draft") {
-      return "bg-slate-500/15 text-slate-200 border-slate-500/30";
+      return "bg-muted text-muted-foreground border-border";
     }
     if (status === "approved") {
       return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";

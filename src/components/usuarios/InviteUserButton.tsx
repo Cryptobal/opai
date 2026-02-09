@@ -81,10 +81,10 @@ export default function InviteUserButton() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-muted border-border">
-                <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-slate-700">Visualizador</SelectItem>
-                <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-slate-700">Editor</SelectItem>
-                <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-slate-700">Administrador</SelectItem>
-                <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-slate-700">Propietario</SelectItem>
+                <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-accent">Visualizador</SelectItem>
+                <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-accent">Editor</SelectItem>
+                <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-accent">Administrador</SelectItem>
+                <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-accent">Propietario</SelectItem>
               </SelectContent>
             </Select>
           </div>

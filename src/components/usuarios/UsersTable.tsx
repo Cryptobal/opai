@@ -120,10 +120,10 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-muted border-border">
-                          <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-slate-700">Visualizador</SelectItem>
-                          <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-slate-700">Editor</SelectItem>
-                          <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-slate-700">Admin</SelectItem>
-                          <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-slate-700">Propietario</SelectItem>
+                          <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-accent">Visualizador</SelectItem>
+                          <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-accent">Editor</SelectItem>
+                          <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-accent">Admin</SelectItem>
+                          <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-accent">Propietario</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -161,7 +161,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                     <DropdownMenuContent align="end" className="bg-muted border-border">
                       <DropdownMenuItem
                         onClick={() => handleToggleStatus(user.id)}
-                        className="text-foreground hover:bg-slate-700 cursor-pointer"
+                        className="text-foreground hover:bg-accent cursor-pointer"
                       >
                         {user.status === 'active' ? (
                           <>
@@ -238,10 +238,10 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-muted border-border">
-                        <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-slate-700">Visualizador</SelectItem>
-                        <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-slate-700">Editor</SelectItem>
-                        <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-slate-700">Admin</SelectItem>
-                        <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-slate-700">Propietario</SelectItem>
+                        <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-accent">Visualizador</SelectItem>
+                        <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-accent">Editor</SelectItem>
+                        <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-accent">Admin</SelectItem>
+                        <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-accent">Propietario</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -273,7 +273,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                       <DropdownMenuContent align="end" className="bg-muted border-border">
                         <DropdownMenuItem
                           onClick={() => handleToggleStatus(user.id)}
-                          className="text-foreground hover:bg-slate-700 cursor-pointer"
+                          className="text-foreground hover:bg-accent cursor-pointer"
                         >
                           {user.status === 'active' ? (
                             <>

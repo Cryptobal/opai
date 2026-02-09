@@ -22,14 +22,14 @@ export default async function LoginPage({
   const success = params.success;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white">OPAI</h1>
-          <p className="text-slate-400 mt-1">Iniciar sesión</p>
+          <h1 className="text-2xl font-bold text-foreground">OPAI</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Iniciar sesión</p>
         </div>
         <LoginForm callbackUrl={callbackUrl} error={error} success={success} />
-        <p className="text-center text-sm text-slate-500">
+        <p className="text-center text-xs text-muted-foreground">
           opai.gard.cl · Gard Security
         </p>
       </div>

@@ -207,13 +207,13 @@ export function TemplateSidebar({
             animate={{ x: 0 }}
             exit={{ x: -320 }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 top-0 h-screen w-80 bg-slate-950/98 backdrop-blur-xl border-r-2 border-teal-500/20 z-[60] flex flex-col shadow-2xl overflow-hidden"
+            className="fixed left-0 top-0 h-screen w-80 bg-card/98 backdrop-blur-xl border-r border-border z-[60] flex flex-col shadow-2xl overflow-hidden"
           >
             {/* Header FIJO - SIN SCROLL */}
-            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-white/10 bg-slate-900/50">
+            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-white/10 bg-muted/50">
               <div>
                 <h2 className="text-sm font-black text-white">Preview Navigator</h2>
-                <p className="text-[10px] text-white/50">Template: Commercial</p>
+                <p className="text-xs text-white/50">Template: Commercial</p>
               </div>
               <button
                 onClick={onClose}
@@ -225,7 +225,7 @@ export function TemplateSidebar({
             </div>
             
             {/* Controls FIJOS - SOLO TOGGLE TOKENS */}
-            <div className="flex-shrink-0 p-3 border-b border-white/10 bg-slate-900/30">
+            <div className="flex-shrink-0 p-3 border-b border-white/10 bg-muted/30">
               {/* Toggle tokens */}
               <button
                 onClick={onToggleTokens}
@@ -261,7 +261,7 @@ export function TemplateSidebar({
                       onClick={() => toggleGroup(group.name)}
                       className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group"
                     >
-                      <span className="text-[10px] font-black text-white/70 uppercase tracking-wider">
+                      <span className="text-xs font-black text-white/70 uppercase tracking-wider">
                         {group.name} ({group.sections.length})
                       </span>
                       {isExpanded ? (

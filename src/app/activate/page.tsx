@@ -58,14 +58,14 @@ function ActivateForm() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5" />
               Token Inválido
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               El enlace de activación no es válido o ha expirado.
             </CardDescription>
           </CardHeader>
@@ -76,14 +76,14 @@ function ActivateForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-400">
               <CheckCircle2 className="w-5 h-5" />
               Cuenta Activada
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               Tu cuenta ha sido activada exitosamente. Redirigiendo al login...
             </CardDescription>
           </CardHeader>
@@ -93,18 +93,18 @@ function ActivateForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Activa tu cuenta</CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardTitle>Activa tu cuenta</CardTitle>
+          <CardDescription className="text-muted-foreground">
             Completa tu perfil y define tu contraseña para comenzar
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name" className="text-slate-300">Nombre completo</Label>
+              <Label htmlFor="name" className="text-foreground">Nombre completo</Label>
               <Input
                 id="name"
                 type="text"
@@ -117,7 +117,7 @@ function ActivateForm() {
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-slate-300">Contraseña</Label>
+              <Label htmlFor="password" className="text-foreground">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -130,7 +130,7 @@ function ActivateForm() {
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword" className="text-slate-300">Confirmar contraseña</Label>
+              <Label htmlFor="confirmPassword" className="text-foreground">Confirmar contraseña</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -143,7 +143,7 @@ function ActivateForm() {
             </div>
 
             {error && (
-              <div className="text-sm text-red-400 bg-red-900/20 border border-red-800 p-3 rounded flex items-start gap-2">
+              <div className="text-sm text-red-400 bg-destructive/10 border border-destructive/20 p-3 rounded flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
               </div>
@@ -166,8 +166,8 @@ function ActivateForm() {
 export default function ActivatePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="text-white">Cargando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground text-sm">Cargando...</div>
       </div>
     }>
       <ActivateForm />

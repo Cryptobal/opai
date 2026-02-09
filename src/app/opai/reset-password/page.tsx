@@ -20,18 +20,18 @@ export default async function ResetPasswordPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white">Nueva contraseña</h1>
-          <p className="text-slate-400 mt-1 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Nueva contraseña</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Crea una nueva contraseña segura para tu cuenta
           </p>
         </div>
-        
+
         <ResetPasswordForm token={token} email={decodeURIComponent(email)} />
-        
-        <p className="text-center text-sm text-slate-500">
+
+        <p className="text-center text-xs text-muted-foreground">
           opai.gard.cl · Gard Security
         </p>
       </div>

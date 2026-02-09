@@ -51,7 +51,7 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
   ];
 
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4">
+    <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
       {/* Header con botón collapse */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -111,14 +111,14 @@ export function ConversionChart({ stats, conversionRate, openRate, clickRate }: 
       {/* Insights - siempre visibles, más compactos */}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="p-2 rounded-md bg-white/5 border border-white/10">
-          <div className="text-[10px] text-white/60 mb-0.5">Tasa de Éxito</div>
+          <div className="text-xs text-white/60 mb-0.5">Tasa de Éxito</div>
           <div className="text-sm sm:text-base font-bold text-green-400">
             {conversionRate.toFixed(1)}%
           </div>
           <div className="text-[8px] text-white/40 mt-0.5">Enviadas → Vistas</div>
         </div>
         <div className="p-2 rounded-md bg-white/5 border border-white/10">
-          <div className="text-[10px] text-white/60 mb-0.5">Pendientes</div>
+          <div className="text-xs text-white/60 mb-0.5">Pendientes</div>
           <div className="text-sm sm:text-base font-bold text-yellow-400">
             {stats.pending}
           </div>

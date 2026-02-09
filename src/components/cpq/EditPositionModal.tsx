@@ -286,9 +286,9 @@ export function EditPositionModal({
                   </select>
                 </div>
               </div>
-              <div className="text-xs sm:text-sm text-slate-400">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 Jornada:{" "}
-                <span className="font-medium text-slate-200">
+                <span className="font-medium text-foreground">
                   {shiftHours === null
                     ? "--"
                     : `${shiftHours % 1 === 0 ? shiftHours.toFixed(0) : shiftHours.toFixed(1)} h`}
