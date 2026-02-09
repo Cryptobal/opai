@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
 import { Calculator, Plus } from "lucide-react";
 
@@ -117,6 +118,22 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
         ? prev.weekdays.filter((d) => d !== day)
         : [...prev.weekdays, day],
     }));
+  };
+
+  const applyWeekdayPreset = (preset: "weekdays" | "weekend" | "all" | "clear") => {
+    if (preset === "clear") {
+      setForm((prev) => ({ ...prev, weekdays: [] }));
+      return;
+    }
+    if (preset === "all") {
+      setForm((prev) => ({ ...prev, weekdays: [...WEEKDAY_ORDER] }));
+      return;
+    }
+    if (preset === "weekdays") {
+      setForm((prev) => ({ ...prev, weekdays: WEEKDAY_ORDER.slice(0, 5) }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, weekdays: WEEKDAY_ORDER.slice(5) }));
   };
 
   const healthPlanPct = useMemo(() => {
@@ -259,19 +276,68 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
                 </span>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Días de servicio</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {WEEKDAY_ORDER.map((day) => (
-                    <label key={day} className="flex items-center gap-1.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={form.weekdays.includes(day)}
-                        onChange={() => toggleWeekday(day)}
-                      />
-                      {day}
-                    </label>
-                  ))}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs sm:text-sm">Días de servicio</Label>
+                  <span className="text-[10px] text-muted-foreground">Toca para activar</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("weekdays")}
+                  >
+                    Lun–Vie
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("weekend")}
+                  >
+                    Sáb–Dom
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => applyWeekdayPreset("all")}
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[10px] text-muted-foreground"
+                    onClick={() => applyWeekdayPreset("clear")}
+                  >
+                    Limpiar
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAY_ORDER.map((day) => {
+                    const active = form.weekdays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleWeekday(day)}
+                        aria-pressed={active}
+                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                          active
+                            ? "border-blue-400/70 bg-blue-600/20 text-blue-100"
+                            : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -324,9 +390,15 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
               <div className="space-y-1">
                 <Label className="text-xs sm:text-sm">Sueldo base</Label>
                 <Input
-                  type="number"
-                  value={form.baseSalary}
-                  onChange={(e) => setForm((p) => ({ ...p, baseSalary: Number(e.target.value) }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      baseSalary: parseLocalizedNumber(e.target.value),
+                    }))
+                  }
                   className="h-11 sm:h-9 bg-background text-sm"
                 />
               </div>
@@ -365,10 +437,15 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Plan Isapre (%)</Label>
                   <Input
-                    type="number"
-                    value={form.healthPlanPct}
-                    onChange={(e) => setForm((p) => ({ ...p, healthPlanPct: Number(e.target.value) }))}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    value={formatNumber(form.healthPlanPct, { minDecimals: 2, maxDecimals: 2 })}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        healthPlanPct: parseLocalizedNumber(e.target.value),
+                      }))
+                    }
                     className="h-11 sm:h-9 bg-background text-sm"
                   />
                 </div>

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
 type CatalogItem = {
   id: string;
@@ -90,9 +91,9 @@ export function CpqCatalogConfig() {
   );
   const inputClass =
     "h-9 text-sm bg-card text-foreground border-border placeholder:text-muted-foreground";
-  const formatNumber = (value: number) =>
-    new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value || 0);
-  const parseNumber = (value: string) => Number(value.replace(/[^\d]/g, "") || 0);
+  const formatNumberLocal = (value: number, decimals = 0) =>
+    formatNumber(value || 0, { minDecimals: decimals, maxDecimals: decimals });
+  const parseNumber = (value: string) => parseLocalizedNumber(value);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -199,7 +200,7 @@ export function CpqCatalogConfig() {
           type: payload.type,
           name: payload.name.trim(),
           unit: payload.unit.trim() || "mes",
-          basePrice: Number(payload.basePrice || 0),
+          basePrice: parseNumber(payload.basePrice || "0"),
           isDefault: payload.isDefault ?? false,
           active: true,
         }),
@@ -270,8 +271,11 @@ export function CpqCatalogConfig() {
                       className={`${inputClass} flex-1`}
                     />
                     <Input
-                      inputMode="numeric"
-                      value={formatNumber(item.basePrice ?? 0)}
+                      inputMode={["financial", "policy"].includes(item.type) ? "decimal" : "numeric"}
+                      value={formatNumberLocal(
+                        item.basePrice ?? 0,
+                        ["financial", "policy"].includes(item.type) ? 2 : 0
+                      )}
                       onChange={(e) =>
                         updateItemLocal(item.id, { basePrice: parseNumber(e.target.value) })
                       }
@@ -363,7 +367,7 @@ export function CpqCatalogConfig() {
                     className={`${inputClass} flex-1`}
                   />
                   <Input
-                    inputMode="numeric"
+                    inputMode={group.id === "financial" ? "decimal" : "numeric"}
                     value={newItems[group.id]?.basePrice || ""}
                     onChange={(e) =>
                       setNewItems((prev) => ({
@@ -437,7 +441,7 @@ export function CpqCatalogConfig() {
             </div>
             <Input
               inputMode="numeric"
-              value={formatNumber(globalParams.monthlyHoursStandard)}
+              value={formatNumberLocal(globalParams.monthlyHoursStandard)}
               onChange={(e) =>
                 setGlobalParams((prev) => ({
                   ...prev,
@@ -460,7 +464,7 @@ export function CpqCatalogConfig() {
             </div>
             <Input
               inputMode="numeric"
-              value={formatNumber(globalParams.avgStayMonths)}
+              value={formatNumberLocal(globalParams.avgStayMonths)}
               onChange={(e) =>
                 setGlobalParams((prev) => ({
                   ...prev,
@@ -483,7 +487,7 @@ export function CpqCatalogConfig() {
             </div>
             <Input
               inputMode="numeric"
-              value={formatNumber(globalParams.uniformChangesPerYear)}
+              value={formatNumberLocal(globalParams.uniformChangesPerYear)}
               onChange={(e) =>
                 setGlobalParams((prev) => ({
                   ...prev,

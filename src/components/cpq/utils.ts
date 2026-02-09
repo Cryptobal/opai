@@ -1,3 +1,5 @@
+import { formatCurrency as formatAppCurrency } from "@/lib/utils";
+
 export const WEEKDAY_ORDER = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function sortWeekdays(days: string[] = []) {
@@ -6,5 +8,5 @@ export function sortWeekdays(days: string[] = []) {
 }
 
 export function formatCurrency(value: number) {
-  return `$${Math.round(value).toLocaleString("es-CL")}`;
+  return formatAppCurrency(value, "CLP");
 }

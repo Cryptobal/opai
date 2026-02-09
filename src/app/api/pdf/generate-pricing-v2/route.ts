@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chromium } from 'playwright-core';
 import chromiumPkg from '@sparticuz/chromium';
 import { PricingData } from '@/types/presentation';
+import { formatCurrency, formatUF } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Vercel: 60s timeout para Pro plan
@@ -39,13 +40,9 @@ function generatePricingHTML(data: PricingRequest): string {
   const formatPrice = (value: number) => {
     const curr = pricing.currency as string;
     if (curr === 'CLF' || curr === 'UF' || curr === 'uf') {
-      return `UF ${value.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+      return formatUF(value);
     } else {
-      return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP',
-        minimumFractionDigits: 0,
-      }).format(value);
+      return formatCurrency(value, 'CLP');
     }
   };
 

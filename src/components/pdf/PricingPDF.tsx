@@ -6,6 +6,7 @@
 
 import { Document, Page, Text, View, StyleSheet, Image as PDFImage } from '@react-pdf/renderer';
 import { PricingData } from '@/types/presentation';
+import { formatCurrency, formatUF } from '@/lib/utils';
 
 interface PricingPDFProps {
   clientName: string;
@@ -169,19 +170,11 @@ export function PricingPDF({
   }
   
   const formatPrice = (value: number) => {
-    // Detectar si es UF o CLP basado en el currency del pricing
     const curr = pricing.currency as string;
     if (curr === 'CLF' || curr === 'UF' || curr === 'uf') {
-      // Formato UF
-      return `UF ${value.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-    } else {
-      // Formato CLP
-      return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP',
-        minimumFractionDigits: 0,
-      }).format(value);
+      return formatUF(value);
     }
+    return formatCurrency(value, 'CLP');
   };
   
   return (

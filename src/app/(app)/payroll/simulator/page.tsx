@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { formatCLP, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -66,15 +67,22 @@ export default function PayrollSimulator() {
     setError(null);
 
     try {
-      const base = Number(baseSalary);
-      const overtime = overtimeHours ? Math.round(Number(overtimeHours) * base * 0.0077777) : 0;
+      const base = parseLocalizedNumber(baseSalary);
+      const overtime = overtimeHours
+        ? Math.round(parseLocalizedNumber(overtimeHours) * base * 0.0077777)
+        : 0;
       const baseForGratification = base + overtime;
       const gratification = includeGrat ? Math.round(baseForGratification * 0.25) : 0;
       
-      const totalIncome = base + gratification + overtime + (commissions ? Number(commissions) : 0) + (bonuses ? Number(bonuses) : 0);
+      const totalIncome =
+        base +
+        gratification +
+        overtime +
+        (commissions ? parseLocalizedNumber(commissions) : 0) +
+        (bonuses ? parseLocalizedNumber(bonuses) : 0);
       let familyAllowance = 0;
-      if (numDependents && Number(numDependents) > 0) {
-        const deps = Number(numDependents);
+      if (numDependents && parseLocalizedNumber(numDependents) > 0) {
+        const deps = Math.round(parseLocalizedNumber(numDependents));
         if (totalIncome <= 631976) familyAllowance = deps * 22007;
         else if (totalIncome <= 923067) familyAllowance = deps * 13505;
         else if (totalIncome <= 1439668) familyAllowance = deps * 4267;
@@ -85,17 +93,24 @@ export default function PayrollSimulator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           base_salary_clp: base,
-          other_taxable_allowances: gratification + overtime + (commissions ? Number(commissions) : 0) + (bonuses ? Number(bonuses) : 0),
+          other_taxable_allowances:
+            gratification +
+            overtime +
+            (commissions ? parseLocalizedNumber(commissions) : 0) +
+            (bonuses ? parseLocalizedNumber(bonuses) : 0),
           non_taxable_allowances: {
-            transport: transport ? Number(transport) : 0,
-            meal: meal ? Number(meal) : 0,
+            transport: transport ? parseLocalizedNumber(transport) : 0,
+            meal: meal ? parseLocalizedNumber(meal) : 0,
             family: familyAllowance,
           },
           contract_type: contractType,
           afp_name: afpName,
           health_system: healthSystem,
-          health_plan_pct: healthSystem === "isapre" && isapre_additional ? 0.07 + Number(isapre_additional) / 100 : 0.07,
-          additional_deductions: { other: apv ? Number(apv) : 0 },
+          health_plan_pct:
+            healthSystem === "isapre" && isapre_additional
+              ? 0.07 + parseLocalizedNumber(isapre_additional) / 100
+              : 0.07,
+          additional_deductions: { other: apv ? parseLocalizedNumber(apv) : 0 },
           save_simulation: true,
         }),
       });
@@ -111,9 +126,13 @@ export default function PayrollSimulator() {
     }
   };
 
-  const fmt = (v: number) => `$${Math.round(v).toLocaleString("es-CL")}`;
-  const baseNum = Number(baseSalary || 0);
-  const overtimeNum = overtimeHours ? Math.round(Number(overtimeHours) * baseNum * 0.0077777) : 0;
+  const fmt = (v: number) => formatCLP(Math.round(v));
+  const fmtPct = (v: number, decimals = 2) =>
+    `${formatNumber(v * 100, { minDecimals: decimals, maxDecimals: decimals })}%`;
+  const baseNum = parseLocalizedNumber(baseSalary || "0");
+  const overtimeNum = overtimeHours
+    ? Math.round(parseLocalizedNumber(overtimeHours) * baseNum * 0.0077777)
+    : 0;
   const gratPreview = includeGrat ? Math.round((baseNum + overtimeNum) * 0.25) : 0;
 
   // UF/UTM desde parámetros
@@ -140,12 +159,12 @@ export default function PayrollSimulator() {
             <div className="flex items-center gap-3 text-xs sm:text-sm">
               <div>
                 <span className="text-muted-foreground">UF:</span>
-                <span className="ml-1 font-mono font-medium">${ufValue.toLocaleString("es-CL")}</span>
+                <span className="ml-1 font-mono font-medium">{formatCLP(ufValue)}</span>
               </div>
               <div className="h-3 w-px bg-border" />
               <div>
                 <span className="text-muted-foreground">UTM:</span>
-                <span className="ml-1 font-mono font-medium">${utmValue.toLocaleString("es-CL")}</span>
+                <span className="ml-1 font-mono font-medium">{formatCLP(utmValue)}</span>
               </div>
             </div>
           </div>
@@ -182,7 +201,7 @@ export default function PayrollSimulator() {
                           {Object.entries(parameters.data.afp.commissions).map(([name, config]: any) => (
                             <div key={name} className="flex justify-between">
                               <span className="capitalize text-muted-foreground">{name}</span>
-                              <span className="font-mono">{((parameters.data.afp.base_rate + config.commission_rate) * 100).toFixed(2).replace(".", ",")}%</span>
+                              <span className="font-mono">{fmtPct(parameters.data.afp.base_rate + config.commission_rate)}</span>
                             </div>
                           ))}
                         </div>
@@ -196,7 +215,7 @@ export default function PayrollSimulator() {
                         <div className="flex justify-between">
                           <span className="text-emerald-400">Tasa:</span>
                           <span className="font-mono font-semibold text-emerald-400">
-                            {(parameters.data.sis.employer_rate * 100).toFixed(2).replace(".", ",")}%
+                            {fmtPct(parameters.data.sis.employer_rate)}
                           </span>
                         </div>
                       </div>
@@ -208,7 +227,7 @@ export default function PayrollSimulator() {
                       <div className="text-xs sm:text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Base legal:</span>
-                          <span className="font-mono">{(parameters.data.work_injury.base_rate * 100).toFixed(2).replace(".", ",")}%</span>
+                          <span className="font-mono">{fmtPct(parameters.data.work_injury.base_rate)}</span>
                         </div>
                       </div>
                     </div>
@@ -238,11 +257,11 @@ export default function PayrollSimulator() {
                     <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">UF ({ufDate}):</span>
-                        <span className="font-mono">${ufValue.toLocaleString("es-CL")}</span>
+                        <span className="font-mono">{formatCLP(ufValue)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">UTM:</span>
-                        <span className="font-mono">${utmValue.toLocaleString("es-CL")}</span>
+                        <span className="font-mono">{formatCLP(utmValue)}</span>
                       </div>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -304,7 +323,7 @@ export default function PayrollSimulator() {
               
               <div className="space-y-1">
                 <Label className="text-xs sm:text-sm">Sueldo Base</Label>
-                <Input type="number" value={baseSalary} onChange={(e) => setBaseSalary(e.target.value)} className="h-11 sm:h-9 bg-background font-mono text-sm" required />
+                <Input type="text" inputMode="numeric" value={baseSalary} onChange={(e) => setBaseSalary(e.target.value)} className="h-11 sm:h-9 bg-background font-mono text-sm" required />
               </div>
 
               <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
@@ -318,33 +337,33 @@ export default function PayrollSimulator() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Horas Extra 50%</Label>
-                  <Input type="number" value={overtimeHours} onChange={(e) => setOvertimeHours(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={overtimeHours} onChange={(e) => setOvertimeHours(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Comisiones</Label>
-                  <Input type="number" value={commissions} onChange={(e) => setCommissions(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={commissions} onChange={(e) => setCommissions(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Bonos</Label>
-                  <Input type="number" value={bonuses} onChange={(e) => setBonuses(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={bonuses} onChange={(e) => setBonuses(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Asig. Familiar (cargas)</Label>
-                  <Input type="number" value={numDependents} onChange={(e) => setNumDependents(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={numDependents} onChange={(e) => setNumDependents(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Colación</Label>
-                  <Input type="number" value={meal} onChange={(e) => setMeal(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={meal} onChange={(e) => setMeal(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Movilización</Label>
-                  <Input type="number" value={transport} onChange={(e) => setTransport(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="numeric" value={transport} onChange={(e) => setTransport(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
               </div>
             </div>
@@ -386,13 +405,13 @@ export default function PayrollSimulator() {
               {healthSystem === "isapre" && (
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Isapre Adicional (%)</Label>
-                  <Input type="number" value={isapre_additional} onChange={(e) => setIsapreAdditional(e.target.value)} placeholder="0" step="0.1" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                  <Input type="text" inputMode="decimal" value={isapre_additional} onChange={(e) => setIsapreAdditional(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
                 </div>
               )}
 
               <div className="space-y-1">
                 <Label className="text-xs sm:text-sm">APV (opcional)</Label>
-                <Input type="number" value={apv} onChange={(e) => setApv(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
+                <Input type="text" inputMode="numeric" value={apv} onChange={(e) => setApv(e.target.value)} placeholder="0" className="h-11 sm:h-9 bg-background font-mono text-sm" />
               </div>
             </div>
 
@@ -453,9 +472,9 @@ export default function PayrollSimulator() {
                   <div>
                     <h4 className="mb-2 text-xs sm:text-sm font-semibold uppercase text-red-400">− Descuentos</h4>
                     <div className="space-y-0.5 text-xs sm:text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">AFP {(result.deductions.afp.total_rate * 100).toFixed(2).replace(".", ",")}%</span><span className="font-mono text-red-400">-{fmt(result.deductions.afp.amount)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Salud {(result.deductions.health.rate * 100).toFixed(1).replace(".", ",")}%</span><span className="font-mono text-red-400">-{fmt(result.deductions.health.amount)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">AFC {(result.deductions.afc.total_rate * 100).toFixed(1).replace(".", ",")}%</span><span className="font-mono text-red-400">-{fmt(result.deductions.afc.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">AFP {fmtPct(result.deductions.afp.total_rate)}</span><span className="font-mono text-red-400">-{fmt(result.deductions.afp.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Salud {fmtPct(result.deductions.health.rate, 1)}</span><span className="font-mono text-red-400">-{fmt(result.deductions.health.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">AFC {fmtPct(result.deductions.afc.total_rate, 1)}</span><span className="font-mono text-red-400">-{fmt(result.deductions.afc.amount)}</span></div>
                       {apv && Number(apv) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">APV</span><span className="font-mono text-red-400">-{fmt(Number(apv))}</span></div>}
                       <div className="flex justify-between"><span className="text-muted-foreground">Impuesto</span><span className="font-mono text-red-400">{result.deductions.tax.amount > 0 ? '-' : ''}{fmt(result.deductions.tax.amount)}</span></div>
                     </div>
@@ -471,9 +490,9 @@ export default function PayrollSimulator() {
                   <div className="border-t pt-2">
                     <h4 className="mb-1.5 text-xs sm:text-sm font-semibold uppercase text-blue-400">Aportes Empleador</h4>
                     <div className="space-y-0.5 text-xs sm:text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">SIS {(result.employer_cost.sis.rate * 100).toFixed(2).replace(".", ",")}%</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.sis.amount)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">AFC {(result.employer_cost.afc.total_rate * 100).toFixed(1).replace(".", ",")}%</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.afc.total_amount)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Mutual {(result.employer_cost.work_injury.rate * 100).toFixed(2).replace(".", ",")}%</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.work_injury.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">SIS {fmtPct(result.employer_cost.sis.rate)}</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.sis.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">AFC {fmtPct(result.employer_cost.afc.total_rate, 1)}</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.afc.total_amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Mutual {fmtPct(result.employer_cost.work_injury.rate)}</span><span className="font-mono text-blue-400">+{fmt(result.employer_cost.work_injury.amount)}</span></div>
                       <div className="flex justify-between border-t pt-1 font-semibold"><span>Total Empresa</span><span className="font-mono text-blue-400">{fmt(result.total_employer_cost)}</span></div>
                     </div>
                   </div>

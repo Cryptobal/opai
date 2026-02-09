@@ -31,11 +31,41 @@ export function formatCLP(value: number): string {
  */
 export function formatUF(value: number): string {
   const formatted = new Intl.NumberFormat('es-CL', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
   
   return `UF ${formatted}`;
+}
+
+/**
+ * Formatea números con separadores locales (es-CL).
+ * Por defecto usa 0 decimales.
+ */
+export function formatNumber(
+  value: number,
+  options: { minDecimals?: number; maxDecimals?: number } = {}
+): string {
+  const { minDecimals = 0, maxDecimals = minDecimals } = options;
+  return new Intl.NumberFormat('es-CL', {
+    minimumFractionDigits: minDecimals,
+    maximumFractionDigits: maxDecimals,
+  }).format(value);
+}
+
+/**
+ * Parsea números locales (miles con . y decimales con ,).
+ */
+export function parseLocalizedNumber(value: string): number {
+  if (!value) return 0;
+  const cleaned = value
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".")
+    .replace(/[^0-9.-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /**
@@ -52,10 +82,11 @@ export function formatCurrency(value: number, currency: string = 'CLP'): string 
   } else if (normalizedCurrency === 'CLP') {
     return formatCLP(value);
   } else if (normalizedCurrency === 'USD') {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(value);
   } else {
     // Fallback a CLP

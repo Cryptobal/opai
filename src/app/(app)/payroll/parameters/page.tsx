@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Calendar, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { formatCLP, formatNumber } from "@/lib/utils";
 
 export default function PayrollParameters() {
   const [parameters, setParameters] = useState<any>(null);
@@ -95,7 +96,7 @@ export default function PayrollParameters() {
                 <div key={name} className="flex justify-between">
                   <span className="capitalize text-muted-foreground">{name}</span>
                   <span className="font-mono">
-                    {((data.afp.base_rate + config.commission_rate) * 100).toFixed(2)}%
+                    {formatNumber((data.afp.base_rate + config.commission_rate) * 100, { minDecimals: 2, maxDecimals: 2 })}%
                   </span>
                 </div>
               ))}
@@ -111,7 +112,7 @@ export default function PayrollParameters() {
               <div className="flex justify-between text-xs">
                 <span className="text-emerald-400">SIS Empleador:</span>
                 <span className="font-mono font-semibold text-emerald-400">
-                  {(data.sis.employer_rate * 100).toFixed(2)}%
+                  {formatNumber(data.sis.employer_rate * 100, { minDecimals: 2, maxDecimals: 2 })}%
                 </span>
               </div>
             </div>
@@ -137,11 +138,11 @@ export default function PayrollParameters() {
               <div className="space-y-0.5">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trabajador:</span>
-                  <span className="font-mono">{(data.afc.indefinite.worker.total_rate * 100).toFixed(1)}%</span>
+                  <span className="font-mono">{formatNumber(data.afc.indefinite.worker.total_rate * 100, { minDecimals: 1, maxDecimals: 1 })}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Empleador:</span>
-                  <span className="font-mono">{(data.afc.indefinite.employer.total_rate * 100).toFixed(1)}%</span>
+                  <span className="font-mono">{formatNumber(data.afc.indefinite.employer.total_rate * 100, { minDecimals: 1, maxDecimals: 1 })}%</span>
                 </div>
               </div>
             </div>
@@ -150,11 +151,11 @@ export default function PayrollParameters() {
               <div className="space-y-0.5">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trabajador:</span>
-                  <span className="font-mono">{(data.afc.fixed_term.worker.total_rate * 100).toFixed(1)}%</span>
+                  <span className="font-mono">{formatNumber(data.afc.fixed_term.worker.total_rate * 100, { minDecimals: 1, maxDecimals: 1 })}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Empleador:</span>
-                  <span className="font-mono">{(data.afc.fixed_term.employer.total_rate * 100).toFixed(1)}%</span>
+                  <span className="font-mono">{formatNumber(data.afc.fixed_term.employer.total_rate * 100, { minDecimals: 1, maxDecimals: 1 })}%</span>
                 </div>
               </div>
             </div>
@@ -171,7 +172,7 @@ export default function PayrollParameters() {
                 <div className="flex justify-between text-xs">
                   <span className="text-blue-400">Tasa Empleador:</span>
                   <span className="font-mono font-semibold text-blue-400">
-                    {((data.work_injury.base_rate || 0.0093) * 100).toFixed(2)}%
+                    {formatNumber((data.work_injury.base_rate || 0.0093) * 100, { minDecimals: 2, maxDecimals: 2 })}%
                   </span>
                 </div>
               </div>
@@ -185,11 +186,15 @@ export default function PayrollParameters() {
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Pensión:</span>
-                  <span className="font-mono">{data.caps.pension_uf} UF</span>
+                  <span className="font-mono">
+                    {formatNumber(data.caps.pension_uf, { minDecimals: 2, maxDecimals: 2 })} UF
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">AFC:</span>
-                  <span className="font-mono">{data.caps.afc_uf} UF</span>
+                  <span className="font-mono">
+                    {formatNumber(data.caps.afc_uf, { minDecimals: 2, maxDecimals: 2 })} UF
+                  </span>
                 </div>
               </div>
             </div>
@@ -211,13 +216,13 @@ export default function PayrollParameters() {
                 {data.family_allowance.tranches.map((t: any, i: number) => (
                   <tr key={i} className="border-b border-border/30">
                     <td className="py-1.5 text-muted-foreground">
-                      {t.to_clp 
-                        ? `$${t.from_clp.toLocaleString("es-CL")} - $${t.to_clp.toLocaleString("es-CL")}`
-                        : `Más de $${t.from_clp.toLocaleString("es-CL")}`
+                      {t.to_clp
+                        ? `${formatCLP(t.from_clp)} - ${formatCLP(t.to_clp)}`
+                        : `Más de ${formatCLP(t.from_clp)}`
                       }
                     </td>
                     <td className="py-1.5 font-mono text-right">
-                      {t.amount_per_dependent > 0 ? `$${t.amount_per_dependent.toLocaleString("es-CL")}` : "Sin beneficio"}
+                      {t.amount_per_dependent > 0 ? formatCLP(t.amount_per_dependent) : "Sin beneficio"}
                     </td>
                   </tr>
                 ))}
@@ -244,11 +249,23 @@ export default function PayrollParameters() {
             <tbody>
               {data.tax_brackets.map((b: any, i: number) => (
                 <tr key={i} className="border-b border-border/30">
-                  <td className="py-1.5 font-mono text-xs">${(b.from_clp / 1000).toFixed(0)}k</td>
-                  <td className="py-1.5 font-mono text-xs">{b.to_clp ? `$${(b.to_clp / 1000).toFixed(0)}k` : "∞"}</td>
-                  <td className="py-1.5 font-mono text-xs">{(b.factor * 100).toFixed(0)}%</td>
-                  <td className="py-1.5 font-mono text-xs">${(b.rebate_clp / 1000).toFixed(0)}k</td>
-                  <td className="py-1.5 font-mono text-xs text-muted-foreground">{(b.effective_rate_max * 100).toFixed(1)}%</td>
+                  <td className="py-1.5 font-mono text-xs">
+                    {formatNumber(b.from_clp / 1000, { minDecimals: 0, maxDecimals: 0 })}k
+                  </td>
+                  <td className="py-1.5 font-mono text-xs">
+                    {b.to_clp
+                      ? `${formatNumber(b.to_clp / 1000, { minDecimals: 0, maxDecimals: 0 })}k`
+                      : "∞"}
+                  </td>
+                  <td className="py-1.5 font-mono text-xs">
+                    {formatNumber(b.factor * 100, { minDecimals: 0, maxDecimals: 0 })}%
+                  </td>
+                  <td className="py-1.5 font-mono text-xs">
+                    {formatNumber(b.rebate_clp / 1000, { minDecimals: 0, maxDecimals: 0 })}k
+                  </td>
+                  <td className="py-1.5 font-mono text-xs text-muted-foreground">
+                    {formatNumber(b.effective_rate_max * 100, { minDecimals: 1, maxDecimals: 1 })}%
+                  </td>
                 </tr>
               ))}
             </tbody>

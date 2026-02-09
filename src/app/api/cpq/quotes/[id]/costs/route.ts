@@ -22,6 +22,9 @@ const normalizeUnitPrice = (value: number, unit?: string | null) => {
   if (normalized.includes("año") || normalized.includes("year")) {
     return value / 12;
   }
+  if (normalized.includes("semestre") || normalized.includes("semester")) {
+    return value / 6;
+  }
   return value;
 };
 
@@ -211,7 +214,14 @@ export async function GET(
       return sum + price * meal.mealsPerDay * meal.daysOfService;
     }, 0);
 
-    const monthlyCostItems = mergedCostItems.reduce((sum, item) => {
+    const financialItems = mergedCostItems.filter((item) =>
+      ["financial", "policy"].includes(item.catalogItem?.type || "")
+    );
+    const nonFinancialItems = mergedCostItems.filter(
+      (item) => !["financial", "policy"].includes(item.catalogItem?.type || "")
+    );
+
+    const monthlyCostItems = nonFinancialItems.reduce((sum, item) => {
       if (!item.isEnabled) return sum;
       const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
       const base = safeNumber(item.catalogItem?.basePrice ?? 0);
@@ -224,19 +234,37 @@ export async function GET(
       return sum + unitPrice * quantity;
     }, 0);
 
-    const financialRatePct = normalizePct(safeNumber(parameters?.financialRatePct));
-    const salePriceMonthly = safeNumber(parameters?.salePriceMonthly);
+    const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 20));
+    const financialItem = financialItems.find(
+      (item) => item.catalogItem?.type === "financial"
+    );
+    const financialRatePct = financialItem
+      ? normalizePct(
+          safeNumber(
+            financialItem.unitPriceOverride ?? financialItem.catalogItem?.basePrice ?? 0
+          )
+        )
+      : 0;
+    const policyItem = financialItems.find((item) => item.catalogItem?.type === "policy");
+    const policyRatePct = policyItem
+      ? normalizePct(
+          safeNumber(policyItem.unitPriceOverride ?? policyItem.catalogItem?.basePrice ?? 0)
+        )
+      : 0;
+
+    const costsBase =
+      monthlyPositions + monthlyUniforms + monthlyExams + monthlyMeals + monthlyCostItems;
+    const totalRatePct = marginPct + financialRatePct + policyRatePct;
+    const salePriceMonthly =
+      totalRatePct < 1 ? costsBase / (1 - totalRatePct) : costsBase;
     const monthlyFinancial = salePriceMonthly * financialRatePct;
 
-    const policyRatePct = normalizePct(safeNumber(parameters?.policyRatePct));
-    const policyAdminRatePct = normalizePct(safeNumber(parameters?.policyAdminRatePct));
     const contractMonths = parameters?.contractMonths ?? 12;
-    const contractAmount =
-      safeNumber(parameters?.contractAmount) ||
-      (contractMonths > 0 ? salePriceMonthly * contractMonths : 0);
-    const policyTotal = contractAmount * policyRatePct;
-    const policyWithFee = policyTotal * (1 + policyAdminRatePct);
-    const monthlyPolicy = contractMonths > 0 ? policyWithFee / contractMonths : 0;
+    const policyContractMonths = parameters?.policyContractMonths ?? 12;
+    const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 100));
+    const policyContractAmount = salePriceMonthly * policyContractMonths * policyContractPct;
+    const policyTotal = policyContractAmount * policyRatePct;
+    const monthlyPolicy = contractMonths > 0 ? policyTotal / contractMonths : 0;
 
     const monthlyExtras =
       monthlyUniforms + monthlyExams + monthlyMeals + monthlyCostItems + monthlyFinancial + monthlyPolicy;
