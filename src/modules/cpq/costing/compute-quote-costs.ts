@@ -180,8 +180,9 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     return sum + unitPrice;
   }, 0);
   const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
+  const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
   const monthlyExams =
-    totalGuards > 0 ? ((examSetCost * examEntriesPerYear) / 12) * totalGuards : 0;
+    totalGuards > 0 ? ((examSetCost * examFrequency) / 12) * totalGuards : 0;
 
   const financialItems = mergedCostItems.filter((item) =>
     ["financial", "policy"].includes(item.catalogItem?.type ?? "")

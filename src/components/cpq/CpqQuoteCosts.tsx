@@ -25,7 +25,7 @@ import type {
   CpqQuoteUniformItem,
   CpqQuoteVehicle,
 } from "@/types/cpq";
-import { Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface CpqQuoteCostsProps {
@@ -73,6 +73,17 @@ export function CpqQuoteCosts({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<"directos" | "indirectos" | "financieros">("directos");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    uniforms: true,
+    exams: true,
+    meals: true,
+    operational: true,
+    transport: true,
+    vehicles: true,
+    infrastructure: true,
+    systems: true,
+    financials: true,
+  });
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<CpqCatalogItem[]>([]);
   const [summary, setSummary] = useState<CpqQuoteCostSummary | null>(null);
@@ -289,6 +300,22 @@ export function CpqQuoteCosts({
       setActiveSection("directos");
     }
   }, [showFinancial, activeSection]);
+
+  useEffect(() => {
+    if (open || isInline) {
+      setCollapsedSections({
+        uniforms: true,
+        exams: true,
+        meals: true,
+        operational: true,
+        transport: true,
+        vehicles: true,
+        infrastructure: true,
+        systems: true,
+        financials: true,
+      });
+    }
+  }, [open, isInline, quoteId]);
 
   const catalogByType = useMemo(() => {
     const grouped: Record<string, CpqCatalogItem[]> = {};
@@ -635,9 +662,11 @@ export function CpqQuoteCosts({
     }, 0);
     const avgStay = parameters.avgStayMonths || 0;
     const entriesPerYear = avgStay > 0 ? 12 / avgStay : 0;
+    const uniformChanges = parameters.uniformChangesPerYear || 0;
+    const examFrequency = Math.max(entriesPerYear, uniformChanges);
     const guards = summary?.totalGuards ?? 0;
-    return guards > 0 ? ((total * entriesPerYear) / 12) * guards : 0;
-  }, [exams, parameters.avgStayMonths, summary?.totalGuards]);
+    return guards > 0 ? ((total * examFrequency) / 12) * guards : 0;
+  }, [exams, parameters.avgStayMonths, parameters.uniformChangesPerYear, summary?.totalGuards]);
 
   const mealTotal = useMemo(() => {
     return meals.reduce((sum, meal) => {
@@ -695,636 +724,804 @@ export function CpqQuoteCosts({
 
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Uniformes
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(uniformTotal)}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  setUniforms((prev) => {
-                    const existing = prev.find((u) => u.catalogItemId === value);
-                    if (existing) {
-                      return prev.map((u) =>
-                        u.catalogItemId === value ? { ...u, active: true } : u
-                      );
-                    }
-                    const catalogItem = catalogById.get(value);
-                    if (!catalogItem) return prev;
-                    return [
-                      ...prev,
-                      {
-                        catalogItemId: value,
-                        unitPriceOverride: null,
-                        active: true,
-                        catalogItem,
-                      },
-                    ];
-                  });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {(catalogByType.uniform || [])
-                  .filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                uniforms: !prev.uniforms,
+              }))
+            }
+            aria-expanded={!collapsedSections.uniforms}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Uniformes
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(uniformTotal)}
+              </span>
             </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {(catalogByType.uniform || [])
-              .filter((item) =>
-                uniforms.find((u) => u.catalogItemId === item.id && u.active)
-              )
-              .map((item) => {
-                const selected = uniforms.find((u) => u.catalogItemId === item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() =>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.uniforms ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.uniforms && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    setUniforms((prev) => {
+                      const existing = prev.find((u) => u.catalogItemId === value);
+                      if (existing) {
+                        return prev.map((u) =>
+                          u.catalogItemId === value ? { ...u, active: true } : u
+                        );
+                      }
+                      const catalogItem = catalogById.get(value);
+                      if (!catalogItem) return prev;
+                      return [
+                        ...prev,
+                        {
+                          catalogItemId: value,
+                          unitPriceOverride: null,
+                          active: true,
+                          catalogItem,
+                        },
+                      ];
+                    });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {(catalogByType.uniform || [])
+                    .filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {(catalogByType.uniform || [])
+                  .filter((item) =>
+                    uniforms.find((u) => u.catalogItemId === item.id && u.active)
+                  )
+                  .map((item) => {
+                    const selected = uniforms.find((u) => u.catalogItemId === item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() =>
+                                setUniforms((prev) =>
+                                  prev.map((u) =>
+                                    u.catalogItemId === item.id ? { ...u, active: false } : u
+                                  )
+                                )
+                              }
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={selected?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
                             setUniforms((prev) =>
                               prev.map((u) =>
-                                u.catalogItemId === item.id ? { ...u, active: false } : u
+                                u.catalogItemId === item.id
+                                  ? { ...u, unitPriceOverride: toNumber(e.target.value) }
+                                  : u
                               )
                             )
                           }
-                        >
-                          ✕
-                        </button>
+                          className={inputClass}
+                        />
                       </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={selected?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        setUniforms((prev) =>
-                          prev.map((u) =>
-                            u.catalogItemId === item.id
-                              ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                              : u
-                          )
-                        )
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
         </div>
         )}
 
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Exámenes
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(examTotal)}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  setExams((prev) => {
-                    const existing = prev.find((u) => u.catalogItemId === value);
-                    if (existing) {
-                      return prev.map((u) =>
-                        u.catalogItemId === value ? { ...u, active: true } : u
-                      );
-                    }
-                    const catalogItem = catalogById.get(value);
-                    if (!catalogItem) return prev;
-                    return [
-                      ...prev,
-                      {
-                        catalogItemId: value,
-                        unitPriceOverride: null,
-                        active: true,
-                        catalogItem,
-                      },
-                    ];
-                  });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {(catalogByType.exam || [])
-                  .filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                exams: !prev.exams,
+              }))
+            }
+            aria-expanded={!collapsedSections.exams}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Exámenes
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(examTotal)}
+              </span>
             </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {(catalogByType.exam || [])
-              .filter((item) =>
-                exams.find((u) => u.catalogItemId === item.id && u.active)
-              )
-              .map((item) => {
-                const selected = exams.find((u) => u.catalogItemId === item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() =>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.exams ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.exams && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    setExams((prev) => {
+                      const existing = prev.find((u) => u.catalogItemId === value);
+                      if (existing) {
+                        return prev.map((u) =>
+                          u.catalogItemId === value ? { ...u, active: true } : u
+                        );
+                      }
+                      const catalogItem = catalogById.get(value);
+                      if (!catalogItem) return prev;
+                      return [
+                        ...prev,
+                        {
+                          catalogItemId: value,
+                          unitPriceOverride: null,
+                          active: true,
+                          catalogItem,
+                        },
+                      ];
+                    });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {(catalogByType.exam || [])
+                    .filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {(catalogByType.exam || [])
+                  .filter((item) =>
+                    exams.find((u) => u.catalogItemId === item.id && u.active)
+                  )
+                  .map((item) => {
+                    const selected = exams.find((u) => u.catalogItemId === item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() =>
+                                setExams((prev) =>
+                                  prev.map((u) =>
+                                    u.catalogItemId === item.id ? { ...u, active: false } : u
+                                  )
+                                )
+                              }
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={selected?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
                             setExams((prev) =>
                               prev.map((u) =>
-                                u.catalogItemId === item.id ? { ...u, active: false } : u
+                                u.catalogItemId === item.id
+                                  ? { ...u, unitPriceOverride: toNumber(e.target.value) }
+                                  : u
                               )
                             )
                           }
-                        >
-                          ✕
-                        </button>
+                          className={inputClass}
+                        />
                       </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={selected?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        setExams((prev) =>
-                          prev.map((u) =>
-                            u.catalogItemId === item.id
-                              ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                              : u
-                          )
-                        )
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
         </div>
         )}
 
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Alimentación
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(mealTotal)}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  updateMeal(value, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {mealCatalog
-                  .filter(
-                    (item) =>
-                      !meals.find(
-                        (m) =>
-                          m.mealType.toLowerCase() === item.name.toLowerCase() &&
-                          m.isEnabled
-                      )
-                  )
-                  .map((item) => (
-                    <option key={item.id} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                meals: !prev.meals,
+              }))
+            }
+            aria-expanded={!collapsedSections.meals}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Alimentación
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(mealTotal)}
+              </span>
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {mealCatalog
-              .filter((item) =>
-                meals.find(
-                  (m) =>
-                    m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled
-                )
-              )
-              .map((item) => {
-                const meal = meals.find(
-                  (m) => m.mealType.toLowerCase() === item.name.toLowerCase()
-                );
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => updateMeal(item.name, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Comidas/día"
-                        value={meal?.mealsPerDay ?? 0}
-                        onChange={(e) =>
-                          updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
-                        }
-                        className={inputClass}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Días/mes"
-                        value={meal?.daysOfService ?? 0}
-                        onChange={(e) =>
-                          updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
-                        }
-                        className={inputClass}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Precio mensual (override)"
-                        value={meal?.priceOverride ?? ""}
-                        onChange={(e) =>
-                          updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
-                        }
-                        className={`${inputClass} col-span-2`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Equipos operativos
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(sumCostItemsByType(["phone", "radio", "flashlight"]))}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {operationalCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {operationalCatalog
-              .filter((item) => findCostItem(item.id)?.isEnabled)
-              .map((item) => {
-                const costItem = findCostItem(item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(item, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={costItem?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Costos de transporte
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(sumCostItemsByType(TRANSPORT_TYPES))}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {transportCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {transportCatalog
-              .filter((item) => findCostItem(item.id)?.isEnabled)
-              .map((item) => {
-                const costItem = findCostItem(item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(item, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={costItem?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Vehículos
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(sumCostItemsByType(VEHICLE_TYPES))}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {vehicleCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {vehicleCatalog
-              .filter((item) => findCostItem(item.id)?.isEnabled)
-              .map((item) => {
-                const costItem = findCostItem(item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(item, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={costItem?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Infraestructura
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(sumCostItemsByType(INFRA_TYPES))}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {infraCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {infraCatalog
-              .filter((item) => findCostItem(item.id)?.isEnabled)
-              .map((item) => {
-                const costItem = findCostItem(item.id);
-                return (
-                  <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{item.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(item, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={costItem?.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
-              Sistemas
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatCurrency(sumCostItemsByType(["system"]))}
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  const item = catalogById.get(value);
-                  if (!item) return;
-                  upsertCostItem(item, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {extraItemsCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {otherCostItems
-              .filter((item) => item.isEnabled)
-              .map((item) => {
-                const catalogItem = catalogById.get(item.catalogItemId);
-                if (!catalogItem) return null;
-                return (
-                  <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{catalogItem.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Precio mensual (override)"
-                      value={item.unitPriceOverride ?? ""}
-                      onChange={(e) =>
-                        setCostItems((prev) =>
-                          prev.map((c) =>
-                            c.catalogItemId === item.catalogItemId
-                              ? { ...c, unitPriceOverride: toNumber(e.target.value) }
-                              : c
-                          )
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.meals ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.meals && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    updateMeal(value, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {mealCatalog
+                    .filter(
+                      (item) =>
+                        !meals.find(
+                          (m) =>
+                            m.mealType.toLowerCase() === item.name.toLowerCase() &&
+                            m.isEnabled
                         )
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                );
-              })}
-          </div>
+                    )
+                    .map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {mealCatalog
+                  .filter((item) =>
+                    meals.find(
+                      (m) =>
+                        m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled
+                    )
+                  )
+                  .map((item) => {
+                    const meal = meals.find(
+                      (m) => m.mealType.toLowerCase() === item.name.toLowerCase()
+                    );
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => updateMeal(item.name, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="number"
+                            placeholder="Comidas/día"
+                            value={meal?.mealsPerDay ?? 0}
+                            onChange={(e) =>
+                              updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
+                            }
+                            className={inputClass}
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Días/mes"
+                            value={meal?.daysOfService ?? 0}
+                            onChange={(e) =>
+                              updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
+                            }
+                            className={inputClass}
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Precio mensual (override)"
+                            value={meal?.priceOverride ?? ""}
+                            onChange={(e) =>
+                              updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
+                            }
+                            className={`${inputClass} col-span-2`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
+        {activeSection === "indirectos" && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                operational: !prev.operational,
+              }))
+            }
+            aria-expanded={!collapsedSections.operational}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Equipos operativos
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(sumCostItemsByType(["phone", "radio", "flashlight"]))}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.operational ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.operational && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {operationalCatalog
+                    .filter((item) => !findCostItem(item.id)?.isEnabled)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {operationalCatalog
+                  .filter((item) => findCostItem(item.id)?.isEnabled)
+                  .map((item) => {
+                    const costItem = findCostItem(item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => upsertCostItem(item, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={costItem?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
+                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
+        {activeSection === "indirectos" && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                transport: !prev.transport,
+              }))
+            }
+            aria-expanded={!collapsedSections.transport}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Costos de transporte
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(sumCostItemsByType(TRANSPORT_TYPES))}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.transport ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.transport && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {transportCatalog
+                    .filter((item) => !findCostItem(item.id)?.isEnabled)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {transportCatalog
+                  .filter((item) => findCostItem(item.id)?.isEnabled)
+                  .map((item) => {
+                    const costItem = findCostItem(item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => upsertCostItem(item, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={costItem?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
+                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
+        {activeSection === "indirectos" && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                vehicles: !prev.vehicles,
+              }))
+            }
+            aria-expanded={!collapsedSections.vehicles}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Vehículos
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(sumCostItemsByType(VEHICLE_TYPES))}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.vehicles ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.vehicles && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {vehicleCatalog
+                    .filter((item) => !findCostItem(item.id)?.isEnabled)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {vehicleCatalog
+                  .filter((item) => findCostItem(item.id)?.isEnabled)
+                  .map((item) => {
+                    const costItem = findCostItem(item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => upsertCostItem(item, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={costItem?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
+                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
+        {activeSection === "indirectos" && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                infrastructure: !prev.infrastructure,
+              }))
+            }
+            aria-expanded={!collapsedSections.infrastructure}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Infraestructura
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(sumCostItemsByType(INFRA_TYPES))}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.infrastructure ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.infrastructure && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {infraCatalog
+                    .filter((item) => !findCostItem(item.id)?.isEnabled)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {infraCatalog
+                  .filter((item) => findCostItem(item.id)?.isEnabled)
+                  .map((item) => {
+                    const costItem = findCostItem(item.id);
+                    return (
+                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{item.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => upsertCostItem(item, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={costItem?.unitPriceOverride ?? ""}
+                          onChange={(e) =>
+                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+        )}
+
+        {activeSection === "indirectos" && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                systems: !prev.systems,
+              }))
+            }
+            aria-expanded={!collapsedSections.systems}
+          >
+            <div>
+              <h3 className="text-sm font-semibold uppercase text-foreground">
+                Sistemas
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                Total: {formatCurrency(sumCostItemsByType(["system"]))}
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                collapsedSections.systems ? "" : "rotate-180"
+              }`}
+            />
+          </button>
+          {!collapsedSections.systems && (
+            <>
+              <div className="flex items-center gap-2 sm:justify-end">
+                <select
+                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    const item = catalogById.get(value);
+                    if (!item) return;
+                    upsertCostItem(item, { isEnabled: true });
+                  }}
+                >
+                  <option value="">Agregar ítem</option>
+                  {extraItemsCatalog
+                    .filter((item) => !findCostItem(item.id)?.isEnabled)
+                    .map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {otherCostItems
+                  .filter((item) => item.isEnabled)
+                  .map((item) => {
+                    const catalogItem = catalogById.get(item.catalogItemId);
+                    if (!catalogItem) return null;
+                    return (
+                      <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{catalogItem.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs"
+                              onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Precio mensual (override)"
+                          value={item.unitPriceOverride ?? ""}
+                          onChange={(e) =>
+                            setCostItems((prev) =>
+                              prev.map((c) =>
+                                c.catalogItemId === item.catalogItemId
+                                  ? { ...c, unitPriceOverride: toNumber(e.target.value) }
+                                  : c
+                              )
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
         </div>
         )}
 

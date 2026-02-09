@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/opai";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Save, Plus, Trash2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
@@ -273,10 +273,11 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Horas mensuales</span>
               <button
                 type="button"
-                className="text-xs text-muted-foreground"
-                title="Horas base para el cálculo mensual por guardia."
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground"
+                title="Horas base usadas para prorratear el costo mensual por guardia y el valor hora."
+                aria-label="Información sobre horas mensuales"
               >
-                ?
+                <Info className="h-3 w-3" />
               </button>
             </div>
             <Input
@@ -296,10 +297,11 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Meses de estadía</span>
               <button
                 type="button"
-                className="text-xs text-muted-foreground"
-                title="Promedio de permanencia para calcular exámenes."
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground"
+                title="Promedio de permanencia. Se usa para calcular la frecuencia de exámenes (se considera junto a cambios de uniforme/año)."
+                aria-label="Información sobre meses de estadía"
               >
-                ?
+                <Info className="h-3 w-3" />
               </button>
             </div>
             <Input
@@ -319,10 +321,11 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Cambios uniforme/año</span>
               <button
                 type="button"
-                className="text-xs text-muted-foreground"
-                title="Número de cambios de uniforme por año para prorrateo."
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground"
+                title="Cambios de uniforme por año. Se usa para prorratear uniformes y también para calcular exámenes (se toma la mayor frecuencia con la estadía)."
+                aria-label="Información sobre cambios de uniforme por año"
               >
-                ?
+                <Info className="h-3 w-3" />
               </button>
             </div>
             <Input
