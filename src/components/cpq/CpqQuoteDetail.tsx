@@ -366,13 +366,6 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             >
               {savingQuote ? "Guardando..." : "Guardar"}
             </Button>
-            <Button
-              size="sm"
-              onClick={() => saveQuoteBasics({ nextStep: 1 })}
-              disabled={savingQuote}
-            >
-              Guardar y seguir
-            </Button>
           </div>
         </Card>
       )}
