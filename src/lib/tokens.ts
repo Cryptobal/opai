@@ -39,15 +39,11 @@ export function buildTokenMap(data: PresentationPayload): Record<string, string>
     '[QUOTE_NUMBER]': data.quote.number || '',
     '[QUOTE_SUBJECT]': data.quote.subject || '',
     '[QUOTE_DESCRIPTION]': data.quote.description || '',
-    '[QUOTE_SUBTOTAL]': data.quote.subtotal 
-      ? (data.quote.currency === 'UF' 
-        ? formatUF(data.quote.subtotal) 
-        : formatCurrency(data.quote.subtotal)) 
+    '[QUOTE_SUBTOTAL]': data.quote.subtotal
+      ? formatCurrency(data.quote.subtotal, data.quote.currency)
       : '',
-    '[QUOTE_TAX]': data.quote.tax 
-      ? (data.quote.currency === 'UF' 
-        ? formatUF(data.quote.tax) 
-        : formatCurrency(data.quote.tax)) 
+    '[QUOTE_TAX]': data.quote.tax
+      ? formatCurrency(data.quote.tax, data.quote.currency)
       : '',
     '[QUOTE_TOTAL]': formatTotalWithCurrency(data.quote.total, data.quote.currency),
     '[QUOTE_CURRENCY]': data.quote.currency || 'CLP',
