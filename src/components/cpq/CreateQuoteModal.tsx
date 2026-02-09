@@ -77,36 +77,36 @@ export function CreateQuoteModal({ onCreated, variant = "modal" }: CreateQuoteMo
           <span className="hidden sm:inline">Nueva Cotización</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[95vw] sm:max-w-md p-4 sm:p-6">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Nueva Cotización</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs sm:text-sm">Cliente</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Cliente</Label>
             <Input
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="Nombre cliente"
-              className="h-11 sm:h-9 bg-background text-base sm:text-sm"
+              className="h-10 bg-background text-sm"
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs sm:text-sm">Válida hasta</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Válida hasta</Label>
             <Input
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              className="h-11 sm:h-9 bg-background text-base sm:text-sm"
+              className="h-10 bg-background text-sm"
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs sm:text-sm">Notas</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Notas</Label>
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Observaciones"
-              className="h-11 sm:h-9 bg-background text-base sm:text-sm"
+              className="h-10 bg-background text-sm"
             />
           </div>
           <Button type="submit" size="sm" className="w-full" disabled={loading}>

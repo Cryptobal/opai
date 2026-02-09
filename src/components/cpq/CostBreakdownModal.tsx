@@ -65,7 +65,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-lg p-4 sm:p-6">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Apertura costo por guardia</DialogTitle>
         </DialogHeader>
@@ -90,10 +90,10 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
           {error && <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 sm:p-2">{error}</div>}
 
           {data && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="rounded-md border p-3 sm:p-2">
                 <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Haberes</p>
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span>Sueldo base</span>
                     <span className="font-mono">{formatCurrency(breakdown.base_salary)}</span>
@@ -111,7 +111,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
 
               <div className="rounded-md border p-3 sm:p-2">
                 <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Aportes empresa</p>
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span>SIS</span>
                     <span className="font-mono">{formatCurrency(breakdown.sis_employer)}</span>
@@ -129,7 +129,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
 
               <div className="rounded-md border p-3 sm:p-2">
                 <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Provisiones</p>
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span>Vacaciones</span>
                     <span className="font-mono">{formatCurrency(breakdown.vacation_provision)}</span>
@@ -163,7 +163,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
               {worker && (
                 <div className="rounded-md border p-3 sm:p-2">
                   <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Descuentos trabajador</p>
-                  <div className="mt-1 space-y-1">
+                  <div className="mt-1 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span>AFP</span>
                       <span className="font-mono">{formatCurrency(worker.afp.amount)}</span>

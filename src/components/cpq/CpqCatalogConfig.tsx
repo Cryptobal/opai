@@ -251,7 +251,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Horas mensuales</span>
               <button
@@ -274,7 +274,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               className={inputClass}
             />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Meses de estadía</span>
               <button
@@ -297,7 +297,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               className={inputClass}
             />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Cambios uniforme/año</span>
               <button
@@ -371,7 +371,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               {sectionItems.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-md border border-border/60 p-2 space-y-2"
+                  className="rounded-md border border-border/60 p-2 space-y-3"
                 >
                   <div className="flex items-center gap-2">
                     <Input
@@ -449,7 +449,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               ))}
             </div>
 
-            <div className="rounded-md border border-border/60 p-2 space-y-2">
+            <div className="rounded-md border border-border/60 p-2 space-y-3">
               <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_120px_90px_120px] sm:items-center">
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-2 text-xs">

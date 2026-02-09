@@ -80,7 +80,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
   const defaultsApplied = useRef(false);
   const inputClass =
-    "h-11 sm:h-9 bg-card text-foreground border-border placeholder:text-muted-foreground";
+    "h-10 bg-card text-foreground border-border placeholder:text-muted-foreground";
   const sectionBoxClass = "rounded-md border border-border bg-muted/20 p-3 sm:p-2";
   const isInline = variant === "inline";
   const getDecimalValue = (
@@ -683,7 +683,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Uniformes
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -738,7 +738,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -781,7 +781,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Exámenes
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -836,7 +836,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -879,7 +879,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "directos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Alimentación
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -928,7 +928,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -979,7 +979,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "indirectos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Equipos operativos
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1014,7 +1014,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -1045,7 +1045,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "indirectos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Costos de transporte
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1080,7 +1080,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -1111,7 +1111,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "indirectos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Vehículos
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1146,7 +1146,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -1177,7 +1177,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "indirectos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Infraestructura
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1212,7 +1212,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{item.name}</span>
+                      <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
@@ -1243,7 +1243,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "indirectos" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Sistemas
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1281,7 +1281,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 return (
                   <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{catalogItem.name}</span>
+                      <span className="text-sm">{catalogItem.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
                         <button
@@ -1318,7 +1318,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
         {activeSection === "financieros" && (
         <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-sm font-semibold uppercase text-foreground">
               Costos financieros
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1365,7 +1365,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                     className={`${sectionBoxClass} space-y-2 ${isPolicy ? "sm:col-span-2 lg:col-span-3" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs sm:text-sm">{catalogItem.name}</span>
+                      <span className="text-sm">{catalogItem.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>
                           Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
@@ -1380,7 +1380,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       </div>
                     </div>
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Tasa (%)</Label>
                         <Input
                           type="text"
@@ -1411,7 +1411,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       </div>
                       {isPolicy && (
                         <>
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <Label className="text-xs">Meses a considerar</Label>
                             <Input
                               type="number"
@@ -1425,7 +1425,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                               className={inputClass}
                             />
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <Label className="text-xs">Porcentaje contrato (%)</Label>
                                     <Input
                                       type="text"
@@ -1461,7 +1461,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
             Margen y parámetros
           </h3>
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-xs">Margen (%)</Label>
               <Input
                 type="text"
@@ -1481,7 +1481,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 className={inputClass}
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-xs">Meses contrato</Label>
               <Input
                 type="number"
@@ -1544,7 +1544,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                 <span className="hidden sm:inline">Agregar costos</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-background text-foreground p-4 sm:p-6">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background text-foreground">
               <DialogHeader>
                 <DialogTitle>Configurar costos adicionales</DialogTitle>
               </DialogHeader>
@@ -1586,7 +1586,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Uniformes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1641,7 +1641,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -1685,7 +1685,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Exámenes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1740,7 +1740,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -1783,7 +1783,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "directos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Alimentación
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1832,7 +1832,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -1883,7 +1883,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Equipos operativos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1918,7 +1918,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -1949,7 +1949,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Costos de transporte
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1984,7 +1984,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -2015,7 +2015,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Vehículos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2050,7 +2050,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -2081,7 +2081,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Infraestructura
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2116,7 +2116,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{item.name}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
@@ -2147,7 +2147,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "indirectos" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Sistemas
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2185,7 +2185,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{catalogItem.name}</span>
+                                <span className="text-sm">{catalogItem.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
                                   <button
@@ -2222,7 +2222,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   {activeSection === "financieros" && (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs sm:text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-sm font-semibold uppercase text-foreground">
                         Costos financieros
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2266,7 +2266,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           return (
                             <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2 ${isPolicy ? "sm:col-span-2 lg:col-span-3" : ""}`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs sm:text-sm">{catalogItem.name}</span>
+                                <span className="text-sm">{catalogItem.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>
                                     Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
@@ -2281,7 +2281,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                 </div>
                               </div>
                               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                                <div className="space-y-1">
+                                <div className="space-y-1.5">
                                   <Label className="text-xs">Tasa (%)</Label>
                                   <Input
                                     type="text"
@@ -2312,7 +2312,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                 </div>
                                 {isPolicy && (
                                   <>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1.5">
                                       <Label className="text-xs">Meses a considerar</Label>
                                       <Input
                                         type="number"
@@ -2326,7 +2326,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                         className={inputClass}
                                       />
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1.5">
                                       <Label className="text-xs">Porcentaje contrato (%)</Label>
                                       <Input
                                       type="text"
@@ -2357,7 +2357,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       Margen y parámetros
                     </h3>
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Margen (%)</Label>
                         <Input
                           type="text"
@@ -2377,7 +2377,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           className={inputClass}
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Meses contrato</Label>
                         <Input
                           type="number"
@@ -2421,7 +2421,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
       {isInline && <div className="space-y-3">{costForm}</div>}
 
       {summary ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
             <KpiCard
               title="Uniformes"
@@ -2429,7 +2429,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="blue"
               size="sm"
             tooltip={
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="font-semibold">Ítems activos:</div>
                 {uniforms
                   .filter((item) => item.active)
@@ -2457,7 +2457,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="indigo"
               size="sm"
             tooltip={
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="font-semibold">Ítems activos:</div>
                 {exams
                   .filter((item) => item.active)
@@ -2485,7 +2485,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="sky"
               size="sm"
             tooltip={
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="font-semibold">Ítems activos:</div>
                 {meals
                   .filter((meal) => meal.isEnabled)
@@ -2512,7 +2512,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="emerald"
               size="sm"
             tooltip={
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="font-semibold">Ítems activos:</div>
                 {costItems
                   .filter((item) => {
@@ -2543,7 +2543,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="sky"
               size="sm"
               tooltip={
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="font-semibold">Ítems activos:</div>
                   {costItems
                     .filter((item) => {
@@ -2571,7 +2571,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="indigo"
               size="sm"
               tooltip={
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="font-semibold">Ítems activos:</div>
                   {costItems
                     .filter((item) => {
@@ -2599,7 +2599,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="teal"
               size="sm"
               tooltip={
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="font-semibold">Ítems activos:</div>
                   {costItems
                     .filter((item) => {
@@ -2627,7 +2627,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="purple"
               size="sm"
             tooltip={
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="font-semibold">Ítems activos:</div>
                 {costItems
                   .filter((item) => {
@@ -2655,7 +2655,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               variant="amber"
               size="sm"
               tooltip={
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="font-semibold">Desglose:</div>
                   <div className="text-xs">Costo financiero: {formatCurrency(summary.monthlyFinancial)}</div>
                   <div className="text-xs">Póliza: {formatCurrency(summary.monthlyPolicy)}</div>

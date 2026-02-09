@@ -325,7 +325,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-xs">Cliente</Label>
               <Input
                 value={quoteForm.clientName}
@@ -334,10 +334,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   setQuoteDirty(true);
                 }}
                 placeholder="Nombre del cliente"
-                className="h-11 sm:h-9 bg-background text-sm"
+                className="h-10 bg-background text-sm"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-xs">Válida hasta</Label>
               <Input
                 type="date"
@@ -346,10 +346,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   setQuoteForm((prev) => ({ ...prev, validUntil: e.target.value }));
                   setQuoteDirty(true);
                 }}
-                className="h-11 sm:h-9 bg-background text-sm"
+                className="h-10 bg-background text-sm"
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs">Notas</Label>
               <Input
                 value={quoteForm.notes}
@@ -358,13 +358,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   setQuoteDirty(true);
                 }}
                 placeholder="Observaciones internas"
-                className="h-11 sm:h-9 bg-background text-sm"
+                className="h-10 bg-background text-sm"
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs">Estado</Label>
               <select
-                className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                 value={quoteForm.status}
                 onChange={(e) => {
                   setQuoteForm((prev) => ({

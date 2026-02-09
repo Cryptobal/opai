@@ -227,7 +227,7 @@ export function EditPositionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Puesto de Trabajo</DialogTitle>
         </DialogHeader>
@@ -235,12 +235,12 @@ export function EditPositionModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
-              <h3 className="text-xs sm:text-sm font-semibold uppercase text-blue-400">Puesto</h3>
+              <h3 className="text-sm font-semibold uppercase text-blue-400">Puesto</h3>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Tipo de Puesto *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Tipo de Puesto *</Label>
                 <select
-                  className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                   value={form.puestoTrabajoId}
                   onChange={(e) => setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))}
                 >
@@ -251,20 +251,20 @@ export function EditPositionModal({
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Nombre personalizado</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Nombre personalizado</Label>
                 <Input
                   value={form.customName}
                   onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))}
-                  className="h-11 sm:h-9 bg-background text-sm"
+                  className="h-10 bg-background text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Hora inicio</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Hora inicio</Label>
                   <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                     value={form.startTime}
                     onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}
                   >
@@ -273,10 +273,10 @@ export function EditPositionModal({
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Hora término</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Hora término</Label>
                   <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                     value={form.endTime}
                     onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}
                   >
@@ -286,7 +286,7 @@ export function EditPositionModal({
                   </select>
                 </div>
               </div>
-              <div className="text-xs sm:text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 Jornada:{" "}
                 <span className="font-medium text-foreground">
                   {shiftHours === null
@@ -295,9 +295,9 @@ export function EditPositionModal({
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs sm:text-sm">Días de servicio</Label>
+                  <Label className="text-sm">Días de servicio</Label>
                   <span className="text-xs text-muted-foreground">Toca para activar</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -360,10 +360,10 @@ export function EditPositionModal({
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Cantidad de guardias</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Cantidad de guardias</Label>
                 <select
-                  className="flex h-11 sm:h-9 w-24 rounded-md border border-input bg-card px-2 text-sm"
+                  className="flex h-10 w-24 rounded-md border border-input bg-card px-2 text-sm"
                   value={form.numGuards}
                   onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}
                 >
@@ -375,12 +375,12 @@ export function EditPositionModal({
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-xs sm:text-sm font-semibold uppercase text-purple-400">Estructura</h3>
+              <h3 className="text-sm font-semibold uppercase text-purple-400">Estructura</h3>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Cargo *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Cargo *</Label>
                 <select
-                  className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                   value={form.cargoId}
                   onChange={(e) => setForm((p) => ({ ...p, cargoId: e.target.value }))}
                 >
@@ -391,10 +391,10 @@ export function EditPositionModal({
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Rol *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Rol *</Label>
                 <select
-                  className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                   value={form.rolId}
                   onChange={(e) => setForm((p) => ({ ...p, rolId: e.target.value }))}
                 >
@@ -405,8 +405,8 @@ export function EditPositionModal({
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs sm:text-sm">Sueldo base</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Sueldo base</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -417,15 +417,15 @@ export function EditPositionModal({
                       baseSalary: parseLocalizedNumber(e.target.value),
                     }))
                   }
-                  className="h-11 sm:h-9 bg-background text-sm"
+                  className="h-10 bg-background text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">AFP</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">AFP</Label>
                   <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                     value={form.afpName}
                     onChange={(e) => setForm((p) => ({ ...p, afpName: e.target.value }))}
                   >
@@ -438,10 +438,10 @@ export function EditPositionModal({
                     <option value="uno">Uno</option>
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Salud</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Salud</Label>
                   <select
-                    className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                     value={form.healthSystem}
                     onChange={(e) => setForm((p) => ({ ...p, healthSystem: e.target.value }))}
                   >
@@ -452,8 +452,8 @@ export function EditPositionModal({
               </div>
 
               {form.healthSystem === "isapre" && (
-                <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">Plan Isapre (%)</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Plan Isapre (%)</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -464,7 +464,7 @@ export function EditPositionModal({
                         healthPlanPct: parseLocalizedNumber(e.target.value),
                       }))
                     }
-                    className="h-11 sm:h-9 bg-background text-sm"
+                    className="h-10 bg-background text-sm"
                   />
                 </div>
               )}
