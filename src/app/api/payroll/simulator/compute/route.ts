@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Validar input mínimo
-    if (!body.base_salary_clp || typeof body.base_salary_clp !== "number") {
+    if (!body.base_salary_clp || typeof body.base_salary_clp !== "number" || body.base_salary_clp <= 0) {
       return NextResponse.json(
         {
           success: false,
@@ -67,16 +67,22 @@ export async function POST(req: NextRequest) {
     // Ejecutar simulación
     const input: PayslipSimulationInput = {
       base_salary_clp: body.base_salary_clp,
+      gratification_clp: body.gratification_clp,
       overtime_hours_50: body.overtime_hours_50,
       overtime_hours_100: body.overtime_hours_100,
+      commissions: body.commissions,
       other_taxable_allowances: body.other_taxable_allowances,
       non_taxable_allowances: body.non_taxable_allowances,
       worked_days: body.worked_days,
       total_days_month: body.total_days_month,
+      absence_days: body.absence_days,
       contract_type: body.contract_type,
       afp_name: body.afp_name,
       health_system: body.health_system,
       health_plan_pct: body.health_plan_pct,
+      num_dependents: body.num_dependents,
+      has_maternal_allowance: body.has_maternal_allowance,
+      has_invalidity_allowance: body.has_invalidity_allowance,
       additional_deductions: body.additional_deductions,
       params_version_id: body.params_version_id,
       uf_value: body.uf_value,

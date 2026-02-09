@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Validar input mínimo
-    if (!body.base_salary_clp || typeof body.base_salary_clp !== "number") {
+    if (!body.base_salary_clp || typeof body.base_salary_clp !== "number" || body.base_salary_clp <= 0) {
       return NextResponse.json(
         {
           success: false,
@@ -46,6 +46,12 @@ export async function POST(req: NextRequest) {
       health_system: body.health_system,
       health_plan_pct: body.health_plan_pct,
       work_injury_risk: body.work_injury_risk,
+      overtime_hours_50: body.overtime_hours_50,
+      commissions: body.commissions,
+      transport_allowance: body.transport_allowance,
+      meal_allowance: body.meal_allowance,
+      num_dependents: body.num_dependents,
+      has_maternal_allowance: body.has_maternal_allowance,
       params_version_id: body.params_version_id,
       uf_value: body.uf_value,
       uf_date: body.uf_date,

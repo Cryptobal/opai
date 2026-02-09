@@ -39,20 +39,40 @@ export async function POST(request: NextRequest) {
     const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
     const notes = body?.notes?.trim() || null;
 
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
+    // Generar código único con retry para evitar race condition
     const year = new Date().getFullYear();
-    const code = `CPQ-${year}-${String(count + 1).padStart(3, "0")}`;
+    let quote = null;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    const quote = await prisma.cpqQuote.create({
-      data: {
-        tenantId,
-        code,
-        status: "draft",
-        clientName,
-        validUntil,
-        notes,
-      },
-    });
+    while (!quote && attempts < maxAttempts) {
+      attempts++;
+      const count = await prisma.cpqQuote.count({ where: { tenantId } });
+      const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
+
+      try {
+        quote = await prisma.cpqQuote.create({
+          data: {
+            tenantId,
+            code,
+            status: "draft",
+            clientName,
+            validUntil,
+            notes,
+          },
+        });
+      } catch (err: any) {
+        // Si es error de código duplicado, reintentar
+        if (err.code === 'P2002' && attempts < maxAttempts) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!quote) {
+      throw new Error('No se pudo generar código único después de múltiples intentos');
+    }
 
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
   } catch (error) {

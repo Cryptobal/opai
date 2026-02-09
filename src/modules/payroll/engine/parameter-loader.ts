@@ -165,12 +165,14 @@ export async function resolveUtmValue(month?: string): Promise<{
 
 /**
  * Resolver todas las referencias FX (UF, UTM, IMM)
+ * @param imm_from_params - IMM desde params.imm.value_clp (fuente autoritativa)
  */
 export async function resolveFxReferences(
   uf_value?: number,
   uf_date?: string,
   utm_value?: number,
-  utm_month?: string
+  utm_month?: string,
+  imm_from_params?: number
 ): Promise<FxReferences> {
   let ufData: { value: number; date: string };
   let utmData: { value: number; month: string };
@@ -188,8 +190,9 @@ export async function resolveFxReferences(
     utmData = await resolveUtmValue(utm_month);
   }
 
-  // IMM está hardcodeado por ahora (debería venir de fx.imm_rates o similar)
-  const imm_clp = 500000; // TODO: Obtener de tabla fx si existe
+  // IMM: usar el valor de los parámetros legales (fuente autoritativa)
+  // Fallback a 500.000 solo si no se provee (no debería ocurrir)
+  const imm_clp = imm_from_params || 500000;
 
   return {
     uf_clp: ufData.value,

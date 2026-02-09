@@ -201,8 +201,19 @@ export async function seedPayrollData() {
     },
 
     gratification: {
-      monthly_rate: 0.25,
-      annual_cap_imm_multiple: 4.75,
+      regime_25_monthly: {
+        enabled: true,
+        monthly_rate: 0.25,
+        annual_cap_imm_multiple: 4.75,
+        imponible_previsional: true,
+        imponible_tributario: true,
+      },
+      regime_30_annual: {
+        enabled: false,
+        annual_rate: 0.30,
+        imponible_previsional: true,
+        imponible_tributario: true,
+      },
     },
 
     family_allowance: {
@@ -215,6 +226,13 @@ export async function seedPayrollData() {
       ],
       imponible_previsional: false,
       imponible_tributario: false,
+    },
+
+    imm: {
+      value_clp: 500000,
+      effective_from: "2024-07-01",
+      imponible_previsional: true,
+      imponible_tributario: true,
     },
 
     apv: {
