@@ -298,14 +298,14 @@ export function EditPositionModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs sm:text-sm">Días de servicio</Label>
-                  <span className="text-[10px] text-muted-foreground">Toca para activar</span>
+                  <span className="text-xs text-muted-foreground">Toca para activar</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-[10px]"
+                    className="h-7 px-2 text-xs"
                     onClick={() => applyWeekdayPreset("weekdays")}
                   >
                     Lun–Vie
@@ -314,7 +314,7 @@ export function EditPositionModal({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-[10px]"
+                    className="h-7 px-2 text-xs"
                     onClick={() => applyWeekdayPreset("weekend")}
                   >
                     Sáb–Dom
@@ -323,7 +323,7 @@ export function EditPositionModal({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-[10px]"
+                    className="h-7 px-2 text-xs"
                     onClick={() => applyWeekdayPreset("all")}
                   >
                     Todos
@@ -332,7 +332,7 @@ export function EditPositionModal({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-[10px] text-muted-foreground"
+                    className="h-7 px-2 text-xs text-muted-foreground"
                     onClick={() => applyWeekdayPreset("clear")}
                   >
                     Limpiar

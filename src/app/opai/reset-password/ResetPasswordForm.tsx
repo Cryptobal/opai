@@ -11,6 +11,9 @@ interface ResetPasswordFormProps {
   email: string;
 }
 
+const inputClass =
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 transition-colors";
+
 export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
   const router = useRouter();
   const [password, setPassword] = useState('');
@@ -24,26 +27,24 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    // Validaciones
+
     if (password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       const result = await resetPassword(email, token, password);
-      
+
       if (result.success) {
         setSuccess(true);
-        // Redirigir al login después de 2 segundos
         setTimeout(() => {
           router.push('/opai/login?success=password-reset');
         }, 2000);
@@ -60,12 +61,12 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
 
   if (success) {
     return (
-      <div className="rounded-lg bg-teal-900/30 border border-teal-700 p-6 space-y-4">
-        <div className="flex items-center gap-3 text-teal-300">
-          <CheckCircle className="h-6 w-6" />
-          <h3 className="font-semibold">Contraseña actualizada</h3>
+      <div className="rounded-lg bg-primary/10 border border-primary/20 p-6 space-y-3">
+        <div className="flex items-center gap-3 text-primary">
+          <CheckCircle className="h-5 w-5" />
+          <h3 className="text-sm font-semibold">Contraseña actualizada</h3>
         </div>
-        <p className="text-sm text-teal-200">
+        <p className="text-sm text-muted-foreground">
           Tu contraseña ha sido restablecida correctamente. Redirigiendo al login...
         </p>
       </div>
@@ -74,18 +75,18 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3">
-        <p className="text-xs text-slate-400">
-          Restablecer contraseña para: <span className="text-teal-400 font-medium">{email}</span>
+      <div className="rounded-lg bg-muted border border-border p-3">
+        <p className="text-xs text-muted-foreground">
+          Restablecer contraseña para: <span className="text-primary font-medium">{email}</span>
         </p>
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">
+        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
           Nueva contraseña
         </label>
         <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             id="password"
             name="password"
@@ -95,27 +96,27 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
             autoComplete="new-password"
             required
             disabled={isLoading}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 pl-10 pr-10 py-2 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+            className={`${inputClass} pl-10 pr-10`}
             placeholder="Mínimo 8 caracteres"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             disabled={isLoading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
-            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-1">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1.5">
           Confirmar contraseña
         </label>
         <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             id="confirmPassword"
             name="confirmPassword"
@@ -125,39 +126,39 @@ export function ResetPasswordForm({ token, email }: ResetPasswordFormProps) {
             autoComplete="new-password"
             required
             disabled={isLoading}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 pl-10 pr-10 py-2 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+            className={`${inputClass} pl-10 pr-10`}
             placeholder="Repite tu contraseña"
           />
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             disabled={isLoading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
-            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3">
-          <p className="text-sm text-red-300">{error}</p>
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? 'Actualizando...' : 'Restablecer contraseña'}
       </button>
 
       <div className="text-center pt-2">
-        <Link 
-          href="/opai/login" 
-          className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
+        <Link
+          href="/opai/login"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Volver al login
         </Link>

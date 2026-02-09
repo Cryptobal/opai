@@ -1,3 +1,5 @@
+@import "@fontsource-variable/inter";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,63 +7,61 @@
 @layer base {
   :root {
     /* ============================================
-       OPAI Design System - CSS Variables (shadcn)
-       Dark-first theme tokens
+       OPAI Design System v2 — Unified Dark Theme
+       Font: Inter Variable
        ============================================ */
-    
-    /* Background & Foreground */
-    --background: 222.2 84% 4.9%;        /* #0a0e17 - Fondo principal oscuro */
-    --foreground: 210 40% 98%;           /* #f8fafc - Texto principal claro */
 
-    /* Cards & Containers */
-    --card: 222.2 84% 10%;               /* #1a1f2e - Fondo de cards */
-    --card-foreground: 210 40% 98%;      /* #f8fafc - Texto en cards */
-    
-    /* Popovers & Dropdowns */
-    --popover: 222.2 84% 10%;            /* #1a1f2e - Fondo popovers */
-    --popover-foreground: 210 40% 98%;   /* #f8fafc - Texto en popovers */
+    /* Background & Foreground */
+    --background: 220 20% 6%;              /* #0d1017 */
+    --foreground: 210 40% 98%;             /* #f8fafc */
+
+    /* Cards & Surfaces */
+    --card: 220 18% 10%;                   /* #151a23 */
+    --card-foreground: 210 40% 98%;        /* #f8fafc */
+
+    /* Popovers & Dropdowns (elevated) */
+    --popover: 220 18% 12%;               /* #1a1f2a */
+    --popover-foreground: 210 40% 98%;    /* #f8fafc */
 
     /* Borders & Inputs */
-    --border: 217.2 32.6% 17.5%;         /* #1e293b - Bordes sutiles */
-    --input: 217.2 32.6% 17.5%;          /* #1e293b - Input borders */
+    --border: 220 13% 18%;                /* #262d3a */
+    --input: 220 13% 20%;                 /* #2b3341 */
 
-    /* Muted (Estados secundarios) */
-    --muted: 217.2 32.6% 17.5%;          /* #1e293b - Fondo muted */
-    --muted-foreground: 215 20.2% 65.1%; /* #94a3b8 - Texto muted */
+    /* Muted (secondary text, disabled) */
+    --muted: 220 13% 15%;                 /* #212735 */
+    --muted-foreground: 215 16% 57%;      /* #8493a8 */
 
-    /* Accent (Hover/Focus states) */
-    --accent: 217.2 32.6% 20%;           /* #273548 - Fondo accent (más claro que muted) */
-    --accent-foreground: 210 40% 98%;    /* #f8fafc - Texto accent */
+    /* Accent (hover, active states) */
+    --accent: 220 13% 17%;                /* #252c38 */
+    --accent-foreground: 210 40% 98%;     /* #f8fafc */
 
-    /* Primary (Teal GARD - Acción principal) */
-    --primary: 173 80% 40%;              /* #00d4aa - Teal principal */
-    --primary-foreground: 222.2 47.4% 11.2%; /* #0f1729 - Texto oscuro en primary */
+    /* Primary — Teal (main CTA) */
+    --primary: 166 76% 47%;               /* #1db990 */
+    --primary-foreground: 220 20% 6%;     /* dark text on teal */
 
-    /* Secondary (Blue GARD - Acción secundaria) */
-    --secondary: 217.2 91.2% 59.8%;      /* #0056e0 - Azul principal */
-    --secondary-foreground: 210 40% 98%; /* #f8fafc - Texto claro en secondary */
+    /* Secondary — Muted action */
+    --secondary: 220 13% 18%;             /* same as border, subtle */
+    --secondary-foreground: 210 40% 98%;  /* #f8fafc */
 
-    /* Destructive (Errores/Eliminar) */
-    --destructive: 0 84.2% 60.2%;        /* #ef4444 - Rojo error */
-    --destructive-foreground: 210 40% 98%; /* #f8fafc - Texto en destructive */
+    /* Destructive — Red */
+    --destructive: 0 72% 51%;             /* #dc2626 */
+    --destructive-foreground: 210 40% 98%;
 
-    /* Ring (Focus indicators) */
-    --ring: 173 80% 40%;                 /* #00d4aa - Teal para focus ring */
+    /* Ring (focus indicators) */
+    --ring: 166 76% 47%;                  /* same as primary */
 
-    /* Border Radius (default para componentes) */
-    --radius: 0.5rem;                    /* 8px - Border radius estándar */
+    /* Border Radius */
+    --radius: 0.5rem;
 
     /* Chart Colors */
-    --chart-1: 173 80% 40%;              /* #00d4aa - Teal */
-    --chart-2: 217.2 91.2% 59.8%;        /* #0056e0 - Blue */
-    --chart-3: 142 71% 45%;              /* #10b981 - Green */
-    --chart-4: 47 96% 53%;               /* #fbbf24 - Amber */
-    --chart-5: 340 82% 52%;              /* #ec4899 - Pink */
+    --chart-1: 166 76% 47%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 340 82% 52%;
 
-    /* ============================================
-       Legacy Variables (para templates/presentaciones)
-       ============================================ */
-    --glow-color: 0, 212, 170; /* Teal RGB para efectos glow */
+    /* Legacy glow */
+    --glow-color: 29, 185, 144;
   }
 
   * {
@@ -71,32 +71,53 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Estilos específicos para templates (aislados con scope) */
+  /* Scrollbar sutil y minimalista */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  /* Template UI scope — isolated from app styles */
   .template-ui-scope body,
   .template-ui-scope {
-    background-image: 
+    background-image:
       radial-gradient(at 0% 0%, rgba(0, 86, 224, 0.1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(0, 212, 170, 0.1) 0, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(29, 185, 144, 0.1) 0, transparent 50%),
       radial-gradient(at 100% 100%, rgba(0, 86, 224, 0.05) 0, transparent 50%);
   }
 }
 
 @layer components {
-  /* Glassmorphism cards */
+  /* Glass card — only for templates */
   .glass-card {
     @apply bg-white/5 backdrop-blur-xl border border-white/10;
-    box-shadow: 
+    box-shadow:
       0 8px 32px 0 rgba(0, 0, 0, 0.37),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   }
-  
+
   .glass-card-hover {
     @apply glass-card transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02];
   }
@@ -106,89 +127,38 @@
     @apply bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent;
   }
 
-  /* Glow effects */
-  .glow-teal {
-    box-shadow: 0 0 20px rgba(var(--glow-color), 0.3);
-  }
-  
-  .glow-teal-strong {
-    box-shadow: 0 0 40px rgba(var(--glow-color), 0.5);
-  }
-
-  /* Premium button */
+  /* Premium button shine */
   .btn-premium {
     @apply relative overflow-hidden;
   }
-  
+
   .btn-premium::before {
     content: '';
     @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent;
     transform: translateX(-100%);
     transition: transform 0.6s;
   }
-  
+
   .btn-premium:hover::before {
     transform: translateX(100%);
   }
 
-  /* Sticky header premium */
-  .sticky-header {
-    @apply sticky top-0 z-50 border-b border-white/10;
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    background: rgba(10, 14, 23, 0.85);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  /* Scrollbar hide utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-
-  /* Section backgrounds alternados */
-  .section-dark {
-    @apply bg-slate-950;
-  }
-  
-  .section-darker {
-    @apply bg-slate-900/50;
-    background-image: radial-gradient(circle at 50% 50%, rgba(0, 212, 170, 0.03) 0, transparent 50%);
-  }
-  
-  .section-gradient {
-    @apply bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900;
-  }
-
-  /* Animated gradient background */
-  @keyframes gradient-shift {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-  
-  .animated-gradient {
-    background: linear-gradient(-45deg, #0a0e17, #1e293b, #0f172a, #00d4aa);
-    background-size: 400% 400%;
-    animation: gradient-shift 15s ease infinite;
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
 @layer utilities {
-  /* Text shadows para mejor legibilidad */
   .text-shadow {
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   }
-  
+
   .text-shadow-lg {
     text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-  }
-
-  /* Backdrop blur utilities */
-  .backdrop-blur-subtle {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  
-  .backdrop-blur-premium {
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 }

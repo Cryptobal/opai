@@ -52,17 +52,17 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
     };
     const cfg = config[role] || config.viewer;
     return (
-      <span className={`${cfg.color} text-white text-xs px-2.5 py-1 rounded-full font-medium`}>
+      <span className={`${cfg.color} text-foreground text-xs px-2.5 py-1 rounded-full font-medium`}>
         {cfg.label}
       </span>
     );
   };
 
   const getStatusBadge = (status: string) => {
-    if (status === 'active') return <span className="bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>;
-    if (status === 'disabled') return <span className="bg-red-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">Desactivado</span>;
-    if (status === 'invited') return <span className="bg-amber-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">Invitado</span>;
-    return <span className="bg-gray-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">{status}</span>;
+    if (status === 'active') return <span className="bg-emerald-600 text-foreground text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>;
+    if (status === 'disabled') return <span className="bg-red-600 text-foreground text-xs px-2.5 py-1 rounded-full font-medium">Desactivado</span>;
+    if (status === 'invited') return <span className="bg-amber-600 text-foreground text-xs px-2.5 py-1 rounded-full font-medium">Invitado</span>;
+    return <span className="bg-gray-600 text-foreground text-xs px-2.5 py-1 rounded-full font-medium">{status}</span>;
   };
 
   const handleToggleStatus = async (userId: string) => {
@@ -81,7 +81,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
 
   if (users.length === 0) {
     return (
-      <div className="p-12 text-center text-slate-500">
+      <div className="p-12 text-center text-muted-foreground">
         No hay usuarios registrados
       </div>
     );
@@ -97,18 +97,18 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
           const isCurrentUser = user.id === currentUserId;
           const canChangeRole = currentUserRole === 'owner' || currentUserRole === 'admin';
           return (
-            <div key={user.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+            <div key={user.id} className="rounded-lg border border-border bg-card/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-white">{user.name}</div>
-                  <div className="text-sm text-slate-400 truncate">{user.email}</div>
+                  <div className="font-medium text-foreground">{user.name}</div>
+                  <div className="text-sm text-muted-foreground truncate">{user.email}</div>
                 </div>
                 {getStatusBadge(user.status)}
               </div>
 
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-slate-400">Rol</span>
+                  <span className="text-sm text-muted-foreground">Rol</span>
                   <div className="text-right">
                     {!isCurrentUser && canChangeRole && user.status === 'active' ? (
                       <Select
@@ -116,14 +116,14 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                         onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
                         disabled={roleChanging === user.id}
                       >
-                        <SelectTrigger className="w-[160px] bg-slate-800 border-slate-700 text-white">
+                        <SelectTrigger className="w-[160px] bg-muted border-border text-foreground">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
-                          <SelectItem value={ROLES.VIEWER} className="text-white hover:bg-slate-700">Visualizador</SelectItem>
-                          <SelectItem value={ROLES.EDITOR} className="text-white hover:bg-slate-700">Editor</SelectItem>
-                          <SelectItem value={ROLES.ADMIN} className="text-white hover:bg-slate-700">Admin</SelectItem>
-                          <SelectItem value={ROLES.OWNER} className="text-white hover:bg-slate-700">Propietario</SelectItem>
+                        <SelectContent className="bg-muted border-border">
+                          <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-slate-700">Visualizador</SelectItem>
+                          <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-slate-700">Editor</SelectItem>
+                          <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-slate-700">Admin</SelectItem>
+                          <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-slate-700">Propietario</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -132,7 +132,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 text-sm text-slate-400">
+                <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
                   <span>Último login</span>
                   <span>
                     {user.lastLoginAt
@@ -153,15 +153,15 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                         variant="outline"
                         size="sm"
                         disabled={loading === user.id}
-                        className="text-slate-200 border-slate-700 bg-slate-800"
+                        className="text-foreground border-border bg-muted"
                       >
                         Acciones
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                    <DropdownMenuContent align="end" className="bg-muted border-border">
                       <DropdownMenuItem
                         onClick={() => handleToggleStatus(user.id)}
-                        className="text-white hover:bg-slate-700 cursor-pointer"
+                        className="text-foreground hover:bg-slate-700 cursor-pointer"
                       >
                         {user.status === 'active' ? (
                           <>
@@ -180,7 +180,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                 )}
                 {isCurrentUser && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">(Tú)</span>
+                    <span className="text-xs text-muted-foreground">(Tú)</span>
                     {isOnlyUser && (
                       <span className="text-xs text-amber-500">Invita usuarios para ver acciones</span>
                     )}
@@ -195,21 +195,21 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
-        <thead className="bg-slate-800 border-b border-slate-700">
+        <thead className="bg-muted border-b border-border">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Usuario
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Rol
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Estado
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Último Login
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Acciones
             </th>
           </tr>
@@ -220,11 +220,11 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
             const canChangeRole = currentUserRole === 'owner' || currentUserRole === 'admin';
             
             return (
-              <tr key={user.id} className="hover:bg-slate-800/50 transition-colors">
+              <tr key={user.id} className="hover:bg-muted/50 transition-colors">
                 <td className="px-6 py-4">
                   <div>
-                    <div className="font-medium text-white">{user.name}</div>
-                    <div className="text-sm text-slate-400">{user.email}</div>
+                    <div className="font-medium text-foreground">{user.name}</div>
+                    <div className="text-sm text-muted-foreground">{user.email}</div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -234,14 +234,14 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                       onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
                       disabled={roleChanging === user.id}
                     >
-                      <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700 text-white">
+                      <SelectTrigger className="w-[140px] bg-muted border-border text-foreground">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        <SelectItem value={ROLES.VIEWER} className="text-white hover:bg-slate-700">Visualizador</SelectItem>
-                        <SelectItem value={ROLES.EDITOR} className="text-white hover:bg-slate-700">Editor</SelectItem>
-                        <SelectItem value={ROLES.ADMIN} className="text-white hover:bg-slate-700">Admin</SelectItem>
-                        <SelectItem value={ROLES.OWNER} className="text-white hover:bg-slate-700">Propietario</SelectItem>
+                      <SelectContent className="bg-muted border-border">
+                        <SelectItem value={ROLES.VIEWER} className="text-foreground hover:bg-slate-700">Visualizador</SelectItem>
+                        <SelectItem value={ROLES.EDITOR} className="text-foreground hover:bg-slate-700">Editor</SelectItem>
+                        <SelectItem value={ROLES.ADMIN} className="text-foreground hover:bg-slate-700">Admin</SelectItem>
+                        <SelectItem value={ROLES.OWNER} className="text-foreground hover:bg-slate-700">Propietario</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -249,7 +249,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                   )}
                 </td>
                 <td className="px-6 py-4">{getStatusBadge(user.status)}</td>
-                <td className="px-6 py-4 text-sm text-slate-400">
+                <td className="px-6 py-4 text-sm text-muted-foreground">
                   {user.lastLoginAt
                     ? formatDistanceToNow(new Date(user.lastLoginAt), {
                         addSuffix: true,
@@ -265,15 +265,15 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                           variant="ghost"
                           size="sm"
                           disabled={loading === user.id}
-                          className="text-slate-400 hover:text-white hover:bg-slate-800"
+                          className="text-muted-foreground hover:text-foreground hover:bg-muted"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                      <DropdownMenuContent align="end" className="bg-muted border-border">
                         <DropdownMenuItem
                           onClick={() => handleToggleStatus(user.id)}
-                          className="text-white hover:bg-slate-700 cursor-pointer"
+                          className="text-foreground hover:bg-slate-700 cursor-pointer"
                         >
                           {user.status === 'active' ? (
                             <>
@@ -292,7 +292,7 @@ export default function UsersTable({ users, currentUserId, currentUserRole }: Pr
                   )}
                   {isCurrentUser && (
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-xs text-slate-500">(Tú)</span>
+                      <span className="text-xs text-muted-foreground">(Tú)</span>
                       {isOnlyUser && (
                         <span className="text-xs text-amber-500">← Invita usuarios para ver acciones</span>
                       )}

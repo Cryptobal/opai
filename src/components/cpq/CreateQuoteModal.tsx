@@ -59,7 +59,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal" }: CreateQuoteMo
     return (
       <Button
         size="sm"
-        className="gap-2 bg-teal-600 hover:bg-teal-700 text-white"
+        className="gap-2"
         onClick={() => createQuote({})}
         disabled={loading}
       >
@@ -72,7 +72,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal" }: CreateQuoteMo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2 bg-teal-600 hover:bg-teal-700 text-white">
+        <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Nueva Cotización</span>
         </Button>

@@ -82,9 +82,9 @@ export function CrmDealDetailClient({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   const selectClassName =
-    "w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const inputClassName =
-    "bg-blue-900/30 text-white placeholder:text-blue-200 border-blue-700 focus-visible:ring-blue-400";
+    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const applyPlaceholders = (value: string) => {
     const replacements: Record<string, string> = {
       "{cliente}": deal.account?.name || "",
@@ -293,7 +293,7 @@ export function CrmDealDetailClient({
               <div className="space-y-2">
                 <Label>Template</Label>
                 <select
-                  className="w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className={selectClassName}
                   value={selectedTemplateId}
                   onChange={(event) => selectTemplate(event.target.value)}
                 >

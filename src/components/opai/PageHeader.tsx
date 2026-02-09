@@ -9,41 +9,31 @@ export interface PageHeaderProps {
 }
 
 /**
- * PageHeader - Encabezado estándar para todas las páginas de la app
- * 
- * Proporciona una estructura consistente para títulos, descripciones y acciones.
- * Se usa en todas las páginas del dashboard.
- * 
- * @example
- * ```tsx
- * <PageHeader
- *   title="Documentos"
- *   description="Gestiona tus presentaciones comerciales"
- *   actions={<Button>Crear Documento</Button>}
- * />
- * ```
+ * PageHeader - Encabezado estándar para todas las páginas
+ *
+ * Tipografía estandarizada:
+ * - Título: text-lg font-semibold (18px)
+ * - Descripción: text-sm text-muted-foreground (14px)
  */
-export function PageHeader({ 
-  title, 
-  description, 
+export function PageHeader({
+  title,
+  description,
   actions,
-  className 
+  className
 }: PageHeaderProps) {
   return (
     <div className={cn(
-      "flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border py-3 mb-4 gap-2",
+      "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between pb-4",
       className
     )}>
-      <div className="flex-1 min-w-0">
-        <h1 className="text-lg sm:text-xl font-bold tracking-tight leading-tight">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         {description && (
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-0.5">
-            {description}
-          </p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && (
-        <div className="flex flex-nowrap items-center gap-2 ml-0 sm:ml-4 flex-shrink-0 max-w-full">
+        <div className="flex items-center gap-2 pt-2 sm:pt-0">
           {actions}
         </div>
       )}

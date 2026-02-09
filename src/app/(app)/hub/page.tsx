@@ -118,13 +118,13 @@ export default async function HubPage() {
         <div className="flex items-center gap-3">
           {ufValue && (
             <div className="rounded-lg border border-border/40 bg-card/50 px-3 py-1.5 text-center">
-              <p className="text-[10px] uppercase text-muted-foreground">UF {ufDate}</p>
+              <p className="text-xs uppercase text-muted-foreground">UF {ufDate}</p>
               <p className="text-sm font-mono font-semibold">{formatCLP(ufValue)}</p>
             </div>
           )}
           {utmValue && (
             <div className="rounded-lg border border-border/40 bg-card/50 px-3 py-1.5 text-center">
-              <p className="text-[10px] uppercase text-muted-foreground">UTM {utmMonth}</p>
+              <p className="text-xs uppercase text-muted-foreground">UTM {utmMonth}</p>
               <p className="text-sm font-mono font-semibold">{formatCLP(utmValue)}</p>
             </div>
           )}
@@ -180,7 +180,7 @@ export default async function HubPage() {
 
       {/* Apps Launcher */}
       <div className="mb-6">
-        <h2 className="mb-3 text-base font-semibold">Aplicaciones</h2>
+        <h2 className="mb-3 text-sm font-semibold">Aplicaciones</h2>
         <div className="grid auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-5">
           {/* Docs - Operativo */}
           <Link href="/opai/inicio">

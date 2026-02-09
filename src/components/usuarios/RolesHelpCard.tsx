@@ -64,28 +64,28 @@ export default function RolesHelpCard() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 bg-slate-900 border-slate-800 text-white hover:bg-slate-800 hover:text-white">
+        <Button variant="outline" className="gap-2 bg-card border-border text-foreground hover:bg-muted hover:text-foreground">
           <HelpCircle className="w-5 h-5 text-amber-400" />
           <span>Ver permisos</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-5xl h-[95vh] flex flex-col">
+      <DialogContent className="bg-card border-border text-foreground max-w-5xl h-[95vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-white text-xl">Matriz de Permisos por Rol</DialogTitle>
+          <DialogTitle className="text-foreground text-xl">Matriz de Permisos por Rol</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4 flex-1 overflow-y-auto">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Permisos reales del sistema. Los roles superiores heredan todos los permisos de los inferiores.
           </p>
 
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium">Permiso</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Permiso</th>
                   {rolesOrder.map((role) => (
-                    <th key={role} className="text-center py-3 px-4 text-white font-medium">
+                    <th key={role} className="text-center py-3 px-4 text-foreground font-medium">
                       {ROLE_LABELS[role]}
                     </th>
                   ))}
@@ -94,14 +94,14 @@ export default function RolesHelpCard() {
               <tbody>
                 {PERMISSION_GROUPS.map((group, groupIdx) => (
                   <>
-                    <tr key={`group-${groupIdx}`} className="border-t border-slate-800">
-                      <td colSpan={rolesOrder.length + 1} className="py-2 px-4 text-xs uppercase tracking-wider text-slate-500 font-semibold bg-slate-800/50">
+                    <tr key={`group-${groupIdx}`} className="border-t border-border">
+                      <td colSpan={rolesOrder.length + 1} className="py-2 px-4 text-xs uppercase tracking-wider text-muted-foreground font-semibold bg-muted/50">
                         {group.name}
                       </td>
                     </tr>
                     {group.permissions.map((perm, permIdx) => (
-                      <tr key={`${groupIdx}-${permIdx}`} className="border-t border-slate-800/30 hover:bg-slate-800/30">
-                        <td className="py-3 px-4 text-slate-300">{perm.label}</td>
+                      <tr key={`${groupIdx}-${permIdx}`} className="border-t border-border/30 hover:bg-muted/30">
+                        <td className="py-3 px-4 text-muted-foreground">{perm.label}</td>
                         {rolesOrder.map((role) => {
                           const has = hasPermission(role, perm.key);
                           return (
@@ -122,12 +122,12 @@ export default function RolesHelpCard() {
             </table>
           </div>
 
-          <div className="bg-slate-800/50 rounded-lg p-4 text-xs text-slate-400 space-y-2">
-            <p><strong className="text-white">Nota:</strong> Esta matriz muestra los permisos REALES del sistema.</p>
+          <div className="bg-muted/50 rounded-lg p-4 text-xs text-muted-foreground space-y-2">
+            <p><strong className="text-foreground">Nota:</strong> Esta matriz muestra los permisos REALES del sistema.</p>
             <p><strong className="text-purple-400">Propietario:</strong> Control total, puede gestionar configuración del tenant.</p>
             <p><strong className="text-blue-400">Administrador:</strong> Igual que Propietario excepto configuración.</p>
             <p><strong className="text-green-400">Editor:</strong> Puede crear y enviar presentaciones, editar templates.</p>
-            <p><strong className="text-slate-400">Visualizador:</strong> Solo puede ver presentaciones y templates (sin editar ni enviar).</p>
+            <p><strong className="text-muted-foreground">Visualizador:</strong> Solo puede ver presentaciones y templates (sin editar ni enviar).</p>
           </div>
         </div>
       </DialogContent>

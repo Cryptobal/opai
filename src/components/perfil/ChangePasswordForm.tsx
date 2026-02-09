@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { changePassword } from '@/app/(app)/opai/perfil/actions';
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 
+const inputClass =
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 transition-colors";
+
 export function ChangePasswordForm() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -20,7 +23,6 @@ export function ChangePasswordForm() {
     setError('');
     setSuccess(false);
 
-    // Validaciones
     if (newPassword.length < 8) {
       setError('La nueva contraseña debe tener al menos 8 caracteres');
       return;
@@ -41,7 +43,6 @@ export function ChangePasswordForm() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        // Ocultar mensaje de éxito después de 5 segundos
         setTimeout(() => setSuccess(false), 5000);
       } else {
         setError(result.error || 'Error al cambiar contraseña');
@@ -55,16 +56,15 @@ export function ChangePasswordForm() {
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-      <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <Lock className="h-5 w-5 text-teal-400" />
+    <div className="rounded-lg border border-border bg-card p-4">
+      <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+        <Lock className="h-4 w-4 text-primary" />
         Cambiar contraseña
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Contraseña actual */}
         <div>
-          <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-300 mb-1">
+          <label htmlFor="currentPassword" className="block text-sm font-medium text-foreground mb-1.5">
             Contraseña actual
           </label>
           <div className="relative">
@@ -77,23 +77,22 @@ export function ChangePasswordForm() {
               autoComplete="current-password"
               required
               disabled={isLoading}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 pr-10 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+              className={inputClass}
             />
             <button
               type="button"
               onClick={() => setShowCurrentPassword(!showCurrentPassword)}
               disabled={isLoading}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label={showCurrentPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Nueva contraseña */}
         <div>
-          <label htmlFor="newPassword" className="block text-sm font-medium text-slate-300 mb-1">
+          <label htmlFor="newPassword" className="block text-sm font-medium text-foreground mb-1.5">
             Nueva contraseña
           </label>
           <div className="relative">
@@ -106,24 +105,23 @@ export function ChangePasswordForm() {
               autoComplete="new-password"
               required
               disabled={isLoading}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 pr-10 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+              className={inputClass}
               placeholder="Mínimo 8 caracteres"
             />
             <button
               type="button"
               onClick={() => setShowNewPassword(!showNewPassword)}
               disabled={isLoading}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label={showNewPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Confirmar nueva contraseña */}
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-1">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1.5">
             Confirmar nueva contraseña
           </label>
           <div className="relative">
@@ -136,41 +134,39 @@ export function ChangePasswordForm() {
               autoComplete="new-password"
               required
               disabled={isLoading}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 pr-10 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+              className={inputClass}
               placeholder="Repite tu nueva contraseña"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               disabled={isLoading}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors disabled:opacity-50"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Mensajes de error/éxito */}
         {error && (
-          <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-300">{error}</p>
+          <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="rounded-lg bg-teal-900/30 border border-teal-700 px-4 py-3 flex items-start gap-3">
-            <CheckCircle className="h-5 w-5 text-teal-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-teal-300">Contraseña actualizada correctamente</p>
+          <div className="rounded-lg bg-primary/10 border border-primary/20 px-4 py-3 flex items-start gap-3">
+            <CheckCircle className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-primary">Contraseña actualizada correctamente</p>
           </div>
         )}
 
-        {/* Botón */}
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? 'Actualizando...' : 'Cambiar contraseña'}
         </button>

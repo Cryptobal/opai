@@ -52,7 +52,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const inputClassName =
-    "bg-blue-900/30 text-white placeholder:text-blue-200 border-blue-700 focus-visible:ring-blue-400";
+    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
   const updateForm = (key: keyof AccountFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));

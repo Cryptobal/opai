@@ -16,64 +16,72 @@ export default function PayrollDashboard() {
         description="Sistema de liquidaciones y costeo para Chile"
       />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {/* Simulador */}
-        <Card className="p-6">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10">
-            <Calculator className="h-6 w-6 text-emerald-500" />
-          </div>
-          <h2 className="text-xl font-semibold">Simulador de Liquidación</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Simula liquidaciones completas con todos los descuentos legales y
-            costo empleador.
-          </p>
-          <div className="mt-6">
-            <Link href="/payroll/simulator">
-              <Button className="w-full">Abrir Simulador</Button>
-            </Link>
+        <Card className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-400">
+              <Calculator className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold">Simulador de Liquidación</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Simula liquidaciones completas con todos los descuentos legales y
+                costo empleador.
+              </p>
+              <div className="mt-3">
+                <Link href="/payroll/simulator">
+                  <Button size="sm">Abrir Simulador</Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </Card>
 
         {/* Parámetros */}
-        <Card className="p-6">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10">
-            <FileText className="h-6 w-6 text-blue-500" />
-          </div>
-          <h2 className="text-xl font-semibold">Parámetros Legales</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Gestiona versiones de tasas, topes y tramos impositivos vigentes.
-          </p>
-          <div className="mt-6">
-            <Link href="/payroll/parameters">
-              <Button variant="outline" className="w-full">Ver Parámetros</Button>
-            </Link>
+        <Card className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-400/10 text-blue-400">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold">Parámetros Legales</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Gestiona versiones de tasas, topes y tramos impositivos vigentes.
+              </p>
+              <div className="mt-3">
+                <Link href="/payroll/parameters">
+                  <Button size="sm" variant="outline">Ver Parámetros</Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
 
       {/* Info */}
-      <Card className="border-blue-500/20 bg-blue-500/5 p-6">
-        <h3 className="mb-3 flex items-center gap-2 font-medium text-blue-400">
-          <Settings className="h-5 w-5" />
+      <Card className="border-primary/20 bg-primary/5 p-4">
+        <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
+          <Settings className="h-4 w-4" />
           Información del Sistema
         </h3>
-        <ul className="space-y-2 text-sm text-muted-foreground">
+        <ul className="space-y-1.5 text-xs text-muted-foreground">
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-blue-400">•</span>
+            <span className="mt-0.5 text-primary">·</span>
             <span>
               <strong className="text-foreground">Snapshots inmutables:</strong> Cada simulación guarda los
               parámetros exactos usados
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-blue-400">•</span>
+            <span className="mt-0.5 text-primary">·</span>
             <span>
               <strong className="text-foreground">Versionado:</strong> Los parámetros legales se versionan
               por fecha de vigencia
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-blue-400">•</span>
+            <span className="mt-0.5 text-primary">·</span>
             <span>
               <strong className="text-foreground">Referencias UF/UTM:</strong> Se obtienen automáticamente
               del schema fx

@@ -17,18 +17,18 @@ export function LoginForm({ callbackUrl, error, success }: LoginFormProps) {
   return (
     <form action={authenticate} className="space-y-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
-      
+
       {success && (
-        <div className="rounded-lg bg-teal-900/30 border border-teal-700 px-4 py-3">
-          <p className="text-sm text-teal-300">
-            {success === 'password-reset' && '✓ Contraseña actualizada correctamente. Ya puedes iniciar sesión.'}
-            {success === 'account-activated' && '✓ Cuenta activada correctamente. Ya puedes iniciar sesión.'}
+        <div className="rounded-lg bg-primary/10 border border-primary/20 px-4 py-3">
+          <p className="text-sm text-primary">
+            {success === 'password-reset' && 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'}
+            {success === 'account-activated' && 'Cuenta activada correctamente. Ya puedes iniciar sesión.'}
           </p>
         </div>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1">
+        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
           Email
         </label>
         <input
@@ -37,19 +37,19 @@ export function LoginForm({ callbackUrl, error, success }: LoginFormProps) {
           type="email"
           autoComplete="email"
           required
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
           placeholder="admin@gard.cl"
         />
       </div>
-      
+
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label htmlFor="password" className="block text-sm font-medium text-slate-300">
+        <div className="flex items-center justify-between mb-1.5">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             Contraseña
           </label>
-          <Link 
-            href="/opai/forgot-password" 
-            className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+          <Link
+            href="/opai/forgot-password"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             ¿Olvidaste tu contraseña?
           </Link>
@@ -61,34 +61,34 @@ export function LoginForm({ callbackUrl, error, success }: LoginFormProps) {
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             required
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 pr-10 text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
             {showPassword ? (
-              <EyeOff className="h-5 w-5" />
+              <EyeOff className="h-4 w-4" />
             ) : (
-              <Eye className="h-5 w-5" />
+              <Eye className="h-4 w-4" />
             )}
           </button>
         </div>
       </div>
-      
+
       {error && (
-        <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3">
-          <p className="text-sm text-red-300">
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+          <p className="text-sm text-red-400">
             {error === 'CredentialsSignin' ? 'Email o contraseña incorrectos.' : 'Error al iniciar sesión.'}
           </p>
         </div>
       )}
-      
+
       <button
         type="submit"
-        className="w-full rounded-lg bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-colors"
+        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         Entrar
       </button>

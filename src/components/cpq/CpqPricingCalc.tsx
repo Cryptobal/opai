@@ -192,14 +192,14 @@ export function CpqPricingCalc({
                 setMarginDraft(formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 }));
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="h-7 w-20 text-xs bg-slate-900/80 text-white border-emerald-600/40 placeholder:text-slate-400"
+              className="h-7 w-20 text-xs bg-card/80 text-foreground border-emerald-600/40 placeholder:text-muted-foreground"
             />
             <span className="text-xs">%</span>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 px-2 text-[10px]"
+              className="h-7 px-2 text-xs"
               onClick={handleSaveMargin}
               disabled={!dirty || saving}
             >
@@ -217,7 +217,7 @@ export function CpqPricingCalc({
 
       <div className="text-xs text-muted-foreground bg-muted/20 rounded-md p-2">
         <div className="font-semibold mb-1">Fórmula:</div>
-        <div className="font-mono text-[11px]">
+        <div className="font-mono text-xs">
           PV = CB / (1 - M% - TF% - TP%)
         </div>
         <div className="mt-1">

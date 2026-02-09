@@ -92,7 +92,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
           {data && (
             <div className="space-y-2">
               <div className="rounded-md border p-3 sm:p-2">
-                <p className="text-xs sm:text-[10px] font-semibold uppercase text-muted-foreground">Haberes</p>
+                <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Haberes</p>
                 <div className="mt-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Sueldo base</span>
@@ -110,7 +110,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
               </div>
 
               <div className="rounded-md border p-3 sm:p-2">
-                <p className="text-xs sm:text-[10px] font-semibold uppercase text-muted-foreground">Aportes empresa</p>
+                <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Aportes empresa</p>
                 <div className="mt-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span>SIS</span>
@@ -128,7 +128,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
               </div>
 
               <div className="rounded-md border p-3 sm:p-2">
-                <p className="text-xs sm:text-[10px] font-semibold uppercase text-muted-foreground">Provisiones</p>
+                <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Provisiones</p>
                 <div className="mt-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Vacaciones</span>
@@ -162,7 +162,7 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
 
               {worker && (
                 <div className="rounded-md border p-3 sm:p-2">
-                  <p className="text-xs sm:text-[10px] font-semibold uppercase text-muted-foreground">Descuentos trabajador</p>
+                  <p className="text-xs sm:text-xs font-semibold uppercase text-muted-foreground">Descuentos trabajador</p>
                   <div className="mt-1 space-y-1">
                     <div className="flex items-center justify-between">
                       <span>AFP</span>

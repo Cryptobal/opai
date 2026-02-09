@@ -59,7 +59,7 @@ function ActivateForm() {
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
+        <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5" />
@@ -77,7 +77,7 @@ function ActivateForm() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
+        <Card className="w-full max-w-md bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-400">
               <CheckCircle2 className="w-5 h-5" />
@@ -94,7 +94,7 @@ function ActivateForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-      <Card className="w-full max-w-md bg-slate-900 border-slate-800">
+      <Card className="w-full max-w-md bg-card border-border">
         <CardHeader>
           <CardTitle className="text-white">Activa tu cuenta</CardTitle>
           <CardDescription className="text-slate-400">
@@ -112,7 +112,7 @@ function ActivateForm() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Juan Pérez"
                 required
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1.5"
+                className="bg-background border-input text-foreground placeholder:text-muted-foreground mt-1.5"
               />
             </div>
 
@@ -125,7 +125,7 @@ function ActivateForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
                 required
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1.5"
+                className="bg-background border-input text-foreground placeholder:text-muted-foreground mt-1.5"
               />
             </div>
 
@@ -138,7 +138,7 @@ function ActivateForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Repite tu contraseña"
                 required
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1.5"
+                className="bg-background border-input text-foreground placeholder:text-muted-foreground mt-1.5"
               />
             </div>
 
@@ -151,7 +151,7 @@ function ActivateForm() {
 
             <Button 
               type="submit" 
-              className="w-full bg-teal-600 hover:bg-teal-500 text-white" 
+              className="w-full " 
               disabled={loading}
             >
               {loading ? 'Activando cuenta...' : 'Activar cuenta'}

@@ -245,7 +245,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold">Parámetros globales</h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Se aplican como valores base en todas las cotizaciones.
             </p>
           </div>
@@ -256,7 +256,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Horas mensuales</span>
               <button
                 type="button"
-                className="text-[11px] text-muted-foreground"
+                className="text-xs text-muted-foreground"
                 title="Horas base para el cálculo mensual por guardia."
               >
                 ?
@@ -279,7 +279,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Meses de estadía</span>
               <button
                 type="button"
-                className="text-[11px] text-muted-foreground"
+                className="text-xs text-muted-foreground"
                 title="Promedio de permanencia para calcular exámenes."
               >
                 ?
@@ -302,7 +302,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
               <span className="text-xs text-muted-foreground">Cambios uniforme/año</span>
               <button
                 type="button"
-                className="text-[11px] text-muted-foreground"
+                className="text-xs text-muted-foreground"
                 title="Número de cambios de uniforme por año para prorrateo."
               >
                 ?
@@ -356,7 +356,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold">{group.label}</h2>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Precio por defecto, editable por cotización.
                 </p>
               </div>
@@ -441,7 +441,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                     </div>
                   </div>
                   {group.types.length > 1 && (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {TYPE_NAMES[item.type] || item.type}
                     </span>
                   )}

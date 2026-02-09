@@ -134,7 +134,7 @@ export default function PayrollParameters() {
           <h3 className="mb-3 text-sm font-semibold">AFC</h3>
           <div className="space-y-2 text-xs">
             <div className="rounded-md bg-muted/30 p-2">
-              <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Indefinido</p>
+              <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">Indefinido</p>
               <div className="space-y-0.5">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trabajador:</span>
@@ -147,7 +147,7 @@ export default function PayrollParameters() {
               </div>
             </div>
             <div className="rounded-md bg-muted/30 p-2">
-              <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Plazo Fijo</p>
+              <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">Plazo Fijo</p>
               <div className="space-y-0.5">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trabajador:</span>
@@ -167,7 +167,7 @@ export default function PayrollParameters() {
           <h3 className="mb-3 text-sm font-semibold">Mutual / Topes</h3>
           <div className="space-y-3">
             <div>
-              <p className="mb-1.5 text-[10px] font-medium uppercase text-muted-foreground">Mutual (Ley 16.744)</p>
+              <p className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">Mutual (Ley 16.744)</p>
               <div className="rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-blue-400">Tasa Empleador:</span>
@@ -182,7 +182,7 @@ export default function PayrollParameters() {
             </div>
             
             <div className="border-t pt-2">
-              <p className="mb-1.5 text-[10px] font-medium uppercase text-muted-foreground">Topes 2026</p>
+              <p className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">Topes 2026</p>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Pensión:</span>
@@ -207,7 +207,7 @@ export default function PayrollParameters() {
           {data.family_allowance ? (
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b text-left text-[10px] uppercase text-muted-foreground">
+                <tr className="border-b text-left text-xs uppercase text-muted-foreground">
                   <th className="pb-2 font-medium">Tramo Ingreso</th>
                   <th className="pb-2 font-medium text-right">Por Carga</th>
                 </tr>

@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { GripVertical, Plus } from "lucide-react";
 
@@ -93,9 +94,10 @@ function DealColumn({ stage, deals, children }: DealColumnProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`w-full rounded-lg border bg-muted/30 p-3 md:min-w-[260px] md:max-w-[260px] ${
-        isOver ? "border-blue-400/60" : ""
-      }`}
+      className={cn(
+        "w-full rounded-lg border bg-muted/30 p-3 md:min-w-[260px] md:max-w-[260px] transition-colors",
+        isOver ? "border-primary/60" : "border-border"
+      )}
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm font-semibold">{stage.name}</div>
@@ -137,9 +139,10 @@ function DealCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border bg-background p-3 shadow-sm ${
-        isDragging ? "opacity-60" : ""
-      }`}
+      className={cn(
+        "rounded-lg border border-border bg-card p-3",
+        isDragging && "opacity-60"
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
@@ -174,7 +177,7 @@ function DealCard({
           <div className="mt-3 space-y-2">
         <Label className="text-xs">Cambiar etapa</Label>
         <select
-          className="w-full rounded-md border border-blue-700 bg-blue-900/30 px-2 py-1 text-xs text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={deal.stage?.id || ""}
           onChange={(event) => onStageChange(event.target.value)}
         >
@@ -205,7 +208,7 @@ function DealCard({
         </div>
         <div className="mt-2 flex gap-2">
           <select
-            className="w-full rounded-md border border-blue-700 bg-blue-900/30 px-2 py-1 text-xs text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={selectedQuoteId}
             onChange={(event) => onSelectQuote(event.target.value)}
           >
@@ -255,9 +258,9 @@ export function CrmDealsClient({
     accountId: "",
   });
   const inputClassName =
-    "bg-blue-900/30 text-white placeholder:text-blue-200 border-blue-700 focus-visible:ring-blue-400";
+    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectClassName =
-    "w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   const updateForm = (key: keyof DealFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -437,7 +440,7 @@ export function CrmDealsClient({
           Negocios activos y etapa actual.
         </p>
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-full border p-0.5 text-[11px]">
+          <div className="inline-flex rounded-full border p-0.5 text-xs">
             <button
               type="button"
               className={`rounded-full px-2 py-1 ${

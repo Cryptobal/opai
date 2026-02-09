@@ -743,7 +743,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() =>
                             setUniforms((prev) =>
                               prev.map((u) =>
@@ -841,7 +841,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() =>
                             setExams((prev) =>
                               prev.map((u) =>
@@ -933,7 +933,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => updateMeal(item.name, { isEnabled: false })}
                         >
                           ✕
@@ -1019,7 +1019,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(item, { isEnabled: false })}
                         >
                           ✕
@@ -1085,7 +1085,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(item, { isEnabled: false })}
                         >
                           ✕
@@ -1151,7 +1151,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(item, { isEnabled: false })}
                         >
                           ✕
@@ -1217,7 +1217,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(item, { isEnabled: false })}
                         >
                           ✕
@@ -1286,7 +1286,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
                         >
                           ✕
@@ -1325,7 +1325,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               Total mensual: {formatCurrency(financialTotal)}
             </span>
             {summary?.monthlyTotal === 0 && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Se calcula sobre el precio de venta.
               </span>
             )}
@@ -1372,7 +1372,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         </span>
                         <button
                           type="button"
-                          className="rounded-md border border-border px-2 py-1 text-[11px]"
+                          className="rounded-md border border-border px-2 py-1 text-xs"
                           onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
                         >
                           ✕
@@ -1381,7 +1381,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                     </div>
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Tasa (%)</Label>
+                        <Label className="text-xs">Tasa (%)</Label>
                         <Input
                           type="text"
                           inputMode="decimal"
@@ -1412,7 +1412,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       {isPolicy && (
                         <>
                           <div className="space-y-1">
-                            <Label className="text-[11px]">Meses a considerar</Label>
+                            <Label className="text-xs">Meses a considerar</Label>
                             <Input
                               type="number"
                               value={parameters.policyContractMonths}
@@ -1426,7 +1426,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[11px]">Porcentaje contrato (%)</Label>
+                            <Label className="text-xs">Porcentaje contrato (%)</Label>
                                     <Input
                                       type="text"
                                       inputMode="decimal"
@@ -1457,12 +1457,12 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
 
         {activeSection === "financieros" && (
         <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-          <h3 className="text-[11px] font-semibold uppercase text-foreground">
+          <h3 className="text-xs font-semibold uppercase text-foreground">
             Margen y parámetros
           </h3>
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label className="text-[11px]">Margen (%)</Label>
+              <Label className="text-xs">Margen (%)</Label>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -1482,7 +1482,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px]">Meses contrato</Label>
+              <Label className="text-xs">Meses contrato</Label>
               <Input
                 type="number"
                 value={parameters.contractMonths}
@@ -1514,7 +1514,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
           size="sm"
           onClick={() => handleSave()}
           disabled={saving}
-          className="bg-teal-600 hover:bg-teal-700"
+          className=""
         >
           {saving ? "Guardando..." : "Guardar cambios"}
         </Button>
@@ -1646,7 +1646,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() =>
                                       setUniforms((prev) =>
                                         prev.map((u) =>
@@ -1745,7 +1745,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() =>
                                       setExams((prev) =>
                                         prev.map((u) =>
@@ -1837,7 +1837,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => updateMeal(item.name, { isEnabled: false })}
                                   >
                                     ✕
@@ -1923,7 +1923,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(item, { isEnabled: false })}
                                   >
                                     ✕
@@ -1989,7 +1989,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(item, { isEnabled: false })}
                                   >
                                     ✕
@@ -2055,7 +2055,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(item, { isEnabled: false })}
                                   >
                                     ✕
@@ -2121,7 +2121,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(item.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(item, { isEnabled: false })}
                                   >
                                     ✕
@@ -2190,7 +2190,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
                                   >
                                     ✕
@@ -2229,7 +2229,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         Total mensual: {formatCurrency(financialTotal)}
                       </span>
                       {summary?.monthlyTotal === 0 && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           Se calcula sobre el precio de venta.
                         </span>
                       )}
@@ -2273,7 +2273,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                   </span>
                                   <button
                                     type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-[11px]"
+                                    className="rounded-md border border-border px-2 py-1 text-xs"
                                     onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
                                   >
                                     ✕
@@ -2282,7 +2282,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                               </div>
                               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
                                 <div className="space-y-1">
-                                  <Label className="text-[11px]">Tasa (%)</Label>
+                                  <Label className="text-xs">Tasa (%)</Label>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -2313,7 +2313,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                 {isPolicy && (
                                   <>
                                     <div className="space-y-1">
-                                      <Label className="text-[11px]">Meses a considerar</Label>
+                                      <Label className="text-xs">Meses a considerar</Label>
                                       <Input
                                         type="number"
                                         value={parameters.policyContractMonths}
@@ -2327,7 +2327,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                       />
                                     </div>
                                     <div className="space-y-1">
-                                      <Label className="text-[11px]">Porcentaje contrato (%)</Label>
+                                      <Label className="text-xs">Porcentaje contrato (%)</Label>
                                       <Input
                                       type="text"
                                       inputMode="decimal"
@@ -2353,12 +2353,12 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
 
                   {activeSection === "financieros" && (
                   <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-                    <h3 className="text-[11px] font-semibold uppercase text-foreground">
+                    <h3 className="text-xs font-semibold uppercase text-foreground">
                       Margen y parámetros
                     </h3>
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Margen (%)</Label>
+                        <Label className="text-xs">Margen (%)</Label>
                         <Input
                           type="text"
                           inputMode="decimal"
@@ -2378,7 +2378,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Meses contrato</Label>
+                        <Label className="text-xs">Meses contrato</Label>
                         <Input
                           type="number"
                           value={parameters.contractMonths}
@@ -2405,7 +2405,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                   size="sm"
                   onClick={() => handleSave()}
                   disabled={saving}
-                  className="bg-teal-600 hover:bg-teal-700"
+                  className=""
                 >
                   {saving ? "Guardando..." : "Guardar cambios"}
                 </Button>
@@ -2438,13 +2438,13 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       ? Number(item.unitPriceOverride)
                       : Number(item.catalogItem?.basePrice ?? 0);
                     return (
-                      <div key={item.catalogItemId} className="text-[11px]">
+                      <div key={item.catalogItemId} className="text-xs">
                         • {item.catalogItem?.name}: {formatCurrency(price)}
                         {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                       </div>
                     );
                   })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-[11px]">
+                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
                   <div>Guardias: {summary.totalGuards}</div>
                   <div>Cambios/año: {parameters.uniformChangesPerYear}</div>
                 </div>
@@ -2466,13 +2466,13 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       ? Number(item.unitPriceOverride)
                       : Number(item.catalogItem?.basePrice ?? 0);
                     return (
-                      <div key={item.catalogItemId} className="text-[11px]">
+                      <div key={item.catalogItemId} className="text-xs">
                         • {item.catalogItem?.name}: {formatCurrency(price)}
                         {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                       </div>
                     );
                   })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-[11px]">
+                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
                   <div>Guardias: {summary.totalGuards}</div>
                   <div>Meses estadía: {parameters.avgStayMonths}</div>
                 </div>
@@ -2497,7 +2497,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       ? Number(meal.priceOverride)
                       : Number(catalogItem?.basePrice ?? 0);
                     return (
-                      <div key={meal.mealType} className="text-[11px]">
+                      <div key={meal.mealType} className="text-xs">
                         • {meal.mealType}: {formatCurrency(price)} × {meal.mealsPerDay}/día × {meal.daysOfService} días
                         {meal.priceOverride && <span className="text-emerald-300"> (override)</span>}
                       </div>
@@ -2525,13 +2525,13 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       ? Number(item.unitPriceOverride)
                       : Number(catalogItem?.basePrice ?? 0);
                     return (
-                      <div key={item.catalogItemId} className="text-[11px]">
+                      <div key={item.catalogItemId} className="text-xs">
                         • {catalogItem?.name}: {formatCurrency(price)}
                         {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                       </div>
                     );
                   })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-[11px]">
+                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
                   <div>Guardias: {summary.totalGuards}</div>
                 </div>
               </div>
@@ -2556,7 +2556,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         ? Number(item.unitPriceOverride)
                         : Number(catalogItem?.basePrice ?? 0);
                       return (
-                        <div key={item.catalogItemId} className="text-[11px]">
+                        <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
                           {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                         </div>
@@ -2584,7 +2584,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         ? Number(item.unitPriceOverride)
                         : Number(catalogItem?.basePrice ?? 0);
                       return (
-                        <div key={item.catalogItemId} className="text-[11px]">
+                        <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
                           {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                         </div>
@@ -2612,7 +2612,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         ? Number(item.unitPriceOverride)
                         : Number(catalogItem?.basePrice ?? 0);
                       return (
-                        <div key={item.catalogItemId} className="text-[11px]">
+                        <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
                           {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                         </div>
@@ -2640,7 +2640,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       ? Number(item.unitPriceOverride)
                       : Number(catalogItem?.basePrice ?? 0);
                     return (
-                      <div key={item.catalogItemId} className="text-[11px]">
+                      <div key={item.catalogItemId} className="text-xs">
                         • {catalogItem?.name}: {formatCurrency(price)}
                         {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
                       </div>
@@ -2657,15 +2657,15 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
               tooltip={
                 <div className="space-y-1">
                   <div className="font-semibold">Desglose:</div>
-                  <div className="text-[11px]">Costo financiero: {formatCurrency(summary.monthlyFinancial)}</div>
-                  <div className="text-[11px]">Póliza: {formatCurrency(summary.monthlyPolicy)}</div>
+                  <div className="text-xs">Costo financiero: {formatCurrency(summary.monthlyFinancial)}</div>
+                  <div className="text-xs">Póliza: {formatCurrency(summary.monthlyPolicy)}</div>
                 </div>
               }
             />
           </div>
           <div className="flex justify-end">
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
-              <div className="text-[10px] text-emerald-300/70 uppercase">Total adicionales</div>
+              <div className="text-xs text-emerald-300/70 uppercase">Total adicionales</div>
               <div className="font-mono text-sm font-semibold text-emerald-400">
                 {formatCurrency(summary.monthlyExtras)}
               </div>

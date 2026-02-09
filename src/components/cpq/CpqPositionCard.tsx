@@ -113,7 +113,7 @@ export function CpqPositionCard({
               {position.numGuards} guardias
             </Badge>
           </div>
-          <p className="text-xs sm:text-[11px] text-muted-foreground">
+          <p className="text-xs sm:text-xs text-muted-foreground">
             {daysLabel || "Días por definir"} · {position.startTime} - {position.endTime}
             {" · "}
             {shiftHours === null
@@ -142,27 +142,27 @@ export function CpqPositionCard({
       </div>
 
       <div className={`${detailsOpen ? 'grid' : 'hidden'} sm:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-3`}>
-        <div className="rounded-md bg-gradient-to-br from-blue-600/40 to-blue-800/30 p-2 text-white">
-          <p className="text-xs sm:text-[9px] uppercase text-white/70">Cargo</p>
-          <p className="text-sm sm:text-[11px] font-semibold">{position.cargo?.name || "—"}</p>
+        <div className="rounded-md bg-gradient-to-br from-blue-600/40 to-blue-800/30 p-2 text-foreground">
+          <p className="text-xs sm:text-[9px] uppercase text-foreground/70">Cargo</p>
+          <p className="text-sm sm:text-xs font-semibold">{position.cargo?.name || "—"}</p>
         </div>
-        <div className="rounded-md bg-gradient-to-br from-purple-600/40 to-purple-800/30 p-2 text-white">
-          <p className="text-xs sm:text-[9px] uppercase text-white/70">Rol</p>
-          <p className="text-sm sm:text-[11px] font-semibold">{position.rol?.name || "—"}</p>
+        <div className="rounded-md bg-gradient-to-br from-purple-600/40 to-purple-800/30 p-2 text-foreground">
+          <p className="text-xs sm:text-[9px] uppercase text-foreground/70">Rol</p>
+          <p className="text-sm sm:text-xs font-semibold">{position.rol?.name || "—"}</p>
         </div>
-        <div className="rounded-md bg-gradient-to-br from-indigo-600/40 to-indigo-800/30 p-2 text-white">
-          <p className="text-xs sm:text-[9px] uppercase text-white/70">Base c/u</p>
-          <p className="text-sm sm:text-[11px] font-semibold">{formatCurrency(Number(position.baseSalary))}</p>
+        <div className="rounded-md bg-gradient-to-br from-indigo-600/40 to-indigo-800/30 p-2 text-foreground">
+          <p className="text-xs sm:text-[9px] uppercase text-foreground/70">Base c/u</p>
+          <p className="text-sm sm:text-xs font-semibold">{formatCurrency(Number(position.baseSalary))}</p>
         </div>
-        <div className="rounded-md bg-gradient-to-br from-emerald-600/40 to-emerald-800/30 p-2 text-white">
-          <p className="text-xs sm:text-[9px] uppercase text-white/70">Líquido c/u</p>
-          <p className="text-sm sm:text-[11px] font-semibold">
+        <div className="rounded-md bg-gradient-to-br from-emerald-600/40 to-emerald-800/30 p-2 text-foreground">
+          <p className="text-xs sm:text-[9px] uppercase text-foreground/70">Líquido c/u</p>
+          <p className="text-sm sm:text-xs font-semibold">
             {formatCurrency(Number(position.netSalary || 0))}
           </p>
         </div>
-        <div className="rounded-md bg-gradient-to-br from-cyan-600/40 to-cyan-800/30 p-2 text-white">
-          <p className="text-xs sm:text-[9px] uppercase text-white/70">Empresa c/u</p>
-          <p className="text-sm sm:text-[11px] font-semibold">
+        <div className="rounded-md bg-gradient-to-br from-cyan-600/40 to-cyan-800/30 p-2 text-foreground">
+          <p className="text-xs sm:text-[9px] uppercase text-foreground/70">Empresa c/u</p>
+          <p className="text-sm sm:text-xs font-semibold">
             {formatCurrency(Number(position.employerCost))}
           </p>
         </div>
@@ -170,13 +170,13 @@ export function CpqPositionCard({
 
       <div className="flex items-center justify-between border-t bg-muted/10 px-3 py-2">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-          <p className="text-xs sm:text-[10px] text-muted-foreground">
+          <p className="text-xs sm:text-xs text-muted-foreground">
             Total puesto ({position.numGuards}):{" "}
             <span className="font-mono text-foreground">
               {formatCurrency(Number(position.monthlyPositionCost))}
             </span>
           </p>
-          <p className="text-xs sm:text-[10px] text-emerald-400">
+          <p className="text-xs sm:text-xs text-emerald-400">
             Valor hora:{" "}
             <span className="font-mono font-semibold">
               {formatCurrency(hourlyRate)}
@@ -194,7 +194,7 @@ export function CpqPositionCard({
           >
             <ChevronDown className={`h-4 w-4 transition-transform ${detailsOpen ? "rotate-180" : ""}`} />
           </Button>
-          <Button size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs sm:text-[10px]" onClick={() => setOpenBreakdown(true)}>
+          <Button size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs sm:text-xs" onClick={() => setOpenBreakdown(true)}>
             Ver desglose
           </Button>
         </div>

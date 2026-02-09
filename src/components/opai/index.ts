@@ -36,6 +36,10 @@ export { NotificationBell } from './NotificationBell';
 export { DocumentosTopbar } from './DocumentosTopbar';
 export { ReloadButton } from './ReloadButton';
 
+// Navigation
+export { SubNav } from './SubNav';
+export type { SubNavItem } from './SubNav';
+
 // Page Components
 export { DocumentosContent } from './DocumentosContent';
 export { DocumentosSubnav } from './DocumentosSubnav';

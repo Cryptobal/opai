@@ -66,9 +66,9 @@ export function CrmContactsClient({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const inputClassName =
-    "bg-blue-900/30 text-white placeholder:text-blue-200 border-blue-700 focus-visible:ring-blue-400";
+    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectClassName =
-    "w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   const updateForm = (key: keyof ContactFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));

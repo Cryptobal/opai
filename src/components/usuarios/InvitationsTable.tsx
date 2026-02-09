@@ -45,12 +45,12 @@ export default function InvitationsTable({ invitations }: Props) {
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {invitations.map((inv) => (
-          <div key={inv.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <div className="font-medium text-white">{inv.email}</div>
-            <div className="mt-1 text-sm text-slate-400">
+          <div key={inv.id} className="rounded-lg border border-border bg-card/40 p-4">
+            <div className="font-medium text-foreground">{inv.email}</div>
+            <div className="mt-1 text-sm text-muted-foreground">
               {getRoleLabel(inv.role)}
             </div>
-            <div className="mt-2 flex items-center justify-between text-sm text-slate-400">
+            <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
               <span>Enviada</span>
               <span>
                 {formatDistanceToNow(new Date(inv.createdAt), {
@@ -59,7 +59,7 @@ export default function InvitationsTable({ invitations }: Props) {
                 })}
               </span>
             </div>
-            <div className="mt-1 flex items-center justify-between text-sm text-slate-400">
+            <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
               <span>Expira</span>
               <span>
                 {formatDistanceToNow(new Date(inv.expiresAt), {
@@ -74,7 +74,7 @@ export default function InvitationsTable({ invitations }: Props) {
                 size="sm"
                 onClick={() => handleRevoke(inv.id)}
                 disabled={loading === inv.id}
-                className="border-slate-700 bg-slate-800 text-slate-200"
+                className="border-border bg-muted text-foreground"
               >
                 <X className="w-4 h-4 mr-1" />
                 Revocar
@@ -87,43 +87,43 @@ export default function InvitationsTable({ invitations }: Props) {
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
-        <thead className="bg-slate-800 border-b border-slate-700">
+        <thead className="bg-muted border-b border-border">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Email
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Rol
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Enviada
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Expira
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Acciones
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
           {invitations.map((inv) => (
-            <tr key={inv.id} className="hover:bg-slate-800/50 transition-colors">
-              <td className="px-6 py-4 font-medium text-white">
+            <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
+              <td className="px-6 py-4 font-medium text-foreground">
                 {inv.email}
               </td>
               <td className="px-6 py-4">
-                <span className="bg-amber-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">
+                <span className="bg-amber-600 text-foreground text-xs px-2.5 py-1 rounded-full font-medium">
                   {getRoleLabel(inv.role)}
                 </span>
               </td>
-              <td className="px-6 py-4 text-sm text-slate-400">
+              <td className="px-6 py-4 text-sm text-muted-foreground">
                 {formatDistanceToNow(new Date(inv.createdAt), {
                   addSuffix: true,
                   locale: es,
                 })}
               </td>
-              <td className="px-6 py-4 text-sm text-slate-400">
+              <td className="px-6 py-4 text-sm text-muted-foreground">
                 {formatDistanceToNow(new Date(inv.expiresAt), {
                   addSuffix: true,
                   locale: es,

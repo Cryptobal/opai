@@ -67,7 +67,7 @@ export function CrmConfigClient({
   });
 
   const inputClassName =
-    "bg-blue-900/30 text-white placeholder:text-blue-200 border-blue-700 focus-visible:ring-blue-400";
+    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
   const orderedStages = useMemo(
     () => [...stages].sort((a, b) => a.order - b.order),
@@ -221,7 +221,7 @@ export function CrmConfigClient({
                   type="color"
                   value={newStage.color}
                   onChange={(event) => setNewStage((prev) => ({ ...prev, color: event.target.value }))}
-                  className="h-9 w-full rounded-md border border-blue-700 bg-blue-900/30"
+                  className="h-10 w-full rounded-md border border-input bg-background text-sm text-foreground"
                 />
               </div>
               <div className="space-y-1">
@@ -304,7 +304,7 @@ export function CrmConfigClient({
                       prev.map((item) => (item.id === stage.id ? { ...item, color: event.target.value } : item))
                     )
                   }
-                  className="h-9 w-full rounded-md border border-blue-700 bg-blue-900/30"
+                  className="h-10 w-full rounded-md border border-input bg-background text-sm text-foreground"
                 />
                 <div className="flex gap-2 text-xs text-muted-foreground">
                   <label className="flex items-center gap-2">
@@ -375,7 +375,7 @@ export function CrmConfigClient({
               <div className="space-y-1">
                 <Label>Entidad</Label>
                 <select
-                  className="w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={newField.entityType}
                   onChange={(event) => setNewField((prev) => ({ ...prev, entityType: event.target.value }))}
                 >
@@ -389,7 +389,7 @@ export function CrmConfigClient({
               <div className="space-y-1">
                 <Label>Tipo</Label>
                 <select
-                  className="w-full rounded-md border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={newField.type}
                   onChange={(event) => setNewField((prev) => ({ ...prev, type: event.target.value }))}
                 >

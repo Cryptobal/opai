@@ -499,7 +499,7 @@ export default function PayrollSimulator() {
 
                   {result.simulation_id && (
                     <div className="rounded-md bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
-                      ID: {result.simulation_id.slice(0, 8)} <Badge variant="outline" className="ml-2 h-4 text-[10px]">Inmutable</Badge>
+                      ID: {result.simulation_id.slice(0, 8)} <Badge variant="outline" className="ml-2 h-4 text-xs">Inmutable</Badge>
                     </div>
                   )}
                 </div>

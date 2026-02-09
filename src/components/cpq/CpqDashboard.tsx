@@ -71,13 +71,13 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
         <div className="flex items-center gap-2">
           <CreateQuoteModal onCreated={refresh} variant="quick" />
           <Link href="/cpq/config">
-            <Button variant="outline" size="sm" className="gap-2 bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:text-white">
+            <Button variant="outline" size="sm" className="gap-2 bg-muted/50 border-border text-foreground hover:bg-accent/50 hover:text-foreground">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Configurar</span>
             </Button>
           </Link>
           <Link href="/payroll/simulator">
-            <Button variant="outline" size="sm" className="gap-2 bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:text-white">
+            <Button variant="outline" size="sm" className="gap-2 bg-muted/50 border-border text-foreground hover:bg-accent/50 hover:text-foreground">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Payroll</span>
             </Button>
@@ -120,14 +120,14 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por código o cliente"
-            className="h-10 sm:h-9 bg-slate-900/80 text-white border-blue-600/40 placeholder:text-slate-400"
+            className="h-10 sm:h-9 bg-card/80 text-foreground border-blue-600/40 placeholder:text-muted-foreground"
           />
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("all")}
-              className={statusFilter === "all" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+              className={statusFilter === "all" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-card/60 border-border text-muted-foreground hover:bg-muted/60"}
             >
               Todas
             </Button>
@@ -135,7 +135,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("draft")}
-              className={statusFilter === "draft" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+              className={statusFilter === "draft" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-card/60 border-border text-muted-foreground hover:bg-muted/60"}
             >
               Borradores
             </Button>
@@ -143,7 +143,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("sent")}
-              className={statusFilter === "sent" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+              className={statusFilter === "sent" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-card/60 border-border text-muted-foreground hover:bg-muted/60"}
             >
               Enviadas
             </Button>
@@ -151,7 +151,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("approved")}
-              className={statusFilter === "approved" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+              className={statusFilter === "approved" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-card/60 border-border text-muted-foreground hover:bg-muted/60"}
             >
               Aprobadas
             </Button>
@@ -159,7 +159,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
               size="sm"
               variant="outline"
               onClick={() => setStatusFilter("rejected")}
-              className={statusFilter === "rejected" ? "bg-rose-600/20 border-rose-500/50 text-rose-300" : "bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800/60"}
+              className={statusFilter === "rejected" ? "bg-rose-600/20 border-rose-500/50 text-rose-300" : "bg-card/60 border-border text-muted-foreground hover:bg-muted/60"}
             >
               Rechazadas
             </Button>

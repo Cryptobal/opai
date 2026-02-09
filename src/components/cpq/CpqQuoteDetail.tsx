@@ -278,7 +278,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               {index < activeStep ? (
                 <Check className="h-3 w-3" />
               ) : (
-                <span className="text-[10px]">{index + 1}</span>
+                <span className="text-xs">{index + 1}</span>
               )}
               <Icon className="h-3 w-3" />
               <span className="ml-1 text-xs">{step}</span>
@@ -322,7 +322,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 {quote.status}
               </Badge>
               <span
-                className={`text-[10px] ${
+                className={`text-xs ${
                   quoteDirty ? "text-amber-400" : "text-muted-foreground"
                 }`}
               >
@@ -467,19 +467,19 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-border/50 p-2">
-                <p className="text-[11px] text-muted-foreground uppercase">Puestos</p>
+                <p className="text-xs text-muted-foreground uppercase">Puestos</p>
                 <p className="text-sm font-semibold">{positions.length}</p>
               </div>
               <div className="rounded-md border border-border/50 p-2">
-                <p className="text-[11px] text-muted-foreground uppercase">Guardias</p>
+                <p className="text-xs text-muted-foreground uppercase">Guardias</p>
                 <p className="text-sm font-semibold">{stats.totalGuards}</p>
               </div>
               <div className="rounded-md border border-border/50 p-2">
-                <p className="text-[11px] text-muted-foreground uppercase">Adicionales</p>
+                <p className="text-xs text-muted-foreground uppercase">Adicionales</p>
                 <p className="text-sm font-semibold">{formatCurrency(additionalCostsTotal)}</p>
               </div>
               <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
-                <p className="text-[11px] text-emerald-300 uppercase">Total mensual</p>
+                <p className="text-xs text-emerald-400 uppercase">Total mensual</p>
                 <p className="text-sm font-semibold text-emerald-300">{formatCurrency(monthlyTotal)}</p>
               </div>
             </div>
@@ -525,7 +525,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             <ChevronLeft className="h-4 w-4" />
             Atrás
           </Button>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Paso {activeStep + 1} de {steps.length} · {steps[activeStep]}
           </span>
           <Button
