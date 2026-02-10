@@ -63,30 +63,62 @@ export function CrmInstallationDetailClient({
         />
       </div>
 
-      {/* ── Section 1: Datos generales ── */}
+      {/* ── Section 1: Datos generales + mapa a la derecha (desktop) ── */}
       <CollapsibleSection
         icon={<Info className="h-4 w-4" />}
         title="Datos generales"
       >
-        <div className="space-y-3 text-sm">
-          <InfoRow label="Dirección">
-            {installation.address ? (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3 shrink-0" />
-                {installation.address}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Sin dirección</span>
+        <div className="flex flex-col lg:flex-row lg:gap-6">
+          {/* Datos */}
+          <div className="flex-1 space-y-3 text-sm">
+            <InfoRow label="Dirección">
+              {installation.address ? (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  {installation.address}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Sin dirección</span>
+              )}
+            </InfoRow>
+            <InfoRow label="Comuna / Ciudad">
+              {(installation.commune || installation.city)
+                ? [installation.commune, installation.city].filter(Boolean).join(", ")
+                : "—"}
+            </InfoRow>
+            {installation.notes && (
+              <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground mt-2">
+                {installation.notes}
+              </div>
             )}
-          </InfoRow>
-          <InfoRow label="Comuna / Ciudad">
-            {(installation.commune || installation.city)
-              ? [installation.commune, installation.city].filter(Boolean).join(", ")
-              : "—"}
-          </InfoRow>
-          {installation.notes && (
-            <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground mt-2">
-              {installation.notes}
+          </div>
+
+          {/* Mapa — a la derecha en desktop, abajo en móvil */}
+          {hasCoords && MAPS_KEY ? (
+            <a
+              href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 transition-opacity lg:w-[220px] lg:h-[160px]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
+                alt={`Mapa de ${installation.name}`}
+                className="w-full h-[140px] lg:h-[130px] object-cover"
+              />
+              <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <ExternalLink className="h-3 w-3" />
+                Google Maps
+              </div>
+            </a>
+          ) : (
+            <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
+              <p className="text-xs text-muted-foreground text-center">
+                {hasCoords && !MAPS_KEY
+                  ? "Configura GOOGLE_MAPS_API_KEY"
+                  : "Sin ubicación"}
+              </p>
             </div>
           )}
         </div>
@@ -110,44 +142,6 @@ export function CrmInstallationDetailClient({
           </Link>
         ) : (
           <EmptyState icon={<Building2 className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 3: Mapa ── */}
-      <CollapsibleSection
-        icon={<MapPin className="h-4 w-4" />}
-        title="Ubicación"
-        defaultOpen={hasCoords}
-      >
-        {hasCoords && MAPS_KEY ? (
-          <a
-            href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-lg overflow-hidden border border-border hover:opacity-95 transition-opacity"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=800x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
-              alt={`Mapa de ${installation.name}`}
-              className="w-full h-auto min-h-[200px] object-cover"
-            />
-            <div className="flex items-center justify-center gap-2 py-2.5 text-sm text-muted-foreground hover:text-foreground">
-              <ExternalLink className="h-4 w-4" />
-              Abrir en Google Maps
-            </div>
-          </a>
-        ) : (
-          <EmptyState
-            icon={<MapPin className="h-8 w-8" />}
-            title="Sin ubicación"
-            description={
-              hasCoords && !MAPS_KEY
-                ? `Coordenadas: ${installation.lat}, ${installation.lng}. Configura NEXT_PUBLIC_GOOGLE_MAPS_API_KEY para ver el mapa.`
-                : "Edita la instalación y selecciona una dirección para ver el mapa."
-            }
-            compact
-          />
         )}
       </CollapsibleSection>
 

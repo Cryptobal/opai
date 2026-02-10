@@ -181,7 +181,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   const counts = useMemo(() => ({
-    total: leads.length,
+    total: leads.filter((l) => l.status !== "approved").length,
     pending: leads.filter((l) => l.status === "pending").length,
     approved: leads.filter((l) => l.status === "approved").length,
     rejected: leads.filter((l) => l.status === "rejected").length,
@@ -190,6 +190,8 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
   const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
     return leads.filter((lead) => {
+      // "all" muestra solo pendientes + rechazados (aprobados ya son cuentas)
+      if (statusFilter === "all" && lead.status === "approved") return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
       if (q) {
         const searchable = `${lead.companyName || ""} ${lead.firstName || ""} ${lead.lastName || ""} ${lead.email || ""}`.toLowerCase();
@@ -266,13 +268,17 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
     });
 
-    // Pre-crear una instalación con la dirección y dotación del lead
+    // Pre-crear una instalación con la dirección, coordenadas y dotación del lead
+    const leadLat = meta?.lat as number | undefined;
+    const leadLng = meta?.lng as number | undefined;
     const firstInst = createEmptyInstallation(
       lead.companyName || "",
       (lead as any).address || "",
       (lead as any).city || "",
       (lead as any).commune || "",
     );
+    if (leadLat != null) firstInst.lat = leadLat;
+    if (leadLng != null) firstInst.lng = leadLng;
     firstInst.dotacion = leadDotacion.map((d) => ({
       puesto: d.puesto || "",
       cantidad: d.cantidad || 1,

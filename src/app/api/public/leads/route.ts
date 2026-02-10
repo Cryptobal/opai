@@ -122,17 +122,16 @@ export async function POST(request: NextRequest) {
           website: data.pagina_web || null,
           serviceType: data.servicio,
           notes: notesLines.join("\n") || null,
-          metadata: data.dotacion
-            ? {
-                dotacion: data.dotacion,
-                totalGuards,
-                webFormData: {
-                  pagina_web: data.pagina_web,
-                  industria: data.industria,
-                  servicio: data.servicio,
-                },
-              }
-            : undefined,
+          metadata: {
+            ...(data.dotacion ? { dotacion: data.dotacion, totalGuards } : {}),
+            webFormData: {
+              pagina_web: data.pagina_web,
+              industria: data.industria,
+              servicio: data.servicio,
+            },
+            ...(data.lat != null ? { lat: data.lat } : {}),
+            ...(data.lng != null ? { lng: data.lng } : {}),
+          },
         },
       });
       leadId = lead.id;

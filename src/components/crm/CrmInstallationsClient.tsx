@@ -177,51 +177,57 @@ export function CrmInstallationsClient({
         {installations.map((inst) => (
           <div
             key={inst.id}
-            className="rounded-lg border p-3 space-y-2 cursor-pointer hover:bg-accent/30 transition-colors"
+            className="rounded-lg border p-3 cursor-pointer hover:bg-accent/30 transition-colors"
             onClick={() => openEdit(inst)}
           >
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-3">
+              {/* Datos de la instalación (izquierda) */}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{inst.name}</p>
-                {inst.address && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {inst.address}
-                  </p>
-                )}
-                {(inst.city || inst.commune) && (
-                  <p className="text-xs text-muted-foreground ml-4">
-                    {[inst.commune, inst.city].filter(Boolean).join(", ")}
-                  </p>
-                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{inst.name}</p>
+                    {inst.address && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        {inst.address}
+                      </p>
+                    )}
+                    {(inst.city || inst.commune) && (
+                      <p className="text-xs text-muted-foreground ml-4">
+                        {[inst.commune, inst.city].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(inst)}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ open: true, id: inst.id })}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(inst)}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirm({ open: true, id: inst.id })}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
 
-            {inst.lat != null && inst.lng != null && MAPS_KEY && (
-              <a
-                href={`https://www.google.com/maps/@${inst.lat},${inst.lng},17z`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded overflow-hidden border border-border hover:opacity-90 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${inst.lat},${inst.lng}&zoom=15&size=400x120&scale=2&markers=color:red%7C${inst.lat},${inst.lng}&key=${MAPS_KEY}`}
-                  alt={`Mapa ${inst.name}`}
-                  className="w-full h-[90px] object-cover"
-                  loading="lazy"
-                />
-              </a>
-            )}
+              {/* Mapa (derecha, tamaño acotado) */}
+              {inst.lat != null && inst.lng != null && MAPS_KEY && (
+                <a
+                  href={`https://www.google.com/maps/@${inst.lat},${inst.lng},17z`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 block rounded overflow-hidden border border-border hover:opacity-90 transition-opacity w-[140px] h-[90px]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://maps.googleapis.com/maps/api/staticmap?center=${inst.lat},${inst.lng}&zoom=15&size=280x180&scale=2&markers=color:red%7C${inst.lat},${inst.lng}&key=${MAPS_KEY}`}
+                    alt={`Mapa ${inst.name}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>

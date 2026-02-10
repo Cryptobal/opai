@@ -241,51 +241,139 @@ export async function POST(
         },
       });
 
-      // Instalaciones: crear nuevas o usar existentes según resolution
+      // ── Instalaciones + Cotización CPQ ──
+      // Obtener defaults para CPQ (cargo y rol por defecto)
+      const defaultCargo = await tx.cpqCargo.findFirst({ where: { active: true }, orderBy: { name: "asc" } });
+      const defaultRol = await tx.cpqRol.findFirst({ where: { active: true }, orderBy: { name: "asc" } });
+
+      // Generar código de cotización
+      const year = new Date().getFullYear();
+      let quoteCodeCounter = await tx.cpqQuote.count({ where: { tenantId: ctx.tenantId } });
+
       for (const inst of installationsPayload) {
         const instName = inst?.name?.trim();
         if (!instName) continue;
         const useExistingInstallationId = inst?.useExistingInstallationId?.trim() || null;
+        let installationId: string;
+
         if (useExistingInstallationId) {
-          await tx.crmInstallation.updateMany({
+          installationId = useExistingInstallationId;
+        } else {
+          const existingSameName = await tx.crmInstallation.findFirst({
             where: {
-              id: useExistingInstallationId,
               tenantId: ctx.tenantId,
               accountId: account.id,
+              name: { equals: instName, mode: "insensitive" },
             },
-            data: {},
           });
-          continue;
+          if (existingSameName) {
+            const e = new Error("CONFLICT_INSTALLATION") as Error & { conflictName?: string; existingId?: string };
+            e.conflictName = instName;
+            e.existingId = existingSameName.id;
+            throw e;
+          }
+          const newInst = await tx.crmInstallation.create({
+            data: {
+              tenantId: ctx.tenantId,
+              accountId: account.id,
+              name: instName,
+              address: inst?.address?.trim() || null,
+              city: inst?.city?.trim() || null,
+              commune: inst?.commune?.trim() || null,
+              lat: inst?.lat ? Number(inst.lat) : null,
+              lng: inst?.lng ? Number(inst.lng) : null,
+              metadata:
+                Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
+                  ? { dotacion: inst.dotacion }
+                  : undefined,
+            },
+          });
+          installationId = newInst.id;
         }
-        const existingSameName = await tx.crmInstallation.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            accountId: account.id,
-            name: { equals: instName, mode: "insensitive" },
-          },
-        });
-        if (existingSameName) {
-          const e = new Error("CONFLICT_INSTALLATION") as Error & { conflictName?: string; existingId?: string };
-          e.conflictName = instName;
-          e.existingId = existingSameName.id;
-          throw e;
+
+        // Crear cotización CPQ si la instalación tiene dotación
+        const dotacion = Array.isArray(inst?.dotacion) ? inst.dotacion : [];
+        if (dotacion.length > 0 && defaultCargo && defaultRol) {
+          // Generar código único
+          quoteCodeCounter++;
+          let quoteCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
+          // Retry en caso de colisión
+          let codeAttempts = 0;
+          let quote = null;
+          while (!quote && codeAttempts < 10) {
+            codeAttempts++;
+            try {
+              quote = await tx.cpqQuote.create({
+                data: {
+                  tenantId: ctx.tenantId,
+                  code: quoteCode,
+                  status: "draft",
+                  clientName: accountName,
+                  accountId: account.id,
+                  contactId: contact.id,
+                  dealId: deal.id,
+                  installationId,
+                  totalPositions: dotacion.length,
+                  totalGuards: dotacion.reduce((sum: number, d: { cantidad?: number }) => sum + (d.cantidad || 1), 0),
+                },
+              });
+            } catch (codeErr: any) {
+              if (codeErr?.code === "P2002") {
+                quoteCodeCounter++;
+                quoteCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
+                continue;
+              }
+              throw codeErr;
+            }
+          }
+
+          if (quote) {
+            // Crear posiciones CPQ a partir de la dotación
+            for (const d of dotacion) {
+              const puestoName = (d.puesto || "Guardia de Seguridad").trim();
+              // Buscar o crear puesto de trabajo
+              let puesto = await tx.cpqPuestoTrabajo.findFirst({
+                where: { name: { equals: puestoName, mode: "insensitive" } },
+              });
+              if (!puesto) {
+                puesto = await tx.cpqPuestoTrabajo.create({
+                  data: { name: puestoName, active: true },
+                });
+              }
+
+              const weekdays = Array.isArray(d.dias) && d.dias.length > 0
+                ? d.dias
+                : ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+
+              await tx.cpqPosition.create({
+                data: {
+                  quoteId: quote.id,
+                  puestoTrabajoId: puesto.id,
+                  customName: puestoName,
+                  weekdays,
+                  startTime: d.horaInicio || "08:00",
+                  endTime: d.horaFin || "20:00",
+                  numGuards: d.cantidad || 1,
+                  cargoId: defaultCargo.id,
+                  rolId: defaultRol.id,
+                  baseSalary: 500000, // Salario base por defecto, se ajusta en CPQ
+                  employerCost: 0, // Se recalcula al abrir en CPQ
+                  netSalary: 0,
+                  monthlyPositionCost: 0,
+                },
+              });
+            }
+
+            // Vincular cotización al negocio via CrmDealQuote
+            await tx.crmDealQuote.create({
+              data: {
+                tenantId: ctx.tenantId,
+                dealId: deal.id,
+                quoteId: quote.id,
+              },
+            });
+          }
         }
-        await tx.crmInstallation.create({
-          data: {
-            tenantId: ctx.tenantId,
-            accountId: account.id,
-            name: instName,
-            address: inst?.address?.trim() || null,
-            city: inst?.city?.trim() || null,
-            commune: inst?.commune?.trim() || null,
-            lat: inst?.lat ? Number(inst.lat) : null,
-            lng: inst?.lng ? Number(inst.lng) : null,
-            metadata:
-              Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
-                ? { dotacion: inst.dotacion }
-                : undefined,
-          },
-        });
       }
 
       if (installationsPayload.length === 0 && body?.installationName?.trim()) {
