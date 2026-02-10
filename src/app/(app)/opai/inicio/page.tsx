@@ -37,6 +37,26 @@ export default async function DashboardPage() {
     orderBy: { createdAt: 'desc' },
   });
 
+  // Resolver negocio CRM (dealId) por presentación usando quoteId -> cpqQuote.dealId
+  const quoteIds = Array.from(
+    new Set(
+      presentations
+        .map((p) => p.quoteId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const quotes = quoteIds.length
+    ? await prisma.cpqQuote.findMany({
+        where: { tenantId, id: { in: quoteIds } },
+        select: { id: true, dealId: true },
+      })
+    : [];
+  const dealIdByQuoteId = new Map(quotes.map((q) => [q.id, q.dealId ?? null]));
+  const presentationsWithDeals = presentations.map((p) => ({
+    ...p,
+    crmDealId: p.quoteId ? (dealIdByQuoteId.get(p.quoteId) ?? null) : null,
+  }));
+
   // Calcular estadísticas
   const stats = {
     total: presentations.length,
@@ -88,7 +108,7 @@ export default async function DashboardPage() {
 
       {/* Content con KPIs clickeables */}
       <DocumentosContent
-        presentations={presentations}
+        presentations={presentationsWithDeals}
         stats={stats}
         conversionRate={conversionRate}
       />

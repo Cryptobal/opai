@@ -38,6 +38,7 @@ import { EmailStatusBadge } from './EmailStatusBadge';
 type PresentationWithRelations = Presentation & {
   template: Template;
   views: PresentationView[];
+  crmDealId?: string | null;
 };
 
 interface PresentationsListProps {
@@ -258,13 +259,24 @@ export function PresentationsList({ presentations: initialPresentations, initial
               `${clientData?.contact?.First_Name || ''} ${clientData?.contact?.Last_Name || ''}`.trim() || 
               'Sin contacto';
             const subject = clientData?.quote?.Subject || 'Sin asunto';
-            const quoteNumber = clientData?.quote?.Quote_Number || 'N/A';
-            const quoteId = clientData?.quote?.id || null;
             const recipientEmail = presentation.recipientEmail || clientData?.contact?.Email || '';
-            
-            // URL de la cotización en Zoho CRM
-            const zohoQuoteUrl = quoteId 
-              ? `https://crm.zoho.com/crm/org846916834/tab/Quotes/${quoteId}`
+
+            // Nuevas presentaciones: abrir negocio del CRM interno.
+            const dealIdFromPayload =
+              (typeof clientData?._cpqDealId === 'string' && clientData._cpqDealId) ||
+              (typeof clientData?.dealId === 'string' && clientData.dealId) ||
+              (typeof clientData?.deal?.id === 'string' && clientData.deal.id) ||
+              null;
+            const crmDealId = presentation.crmDealId || dealIdFromPayload;
+            const crmDealUrl = crmDealId ? `/crm/deals/${crmDealId}` : null;
+
+            // Fallback legacy: mantener acceso Zoho solo para IDs numéricos antiguos.
+            const legacyZohoQuoteId =
+              typeof clientData?.quote?.id === 'string' && /^[0-9]+$/.test(clientData.quote.id)
+                ? clientData.quote.id
+                : null;
+            const zohoQuoteUrl = legacyZohoQuoteId
+              ? `https://crm.zoho.com/crm/org846916834/tab/Quotes/${legacyZohoQuoteId}`
               : null;
 
             return (
@@ -353,6 +365,16 @@ export function PresentationsList({ presentations: initialPresentations, initial
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    ) : crmDealUrl ? (
+                      <a
+                        href={crmDealUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 transition-colors"
+                        title="Ver negocio en CRM"
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </a>
                     ) : zohoQuoteUrl ? (
                       <a
                         href={zohoQuoteUrl}
