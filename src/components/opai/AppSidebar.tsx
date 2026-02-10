@@ -48,9 +48,9 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 h-screen border-r border-border bg-card flex flex-col transition-[width] duration-200 ease-out",
+        "fixed left-0 top-0 z-30 border-r border-border bg-card flex flex-col transition-[width] duration-200 ease-out",
+        showCloseButton ? "h-full max-h-full" : "h-screen",
         collapsed ? "w-[72px]" : "w-60",
-        showCloseButton && "pb-[max(5rem,calc(5rem+env(safe-area-inset-bottom)))]",
         className
       )}
     >

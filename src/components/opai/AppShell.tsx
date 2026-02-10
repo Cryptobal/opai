@@ -66,7 +66,7 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
         {
           className: cn(
             (sidebar as ReactElement<{ className?: string }>).props.className,
-            'z-50 transition-transform duration-300 ease-out',
+            'z-50 transition-transform duration-300 ease-out h-full max-h-full',
             isMobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
           ),
           onNavigate: () => setIsMobileOpen(false),
@@ -152,7 +152,13 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
             aria-hidden="true"
           />
           {/* Close button */}
-          <div className="fixed left-0 top-0 z-50 h-full w-[280px] max-w-[82vw] shadow-xl">
+          <div
+            className="fixed left-0 top-0 z-50 w-[280px] max-w-[82vw] shadow-xl flex flex-col"
+            style={{
+              height: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))',
+              maxHeight: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))',
+            }}
+          >
             {mobileSidebar}
           </div>
         </div>
