@@ -14,9 +14,11 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { hasDocsSubmoduleAccess } from '@/lib/module-access';
+import { hasCrmSubmoduleAccess, hasDocsSubmoduleAccess } from '@/lib/module-access';
 import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
+import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -27,9 +29,11 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect('/opai/login?callbackUrl=/opai/inicio');
-  if (!hasDocsSubmoduleAccess(session.user.role, 'overview')) {
+  const role = session.user.role;
+  if (!hasDocsSubmoduleAccess(role, 'overview')) {
     redirect('/hub');
   }
+  const canUseCrmSearch = hasCrmSubmoduleAccess(role, 'overview');
   const tenantId = session.user.tenantId ?? await getDefaultTenantId();
 
   const presentations = await prisma.presentation.findMany({
@@ -109,6 +113,20 @@ export default async function DashboardPage() {
 
       {/* Sub-navegación */}
       <DocumentosSubnav />
+
+      {canUseCrmSearch && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Buscador CRM</CardTitle>
+            <CardDescription>
+              Busca contactos, cuentas, negocios, cotizaciones e instalaciones desde esta página.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CrmGlobalSearch />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Content con KPIs clickeables */}
       <DocumentosContent

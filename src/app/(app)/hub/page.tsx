@@ -19,11 +19,13 @@ import { hasAppAccess } from '@/lib/app-access';
 import {
   hasAnyConfigSubmoduleAccess,
   hasConfigSubmoduleAccess,
+  hasCrmSubmoduleAccess,
   hasDocsSubmoduleAccess,
 } from '@/lib/module-access';
 import { timeAgo } from '@/lib/utils';
 import { PageHeader, Avatar } from '@/components/opai';
 import { KpiCard } from '@/components/opai/KpiCard';
+import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -102,6 +104,7 @@ export default async function HubPage() {
     : 'Todo al día';
   const canCreateProposal = hasDocsSubmoduleAccess(role, 'document_editor');
   const canInviteUsers = hasConfigSubmoduleAccess(role, 'users');
+  const canUseCrmSearch = hasCrmSubmoduleAccess(role, 'overview');
   const appsLauncher = [
     {
       href: '/opai/inicio',
@@ -164,6 +167,20 @@ export default async function HubPage() {
           </Link>
         )}
       </div>
+
+      {canUseCrmSearch && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Buscador CRM</CardTitle>
+            <CardDescription>
+              Busca contactos, cuentas, negocios, cotizaciones e instalaciones sin salir de Inicio.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CrmGlobalSearch />
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPIs Grid */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

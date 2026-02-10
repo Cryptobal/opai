@@ -1,6 +1,6 @@
 /**
  * API Route: /api/crm/search
- * GET - Búsqueda global en CRM (leads, cuentas, contactos, negocios, instalaciones)
+ * GET - Búsqueda global en CRM (leads, cuentas, contactos, negocios, cotizaciones, instalaciones)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,13 +9,19 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 type SearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "installation";
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation";
   title: string;
   subtitle: string;
   href: string;
 };
 
 const TYPE_LIMIT = 5;
+const QUOTE_STATUS_LABEL: Record<string, string> = {
+  draft: "Borrador",
+  sent: "Enviada",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +36,7 @@ export async function GET(request: NextRequest) {
     const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
 
-    const [leads, accounts, contacts, deals, installations] = await Promise.all([
+    const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
       // Leads
       prisma.crmLead.findMany({
         where: {
@@ -115,6 +121,22 @@ export async function GET(request: NextRequest) {
         },
       }),
 
+      // Quotes
+      prisma.cpqQuote.findMany({
+        where: {
+          tenantId,
+          OR: [{ code: contains }, { clientName: contains }, { notes: contains }],
+        },
+        take: TYPE_LIMIT,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          code: true,
+          clientName: true,
+          status: true,
+        },
+      }),
+
       // Installations
       prisma.crmInstallation.findMany({
         where: {
@@ -166,7 +188,7 @@ export async function GET(request: NextRequest) {
         type: "contact",
         title: `${contact.firstName} ${contact.lastName}`.trim(),
         subtitle: [contact.email, contact.account?.name].filter(Boolean).join(" · "),
-        href: "/crm/contacts",
+        href: `/crm/contacts/${contact.id}`,
       });
     }
 
@@ -177,6 +199,16 @@ export async function GET(request: NextRequest) {
         title: deal.title,
         subtitle: [deal.account?.name, deal.stage?.name, `$${Number(deal.amount).toLocaleString("es-CL")}`].filter(Boolean).join(" · "),
         href: `/crm/deals/${deal.id}`,
+      });
+    }
+
+    for (const quote of quotes) {
+      results.push({
+        id: quote.id,
+        type: "quote",
+        title: quote.code,
+        subtitle: [quote.clientName, QUOTE_STATUS_LABEL[quote.status] || quote.status].filter(Boolean).join(" · "),
+        href: `/crm/cotizaciones/${quote.id}`,
       });
     }
 

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, Users, Building2, Contact, TrendingUp, MapPin } from "lucide-react";
+import { Search, Loader2, Users, Building2, Contact, TrendingUp, MapPin, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "installation";
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation";
   title: string;
   subtitle: string;
   href: string;
@@ -15,13 +15,14 @@ type SearchResult = {
 
 const TYPE_CONFIG: Record<
   string,
-  { label: string; icon: typeof Users; color: string; bgColor: string }
+  { label: string; groupLabel: string; icon: typeof Users; color: string; bgColor: string }
 > = {
-  lead: { label: "Lead", icon: Users, color: "text-emerald-400", bgColor: "bg-emerald-400/10" },
-  account: { label: "Cuenta", icon: Building2, color: "text-blue-400", bgColor: "bg-blue-400/10" },
-  contact: { label: "Contacto", icon: Contact, color: "text-sky-400", bgColor: "bg-sky-400/10" },
-  deal: { label: "Negocio", icon: TrendingUp, color: "text-purple-400", bgColor: "bg-purple-400/10" },
-  installation: { label: "Instalación", icon: MapPin, color: "text-teal-400", bgColor: "bg-teal-400/10" },
+  lead: { label: "Lead", groupLabel: "Leads", icon: Users, color: "text-emerald-400", bgColor: "bg-emerald-400/10" },
+  account: { label: "Cuenta", groupLabel: "Cuentas", icon: Building2, color: "text-blue-400", bgColor: "bg-blue-400/10" },
+  contact: { label: "Contacto", groupLabel: "Contactos", icon: Contact, color: "text-sky-400", bgColor: "bg-sky-400/10" },
+  deal: { label: "Negocio", groupLabel: "Negocios", icon: TrendingUp, color: "text-purple-400", bgColor: "bg-purple-400/10" },
+  quote: { label: "Cotización", groupLabel: "Cotizaciones", icon: FileText, color: "text-amber-400", bgColor: "bg-amber-400/10" },
+  installation: { label: "Instalación", groupLabel: "Instalaciones", icon: MapPin, color: "text-teal-400", bgColor: "bg-teal-400/10" },
 };
 
 export function CrmGlobalSearch({ className }: { className?: string }) {
@@ -156,7 +157,7 @@ export function CrmGlobalSearch({ className }: { className?: string }) {
             return (
               <div key={type}>
                 <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">
-                  {config.label}s
+                  {config.groupLabel}
                 </div>
                 {items.map((result) => {
                   const Icon = config.icon;
