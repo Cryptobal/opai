@@ -137,25 +137,7 @@ export async function POST(request: NextRequest) {
       });
       leadId = lead.id;
 
-      // Crear instalación tentativa cuando hay dirección (Google Maps con lat/lng)
-      const tieneDireccion = data.direccion && data.direccion.trim().length > 0;
-      const nombreTentativo = `${data.empresa} - ${data.direccion || "Instalación"}`.slice(0, 200);
-      if (tieneDireccion) {
-        await prisma.crmInstallation.create({
-          data: {
-            tenantId,
-            leadId: lead.id,
-            accountId: null,
-            name: nombreTentativo,
-            address: data.direccion || null,
-            commune: data.comuna || null,
-            city: data.ciudad || null,
-            lat: data.lat ?? null,
-            lng: data.lng ?? null,
-            notes: data.detalle ? `From lead: ${data.detalle.slice(0, 500)}` : null,
-          },
-        });
-      }
+      // Cuenta, contacto e instalaciones se crean solo al "Revisar y aprobar" el lead en el CRM.
 
       await prisma.notification.create({
         data: {

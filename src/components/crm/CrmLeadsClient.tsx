@@ -129,6 +129,8 @@ const DEFAULT_FORM: LeadFormState = {
 };
 
 type DuplicateAccount = { id: string; name: string; rut?: string | null; type?: string };
+type ExistingContact = { id: string; firstName: string | null; lastName: string | null; email: string | null };
+type InstallationConflict = { name: string; id: string };
 
 export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
   const [leads, setLeads] = useState<CrmLead[]>(initialLeads);
@@ -143,7 +145,12 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
   const [approveLeadId, setApproveLeadId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateAccount[]>([]);
+  const [existingContact, setExistingContact] = useState<ExistingContact | null>(null);
+  const [installationConflicts, setInstallationConflicts] = useState<InstallationConflict[]>([]);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
+  const [useExistingAccountId, setUseExistingAccountId] = useState<string | null>(null);
+  const [contactResolution, setContactResolution] = useState<"create" | "overwrite" | "use_existing">("create");
+  const [installationUseExisting, setInstallationUseExisting] = useState<Record<string, string>>({}); // instKey -> installation id to use
   const [approveForm, setApproveForm] = useState<ApproveFormState>({
     accountName: "",
     contactFirstName: "",
@@ -201,6 +208,10 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     if (key === "accountName") {
       setDuplicateChecked(false);
       setDuplicates([]);
+      setExistingContact(null);
+      setUseExistingAccountId(null);
+      setInstallationConflicts([]);
+      setInstallationUseExisting({});
     }
   };
 
@@ -231,7 +242,12 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
   const openApproveModal = (lead: CrmLead) => {
     setApproveLeadId(lead.id);
     setDuplicates([]);
+    setExistingContact(null);
+    setInstallationConflicts([]);
     setDuplicateChecked(false);
+    setUseExistingAccountId(null);
+    setContactResolution("create");
+    setInstallationUseExisting({});
     const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
     const meta = lead.metadata as Record<string, unknown> | undefined;
     const leadDotacion = (meta?.dotacion as DotacionItem[] | undefined) || [];
@@ -310,21 +326,66 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     }));
   };
 
+  const installationNamesKey = useMemo(
+    () => installations.map((i) => i.name).join("|"),
+    [installations]
+  );
+
+  // Al elegir "usar cuenta existente", cargar conflictos de instalaciones para esa cuenta
+  useEffect(() => {
+    if (!approveOpen || !approveLeadId || !useExistingAccountId) {
+      setInstallationConflicts([]);
+      return;
+    }
+    const instPayload = installations
+      .filter((i) => i.name.trim())
+      .map(({ _key, ...r }) => r);
+    if (instPayload.length === 0) return;
+    fetch(`/api/crm/leads/${approveLeadId}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...approveForm,
+        checkDuplicates: true,
+        useExistingAccountId,
+        installations: instPayload,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.installationConflicts && data.installationConflicts.length > 0) {
+          setInstallationConflicts(data.installationConflicts);
+        } else {
+          setInstallationConflicts([]);
+        }
+      })
+      .catch(() => setInstallationConflicts([]));
+  }, [approveOpen, approveLeadId, useExistingAccountId, approveForm.accountName, installationNamesKey]);
+
   const approveLead = async () => {
     if (!approveLeadId) return;
-    if (!approveForm.accountName.trim()) {
-      toast.error("El nombre de la empresa es obligatorio.");
+    const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
+    if (!useExistingAccountId && !accountNameToUse) {
+      toast.error("El nombre de la empresa es obligatorio o elige una cuenta existente.");
       return;
     }
 
     setApproving(true);
     try {
-      // Build payload: form + installations
+      const instPayload = installations
+        .filter((inst) => inst.name.trim())
+        .map((inst) => {
+          const { _key, ...rest } = inst;
+          const useExistingInstallationId = installationUseExisting[_key] || undefined;
+          return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
+        });
+
       const payload = {
         ...approveForm,
-        installations: installations
-          .filter((inst) => inst.name.trim())
-          .map(({ _key, ...rest }) => rest),
+        useExistingAccountId: useExistingAccountId || undefined,
+        contactResolution: existingContact ? contactResolution : undefined,
+        contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
+        installations: instPayload,
       };
 
       if (!duplicateChecked) {
@@ -334,13 +395,21 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
           body: JSON.stringify({ ...payload, checkDuplicates: true }),
         });
         const checkData = await checkRes.json();
-        if (checkData.duplicates && checkData.duplicates.length > 0) {
-          setDuplicates(checkData.duplicates);
-          setDuplicateChecked(true);
+        if (!checkData.success) {
           setApproving(false);
           return;
         }
+        setDuplicates(checkData.duplicates || []);
+        const exContact = checkData.existingContact ?? null;
+        setExistingContact(exContact);
+        if (exContact) setContactResolution("overwrite");
+        setInstallationConflicts(checkData.installationConflicts || []);
         setDuplicateChecked(true);
+        const hasConflicts = (checkData.duplicates?.length > 0) || checkData.existingContact || (checkData.installationConflicts?.length > 0);
+        if (hasConflicts) {
+          setApproving(false);
+          return;
+        }
       }
 
       const response = await fetch(`/api/crm/leads/${approveLeadId}/approve`, {
@@ -349,6 +418,11 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
         body: JSON.stringify(payload),
       });
       const result = await response.json();
+      if (response.status === 409 && result.conflict === "installation") {
+        toast.error(`Instalación "${result.installationName || ""}" ya existe. Elige "Usar existente" o otro nombre.`);
+        setApproving(false);
+        return;
+      }
       if (!response.ok) {
         throw new Error(result?.error || "Error aprobando lead");
       }
@@ -360,7 +434,12 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       setApproveOpen(false);
       setApproveLeadId(null);
       setDuplicates([]);
+      setExistingContact(null);
+      setInstallationConflicts([]);
       setDuplicateChecked(false);
+      setUseExistingAccountId(null);
+      setContactResolution("create");
+      setInstallationUseExisting({});
       toast.success("Lead aprobado — Cuenta, contacto y negocio creados");
     } catch (error) {
       console.error(error);
@@ -521,16 +600,115 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
               <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
                 <AlertTriangle className="h-4 w-4" />
-                Posible(s) duplicado(s) encontrado(s)
+                Cuenta con el mismo nombre ya existe
               </div>
-              {duplicates.map((dup) => (
-                <div key={dup.id} className="text-xs text-muted-foreground pl-6">
-                  {dup.name} {dup.rut ? `(${dup.rut})` : ""} — {dup.type === "client" ? "Cliente" : "Prospecto"}
+              <div className="flex flex-col gap-2 pl-6">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="accountResolution"
+                    checked={!useExistingAccountId}
+                    onChange={() => { setUseExistingAccountId(null); setInstallationConflicts([]); setInstallationUseExisting({}); }}
+                    className="rounded border-input"
+                  />
+                  Crear nueva cuenta
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="accountResolution"
+                    checked={!!useExistingAccountId}
+                    onChange={() => setUseExistingAccountId(duplicates[0]?.id ?? null)}
+                    className="rounded border-input"
+                  />
+                  Usar cuenta existente:
+                </label>
+                <select
+                  className="ml-6 mt-1 max-w-xs rounded border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+                  value={useExistingAccountId ?? ""}
+                  onChange={(e) => { setUseExistingAccountId(e.target.value || null); setInstallationUseExisting({}); }}
+                >
+                  <option value="">Seleccionar cuenta...</option>
+                  {duplicates.map((dup) => (
+                    <option key={dup.id} value={dup.id}>
+                      {dup.name} {dup.rut ? `(${dup.rut})` : ""} — {dup.type === "client" ? "Cliente" : "Prospecto"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {existingContact && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Ya existe un contacto con este email
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                {existingContact.firstName} {existingContact.lastName} — {existingContact.email}
+              </p>
+              <div className="flex flex-col gap-1.5 pl-6">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contactResolution"
+                    checked={contactResolution === "overwrite"}
+                    onChange={() => setContactResolution("overwrite")}
+                    className="rounded border-input"
+                  />
+                  Sobrescribir con los datos de este lead
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contactResolution"
+                    checked={contactResolution === "use_existing"}
+                    onChange={() => setContactResolution("use_existing")}
+                    className="rounded border-input"
+                  />
+                  Mantener el contacto existente
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contactResolution"
+                    checked={contactResolution === "create"}
+                    onChange={() => setContactResolution("create")}
+                    className="rounded border-input"
+                  />
+                  Crear nuevo contacto (otro email)
+                </label>
+              </div>
+            </div>
+          )}
+
+          {installationConflicts.length > 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Instalación con el mismo nombre ya existe en esta cuenta
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                Elige &quot;Usar existente&quot; para no duplicar, o deja crear nueva.
+              </p>
+              {installationConflicts.map((conf) => (
+                <div key={conf.id} className="pl-6 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">&quot;{conf.name}&quot;</span>
+                  {installations.filter((i) => i.name.trim().toLowerCase() === conf.name.toLowerCase()).map((inst) => (
+                    <Button
+                      key={inst._key}
+                      type="button"
+                      variant={installationUseExisting[inst._key] === conf.id ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setInstallationUseExisting((prev) => prev[inst._key] === conf.id ? { ...prev, [inst._key]: undefined } : { ...prev, [inst._key]: conf.id })}
+                    >
+                      {installationUseExisting[inst._key] === conf.id ? "Usar existente ✓" : "Usar esta existente"}
+                    </Button>
+                  ))}
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground pl-6">
-                Puedes continuar si es una empresa distinta.
-              </p>
             </div>
           )}
 

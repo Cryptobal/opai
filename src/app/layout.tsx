@@ -7,13 +7,14 @@ export const metadata: Metadata = {
   description: "Sistema de presentaciones comerciales inteligente para Gard Security",
   icons: {
     icon: [
-      { url: "/icons/icon-48x48.png", sizes: "48x48", type: "image/png" },
-      { url: "/icons/icon-96x96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-48x48.png?v=gard", sizes: "48x48", type: "image/png" },
+      { url: "/icons/icon-96x96.png?v=gard", sizes: "96x96", type: "image/png" },
+      { url: "/icons/icon-192x192.png?v=gard", sizes: "192x192", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-180x180.png?v=gard", sizes: "180x180", type: "image/png" },
+      { url: "/icons/icon-192x192.png?v=gard", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png?v=gard", sizes: "512x512", type: "image/png" },
     ],
   },
   appleWebApp: {

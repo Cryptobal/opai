@@ -2,6 +2,7 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Menu, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,16 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
             paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
           }}
         >
-          <Link href="/hub" className="shrink-0 text-sm font-semibold tracking-tight hover:opacity-80">OPAI</Link>
+          <Link href="/hub" className="flex shrink-0 items-center gap-2 hover:opacity-80">
+            <Image
+              src="/logo%20escudo%20blanco.png"
+              alt="Gard Security"
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain"
+            />
+            <span className="text-sm font-semibold tracking-tight">OPAI</span>
+          </Link>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
             <GlobalIndicators compact className="min-w-0" />
             <button

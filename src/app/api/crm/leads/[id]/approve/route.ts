@@ -1,7 +1,9 @@
 /**
  * API Route: /api/crm/leads/[id]/approve
- * POST - Aprobar prospecto y convertir a cliente + contacto + negocio
- * Incluye deteccion de duplicados por nombre de empresa
+ * POST - Aprobar prospecto y convertir a cuenta + contacto + negocio + instalaciones.
+ * - Cuenta/contacto/instalaciones solo se crean aquí (no al crear el lead).
+ * - checkDuplicates: true devuelve cuentas con mismo nombre, contacto con mismo email e instalaciones duplicadas.
+ * - Resoluciones: useExistingAccountId, contactResolution + contactId, por instalación useExistingInstallationId.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -43,34 +45,73 @@ export async function POST(
       [lead.firstName, lead.lastName].filter(Boolean).join(" ") ||
       "Cliente sin nombre";
 
-    // Duplicate detection: check if account with same name already exists
+    const contactEmail = (body?.email?.trim() || lead.email || "").trim().toLowerCase();
+
+    // Detección de conflictos: cuenta por nombre, contacto por email
     const duplicates = await prisma.crmAccount.findMany({
       where: {
         tenantId: ctx.tenantId,
         name: { equals: accountName, mode: "insensitive" },
       },
       select: { id: true, name: true, rut: true, type: true },
-      take: 5,
+      take: 10,
     });
 
-    // If checkDuplicates flag is set, return duplicates without creating
-    if (body?.checkDuplicates && duplicates.length > 0) {
+    const existingContact =
+      contactEmail &&
+      (await prisma.crmContact.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          email: { equals: contactEmail, mode: "insensitive" },
+        },
+        select: { id: true, firstName: true, lastName: true, email: true, accountId: true },
+      }));
+
+    const useExistingAccountId = body?.useExistingAccountId?.trim() || null;
+    let installationConflicts: { name: string; id: string }[] = [];
+
+    if (useExistingAccountId) {
+      const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
+      const names = installationsPayload.map((i: { name?: string }) => (i?.name || "").trim()).filter(Boolean);
+      if (names.length > 0) {
+        const existing = await prisma.crmInstallation.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            accountId: useExistingAccountId,
+            name: { in: names, mode: "insensitive" },
+          },
+          select: { id: true, name: true },
+        });
+        installationConflicts = existing.map((e) => ({ name: e.name, id: e.id }));
+      }
+    }
+
+    // Solo devolver conflictos, no crear nada
+    if (body?.checkDuplicates) {
       return NextResponse.json({
         success: true,
         duplicates,
-        message: `Se encontraron ${duplicates.length} cuenta(s) con nombre similar`,
+        existingContact: existingContact
+          ? {
+              id: existingContact.id,
+              firstName: existingContact.firstName,
+              lastName: existingContact.lastName,
+              email: existingContact.email,
+            }
+          : null,
+        installationConflicts: installationConflicts.length > 0 ? installationConflicts : null,
+        message:
+          duplicates.length > 0 || existingContact || installationConflicts.length > 0
+            ? "Revisa los conflictos y elige cómo resolverlos antes de aprobar."
+            : undefined,
       });
     }
 
     const contactFirstName =
-      body?.contactFirstName?.trim() ||
-      lead.firstName?.trim() ||
-      "Contacto";
-
-    const contactLastName =
-      body?.contactLastName?.trim() ||
-      lead.lastName?.trim() ||
-      "";
+      body?.contactFirstName?.trim() || lead.firstName?.trim() || "Contacto";
+    const contactLastName = body?.contactLastName?.trim() || lead.lastName?.trim() || "";
+    const contactResolution = body?.contactResolution || "create"; // create | overwrite | use_existing
+    const contactIdForResolution = body?.contactId?.trim() || null;
 
     const pipelineStage = await prisma.crmPipelineStage.findFirst({
       where: { tenantId: ctx.tenantId, isActive: true },
@@ -84,38 +125,83 @@ export async function POST(
       );
     }
 
-    const dealTitle =
-      body?.dealTitle?.trim() || `Oportunidad ${accountName}`;
+    const dealTitle = body?.dealTitle?.trim() || `Oportunidad ${accountName}`;
+    const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
 
     const result = await prisma.$transaction(async (tx) => {
-      const account = await tx.crmAccount.create({
-        data: {
-          tenantId: ctx.tenantId,
-          name: accountName,
-          type: "prospect",
-          rut: body?.rut?.trim() || null,
-          industry: body?.industry?.trim() || null,
-          size: body?.size?.trim() || null,
-          segment: body?.segment?.trim() || null,
-          website: body?.website?.trim() || null,
-          address: body?.address?.trim() || null,
-          notes: body?.accountNotes?.trim() || lead.notes || null,
-          ownerId: ctx.userId,
-        },
-      });
+      let account: { id: string };
+      if (useExistingAccountId) {
+        const existing = await tx.crmAccount.findFirst({
+          where: { id: useExistingAccountId, tenantId: ctx.tenantId },
+        });
+        if (!existing) {
+          throw new Error("Cuenta existente no encontrada");
+        }
+        account = { id: existing.id };
+      } else {
+        const created = await tx.crmAccount.create({
+          data: {
+            tenantId: ctx.tenantId,
+            name: accountName,
+            type: "prospect",
+            rut: body?.rut?.trim() || null,
+            industry: body?.industry?.trim() || null,
+            size: body?.size?.trim() || null,
+            segment: body?.segment?.trim() || null,
+            website: body?.website?.trim() || null,
+            address: body?.address?.trim() || null,
+            notes: body?.accountNotes?.trim() || lead.notes || null,
+            ownerId: ctx.userId,
+          },
+        });
+        account = { id: created.id };
+      }
 
-      const contact = await tx.crmContact.create({
-        data: {
-          tenantId: ctx.tenantId,
-          accountId: account.id,
-          firstName: contactFirstName,
-          lastName: contactLastName,
-          email: body?.email?.trim() || lead.email || null,
-          phone: body?.phone?.trim() || lead.phone || null,
-          roleTitle: body?.roleTitle?.trim() || null,
-          isPrimary: true,
-        },
-      });
+      let contact: { id: string };
+      if (contactResolution === "use_existing" && contactIdForResolution) {
+        const existing = await tx.crmContact.findFirst({
+          where: { id: contactIdForResolution, tenantId: ctx.tenantId },
+        });
+        if (!existing) throw new Error("Contacto existente no encontrado");
+        contact = { id: existing.id };
+        // Opcional: asociar contacto a esta cuenta si estaba en otra
+        await tx.crmContact.update({
+          where: { id: existing.id },
+          data: { accountId: account.id },
+        });
+      } else if (contactResolution === "overwrite" && contactIdForResolution) {
+        const existing = await tx.crmContact.findFirst({
+          where: { id: contactIdForResolution, tenantId: ctx.tenantId },
+        });
+        if (!existing) throw new Error("Contacto existente no encontrado");
+        await tx.crmContact.update({
+          where: { id: existing.id },
+          data: {
+            accountId: account.id,
+            firstName: contactFirstName,
+            lastName: contactLastName,
+            email: body?.email?.trim() || lead.email || null,
+            phone: body?.phone?.trim() || lead.phone || null,
+            roleTitle: body?.roleTitle?.trim() || null,
+            isPrimary: true,
+          },
+        });
+        contact = { id: existing.id };
+      } else {
+        const created = await tx.crmContact.create({
+          data: {
+            tenantId: ctx.tenantId,
+            accountId: account.id,
+            firstName: contactFirstName,
+            lastName: contactLastName,
+            email: body?.email?.trim() || lead.email || null,
+            phone: body?.phone?.trim() || lead.phone || null,
+            roleTitle: body?.roleTitle?.trim() || null,
+            isPrimary: true,
+          },
+        });
+        contact = { id: created.id };
+      }
 
       const deal = await tx.crmDeal.create({
         data: {
@@ -155,20 +241,35 @@ export async function POST(
         },
       });
 
-      // Vincular instalación tentativa del lead a la cuenta aprobada
-      await tx.crmInstallation.updateMany({
-        where: { leadId: lead.id },
-        data: {
-          accountId: account.id,
-          leadId: null,
-        },
-      });
-
-      // Crear instalaciones desde el array (con dotación)
-      const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
+      // Instalaciones: crear nuevas o usar existentes según resolution
       for (const inst of installationsPayload) {
         const instName = inst?.name?.trim();
         if (!instName) continue;
+        const useExistingInstallationId = inst?.useExistingInstallationId?.trim() || null;
+        if (useExistingInstallationId) {
+          await tx.crmInstallation.updateMany({
+            where: {
+              id: useExistingInstallationId,
+              tenantId: ctx.tenantId,
+              accountId: account.id,
+            },
+            data: {},
+          });
+          continue;
+        }
+        const existingSameName = await tx.crmInstallation.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            accountId: account.id,
+            name: { equals: instName, mode: "insensitive" },
+          },
+        });
+        if (existingSameName) {
+          const e = new Error("CONFLICT_INSTALLATION") as Error & { conflictName?: string; existingId?: string };
+          e.conflictName = instName;
+          e.existingId = existingSameName.id;
+          throw e;
+        }
         await tx.crmInstallation.create({
           data: {
             tenantId: ctx.tenantId,
@@ -179,14 +280,14 @@ export async function POST(
             commune: inst?.commune?.trim() || null,
             lat: inst?.lat ? Number(inst.lat) : null,
             lng: inst?.lng ? Number(inst.lng) : null,
-            metadata: Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
-              ? { dotacion: inst.dotacion }
-              : undefined,
+            metadata:
+              Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
+                ? { dotacion: inst.dotacion }
+                : undefined,
           },
         });
       }
 
-      // Fallback: si no hay installations array pero sí installationName (legacy)
       if (installationsPayload.length === 0 && body?.installationName?.trim()) {
         await tx.crmInstallation.create({
           data: {
@@ -200,7 +301,6 @@ export async function POST(
         });
       }
 
-      // Crear DealContact para el contacto principal
       await tx.crmDealContact.create({
         data: {
           tenantId: ctx.tenantId,
@@ -229,10 +329,23 @@ export async function POST(
     });
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as Error & { conflictName?: string; existingId?: string };
+    if (err?.message === "CONFLICT_INSTALLATION") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Conflicto de instalación",
+          conflict: "installation",
+          installationName: err.conflictName,
+          existingId: err.existingId,
+        },
+        { status: 409 }
+      );
+    }
     console.error("Error approving CRM lead:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to approve lead" },
+      { success: false, error: err?.message || "Failed to approve lead" },
       { status: 500 }
     );
   }
