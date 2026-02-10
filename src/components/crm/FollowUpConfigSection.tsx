@@ -229,7 +229,7 @@ export function FollowUpConfigSection() {
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Los templates se seleccionan del gestor de documentos (módulo CRM). Crea templates con tokens como {"{{contact.firstName}}"}, {"{{deal.proposalLink}}"}, etc.
+                  Plantillas del gestor de documentos (módulo Mail). Crea templates con tokens como contact.firstName, deal.proposalLink, etc. en Gestión Documental.
                 </p>
               </div>
 

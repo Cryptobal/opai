@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContractEditor } from "./ContractEditor";
-import { DOC_CATEGORIES, DOC_MODULES } from "@/lib/docs/token-registry";
+import { DOC_CATEGORIES, DOC_MODULES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 
 interface DocTemplateEditorClientProps {
@@ -26,6 +26,7 @@ export function DocTemplateEditorClient({
   const [category, setCategory] = useState("");
   const [content, setContent] = useState<any>(null);
   const [isDefault, setIsDefault] = useState(false);
+  const [usageSlug, setUsageSlug] = useState<string>("");
   const [categoriesFromApi, setCategoriesFromApi] = useState<{ key: string; label: string }[]>([]);
 
   const categories =
@@ -45,6 +46,7 @@ export function DocTemplateEditorClient({
         setCategory(data.data.category);
         setContent(data.data.content);
         setIsDefault(data.data.isDefault);
+        setUsageSlug(data.data.usageSlug ?? "");
       }
     } catch (error) {
       console.error("Error fetching template:", error);
@@ -79,7 +81,7 @@ export function DocTemplateEditorClient({
       toast.error("El nombre es requerido");
       return;
     }
-    if (!category) {
+    if (module !== "whatsapp" && !category) {
       toast.error("Selecciona una categoría");
       return;
     }
@@ -95,6 +97,11 @@ export function DocTemplateEditorClient({
         : "/api/docs/templates";
       const method = templateId ? "PATCH" : "POST";
 
+      // Para WhatsApp la categoría se asigna automáticamente
+      const finalCategory = module === "whatsapp"
+        ? (usageSlug || "general")
+        : category;
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -102,9 +109,10 @@ export function DocTemplateEditorClient({
           name: name.trim(),
           description: description.trim() || undefined,
           module,
-          category,
+          category: finalCategory,
           content,
           isDefault,
+          usageSlug: module === "whatsapp" ? (usageSlug || null) : undefined,
           ...(templateId ? { changeNote: "Actualización desde editor" } : {}),
         }),
       });
@@ -186,8 +194,10 @@ export function DocTemplateEditorClient({
           <select
             value={module}
             onChange={(e) => {
-              setModule(e.target.value);
+              const next = e.target.value;
+              setModule(next);
               setCategory("");
+              if (next !== "whatsapp") setUsageSlug("");
             }}
             className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
@@ -196,23 +206,25 @@ export function DocTemplateEditorClient({
             ))}
           </select>
         </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">
-            Categoría *
-          </label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="">Seleccionar...</option>
-            {categories.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {module !== "whatsapp" && (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Categoría *
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Seleccionar...</option>
+              {categories.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="text-xs font-medium text-muted-foreground">
             Descripción
@@ -225,6 +237,28 @@ export function DocTemplateEditorClient({
             className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
+        {module === "whatsapp" && (
+          <div className="col-span-full">
+            <label className="text-xs font-medium text-muted-foreground">
+              Uso en el sistema
+            </label>
+            <select
+              value={usageSlug}
+              onChange={(e) => setUsageSlug(e.target.value)}
+              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Plantilla personalizada (elegir desde CRM)</option>
+              {Object.entries(WA_USAGE_SLUGS).map(([slug, { label, usedIn }]) => (
+                <option key={slug} value={slug} title={usedIn}>
+                  {label} — {usedIn}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Si asignas un uso, esta plantilla se usará automáticamente en ese flujo. Vacío = solo para elegir al enviar WhatsApp desde contacto/negocio.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Default toggle */}
@@ -249,8 +283,8 @@ export function DocTemplateEditorClient({
             ? ["account", "contact", "installation", "deal", "quote", "system"]
             : module === "payroll"
             ? ["system"]
-            : module === "mail"
-            ? ["account", "contact", "system"]
+            : module === "mail" || module === "whatsapp"
+            ? ["account", "contact", "deal", "system"]
             : ["account", "contact", "system"]
         }
         placeholder="Escribe el contenido del template aquí... Usa el botón 'Insertar Token' para agregar placeholders dinámicos"

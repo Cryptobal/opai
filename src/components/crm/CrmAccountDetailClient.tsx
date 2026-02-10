@@ -300,13 +300,15 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
             <InfoRow label="Tamaño">{account.size || "—"}</InfoRow>
           </div>
           <div className="space-y-3 text-sm">
-            {account.website && (
-              <InfoRow label="Web">
+            <InfoRow label="Página web">
+              {account.website ? (
                 <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                   {account.website}
                 </a>
-              </InfoRow>
-            )}
+              ) : (
+                "—"
+              )}
+            </InfoRow>
             {account.address && (
               <InfoRow label="Dirección">
                 <span className="flex items-center gap-1">
@@ -320,8 +322,8 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
                 {account.notes}
               </div>
             )}
-            {!account.website && !account.address && !account.notes && (
-              <p className="text-muted-foreground text-xs">Sin información adicional.</p>
+            {!account.address && !account.notes && (
+              <p className="text-muted-foreground text-xs">Sin dirección ni notas.</p>
             )}
           </div>
         </div>
@@ -421,10 +423,10 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
         )}
       </CollapsibleSection>
 
-      {/* ── Section 5: Correos ── */}
+      {/* ── Section 5: Comunicación ── */}
       <CollapsibleSection
         icon={<Mail className="h-4 w-4" />}
-        title="Correos enviados"
+        title="Comunicación"
         defaultOpen={false}
       >
         <EmailHistoryList accountId={account.id} compact />

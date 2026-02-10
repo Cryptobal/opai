@@ -14,6 +14,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight, Pencil, Send, MessageSquare, Plus, Star, X } from "lucide-react";
@@ -24,7 +30,7 @@ import { RecordActions } from "./RecordActions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
-import { resolveDocument } from "@/lib/docs/token-resolver";
+import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -74,14 +80,15 @@ export type DealDetail = {
 };
 
 type DocTemplateMail = { id: string; name: string; content: any };
+type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, docTemplatesMail = [],
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [],
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
   dealContacts: DealContactRow[]; accountContacts: ContactRow[];
-  gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[];
+  gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[]; docTemplatesWhatsApp?: DocTemplateWhatsApp[];
 }) {
   // ── Quote linking state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
@@ -133,6 +140,26 @@ export function CrmDealDetailClient({
   const applyPlaceholders = (value: string) => {
     const r: Record<string, string> = { "{cliente}": deal.account?.name || "", "{contacto}": deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "", "{negocio}": deal.title || "", "{etapa}": currentStage?.name || "", "{monto}": deal.amount ? Number(deal.amount).toLocaleString("es-CL") : "", "{correo}": deal.primaryContact?.email || "" };
     return Object.entries(r).reduce((acc, [key, val]) => acc.split(key).join(val), value);
+  };
+
+  const primaryPhone = deal.primaryContact?.phone?.replace(/\D/g, "").replace(/^0/, "");
+  const whatsappPhone = primaryPhone ? (primaryPhone.startsWith("56") ? primaryPhone : `56${primaryPhone}`) : null;
+  const openWhatsApp = (templateId?: string) => {
+    if (!whatsappPhone) return;
+    if (!templateId) {
+      window.open(`https://wa.me/${whatsappPhone}`, "_blank");
+      return;
+    }
+    const tpl = docTemplatesWhatsApp.find((t) => t.id === templateId);
+    if (!tpl?.content) return;
+    const entities = {
+      contact: (deal.primaryContact || undefined) as Record<string, unknown> | undefined,
+      account: (deal.account || undefined) as Record<string, unknown> | undefined,
+      deal: { ...deal, proposalLink: deal.proposalLink || "" } as Record<string, unknown>,
+    };
+    const { resolvedContent } = resolveDocument(tpl.content, entities);
+    const text = tiptapToPlainText(resolvedContent);
+    window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const selectTemplate = (value: string) => {
@@ -489,21 +516,40 @@ export function CrmDealDetailClient({
         )}
       </CollapsibleSection>
 
-      {/* ── Section 4: Correos ── */}
+      {/* ── Section 4: Comunicación ── */}
       <CollapsibleSection
         icon={<Mail className="h-4 w-4" />}
-        title="Correos"
+        title="Comunicación"
         defaultOpen={false}
         action={
-          gmailConnected ? (
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
-              <Send className="h-3 w-3 mr-1" /> Enviar correo
-            </Button>
-          ) : (
-            <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-              <Link href="/opai/configuracion/integraciones">Conectar Gmail</Link>
-            </Button>
-          )
+          <div className="flex items-center gap-1">
+            {whatsappPhone && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
+                    <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
+                  {docTemplatesWhatsApp.map((t) => (
+                    <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
+                      <FileText className="h-3 w-3 mr-2" />{t.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {gmailConnected ? (
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
+                <Send className="h-3 w-3 mr-1" /> Enviar correo
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+                <Link href="/opai/configuracion/integraciones">Conectar Gmail</Link>
+              </Button>
+            )}
+          </div>
         }
       >
         <EmailHistoryList

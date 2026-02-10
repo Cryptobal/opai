@@ -157,7 +157,7 @@ export function DocCategoriesClient() {
     setSeedLoading(true);
     try {
       let created = 0;
-      for (const [module, items] of Object.entries(DOC_CATEGORIES)) {
+      for (const [module, items] of Object.entries(DOC_CATEGORIES).filter(([m]) => m !== "whatsapp")) {
         for (let i = 0; i < items.length; i++) {
           const { key, label } = items[i];
           const res = await fetch("/api/docs/categories", {
@@ -214,7 +214,7 @@ export function DocCategoriesClient() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {DOC_MODULES.map(({ key: modKey, label: modLabel }) => (
+          {DOC_MODULES.filter(({ key }) => key !== "whatsapp").map(({ key: modKey, label: modLabel }) => (
             <Card key={modKey}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -292,7 +292,7 @@ export function DocCategoriesClient() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DOC_MODULES.map((m) => (
+                  {DOC_MODULES.filter((m) => m.key !== "whatsapp").map((m) => (
                     <SelectItem key={m.key} value={m.key}>
                       {m.label}
                     </SelectItem>

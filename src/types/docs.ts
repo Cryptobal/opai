@@ -13,6 +13,7 @@ export interface DocTemplate {
   tokensUsed?: string[] | null;
   isActive: boolean;
   isDefault: boolean;
+  usageSlug?: string | null; // Solo module=whatsapp: proposal_sent, followup_first, etc.
   createdBy: string;
   createdAt: string;
   updatedAt: string;

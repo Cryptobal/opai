@@ -132,3 +132,25 @@ export function extractTokenKeys(content: any): string[] {
   walkNode(content);
   return Array.from(keys);
 }
+
+/**
+ * Convierte un documento Tiptap JSON a texto plano (para WhatsApp, etc.).
+ */
+export function tiptapToPlainText(doc: any): string {
+  if (!doc) return "";
+  const parts: string[] = [];
+  function walk(node: any) {
+    if (!node) return;
+    if (node.type === "text" && node.text != null) {
+      parts.push(node.text);
+      return;
+    }
+    if (node.content && Array.isArray(node.content)) {
+      node.content.forEach(walk);
+      if (node.type === "paragraph" || node.type === "heading") parts.push("\n");
+    }
+    if (node.type === "hardBreak") parts.push("\n");
+  }
+  walk(doc);
+  return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+}

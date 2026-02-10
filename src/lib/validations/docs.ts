@@ -6,25 +6,29 @@ import { z } from "zod";
 
 // ── Template schemas ─────────────────────────────────────────
 
+const docModuleEnum = z.enum(["crm", "payroll", "legal", "mail", "whatsapp"]);
+
 export const createDocTemplateSchema = z.object({
   name: z.string().min(1, "Nombre requerido").max(200),
   description: z.string().max(500).optional(),
   content: z.any(), // Tiptap JSON
-  module: z.enum(["crm", "payroll", "legal", "mail"]),
+  module: docModuleEnum,
   category: z.string().min(1, "Categoría requerida"),
   tokensUsed: z.array(z.string()).optional(),
   isDefault: z.boolean().optional(),
+  usageSlug: z.string().max(80).optional().nullable(),
 });
 
 export const updateDocTemplateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(500).optional().nullable(),
   content: z.any().optional(),
-  module: z.enum(["crm", "payroll", "legal", "mail"]).optional(),
+  module: docModuleEnum.optional(),
   category: z.string().min(1).optional(),
   tokensUsed: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
   isDefault: z.boolean().optional(),
+  usageSlug: z.string().max(80).optional().nullable(),
   changeNote: z.string().max(200).optional(),
 });
 
@@ -35,7 +39,7 @@ export const createDocumentSchema = z.object({
   title: z.string().min(1, "Título requerido").max(300),
   content: z.any(), // Tiptap JSON (resolved or with tokens)
   tokenValues: z.record(z.string(), z.string()).optional(),
-  module: z.enum(["crm", "payroll", "legal", "mail"]),
+  module: docModuleEnum,
   category: z.string().min(1, "Categoría requerida"),
   effectiveDate: z.string().optional().nullable(),
   expirationDate: z.string().optional().nullable(),

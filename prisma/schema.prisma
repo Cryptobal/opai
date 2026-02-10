@@ -1272,11 +1272,13 @@ model DocTemplate {
   name        String
   description String?
   content     Json     @db.JsonB   // Tiptap JSON document
-  module      String               // "crm", "payroll", "legal"
-  category    String               // "contrato_servicio", "contrato_laboral", "nda"
+  module      String               // "crm", "payroll", "legal", "mail", "whatsapp"
+  category    String               // e.g. "contrato_servicio", "proposal_sent", "general"
   tokensUsed  Json?    @db.JsonB   // ["account.name", "contact.firstName", ...]
   isActive    Boolean  @default(true) @map("is_active")
   isDefault   Boolean  @default(false) @map("is_default")
+  /// Si module=whatsapp: slug de uso del sistema (proposal_sent, followup_first, ...). Null = plantilla personalizada para elegir desde CRM.
+  usageSlug   String?  @map("usage_slug")
   createdBy   String   @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1285,9 +1287,11 @@ model DocTemplate {
   documents Document[]
 
   @@unique([tenantId, module, name], map: "uq_doc_template_tenant_module_name")
+  @@unique([tenantId, usageSlug], map: "uq_doc_template_tenant_usage_slug")
   @@index([tenantId], map: "idx_doc_templates_tenant")
   @@index([module], map: "idx_doc_templates_module")
   @@index([isActive], map: "idx_doc_templates_active")
+  @@index([tenantId, module], map: "idx_doc_templates_tenant_module")
   @@map("doc_templates")
   @@schema("docs")
 }

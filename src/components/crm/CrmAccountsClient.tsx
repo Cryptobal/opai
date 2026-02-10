@@ -17,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, Building2, Users, ChevronRight, Trash2, Search, TrendingUp, Mail } from "lucide-react";
+import { Loader2, Plus, Building2, Users, ChevronRight, Trash2, Search, TrendingUp, Mail, Globe } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -29,6 +29,7 @@ type AccountFormState = {
   rut: string;
   segment: string;
   industry: string;
+  website: string;
   type: "prospect" | "client";
 };
 
@@ -38,6 +39,7 @@ type AccountRow = {
   rut?: string | null;
   segment?: string | null;
   industry?: string | null;
+  website?: string | null;
   type: "prospect" | "client";
   status: string;
   createdAt: string;
@@ -53,6 +55,7 @@ const DEFAULT_FORM: AccountFormState = {
   rut: "",
   segment: "",
   industry: "",
+  website: "",
   type: "prospect",
 };
 
@@ -263,6 +266,15 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                     ))}
                   </select>
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Página web</Label>
+                  <Input
+                    value={form.website}
+                    onChange={(event) => updateForm("website", event.target.value)}
+                    placeholder="https://www.empresa.cl"
+                    className={inputClassName}
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={createAccount} disabled={creating}>
@@ -312,6 +324,12 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
                       </p>
+                      {account.website && (
+                        <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                          <Globe className="h-3 w-3 shrink-0" />
+                          {account.website}
+                        </a>
+                      )}
                       <CrmDates createdAt={account.createdAt} updatedAt={account.updatedAt} className="mt-0.5" />
                     </div>
                   </div>
@@ -348,10 +366,16 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                       {account.type === "client" ? "Cliente" : "Prospecto"}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
                     <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />{account._count?.deals ?? 0}</span>
                     {account.rut && <span>{account.rut}</span>}
+                    {account.website && (
+                      <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px]" onClick={(e) => e.stopPropagation()}>
+                        <Globe className="h-3 w-3 shrink-0" />
+                        Web
+                      </a>
+                    )}
                   </div>
                 </Link>
               ))}

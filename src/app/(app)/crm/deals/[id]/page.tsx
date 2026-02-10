@@ -61,11 +61,18 @@ export default async function CrmDealDetailPage({
     },
   });
 
-  const docTemplatesMail = await prisma.docTemplate.findMany({
-    where: { tenantId, module: "mail", isActive: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, content: true },
-  });
+  const [docTemplatesMail, docTemplatesWhatsApp] = await Promise.all([
+    prisma.docTemplate.findMany({
+      where: { tenantId, module: "mail", isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, content: true },
+    }),
+    prisma.docTemplate.findMany({
+      where: { tenantId, module: "whatsapp", isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, content: true },
+    }),
+  ]);
 
   // Contacts linked to this deal (via deal_contacts)
   const dealContacts = await prisma.crmDealContact.findMany({
@@ -94,6 +101,7 @@ export default async function CrmDealDetailPage({
   const initialDealContacts = JSON.parse(JSON.stringify(dealContacts));
   const initialAccountContacts = JSON.parse(JSON.stringify(accountContacts));
   const initialDocTemplatesMail = JSON.parse(JSON.stringify(docTemplatesMail));
+  const initialDocTemplatesWhatsApp = JSON.parse(JSON.stringify(docTemplatesWhatsApp));
 
   return (
     <>
@@ -119,6 +127,7 @@ export default async function CrmDealDetailPage({
           accountContacts={initialAccountContacts}
           gmailConnected={Boolean(gmailAccount)}
           docTemplatesMail={initialDocTemplatesMail}
+          docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
         />
       </div>
     </>

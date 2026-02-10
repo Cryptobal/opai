@@ -160,15 +160,41 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: "negocio_perdido", label: "Negocio perdido / Mail a cliente" },
     { key: "otro_mail", label: "Otro" },
   ],
+  whatsapp: [
+    { key: "lead_commercial", label: "Nuevo lead — Comercial al cliente" },
+    { key: "lead_client", label: "Nuevo lead — Cliente a Gard" },
+    { key: "proposal_sent", label: "Propuesta enviada" },
+    { key: "followup_first", label: "1er seguimiento" },
+    { key: "followup_second", label: "2do seguimiento" },
+    { key: "general", label: "Uso general (elegir desde CRM)" },
+  ],
 };
 
-/** Módulos disponibles para plantillas (incluye mail para correos desde CRM) */
+/** Módulos disponibles para plantillas */
 export const DOC_MODULES = [
   { key: "crm", label: "CRM" },
   { key: "payroll", label: "Payroll" },
   { key: "legal", label: "Legal" },
   { key: "mail", label: "Mail (correos)" },
+  { key: "whatsapp", label: "WhatsApp" },
 ] as const;
+
+/** Uso de plantillas WhatsApp (usageSlug) → etiqueta y descripción "dónde se usa" */
+export const WA_USAGE_SLUGS: Record<
+  string,
+  { label: string; usedIn: string }
+> = {
+  lead_commercial:
+    { label: "Nuevo lead — Comercial al cliente", usedIn: "Email al cliente cuando envía solicitud desde el formulario público (botón WhatsApp)." },
+  lead_client:
+    { label: "Nuevo lead — Cliente a Gard", usedIn: "Email que tú recibes por nuevo lead (botón para enviar WhatsApp a Gard)." },
+  proposal_sent:
+    { label: "Propuesta enviada", usedIn: "Modal tras enviar propuesta por email y botón «Compartir por WhatsApp» en lista de presentaciones." },
+  followup_first:
+    { label: "1er seguimiento", usedIn: "Notificación interna del 1er seguimiento automático (botón Enviar WhatsApp)." },
+  followup_second:
+    { label: "2do seguimiento", usedIn: "Notificación interna del 2do seguimiento automático (botón Enviar WhatsApp)." },
+};
 
 /** Status labels for documents */
 export const DOC_STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {

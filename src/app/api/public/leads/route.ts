@@ -12,7 +12,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
-import { getWaTemplate, resolveWaTokens } from "@/lib/whatsapp-templates";
+import { getWaTemplate } from "@/lib/whatsapp-templates";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -198,19 +198,19 @@ export async function POST(request: NextRequest) {
       detalle: data.detalle || "",
     };
 
-    // Resolver templates desde la BD (o usar defaults)
+    // Resolver templates desde la BD (o DocTemplate whatsapp, o defaults)
     const [tplComercial, tplCliente] = await Promise.all([
-      getWaTemplate(tenantId, "lead_commercial"),
-      getWaTemplate(tenantId, "lead_client"),
+      getWaTemplate(tenantId, "lead_commercial", { waValues: leadTokenValues }),
+      getWaTemplate(tenantId, "lead_client", { waValues: leadTokenValues }),
     ]);
 
-    const whatsappMsgComercial = resolveWaTokens(tplComercial, leadTokenValues);
+    const whatsappMsgComercial = tplComercial;
 
     const celularLimpio = data.celular.replace(/\D/g, "").replace(/^0/, "");
     const waNumCliente = celularLimpio.startsWith("56") ? celularLimpio : `56${celularLimpio}`;
     const waUrlComercial = `https://wa.me/${waNumCliente}?text=${encodeURIComponent(whatsappMsgComercial)}`;
 
-    const waMsgCliente = resolveWaTokens(tplCliente, leadTokenValues);
+    const waMsgCliente = tplCliente;
     const waUrlCliente = `https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(waMsgCliente)}`;
 
     // Send email notification to comercial@gard.cl

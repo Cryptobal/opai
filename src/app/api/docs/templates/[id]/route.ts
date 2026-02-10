@@ -75,6 +75,7 @@ export async function PATCH(
     }
 
     const { changeNote, ...updateData } = parsed.data;
+    if (updateData.usageSlug === undefined) delete updateData.usageSlug;
 
     // If content changed, auto-extract tokens and create new version
     if (updateData.content) {
@@ -98,7 +99,7 @@ export async function PATCH(
 
       const result = await tx.docTemplate.update({
         where: { id },
-        data: updateData,
+        data: updateData as any,
         include: {
           _count: {
             select: { documents: true, versions: true },

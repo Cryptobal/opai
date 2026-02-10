@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutTemplate,
   Plus,
@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
+import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
 
 function getCategoryLabel(module: string, category: string): string {
@@ -33,10 +33,22 @@ const MODULE_LABELS: Record<string, string> = {
   crm: "CRM",
   payroll: "Payroll",
   legal: "Legal",
+  mail: "Mail",
+  whatsapp: "WhatsApp",
 };
 
 export function DocTemplatesClient() {
+  return (
+    <Suspense fallback={null}>
+      <DocTemplatesInner />
+    </Suspense>
+  );
+}
+
+function DocTemplatesInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const moduleFromUrl = searchParams.get("module");
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -58,13 +70,14 @@ export function DocTemplatesClient() {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  const filtered = search
+  const filtered = (search
     ? templates.filter(
         (t) =>
           t.name.toLowerCase().includes(search.toLowerCase()) ||
           t.module.toLowerCase().includes(search.toLowerCase())
       )
-    : templates;
+    : templates
+  ).filter((t) => !moduleFromUrl || t.module === moduleFromUrl);
 
   const deleteTemplate = async (id: string) => {
     if (!confirm("¿Desactivar este template?")) return;
@@ -169,9 +182,21 @@ export function DocTemplatesClient() {
                           <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {getCategoryLabel(template.module, template.category)}
-                      </p>
+                      {template.module === "whatsapp" ? (
+                        template.usageSlug && WA_USAGE_SLUGS[template.usageSlug] ? (
+                          <p className="text-xs text-muted-foreground mt-0.5 italic">
+                            {WA_USAGE_SLUGS[template.usageSlug].usedIn}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Plantilla personalizada
+                          </p>
+                        )
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {getCategoryLabel(template.module, template.category)}
+                        </p>
+                      )}
                     </div>
                   </div>
 

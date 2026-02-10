@@ -16,6 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { RecordActions } from "./RecordActions";
@@ -35,10 +41,11 @@ import {
   ChevronRight,
   Send,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { resolveDocument } from "@/lib/docs/token-resolver";
+import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -111,6 +118,7 @@ type PipelineStageOption = {
 };
 
 type DocTemplateMail = { id: string; name: string; content: any };
+type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmContactDetailClient({
   contact: initialContact,
@@ -118,6 +126,7 @@ export function CrmContactDetailClient({
   pipelineStages,
   gmailConnected = false,
   docTemplatesMail = [],
+  docTemplatesWhatsApp = [],
   initialEmailCount = 0,
 }: {
   contact: ContactDetail;
@@ -125,6 +134,7 @@ export function CrmContactDetailClient({
   pipelineStages: PipelineStageOption[];
   gmailConnected?: boolean;
   docTemplatesMail?: DocTemplateMail[];
+  docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   initialEmailCount?: number;
 }) {
   const router = useRouter();
@@ -344,7 +354,25 @@ export function CrmContactDetailClient({
     }
   };
 
-  // ── WhatsApp URL ──
+  // ── WhatsApp (con o sin plantilla) ──
+  const openWhatsApp = (templateId?: string) => {
+    const phone = contact.phone?.replace(/\D/g, "").replace(/^0/, "");
+    if (!phone) return;
+    const base = phone.startsWith("56") ? phone : `56${phone}`;
+    if (!templateId) {
+      window.open(`https://wa.me/${base}`, "_blank");
+      return;
+    }
+    const tpl = docTemplatesWhatsApp.find((t) => t.id === templateId);
+    if (!tpl?.content) return;
+    const entities = {
+      contact: contact as Record<string, unknown>,
+      account: (contact.account || undefined) as Record<string, unknown> | undefined,
+    };
+    const { resolvedContent } = resolveDocument(tpl.content, entities);
+    const text = tiptapToPlainText(resolvedContent);
+    window.open(`https://wa.me/${base}?text=${encodeURIComponent(text)}`, "_blank");
+  };
   const whatsappUrl = contact.phone
     ? `https://wa.me/${contact.phone.replace(/\s/g, "").replace(/^\+/, "")}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`
     : null;
@@ -361,7 +389,7 @@ export function CrmContactDetailClient({
           actions={[
             { label: "Editar contacto", icon: Pencil, onClick: openEdit },
             { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
-            { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && window.open(whatsappUrl, "_blank"), hidden: !whatsappUrl },
+            { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
             { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
           ]}
         />
@@ -492,19 +520,35 @@ export function CrmContactDetailClient({
         )}
       </CollapsibleSection>
 
-      {/* ── Section 4: Correos ── */}
+      {/* ── Section 4: Comunicación ── */}
       <CollapsibleSection
         icon={<Mail className="h-4 w-4" />}
-        title="Correos"
+        title="Comunicación"
         count={emailCount}
         defaultOpen={false}
         action={
           <div className="flex items-center gap-2">
             {whatsappUrl && (
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors">
-                <MessageSquare className="h-3 w-3" />
-                WhatsApp
-              </a>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors">
+                    <MessageSquare className="h-3 w-3" />
+                    WhatsApp
+                    <ChevronRight className="h-3 w-3 rotate-[-90deg]" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openWhatsApp()}>
+                    Sin plantilla
+                  </DropdownMenuItem>
+                  {docTemplatesWhatsApp.length > 0 && docTemplatesWhatsApp.map((t) => (
+                    <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
+                      <FileText className="h-3 w-3 mr-2" />
+                      {t.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {gmailConnected && contact.email && (
               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>

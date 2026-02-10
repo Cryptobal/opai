@@ -20,7 +20,7 @@ import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { resolveDocument } from "@/lib/docs/token-resolver";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { getWaTemplate, resolveWaTokens } from "@/lib/whatsapp-templates";
+import { getWaTemplate } from "@/lib/whatsapp-templates";
 
 /** Convierte Tiptap JSON resuelto a HTML para email */
 function tiptapJsonToHtml(doc: any): string {
@@ -337,16 +337,17 @@ export async function GET(request: NextRequest) {
 
         const contactPhone = contact.phone?.replace(/\s/g, "").replace(/^\+/, "");
         const waSlug = followUp.sequence === 1 ? "followup_first" : "followup_second";
-        const waTemplate = await getWaTemplate(followUp.tenantId, waSlug);
-        const whatsappMessage = encodeURIComponent(
-          resolveWaTokens(waTemplate, {
-            contactName,
-            dealTitle: deal.title,
-            accountName: deal.account.name,
+        const entities = {
+          account: deal.account,
+          contact: contact as Record<string, unknown>,
+          deal: {
+            ...deal,
             proposalLink: deal.proposalLink || "",
             proposalSentDate,
-          })
-        );
+          } as Record<string, unknown>,
+        };
+        const waBody = await getWaTemplate(followUp.tenantId, waSlug, { entities });
+        const whatsappMessage = encodeURIComponent(waBody);
         const whatsappUrl =
           whatsappEnabled && contactPhone
             ? `https://wa.me/${contactPhone}?text=${whatsappMessage}`
