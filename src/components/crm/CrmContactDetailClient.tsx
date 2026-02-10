@@ -442,7 +442,10 @@ export function CrmContactDetailClient({
                 ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
                 : false;
               return (
-                <div key={deal.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={deal.id}
+                  className="flex flex-col gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between"
+                >
                   <Link href={`/crm/deals/${deal.id}`} className="flex-1 min-w-0">
                     <p className="text-sm font-medium group-hover:text-primary transition-colors break-words">
                       {deal.title}
@@ -471,7 +474,7 @@ export function CrmContactDetailClient({
                       ))}
                       {pipelineStages.length === 0 && <option value="">Sin etapas disponibles</option>}
                     </select>
-                    <Link href={`/crm/deals/${deal.id}`}>
+                    <Link href={`/crm/deals/${deal.id}`} className="shrink-0">
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                   </div>
