@@ -8,6 +8,8 @@ interface FxData {
   value: number;
   date?: string;
   month?: string;
+  monthShort?: string;
+  updatedAt?: string;
 }
 
 interface IndicatorsData {
@@ -84,14 +86,17 @@ export function GlobalIndicators({
             'shrink-0 rounded-lg border border-border bg-card px-3 py-1.5 text-center',
             compact && 'px-2 py-1 max-[420px]:hidden'
           )}
-          title={`UTM ${data.utm.month || ''}`}
+          title={data.utm.updatedAt ? `UTM vigente ${data.utm.month || ''} (actualizado ${data.utm.updatedAt})` : `UTM ${data.utm.month || ''}`}
         >
           <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-[10px]')}>
-            UTM
+            {compact ? 'UTM' : `UTM ${data.utm.monthShort ?? data.utm.month ?? ''}`}
           </p>
           <p className={cn('text-xs font-mono font-semibold', compact && 'text-[10px]')}>
             {formatCLP(data.utm.value)}
           </p>
+          {!compact && data.utm.updatedAt && (
+            <p className="text-[10px] text-muted-foreground/80">act. {data.utm.updatedAt}</p>
+          )}
         </div>
       )}
 

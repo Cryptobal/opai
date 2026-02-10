@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { todayChileStr } from "@/lib/fx-date";
 
 const CMF_API_KEY = process.env.CMF_API_KEY;
 const CMF_BASE = "https://api.cmfchile.cl/api-sbifv3/recursos_api";
@@ -24,37 +25,50 @@ function parseCmfValue(raw: string): number {
 }
 
 /**
- * Fetch UF del día desde CMF
+ * Fetch UF para una fecha concreta desde CMF (endpoint por día).
+ * La UF se publica diariamente; usar la fecha del día en Chile.
  */
-async function fetchUfFromCmf(): Promise<{ value: number; date: string } | null> {
+async function fetchUfFromCmfForDate(dateStr: string): Promise<{ value: number; date: string } | null> {
   if (!CMF_API_KEY) throw new Error("CMF_API_KEY no configurada");
 
-  const url = `${CMF_BASE}/uf?apikey=${CMF_API_KEY}&formato=json`;
+  const [year, month, day] = dateStr.split("-");
+  if (!year || !month || !day) return null;
+
+  const url = `${CMF_BASE}/uf/${year}/${month}/dias/${day}?apikey=${CMF_API_KEY}&formato=json`;
   const res = await fetch(url, { cache: "no-store" });
 
   if (!res.ok) {
-    console.error(`CMF UF API responded ${res.status}`);
+    console.error(`CMF UF API (${dateStr}) responded ${res.status}`);
     return null;
   }
 
   const data = await res.json();
   const ufs = data?.UFs;
 
-  if (!ufs || !Array.isArray(ufs) || ufs.length === 0) {
-    console.error("CMF UF: respuesta vacía o sin datos", data);
-    return null;
-  }
+  if (!ufs || !Array.isArray(ufs) || ufs.length === 0) return null;
 
   const uf = ufs[0];
   const value = parseCmfValue(uf.Valor);
-  const date = uf.Fecha; // formato "YYYY-MM-DD"
+  const date = uf.Fecha;
 
-  if (isNaN(value) || !date) {
-    console.error("CMF UF: valor inválido", uf);
-    return null;
-  }
-
+  if (isNaN(value) || !date) return null;
   return { value, date };
+}
+
+/**
+ * Fetch UF del día desde CMF. Por defecto pide hoy (Chile).
+ * Si se pasa dateStr (ej. ?date=2026-02-10), pide esa fecha.
+ */
+async function fetchUfFromCmf(dateStr?: string): Promise<{ value: number; date: string } | null> {
+  const today = dateStr ?? todayChileStr();
+  let uf = await fetchUfFromCmfForDate(today);
+  if (uf) return uf;
+  if (dateStr) return null;
+  // Si hoy no está aún (CMF publica en la mañana), usar ayer
+  const d = new Date(today + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  const yesterdayStr = d.toISOString().slice(0, 10);
+  return fetchUfFromCmfForDate(yesterdayStr);
 }
 
 /**
@@ -117,10 +131,11 @@ export async function GET(request: NextRequest) {
   }
 
   const results: Record<string, unknown> = {};
+  const dateParam = new URL(request.url).searchParams.get("date"); // opcional: 2026-02-10
 
   // === UF ===
   try {
-    const uf = await fetchUfFromCmf();
+    const uf = await fetchUfFromCmf(dateParam ?? undefined);
     if (uf) {
       const dateObj = new Date(uf.date + "T00:00:00Z");
 

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { todayChileDate } from "@/lib/fx-date";
 import type { PayrollParameters, FxReferences, ParametersSnapshot } from "./types";
 
 /**
@@ -89,13 +90,14 @@ export async function loadParametersByDate(date: Date): Promise<{
 }
 
 /**
- * Resolver valor UF para una fecha específica
+ * Resolver valor UF para una fecha específica.
+ * Sin fecha: usa hoy en Chile (valor vigente del día).
  */
 export async function resolveUfValue(date?: string): Promise<{
   value: number;
   date: string;
 }> {
-  const targetDate = date ? new Date(date) : new Date();
+  const targetDate = date ? new Date(date + "T12:00:00") : todayChileDate();
   
   const ufRate = await prisma.fxUfRate.findFirst({
     where: { date: targetDate },
@@ -125,16 +127,19 @@ export async function resolveUfValue(date?: string): Promise<{
 }
 
 /**
- * Resolver valor UTM para un mes específico
+ * Resolver valor UTM para un mes específico.
+ * Sin mes: usa el mes actual en Chile (vigente).
  */
 export async function resolveUtmValue(month?: string): Promise<{
   value: number;
   month: string;
 }> {
-  // Si no se especifica, usar el mes actual
   const targetMonth = month
-    ? new Date(month)
-    : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    ? new Date(month + "T12:00:00")
+    : (() => {
+        const chile = new Date(new Date().toLocaleString("en-CA", { timeZone: "America/Santiago" }));
+        return new Date(chile.getFullYear(), chile.getMonth(), 1);
+      })();
 
   const utmRate = await prisma.fxUtmRate.findFirst({
     where: { month: targetMonth },
