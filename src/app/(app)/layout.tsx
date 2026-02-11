@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 
+/** Evita pre-render en build; todas las rutas requieren auth/DB */
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "OPAI Suite - Gard Security",
   description: "Suite de aplicaciones inteligentes para Gard Security",
