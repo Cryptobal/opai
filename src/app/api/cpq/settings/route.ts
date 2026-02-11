@@ -14,6 +14,9 @@ const DEFAULTS = {
   monthlyHoursStandard: 180,
   avgStayMonths: 4,
   uniformChangesPerYear: 3,
+  holidayAnnualCount: 16,
+  holidayCompensationFactor: 1.7,
+  holidayCommercialBufferPct: 10,
 };
 
 const buildKey = (key: keyof typeof DEFAULTS) => `${KEY_PREFIX}${key}`;
@@ -37,7 +40,20 @@ export async function GET() {
       if (!Number.isNaN(value)) data[rawKey] = value;
     }
 
-    return NextResponse.json({ success: true, data });
+    const holidayMonthlyFactor = (data.holidayAnnualCount || 0) / 12;
+    const holidayCommercialFactor = 1 + (data.holidayCommercialBufferPct || 0) / 100;
+    const holidayTotalFactor =
+      0.5 * holidayMonthlyFactor * (data.holidayCompensationFactor || 0) * holidayCommercialFactor;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...data,
+        holidayMonthlyFactor,
+        holidayCommercialFactor,
+        holidayTotalFactor,
+      },
+    });
   } catch (error) {
     console.error("Error fetching CPQ settings:", error);
     return NextResponse.json(

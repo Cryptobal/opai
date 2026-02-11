@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 interface QuoteCostSummary {
   totalGuards: number;
   monthlyPositions: number;
+  monthlyHolidayAdjustment: number;
   monthlyUniforms: number;
   monthlyExams: number;
   monthlyMeals: number;
@@ -51,7 +52,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   ] = await Promise.all([
     prisma.cpqPosition.findMany({
       where: { quoteId },
-      select: { numGuards: true, monthlyPositionCost: true },
+      select: { numGuards: true, monthlyPositionCost: true, baseSalary: true },
     }),
     prisma.cpqQuoteParameters.findUnique({ where: { quoteId } }),
     prisma.cpqQuoteUniformItem.findMany({
@@ -88,10 +89,46 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     (sum, p) => sum + safeNumber(p.monthlyPositionCost),
     0
   );
+  const monthlyBaseSalaryTotal = positions.reduce(
+    (sum, p) => sum + safeNumber(p.baseSalary) * safeNumber(p.numGuards),
+    0
+  );
 
   const uniformChangesPerYear = parameters?.uniformChangesPerYear ?? 3;
   const avgStayMonths = parameters?.avgStayMonths ?? 4;
   const monthlyHoursStandard = parameters?.monthlyHoursStandard ?? 180;
+  const holidaySettingKeys = [
+    "cpq.holidayAnnualCount",
+    "cpq.holidayCompensationFactor",
+    "cpq.holidayCommercialBufferPct",
+  ];
+  const holidaySettings = await prisma.setting.findMany({
+    where: {
+      key: { in: holidaySettingKeys },
+      tenantId,
+    },
+    select: {
+      key: true,
+      value: true,
+    },
+  });
+  const holidayAnnualCount = safeNumber(
+    holidaySettings.find((item) => item.key === "cpq.holidayAnnualCount")?.value ?? 16
+  );
+  const holidayCompensationFactor = safeNumber(
+    holidaySettings.find((item) => item.key === "cpq.holidayCompensationFactor")?.value ?? 1.7
+  );
+  const holidayCommercialBufferPct = safeNumber(
+    holidaySettings.find((item) => item.key === "cpq.holidayCommercialBufferPct")?.value ?? 10
+  );
+  const holidayMonthlyFactor = holidayAnnualCount / 12;
+  const holidayCommercialFactor = 1 + holidayCommercialBufferPct / 100;
+  const monthlyHolidayAdjustment =
+    (monthlyBaseSalaryTotal / 30) *
+    0.5 *
+    holidayMonthlyFactor *
+    holidayCompensationFactor *
+    holidayCommercialFactor;
 
   const defaultCatalog = catalogItems.filter((item) => item.isDefault);
   const uniformDefaultIds = new Set(
@@ -248,6 +285,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   const costsBase =
     monthlyPositions +
+    monthlyHolidayAdjustment +
     monthlyUniforms +
     monthlyExams +
     monthlyMeals +
@@ -284,6 +322,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       : 0;
 
   const baseExtras =
+    monthlyHolidayAdjustment +
     monthlyUniforms +
     monthlyExams +
     monthlyMeals +
@@ -296,6 +335,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   return {
     totalGuards,
     monthlyPositions,
+    monthlyHolidayAdjustment,
     monthlyUniforms,
     monthlyExams,
     monthlyMeals,

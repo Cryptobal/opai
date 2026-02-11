@@ -77,13 +77,24 @@ export function CpqPricingCalc({
   const uniformCosts = uniformTotal ?? summary.monthlyUniforms;
   const examCosts = examTotal ?? summary.monthlyExams;
   const mealCosts = mealTotal ?? summary.monthlyMeals;
+  const holidayCosts = summary.monthlyHolidayAdjustment ?? 0;
   const operationalCosts = operationalTotal ?? 0;
   const transportCosts = transportTotal ?? 0;
   const vehicleCosts = vehicleTotal ?? summary.monthlyVehicles;
   const infraCosts = infraTotal ?? summary.monthlyInfrastructure;
   const systemCosts = systemTotal ?? 0;
   
-  const costsBase = directCosts + uniformCosts + examCosts + mealCosts + operationalCosts + transportCosts + vehicleCosts + infraCosts + systemCosts;
+  const costsBase =
+    directCosts +
+    holidayCosts +
+    uniformCosts +
+    examCosts +
+    mealCosts +
+    operationalCosts +
+    transportCosts +
+    vehicleCosts +
+    infraCosts +
+    systemCosts;
 
   const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
   const policyMonths = policyContractMonths ?? 12;
@@ -128,6 +139,10 @@ export function CpqPricingCalc({
         <div className="flex justify-between items-center pl-2">
           <span className="text-muted-foreground text-xs">Mano de obra</span>
           <span className="font-mono text-xs">{formatCurrency(directCosts)}</span>
+        </div>
+        <div className="flex justify-between items-center pl-2">
+          <span className="text-muted-foreground text-xs">Ajuste feriados</span>
+          <span className="font-mono text-xs">{formatCurrency(holidayCosts)}</span>
         </div>
         <div className="flex justify-between items-center pl-2">
           <span className="text-muted-foreground text-xs">Uniformes</span>

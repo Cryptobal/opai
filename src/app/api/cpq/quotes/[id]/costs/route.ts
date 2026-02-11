@@ -53,7 +53,7 @@ export async function GET(
     ] = await Promise.all([
       prisma.cpqPosition.findMany({
         where: { quoteId: id },
-        select: { numGuards: true, monthlyPositionCost: true },
+        select: { numGuards: true, monthlyPositionCost: true, baseSalary: true },
       }),
         prisma.cpqQuoteParameters.findUnique({ where: { quoteId: id } }),
         prisma.cpqQuoteUniformItem.findMany({
@@ -173,9 +173,46 @@ export async function GET(
       (sum, p) => sum + safeNumber(p.monthlyPositionCost),
       0
     );
+    const monthlyBaseSalaryTotal = positions.reduce(
+      (sum, p) => sum + safeNumber(p.baseSalary) * safeNumber(p.numGuards),
+      0
+    );
 
     const uniformChangesPerYear = parameters?.uniformChangesPerYear ?? 3;
     const avgStayMonths = parameters?.avgStayMonths ?? 4;
+    const holidaySettings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            "cpq.holidayAnnualCount",
+            "cpq.holidayCompensationFactor",
+            "cpq.holidayCommercialBufferPct",
+          ],
+        },
+        tenantId,
+      },
+      select: {
+        key: true,
+        value: true,
+      },
+    });
+    const holidayAnnualCount = safeNumber(
+      holidaySettings.find((item) => item.key === "cpq.holidayAnnualCount")?.value ?? 16
+    );
+    const holidayCompensationFactor = safeNumber(
+      holidaySettings.find((item) => item.key === "cpq.holidayCompensationFactor")?.value ?? 1.7
+    );
+    const holidayCommercialBufferPct = safeNumber(
+      holidaySettings.find((item) => item.key === "cpq.holidayCommercialBufferPct")?.value ?? 10
+    );
+    const holidayMonthlyFactor = holidayAnnualCount / 12;
+    const holidayCommercialFactor = 1 + holidayCommercialBufferPct / 100;
+    const monthlyHolidayAdjustment =
+      (monthlyBaseSalaryTotal / 30) *
+      0.5 *
+      holidayMonthlyFactor *
+      holidayCompensationFactor *
+      holidayCommercialFactor;
 
     const uniformSetCost = mergedUniforms.reduce((sum, item) => {
       if (!item.active) return sum;
@@ -266,6 +303,7 @@ export async function GET(
 
     const costsBase =
       monthlyPositions +
+      monthlyHolidayAdjustment +
       monthlyUniforms +
       monthlyExams +
       monthlyMeals +
@@ -302,6 +340,7 @@ export async function GET(
         : 0;
 
     const baseExtras =
+      monthlyHolidayAdjustment +
       monthlyUniforms +
       monthlyExams +
       monthlyMeals +
@@ -314,6 +353,7 @@ export async function GET(
     const summary = {
       totalGuards,
       monthlyPositions,
+      monthlyHolidayAdjustment,
       monthlyUniforms,
       monthlyExams,
       monthlyMeals,

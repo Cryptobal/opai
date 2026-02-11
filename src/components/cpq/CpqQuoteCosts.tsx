@@ -39,6 +39,9 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   monthlyHoursStandard: 180,
   avgStayMonths: 4,
   uniformChangesPerYear: 3,
+  holidayAnnualCount: 16,
+  holidayCompensationFactor: 1.7,
+  holidayCommercialBufferPct: 10,
   financialRatePct: 0,
   salePriceMonthly: 0,
   policyRatePct: 0,
@@ -689,6 +692,13 @@ export function CpqQuoteCosts({
     }, 0);
   }, [meals, mealCatalog]);
   const financialTotal = summary ? summary.monthlyFinancial + summary.monthlyPolicy : 0;
+  const holidayAnnualCount = Number(parameters.holidayAnnualCount ?? 16);
+  const holidayCompensationFactor = Number(parameters.holidayCompensationFactor ?? 1.7);
+  const holidayCommercialBufferPct = Number(parameters.holidayCommercialBufferPct ?? 10);
+  const holidayMonthlyFactor = holidayAnnualCount / 12;
+  const holidayCommercialFactor = 1 + holidayCommercialBufferPct / 100;
+  const holidayTotalFactor =
+    0.5 * holidayMonthlyFactor * holidayCompensationFactor * holidayCommercialFactor;
 
   const costForm = loading ? (
     <div className="text-sm text-muted-foreground">Cargando...</div>
@@ -2622,7 +2632,7 @@ export function CpqQuoteCosts({
 
       {summary ? (
         <div className="space-y-3">
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 [&>*]:min-h-[88px]">
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 [&>*]:min-h-[88px]">
             <KpiCard
               title="Uniformes"
               value={formatCurrency(summary.monthlyUniforms)}
@@ -2658,6 +2668,33 @@ export function CpqQuoteCosts({
                 </div>
               </div>
             }
+            />
+            <KpiCard
+              title="Ajuste feriados"
+              value={formatCurrency(summary.monthlyHolidayAdjustment)}
+              variant="teal"
+              size="sm"
+              titleInfoTooltip={
+                <div className="space-y-1">
+                  <div className="font-semibold">Cálculo</div>
+                  <p className="text-muted-foreground">
+                    Se calcula sobre sueldo mensual: (sueldo/30) × 50% × (feriados/año ÷ 12) × factor empresa × factor comercial.
+                  </p>
+                </div>
+              }
+              tooltip={
+                <div className="space-y-1.5 text-xs">
+                  <div>Guardias: {summary.totalGuards}</div>
+                  <div>Feriados/año: {formatNumber(holidayAnnualCount, { minDecimals: 0, maxDecimals: 2 })}</div>
+                  <div>Factor mensual: {formatNumber(holidayMonthlyFactor, { minDecimals: 3, maxDecimals: 3 })}</div>
+                  <div>Factor empresa: {formatNumber(holidayCompensationFactor, { minDecimals: 2, maxDecimals: 2 })}</div>
+                  <div>Holgura comercial: {formatNumber(holidayCommercialBufferPct, { minDecimals: 2, maxDecimals: 2 })}%</div>
+                  <div>Factor comercial: {formatNumber(holidayCommercialFactor, { minDecimals: 3, maxDecimals: 3 })}</div>
+                  <div className="border-t border-border/60 pt-1.5 font-medium">
+                    Factor total sueldo/30: {formatNumber(holidayTotalFactor, { minDecimals: 4, maxDecimals: 4 })}
+                  </div>
+                </div>
+              }
             />
             <KpiCard
               title="Exámenes"

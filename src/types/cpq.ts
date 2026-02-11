@@ -106,6 +106,9 @@ export interface CpqQuoteParameters {
   monthlyHoursStandard: number;
   avgStayMonths: number;
   uniformChangesPerYear: number;
+  holidayAnnualCount?: number;
+  holidayCompensationFactor?: number;
+  holidayCommercialBufferPct?: number;
   financialEnabled?: boolean;
   financialRatePct: number;
   salePriceBase?: number;
@@ -194,6 +197,7 @@ export interface CpqQuoteInfrastructure {
 export interface CpqQuoteCostSummary {
   totalGuards: number;
   monthlyPositions: number;
+  monthlyHolidayAdjustment: number;
   monthlyUniforms: number;
   monthlyExams: number;
   monthlyMeals: number;
