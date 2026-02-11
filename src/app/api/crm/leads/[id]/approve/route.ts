@@ -11,6 +11,7 @@ import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { toSentenceCase } from "@/lib/text-format";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -132,7 +133,9 @@ export async function POST(
 
     if (useExistingAccountId) {
       const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
-      const names = installationsPayload.map((i: { name?: string }) => (i?.name || "").trim()).filter(Boolean);
+      const names = installationsPayload
+        .map((i: { name?: string }) => toSentenceCase(i?.name))
+        .filter((name: string | null): name is string => Boolean(name));
       if (names.length > 0) {
         const existing = await prisma.crmInstallation.findMany({
           where: {
@@ -168,8 +171,10 @@ export async function POST(
     }
 
     const contactFirstName =
-      body?.contactFirstName?.trim() || lead.firstName?.trim() || "Contacto";
-    const contactLastName = body?.contactLastName?.trim() || lead.lastName?.trim() || "";
+      toSentenceCase(body?.contactFirstName) ||
+      toSentenceCase(lead.firstName) ||
+      "Contacto";
+    const contactLastName = toSentenceCase(body?.contactLastName) || toSentenceCase(lead.lastName) || "";
     const contactResolution = body?.contactResolution || "create"; // create | overwrite | use_existing
     const contactIdForResolution = body?.contactId?.trim() || null;
 
@@ -390,7 +395,7 @@ export async function POST(
       let quoteCodeCounter = await tx.cpqQuote.count({ where: { tenantId: ctx.tenantId } });
 
       for (const inst of installationsPayload) {
-        const instName = inst?.name?.trim();
+        const instName = toSentenceCase(inst?.name);
         if (!instName) continue;
         const useExistingInstallationId = inst?.useExistingInstallationId?.trim() || null;
         let installationId: string;
@@ -597,12 +602,13 @@ export async function POST(
         }
       }
 
-      if (installationsPayload.length === 0 && body?.installationName?.trim()) {
+      const fallbackInstallationName = toSentenceCase(body?.installationName);
+      if (installationsPayload.length === 0 && fallbackInstallationName) {
         await tx.crmInstallation.create({
           data: {
             tenantId: ctx.tenantId,
             accountId: account.id,
-            name: body.installationName.trim(),
+            name: fallbackInstallationName,
             address: body?.installationAddress?.trim() || null,
             city: body?.installationCity?.trim() || null,
             commune: body?.installationCommune?.trim() || null,

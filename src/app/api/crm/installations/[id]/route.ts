@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { updateInstallationSchema } from "@/lib/validations/crm";
+import { toSentenceCase } from "@/lib/text-format";
 
 export async function GET(
   _request: NextRequest,
@@ -65,10 +66,16 @@ export async function PATCH(
 
     const parsed = await parseBody(request, updateInstallationSchema);
     if (parsed.error) return parsed.error;
+    const payload = parsed.data;
+
+    const normalizedData =
+      payload.name === undefined
+        ? payload
+        : { ...payload, name: toSentenceCase(payload.name) ?? payload.name };
 
     const installation = await prisma.crmInstallation.update({
       where: { id },
-      data: parsed.data,
+      data: normalizedData,
       include: { account: { select: { id: true, name: true } } },
     });
 

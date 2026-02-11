@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createInstallationSchema } from "@/lib/validations/crm";
+import { toSentenceCase } from "@/lib/text-format";
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, createInstallationSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+    const installationName = toSentenceCase(body.name);
+    if (!installationName) {
+      return NextResponse.json(
+        { success: false, error: "Nombre de instalación inválido" },
+        { status: 400 }
+      );
+    }
 
     // Verify account belongs to tenant
     const account = await prisma.crmAccount.findFirst({
@@ -59,7 +67,7 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId: ctx.tenantId,
         accountId: body.accountId,
-        name: body.name,
+        name: installationName,
         address: body.address || null,
         city: body.city || null,
         commune: body.commune || null,

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createLeadSchema } from "@/lib/validations/crm";
+import { toSentenceCase } from "@/lib/text-format";
 
 export async function GET(
   _request: NextRequest,
@@ -63,10 +64,23 @@ export async function PATCH(
 
     const parsed = await parseBody(request, createLeadSchema.partial());
     if (parsed.error) return parsed.error;
+    const payload = parsed.data;
+
+    const normalizedData = {
+      ...payload,
+      firstName:
+        payload.firstName === undefined
+          ? undefined
+          : toSentenceCase(payload.firstName) ?? null,
+      lastName:
+        payload.lastName === undefined
+          ? undefined
+          : toSentenceCase(payload.lastName) ?? null,
+    };
 
     const lead = await prisma.crmLead.update({
       where: { id },
-      data: parsed.data,
+      data: normalizedData,
     });
 
     return NextResponse.json({ success: true, data: lead });

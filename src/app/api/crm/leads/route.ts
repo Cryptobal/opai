@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createLeadSchema } from "@/lib/validations/crm";
+import { toSentenceCase } from "@/lib/text-format";
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,14 +43,16 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, createLeadSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+    const firstName = toSentenceCase(body.firstName) ?? null;
+    const lastName = toSentenceCase(body.lastName) ?? null;
 
     const lead = await prisma.crmLead.create({
       data: {
         tenantId: ctx.tenantId,
         status: "pending",
         source: body.source || null,
-        firstName: body.firstName || null,
-        lastName: body.lastName || null,
+        firstName,
+        lastName,
         email: body.email || null,
         phone: body.phone || null,
         companyName: body.companyName || null,
