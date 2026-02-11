@@ -263,15 +263,18 @@ function getLeadRejectReasonFromMetadata(metadata: unknown): LeadRejectReason | 
 function getLeadRejectionInfo(metadata: unknown): {
   emailSent: boolean;
   emailProviderMessageId: string | null;
+  note: string | null;
 } | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const rejection = (metadata as Record<string, unknown>).rejection;
   if (!rejection || typeof rejection !== "object" || Array.isArray(rejection)) return null;
   const emailSent = Boolean((rejection as Record<string, unknown>).emailSent);
   const messageId = (rejection as Record<string, unknown>).emailProviderMessageId;
+  const note = (rejection as Record<string, unknown>).note;
   return {
     emailSent,
     emailProviderMessageId: typeof messageId === "string" && messageId.trim() ? messageId : null,
+    note: typeof note === "string" && note.trim() ? note.trim() : null,
   };
 }
 
@@ -1957,6 +1960,11 @@ export function CrmLeadsClient({
                         </span>
                       )}
                     </div>
+                    {lead.status === "rejected" && rejectionInfo?.note && (
+                      <p className="rounded-md border border-border/70 bg-muted/20 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
+                        Observación: {rejectionInfo.note}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between pt-1">
                       <CrmDates createdAt={lead.createdAt} />
                       <div className="flex items-center gap-1">
@@ -2059,6 +2067,11 @@ export function CrmLeadsClient({
                               <Phone className="h-3 w-3" />
                               {lead.phone}
                             </a>
+                          )}
+                          {lead.status === "rejected" && rejectionInfo?.note && (
+                            <span className="inline-flex items-center rounded border border-border/70 bg-muted/20 px-2 py-0.5 text-[11px] text-muted-foreground max-w-full truncate">
+                              Observación: {rejectionInfo.note}
+                            </span>
                           )}
                           <div className="flex items-center gap-1 ml-1">
                             {lead.phone && (
