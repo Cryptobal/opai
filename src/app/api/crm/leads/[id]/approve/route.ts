@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
@@ -45,6 +46,18 @@ function buildAccountNotesWithLogo(baseNotes: string | null, logoUrl: string | n
   if (!logoUrl) return cleanBase || null;
   const marker = `${ACCOUNT_LOGO_MARKER_PREFIX}${logoUrl}${ACCOUNT_LOGO_MARKER_SUFFIX}`;
   return cleanBase ? `${marker}\n${cleanBase}` : marker;
+}
+
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isNotAvailable(value: string | null): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "not available" || normalized === "n/a" || normalized === "no disponible";
 }
 
 function normalizeWeekdays(dias: unknown): string[] {
@@ -177,6 +190,13 @@ export async function POST(
     const accountLogoUrl = sanitizeAccountLogoUrl(body?.accountLogoUrl);
     const accountNotesBase = body?.accountNotes?.trim() || lead.notes || null;
     const accountNotesWithLogo = buildAccountNotesWithLogo(accountNotesBase, accountLogoUrl);
+    const legalName = normalizeOptionalText(body?.legalName);
+    const legalRepresentativeName = normalizeOptionalText(body?.legalRepresentativeName);
+    const legalRepresentativeRut = normalizeOptionalText(body?.legalRepresentativeRut);
+    const accountRut = normalizeOptionalText(body?.rut);
+    const accountIndustry = normalizeOptionalText(body?.industry);
+    const accountSegment = normalizeOptionalText(body?.segment);
+    const accountWebsite = normalizeOptionalText(body?.website);
 
     const result = await prisma.$transaction(async (tx) => {
       let account: { id: string };
@@ -187,6 +207,30 @@ export async function POST(
         if (!existing) {
           throw new Error("Cuenta existente no encontrada");
         }
+        await tx.crmAccount.update({
+          where: { id: existing.id },
+          data: {
+            rut: accountRut && !isNotAvailable(accountRut) ? accountRut : existing.rut,
+            legalName: legalName && !isNotAvailable(legalName) ? legalName : existing.legalName,
+            legalRepresentativeName:
+              legalRepresentativeName && !isNotAvailable(legalRepresentativeName)
+                ? legalRepresentativeName
+                : existing.legalRepresentativeName,
+            legalRepresentativeRut:
+              legalRepresentativeRut && !isNotAvailable(legalRepresentativeRut)
+                ? legalRepresentativeRut
+                : existing.legalRepresentativeRut,
+            industry:
+              accountIndustry && !isNotAvailable(accountIndustry)
+                ? accountIndustry
+                : existing.industry,
+            segment:
+              accountSegment && !isNotAvailable(accountSegment)
+                ? accountSegment
+                : existing.segment,
+            website: accountWebsite ?? existing.website,
+          },
+        });
         account = { id: existing.id };
       } else {
         const created = await tx.crmAccount.create({
@@ -194,11 +238,13 @@ export async function POST(
             tenantId: ctx.tenantId,
             name: accountName,
             type: "prospect",
-            rut: body?.rut?.trim() || null,
-            industry: body?.industry?.trim() || null,
-            size: body?.size?.trim() || null,
-            segment: body?.segment?.trim() || null,
-            website: body?.website?.trim() || null,
+            rut: accountRut,
+            legalName,
+            legalRepresentativeName,
+            legalRepresentativeRut,
+            industry: accountIndustry,
+            segment: accountSegment,
+            website: accountWebsite,
             address: body?.address?.trim() || null,
             notes: accountNotesWithLogo,
             ownerId: ctx.userId,
@@ -295,6 +341,26 @@ export async function POST(
         },
       });
 
+      const previousMetadata =
+        lead.metadata && typeof lead.metadata === "object" && !Array.isArray(lead.metadata)
+          ? (lead.metadata as Record<string, unknown>)
+          : {};
+      const updatedMetadata = {
+        ...previousMetadata,
+        companyEnrichment: {
+          website: accountWebsite,
+          accountRut,
+          legalName,
+          legalRepresentativeName,
+          legalRepresentativeRut,
+          industry: accountIndustry,
+          segment: accountSegment,
+          accountLogoUrl,
+          accountNotes: accountNotesBase,
+          capturedAt: new Date().toISOString(),
+        },
+      };
+
       await tx.crmLead.update({
         where: { id: lead.id },
         data: {
@@ -304,6 +370,7 @@ export async function POST(
           convertedAccountId: account.id,
           convertedContactId: contact.id,
           convertedDealId: deal.id,
+          metadata: updatedMetadata as Prisma.InputJsonValue,
         },
       });
 

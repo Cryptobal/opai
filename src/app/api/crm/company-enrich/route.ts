@@ -19,6 +19,18 @@ type ExtractedWebData = {
   logoUrl: string | null;
 };
 
+type CompanyAiEnrichment = {
+  summary: string;
+  industry: string;
+  segment: string;
+  legalName: string;
+  companyRut: string;
+  legalRepresentativeName: string;
+  legalRepresentativeRut: string;
+};
+
+const NOT_AVAILABLE = "Not Available";
+
 function normalizeWebsiteUrl(rawWebsite: string): string {
   const trimmed = rawWebsite.trim();
   if (!trimmed) throw new Error("Debes ingresar una página web.");
@@ -295,11 +307,87 @@ async function scrapeWebsite(websiteNormalized: string, companyName: string): Pr
   }
 }
 
-async function summarizeInSpanish(
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function extractFirstRut(text: string): string | null {
+  const regex = /\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b/g;
+  const match = text.match(regex)?.[0] || null;
+  return match ? normalizeWhitespace(match) : null;
+}
+
+function extractRepresentativeByRegex(text: string): { name: string | null; rut: string | null } {
+  const representativeRegexes = [
+    /representante\s+legal[:\s-]+([A-ZÁÉÍÓÚÑa-záéíóúñ.'"\- ]{6,120})/i,
+    /rep\.?\s*legal[:\s-]+([A-ZÁÉÍÓÚÑa-záéíóúñ.'"\- ]{6,120})/i,
+  ];
+  for (const rx of representativeRegexes) {
+    const m = text.match(rx);
+    if (m?.[1]) {
+      const name = normalizeWhitespace(m[1]).replace(/[|;,].*$/, "").trim();
+      const near = text.slice(Math.max(0, (m.index || 0) - 120), (m.index || 0) + 220);
+      const rut = extractFirstRut(near);
+      return { name: name || null, rut };
+    }
+  }
+  return { name: null, rut: null };
+}
+
+function normalizeExtracted(value: unknown): string {
+  if (typeof value !== "string") return NOT_AVAILABLE;
+  const clean = normalizeWhitespace(value);
+  if (!clean) return NOT_AVAILABLE;
+  const lower = clean.toLowerCase();
+  if (["n/a", "na", "no disponible", "not available", "desconocido", "unknown", "null"].includes(lower)) {
+    return NOT_AVAILABLE;
+  }
+  return clean;
+}
+
+function extractJsonObject(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first >= 0 && last > first) return trimmed.slice(first, last + 1);
+  throw new Error("No se encontró JSON válido en respuesta de IA.");
+}
+
+async function fetchWebHints(companyName: string): Promise<string[]> {
+  if (!companyName.trim()) return [];
+  const query = encodeURIComponent(`${companyName} representante legal rut razón social`);
+  const url = `https://duckduckgo.com/html/?q=${query}`;
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
+      Accept: "text/html",
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) return [];
+  const html = await response.text();
+  const snippets = [
+    ...collectRegexMatches(
+      html,
+      /<a[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
+      6
+    ),
+    ...collectRegexMatches(
+      html,
+      /<div[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
+      6
+    ),
+  ];
+  return [...new Set(snippets)].slice(0, 8);
+}
+
+async function enrichCompanyWithAi(
   companyName: string,
   website: string,
   extracted: ExtractedWebData
-): Promise<string> {
+): Promise<CompanyAiEnrichment> {
+  const webHints = await fetchWebHints(companyName);
   const sourceText = [
     `Empresa: ${companyName || "No especificada"}`,
     `Sitio: ${website}`,
@@ -309,28 +397,64 @@ async function summarizeInSpanish(
     extracted.paragraphs.length
       ? `Párrafos detectados: ${extracted.paragraphs.slice(0, 5).join(" | ")}`
       : "",
+    webHints.length ? `Pistas web (búsqueda): ${webHints.join(" | ")}` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.2,
-    max_tokens: 220,
+    temperature: 0.1,
+    max_tokens: 700,
     messages: [
       {
         role: "system",
         content:
-          "Eres analista comercial B2B. Resume en español neutro, sin inventar datos y en tono ejecutivo.",
+          "Eres analista comercial B2B. Responde SOLO JSON válido, sin texto adicional. Nunca inventes datos: si falta información usa exactamente 'Not Available'.",
       },
       {
         role: "user",
-        content: `Con la información del sitio web, redacta un resumen breve (4-6 líneas) de: qué hace la empresa, a qué se dedica, foco de negocio y cualquier señal útil para una propuesta comercial de seguridad privada.\n\nSi faltan datos, indícalo de forma explícita sin inventar.\n\nInformación extraída:\n${sourceText}`,
+        content:
+          `Devuelve un objeto JSON con las claves exactas:\n` +
+          `summary, industry, segment, legalName, companyRut, legalRepresentativeName, legalRepresentativeRut.\n\n` +
+          `Reglas:\n` +
+          `- summary: 4-6 líneas en español sobre qué hace la empresa y foco comercial.\n` +
+          `- industry y segment: clasificaciones comerciales en español, o 'Not Available'.\n` +
+          `- legalName: razón social, o 'Not Available'.\n` +
+          `- companyRut y legalRepresentativeRut: formato RUT chileno si existe; si no, 'Not Available'.\n` +
+          `- legalRepresentativeName: nombre completo o 'Not Available'.\n\n` +
+          `Información extraída:\n${sourceText}`,
       },
     ],
   });
 
-  return completion.choices[0]?.message?.content?.trim() || "";
+  const raw = completion.choices[0]?.message?.content?.trim() || "";
+  const parsed = JSON.parse(extractJsonObject(raw)) as Partial<CompanyAiEnrichment>;
+
+  const regexRut = extractFirstRut(sourceText);
+  const regexRep = extractRepresentativeByRegex(sourceText);
+
+  return {
+    summary:
+      normalizeExtracted(parsed.summary) === NOT_AVAILABLE
+        ? extracted.metaDescription || extracted.headings[0] || "Not Available"
+        : normalizeExtracted(parsed.summary),
+    industry: normalizeExtracted(parsed.industry),
+    segment: normalizeExtracted(parsed.segment),
+    legalName: normalizeExtracted(parsed.legalName),
+    companyRut:
+      normalizeExtracted(parsed.companyRut) !== NOT_AVAILABLE
+        ? normalizeExtracted(parsed.companyRut)
+        : regexRut || NOT_AVAILABLE,
+    legalRepresentativeName:
+      normalizeExtracted(parsed.legalRepresentativeName) !== NOT_AVAILABLE
+        ? normalizeExtracted(parsed.legalRepresentativeName)
+        : regexRep.name || NOT_AVAILABLE,
+    legalRepresentativeRut:
+      normalizeExtracted(parsed.legalRepresentativeRut) !== NOT_AVAILABLE
+        ? normalizeExtracted(parsed.legalRepresentativeRut)
+        : regexRep.rut || NOT_AVAILABLE,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -359,15 +483,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let summary = "";
+    let enrichment: CompanyAiEnrichment = {
+      summary: extracted.metaDescription || extracted.headings[0] || "Not Available",
+      industry: NOT_AVAILABLE,
+      segment: NOT_AVAILABLE,
+      legalName: NOT_AVAILABLE,
+      companyRut: extractFirstRut(
+        [extracted.title, extracted.metaDescription, ...extracted.headings, ...extracted.paragraphs].join(" ")
+      ) || NOT_AVAILABLE,
+      legalRepresentativeName: NOT_AVAILABLE,
+      legalRepresentativeRut: NOT_AVAILABLE,
+    };
     try {
-      summary = await summarizeInSpanish(companyName, websiteNormalized, extracted);
+      enrichment = await enrichCompanyWithAi(companyName, websiteNormalized, extracted);
     } catch (aiError) {
       console.error("Error generating AI company summary:", aiError);
-      summary =
-        extracted.metaDescription ||
-        extracted.headings[0] ||
-        "No se pudo generar resumen con IA. Revisa manualmente el sitio para obtener contexto.";
     }
 
     return NextResponse.json({
@@ -376,7 +506,13 @@ export async function POST(request: NextRequest) {
         websiteNormalized,
         logoUrl: extracted.logoUrl,
         localLogoUrl,
-        summary,
+        summary: enrichment.summary,
+        industry: enrichment.industry,
+        segment: enrichment.segment,
+        legalName: enrichment.legalName,
+        companyRut: enrichment.companyRut,
+        legalRepresentativeName: enrichment.legalRepresentativeName,
+        legalRepresentativeRut: enrichment.legalRepresentativeRut,
         title: extracted.title,
       },
     });

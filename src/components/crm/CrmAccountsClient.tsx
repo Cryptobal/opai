@@ -28,6 +28,9 @@ import { toast } from "sonner";
 type AccountFormState = {
   name: string;
   rut: string;
+  legalName: string;
+  legalRepresentativeName: string;
+  legalRepresentativeRut: string;
   segment: string;
   industry: string;
   website: string;
@@ -38,6 +41,9 @@ type AccountRow = {
   id: string;
   name: string;
   rut?: string | null;
+  legalName?: string | null;
+  legalRepresentativeName?: string | null;
+  legalRepresentativeRut?: string | null;
   segment?: string | null;
   industry?: string | null;
   website?: string | null;
@@ -54,6 +60,9 @@ type AccountRow = {
 const DEFAULT_FORM: AccountFormState = {
   name: "",
   rut: "",
+  legalName: "",
+  legalRepresentativeName: "",
+  legalRepresentativeRut: "",
   segment: "",
   industry: "",
   website: "",
@@ -278,6 +287,33 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>RUT representante legal</Label>
+                  <Input
+                    value={form.legalRepresentativeRut}
+                    onChange={(event) => updateForm("legalRepresentativeRut", event.target.value)}
+                    placeholder="12.345.678-9"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Razón social</Label>
+                  <Input
+                    value={form.legalName}
+                    onChange={(event) => updateForm("legalName", event.target.value)}
+                    placeholder="Empresa SpA / Ltda / S.A."
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Representante legal</Label>
+                  <Input
+                    value={form.legalRepresentativeName}
+                    onChange={(event) => updateForm("legalRepresentativeName", event.target.value)}
+                    placeholder="Nombre completo"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Segmento</Label>
                   <Input
                     value={form.segment}
@@ -372,6 +408,12 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
                           </p>
+                          {account.legalRepresentativeName && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Rep. legal: {account.legalRepresentativeName}
+                              {account.legalRepresentativeRut ? ` (${account.legalRepresentativeRut})` : ""}
+                            </p>
+                          )}
                           {account.website && (
                             <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px]" onClick={(e) => e.stopPropagation()}>
                               <Globe className="h-3 w-3 shrink-0" />

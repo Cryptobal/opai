@@ -190,6 +190,9 @@ function whatsappHref(phone: string | null | undefined): string {
 
 type ApproveFormState = {
   accountName: string;
+  legalName: string;
+  legalRepresentativeName: string;
+  legalRepresentativeRut: string;
   contactFirstName: string;
   contactLastName: string;
   email: string;
@@ -314,6 +317,9 @@ export function CrmLeadsClient({
   const [installationUseExisting, setInstallationUseExisting] = useState<Record<string, string>>({}); // instKey -> installation id to use
   const [approveForm, setApproveForm] = useState<ApproveFormState>({
     accountName: "",
+    legalName: "",
+    legalRepresentativeName: "",
+    legalRepresentativeRut: "",
     contactFirstName: "",
     contactLastName: "",
     email: "",
@@ -475,6 +481,11 @@ export function CrmLeadsClient({
     }
   };
 
+  const shouldReplaceEnriched = (currentValue: string): boolean => {
+    const normalized = currentValue.trim().toLowerCase();
+    return !normalized || normalized === "not available" || normalized === "n/a" || normalized === "no disponible";
+  };
+
   const enrichCompanyInfoFromWebsite = async () => {
     const website = approveForm.website.trim();
     if (!website) {
@@ -498,8 +509,29 @@ export function CrmLeadsClient({
       const summary = payload?.data?.summary || "";
       const normalizedWebsite = payload?.data?.websiteNormalized || "";
       const logoUrl = payload?.data?.localLogoUrl || payload?.data?.logoUrl || null;
+      const industry = payload?.data?.industry || "";
+      const segment = payload?.data?.segment || "";
+      const legalName = payload?.data?.legalName || "";
+      const companyRut = payload?.data?.companyRut || "";
+      const legalRepresentativeName = payload?.data?.legalRepresentativeName || "";
+      const legalRepresentativeRut = payload?.data?.legalRepresentativeRut || "";
       if (normalizedWebsite) updateApproveForm("website", normalizedWebsite);
       if (summary) updateApproveForm("companyInfo", summary);
+      setApproveForm((prev) => ({
+        ...prev,
+        industry: shouldReplaceEnriched(prev.industry) && industry ? industry : prev.industry,
+        segment: shouldReplaceEnriched(prev.segment) && segment ? segment : prev.segment,
+        legalName: shouldReplaceEnriched(prev.legalName) && legalName ? legalName : prev.legalName,
+        rut: shouldReplaceEnriched(prev.rut) && companyRut ? companyRut : prev.rut,
+        legalRepresentativeName:
+          shouldReplaceEnriched(prev.legalRepresentativeName) && legalRepresentativeName
+            ? legalRepresentativeName
+            : prev.legalRepresentativeName,
+        legalRepresentativeRut:
+          shouldReplaceEnriched(prev.legalRepresentativeRut) && legalRepresentativeRut
+            ? legalRepresentativeRut
+            : prev.legalRepresentativeRut,
+      }));
       setDetectedCompanyLogoUrl(logoUrl);
       toast.success("Información de la empresa completada desde la web.");
     } catch (error) {
@@ -545,18 +577,36 @@ export function CrmLeadsClient({
     setInstallationUseExisting({});
     const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
     const meta = lead.metadata as Record<string, unknown> | undefined;
+    const companyEnrichment =
+      meta?.companyEnrichment && typeof meta.companyEnrichment === "object" && !Array.isArray(meta.companyEnrichment)
+        ? (meta.companyEnrichment as Record<string, unknown>)
+        : null;
     const leadDotacion = (meta?.dotacion as DotacionItem[] | undefined) || [];
 
     setApproveForm({
       accountName: lead.companyName || "",
+      legalName: (typeof companyEnrichment?.legalName === "string" ? companyEnrichment.legalName : "") || "",
+      legalRepresentativeName:
+        (typeof companyEnrichment?.legalRepresentativeName === "string"
+          ? companyEnrichment.legalRepresentativeName
+          : "") || "",
+      legalRepresentativeRut:
+        (typeof companyEnrichment?.legalRepresentativeRut === "string"
+          ? companyEnrichment.legalRepresentativeRut
+          : "") || "",
       contactFirstName: lead.firstName || "",
       contactLastName: lead.lastName || "",
       email: lead.email || "",
       phone: lead.phone || "",
       dealTitle: `Oportunidad ${lead.companyName || fullName || ""}`.trim(),
-      rut: "",
-      industry: lead.industry || "",
-      segment: "",
+      rut:
+        (typeof companyEnrichment?.accountRut === "string" ? companyEnrichment.accountRut : "") || "",
+      industry:
+        (typeof companyEnrichment?.industry === "string" ? companyEnrichment.industry : "") ||
+        lead.industry ||
+        "",
+      segment:
+        (typeof companyEnrichment?.segment === "string" ? companyEnrichment.segment : "") || "",
       roleTitle: "",
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
       companyInfo: "",
@@ -751,6 +801,9 @@ export function CrmLeadsClient({
         ...approveForm,
         accountNotes: approveForm.companyInfo || undefined,
         accountLogoUrl: detectedCompanyLogoUrl || undefined,
+        legalName: approveForm.legalName || undefined,
+        legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
+        legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
         useExistingAccountId: useExistingAccountId || undefined,
         contactResolution: existingContact ? contactResolution : undefined,
         contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
@@ -1257,6 +1310,33 @@ export function CrmLeadsClient({
                     value={approveForm.rut}
                     onChange={(e) => updateApproveForm("rut", e.target.value)}
                     placeholder="76.123.456-7"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs">Razón social (empresa)</Label>
+                  <Input
+                    value={approveForm.legalName}
+                    onChange={(e) => updateApproveForm("legalName", e.target.value)}
+                    placeholder="Empresa SpA / Ltda / S.A."
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Representante legal</Label>
+                  <Input
+                    value={approveForm.legalRepresentativeName}
+                    onChange={(e) => updateApproveForm("legalRepresentativeName", e.target.value)}
+                    placeholder="Nombre completo o Not Available"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">RUT representante legal</Label>
+                  <Input
+                    value={approveForm.legalRepresentativeRut}
+                    onChange={(e) => updateApproveForm("legalRepresentativeRut", e.target.value)}
+                    placeholder="12.345.678-9 o Not Available"
                     className={inputClassName}
                   />
                 </div>

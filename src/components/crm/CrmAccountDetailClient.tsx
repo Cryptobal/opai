@@ -105,9 +105,11 @@ type AccountDetail = {
   type: "prospect" | "client";
   status: string;
   rut?: string | null;
+  legalName?: string | null;
+  legalRepresentativeName?: string | null;
+  legalRepresentativeRut?: string | null;
   industry?: string | null;
   segment?: string | null;
-  size?: string | null;
   website?: string | null;
   address?: string | null;
   notes?: string | null;
@@ -130,9 +132,11 @@ export function CrmAccountDetailClient({ account: initialAccount, currentUserId 
   const [accountForm, setAccountForm] = useState({
     name: account.name,
     rut: account.rut || "",
+    legalName: account.legalName || "",
+    legalRepresentativeName: account.legalRepresentativeName || "",
+    legalRepresentativeRut: account.legalRepresentativeRut || "",
     industry: account.industry || "",
     segment: account.segment || "",
-    size: account.size || "",
     website: account.website || "",
     address: account.address || "",
     notes: stripAccountLogoMarker(account.notes),
@@ -159,9 +163,11 @@ export function CrmAccountDetailClient({ account: initialAccount, currentUserId 
     setAccountForm({
       name: account.name,
       rut: account.rut || "",
+      legalName: account.legalName || "",
+      legalRepresentativeName: account.legalRepresentativeName || "",
+      legalRepresentativeRut: account.legalRepresentativeRut || "",
       industry: account.industry || "",
       segment: account.segment || "",
-      size: account.size || "",
       website: account.website || "",
       address: account.address || "",
       notes: stripAccountLogoMarker(account.notes),
@@ -335,9 +341,11 @@ export function CrmAccountDetailClient({ account: initialAccount, currentUserId 
               </Badge>
             </InfoRow>
             <InfoRow label="RUT">{account.rut || "—"}</InfoRow>
+            <InfoRow label="Razón social">{account.legalName || "—"}</InfoRow>
+            <InfoRow label="Representante legal">{account.legalRepresentativeName || "—"}</InfoRow>
+            <InfoRow label="RUT representante legal">{account.legalRepresentativeRut || "—"}</InfoRow>
             <InfoRow label="Industria">{account.industry || "—"}</InfoRow>
             <InfoRow label="Segmento">{account.segment || "—"}</InfoRow>
-            <InfoRow label="Tamaño">{account.size || "—"}</InfoRow>
           </div>
           <div className="space-y-3 text-sm">
             <InfoRow label="Página web">
@@ -507,16 +515,43 @@ export function CrmAccountDetailClient({ account: initialAccount, currentUserId 
               <Input value={accountForm.rut} onChange={(e) => setAccountForm((p) => ({ ...p, rut: e.target.value }))} className={inputCn} placeholder="76.123.456-7" />
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs">Razón social</Label>
+              <Input
+                value={accountForm.legalName}
+                onChange={(e) => setAccountForm((p) => ({ ...p, legalName: e.target.value }))}
+                className={inputCn}
+                placeholder="Empresa SpA / Ltda / S.A."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Representante legal</Label>
+              <Input
+                value={accountForm.legalRepresentativeName}
+                onChange={(e) =>
+                  setAccountForm((p) => ({ ...p, legalRepresentativeName: e.target.value }))
+                }
+                className={inputCn}
+                placeholder="Nombre completo"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">RUT representante legal</Label>
+              <Input
+                value={accountForm.legalRepresentativeRut}
+                onChange={(e) =>
+                  setAccountForm((p) => ({ ...p, legalRepresentativeRut: e.target.value }))
+                }
+                className={inputCn}
+                placeholder="12.345.678-9"
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Industria</Label>
               <Input value={accountForm.industry} onChange={(e) => setAccountForm((p) => ({ ...p, industry: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Segmento</Label>
               <Input value={accountForm.segment} onChange={(e) => setAccountForm((p) => ({ ...p, segment: e.target.value }))} className={inputCn} placeholder="Corporativo, PYME..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tamaño</Label>
-              <Input value={accountForm.size} onChange={(e) => setAccountForm((p) => ({ ...p, size: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Sitio web</Label>
