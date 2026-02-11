@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { EmptyState, StatusBadge } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, LayoutGrid, List } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +81,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loadingPublicForm, setLoadingPublicForm] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
+  const [blacklistFilter, setBlacklistFilter] = useState<"all" | "blacklisted" | "active">("all");
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -130,13 +133,16 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return guardias;
     return guardias.filter((item) => {
+      if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
+      if (blacklistFilter === "blacklisted" && !item.isBlacklisted) return false;
+      if (blacklistFilter === "active" && item.isBlacklisted) return false;
+      if (!query) return true;
       const text =
         `${item.persona.firstName} ${item.persona.lastName} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""}`.toLowerCase();
       return text.includes(query);
     });
-  }, [guardias, search]);
+  }, [guardias, search, lifecycleFilter, blacklistFilter]);
 
   const onAddressChange = (result: AddressResult) => {
     setForm((prev) => ({
@@ -636,11 +642,60 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
       <Card>
         <CardContent className="pt-5 space-y-3">
-          <Input
-            placeholder="Buscar por nombre, RUT, email o código..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="flex flex-col gap-2 lg:flex-row">
+            <Input
+              placeholder="Buscar por nombre, RUT, email o código..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="lg:flex-1"
+            />
+            <select
+              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              value={lifecycleFilter}
+              onChange={(e) => setLifecycleFilter(e.target.value)}
+            >
+              <option value="all">Todos los estados</option>
+              {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {LIFECYCLE_LABELS[status] || status}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              value={blacklistFilter}
+              onChange={(e) =>
+                setBlacklistFilter(e.target.value as "all" | "blacklisted" | "active")
+              }
+            >
+              <option value="all">Todos</option>
+              <option value="active">Sin lista negra</option>
+              <option value="blacklisted">Solo lista negra</option>
+            </select>
+            <div className="flex items-center rounded-md border border-border">
+              <Button
+                type="button"
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                className="h-10 rounded-none rounded-l-md px-3"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="mr-1.5 h-4 w-4" />
+                Grid
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                className="h-10 rounded-none rounded-r-md px-3"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="mr-1.5 h-4 w-4" />
+                Lista
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} guardia{filtered.length === 1 ? "" : "s"} encontrados
+          </p>
 
           {filtered.length === 0 ? (
             <EmptyState
@@ -650,11 +705,15 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               compact
             />
           ) : (
-            <div className="space-y-2">
+            <div className={viewMode === "grid" ? "grid gap-2 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  className={
+                    viewMode === "grid"
+                      ? "rounded-lg border border-border p-3 sm:p-4 flex h-full flex-col justify-between gap-3"
+                      : "rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  }
                 >
                   <div>
                     <p className="text-sm font-medium">
@@ -680,7 +739,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       <p className="text-xs text-red-400 mt-1">Motivo: {item.blacklistReason}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className={viewMode === "grid" ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"}>
                     <StatusBadge status={item.status} />
                     <select
                       className="h-8 rounded-md border border-border bg-background px-2 text-xs"
