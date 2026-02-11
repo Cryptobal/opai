@@ -24,6 +24,8 @@ const DEFAULTS: Record<string, unknown> = {
   // Documentos
   docExpiryBellEnabled: true,
   docExpiryEmailEnabled: true,
+  // Ops - Documentos de guardias
+  guardiaDocExpiryBellEnabled: true,
   docExpiryDaysDefault: 30,
   // Firma electrónica
   signatureCompleteBellEnabled: true,

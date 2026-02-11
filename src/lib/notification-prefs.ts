@@ -12,6 +12,7 @@ export interface NotificationPrefs {
   followupEmailEnabled: boolean;
   docExpiryBellEnabled: boolean;
   docExpiryEmailEnabled: boolean;
+  guardiaDocExpiryBellEnabled: boolean;
   docExpiryDaysDefault: number;
   signatureCompleteBellEnabled: boolean;
   signatureCompleteEmailEnabled: boolean;
@@ -25,6 +26,7 @@ const DEFAULTS: NotificationPrefs = {
   followupEmailEnabled: true,
   docExpiryBellEnabled: true,
   docExpiryEmailEnabled: true,
+  guardiaDocExpiryBellEnabled: true,
   docExpiryDaysDefault: 30,
   signatureCompleteBellEnabled: true,
   signatureCompleteEmailEnabled: true,

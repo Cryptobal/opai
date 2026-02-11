@@ -9,10 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { addDays } from "date-fns";
+import { getNotificationPrefs } from "@/lib/notification-prefs";
 
 const GUARDIA_DOC_ALERT_DAYS = 30;
 
-async function ensureGuardiaDocExpiryNotifications(tenantId: string) {
+async function ensureGuardiaDocExpiryNotifications(tenantId: string, enabled: boolean) {
+  if (!enabled) return;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const limitDate = addDays(today, GUARDIA_DOC_ALERT_DAYS);
@@ -87,20 +89,35 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unread") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const prefs = await getNotificationPrefs(ctx.tenantId);
 
-    await ensureGuardiaDocExpiryNotifications(ctx.tenantId);
+    await ensureGuardiaDocExpiryNotifications(
+      ctx.tenantId,
+      prefs.guardiaDocExpiryBellEnabled
+    );
+
+    const notificationsWhere = {
+      tenantId: ctx.tenantId,
+      ...(unreadOnly ? { read: false } : {}),
+      ...(prefs.guardiaDocExpiryBellEnabled
+        ? {}
+        : { type: { notIn: ["guardia_doc_expiring", "guardia_doc_expired"] } }),
+    } as const;
 
     const notifications = await prisma.notification.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        ...(unreadOnly ? { read: false } : {}),
-      },
+      where: notificationsWhere,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
 
     const unreadCount = await prisma.notification.count({
-      where: { tenantId: ctx.tenantId, read: false },
+      where: {
+        tenantId: ctx.tenantId,
+        read: false,
+        ...(prefs.guardiaDocExpiryBellEnabled
+          ? {}
+          : { type: { notIn: ["guardia_doc_expiring", "guardia_doc_expired"] } }),
+      },
     });
 
     return NextResponse.json({

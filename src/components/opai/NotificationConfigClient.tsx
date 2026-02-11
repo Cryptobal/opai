@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Mail, Save, Loader2, AlertTriangle, FileText, FileSignature, Eye, UserPlus } from "lucide-react";
+import { Bell, Mail, Save, Loader2, AlertTriangle, FileText, FileSignature, Eye, UserPlus, ShieldUser } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -182,6 +182,22 @@ export function NotificationConfigClient() {
             onChange={(e) => handleChange("docExpiryDaysDefault", Math.max(1, Math.min(365, Number(e.target.value) || 30)))}
           />
         </div>
+      </section>
+
+      {/* Ops */}
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <ShieldUser className="h-4 w-4 text-primary" />
+          Ops
+        </h3>
+        <ToggleRow
+          label="Documentos de guardias por vencer / vencidos"
+          description="Alertas de cédula, OS-10 y otros documentos del guardia en la campanita"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          bellKey="guardiaDocExpiryBellEnabled"
+          prefs={prefs}
+          onChange={handleChange}
+        />
       </section>
 
       {/* Firma electrónica */}
