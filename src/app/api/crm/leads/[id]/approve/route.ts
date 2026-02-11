@@ -246,6 +246,8 @@ export async function POST(
             tenantId: ctx.tenantId,
             name: accountName,
             type: "prospect",
+            isActive: false,
+            status: "inactive",
             rut: accountRut,
             legalName,
             legalRepresentativeName,

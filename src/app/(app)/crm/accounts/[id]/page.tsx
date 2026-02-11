@@ -11,6 +11,16 @@ import { PageHeader, Breadcrumb } from "@/components/opai";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
 
+const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
+
+function normalizeIdentity(value: string | null | undefined) {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
 export default async function CrmAccountDetailPage({
   params,
 }: {
@@ -22,6 +32,10 @@ export default async function CrmAccountDetailPage({
     redirect(`/opai/login?callbackUrl=/crm/accounts/${id}`);
   }
   const role = session.user.role;
+  const canRevertClientToProspect =
+    role === "owner" &&
+    (OWNER_OVERRIDE_EMAILS.has(normalizeIdentity(session.user.email)) ||
+      normalizeIdentity(session.user.name) === "carlos irigoyen");
 
   if (!hasCrmSubmoduleAccess(role, "accounts")) {
     redirect("/crm");
@@ -70,7 +84,12 @@ export default async function CrmAccountDetailPage({
         description={`${account.type === "client" ? "Cliente" : "Prospecto"} · ${account.industry || "Sin industria"}`}
       />
       <CrmSubnav role={role} />
-      <CrmAccountDetailClient account={data} quotes={data.quotes || []} currentUserId={session.user.id} />
+      <CrmAccountDetailClient
+        account={data}
+        quotes={data.quotes || []}
+        currentUserId={session.user.id}
+        canRevertClientToProspect={canRevertClientToProspect}
+      />
     </>
   );
 }

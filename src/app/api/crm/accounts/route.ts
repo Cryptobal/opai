@@ -58,8 +58,13 @@ export async function POST(request: NextRequest) {
         segment: body.segment || null,
         ownerId: ctx.userId,
         type: body.type,
-        status: body.isActive === false ? "inactive" : body.status,
-        isActive: body.isActive ?? true,
+        status:
+          body.type === "prospect"
+            ? "inactive"
+            : body.isActive === false
+            ? "inactive"
+            : body.status,
+        isActive: body.type === "prospect" ? false : (body.isActive ?? true),
         website: body.website || null,
         address: body.address || null,
         notes: body.notes || null,

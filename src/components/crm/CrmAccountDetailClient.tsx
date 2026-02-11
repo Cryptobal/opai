@@ -136,7 +136,17 @@ function formatCLP(value: number | string): string {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0 }).format(n || 0);
 }
 
-export function CrmAccountDetailClient({ account: initialAccount, quotes = [], currentUserId }: { account: AccountDetail; quotes?: QuoteRow[]; currentUserId: string }) {
+export function CrmAccountDetailClient({
+  account: initialAccount,
+  quotes = [],
+  currentUserId,
+  canRevertClientToProspect = false,
+}: {
+  account: AccountDetail;
+  quotes?: QuoteRow[];
+  currentUserId: string;
+  canRevertClientToProspect?: boolean;
+}) {
   const router = useRouter();
   const [account, setAccount] = useState(initialAccount);
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
@@ -146,9 +156,12 @@ export function CrmAccountDetailClient({ account: initialAccount, quotes = [], c
   // ── Account edit state ──
   const [editAccountOpen, setEditAccountOpen] = useState(false);
   const [savingAccount, setSavingAccount] = useState(false);
+  const [updatingAccountType, setUpdatingAccountType] = useState(false);
   const [updatingAccountStatus, setUpdatingAccountStatus] = useState(false);
   const [accountStatusConfirmOpen, setAccountStatusConfirmOpen] = useState(false);
   const [accountStatusNextValue, setAccountStatusNextValue] = useState<boolean>(false);
+  const [accountTypeConfirmOpen, setAccountTypeConfirmOpen] = useState(false);
+  const [accountTypeNextValue, setAccountTypeNextValue] = useState<"prospect" | "client">("client");
   const [accountForm, setAccountForm] = useState({
     name: account.name,
     rut: account.rut || "",
@@ -237,6 +250,48 @@ export function CrmAccountDetailClient({ account: initialAccount, quotes = [], c
   const openToggleAccountStatus = () => {
     setAccountStatusNextValue(!account.isActive);
     setAccountStatusConfirmOpen(true);
+  };
+
+  const openToggleAccountType = (nextType: "prospect" | "client") => {
+    setAccountTypeNextValue(nextType);
+    setAccountTypeConfirmOpen(true);
+  };
+
+  const confirmToggleAccountType = async () => {
+    setUpdatingAccountType(true);
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: accountTypeNextValue }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data?.error);
+
+      setAccount((prev) => ({
+        ...prev,
+        type: data.data.type,
+        isActive: data.data.isActive,
+        status: data.data.status,
+        installations: prev.installations.map((inst) => ({
+          ...inst,
+          isActive: data.data.type === "prospect" ? false : inst.isActive,
+        })),
+      }));
+
+      setAccountTypeConfirmOpen(false);
+      toast.success(
+        accountTypeNextValue === "client"
+          ? "Cuenta convertida a cliente"
+          : "Cuenta revertida a prospecto"
+      );
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo cambiar el tipo de cuenta.");
+    } finally {
+      setUpdatingAccountType(false);
+    }
   };
 
   const confirmToggleAccountStatus = async () => {
@@ -376,19 +431,42 @@ export function CrmAccountDetailClient({ account: initialAccount, quotes = [], c
         title="Datos generales"
         action={
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={account.isActive ? "outline" : "secondary"}
-              className="h-7 text-xs"
-              onClick={openToggleAccountStatus}
-              disabled={updatingAccountStatus}
-            >
-              {updatingAccountStatus
-                ? "Guardando..."
-                : account.isActive
-                ? "Desactivar cuenta"
-                : "Activar cuenta"}
-            </Button>
+            {account.type === "prospect" ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 text-xs"
+                onClick={() => openToggleAccountType("client")}
+                disabled={updatingAccountType}
+              >
+                {updatingAccountType ? "Guardando..." : "Convertir a cliente"}
+              </Button>
+            ) : canRevertClientToProspect ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => openToggleAccountType("prospect")}
+                disabled={updatingAccountType}
+              >
+                {updatingAccountType ? "Guardando..." : "Volver a prospecto"}
+              </Button>
+            ) : null}
+            {account.type === "client" ? (
+              <Button
+                size="sm"
+                variant={account.isActive ? "outline" : "secondary"}
+                className="h-7 text-xs"
+                onClick={openToggleAccountStatus}
+                disabled={updatingAccountStatus}
+              >
+                {updatingAccountStatus
+                  ? "Guardando..."
+                  : account.isActive
+                  ? "Desactivar cuenta"
+                  : "Activar cuenta"}
+              </Button>
+            ) : null}
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={openAccountEdit}>
               <Pencil className="h-3 w-3 mr-1" />
               Editar
@@ -807,6 +885,17 @@ export function CrmAccountDetailClient({ account: initialAccount, quotes = [], c
             : "La cuenta quedará inactiva y se desactivarán todas sus instalaciones activas para evitar inconsistencias."
         }
         onConfirm={confirmToggleAccountStatus}
+      />
+      <ConfirmDialog
+        open={accountTypeConfirmOpen}
+        onOpenChange={setAccountTypeConfirmOpen}
+        title={accountTypeNextValue === "client" ? "Convertir a cliente" : "Volver a prospecto"}
+        description={
+          accountTypeNextValue === "client"
+            ? "Esta cuenta quedará marcada como cliente. Podrás operar instalaciones activas."
+            : "Esta cuenta volverá a prospecto, quedará inactiva y se desactivarán sus instalaciones activas."
+        }
+        onConfirm={confirmToggleAccountType}
       />
       <ConfirmDialog
         open={deleteContactConfirm.open}
