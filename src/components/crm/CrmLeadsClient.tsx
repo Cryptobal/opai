@@ -201,6 +201,7 @@ type ApproveFormState = {
   segment: string;
   roleTitle: string;
   website: string;
+  companyInfo: string;
   notes: string;
 };
 
@@ -306,6 +307,7 @@ export function CrmLeadsClient({
     segment: "",
     roleTitle: "",
     website: "",
+    companyInfo: "",
     notes: "",
   });
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
@@ -327,6 +329,8 @@ export function CrmLeadsClient({
   const [rejectEmailSubject, setRejectEmailSubject] = useState("");
   const [rejectEmailBody, setRejectEmailBody] = useState("");
   const [rejectReasonFilter, setRejectReasonFilter] = useState<LeadRejectReasonFilter>("all");
+  const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
+  const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/crm/industries?active=true")
@@ -454,6 +458,41 @@ export function CrmLeadsClient({
     }
   };
 
+  const enrichCompanyInfoFromWebsite = async () => {
+    const website = approveForm.website.trim();
+    if (!website) {
+      toast.error("Primero ingresa la página web de la empresa.");
+      return;
+    }
+    setEnrichingCompanyInfo(true);
+    try {
+      const response = await fetch("/api/crm/company-enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          website,
+          companyName: approveForm.accountName,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "No se pudo obtener información del sitio.");
+      }
+      const summary = payload?.data?.summary || "";
+      const normalizedWebsite = payload?.data?.websiteNormalized || "";
+      const logoUrl = payload?.data?.logoUrl || null;
+      if (normalizedWebsite) updateApproveForm("website", normalizedWebsite);
+      if (summary) updateApproveForm("companyInfo", summary);
+      setDetectedCompanyLogoUrl(logoUrl);
+      toast.success("Información de la empresa completada desde la web.");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo traer datos de la empresa.");
+    } finally {
+      setEnrichingCompanyInfo(false);
+    }
+  };
+
   const createLead = async () => {
     setCreating(true);
     try {
@@ -503,8 +542,10 @@ export function CrmLeadsClient({
       segment: "",
       roleTitle: "",
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
+      companyInfo: "",
       notes: lead.notes || "",
     });
+    setDetectedCompanyLogoUrl(null);
 
     // Pre-crear una instalación con la dirección, coordenadas y dotación del lead
     const leadLat = meta?.lat as number | undefined;
@@ -691,6 +732,7 @@ export function CrmLeadsClient({
 
       const payload = {
         ...approveForm,
+        accountNotes: approveForm.companyInfo || undefined,
         useExistingAccountId: useExistingAccountId || undefined,
         contactResolution: existingContact ? contactResolution : undefined,
         contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
