@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
-import type { CpqQuoteCostSummary } from "@/types/cpq";
+import type { CpqPosition, CpqQuoteCostSummary } from "@/types/cpq";
 
 interface CpqPricingCalcProps {
   summary: CpqQuoteCostSummary | null;
@@ -29,6 +29,8 @@ interface CpqPricingCalcProps {
   policyContractMonths?: number;
   policyContractPct?: number;
   contractMonths?: number;
+  positions?: CpqPosition[];
+  monthlyHours?: number;
 }
 
 export function CpqPricingCalc({
@@ -48,6 +50,8 @@ export function CpqPricingCalc({
   policyContractMonths,
   policyContractPct,
   contractMonths,
+  positions = [],
+  monthlyHours = 180,
 }: CpqPricingCalcProps) {
   const [localMargin, setLocalMargin] = useState(marginPct);
   const [marginDraft, setMarginDraft] = useState("");
@@ -116,6 +120,20 @@ export function CpqPricingCalc({
   const financialAmount = summary.monthlyFinancial;
   const policyAmount = summary.monthlyPolicy;
   const salePriceMonthly = baseWithMargin + financialAmount + policyAmount;
+  const positionWeights = positions.map((position) => Math.max(0, Number(position.monthlyPositionCost)));
+  const positionWeightsTotal = positionWeights.reduce((sum, value) => sum + value, 0);
+  const fallbackWeight = positions.length > 0 ? 1 / positions.length : 0;
+  let remainingSaleForAllocation = salePriceMonthly;
+  const saleAllocationByPosition = positions.map((position, index) => {
+    if (index === positions.length - 1) {
+      const allocated = Math.max(0, remainingSaleForAllocation);
+      return { position, allocated, weight: positionWeightsTotal > 0 ? positionWeights[index] / positionWeightsTotal : fallbackWeight };
+    }
+    const weight = positionWeightsTotal > 0 ? positionWeights[index] / positionWeightsTotal : fallbackWeight;
+    const allocated = salePriceMonthly * weight;
+    remainingSaleForAllocation -= allocated;
+    return { position, allocated, weight };
+  });
 
   const handleSaveMargin = async () => {
     if (!onMarginChange) return;
@@ -247,6 +265,27 @@ export function CpqPricingCalc({
           <span>Precio venta mensual</span>
           <span className="font-mono">{formatCurrency(salePriceMonthly)}</span>
         </div>
+
+        {saleAllocationByPosition.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-t border-emerald-500/20 pt-2">
+            <div className="text-xs font-semibold uppercase text-emerald-300/80">
+              Valor hora cliente por puesto (prorrateado por peso)
+            </div>
+            {saleAllocationByPosition.map(({ position, allocated, weight }) => {
+              const guards = Math.max(1, Number(position.numGuards || 0));
+              const hourlyRate = allocated > 0 ? allocated / guards / Math.max(1, monthlyHours) : 0;
+              const positionName = position.customName || position.puestoTrabajo?.name || "Puesto";
+              return (
+                <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 pl-2 text-xs">
+                  <span className="text-muted-foreground">
+                    {positionName} ({formatNumber(weight * 100, { minDecimals: 2, maxDecimals: 2 })}%)
+                  </span>
+                  <span className="font-mono text-emerald-300">{formatCurrency(hourlyRate)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </Card>
   );

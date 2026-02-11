@@ -640,24 +640,40 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
   }, [costSummary, marginPct]);
 
-  // Per-position sale price for document preview (distributes fixed financial/policy by guard proportion)
+  // Per-position sale price allocation from final monthly sale price.
+  // This keeps every downstream "valor hora" aligned with the real client sale price.
   const positionSalePrices = useMemo(() => {
     const map = new Map<string, number>();
-    if (!costSummary || positions.length === 0) return map;
-    const tg = stats.totalGuards;
-    const margin = marginPct / 100;
-    const monthlyFinancial = costSummary.monthlyFinancial ?? 0;
-    const monthlyPolicy = costSummary.monthlyPolicy ?? 0;
+    if (positions.length === 0 || salePriceMonthly <= 0) return map;
+
+    const weights = positions.map((pos) => Math.max(0, Number(pos.monthlyPositionCost)));
+    const weightsTotal = weights.reduce((sum, value) => sum + value, 0);
+    const fallbackWeight = positions.length > 0 ? 1 / positions.length : 0;
+    let remaining = salePriceMonthly;
+
+    positions.forEach((pos, index) => {
+      if (index === positions.length - 1) {
+        map.set(pos.id, Math.max(0, remaining));
+        return;
+      }
+      const proportion = weightsTotal > 0 ? weights[index] / weightsTotal : fallbackWeight;
+      const allocated = salePriceMonthly * proportion;
+      map.set(pos.id, allocated);
+      remaining -= allocated;
+    });
+
+    return map;
+  }, [positions, salePriceMonthly]);
+
+  const positionHourlyRates = useMemo(() => {
+    const map = new Map<string, number>();
     for (const pos of positions) {
-      const proportion = tg > 0 ? pos.numGuards / tg : 0;
-      const additionalForPos = baseAdditionalCostsTotal * proportion;
-      const totalCostPos = Number(pos.monthlyPositionCost) + additionalForPos;
-      const bwm = margin < 1 ? totalCostPos / (1 - margin) : totalCostPos;
-      const extraForPos = (monthlyFinancial + monthlyPolicy) * proportion;
-      map.set(pos.id, bwm + extraForPos);
+      const saleForPos = positionSalePrices.get(pos.id) ?? 0;
+      const denom = Math.max(1, pos.numGuards) * Math.max(1, monthlyHours);
+      map.set(pos.id, saleForPos > 0 ? saleForPos / denom : 0);
     }
     return map;
-  }, [positions, costSummary, marginPct, stats.totalGuards, baseAdditionalCostsTotal]);
+  }, [positions, positionSalePrices, monthlyHours]);
   const saveLabel = savingQuote
     ? "Guardando..."
     : quoteDirty
@@ -1169,15 +1185,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   quoteId={quoteId}
                   onUpdated={refresh}
                   readOnly={isLocked}
-                  totalGuards={stats.totalGuards}
-                    baseAdditionalCostsTotal={baseAdditionalCostsTotal}
-                  marginPct={marginPct}
-                  financialRatePct={financialRatePct}
-                  policyRatePct={policyRatePct}
-                  monthlyHours={monthlyHours}
-                    policyContractMonths={policyContractMonths}
-                    policyContractPct={policyContractPct}
-                    contractMonths={contractMonths}
+                  salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
+                  clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
                 />
               ))}
             </div>
@@ -1222,6 +1231,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             policyContractMonths={policyContractMonths}
             policyContractPct={policyContractPct}
             contractMonths={contractMonths}
+            positions={positions}
+            monthlyHours={monthlyHours}
           />
 
           <Card className="p-3 sm:p-4 space-y-3">

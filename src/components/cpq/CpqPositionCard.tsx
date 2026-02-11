@@ -22,15 +22,8 @@ interface CpqPositionCardProps {
   position: CpqPosition;
   onUpdated?: () => void;
   readOnly?: boolean;
-  totalGuards?: number;
-  baseAdditionalCostsTotal?: number;
-  marginPct?: number;
-  financialRatePct?: number;
-  policyRatePct?: number;
-  monthlyHours?: number;
-  policyContractMonths?: number;
-  policyContractPct?: number;
-  contractMonths?: number;
+  salePriceMonthlyForPosition?: number;
+  clientHourlyRate?: number;
 }
 
 function getTintedBadgeStyle(colorHex?: string | null): CSSProperties | undefined {
@@ -47,35 +40,12 @@ export function CpqPositionCard({
   position,
   onUpdated,
   readOnly = false,
-  totalGuards = 1,
-  baseAdditionalCostsTotal = 0,
-  marginPct = 20,
-  financialRatePct = 0,
-  policyRatePct = 0,
-  monthlyHours = 180,
-  policyContractMonths = 12,
-  policyContractPct = 100,
-  contractMonths = 12,
+  salePriceMonthlyForPosition = 0,
+  clientHourlyRate = 0,
 }: CpqPositionCardProps) {
   const [openEdit, setOpenEdit] = useState(false);
   const [openBreakdown, setOpenBreakdown] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const positionGuards = position.numGuards;
-  const proportion = totalGuards > 0 ? positionGuards / totalGuards : 0;
-  const baseAdditionalCostsForPosition = baseAdditionalCostsTotal * proportion;
-  const totalCostPosition = Number(position.monthlyPositionCost) + baseAdditionalCostsForPosition;
-  const marginRate = marginPct / 100;
-  const baseWithMargin = marginRate < 1 ? totalCostPosition / (1 - marginRate) : totalCostPosition;
-  const policyFactor =
-    contractMonths > 0 ? (policyContractMonths * (policyContractPct / 100)) / contractMonths : 0;
-  const financialCost = baseWithMargin * (financialRatePct / 100);
-  const policyCost = baseWithMargin * (policyRatePct / 100) * policyFactor;
-  const salePricePosition = baseWithMargin + financialCost + policyCost;
-  const hourlyRate =
-    monthlyHours > 0 && positionGuards > 0
-      ? salePricePosition / positionGuards / monthlyHours
-      : 0;
 
   const handleRecalculate = async () => {
     setLoading(true);
@@ -198,9 +168,9 @@ export function CpqPositionCard({
           </p>
         </div>
         <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Empresa c/u</p>
+          <p className="text-xs uppercase text-muted-foreground">Valor hora cliente</p>
           <p className="text-sm sm:text-xs font-semibold">
-            {formatCurrency(Number(position.employerCost))}
+            {formatCurrency(clientHourlyRate)}
           </p>
         </div>
       </div>
@@ -208,15 +178,15 @@ export function CpqPositionCard({
       <div className="flex items-center justify-between border-t bg-muted/10 px-3 py-2">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
           <p className="text-xs sm:text-xs text-muted-foreground">
-            Total puesto ({position.numGuards}):{" "}
+            Venta mensual puesto ({position.numGuards}):{" "}
             <span className="font-mono text-foreground">
-              {formatCurrency(Number(position.monthlyPositionCost))}
+              {formatCurrency(salePriceMonthlyForPosition)}
             </span>
           </p>
           <p className="text-xs sm:text-xs text-emerald-400">
             Valor hora:{" "}
             <span className="font-mono font-semibold">
-              {formatCurrency(hourlyRate)}
+              {formatCurrency(clientHourlyRate)}
             </span>
           </p>
         </div>
