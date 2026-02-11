@@ -48,7 +48,7 @@ Construir la plataforma OPI para Gard con enfoque mobile-first y separación de 
 
  --- FASES FUTURAS (OPI) ---
 
- Fase 1: Ops + TE + Personas           ░░░░░░░░░░ 0%
+Fase 1: Ops + TE + Personas           ████████░░ 80% (MVP v1 implementado)
  Fase 2: Postventa + Tickets           ░░░░░░░░░░ 0%  ← Plan listo (docs/06-etapa-2/)
  Fase 3: Portal guardias + Comunicados ░░░░░░░░░░ 0%
  Fase 4: Inventario                    ░░░░░░░░░░ 0%
@@ -74,9 +74,9 @@ Construir la plataforma OPI para Gard con enfoque mobile-first y separación de 
 
 | Fase | Módulo | Estado | Dependencias |
 |:----:|--------|:------:|-------------|
-| 1 | Ops (puestos, pauta, asistencia) | ❌ | Ninguna |
-| 1 | TE y Pagos | ❌ | Ops |
-| 1 | Personas (guardias, docs, flags) | ❌ | Ninguna |
+| 1 | Ops (puestos, pauta, asistencia) | ✅ MVP | Ninguna |
+| 1 | TE y Pagos | ✅ MVP | Ops |
+| 1 | Personas (guardias, docs, flags) | ✅ MVP | Ninguna |
 | 2 | Postventa (check-in, bitácora) | ❌ | CrmInstallation (existe) |
 | 2 | Tickets (bandeja, SLA) | ❌ | Ninguna |
 | 3 | Portal guardias | ❌ | Personas |
@@ -286,7 +286,7 @@ Lo que ya existe y funciona en producción:
 
 **Plan detallado:** `docs/05-etapa-1/ETAPA_1_IMPLEMENTACION.md`
 
-**Estado:** 🟡 En planificación (implementación no iniciada)
+**Estado:** ✅ MVP implementado (v1) — en hardening operativo
 
 ### Fase 2 — Postventa + Tickets core
 

@@ -120,7 +120,7 @@ Policies por acción: docs.proposal.send, crm.deal.update, ops.incident.create, 
 - ✅ Fase 6: Auth + RBAC + Gestión de usuarios + Configuración
 
 ### Pendiente (OPI — Expansión operacional)
-- ❌ OPI Fase 1: Ops (puestos, pauta mensual/diaria, asistencia, TE, personas/guardias)
+- ✅ OPI Fase 1: Ops (puestos, pauta mensual/diaria, asistencia, TE, personas/guardias) — MVP v1
 - ❌ OPI Fase 2: Postventa (check-in/out geofence, bitácora, incidentes) + Tickets (SLA, categorías)
 - ❌ OPI Fase 3: Portal guardias (OTP, comunicados, solicitudes RRHH, tickets)
 - ❌ OPI Fase 4: Inventario (catálogo, stock, kits, asignaciones)

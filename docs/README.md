@@ -84,14 +84,15 @@ docs/
 | Presentaciones | ✅ | [001-docs-master.md](./00-product/001-docs-master.md) |
 | Documentos | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 | Payroll | ⚠️ 60% | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
+| Ops + TE + Personas | ✅ MVP v1 | [docs/05-etapa-1/](./05-etapa-1/) |
 | Auth/RBAC | ✅ | [auth.md](./01-architecture/auth.md), [usuarios-roles.md](./02-implementation/usuarios-roles.md) |
 | Config | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 
-## Fases OPI (por implementar)
+## Fases OPI (estado)
 
 | Fase | Modulo | Plan |
 |:----:|--------|------|
-| 1 | Ops + TE + Personas | [docs/05-etapa-1/](./05-etapa-1/) |
+| 1 | Ops + TE + Personas | ✅ MVP v1 ([docs/05-etapa-1/](./05-etapa-1/)) |
 | 2 | Postventa + Tickets | [docs/06-etapa-2/](./06-etapa-2/) |
 | 3 | Portal guardias | [MASTER_SPEC_OPI.md](./00-product/MASTER_SPEC_OPI.md) |
 | 4 | Inventario | [MASTER_SPEC_OPI.md](./00-product/MASTER_SPEC_OPI.md) |

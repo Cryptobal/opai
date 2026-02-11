@@ -2,10 +2,10 @@
 
 ## Ops + TE + Personas (MVP)
 
-> **Versión:** 1.0  
+> **Versión:** 1.1  
 > **Fecha:** 2026-02-11  
 > **Fuente de verdad:** `docs/00-product/MASTER_SPEC_OPI.md`  
-> **Estado:** En planificación (implementación no iniciada)
+> **Estado:** Implementada (MVP v1 en repositorio)
 
 ---
 
@@ -17,19 +17,19 @@ La Fase 1 habilita la operación diaria mínima de guardias:
 2. **TE y pagos**: generación de turnos extra, aprobación RRHH y lote de pago.
 3. **Personas**: ficha de guardia, flags y lista negra básica.
 
-El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documentos, Configuración), pero **aún no tiene implementación de Fase 1** en DB/API/UI.
+El repositorio ahora incluye implementación funcional de Fase 1 en DB, APIs y UI para operación mínima.
 
 ---
 
-## B) Baseline actual (revisión 2026-02-11)
+## B) Baseline actual (revisión 2026-02-11 — posterior a implementación)
 
 | Componente Fase 1 | Estado actual |
 |-------------------|---------------|
-| Modelos Prisma (`ops/personas/te`) | ❌ No existen en `prisma/schema.prisma` |
-| APIs `/api/ops/*` y `/api/te/*` | ❌ No existen rutas |
-| UI `/ops/*`, `/personas/*`, `/te/*` | ❌ No existen páginas |
+| Modelos Prisma (`ops/personas/te`) | ✅ Implementados en `prisma/schema.prisma` + migración `20260223000000_phase1_ops_te_personas` |
+| APIs `/api/ops/*` y `/api/te/*` | ✅ Implementadas (pauta, asistencia, TE, lotes, exportación) |
+| UI `/ops/*`, `/personas/*`, `/te/*` | ✅ Implementadas (dashboard, pauta mensual/diaria, PPC, registro/aprobaciones/lotes/pagos, guardias/lista negra) |
 | Integración con instalaciones | ✅ Existe `crm.CrmInstallation` reutilizable |
-| Roles base (owner/admin/editor/viewer) | ✅ Implementados (faltan roles operacionales) |
+| Roles base (owner/admin/editor/viewer) | ✅ Operativo con acceso Ops para owner/admin |
 
 ---
 
@@ -53,7 +53,7 @@ El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documento
 
 ---
 
-## D) Plan de implementación por iteraciones
+## D) Estado por iteraciones (ejecutado)
 
 ### D.1) F1-01 — Fundación de datos y contratos API (prioridad inmediata)
 
@@ -91,6 +91,8 @@ El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documento
 - Endpoints responden 200/4xx correctos con validación de payload.
 - Sin regresiones en módulos productivos existentes.
 
+**Estado:** ✅ Completado
+
 ### D.2) F1-02 — UI Pauta mensual + Asistencia diaria
 
 **Objetivo:** habilitar operación diaria en interfaz.
@@ -106,6 +108,8 @@ El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documento
 - Se puede guardar pauta mensual.
 - Se puede marcar asistencia/no asistencia/reemplazo.
 - La operación queda persistida y auditada.
+
+**Estado:** ✅ Completado
 
 ### D.3) F1-03 — Flujo TE y pagos
 
@@ -123,6 +127,8 @@ El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documento
 - RRHH puede aprobar/rechazar.
 - Se puede crear lote y marcar ítems pagados.
 
+**Estado:** ✅ Completado
+
 ### D.4) F1-04 — Personas/Guardias MVP
 
 **Objetivo:** consolidar ficha operativa mínima de guardias.
@@ -138,28 +144,27 @@ El repositorio actual tiene la base comercial completa (Hub, CRM, CPQ, Documento
 - Guardia en lista negra no puede ser asignado en pauta/TE.
 - Historial mínimo de cambios disponible.
 
+**Estado:** ✅ Completado
+
 ---
 
 ## E) Recomendación de continuidad inmediata
 
-Continuar con **F1-01 (Fundación de datos y contratos API)** antes de cualquier trabajo de Fase 2 o expansión UI.
+Con MVP v1 de Fase 1 implementado, el siguiente bloque recomendado es **hardening + QA**:
 
-Orden sugerido dentro de F1-01:
-
-1. Prisma schema + migraciones.
-2. Repositorios/servicios backend.
-3. Endpoints `/api/ops/*` y `/api/te/*`.
-4. Validaciones Zod + auditoría.
-5. Smoke test de regresión en CRM/CPQ/Docs.
+1. Tests unitarios para reglas de negocio de asistencia/TE.
+2. Tests e2e de flujos críticos (pauta → reemplazo → TE → lote → pago).
+3. Ajustes UX en móviles de Ops/TE/Personas.
+4. Definición de roles operacionales (`rrhh`, `operaciones`, `reclutamiento`) para acceso fino.
+5. Inicio de Fase 2 (Postventa + Tickets) usando el plan de `docs/06-etapa-2/`.
 
 ---
 
 ## F) Dependencias y decisiones abiertas
 
 1. Confirmar nombres finales de tablas/modelos para dominio `ops`.
-2. Confirmar si `te_monto_clp` vive en `crm.CrmInstallation` o en una tabla de configuración operacional.
-3. Confirmar rol inicial para aprobación de TE (`rrhh`) y su estrategia de convivencia con roles actuales.
-4. Confirmar formato de exportación bancaria de lotes TE (Santander u otro).
+2. Confirmar expansión de RBAC para roles operacionales específicos.
+3. Confirmar reglas de exportación bancaria por banco adicional a Santander.
 
 ---
 

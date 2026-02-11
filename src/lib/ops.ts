@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { hasAppAccess } from "@/lib/app-access";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/api-auth";
@@ -127,7 +128,7 @@ export async function createOpsAuditLog(
         action,
         entity,
         entityId: entityId ?? null,
-        details: details ?? undefined,
+        details: details as Prisma.InputJsonValue | undefined,
       },
     });
   } catch (error) {

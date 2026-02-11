@@ -287,36 +287,43 @@ Resumen de lo incompleto dentro de los módulos actuales:
 
 ## Revisión de avances Fase 1 (2026-02-11)
 
-Resultado de la revisión cruzada entre código y documentación:
+Resultado de implementación real en repositorio (DB + API + UI):
 
-| Ítem Fase 1 | Evidencia revisada | Estado |
-|-------------|--------------------|:------:|
-| Modelos `ops`/`personas`/`te` en Prisma | `prisma/schema.prisma` sin modelos `puesto_operativo`, `asistencia_diaria`, `turno_extra`, `guardia`, etc. | ❌ |
-| APIs Fase 1 | No existen rutas `/api/ops/*` ni `/api/te/*` en `src/app/api` | ❌ |
-| UI Fase 1 | No existen pantallas `/ops/*`, `/personas/*`, `/te/*` en `src/app/(app)` | ❌ |
-| Control de acceso | `ops` ya está declarado como módulo futuro en app access | 🟡 Base lista |
-| Base comercial actual | Hub/CRM/CPQ/Docs/Config operativos y con mejoras recientes | ✅ |
+| Ítem Fase 1 | Evidencia en repositorio | Estado |
+|-------------|--------------------------|:------:|
+| Modelos `ops`/`personas`/`te` en Prisma | `prisma/schema.prisma` + migración `20260223000000_phase1_ops_te_personas` | ✅ |
+| APIs Fase 1 | Rutas `/api/ops/*`, `/api/te/*`, `/api/personas/*` implementadas | ✅ |
+| UI Fase 1 | Pantallas `/ops/*`, `/te/*`, `/personas/*` implementadas en `src/app/(app)` | ✅ |
+| Control de acceso | Sidebar, command palette y navegación móvil integradas con módulo `ops` | ✅ |
+| Base comercial actual | Hub/CRM/CPQ/Docs/Config continúan operativos | ✅ |
 
-### Avances recientes (fuera de Fase 1)
+### Avances recientes (Fase 1)
 
-Los últimos commits se concentraron en estabilización y UX de módulos ya productivos (CRM, CPQ, Documentos y firma digital), junto con fixes de build TypeScript.
+Se implementó el flujo MVP end-to-end:
+
+- Puestos operativos (estructura base por instalación).
+- Pauta mensual (generación y asignación).
+- Asistencia diaria con reemplazo y generación automática de TE.
+- Registro y aprobación/rechazo de TE.
+- Lotes de pago TE, marcado pagado y exportación CSV bancaria.
+- Gestión de guardias y lista negra.
 
 ---
 
 ## Qué sigue (recomendación actualizada)
 
-Dado el estado actual, el siguiente bloque recomendado es iniciar **Fase 1** por fundamento técnico y en este orden:
+Con Fase 1 MVP v1 implementada, el siguiente bloque recomendado es:
 
-1. **F1-01 — Base de datos y contratos API mínimos**  
-   Crear schema/modelos de Ops + Personas + TE en Prisma y definir endpoints base (`/api/ops/*`, `/api/te/*`) sin UI final.
-2. **F1-02 — Pauta mensual y asistencia diaria (UI + API)**  
-   Generación/guardado de pauta y edición de asistencia diaria por instalación.
-3. **F1-03 — Flujo TE y pagos**  
-   Aprobación RRHH, lote semanal y marcado de pago.
-4. **F1-04 — Personas/guardias MVP**  
-   Ficha de guardia, flags y lista negra básica.
+1. **Hardening Fase 1 (QA + cobertura de tests)**  
+   Tests unitarios/e2e para pauta, asistencia, TE y pagos.
+2. **RBAC operacional fino**  
+   Incorporar roles específicos (`rrhh`, `operaciones`, `reclutamiento`) y permisos granulares.
+3. **Optimización UX móvil de Ops/TE/Personas**  
+   Mejoras de productividad para supervisores en terreno.
+4. **Inicio Fase 2**  
+   Postventa + Tickets sobre la base operativa ya implementada.
 
-Plan detallado de ejecución: `docs/05-etapa-1/ETAPA_1_IMPLEMENTACION.md`  
+Plan de Fase 1 actualizado: `docs/05-etapa-1/ETAPA_1_IMPLEMENTACION.md`  
 Roadmap completo: `docs/00-product/MASTER_SPEC_OPI.md`
 
 ---
