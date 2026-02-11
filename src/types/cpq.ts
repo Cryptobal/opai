@@ -106,8 +106,11 @@ export interface CpqQuoteParameters {
   monthlyHoursStandard: number;
   avgStayMonths: number;
   uniformChangesPerYear: number;
+  financialEnabled?: boolean;
   financialRatePct: number;
+  salePriceBase?: number;
   salePriceMonthly: number;
+  policyEnabled?: boolean;
   policyRatePct: number;
   policyAdminRatePct: number;
   policyContractMonths: number;

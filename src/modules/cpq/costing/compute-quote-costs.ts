@@ -258,33 +258,30 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 20));
   const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
 
-  const financialItem = financialItems.find(
-    (item) => item.isEnabled && item.catalogItem?.type === "financial"
-  );
-  const financialRatePctRaw = financialItem
-    ? safeNumber(
-        financialItem.unitPriceOverride ?? financialItem.catalogItem?.basePrice ?? 0
-      )
-    : 0;
-  const financialRatePct = normalizePct(financialRatePctRaw);
+  const financialEnabled = parameters?.financialEnabled ?? false;
+  const policyEnabled = parameters?.policyEnabled ?? false;
+  const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
+  const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
 
-  const policyItem = financialItems.find(
-    (item) => item.isEnabled && item.catalogItem?.type === "policy"
-  );
-  const policyRatePctRaw = policyItem
-    ? safeNumber(policyItem.unitPriceOverride ?? policyItem.catalogItem?.basePrice ?? 0)
-    : 0;
+  const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 0);
+  const financialRatePct = normalizePct(financialRatePctRaw);
+  const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 0);
   const policyRatePct = normalizePct(policyRatePctRaw);
 
-  // Costo financiero y póliza se calculan sobre el costo + margen (sin loop)
-  const monthlyFinancial = baseWithMargin * financialRatePct;
-
-  const contractMonths = parameters?.contractMonths ?? 12;
   const policyContractMonths = parameters?.policyContractMonths ?? 12;
-  const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 100));
-  const policyContractAmount = baseWithMargin * policyContractMonths * policyContractPct;
-  const policyTotal = policyContractAmount * policyRatePct;
-  const monthlyPolicy = contractMonths > 0 ? policyTotal / contractMonths : 0;
+  const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 20));
+
+  const monthlyFinancial =
+    financialEnabled && effectiveSalePriceBase > 0
+      ? effectiveSalePriceBase * financialRatePct
+      : 0;
+
+  const montoAnual = effectiveSalePriceBase * policyContractMonths;
+  const valorGarantia = montoAnual * policyContractPct;
+  const monthlyPolicy =
+    policyEnabled && effectiveSalePriceBase > 0
+      ? (valorGarantia * policyRatePct) / 12
+      : 0;
 
   const baseExtras =
     monthlyUniforms +

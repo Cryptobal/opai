@@ -53,16 +53,24 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   monthlyHoursStandard: 180,
   avgStayMonths: 4,
   uniformChangesPerYear: 3,
-  financialRatePct: 0,
+  financialEnabled: false,
+  financialRatePct: 2.5,
+  salePriceBase: 0,
   salePriceMonthly: 0,
-  policyRatePct: 0,
+  policyEnabled: false,
+  policyRatePct: 2.5,
   policyAdminRatePct: 0,
   policyContractMonths: 12,
-  policyContractPct: 100,
+  policyContractPct: 20,
   contractMonths: 12,
   contractAmount: 0,
   marginPct: 20,
 };
+
+function roundUpToNice(value: number): number {
+  if (value <= 0) return 0;
+  return Math.ceil(value / 100000) * 100000;
+}
 
 export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const router = useRouter();
@@ -293,6 +301,26 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   useEffect(() => {
     refresh();
   }, [quoteId]);
+
+  useEffect(() => {
+    if (activeStep !== 3 || !costSummary || !costParams) return;
+    const base = Number(costParams.salePriceBase ?? 0);
+    if (base > 0) return;
+    const costsBase =
+      (costSummary.monthlyPositions ?? 0) +
+      (costSummary.monthlyUniforms ?? 0) +
+      (costSummary.monthlyExams ?? 0) +
+      (costSummary.monthlyMeals ?? 0) +
+      (costSummary.monthlyVehicles ?? 0) +
+      (costSummary.monthlyInfrastructure ?? 0) +
+      (costSummary.monthlyCostItems ?? 0);
+    const margin = marginPct / 100;
+    const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
+    const rounded = roundUpToNice(baseWithMargin);
+    if (rounded > 0) {
+      updateParams({ salePriceBase: rounded });
+    }
+  }, [activeStep, costSummary, costParams, marginPct]);
 
   useEffect(() => {
     if (!quote) return;
@@ -585,10 +613,11 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const policyRatePct = costSummary?.policyRatePct ?? 0;
   const monthlyHours = costParams?.monthlyHoursStandard ?? 180;
   const policyContractMonths = costParams?.policyContractMonths ?? 12;
-  const policyContractPct = costParams?.policyContractPct ?? 100;
+  const policyContractPct = costParams?.policyContractPct ?? 20;
   const contractMonths = costParams?.contractMonths ?? 12;
-  const financialItem = costItems.find((item) => item.catalogItem?.type === "financial");
-  const policyItem = costItems.find((item) => item.catalogItem?.type === "policy");
+  const financialEnabled = costParams?.financialEnabled ?? false;
+  const policyEnabled = costParams?.policyEnabled ?? false;
+  const salePriceBase = Number(costParams?.salePriceBase ?? 0);
   const monthlyTotal = costSummary?.monthlyTotal ?? stats.monthly + additionalCostsTotal;
 
   // Sale price calculation (same formula as CpqPricingCalc)
@@ -607,24 +636,24 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
   }, [costSummary, marginPct]);
 
-  // Per-position sale price for document preview
+  // Per-position sale price for document preview (distributes fixed financial/policy by guard proportion)
   const positionSalePrices = useMemo(() => {
     const map = new Map<string, number>();
     if (!costSummary || positions.length === 0) return map;
     const tg = stats.totalGuards;
     const margin = marginPct / 100;
-    const pf = contractMonths > 0 ? (policyContractMonths * (policyContractPct / 100)) / contractMonths : 0;
+    const monthlyFinancial = costSummary.monthlyFinancial ?? 0;
+    const monthlyPolicy = costSummary.monthlyPolicy ?? 0;
     for (const pos of positions) {
       const proportion = tg > 0 ? pos.numGuards / tg : 0;
       const additionalForPos = baseAdditionalCostsTotal * proportion;
       const totalCostPos = Number(pos.monthlyPositionCost) + additionalForPos;
       const bwm = margin < 1 ? totalCostPos / (1 - margin) : totalCostPos;
-      const fc = bwm * (financialRatePct / 100);
-      const pc = bwm * (policyRatePct / 100) * pf;
-      map.set(pos.id, bwm + fc + pc);
+      const extraForPos = (monthlyFinancial + monthlyPolicy) * proportion;
+      map.set(pos.id, bwm + extraForPos);
     }
     return map;
-  }, [positions, costSummary, marginPct, stats.totalGuards, baseAdditionalCostsTotal, financialRatePct, policyRatePct, policyContractMonths, policyContractPct, contractMonths]);
+  }, [positions, costSummary, marginPct, stats.totalGuards, baseAdditionalCostsTotal]);
   const saveLabel = savingQuote
     ? "Guardando..."
     : quoteDirty
@@ -1178,83 +1207,74 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                       <div>
                         <p className="text-sm font-semibold">Costo financiero</p>
                         <p className="text-xs text-muted-foreground">
-                          Se calcula sobre costo + margen.
+                          Precio de venta base × tasa. Se redondea al llegar al Resumen.
                         </p>
                       </div>
                       <button
                         type="button"
                         className={cn(
                           "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
-                          financialItem?.isEnabled
+                          financialEnabled
                             ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
-                            : "border-border bg-muted/30 text-muted-foreground",
-                          !financialItem && "cursor-not-allowed opacity-60"
+                            : "border-border bg-muted/30 text-muted-foreground"
                         )}
-                        onClick={() => {
-                          if (!financialItem) return;
-                          updateCostItem(financialItem.catalogItemId, {
-                            isEnabled: !financialItem.isEnabled,
-                          });
-                        }}
-                        aria-pressed={financialItem?.isEnabled ?? false}
-                        disabled={!financialItem}
+                        onClick={() => updateParams({ financialEnabled: !financialEnabled })}
+                        aria-pressed={financialEnabled}
                       >
                         <span
                           className={cn(
                             "h-2 w-2 rounded-full",
-                            financialItem?.isEnabled ? "bg-emerald-400" : "bg-muted-foreground"
+                            financialEnabled ? "bg-emerald-400" : "bg-muted-foreground"
                           )}
                         />
-                        {financialItem?.isEnabled ? "Activo" : "Inactivo"}
+                        {financialEnabled ? "Activo" : "Inactivo"}
                       </button>
                     </div>
 
-                    {financialItem ? (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Tasa (%)</Label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={getDecimalValue(
-                              `financialRate:${financialItem.catalogItemId}`,
-                              financialItem.unitPriceOverride ?? null,
-                              2,
-                              true
-                            )}
-                            onChange={(e) =>
-                              setDecimalValue(
-                                `financialRate:${financialItem.catalogItemId}`,
-                                e.target.value
-                              )
-                            }
-                            onBlur={() => {
-                              const key = `financialRate:${financialItem.catalogItemId}`;
-                              const raw = decimalDrafts[key];
-                              if (raw === undefined) return;
-                              const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
-                              updateCostItem(financialItem.catalogItemId, {
-                                unitPriceOverride: parsed,
-                              });
-                              clearDecimalValue(key);
-                            }}
-                            className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                          />
-                        </div>
-                        <div className="flex items-end text-xs text-muted-foreground">
-                          Tasa base:{" "}
-                          {formatNumber(Number(financialItem.catalogItem?.basePrice ?? 0), {
-                            minDecimals: 2,
-                            maxDecimals: 2,
-                          })}
-                          %
-                        </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Precio de venta base (redondeado)</Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={getDecimalValue("salePriceBase", salePriceBase, 0, true)}
+                          onChange={(e) => setDecimalValue("salePriceBase", e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts.salePriceBase;
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
+                            updateParams({ salePriceBase: Math.max(0, parsed) });
+                            clearDecimalValue("salePriceBase");
+                          }}
+                          className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                          placeholder="Ej: 4000000"
+                        />
                       </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">
-                        No hay ítem financiero en el catálogo.
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tasa (%)</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={getDecimalValue("financialRatePct", costParams?.financialRatePct ?? 2.5, 2, true)}
+                          onChange={(e) => setDecimalValue("financialRatePct", e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts.financialRatePct;
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
+                            updateParams({ financialRatePct: parsed });
+                            clearDecimalValue("financialRatePct");
+                          }}
+                          className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                          placeholder="2,5"
+                        />
                       </div>
-                    )}
+                      {financialEnabled && salePriceBase > 0 && (
+                        <div className="text-xs text-emerald-400 sm:col-span-2">
+                          Costo financiero mensual:{" "}
+                          {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
@@ -1262,128 +1282,95 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                       <div>
                         <p className="text-sm font-semibold">Póliza de garantía</p>
                         <p className="text-xs text-muted-foreground">
-                          Se calcula sobre costo + margen.
+                          Monto anual × porcentaje × tasa / 12. Usa el mismo precio de venta base.
                         </p>
                       </div>
                       <button
                         type="button"
                         className={cn(
                           "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
-                          policyItem?.isEnabled
+                          policyEnabled
                             ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
-                            : "border-border bg-muted/30 text-muted-foreground",
-                          !policyItem && "cursor-not-allowed opacity-60"
+                            : "border-border bg-muted/30 text-muted-foreground"
                         )}
-                        onClick={() => {
-                          if (!policyItem) return;
-                          updateCostItem(policyItem.catalogItemId, {
-                            isEnabled: !policyItem.isEnabled,
-                          });
-                        }}
-                        aria-pressed={policyItem?.isEnabled ?? false}
-                        disabled={!policyItem}
+                        onClick={() => updateParams({ policyEnabled: !policyEnabled })}
+                        aria-pressed={policyEnabled}
                       >
                         <span
                           className={cn(
                             "h-2 w-2 rounded-full",
-                            policyItem?.isEnabled ? "bg-emerald-400" : "bg-muted-foreground"
+                            policyEnabled ? "bg-emerald-400" : "bg-muted-foreground"
                           )}
                         />
-                        {policyItem?.isEnabled ? "Activo" : "Inactivo"}
+                        {policyEnabled ? "Activo" : "Inactivo"}
                       </button>
                     </div>
 
-                    {policyItem ? (
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Tasa (%)</Label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={getDecimalValue(
-                              `policyRate:${policyItem.catalogItemId}`,
-                              policyItem.unitPriceOverride ?? null,
-                              2,
-                              true
-                            )}
-                            onChange={(e) =>
-                              setDecimalValue(
-                                `policyRate:${policyItem.catalogItemId}`,
-                                e.target.value
-                              )
-                            }
-                            onBlur={() => {
-                              const key = `policyRate:${policyItem.catalogItemId}`;
-                              const raw = decimalDrafts[key];
-                              if (raw === undefined) return;
-                              const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
-                              updateCostItem(policyItem.catalogItemId, {
-                                unitPriceOverride: parsed,
-                              });
-                              clearDecimalValue(key);
-                            }}
-                            className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Meses a considerar</Label>
-                          <Input
-                            type="number"
-                            value={policyContractMonths}
-                            onChange={(e) =>
-                              updateParams({
-                                policyContractMonths: parseLocalizedNumber(e.target.value),
-                              })
-                            }
-                            className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Porcentaje contrato (%)</Label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={getDecimalValue(
-                              "policyContractPct",
-                              policyContractPct,
-                              2
-                            )}
-                            onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
-                            onBlur={() => {
-                              const raw = decimalDrafts.policyContractPct;
-                              if (raw === undefined) return;
-                              const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                              updateParams({ policyContractPct: parsed });
-                              clearDecimalValue("policyContractPct");
-                            }}
-                            className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Meses contrato</Label>
-                          <Input
-                            type="number"
-                            value={contractMonths}
-                            onChange={(e) =>
-                              updateParams({ contractMonths: parseLocalizedNumber(e.target.value) })
-                            }
-                            className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                          />
-                        </div>
-                        <div className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-4">
-                          Tasa base:{" "}
-                          {formatNumber(Number(policyItem.catalogItem?.basePrice ?? 0), {
-                            minDecimals: 2,
-                            maxDecimals: 2,
-                          })}
-                          %
-                        </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+                        <p className="text-xs text-muted-foreground">
+                          Usa el mismo precio de venta base de arriba: {formatCurrency(salePriceBase)}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">
-                        No hay ítem de póliza en el catálogo.
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Meses póliza</Label>
+                        <Input
+                          type="number"
+                          value={policyContractMonths}
+                          onChange={(e) =>
+                            updateParams({
+                              policyContractMonths: parseLocalizedNumber(e.target.value),
+                            })
+                          }
+                          className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                          placeholder="12"
+                        />
                       </div>
-                    )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Porcentaje garantía (%)</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={getDecimalValue("policyContractPct", policyContractPct, 2)}
+                          onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts.policyContractPct;
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : 20;
+                            updateParams({ policyContractPct: parsed });
+                            clearDecimalValue("policyContractPct");
+                          }}
+                          className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                          placeholder="20"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tasa (%)</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={getDecimalValue("policyRatePct", costParams?.policyRatePct ?? 2.5, 2, true)}
+                          onChange={(e) => setDecimalValue("policyRatePct", e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts.policyRatePct;
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
+                            updateParams({ policyRatePct: parsed });
+                            clearDecimalValue("policyRatePct");
+                          }}
+                          className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                          placeholder="2,5"
+                        />
+                      </div>
+                      {policyEnabled && salePriceBase > 0 && (
+                        <div className="text-xs text-emerald-400 sm:col-span-2 lg:col-span-4">
+                          Póliza mensual:{" "}
+                          {formatCurrency(
+                            (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

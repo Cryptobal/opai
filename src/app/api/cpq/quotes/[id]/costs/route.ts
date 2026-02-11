@@ -276,32 +276,30 @@ export async function GET(
     const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 20));
     const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
 
-    const financialItem = financialItems.find(
-      (item) => item.isEnabled && item.catalogItem?.type === "financial"
-    );
-    const financialRatePctRaw = financialItem
-      ? safeNumber(
-          financialItem.unitPriceOverride ?? financialItem.catalogItem?.basePrice ?? 0
-        )
-      : 0;
-    const financialRatePct = normalizePct(financialRatePctRaw);
+    const financialEnabled = parameters?.financialEnabled ?? false;
+    const policyEnabled = parameters?.policyEnabled ?? false;
+    const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
+    const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
 
-    const policyItem = financialItems.find(
-      (item) => item.isEnabled && item.catalogItem?.type === "policy"
-    );
-    const policyRatePctRaw = policyItem
-      ? safeNumber(policyItem.unitPriceOverride ?? policyItem.catalogItem?.basePrice ?? 0)
-      : 0;
+    const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 0);
+    const financialRatePct = normalizePct(financialRatePctRaw);
+    const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 0);
     const policyRatePct = normalizePct(policyRatePctRaw);
 
-    const monthlyFinancial = baseWithMargin * financialRatePct;
-
-    const contractMonths = parameters?.contractMonths ?? 12;
     const policyContractMonths = parameters?.policyContractMonths ?? 12;
-    const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 100));
-    const policyContractAmount = baseWithMargin * policyContractMonths * policyContractPct;
-    const policyTotal = policyContractAmount * policyRatePct;
-    const monthlyPolicy = contractMonths > 0 ? policyTotal / contractMonths : 0;
+    const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 20));
+
+    const monthlyFinancial =
+      financialEnabled && effectiveSalePriceBase > 0
+        ? effectiveSalePriceBase * financialRatePct
+        : 0;
+
+    const montoAnual = effectiveSalePriceBase * policyContractMonths;
+    const valorGarantia = montoAnual * policyContractPct;
+    const monthlyPolicy =
+      policyEnabled && effectiveSalePriceBase > 0
+        ? (valorGarantia * policyRatePct) / 12
+        : 0;
 
     const baseExtras =
       monthlyUniforms +
@@ -405,8 +403,11 @@ export async function PUT(
             monthlyHoursStandard: parameters.monthlyHoursStandard,
             avgStayMonths: parameters.avgStayMonths,
             uniformChangesPerYear: parameters.uniformChangesPerYear,
+            financialEnabled: parameters.financialEnabled,
             financialRatePct: parameters.financialRatePct,
+            salePriceBase: parameters.salePriceBase,
             salePriceMonthly: parameters.salePriceMonthly,
+            policyEnabled: parameters.policyEnabled,
             policyRatePct: parameters.policyRatePct,
             policyAdminRatePct: parameters.policyAdminRatePct,
             policyContractMonths: parameters.policyContractMonths,
@@ -420,12 +421,15 @@ export async function PUT(
             monthlyHoursStandard: parameters.monthlyHoursStandard ?? 180,
             avgStayMonths: parameters.avgStayMonths ?? 4,
             uniformChangesPerYear: parameters.uniformChangesPerYear ?? 3,
+            financialEnabled: parameters.financialEnabled ?? false,
             financialRatePct: parameters.financialRatePct ?? 0,
+            salePriceBase: parameters.salePriceBase ?? 0,
             salePriceMonthly: parameters.salePriceMonthly ?? 0,
+            policyEnabled: parameters.policyEnabled ?? false,
             policyRatePct: parameters.policyRatePct ?? 0,
             policyAdminRatePct: parameters.policyAdminRatePct ?? 0,
             policyContractMonths: parameters.policyContractMonths ?? 12,
-            policyContractPct: parameters.policyContractPct ?? 100,
+            policyContractPct: parameters.policyContractPct ?? 20,
             contractMonths: parameters.contractMonths ?? 12,
             contractAmount: parameters.contractAmount ?? 0,
             marginPct: parameters.marginPct ?? 20,
