@@ -126,7 +126,7 @@ export function CrmSectionNav({ sections, className }: CrmSectionNavProps) {
   return (
     <div
       className={cn(
-        "sticky top-[73px] z-[9] -mx-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "sticky top-[73px] lg:top-[113px] z-[9] -mx-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
         "sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12",
         className
       )}

@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Loader2, Users, ChevronRight, Mail, Phone, Building2 } from "lucide-react";
+import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone } from "lucide-react";
+import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
@@ -413,7 +414,7 @@ export function CrmContactsClient({
         <CardContent className="pt-5">
           {filteredContacts.length === 0 ? (
             <EmptyState
-              icon={<Users className="h-8 w-8" />}
+              icon={<CRM_MODULES.contacts.icon className="h-8 w-8" />}
               title="Sin contactos"
               description={
                 search
@@ -474,7 +475,7 @@ export function CrmContactsClient({
                       <div className="space-y-1 text-xs text-muted-foreground mt-2">
                         {contact.email && <p className="flex items-center gap-1.5"><Mail className="h-3 w-3 shrink-0" />{contact.email}</p>}
                         {contact.phone && <p className="flex items-center gap-1.5"><Phone className="h-3 w-3 shrink-0" />{contact.phone}</p>}
-                        {contact.account?.name && <p className="flex items-center gap-1.5"><Building2 className="h-3 w-3 shrink-0" />{contact.account.name}</p>}
+                        {contact.account?.name && <p className="flex items-center gap-1.5"><CRM_MODULES.accounts.icon className="h-3 w-3 shrink-0" />{contact.account.name}</p>}
                       </div>
                     </Link>
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />

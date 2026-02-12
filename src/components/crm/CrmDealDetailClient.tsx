@@ -22,11 +22,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight, Send, MessageSquare, MessageSquareText, Plus, Star, X, Clock3 } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, Send, MessageSquare, Plus, Star, X, Clock3 } from "lucide-react";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
-import { CollapsibleSection } from "./CollapsibleSection";
-import { RecordActions } from "./RecordActions";
+import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { DetailField, DetailFieldGrid } from "./DetailField";
+import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
+import { CRM_MODULES } from "./CrmModuleIcons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
@@ -405,32 +407,40 @@ export function CrmDealDetailClient({
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
-        <Link href="/crm/deals" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Volver a negocios
-        </Link>
-        <RecordActions
-          actions={[
-            { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
-            { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-          ]}
-        />
-      </div>
+  // ── Helpers ──
+  const ContactsIcon = CRM_MODULES.contacts.icon;
+  const QuotesIcon = CRM_MODULES.quotes.icon;
+  const FollowUpIcon = Clock3;
 
-      {/* ── Section 1: Resumen ── */}
-      <CollapsibleSection icon={<TrendingUp className="h-4 w-4" />} title="Resumen del negocio">
-        <div className="space-y-3 text-sm">
-          <InfoRow label="Cliente">
-            {deal.account ? (
-              <Link href={`/crm/accounts/${deal.account.id}`} className="flex items-center gap-1 font-medium text-primary hover:underline">
-                {deal.account.name}<ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : <span className="font-medium">Sin cliente</span>}
-          </InfoRow>
-          <InfoRow label="Etapa">
+  const subtitle = [
+    deal.account?.name || "Sin cliente",
+    currentStage?.name || "Sin etapa",
+    `$${Number(deal.amount).toLocaleString("es-CL")}`,
+  ].join(" · ");
+
+  const statusBadge = deal.status === "won"
+    ? { label: "Ganado", variant: "success" as const }
+    : deal.status === "lost"
+    ? { label: "Perdido", variant: "destructive" as const }
+    : undefined;
+
+  // ── Sections ──
+  const generalSection: DetailSection = {
+    key: "general",
+    label: "Resumen del negocio",
+    children: (
+      <DetailFieldGrid>
+        <DetailField
+          label="Cliente"
+          value={deal.account ? (
+            <Link href={`/crm/accounts/${deal.account.id}`} className="text-primary hover:underline flex items-center gap-1">
+              {deal.account.name}<ExternalLink className="h-3 w-3" />
+            </Link>
+          ) : "Sin cliente"}
+        />
+        <DetailField
+          label="Etapa"
+          value={
             <div className="flex items-center gap-2">
               <select
                 className="h-8 min-w-[150px] rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
@@ -443,70 +453,64 @@ export function CrmDealDetailClient({
                   <option value={currentStage.id}>{currentStage.name}</option>
                 )}
                 {pipelineStages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
+                  <option key={stage.id} value={stage.id}>{stage.name}</option>
                 ))}
-                {pipelineStages.length === 0 && <option value="">Sin etapas disponibles</option>}
+                {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
               </select>
               {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
-          </InfoRow>
-          <InfoRow label="Monto"><span className="font-medium">${Number(deal.amount).toLocaleString("es-CL")}</span></InfoRow>
-          <InfoRow label="Contacto">
-            {deal.primaryContact && deal.primaryContactId ? (
-              <Link href={`/crm/contacts/${deal.primaryContactId}`} className="flex items-center gap-1 font-medium text-primary hover:underline">
-                {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}<ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : <span className="font-medium">Sin contacto</span>}
-          </InfoRow>
-          <InfoRow label="Link propuesta">
-            {deal.proposalLink ? (
-              <a href={deal.proposalLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-medium text-primary hover:underline">
-                Ver propuesta<ExternalLink className="h-3 w-3 shrink-0" />
-              </a>
-            ) : <span className="text-muted-foreground">Sin link</span>}
-          </InfoRow>
-          <InfoRow label="Propuesta enviada">
-            {deal.proposalSentAt ? (
-              <span className="font-medium">{formatDealDateTime(deal.proposalSentAt)}</span>
-            ) : (
-              <span className="text-muted-foreground">No enviada</span>
-            )}
-          </InfoRow>
-          <InfoRow label="Flujo seguimiento">
-            <Badge variant="outline" className={followUpFlowStatus.className}>
-              {followUpFlowStatus.label}
-            </Badge>
-          </InfoRow>
-        </div>
-      </CollapsibleSection>
+          }
+        />
+        <DetailField label="Monto" value={`$${Number(deal.amount).toLocaleString("es-CL")}`} mono />
+        <DetailField
+          label="Contacto"
+          value={deal.primaryContact && deal.primaryContactId ? (
+            <Link href={`/crm/contacts/${deal.primaryContactId}`} className="text-primary hover:underline flex items-center gap-1">
+              {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}<ExternalLink className="h-3 w-3" />
+            </Link>
+          ) : "Sin contacto"}
+        />
+        <DetailField
+          label="Link propuesta"
+          value={deal.proposalLink ? (
+            <a href={deal.proposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+              Ver propuesta<ExternalLink className="h-3 w-3" />
+            </a>
+          ) : undefined}
+        />
+        <DetailField
+          label="Propuesta enviada"
+          value={deal.proposalSentAt ? formatDealDateTime(deal.proposalSentAt) : undefined}
+          placeholder="No enviada"
+        />
+        <DetailField
+          label="Flujo seguimiento"
+          value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
+        />
+      </DetailFieldGrid>
+    ),
+  };
 
-      {/* ── Section 2: Seguimiento automático ── */}
-      <CollapsibleSection
-        icon={<Clock3 className="h-4 w-4" />}
-        title="Seguimiento automático"
-        count={followUpLogs.length}
-        defaultOpen={Boolean(deal.proposalSentAt || followUpLogs.length > 0)}
-        action={
-          <div className="flex items-center gap-1">
-            {canConfigureCrm && (
-              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-                <Link href="/opai/configuracion/crm#seguimientos-automaticos">
-                  Configurar
-                </Link>
-              </Button>
-            )}
-            {gmailConnected && (
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
-                <Send className="h-3 w-3 mr-1" />
-                Enviar correo
-              </Button>
-            )}
-          </div>
-        }
-      >
-        {!deal.proposalSentAt && !deal.proposalLink ? (
+  const followUpSection: DetailSection = {
+    key: "followup",
+    count: followUpLogs.length,
+    defaultCollapsed: !deal.proposalSentAt && followUpLogs.length === 0,
+    action: (
+      <div className="flex items-center gap-1">
+        {canConfigureCrm && (
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/opai/configuracion/crm#seguimientos-automaticos">Configurar</Link>
+          </Button>
+        )}
+        {gmailConnected && (
+          <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+            <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
+          </Button>
+        )}
+      </div>
+    ),
+    children: (
+        !deal.proposalSentAt && !deal.proposalLink ? (
           <EmptyState
             icon={<Clock3 className="h-8 w-8" />}
             title="Sin flujo activo"
@@ -660,183 +664,187 @@ export function CrmDealDetailClient({
               )}
             </div>
           </div>
-        )}
-      </CollapsibleSection>
+        )
+    ),
+  };
 
-      {/* ── Section 3: Cotizaciones ── */}
-      <CollapsibleSection
-        icon={<FileText className="h-4 w-4" />}
-        title="Cotizaciones"
-        count={linkedQuotes.length}
-        defaultOpen={linkedQuotes.length > 0}
-        action={
-          <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-7 text-xs">Vincular</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
-              <div className="space-y-2">
-                <Label>Cotización</Label>
-                <select className={selectCn} value={selectedQuoteId} onChange={(e) => setSelectedQuoteId(e.target.value)} disabled={linking}>
-                  <option value="">Selecciona cotización</option>
-                  {quotes.map((q) => <option key={q.id} value={q.id}>{q.code} · {q.clientName || "Sin cliente"}</option>)}
-                </select>
-              </div>
-              <DialogFooter>
-                <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-      >
-        {linkedQuotes.length === 0 ? (
-          <EmptyState icon={<FileText className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
-        ) : (
+  const quotesSection: DetailSection = {
+    key: "quotes",
+    count: linkedQuotes.length,
+    defaultCollapsed: linkedQuotes.length === 0,
+    action: (
+      <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="ghost">Vincular</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
           <div className="space-y-2">
-            {linkedQuotes.map((quote) => {
-              const info = quotesById[quote.quoteId];
-              return (
-                <Link key={quote.id} href={`/crm/cotizaciones/${quote.quoteId}`} className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{info?.code || "CPQ"}</p>
-                      <Badge variant="outline" className={info?.status === "approved" ? "border-emerald-500/30 text-emerald-400" : info?.status === "sent" ? "border-blue-500/30 text-blue-400" : info?.status === "rejected" ? "border-red-500/30 text-red-400" : ""}>
-                        {info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador"}
-                      </Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{info?.clientName || "Sin cliente"}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:block" />
-                </Link>
-              );
-            })}
+            <Label>Cotización</Label>
+            <select className={selectCn} value={selectedQuoteId} onChange={(e) => setSelectedQuoteId(e.target.value)} disabled={linking}>
+              <option value="">Selecciona cotización</option>
+              {quotes.map((q) => <option key={q.id} value={q.id}>{q.code} · {q.clientName || "Sin cliente"}</option>)}
+            </select>
           </div>
-        )}
-      </CollapsibleSection>
+          <DialogFooter>
+            <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    ),
+    children: linkedQuotes.length === 0 ? (
+      <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
+    ) : (
+      <div className="space-y-2">
+        {linkedQuotes.map((quote) => {
+          const info = quotesById[quote.quoteId];
+          const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
+          const statusVariant = info?.status === "approved" ? "success" : info?.status === "rejected" ? "destructive" : info?.status === "sent" ? "default" : "secondary";
+          return (
+            <CrmRelatedRecordCard
+              key={quote.id}
+              module="quotes"
+              title={info?.code || "CPQ"}
+              subtitle={info?.clientName || "Sin cliente"}
+              badge={{ label: statusLabel, variant: statusVariant as any }}
+              href={`/crm/cotizaciones/${quote.quoteId}`}
+            />
+          );
+        })}
+      </div>
+    ),
+  };
 
-      {/* ── Section 4: Contactos del negocio ── */}
-      <CollapsibleSection
-        icon={<Users className="h-4 w-4" />}
-        title="Contactos del negocio"
-        count={dealContacts.length}
-        defaultOpen={dealContacts.length > 0}
-        action={
-          availableContacts.length > 0 ? (
-            <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-7 text-xs">
-                  <Plus className="h-3 w-3 mr-1" /> Agregar
+  const contactsSection: DetailSection = {
+    key: "contacts",
+    label: "Contactos del negocio",
+    count: dealContacts.length,
+    defaultCollapsed: dealContacts.length === 0,
+    action: availableContacts.length > 0 ? (
+      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="ghost"><Plus className="h-3.5 w-3.5 mr-1" /> Agregar</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
+          <div className="space-y-2">
+            <Label>Contacto</Label>
+            <select className={selectCn} value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)} disabled={addingContact}>
+              <option value="">Selecciona contacto</option>
+              {availableContacts.map((c) => (
+                <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim()} · {c.email || "Sin email"}</option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button onClick={addDealContact} disabled={addingContact}>{addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    ) : undefined,
+    children: dealContacts.length === 0 ? (
+      <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
+    ) : (
+      <div className="space-y-2">
+        {dealContacts.map((dc) => {
+          const c = dc.contact;
+          return (
+            <div key={dc.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3 group">
+              <Link href={`/crm/contacts/${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.contacts.color}`}>
+                  <ContactsIcon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{`${c.firstName} ${c.lastName}`.trim()}</p>
+                    {dc.role === "primary" && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground truncate">{c.roleTitle || "Sin cargo"} · {c.email || "Sin email"}</p>
+                </div>
+              </Link>
+              <div className="flex items-center gap-1 shrink-0">
+                {dc.role !== "primary" && (
+                  <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" onClick={() => markPrimary(c.id)}>
+                    <Star className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular" onClick={() => removeDealContact(c.id)}>
+                  <X className="h-3.5 w-3.5" />
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
-                <div className="space-y-2">
-                  <Label>Contacto</Label>
-                  <select className={selectCn} value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)} disabled={addingContact}>
-                    <option value="">Selecciona contacto</option>
-                    {availableContacts.map((c) => (
-                      <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim()} · {c.email || "Sin email"}</option>
-                    ))}
-                  </select>
-                </div>
-                <DialogFooter>
-                  <Button onClick={addDealContact} disabled={addingContact}>
-                    {addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Vincular
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          ) : null
-        }
-      >
-        {dealContacts.length === 0 ? (
-          <EmptyState icon={<Users className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
-        ) : (
-          <div className="space-y-2">
-            {dealContacts.map((dc) => {
-              const c = dc.contact;
-              return (
-                <div key={dc.id} className="flex items-center justify-between rounded-lg border p-3 sm:p-4 group">
-                  <Link href={`/crm/contacts/${c.id}`} className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm group-hover:text-primary transition-colors">{`${c.firstName} ${c.lastName}`.trim()}</p>
-                      {dc.role === "primary" && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{c.roleTitle || "Sin cargo"} · {c.email || "Sin email"} · {c.phone || "Sin teléfono"}</p>
-                  </Link>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {dc.role !== "primary" && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" title="Marcar como principal" onClick={() => markPrimary(c.id)}>
-                        <Star className="h-3 w-3" />
-                      </Button>
-                    )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Desvincular" onClick={() => removeDealContact(c.id)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <Link href={`/crm/contacts/${c.id}`}>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ),
+  };
+
+  const communicationSection: DetailSection = {
+    key: "communication",
+    defaultCollapsed: true,
+    action: (
+      <div className="flex items-center gap-1">
+        {whatsappPhone && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
+                <MessageSquare className="h-3.5 w-3.5 mr-1" /> WhatsApp
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
+              {docTemplatesWhatsApp.map((t) => (
+                <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
+                  <FileText className="h-3 w-3 mr-2" />{t.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-      </CollapsibleSection>
+        {gmailConnected ? (
+          <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+            <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
+          </Button>
+        ) : (
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/opai/configuracion/integraciones">Conectar Gmail</Link>
+          </Button>
+        )}
+      </div>
+    ),
+    children: (
+      <EmailHistoryList dealId={deal.id} compact onReply={gmailConnected ? handleReplyFromHistory : undefined} />
+    ),
+  };
 
-      {/* ── Section 5: Comunicación ── */}
-      <CollapsibleSection
-        icon={<Mail className="h-4 w-4" />}
-        title="Comunicación"
-        defaultOpen={false}
-        action={
-          <div className="flex items-center gap-1">
-            {whatsappPhone && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
-                    <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
-                  {docTemplatesWhatsApp.map((t) => (
-                    <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
-                      <FileText className="h-3 w-3 mr-2" />{t.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {gmailConnected ? (
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
-                <Send className="h-3 w-3 mr-1" /> Enviar correo
-              </Button>
-            ) : (
-              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-                <Link href="/opai/configuracion/integraciones">Conectar Gmail</Link>
-              </Button>
-            )}
-          </div>
-        }
-      >
-        <EmailHistoryList
-          dealId={deal.id}
-          compact
-          onReply={gmailConnected ? handleReplyFromHistory : undefined}
-        />
-      </CollapsibleSection>
+  const notesSection: DetailSection = {
+    key: "notes",
+    children: <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />,
+  };
 
-      {/* ── Section 6: Notas ── */}
-      <CollapsibleSection
-        icon={<MessageSquareText className="h-4 w-4" />}
-        title="Notas"
-        defaultOpen
-      >
-        <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />
-      </CollapsibleSection>
+  const sections: DetailSection[] = [
+    generalSection,
+    contactsSection,
+    quotesSection,
+    followUpSection,
+    communicationSection,
+    notesSection,
+  ];
+
+  return (
+    <>
+      <CrmDetailLayout
+        module="deals"
+        title={deal.title}
+        subtitle={subtitle}
+        badge={statusBadge}
+        backHref="/crm/deals"
+        actions={[
+          { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
+          { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+        ]}
+        sections={sections}
+      />
 
       {/* ── Email Compose Modal ── */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
@@ -893,11 +901,12 @@ export function CrmDealDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar negocio" description="Se eliminarán las cotizaciones vinculadas y el historial." onConfirm={deleteDeal} />
-    </div>
+    </>
   );
 }
 
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+/* ── Helper Components ── */
+function _InfoRowLegacy({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground">{label}</span>

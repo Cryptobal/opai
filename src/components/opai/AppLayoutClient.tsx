@@ -89,6 +89,7 @@ export function AppLayoutClient({
         />
       }
       userName={userName ?? undefined}
+      userEmail={userEmail ?? undefined}
       userRole={userRole}
     >
       {children}

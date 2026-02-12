@@ -74,23 +74,6 @@ export default async function CrmInstallationDetailPage({
 
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "CRM", href: "/crm" },
-          { label: "Instalaciones", href: "/crm/installations" },
-          { label: installation.name },
-        ]}
-        className="mb-4"
-      />
-      <PageHeader
-        title={installation.name}
-        description={
-          installation.account
-            ? installation.account.name
-            : [installation.commune, installation.city].filter(Boolean).join(" · ") || "Sin ubicación"
-        }
-        actions={<InstallationEditButton installation={data} />}
-      />
       <CrmSubnav role={role} />
       <CrmInstallationDetailClient installation={data} />
     </>

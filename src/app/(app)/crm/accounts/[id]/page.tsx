@@ -66,24 +66,6 @@ export default async function CrmAccountDetailPage({
 
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "CRM", href: "/crm" },
-          { label: "Cuentas", href: "/crm/accounts" },
-          { label: account.name },
-        ]}
-        className="mb-4"
-      />
-      <PageHeader
-        title={account.name}
-        description={`${
-          lifecycle === "prospect"
-            ? "Prospecto"
-            : lifecycle === "client_active"
-            ? "Cliente activo"
-            : "Ex cliente"
-        } · ${account.industry || "Sin industria"}`}
-      />
       <CrmSubnav role={role} />
       <CrmAccountDetailClient
         account={data}

@@ -10,6 +10,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
+import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export default async function CrmCotizacionesPage() {
@@ -116,6 +117,7 @@ export default async function CrmCotizacionesPage() {
       <PageHeader
         title="Cotizaciones"
         description="Cotizaciones CPQ vinculadas al CRM"
+        actions={<CpqIndicators />}
       />
       <CrmSubnav role={role} />
       <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} />

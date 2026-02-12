@@ -8,12 +8,14 @@ import { Menu, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BottomNav } from './BottomNav';
 import { CommandPalette } from './CommandPalette';
-import { GlobalIndicators } from './GlobalIndicators';
+import { NotificationBell } from './NotificationBell';
+import { TopbarActions } from './TopbarActions';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
   children: ReactNode;
   userName?: string;
+  userEmail?: string;
   userRole?: string;
   className?: string;
 }
@@ -29,7 +31,7 @@ export interface AppShellProps {
  * - Sidebar: w-60 (expanded) / w-[72px] (collapsed)
  * - Transition: duration-200 ease-out
  */
-export function AppShell({ sidebar, children, userName, userRole, className }: AppShellProps) {
+export function AppShell({ sidebar, children, userName, userEmail, userRole, className }: AppShellProps) {
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -100,7 +102,7 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
             <span className="text-sm font-semibold tracking-tight">OPAI</span>
           </Link>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
-            <GlobalIndicators compact className="min-w-0" />
+            <NotificationBell compact />
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -172,12 +174,12 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
           className
         )}
       >
+        {/* Topbar actions desktop — campana + avatar */}
+        <div className="hidden lg:flex sticky top-0 z-20 items-center justify-end gap-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-2">
+          <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
+        </div>
         <main className="flex-1">
-          <div className="relative px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-20 lg:pb-6 animate-in-page" role="region">
-            {/* Indicadores globales desktop — flotante top-right, sin barra dedicada */}
-            <div className="hidden lg:flex absolute top-6 right-8 xl:right-10 2xl:right-12 z-10 items-center gap-3">
-              <GlobalIndicators />
-            </div>
+          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-20 lg:pb-6 animate-in-page" role="region">
             {children}
           </div>
         </main>

@@ -210,18 +210,6 @@ export default async function CrmDealDetailPage({
 
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "CRM", href: "/crm" },
-          { label: "Negocios", href: "/crm/deals" },
-          { label: deal.title },
-        ]}
-        className="mb-4"
-      />
-      <PageHeader
-        title={deal.title}
-        description={`${deal.account?.name || "Sin cliente"} · ${deal.stage?.name || "Sin etapa"}`}
-      />
       <CrmSubnav role={role} />
       <div className="space-y-4">
         <CrmDealDetailClient

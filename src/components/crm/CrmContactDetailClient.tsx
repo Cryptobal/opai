@@ -23,26 +23,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { CollapsibleSection } from "./CollapsibleSection";
-import { RecordActions } from "./RecordActions";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { DetailField, DetailFieldGrid } from "./DetailField";
+import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { CRM_MODULES } from "./CrmModuleIcons";
 import {
-  ArrowLeft,
-  Users,
-  Building2,
-  TrendingUp,
   Mail,
   Phone,
   Briefcase,
   Pencil,
   Trash2,
   Loader2,
-  ChevronRight,
   Send,
   MessageSquare,
   FileText,
-  MessageSquareText,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -381,204 +378,195 @@ export function CrmContactDetailClient({
     ? `https://wa.me/${contact.phone.replace(/\s/g, "").replace(/^\+/, "")}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`
     : null;
 
-  return (
-    <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
-        <Link href="/crm/contacts" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-          Volver a contactos
-        </Link>
-        <RecordActions
-          actions={[
-            { label: "Editar contacto", icon: Pencil, onClick: openEdit },
-            { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
-            { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
-            { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-          ]}
+  // ── Helpers ──
+  const AccountIcon = CRM_MODULES.accounts.icon;
+  const DealsIcon = CRM_MODULES.deals.icon;
+
+  const subtitle = [
+    contact.account?.name || "Sin cuenta",
+    contact.roleTitle || "Sin cargo",
+  ].join(" · ");
+
+  // ── Sections ──
+  const sections: DetailSection[] = [
+    {
+      key: "general",
+      label: "Datos del contacto",
+      action: (
+        <Button size="sm" variant="ghost" onClick={openEdit}>
+          <Pencil className="h-3.5 w-3.5 mr-1" />
+          Editar
+        </Button>
+      ),
+      children: (
+        <DetailFieldGrid>
+          <DetailField label="Nombre completo" value={fullName} />
+          <DetailField
+            label="Email"
+            value={contact.email ? (
+              <a href={`mailto:${contact.email}`} className="text-primary hover:underline">{contact.email}</a>
+            ) : undefined}
+            icon={contact.email ? <Mail className="h-3 w-3" /> : undefined}
+          />
+          <DetailField
+            label="Teléfono"
+            value={contact.phone ? (
+              <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
+            ) : undefined}
+            icon={contact.phone ? <Phone className="h-3 w-3" /> : undefined}
+            mono
+          />
+          <DetailField
+            label="Cargo"
+            value={contact.roleTitle}
+            icon={contact.roleTitle ? <Briefcase className="h-3 w-3" /> : undefined}
+          />
+          <DetailField
+            label="Tipo"
+            value={contact.isPrimary ? (
+              <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
+            ) : "Secundario"}
+          />
+        </DetailFieldGrid>
+      ),
+    },
+    {
+      key: "account",
+      children: contact.account ? (
+        <CrmRelatedRecordCard
+          module="accounts"
+          title={contact.account.name}
+          subtitle={contact.account.industry || undefined}
+          badge={
+            contact.account.type === "client"
+              ? { label: "Cliente", variant: "success" }
+              : { label: "Prospecto", variant: "warning" }
+          }
+          href={`/crm/accounts/${contact.account.id}`}
         />
-      </div>
-
-      {/* ── Section 1: Datos del contacto ── */}
-      <CollapsibleSection
-        icon={<Users className="h-4 w-4" />}
-        title="Datos del contacto"
-        action={
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={openEdit}>
-            <Pencil className="h-3 w-3 mr-1" />
-            Editar
-          </Button>
-        }
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-3 text-sm">
-            <InfoRow label="Nombre completo"><span className="font-medium">{fullName}</span></InfoRow>
-            <InfoRow label="Email">
-              {contact.email ? (
-                <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-primary hover:underline"><Mail className="h-3 w-3" />{contact.email}</a>
-              ) : <span className="text-muted-foreground">Sin email</span>}
-            </InfoRow>
-            <InfoRow label="Teléfono">
-              {contact.phone ? (
-                <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-primary hover:underline"><Phone className="h-3 w-3" />{contact.phone}</a>
-              ) : <span className="text-muted-foreground">Sin teléfono</span>}
-            </InfoRow>
-          </div>
-          <div className="space-y-3 text-sm">
-            <InfoRow label="Cargo">
-              {contact.roleTitle ? (
-                <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{contact.roleTitle}</span>
-              ) : <span className="text-muted-foreground">Sin cargo</span>}
-            </InfoRow>
-            <InfoRow label="Tipo">
-              {contact.isPrimary ? (
-                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
-              ) : <span className="text-muted-foreground">Secundario</span>}
-            </InfoRow>
-          </div>
-        </div>
-      </CollapsibleSection>
-
-      {/* ── Section 2: Cuenta ── */}
-      <CollapsibleSection icon={<Building2 className="h-4 w-4" />} title="Cuenta">
-        {contact.account ? (
-          <Link
-            href={`/crm/accounts/${contact.account.id}`}
-            className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                <p className="font-medium text-sm">{contact.account.name}</p>
-                {contact.account.type && (
-                  <Badge variant="outline" className={contact.account.type === "client" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
-                    {contact.account.type === "client" ? "Cliente" : "Prospecto"}
-                  </Badge>
-                )}
-              </div>
-              {contact.account.industry && <p className="mt-0.5 text-xs text-muted-foreground">{contact.account.industry}</p>}
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform shrink-0" />
-          </Link>
-        ) : (
-          <EmptyState icon={<Building2 className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 3: Negocios ── */}
-      <CollapsibleSection
-        icon={<TrendingUp className="h-4 w-4" />}
-        title="Negocios"
-        count={contactDeals.length}
-        defaultOpen={contactDeals.length > 0}
-      >
-        {contactDeals.length === 0 ? (
-          <EmptyState icon={<TrendingUp className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
-        ) : (
-          <div className="space-y-2">
-            {contactDeals.map((deal) => {
-              const hasCurrentStage = deal.stage?.id
-                ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
-                : false;
-              return (
-                <div
-                  key={deal.id}
-                  className="flex flex-col gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <Link href={`/crm/deals/${deal.id}`} className="flex-1 min-w-0">
-                    <p className="text-sm font-medium group-hover:text-primary transition-colors break-words">
-                      {deal.title}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      {deal.status === "won" && <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Ganado</Badge>}
-                      {deal.status === "lost" && <Badge variant="outline" className="border-red-500/30 text-red-400">Perdido</Badge>}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">${Number(deal.amount).toLocaleString("es-CL")}</p>
-                  </Link>
-                  <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-                    <select
-                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 sm:min-w-[130px] sm:w-auto"
-                      value={deal.stage?.id || ""}
-                      onChange={(event) => updateDealStage(deal.id, event.target.value)}
-                      disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
-                      aria-label={`Cambiar etapa de ${deal.title}`}
-                    >
-                      {deal.stage?.id && !hasCurrentStage && (
-                        <option value={deal.stage.id}>{deal.stage.name}</option>
-                      )}
-                      {pipelineStages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.name}
-                        </option>
-                      ))}
-                      {pipelineStages.length === 0 && <option value="">Sin etapas disponibles</option>}
-                    </select>
-                    <Link href={`/crm/deals/${deal.id}`} className="shrink-0">
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
+      ) : (
+        <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
+      ),
+    },
+    {
+      key: "deals",
+      count: contactDeals.length,
+      defaultCollapsed: contactDeals.length === 0,
+      children: contactDeals.length === 0 ? (
+        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
+      ) : (
+        <div className="space-y-2">
+          {contactDeals.map((deal) => {
+            const hasCurrentStage = deal.stage?.id
+              ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
+              : false;
+            return (
+              <div
+                key={deal.id}
+                className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between"
+              >
+                <Link href={`/crm/deals/${deal.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.deals.color}`}>
+                    <DealsIcon className="h-4 w-4" />
                   </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">{deal.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ${Number(deal.amount).toLocaleString("es-CL")}
+                      {deal.status === "won" && " · Ganado"}
+                      {deal.status === "lost" && " · Perdido"}
+                    </p>
+                  </div>
+                </Link>
+                <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
+                  <select
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 sm:min-w-[130px] sm:w-auto"
+                    value={deal.stage?.id || ""}
+                    onChange={(event) => updateDealStage(deal.id, event.target.value)}
+                    disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
+                    aria-label={`Cambiar etapa de ${deal.title}`}
+                  >
+                    {deal.stage?.id && !hasCurrentStage && (
+                      <option value={deal.stage.id}>{deal.stage.name}</option>
+                    )}
+                    {pipelineStages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>{stage.name}</option>
+                    ))}
+                    {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
+                  </select>
+                  <Link href={`/crm/deals/${deal.id}`} className="shrink-0">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
+                  </Link>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 4: Comunicación ── */}
-      <CollapsibleSection
-        icon={<Mail className="h-4 w-4" />}
-        title="Comunicación"
-        count={emailCount}
-        defaultOpen={false}
-        action={
-          <div className="flex items-center gap-2">
-            {whatsappUrl && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors">
-                    <MessageSquare className="h-3 w-3" />
-                    WhatsApp
-                    <ChevronRight className="h-3 w-3 rotate-[-90deg]" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openWhatsApp()}>
-                    Sin plantilla
+              </div>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
+      key: "communication",
+      count: emailCount,
+      defaultCollapsed: true,
+      action: (
+        <div className="flex items-center gap-2">
+          {whatsappUrl && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors">
+                  <MessageSquare className="h-3 w-3" />
+                  WhatsApp
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
+                {docTemplatesWhatsApp.length > 0 && docTemplatesWhatsApp.map((t) => (
+                  <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
+                    <FileText className="h-3 w-3 mr-2" />{t.name}
                   </DropdownMenuItem>
-                  {docTemplatesWhatsApp.length > 0 && docTemplatesWhatsApp.map((t) => (
-                    <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
-                      <FileText className="h-3 w-3 mr-2" />
-                      {t.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {gmailConnected && contact.email && (
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
-                <Send className="h-3 w-3 mr-1" />
-                Enviar correo
-              </Button>
-            )}
-          </div>
-        }
-      >
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {gmailConnected && contact.email && (
+            <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+              <Send className="h-3.5 w-3.5 mr-1" />
+              Enviar correo
+            </Button>
+          )}
+        </div>
+      ),
+      children: (
         <EmailHistoryList
           contactId={contact.id}
           compact
           onReply={gmailConnected ? handleReplyFromHistory : undefined}
           onCountChange={setEmailCount}
         />
-      </CollapsibleSection>
+      ),
+    },
+    {
+      key: "notes",
+      children: <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />,
+    },
+  ];
 
-      {/* ── Section 5: Notas ── */}
-      <CollapsibleSection
-        icon={<MessageSquareText className="h-4 w-4" />}
-        title="Notas"
-        defaultOpen
-      >
-        <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />
-      </CollapsibleSection>
+  return (
+    <>
+      <CrmDetailLayout
+        module="contacts"
+        title={fullName}
+        subtitle={subtitle}
+        badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+        backHref="/crm/contacts"
+        actions={[
+          { label: "Editar contacto", icon: Pencil, onClick: openEdit },
+          { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
+          { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
+          { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+        ]}
+        sections={sections}
+      />
 
       {/* ── Email Compose Modal ── */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
@@ -680,15 +668,6 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
-    </div>
-  );
-}
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{children}</span>
-    </div>
+    </>
   );
 }

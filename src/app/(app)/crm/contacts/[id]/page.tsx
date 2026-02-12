@@ -124,18 +124,6 @@ export default async function CrmContactDetailPage({
 
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "CRM", href: "/crm" },
-          { label: "Contactos", href: "/crm/contacts" },
-          { label: fullName },
-        ]}
-        className="mb-4"
-      />
-      <PageHeader
-        title={fullName}
-        description={`${contact.account?.name || "Sin cuenta"} · ${contact.roleTitle || "Sin cargo"}`}
-      />
       <CrmSubnav role={role} />
       <CrmContactDetailClient
         contact={data}

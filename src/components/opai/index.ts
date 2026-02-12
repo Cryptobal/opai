@@ -36,6 +36,7 @@ export { StatusBadge } from './StatusBadge';
 // Topbar Components
 export { TemplatesDropdown } from './TemplatesDropdown';
 export { NotificationBell } from './NotificationBell';
+export { TopbarActions } from './TopbarActions';
 export { DocumentosTopbar } from './DocumentosTopbar';
 export { ReloadButton } from './ReloadButton';
 

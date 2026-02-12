@@ -16,27 +16,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { CollapsibleSection } from "./CollapsibleSection";
-import { RecordActions } from "./RecordActions";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
+import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { DetailField, DetailFieldGrid } from "./DetailField";
+import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
+import { CRM_MODULES } from "./CrmModuleIcons";
 import {
-  ArrowLeft,
-  Building2,
-  Users,
-  TrendingUp,
-  Mail,
-  Phone,
-  Globe,
   MapPin,
-  Warehouse,
   Pencil,
   Trash2,
   Loader2,
-  ChevronRight,
   Plus,
-  MessageSquareText,
-  FileText,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -521,138 +512,97 @@ export function CrmAccountDetailClient({
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/crm/accounts"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a cuentas
-        </Link>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={
-              lifecycle === "prospect"
-                ? "border-amber-500/30 text-amber-400"
-                : "border-emerald-500/30 text-emerald-400"
-            }
-          >
-            {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
-          </Badge>
-          <Badge
-            variant="outline"
-            className={
-              lifecycle === "client_active"
-                ? "border-emerald-500/30 text-emerald-400"
-                : "border-rose-500/30 text-rose-400"
-            }
-          >
-            {lifecycle === "client_active"
-              ? "Activa"
-              : lifecycle === "client_inactive"
-              ? "Ex cliente"
-              : "Inactiva"}
-          </Badge>
-          {lifecycle === "prospect" && (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-8"
-              onClick={() => openToggleAccountType("client")}
-              disabled={updatingAccountType}
-            >
-              {updatingAccountType ? "Guardando..." : "Convertir a cliente"}
-            </Button>
-          )}
-          {lifecycle !== "prospect" && (
-            <Button
-              size="sm"
-              variant={account.isActive ? "outline" : "secondary"}
-              className="h-8"
-              onClick={openToggleAccountStatus}
-              disabled={updatingAccountStatus}
-            >
-              {updatingAccountStatus
-                ? "Guardando..."
-                : account.isActive
-                ? "Desactivar"
-                : "Activar"}
-            </Button>
-          )}
-          <RecordActions
-            actions={[
-              { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit },
-              { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
-            ]}
-          />
-        </div>
-      </div>
+  // ── Lifecycle badge ──
+  const lifecycleBadge =
+    lifecycle === "prospect"
+      ? { label: "Prospecto", variant: "warning" as const }
+      : lifecycle === "client_active"
+      ? { label: "Cliente activo", variant: "success" as const }
+      : { label: "Ex cliente", variant: "destructive" as const };
 
-      {/* ── Section 1: Datos generales ── */}
-      <CollapsibleSection
-        icon={<Building2 className="h-4 w-4" />}
-        title="Datos generales"
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-3 text-sm">
-            <InfoRow label="Tipo">
-              <Badge
-                variant="outline"
-                className={
-                  lifecycle !== "prospect"
-                    ? "border-emerald-500/30 text-emerald-400"
-                    : "border-amber-500/30 text-amber-400"
-                }
-              >
-                {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
-              </Badge>
-            </InfoRow>
-            <InfoRow label="RUT">{account.rut || "—"}</InfoRow>
-            <InfoRow label="Razón social">{account.legalName || "—"}</InfoRow>
-            <InfoRow label="Representante legal">{account.legalRepresentativeName || "—"}</InfoRow>
-            <InfoRow label="RUT representante legal">{account.legalRepresentativeRut || "—"}</InfoRow>
-            <InfoRow label="Industria">{account.industry || "—"}</InfoRow>
-            <InfoRow label="Segmento">{account.segment || "—"}</InfoRow>
-            <InfoRow label="Estado">
-              <Badge
-                variant="outline"
-                className={
-                  lifecycle === "client_active"
-                    ? "border-emerald-500/30 text-emerald-400"
-                    : "border-rose-500/30 text-rose-400"
-                }
-              >
-                {lifecycle === "client_active"
-                  ? "Activa"
-                  : lifecycle === "client_inactive"
-                  ? "Ex cliente"
-                  : "Inactiva"}
-              </Badge>
-            </InfoRow>
-          </div>
-          <div className="space-y-3 text-sm">
+  const lifecycleSubtitle = [
+    lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente activo" : "Ex cliente",
+    account.industry || null,
+    account.segment || null,
+  ].filter(Boolean).join(" · ");
+
+  // ── Extra actions (lifecycle toggles) ──
+  const extraActions = (
+    <div className="flex items-center gap-2">
+      {lifecycle === "prospect" && (
+        <Button size="sm" variant="secondary" onClick={() => openToggleAccountType("client")} disabled={updatingAccountType}>
+          {updatingAccountType ? "Guardando..." : "Convertir a cliente"}
+        </Button>
+      )}
+      {lifecycle !== "prospect" && (
+        <Button
+          size="sm"
+          variant={account.isActive ? "outline" : "secondary"}
+          onClick={openToggleAccountStatus}
+          disabled={updatingAccountStatus}
+        >
+          {updatingAccountStatus ? "Guardando..." : account.isActive ? "Desactivar" : "Activar"}
+        </Button>
+      )}
+    </div>
+  );
+
+  // ── Sections ──
+  const ContactsIcon = CRM_MODULES.contacts.icon;
+  const DealsIcon = CRM_MODULES.deals.icon;
+  const QuotesIcon = CRM_MODULES.quotes.icon;
+
+  const sections: DetailSection[] = [
+    {
+      key: "general",
+      children: (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <DetailFieldGrid>
+            <DetailField
+              label="Tipo"
+              value={
+                <Badge variant="outline" className={lifecycle !== "prospect" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
+                  {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
+                </Badge>
+              }
+            />
+            <DetailField
+              label="Estado"
+              value={
+                <Badge variant="outline" className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}>
+                  {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
+                </Badge>
+              }
+            />
+            <DetailField label="RUT" value={account.rut} mono copyable />
+            <DetailField label="Razón social" value={account.legalName} />
+            <DetailField label="Representante legal" value={account.legalRepresentativeName} />
+            <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
+            <DetailField label="Industria" value={account.industry} />
+            <DetailField label="Segmento" value={account.segment} />
+            <DetailField
+              label="Dirección"
+              value={account.address}
+              icon={account.address ? <MapPin className="h-3 w-3" /> : undefined}
+            />
+          </DetailFieldGrid>
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs">Página web</Label>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Página web</span>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs"
                   onClick={enrichCompanyInfoFromWebsite}
                   disabled={enrichingCompanyInfo || !(account.website || enrichWebsiteInput)?.trim()}
-                  title={(account.website || enrichWebsiteInput)?.trim() ? "Obtener datos desde el sitio" : "Ingresa una URL abajo"}
                 >
-                  {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                  Traer datos de la empresa
+                  {enrichingCompanyInfo && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                  Traer datos
                 </Button>
               </div>
               {account.website ? (
-                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block text-sm">
+                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block">
                   {account.website}
                 </a>
               ) : (
@@ -665,210 +615,158 @@ export function CrmAccountDetailClient({
               )}
             </div>
             {accountLogoUrl && (
-              <div className="rounded-md border border-border bg-muted/20 p-2">
-                <p className="text-[10px] text-muted-foreground mb-1">Logo de la empresa</p>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Logo</p>
                 <img
                   src={accountLogoUrl}
                   alt={`Logo ${account.name}`}
-                  className="h-20 w-20 rounded border border-border bg-background object-contain"
+                  className="h-16 w-16 rounded-lg border border-border bg-background object-contain"
                 />
               </div>
             )}
-            {account.address && (
-              <InfoRow label="Dirección">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  {account.address}
-                </span>
-              </InfoRow>
-            )}
             <div className="space-y-2">
-              <Label className="text-xs">Información de la empresa</Label>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
               {stripAccountLogoMarker(account.notes) ? (
-                <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground leading-relaxed">
                   {stripAccountLogoMarker(account.notes)}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">Sin descripción. Usa &quot;Traer datos de la empresa&quot; o &quot;Regenerar con IA&quot;.</p>
+                <p className="text-xs text-muted-foreground/60 italic">Sin descripción</p>
               )}
-              <div className="space-y-2 pt-1">
-                <Label className="text-[10px] text-muted-foreground">Instrucción para regenerar (opcional)</Label>
+              <div className="flex items-center gap-2 pt-1">
                 <Input
                   value={regenerateInstruction}
                   onChange={(e) => setRegenerateInstruction(e.target.value)}
-                  placeholder="Ej: Hazlo más breve, enfócate en retail..."
-                  className={`h-8 text-xs ${inputCn}`}
+                  placeholder="Instrucción para IA (opcional)..."
+                  className={`h-8 text-xs flex-1 ${inputCn}`}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={regenerateNotesWithAi}
-                  disabled={regenerating}
-                >
-                  {regenerating && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                <Button type="button" size="sm" variant="outline" onClick={regenerateNotesWithAi} disabled={regenerating}>
+                  {regenerating && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
                   <Sparkles className="mr-1 h-3 w-3" />
-                  Regenerar con IA
+                  Regenerar
                 </Button>
               </div>
             </div>
-            {!account.address && !stripAccountLogoMarker(account.notes) && !accountLogoUrl && !account.website && !enrichWebsiteInput && (
-              <p className="text-muted-foreground text-xs">Sin dirección ni notas.</p>
-            )}
           </div>
         </div>
-      </CollapsibleSection>
-
-      {/* ── Section 2: Contactos ── */}
-      <CollapsibleSection
-        icon={<Users className="h-4 w-4" />}
-        title="Contactos"
-        count={account.contacts.length}
-        defaultOpen={account.contacts.length > 0}
-        action={
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setNewContactOpen(true)}>
-            <Plus className="h-3 w-3 mr-1" />
-            Agregar
-          </Button>
-        }
-      >
-        {account.contacts.length === 0 ? (
-          <EmptyState icon={<Users className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
-        ) : (
-          <div className="space-y-2">
-            {account.contacts.map((contact) => (
-              <div
-                key={contact.id}
-                className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between group"
-              >
-                <Link href={`/crm/contacts/${contact.id}`} className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm hover:text-primary transition-colors">{`${contact.firstName} ${contact.lastName}`.trim()}</p>
-                    {contact.isPrimary && (
-                      <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {contact.roleTitle || "Sin cargo"}
-                    {contact.email ? ` · ${contact.email}` : ""}
-                    {contact.phone ? ` · ${contact.phone}` : ""}
-                  </p>
-                </Link>
-                <Link href={`/crm/contacts/${contact.id}`} className="shrink-0">
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 3: Instalaciones ── */}
-      <CollapsibleSection
-        icon={<Warehouse className="h-4 w-4" />}
-        title="Instalaciones"
-        count={account.installations.length}
-        defaultOpen={account.installations.length > 0}
-      >
+      ),
+    },
+    {
+      key: "contacts",
+      count: account.contacts.length,
+      action: (
+        <Button size="sm" variant="ghost" onClick={() => setNewContactOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Agregar
+        </Button>
+      ),
+      defaultCollapsed: account.contacts.length === 0,
+      children: account.contacts.length === 0 ? (
+        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {account.contacts.map((contact) => (
+            <CrmRelatedRecordCard
+              key={contact.id}
+              module="contacts"
+              title={`${contact.firstName} ${contact.lastName}`.trim()}
+              subtitle={contact.roleTitle || "Sin cargo"}
+              meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
+              badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+              href={`/crm/contacts/${contact.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
+      ),
+    },
+    {
+      key: "installations",
+      count: account.installations.length,
+      defaultCollapsed: account.installations.length === 0,
+      children: (
         <CrmInstallationsClient
           accountId={account.id}
           accountIsActive={account.isActive}
           initialInstallations={account.installations}
         />
-      </CollapsibleSection>
+      ),
+    },
+    {
+      key: "deals",
+      count: account.deals.length,
+      defaultCollapsed: account.deals.length === 0,
+      children: account.deals.length === 0 ? (
+        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {account.deals.map((deal) => (
+            <CrmRelatedRecordCard
+              key={deal.id}
+              module="deals"
+              title={deal.title}
+              subtitle={deal.stage?.name || "Sin etapa"}
+              meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+              badge={
+                deal.status === "won"
+                  ? { label: "Ganado", variant: "success" }
+                  : deal.status === "lost"
+                  ? { label: "Perdido", variant: "destructive" }
+                  : undefined
+              }
+              href={`/crm/deals/${deal.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
+      ),
+    },
+    {
+      key: "quotes",
+      count: quotes.length,
+      defaultCollapsed: quotes.length === 0,
+      children: quotes.length === 0 ? (
+        <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {quotes.map((q) => (
+            <CrmRelatedRecordCard
+              key={q.id}
+              module="quotes"
+              title={q.code}
+              subtitle={q.clientName || undefined}
+              meta={formatCLP(q.monthlyCost)}
+              badge={{ label: q.status, variant: "secondary" }}
+              href={`/crm/cotizaciones/${q.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
+      ),
+    },
+    {
+      key: "communication",
+      defaultCollapsed: true,
+      children: <EmailHistoryList accountId={account.id} compact />,
+    },
+    {
+      key: "notes",
+      children: <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />,
+    },
+  ];
 
-      {/* ── Section 4: Negocios ── */}
-      <CollapsibleSection
-        icon={<TrendingUp className="h-4 w-4" />}
-        title="Negocios"
-        count={account.deals.length}
-        defaultOpen={account.deals.length > 0}
-      >
-        {account.deals.length === 0 ? (
-          <EmptyState icon={<TrendingUp className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
-        ) : (
-          <div className="space-y-2">
-            {account.deals.map((deal) => (
-              <Link
-                key={deal.id}
-                href={`/crm/deals/${deal.id}`}
-                className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{deal.title}</p>
-                    <Badge variant="outline">{deal.stage?.name}</Badge>
-                    {deal.status === "won" && (
-                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Ganado</Badge>
-                    )}
-                    {deal.status === "lost" && (
-                      <Badge variant="outline" className="border-red-500/30 text-red-400">Perdido</Badge>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    ${Number(deal.amount).toLocaleString("es-CL")}
-                    {deal.primaryContact ? ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : ""}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:block" />
-              </Link>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 5: Cotizaciones ── */}
-      <CollapsibleSection
-        icon={<FileText className="h-4 w-4" />}
-        title="Cotizaciones"
-        count={quotes.length}
-        defaultOpen={quotes.length > 0}
-      >
-        {quotes.length === 0 ? (
-          <EmptyState icon={<FileText className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
-        ) : (
-          <div className="space-y-2">
-            {quotes.map((q) => (
-              <Link
-                key={q.id}
-                href={`/crm/cotizaciones/${q.id}`}
-                className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{q.code}</p>
-                    <Badge variant="outline" className="text-[10px]">{q.status}</Badge>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {formatCLP(q.monthlyCost)}
-                    {q.clientName ? ` · ${q.clientName}` : ""}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:block" />
-              </Link>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 6: Comunicación ── */}
-      <CollapsibleSection
-        icon={<Mail className="h-4 w-4" />}
-        title="Comunicación"
-        defaultOpen={false}
-      >
-        <EmailHistoryList accountId={account.id} compact />
-      </CollapsibleSection>
-
-      {/* ── Section 7: Notas ── */}
-      <CollapsibleSection
-        icon={<MessageSquareText className="h-4 w-4" />}
-        title="Notas"
-        defaultOpen
-      >
-        <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />
-      </CollapsibleSection>
+  return (
+    <>
+      <CrmDetailLayout
+        module="accounts"
+        title={account.name}
+        subtitle={lifecycleSubtitle}
+        badge={lifecycleBadge}
+        backHref="/crm/accounts"
+        actions={[
+          { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit },
+          { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
+        ]}
+        extra={extraActions}
+        sections={sections}
+      />
 
       {/* ── Account Edit Modal ── */}
       <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>
@@ -1084,15 +982,6 @@ export function CrmAccountDetailClient({
         onConfirm={() => deleteContact(deleteContactConfirm.id)}
       />
 
-    </div>
-  );
-}
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{children}</span>
-    </div>
+    </>
   );
 }

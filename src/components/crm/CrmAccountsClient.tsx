@@ -17,7 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, Building2, Users, ChevronRight, TrendingUp, Globe } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Globe } from "lucide-react";
+import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
@@ -329,7 +330,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         <CardContent className="pt-5">
           {filteredAccounts.length === 0 ? (
             <EmptyState
-              icon={<Building2 className="h-8 w-8" />}
+              icon={<CRM_MODULES.accounts.icon className="h-8 w-8" />}
               title="Sin cuentas"
               description={
                 search || typeFilter !== "all"
@@ -362,13 +363,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             />
                           ) : (
                             <div
-                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                lifecycle === "prospect"
-                                  ? "bg-amber-500/10 text-amber-400"
-                                  : "bg-emerald-500/10 text-emerald-400"
-                              }`}
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.accounts.color}`}
                             >
-                              {lifecycle === "prospect" ? <Users className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                              <CRM_MODULES.accounts.icon className="h-4 w-4" />
                             </div>
                           )}
                           <div className="min-w-0">
@@ -434,8 +431,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                               className="h-9 w-9 shrink-0 rounded-lg border border-border bg-background object-contain"
                             />
                           ) : (
-                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${lifecycle === "prospect" ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"}`}>
-                              {lifecycle === "prospect" ? <Users className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.accounts.color}`}>
+                              <CRM_MODULES.accounts.icon className="h-4 w-4" />
                             </div>
                           )}
                           <div className="min-w-0">
@@ -456,8 +453,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           >
                             {statusLabel}
                           </Badge>
-                          <span className="flex items-center gap-1"><Users className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
-                          <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />{account._count?.deals ?? 0}</span>
+                          <span className="flex items-center gap-1"><CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
+                          <span className="flex items-center gap-1"><CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}</span>
                           {account.rut && <span>{account.rut}</span>}
                           {account.website && (
                             <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px]" onClick={(e) => e.stopPropagation()}>

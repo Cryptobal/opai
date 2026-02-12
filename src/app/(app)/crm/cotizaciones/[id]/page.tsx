@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
+import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
 import { QuoteNotesWrapper } from "@/components/crm/QuoteNotesWrapper";
 
@@ -45,6 +46,9 @@ export default async function CrmCotizacionDetailPage({
         className="mb-4"
       />
       <CrmSubnav role={role} />
+      <div className="mb-4">
+        <CpqIndicators />
+      </div>
       <CpqQuoteDetail quoteId={id} />
       <QuoteNotesWrapper quoteId={id} currentUserId={session.user.id} />
     </>

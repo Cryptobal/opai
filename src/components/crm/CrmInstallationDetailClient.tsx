@@ -4,12 +4,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Building2, ExternalLink, Trash2, ArrowLeft, Info, FileText } from "lucide-react";
+import { MapPin, ExternalLink, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { CollapsibleSection } from "./CollapsibleSection";
-import { RecordActions } from "./RecordActions";
+import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { DetailField, DetailFieldGrid } from "./DetailField";
+import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
+import { CRM_MODULES } from "./CrmModuleIcons";
+import { NotesSection } from "./NotesSection";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -129,76 +132,45 @@ export function CrmInstallationDetailClient({
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/crm/installations"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a instalaciones
-        </Link>
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-              isActive
-                ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-            }`}
-          >
-            {isActive ? "Activa" : "Inactiva"}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant={isActive ? "outline" : "secondary"}
-            onClick={openToggleInstallationStatus}
-            disabled={statusUpdating}
-            className="h-8"
-          >
-            {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
-          </Button>
-          <RecordActions
-            actions={[
-              { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-            ]}
-          />
-        </div>
-      </div>
+  // ── Helpers ──
+  const AccountIcon = CRM_MODULES.accounts.icon;
+  const StaffingIcon = CRM_MODULES.installations.icon;
 
-      {/* ── Section 1: Datos generales + mapa a la derecha (desktop) ── */}
-      <CollapsibleSection
-        icon={<Info className="h-4 w-4" />}
-        title="Datos generales"
-      >
+  const subtitle = [
+    installation.account?.name,
+    [installation.commune, installation.city].filter(Boolean).join(", "),
+  ].filter(Boolean).join(" · ") || "Sin ubicación";
+
+  // ── Sections ──
+  const sections: DetailSection[] = [
+    {
+      key: "general",
+      children: (
         <div className="flex flex-col lg:flex-row lg:gap-6">
-          {/* Datos */}
-          <div className="flex-1 space-y-3 text-sm">
-            <InfoRow label="Dirección">
-              {installation.address ? (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  {installation.address}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">Sin dirección</span>
-              )}
-            </InfoRow>
-            <InfoRow label="Comuna / Ciudad">
-              {(installation.commune || installation.city)
-                ? [installation.commune, installation.city].filter(Boolean).join(", ")
-                : "—"}
-            </InfoRow>
+          <DetailFieldGrid className="flex-1">
+            <DetailField
+              label="Dirección"
+              value={installation.address}
+              icon={installation.address ? <MapPin className="h-3 w-3" /> : undefined}
+            />
+            <DetailField
+              label="Comuna / Ciudad"
+              value={
+                (installation.commune || installation.city)
+                  ? [installation.commune, installation.city].filter(Boolean).join(", ")
+                  : undefined
+              }
+            />
             {installation.notes && (
-              <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground mt-2">
-                {installation.notes}
-              </div>
+              <DetailField
+                label="Notas"
+                value={installation.notes}
+                fullWidth
+              />
             )}
-          </div>
+          </DetailFieldGrid>
 
-          {/* Mapa — a la derecha en desktop, abajo en móvil */}
+          {/* Mapa */}
           {hasCoords && MAPS_KEY ? (
             <a
               href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
@@ -220,44 +192,37 @@ export function CrmInstallationDetailClient({
           ) : (
             <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
               <p className="text-xs text-muted-foreground text-center">
-                {hasCoords && !MAPS_KEY
-                  ? "Configura GOOGLE_MAPS_API_KEY"
-                  : "Sin ubicación"}
+                {hasCoords && !MAPS_KEY ? "Configura GOOGLE_MAPS_API_KEY" : "Sin ubicación"}
               </p>
             </div>
           )}
         </div>
-      </CollapsibleSection>
-
-      {/* ── Section 2: Cuenta ── */}
-      <CollapsibleSection
-        icon={<Building2 className="h-4 w-4" />}
-        title="Cuenta"
-      >
-        {installation.account ? (
-          <Link
-            href={`/crm/accounts/${installation.account.id}`}
-            className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
-          >
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              <p className="font-medium text-sm">{installation.account.name}</p>
-            </div>
-            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-          </Link>
-        ) : (
-          <EmptyState icon={<Building2 className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
-        )}
-      </CollapsibleSection>
-
-      {/* ── Section 3: Dotación activa ── */}
-      <CollapsibleSection
-        icon={<FileText className="h-4 w-4" />}
-        title="Dotación activa"
-      >
+      ),
+    },
+    {
+      key: "account",
+      children: installation.account ? (
+        <CrmRelatedRecordCard
+          module="accounts"
+          title={installation.account.name}
+          badge={
+            installation.account.type === "client"
+              ? { label: "Cliente", variant: "success" }
+              : { label: "Prospecto", variant: "warning" }
+          }
+          href={`/crm/accounts/${installation.account.id}`}
+        />
+      ) : (
+        <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
+      ),
+    },
+    {
+      key: "staffing",
+      label: "Dotación activa",
+      children: (
         <div className="space-y-3">
           {sourceQuoteId && sourceQuoteCode ? (
-            <div className="rounded-md border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-emerald-200">
+            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-emerald-200">
               Dotación sincronizada desde cotización{" "}
               <Link href={`/cpq/${sourceQuoteId}`} className="underline underline-offset-2 hover:text-emerald-100">
                 {sourceQuoteCode}
@@ -331,7 +296,7 @@ export function CrmInstallationDetailClient({
             </div>
           ) : (
             <EmptyState
-              icon={<FileText className="h-8 w-8" />}
+              icon={<StaffingIcon className="h-8 w-8" />}
               title="Sin dotación activa"
               description="Aún no hay estructura activa para esta instalación."
               compact
@@ -340,30 +305,51 @@ export function CrmInstallationDetailClient({
 
           {installation.quotesInstalacion && installation.quotesInstalacion.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Cotizaciones asociadas a esta instalación</p>
+              <p className="text-xs font-medium text-muted-foreground">Cotizaciones asociadas</p>
               <div className="space-y-2">
                 {installation.quotesInstalacion.map((quote) => (
-                  <Link
+                  <CrmRelatedRecordCard
                     key={quote.id}
+                    module="quotes"
+                    title={quote.code}
+                    subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`}
+                    badge={{ label: quote.status, variant: "secondary" }}
+                    meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")}
                     href={`/cpq/${quote.id}`}
-                    className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-accent/30"
-                  >
-                    <div>
-                      <p className="font-medium">{quote.code}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {quote.totalPositions} puestos · {quote.totalGuards} guardias · {quote.status}
-                      </p>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(quote.updatedAt).toLocaleDateString("es-CL")}
-                    </span>
-                  </Link>
+                  />
                 ))}
               </div>
             </div>
           ) : null}
         </div>
-      </CollapsibleSection>
+      ),
+    },
+    /* Notas: se habilitará cuando NotesSection soporte entityType "installation" */
+  ];
+
+  return (
+    <>
+      <CrmDetailLayout
+        module="installations"
+        title={installation.name}
+        subtitle={subtitle}
+        badge={isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" }}
+        backHref="/crm/installations"
+        actions={[
+          { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+        ]}
+        extra={
+          <Button
+            size="sm"
+            variant={isActive ? "outline" : "secondary"}
+            onClick={openToggleInstallationStatus}
+            disabled={statusUpdating}
+          >
+            {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
+          </Button>
+        }
+        sections={sections}
+      />
 
       <ConfirmDialog
         open={deleteConfirm}
@@ -390,15 +376,6 @@ export function CrmInstallationDetailClient({
         loadingLabel="Guardando..."
         onConfirm={toggleInstallationStatus}
       />
-    </div>
-  );
-}
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{children}</span>
-    </div>
+    </>
   );
 }
