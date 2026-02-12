@@ -44,7 +44,7 @@ export default async function OpsTurnosExtraPage() {
       <OpsSubnav />
       <TeTurnosClient
         initialItems={JSON.parse(JSON.stringify(turnos))}
-        defaultStatusFilter="pending"
+        defaultStatusFilter="all"
       />
     </div>
   );

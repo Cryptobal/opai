@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { CalendarDays, RefreshCw } from "lucide-react";
+import { CalendarDays, FileDown, RefreshCw } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -110,6 +110,9 @@ type SlotAsignacion = {
   };
 };
 
+type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
+type ExecutionCell = { state: ExecutionState; teStatus?: string };
+
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
   guardias: GuardiaOption[];
@@ -152,6 +155,7 @@ export function OpsPautaMensualClient({
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
+  const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
 
   // Serie painting modal
   const [serieModalOpen, setSerieModalOpen] = useState(false);
@@ -196,6 +200,7 @@ export function OpsPautaMensualClient({
       if (payload.data.asignaciones) {
         setSlotAsignaciones(payload.data.asignaciones as SlotAsignacion[]);
       }
+      setExecutionByCell((payload.data.executionByCell || {}) as Record<string, ExecutionCell>);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo cargar la pauta mensual");
@@ -294,6 +299,32 @@ export function OpsPautaMensualClient({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportPdf = () => {
+    if (!installationId) {
+      toast.error("Selecciona una instalación");
+      return;
+    }
+    const params = new URLSearchParams({
+      installationId,
+      month: String(month),
+      year: String(year),
+    });
+    window.open(`/api/ops/pauta-mensual/export-pdf?${params.toString()}`, "_blank");
+  };
+
+  const handleExportExcel = () => {
+    if (!installationId) {
+      toast.error("Selecciona una instalación");
+      return;
+    }
+    const params = new URLSearchParams({
+      installationId,
+      month: String(month),
+      year: String(year),
+    });
+    window.open(`/api/ops/pauta-mensual/export-excel?${params.toString()}`, "_blank");
   };
 
   // Open serie modal
@@ -442,6 +473,14 @@ export function OpsPautaMensualClient({
               Sobrescribir planificación existente
             </label>
             <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExportPdf} disabled={loading} size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Exportar PDF
+              </Button>
+              <Button variant="outline" onClick={handleExportExcel} disabled={loading} size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Exportar Excel
+              </Button>
               <Button variant="outline" onClick={() => void fetchPauta()} disabled={loading} size="sm">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Recargar
@@ -557,6 +596,23 @@ export function OpsPautaMensualClient({
                           const code = cell?.shiftCode ?? "";
                           const isEmpty = !code;
                           const colorClass = SHIFT_COLORS[code] ?? "";
+                          const execution = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
+                          const executionBadge =
+                            execution?.state === "te"
+                              ? "TE"
+                              : execution?.state === "asistio"
+                                ? "ASI"
+                                : execution?.state === "sin_cobertura"
+                                  ? "SC"
+                                  : null;
+                          const executionBadgeClass =
+                            execution?.state === "te"
+                              ? "bg-rose-600 text-rose-50"
+                              : execution?.state === "asistio"
+                                ? "bg-emerald-600 text-emerald-50"
+                                : execution?.state === "sin_cobertura"
+                                  ? "bg-amber-500 text-amber-950"
+                                  : "";
 
                           return (
                             <td
@@ -565,7 +621,7 @@ export function OpsPautaMensualClient({
                             >
                               {cell ? (
                                 <div
-                                  className={`inline-flex items-center justify-center w-7 h-6 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+                                  className={`relative inline-flex items-center justify-center w-7 h-6 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
                                     isEmpty
                                       ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
                                       : colorClass
@@ -591,6 +647,20 @@ export function OpsPautaMensualClient({
                                   }}
                                 >
                                   {code || "·"}
+                                  {executionBadge ? (
+                                    <span
+                                      className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[8px] leading-none font-semibold ${executionBadgeClass}`}
+                                      title={
+                                        execution?.state === "te"
+                                          ? `Cobertura TE${execution.teStatus ? ` (${execution.teStatus})` : ""}`
+                                          : execution?.state === "asistio"
+                                            ? "Asistencia efectiva"
+                                            : "Sin cobertura"
+                                      }
+                                    >
+                                      {executionBadge}
+                                    </span>
+                                  ) : null}
                                 </div>
                               ) : (
                                 <div
@@ -633,6 +703,30 @@ export function OpsPautaMensualClient({
                 </span>
                 <span className="text-muted-foreground/50">
                   Click en celda vacía = pintar serie · Click derecho = cambiar estado
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground border-t border-border pt-3">
+                <span className="font-medium text-foreground/80">Doble capa (ejecución real):</span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-emerald-600 text-emerald-50">
+                    ASI
+                  </span>
+                  Asistió efectivamente
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-rose-600 text-rose-50">
+                    TE
+                  </span>
+                  Cubierto con turno extra/reemplazo
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-amber-500 text-amber-950">
+                    SC
+                  </span>
+                  Sin cobertura (no asistió)
+                </span>
+                <span className="text-muted-foreground/60">
+                  El color de fondo sigue mostrando planificación; el badge muestra ejecución real.
                 </span>
               </div>
             </div>

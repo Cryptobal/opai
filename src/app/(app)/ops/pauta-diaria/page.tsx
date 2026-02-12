@@ -63,6 +63,7 @@ export default async function OpsAsistenciaDiariaPage() {
       <OpsPautaDiariaClient
         initialClients={JSON.parse(JSON.stringify(clients))}
         guardias={JSON.parse(JSON.stringify(guardias))}
+        userRole={role}
       />
     </div>
   );

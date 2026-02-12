@@ -37,22 +37,22 @@ export const BANK_ACCOUNT_TYPES = [
 export type BankAccountType = (typeof BANK_ACCOUNT_TYPES)[number];
 
 export const CHILE_BANKS = [
-  { code: "BCH", name: "Banco de Chile" },
-  { code: "BSC", name: "Banco Santander Chile" },
-  { code: "BCE", name: "BancoEstado" },
-  { code: "BCI", name: "Banco de Crédito e Inversiones (BCI)" },
-  { code: "ITAU", name: "Banco Itaú Chile" },
-  { code: "SEC", name: "Banco Security" },
-  { code: "FAL", name: "Banco Falabella" },
-  { code: "RIP", name: "Banco Ripley" },
-  { code: "CON", name: "Banco Consorcio" },
-  { code: "INT", name: "Banco Internacional" },
-  { code: "CHI", name: "Banco BICE" },
-  { code: "EDW", name: "Banco Edwards-Citi" },
-  { code: "SCO", name: "Scotiabank Chile" },
-  { code: "HSBC", name: "HSBC Bank Chile" },
-  { code: "TENPO", name: "Tenpo Prepago / Cuenta" },
-  { code: "MACH", name: "MACH (Bci)" },
+  { code: "BCH", name: "Banco de Chile", sbifCode: "001" },
+  { code: "BSC", name: "Banco Santander Chile", sbifCode: "037" },
+  { code: "BCE", name: "BancoEstado", sbifCode: "012" },
+  { code: "BCI", name: "Banco de Crédito e Inversiones (BCI)", sbifCode: "016" },
+  { code: "ITAU", name: "Banco Itaú Chile", sbifCode: "039" },
+  { code: "SEC", name: "Banco Security", sbifCode: "049" },
+  { code: "FAL", name: "Banco Falabella", sbifCode: "051" },
+  { code: "RIP", name: "Banco Ripley", sbifCode: "053" },
+  { code: "CON", name: "Banco Consorcio", sbifCode: "055" },
+  { code: "INT", name: "Banco Internacional", sbifCode: "009" },
+  { code: "CHI", name: "Banco BICE", sbifCode: "028" },
+  { code: "EDW", name: "Banco Edwards-Citi", sbifCode: "504" },
+  { code: "SCO", name: "Scotiabank Chile", sbifCode: "014" },
+  { code: "HSBC", name: "HSBC Bank Chile", sbifCode: "031" },
+  { code: "TENPO", name: "Tenpo Prepago / Cuenta", sbifCode: "730" },
+  { code: "MACH", name: "MACH (Bci)", sbifCode: "016" },
 ].sort((a, b) => a.name.localeCompare(b.name, "es"));
 
 export const CHILE_BANK_CODES = CHILE_BANKS.map((b) => b.code);

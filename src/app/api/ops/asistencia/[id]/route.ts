@@ -91,8 +91,27 @@ export async function PATCH(
 
     const existingTe = await prisma.opsTurnoExtra.findFirst({
       where: { tenantId: ctx.tenantId, asistenciaId: asistencia.id },
-      select: { id: true, status: true, guardiaId: true },
+      select: {
+        id: true,
+        status: true,
+        guardiaId: true,
+        paymentItems: {
+          select: {
+            id: true,
+            loteId: true,
+          },
+        },
+      },
     });
+
+    const initialStatus: "pendiente" | "ppc" = asistencia.plannedGuardiaId ? "pendiente" : "ppc";
+    const isResetToInitial =
+      body.attendanceStatus === initialStatus &&
+      body.actualGuardiaId === null &&
+      body.replacementGuardiaId === null;
+    const isAdminRole = ctx.userRole === "owner" || ctx.userRole === "admin";
+    const forceDeletePaidTe = body.forceDeletePaidTe === true;
+    const forceDeleteReason = body.forceDeleteReason?.trim() || null;
 
     if (
       existingTe &&
@@ -112,6 +131,38 @@ export async function PATCH(
 
     const checkInAt = body.checkInAt ? new Date(body.checkInAt) : undefined;
     const checkOutAt = body.checkOutAt ? new Date(body.checkOutAt) : undefined;
+
+    if (isResetToInitial && existingTe?.status === "paid") {
+      if (!isAdminRole) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "No se puede resetear: este turno extra ya está pagado. Solo un admin puede forzar la eliminación.",
+          },
+          { status: 409 }
+        );
+      }
+      if (!forceDeletePaidTe) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Este turno extra ya está pagado. Si deseas eliminarlo, confirma forzar eliminación e indica motivo.",
+          },
+          { status: 409 }
+        );
+      }
+      if (!forceDeleteReason) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Debes indicar un motivo para forzar la eliminación de un turno extra pagado.",
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const updatedAsistencia = await prisma.opsAsistenciaDiaria.update({
       where: { id: asistencia.id },
@@ -172,29 +223,72 @@ export async function PATCH(
         where: { id: asistencia.id },
         data: { teGenerated: true },
       });
-    } else if (existingTe && existingTe.status === "pending") {
-      await prisma.opsTurnoExtra.delete({ where: { id: existingTe.id } });
-      teId = null;
-      await prisma.opsAsistenciaDiaria.update({
-        where: { id: asistencia.id },
-        data: { teGenerated: false },
-      });
+    } else if (existingTe) {
+      const canDeleteTeOnReset =
+        isResetToInitial &&
+        (existingTe.status === "pending" ||
+          existingTe.status === "approved" ||
+          (existingTe.status === "paid" && forceDeletePaidTe));
+      const canDeleteTeByRegularFlow = !isResetToInitial && existingTe.status === "pending";
+
+      if (canDeleteTeOnReset || canDeleteTeByRegularFlow) {
+        await prisma.$transaction(async (tx) => {
+          if (existingTe.paymentItems.length > 0) {
+            const loteIds = [...new Set(existingTe.paymentItems.map((item) => item.loteId))];
+            await tx.opsPagoTeItem.deleteMany({
+              where: {
+                tenantId: ctx.tenantId,
+                turnoExtraId: existingTe.id,
+              },
+            });
+
+            for (const loteId of loteIds) {
+              const remainingItems = await tx.opsPagoTeItem.findMany({
+                where: { tenantId: ctx.tenantId, loteId },
+                select: { amountClp: true },
+              });
+              if (remainingItems.length === 0) {
+                await tx.opsPagoTeLote.delete({ where: { id: loteId } });
+                continue;
+              }
+              const totalAmountClp = remainingItems.reduce(
+                (acc, item) => acc + Number(item.amountClp),
+                0
+              );
+              await tx.opsPagoTeLote.update({
+                where: { id: loteId },
+                data: { totalAmountClp },
+              });
+            }
+          }
+
+          await tx.opsTurnoExtra.delete({ where: { id: existingTe.id } });
+          await tx.opsAsistenciaDiaria.update({
+            where: { id: asistencia.id },
+            data: { teGenerated: false },
+          });
+        });
+        teId = null;
+      }
     }
 
     const result = await prisma.opsAsistenciaDiaria.findFirst({
       where: { id: asistencia.id, tenantId: ctx.tenantId },
       include: {
+        installation: {
+          select: { id: true, name: true },
+        },
         puesto: {
-          select: { id: true, name: true, shiftStart: true, shiftEnd: true, teMontoClp: true },
+          select: { id: true, name: true, shiftStart: true, shiftEnd: true, teMontoClp: true, requiredGuards: true },
         },
         plannedGuardia: {
-          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true } } },
+          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true, rut: true } } },
         },
         actualGuardia: {
-          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true } } },
+          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true, rut: true } } },
         },
         replacementGuardia: {
-          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true } } },
+          select: { id: true, code: true, persona: { select: { firstName: true, lastName: true, rut: true } } },
         },
         turnosExtra: {
           select: { id: true, status: true, amountClp: true, guardiaId: true },
@@ -206,6 +300,8 @@ export async function PATCH(
       attendanceStatus: nextStatus,
       replacementGuardiaId: updatedAsistencia.replacementGuardiaId,
       turnoExtraId: teId,
+      forceDeletePaidTe,
+      forceDeleteReason,
     });
 
     return NextResponse.json({ success: true, data: result });

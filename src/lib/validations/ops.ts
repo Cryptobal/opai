@@ -124,6 +124,8 @@ export const updateAsistenciaSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
   checkInAt: z.string().datetime().optional().nullable(),
   checkOutAt: z.string().datetime().optional().nullable(),
+  forceDeletePaidTe: z.boolean().optional(),
+  forceDeleteReason: z.string().trim().max(500).optional().nullable(),
 });
 
 export const createGuardiaSchema = z.object({
@@ -307,6 +309,7 @@ export const rejectTeSchema = z.object({
 });
 
 export const createLoteTeSchema = z.object({
-  weekStart: z.string().regex(dateRegex, "weekStart debe tener formato YYYY-MM-DD"),
-  weekEnd: z.string().regex(dateRegex, "weekEnd debe tener formato YYYY-MM-DD"),
+  weekStart: z.string().regex(dateRegex, "weekStart debe tener formato YYYY-MM-DD").optional(),
+  weekEnd: z.string().regex(dateRegex, "weekEnd debe tener formato YYYY-MM-DD").optional(),
+  turnoExtraIds: z.array(z.string().uuid()).min(1, "Selecciona al menos un turno extra").optional(),
 });

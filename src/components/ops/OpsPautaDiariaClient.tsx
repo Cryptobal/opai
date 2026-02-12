@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/opai";
 import { CalendarCheck2, RefreshCw, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { hasOpsCapability } from "@/lib/ops-rbac";
 
 /* ── types ─────────────────────────────────────── */
 
@@ -68,6 +69,7 @@ type AsistenciaItem = {
 interface OpsPautaDiariaClientProps {
   initialClients: ClientOption[];
   guardias: GuardiaOption[];
+  userRole: string;
 }
 
 function toDateInput(date: Date): string {
@@ -93,6 +95,7 @@ const STATUS_ICONS: Record<string, string> = {
 export function OpsPautaDiariaClient({
   initialClients,
   guardias,
+  userRole,
 }: OpsPautaDiariaClientProps) {
   const [clients] = useState<ClientOption[]>(initialClients);
   const [clientId, setClientId] = useState<string>("all");
@@ -104,6 +107,8 @@ export function OpsPautaDiariaClient({
   const [replacementOpenId, setReplacementOpenId] = useState<string | null>(null);
   const [replacementSearch, setReplacementSearch] = useState("");
   const replacementPopoverRef = useRef<HTMLDivElement>(null);
+  const canManagePaidTeReset = userRole === "owner" || userRole === "admin";
+  const canExecuteOps = hasOpsCapability(userRole, "ops_execution");
 
   // Installations from selected client
   const installations = useMemo(() => {
@@ -198,15 +203,16 @@ export function OpsPautaDiariaClient({
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok || !data.success)
+      if (!res.ok || !data.success) {
         throw new Error(data.error || "Error actualizando asistencia");
+      }
       setItems((prev) =>
         prev.map((row) => (row.id === id ? (data.data as AsistenciaItem) : row))
       );
       if (successMessage) toast.success(successMessage);
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo actualizar la asistencia");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar la asistencia");
     } finally {
       setSavingId(null);
     }
@@ -332,14 +338,14 @@ export function OpsPautaDiariaClient({
         </Card>
       ) : (
         grouped.map(([instId, group]) => (
-          <Card key={instId}>
-            <CardContent className="pt-5 space-y-3">
+          <Card key={instId} className="overflow-visible">
+            <CardContent className="pt-5 space-y-3 overflow-visible">
               <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wide">
                 {group.name}
               </h3>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
+              <div className="overflow-visible">
+                <table className="w-full text-xs border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="px-2 py-1.5 w-[220px]">Puesto</th>
@@ -550,8 +556,58 @@ export function OpsPautaDiariaClient({
                                   size="sm"
                                   variant="ghost"
                                   className="h-6 text-[10px] px-2 text-muted-foreground"
-                                  disabled={savingId === item.id || isLocked}
-                                  onClick={() =>
+                                  disabled={savingId === item.id || isLocked || !canExecuteOps}
+                                  onClick={() => {
+                                    const te = item.turnosExtra?.[0];
+                                    if (!te) {
+                                      void patchAsistencia(
+                                        item.id,
+                                        {
+                                          attendanceStatus: initialStatus,
+                                          actualGuardiaId: null,
+                                          replacementGuardiaId: null,
+                                        },
+                                        "Estado reseteado"
+                                      );
+                                      return;
+                                    }
+
+                                    if (te.status === "paid") {
+                                      if (!canManagePaidTeReset) {
+                                        toast.error(
+                                          "No puedes resetear: este TE ya está pagado. Solicita override a un admin."
+                                        );
+                                        return;
+                                      }
+                                      const confirmPaid = window.confirm(
+                                        "Este TE ya está pagado. Si continúas, se forzará su eliminación del módulo TE y lote asociado. ¿Continuar?"
+                                      );
+                                      if (!confirmPaid) return;
+                                      const reason = (window.prompt(
+                                        "Motivo obligatorio para eliminar TE pagado:"
+                                      ) || "").trim();
+                                      if (!reason) {
+                                        toast.error("Debes indicar un motivo para forzar la eliminación.");
+                                        return;
+                                      }
+                                      void patchAsistencia(
+                                        item.id,
+                                        {
+                                          attendanceStatus: initialStatus,
+                                          actualGuardiaId: null,
+                                          replacementGuardiaId: null,
+                                          forceDeletePaidTe: true,
+                                          forceDeleteReason: reason,
+                                        },
+                                        "Estado reseteado (override admin)"
+                                      );
+                                      return;
+                                    }
+
+                                    const confirmReset = window.confirm(
+                                      "Este reset eliminará el turno extra asociado (si aún no está pagado). ¿Continuar?"
+                                    );
+                                    if (!confirmReset) return;
                                     void patchAsistencia(
                                       item.id,
                                       {
@@ -560,8 +616,8 @@ export function OpsPautaDiariaClient({
                                         replacementGuardiaId: null,
                                       },
                                       "Estado reseteado"
-                                    )
-                                  }
+                                    );
+                                  }}
                                   title="Resetear a estado inicial"
                                 >
                                   <RotateCcw className="h-3 w-3" />

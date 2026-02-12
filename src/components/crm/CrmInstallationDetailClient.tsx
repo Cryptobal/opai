@@ -38,6 +38,7 @@ export type InstallationDetail = {
   lat?: number | null;
   lng?: number | null;
   isActive?: boolean;
+  teMontoClp?: number | string | null;
   notes?: string | null;
   metadata?: Record<string, unknown> | null;
   puestosActivos?: Array<{
@@ -671,6 +672,7 @@ export function CrmInstallationDetailClient({
     commune: installation.commune || "",
     lat: installation.lat ?? null as number | null,
     lng: installation.lng ?? null as number | null,
+    teMontoClp: Number(installation.teMontoClp) || 0,
     notes: installation.notes || "",
   });
   const [saving, setSaving] = useState(false);
@@ -683,6 +685,7 @@ export function CrmInstallationDetailClient({
       commune: installation.commune || "",
       lat: installation.lat ?? null,
       lng: installation.lng ?? null,
+      teMontoClp: Number(installation.teMontoClp) || 0,
       notes: installation.notes || "",
     });
     setEditOpen(true);
@@ -750,6 +753,14 @@ export function CrmInstallationDetailClient({
                 (installation.commune || installation.city)
                   ? [installation.commune, installation.city].filter(Boolean).join(", ")
                   : undefined
+              }
+            />
+            <DetailField
+              label="Valor turno extra"
+              value={
+                installation.teMontoClp != null && Number(installation.teMontoClp) > 0
+                  ? `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
+                  : "No definido"
               }
             />
             {installation.notes && (
@@ -904,6 +915,22 @@ export function CrmInstallationDetailClient({
                   disabled={saving}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor turno extra (CLP)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1000}
+                value={editForm.teMontoClp}
+                onChange={(e) => setEditForm((p) => ({ ...p, teMontoClp: Number(e.target.value) || 0 }))}
+                placeholder="Ej: 25000"
+                className="bg-background text-foreground border-input"
+                disabled={saving}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Este valor se usa para calcular el monto de los turnos extra generados en esta instalación.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Notas</Label>

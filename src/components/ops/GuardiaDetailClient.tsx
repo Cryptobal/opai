@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarPlus,
   Copy,
   FilePlus2,
   History,
@@ -64,6 +65,7 @@ const SECTIONS = [
   { id: "cuentas", label: "Cuentas bancarias", icon: Landmark },
   { id: "comunicaciones", label: "Comunicaciones", icon: Mail },
   { id: "comentarios", label: "Comentarios", icon: MessageSquare },
+  { id: "turnos-extra", label: "Turnos extra", icon: CalendarPlus },
   { id: "historial", label: "Historial", icon: History },
 ] as const;
 
@@ -271,6 +273,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     role: "related",
   });
 
+  type TeRow = {
+    id: string;
+    date: string;
+    installationName: string;
+    puestoName: string;
+    amountClp: number;
+    status: string;
+    paidAt: string | null;
+  };
+  const [turnosExtra, setTurnosExtra] = useState<TeRow[]>([]);
+  const [turnosExtraLoading, setTurnosExtraLoading] = useState(false);
+
   const docsByType = useMemo(() => {
     const map = new Map<string, GuardiaDetail["documents"][number]>();
     for (const doc of guardia.documents) {
@@ -393,6 +407,44 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     void loadDocLinks();
     // guardia.id es estable para esta pantalla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardia.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTurnosExtraLoading(true);
+    fetch(`/api/te?guardiaId=${encodeURIComponent(guardia.id)}`)
+      .then((res) => res.json())
+      .then((payload: { success?: boolean; data?: Array<{
+        id: string;
+        date: string;
+        status: string;
+        amountClp: number | string;
+        paidAt?: string | null;
+        installation?: { name: string };
+        puesto?: { name: string };
+      }> }) => {
+        if (cancelled || !payload.success || !Array.isArray(payload.data)) return;
+        setTurnosExtra(
+          payload.data.map((t) => ({
+            id: t.id,
+            date: t.date,
+            installationName: t.installation?.name ?? "",
+            puestoName: t.puesto?.name ?? "",
+            amountClp: Number(t.amountClp),
+            status: t.status,
+            paidAt: t.paidAt ?? null,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setTurnosExtra([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTurnosExtraLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [guardia.id]);
 
   const handleUpload = async (file?: File | null) => {
@@ -1399,6 +1451,65 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Sin comentarios.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card id="turnos-extra">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarPlus className="h-4 w-4" />
+            Turnos extra
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Historial de turnos extra (reemplazos y cubrimientos) de este guardia.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {turnosExtraLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Cargando turnos extra…
+            </div>
+          ) : turnosExtra.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin turnos extra registrados.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left p-2 font-medium">Fecha</th>
+                    <th className="text-left p-2 font-medium">Instalación</th>
+                    <th className="text-left p-2 font-medium">Puesto</th>
+                    <th className="text-right p-2 font-medium">Monto</th>
+                    <th className="text-left p-2 font-medium">Estado</th>
+                    <th className="text-left p-2 font-medium">Fecha de pago</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {turnosExtra.map((te) => (
+                    <tr key={te.id} className="border-b border-border/60 last:border-0">
+                      <td className="p-2">{formatDateUTC(te.date)}</td>
+                      <td className="p-2">{te.installationName || "—"}</td>
+                      <td className="p-2">{te.puestoName || "—"}</td>
+                      <td className="p-2 text-right">${te.amountClp.toLocaleString("es-CL")}</td>
+                      <td className="p-2">
+                        {te.status === "pending"
+                          ? "Pendiente"
+                          : te.status === "approved"
+                            ? "Aprobado"
+                            : te.status === "paid"
+                              ? "Pagado"
+                              : te.status === "rejected"
+                                ? "Rechazado"
+                                : te.status}
+                      </td>
+                      <td className="p-2">{te.paidAt ? formatDateUTC(te.paidAt) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { CHILE_BANKS } from "@/lib/personas";
+
+const CUENTA_ORIGEN = "94541158";
 
 type Params = { id: string };
-
-function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
 
 export async function GET(
   _request: NextRequest,
@@ -35,7 +32,12 @@ export async function GET(
             guardia: {
               include: {
                 persona: {
-                  select: { firstName: true, lastName: true, rut: true },
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    rut: true,
+                    email: true,
+                  },
                 },
                 bankAccounts: {
                   orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
@@ -54,43 +56,66 @@ export async function GET(
       );
     }
 
-    const header = [
-      "rut",
-      "nombre_completo",
-      "banco",
-      "tipo_cuenta",
-      "numero_cuenta",
-      "monto_clp",
-      "referencia",
-    ];
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Santander", { views: [{ state: "frozen", ySplit: 1 }] });
 
-    const rows = lote.items.map((item) => {
+    // Columnas plantilla Santander (A–M)
+    const headers = [
+      "Cuenta origen",
+      "Moneda origen",
+      "Cuenta destino",
+      "Moneda destino",
+      "Codigo banco destino",
+      "RUT beneficiario",
+      "Nombre beneficiario",
+      "Monto transferencia",
+      "Glosa personalizada transferencia",
+      "Correo beneficiario",
+      "Mensaje correo beneficiario",
+      "Glosa cartola originador",
+      "Glosa cartola beneficiario",
+    ];
+    sheet.addRow(headers);
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true };
+
+    for (const item of lote.items) {
       const persona = item.guardia.persona;
       const account = item.guardia.bankAccounts[0];
-      const fullName = `${persona.firstName} ${persona.lastName}`.trim();
+      const fullName = `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim();
+      const sbifCode = account?.bankCode
+        ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
+        : "";
 
-      return [
-        csvEscape(persona.rut ?? ""),
-        csvEscape(fullName),
-        csvEscape(account?.bankName ?? ""),
-        csvEscape(account?.accountType ?? ""),
-        csvEscape(account?.accountNumber ?? ""),
-        csvEscape(String(Number(item.amountClp))),
-        csvEscape(lote.code),
-      ].join(",");
-    });
+      sheet.addRow([
+        CUENTA_ORIGEN,
+        "CLP",
+        account?.accountNumber ?? "",
+        "CLP",
+        sbifCode,
+        persona.rut ?? "",
+        fullName,
+        Number(item.amountClp),
+        lote.code,
+        persona.email ?? "",
+        "",
+        "",
+        "",
+      ]);
+    }
 
-    const csv = [header.join(","), ...rows].join("\n");
+    const buffer = await workbook.xlsx.writeBuffer();
 
-    return new NextResponse(csv, {
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename=\"${lote.code}-santander.csv\"`,
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${lote.code}-santander.xlsx"`,
       },
     });
   } catch (error) {
-    console.error("[TE] Error exporting lote CSV:", error);
+    console.error("[TE] Error exporting lote XLSX:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo exportar el lote" },
       { status: 500 }

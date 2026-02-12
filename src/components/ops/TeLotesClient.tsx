@@ -144,7 +144,8 @@ export function TeLotesClient({
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">Todos</option>
-                <option value="draft">Borrador</option>
+                <option value="pending_payment">Pendiente de pago</option>
+                <option value="draft">Borrador (legado)</option>
                 <option value="paid">Pagado</option>
               </select>
             </div>

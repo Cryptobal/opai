@@ -59,6 +59,26 @@ export async function PATCH(
         data: { plannedGuardiaId: null, shiftCode: null },
       });
 
+      // Clean future asistencia entries (not locked)
+      const orphanedAsist = await prisma.opsAsistenciaDiaria.findMany({
+        where: {
+          puestoId: id,
+          tenantId: ctx.tenantId,
+          date: { gte: deactivateDate },
+          lockedAt: null,
+        },
+        select: { id: true },
+      });
+      if (orphanedAsist.length > 0) {
+        const orphanIds = orphanedAsist.map((r) => r.id);
+        await prisma.opsTurnoExtra.deleteMany({
+          where: { asistenciaId: { in: orphanIds }, status: "pending" },
+        });
+        await prisma.opsAsistenciaDiaria.deleteMany({
+          where: { id: { in: orphanIds } },
+        });
+      }
+
       // Deactivate series
       await prisma.opsSerieAsignacion.updateMany({
         where: { puestoId: id, tenantId: ctx.tenantId, isActive: true },

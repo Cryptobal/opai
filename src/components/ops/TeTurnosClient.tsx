@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, StatusBadge } from "@/components/opai";
-import { Clock3, Search } from "lucide-react";
+import { Clock3, FileDown, Search } from "lucide-react";
 
 type TeItem = {
   id: string;
@@ -27,6 +27,7 @@ type TeItem = {
       rut?: string | null;
     };
   };
+  paymentItems?: Array<{ id: string; loteId: string; amountClp: number | string; status: string }>;
 };
 
 interface TeTurnosClientProps {
@@ -52,6 +53,31 @@ export function TeTurnosClient({
   const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter);
   const [search, setSearch] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [generatingPlantilla, setGeneratingPlantilla] = useState(false);
+
+  const canAddToLote = (item: TeItem) =>
+    item.status === "approved" && (!item.paymentItems || item.paymentItems.length === 0);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllApproved = () => {
+    const approved = filtered.filter(canAddToLote).map((i) => i.id);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      approved.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -100,6 +126,65 @@ export function TeTurnosClient({
     }
   };
 
+  const handleGenerarPlantilla = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      toast.error("Selecciona al menos un turno aprobado");
+      return;
+    }
+    setGeneratingPlantilla(true);
+    try {
+      const createRes = await fetch("/api/te/lotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ turnoExtraIds: ids }),
+      });
+      const createPayload = await createRes.json();
+      if (!createRes.ok || !createPayload.success) {
+        throw new Error(createPayload.error || "No se pudo crear el lote");
+      }
+      const loteId = createPayload.data?.id;
+      if (!loteId) throw new Error("Lote creado sin ID");
+
+      const exportUrl = `/api/te/lotes/${loteId}/export-santander`;
+      const exportRes = await fetch(exportUrl);
+      if (!exportRes.ok) throw new Error("No se pudo generar la plantilla");
+      const blob = await exportRes.blob();
+      const code = createPayload.data?.code ?? "lote";
+      const filename = `${code}-santander.xlsx`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+
+      setSelectedIds(new Set());
+      setItems((prev) =>
+        prev.map((row) =>
+          ids.includes(row.id)
+            ? {
+                ...row,
+                paymentItems: [
+                  {
+                    id: "",
+                    loteId,
+                    amountClp: row.amountClp,
+                    status: "pending",
+                  },
+                ],
+              }
+            : row
+        )
+      );
+      toast.success(`Lote creado. Plantilla ${filename} descargada.`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo generar la plantilla");
+    } finally {
+      setGeneratingPlantilla(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -131,6 +216,46 @@ export function TeTurnosClient({
 
       <Card>
         <CardContent className="pt-5">
+          {filtered.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={selectAllApproved}
+              >
+                Seleccionar todos los aprobados
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={clearSelection}
+                disabled={selectedIds.size === 0}
+              >
+                Quitar selección
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={selectedIds.size === 0 || generatingPlantilla}
+                onClick={() => void handleGenerarPlantilla()}
+              >
+                {generatingPlantilla ? "..." : (
+                  <>
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Generar plantilla de pago ({selectedIds.size})
+                  </>
+                )}
+              </Button>
+              {selectedIds.size > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size} turno(s) seleccionado(s)
+                </span>
+              )}
+            </div>
+          )}
+
           {filtered.length === 0 ? (
             <EmptyState
               icon={<Clock3 className="h-8 w-8" />}
@@ -145,17 +270,32 @@ export function TeTurnosClient({
                   key={item.id}
                   className="rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {item.guardia.persona.firstName} {item.guardia.persona.lastName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.installation?.name ?? "Instalación"} · {item.puesto?.name ?? "Sin puesto"} ·{" "}
-                      {toDateLabel(item.date)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Monto: ${toNumber(item.amountClp).toLocaleString("es-CL")}
-                    </p>
+                  <div className="flex items-start gap-3 min-w-0">
+                    {canAddToLote(item) ? (
+                      <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                          className="rounded border-border"
+                        />
+                        <span className="sr-only">Incluir en plantilla de pago</span>
+                      </label>
+                    ) : (
+                      <span className="w-5 shrink-0" aria-hidden />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">
+                        {item.guardia.persona.firstName} {item.guardia.persona.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.installation?.name ?? "Instalación"} · {item.puesto?.name ?? "Sin puesto"} ·{" "}
+                        {toDateLabel(item.date)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Monto: ${toNumber(item.amountClp).toLocaleString("es-CL")}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

@@ -53,46 +53,100 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const weekStart = parseDateOnly(body.weekStart);
-    const weekEnd = parseDateOnly(body.weekEnd);
-    if (weekStart > weekEnd) {
-      return NextResponse.json(
-        { success: false, error: "weekStart no puede ser mayor que weekEnd" },
-        { status: 400 }
-      );
+    let approvedTurnos: Array<{ id: string; guardiaId: string; amountClp: unknown; date: Date }>;
+    let weekStart: Date;
+    let weekEnd: Date;
+
+    if (body.turnoExtraIds && body.turnoExtraIds.length > 0) {
+      const turnos = await prisma.opsTurnoExtra.findMany({
+        where: {
+          id: { in: body.turnoExtraIds },
+          tenantId: ctx.tenantId,
+          status: "approved",
+          paymentItems: {
+            none: {},
+          },
+        },
+        select: {
+          id: true,
+          guardiaId: true,
+          amountClp: true,
+          date: true,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
+      if (turnos.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Ninguno de los turnos seleccionados está aprobado o no tiene lote asignado",
+          },
+          { status: 400 }
+        );
+      }
+      if (turnos.length !== body.turnoExtraIds.length) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Algunos turnos no están aprobados o ya pertenecen a un lote",
+          },
+          { status: 400 }
+        );
+      }
+      approvedTurnos = turnos;
+      const dates = turnos.map((t) => t.date.getTime());
+      weekStart = new Date(Math.min(...dates));
+      weekEnd = new Date(Math.max(...dates));
+    } else {
+      if (!body.weekStart || !body.weekEnd) {
+        return NextResponse.json(
+          { success: false, error: "Indica weekStart y weekEnd o turnoExtraIds" },
+          { status: 400 }
+        );
+      }
+      weekStart = parseDateOnly(body.weekStart);
+      weekEnd = parseDateOnly(body.weekEnd);
+      if (weekStart > weekEnd) {
+        return NextResponse.json(
+          { success: false, error: "weekStart no puede ser mayor que weekEnd" },
+          { status: 400 }
+        );
+      }
+      const turnos = await prisma.opsTurnoExtra.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          status: "approved",
+          date: {
+            gte: weekStart,
+            lte: weekEnd,
+          },
+          paymentItems: {
+            none: {},
+          },
+        },
+        select: {
+          id: true,
+          guardiaId: true,
+          amountClp: true,
+          date: true,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
+      if (turnos.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "No hay turnos extra aprobados sin lote en el rango seleccionado",
+          },
+          { status: 400 }
+        );
+      }
+      approvedTurnos = turnos;
     }
 
-    const approvedTurnos = await prisma.opsTurnoExtra.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        status: "approved",
-        date: {
-          gte: weekStart,
-          lte: weekEnd,
-        },
-        paymentItems: {
-          none: {},
-        },
-      },
-      select: {
-        id: true,
-        guardiaId: true,
-        amountClp: true,
-      },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-    });
-
-    if (approvedTurnos.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No hay turnos extra aprobados sin lote en el rango seleccionado",
-        },
-        { status: 400 }
-      );
-    }
-
-    const baseCode = buildTeBatchCode(weekStart);
+    const baseCode = body.turnoExtraIds
+      ? `${buildTeBatchCode(weekStart)}-SEL`
+      : buildTeBatchCode(weekStart);
     const existingCount = await prisma.opsPagoTeLote.count({
       where: {
         tenantId: ctx.tenantId,
@@ -118,7 +172,7 @@ export async function POST(request: NextRequest) {
           code,
           weekStart,
           weekEnd,
-          status: "draft",
+          status: "pending_payment",
           totalAmountClp,
           createdBy: ctx.userId,
         },
@@ -130,7 +184,7 @@ export async function POST(request: NextRequest) {
           loteId: createdLote.id,
           turnoExtraId: turno.id,
           guardiaId: turno.guardiaId,
-          amountClp: turno.amountClp,
+          amountClp: Number(turno.amountClp),
           status: "pending",
         })),
       });

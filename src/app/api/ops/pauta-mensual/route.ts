@@ -111,6 +111,50 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const asistencia = await prisma.opsAsistenciaDiaria.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        installationId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+      },
+      select: {
+        puestoId: true,
+        slotNumber: true,
+        date: true,
+        attendanceStatus: true,
+        replacementGuardiaId: true,
+        turnosExtra: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    const executionByCell: Record<
+      string,
+      { state: "asistio" | "te" | "sin_cobertura" | "ppc"; teStatus?: string }
+    > = {};
+    for (const row of asistencia) {
+      const key = `${row.puestoId}|${row.slotNumber}|${row.date.toISOString().slice(0, 10)}`;
+      if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
+        executionByCell[key] = {
+          state: "te",
+          teStatus: row.turnosExtra[0]?.status,
+        };
+      } else if (row.attendanceStatus === "asistio") {
+        executionByCell[key] = { state: "asistio" };
+      } else if (row.attendanceStatus === "no_asistio") {
+        executionByCell[key] = { state: "sin_cobertura" };
+      } else if (row.attendanceStatus === "ppc") {
+        executionByCell[key] = { state: "ppc" };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -120,6 +164,7 @@ export async function GET(request: NextRequest) {
         items: pauta,
         series,
         asignaciones,
+        executionByCell,
       },
     });
   } catch (error) {

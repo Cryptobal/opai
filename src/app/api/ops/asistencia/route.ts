@@ -20,12 +20,13 @@ export async function GET(request: NextRequest) {
       ? { installationId }
       : {};
 
-    // Auto-create asistencia rows from pauta mensual (for the date)
+    // Auto-create asistencia rows from pauta mensual (only for active puestos)
     const pauta = await prisma.opsPautaMensual.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...installationFilter,
         date,
+        puesto: { active: true },
       },
       select: {
         puestoId: true,
@@ -34,6 +35,28 @@ export async function GET(request: NextRequest) {
         installationId: true,
       },
     });
+
+    // Limpiar asistencias huérfanas de puestos inactivos (no bloqueadas, sin TE aprobado/pagado)
+    const orphanedRows = await prisma.opsAsistenciaDiaria.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        ...installationFilter,
+        date,
+        puesto: { active: false },
+        lockedAt: null,
+      },
+      select: { id: true },
+    });
+    if (orphanedRows.length > 0) {
+      const orphanIds = orphanedRows.map((r) => r.id);
+      // Delete pending TEs linked to orphaned asistencia
+      await prisma.opsTurnoExtra.deleteMany({
+        where: { asistenciaId: { in: orphanIds }, status: "pending" },
+      });
+      await prisma.opsAsistenciaDiaria.deleteMany({
+        where: { id: { in: orphanIds } },
+      });
+    }
 
     if (pauta.length > 0) {
       await prisma.opsAsistenciaDiaria.createMany({
@@ -78,8 +101,8 @@ export async function GET(request: NextRequest) {
             data: { attendanceStatus: "pendiente" },
           });
         } else {
-          // No hay guardia en pauta (slot desasignado): forzar estado PPC en filas no bloqueadas,
-          // para que no queden "asistio"/"reemplazo" huérfanos y las métricas sean coherentes.
+          // No hay guardia en pauta (slot PPC): forzar estado PPC solo en filas que siguen en estado
+          // inicial (sin reemplazo). No tocar filas que ya tienen reemplazo/TE asignado.
           const rows = await prisma.opsAsistenciaDiaria.findMany({
             where: {
               tenantId: ctx.tenantId,
@@ -87,6 +110,8 @@ export async function GET(request: NextRequest) {
               slotNumber: item.slotNumber,
               date,
               lockedAt: null,
+              replacementGuardiaId: null,
+              attendanceStatus: { in: ["pendiente", "ppc"] },
             },
             select: { id: true },
           });
@@ -116,6 +141,7 @@ export async function GET(request: NextRequest) {
         tenantId: ctx.tenantId,
         ...installationFilter,
         date,
+        puesto: { active: true },
       },
       include: {
         installation: {

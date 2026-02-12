@@ -32,9 +32,11 @@ export async function GET(request: NextRequest) {
         tenantId: ctx.tenantId,
         ...(installationId && installationId !== "all" ? { installationId } : {}),
         date: dateFilter,
+        puesto: { active: true },
         OR: [
-          // No guard assigned
-          { plannedGuardiaId: null, shiftCode: { not: "-" } },
+          // No guard assigned (shiftCode can be null or any value except "-" which is rest day)
+          { plannedGuardiaId: null, shiftCode: null },
+          { plannedGuardiaId: null, shiftCode: { notIn: ["-"] } },
           // Special statuses that need coverage
           { shiftCode: { in: ["V", "L", "P"] } },
         ],
