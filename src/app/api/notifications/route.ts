@@ -10,8 +10,36 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { addDays } from "date-fns";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
+import { hasAppAccess } from "@/lib/app-access";
+import { type AppKey } from "@/lib/app-keys";
 
 const GUARDIA_DOC_ALERT_DAYS = 30;
+const NOTIFICATION_TYPE_APP_ACCESS: Record<string, AppKey> = {
+  new_lead: "crm",
+  lead_approved: "crm",
+  prospect: "crm",
+  quote_sent: "cpq",
+  quote_viewed: "cpq",
+  contract_required: "docs",
+  contract_expiring: "docs",
+  contract_expired: "docs",
+  guardia_doc_expiring: "ops",
+  guardia_doc_expired: "ops",
+  new_postulacion: "ops",
+  document_signed_completed: "docs",
+  email_opened: "crm",
+  email_clicked: "crm",
+  email_bounced: "crm",
+  followup_sent: "crm",
+  followup_scheduled: "crm",
+  followup_failed: "crm",
+};
+
+function getRoleExcludedNotificationTypes(role: string): string[] {
+  return Object.entries(NOTIFICATION_TYPE_APP_ACCESS)
+    .filter(([, app]) => !hasAppAccess(role, app))
+    .map(([type]) => type);
+}
 
 async function ensureGuardiaDocExpiryNotifications(tenantId: string, enabled: boolean) {
   if (!enabled) return;
@@ -96,17 +124,19 @@ export async function GET(request: NextRequest) {
       prefs.guardiaDocExpiryBellEnabled
     );
 
-    const excludedTypes: string[] = [];
+    const excludedTypes = new Set<string>(getRoleExcludedNotificationTypes(ctx.userRole));
     if (!prefs.guardiaDocExpiryBellEnabled) {
-      excludedTypes.push("guardia_doc_expiring", "guardia_doc_expired");
+      excludedTypes.add("guardia_doc_expiring");
+      excludedTypes.add("guardia_doc_expired");
     }
     if (!prefs.postulacionBellEnabled) {
-      excludedTypes.push("new_postulacion");
+      excludedTypes.add("new_postulacion");
     }
+    const excludedTypesList = Array.from(excludedTypes);
     const notificationsWhere = {
       tenantId: ctx.tenantId,
       ...(unreadOnly ? { read: false } : {}),
-      ...(excludedTypes.length > 0 ? { type: { notIn: excludedTypes } } : {}),
+      ...(excludedTypesList.length > 0 ? { type: { notIn: excludedTypesList } } : {}),
     };
 
     const notifications = await prisma.notification.findMany({
@@ -119,7 +149,7 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId: ctx.tenantId,
         read: false,
-        ...(excludedTypes.length > 0 ? { type: { notIn: excludedTypes } } : {}),
+        ...(excludedTypesList.length > 0 ? { type: { notIn: excludedTypesList } } : {}),
       },
     });
 
@@ -141,13 +171,18 @@ export async function PATCH(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const roleExcludedTypes = getRoleExcludedNotificationTypes(ctx.userRole);
 
     const body = await request.json();
 
     if (body.markAllRead) {
       // Mark all notifications as read
       await prisma.notification.updateMany({
-        where: { tenantId: ctx.tenantId, read: false },
+        where: {
+          tenantId: ctx.tenantId,
+          read: false,
+          ...(roleExcludedTypes.length > 0 ? { type: { notIn: roleExcludedTypes } } : {}),
+        },
         data: { read: true },
       });
     } else if (body.ids && Array.isArray(body.ids)) {
@@ -156,6 +191,7 @@ export async function PATCH(request: NextRequest) {
         where: {
           id: { in: body.ids },
           tenantId: ctx.tenantId,
+          ...(roleExcludedTypes.length > 0 ? { type: { notIn: roleExcludedTypes } } : {}),
         },
         data: { read: true },
       });
@@ -180,18 +216,23 @@ export async function DELETE(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const roleExcludedTypes = getRoleExcludedNotificationTypes(ctx.userRole);
 
     const body = await request.json();
 
     if (body.deleteAll) {
       await prisma.notification.deleteMany({
-        where: { tenantId: ctx.tenantId },
+        where: {
+          tenantId: ctx.tenantId,
+          ...(roleExcludedTypes.length > 0 ? { type: { notIn: roleExcludedTypes } } : {}),
+        },
       });
     } else if (body.ids && Array.isArray(body.ids)) {
       await prisma.notification.deleteMany({
         where: {
           id: { in: body.ids },
           tenantId: ctx.tenantId,
+          ...(roleExcludedTypes.length > 0 ? { type: { notIn: roleExcludedTypes } } : {}),
         },
       });
     } else {
