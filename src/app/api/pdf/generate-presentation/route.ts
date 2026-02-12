@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
     });
     
     // Viewport: 1280px (desktop xl: breakpoint)
-    // deviceScaleFactor: 2 para screenshots de alta calidad
+    // deviceScaleFactor: 1 para velocidad (1280px aún da ~160dpi en A4)
     const context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
       extraHTTPHeaders: {
         ...(bypassSecret ? {
           'x-vercel-protection-bypass': bypassSecret,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Esperar hidratación de React
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
     
     // ── Forzar visibilidad de elementos Framer Motion ──
     await page.addStyleTag({
@@ -135,33 +135,27 @@ export async function POST(request: NextRequest) {
       });
     });
     
-    // ── Scroll completo para cargar TODAS las imágenes lazy ──
+    // ── Scroll rápido para cargar imágenes lazy ──
     await page.evaluate(async () => {
       const totalHeight = document.body.scrollHeight;
-      const step = 400;
+      const step = 800;
       for (let y = 0; y < totalHeight; y += step) {
         window.scrollTo(0, y);
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 100));
       }
-      // Scroll al final y esperar
-      window.scrollTo(0, totalHeight);
-      await new Promise(r => setTimeout(r, 1000));
       window.scrollTo(0, 0);
     });
     
-    // Esperar a que todas las imágenes terminen de cargar
-    await page.waitForTimeout(2000);
+    // Esperar imágenes (máx 3s)
     await page.evaluate(async () => {
       const images = Array.from(document.querySelectorAll('img'));
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-          // Timeout de 5s por imagen
-          setTimeout(resolve, 5000);
-        });
-      }));
+      await Promise.race([
+        Promise.all(images.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+        })),
+        new Promise(r => setTimeout(r, 3000)),
+      ]);
     });
     
     // ── Tomar screenshots de cada sección ──
@@ -173,14 +167,14 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < sectionHandles.length; i++) {
       const section = sectionHandles[i];
       
-      // Scroll a la sección para asegurar visibilidad
+      // Scroll a la sección
       await section.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(150);
       
-      // Screenshot como JPEG (mucho más liviano que PNG para gradientes oscuros)
+      // Screenshot JPEG (liviano para gradientes oscuros, calidad buena)
       const screenshotBuffer = await section.screenshot({ 
         type: 'jpeg', 
-        quality: 88,
+        quality: 80,
       });
       
       const base64 = Buffer.from(screenshotBuffer).toString('base64');
