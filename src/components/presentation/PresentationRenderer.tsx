@@ -134,6 +134,22 @@ interface PresentationRendererProps {
   pdfMode?: boolean;
 }
 
+/**
+ * Secciones incluidas en el PDF descargable.
+ * 
+ * Solo las esenciales para mantener el PDF liviano y dentro del timeout de 60s:
+ * - Portada y contexto del cliente
+ * - Resumen ejecutivo
+ * - Modelo operativo
+ * - Propuesta económica con detalle del servicio
+ * - Términos y condiciones
+ * - Plan de implementación
+ * - Cierre y contacto
+ * 
+ * Las secciones de marketing (riesgo, transparencia, capas, pilares, etc.)
+ * se ven en la web pero no se incluyen en el PDF para optimizar tiempos.
+ */
+
 export function PresentationRenderer({ payload, showTokens = false, pdfMode = false }: PresentationRendererProps) {
   const { theme, sections, assets, cta, contact } = payload;
   
@@ -190,67 +206,76 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             showTokens={showTokens}
           />
           
-          {/* S03 - Transparencia */}
-          <Section03Transparencia data={sections.s03_transparencia} />
+          {/* ── Secciones de marketing/educativas (solo web, omitidas en PDF) ── */}
+          {!pdfMode && (
+            <>
+              {/* S03 - Transparencia */}
+              <Section03Transparencia data={sections.s03_transparencia} />
+              
+              {/* S04 - El Riesgo Real */}
+              <Section04Riesgo data={sections.s04_riesgo} />
+              
+              {/* S05 - Fallas del Modelo Tradicional */}
+              <Section05FallasModelo data={sections.s05_fallas_modelo} />
+              
+              {/* S06 - Costo Real */}
+              <Section06CostoReal data={sections.s06_costo_real} />
+              
+              {/* S07 - Sistema de Capas */}
+              <Section07SistemaCapas data={sections.s07_sistema_capas} />
+              
+              {/* S08 - 4 Pilares */}
+              <Section08CuatroPilares data={sections.s08_4_pilares} />
+            </>
+          )}
           
-          {/* S04 - El Riesgo Real */}
-          <Section04Riesgo data={sections.s04_riesgo} />
-          
-          {/* S05 - Fallas del Modelo Tradicional */}
-          <Section05FallasModelo data={sections.s05_fallas_modelo} />
-          
-          {/* S06 - Costo Real */}
-          <Section06CostoReal data={sections.s06_costo_real} />
-          
-          {/* S07 - Sistema de Capas */}
-          <Section07SistemaCapas data={sections.s07_sistema_capas} />
-          
-          {/* S08 - 4 Pilares */}
-          <Section08CuatroPilares data={sections.s08_4_pilares} />
-          
-          {/* S09 - Cómo Operamos */}
+          {/* S09 - Cómo Operamos (incluido en PDF: términos operativos) */}
           <Section09ComoOperamos data={sections.s09_como_operamos} />
           
-          {/* S10 - Supervisión */}
-          <Section10Supervision data={sections.s10_supervision} />
-          
-          {/* S11 - Reportabilidad */}
-          <Section11Reportabilidad data={sections.s11_reportabilidad} />
-          
-          {/* S12 - Cumplimiento */}
-          <Section12Cumplimiento data={sections.s12_cumplimiento} />
-          
-          {/* S13 - Certificaciones */}
-          <Section13Certificaciones data={sections.s13_certificaciones} />
-          
-          {/* S14 - Tecnología */}
-          <Section14Tecnologia data={sections.s14_tecnologia} />
-          
-          {/* S15 - Selección de Personal */}
-          <Section15Seleccion data={sections.s15_seleccion} />
-          
-          {/* S16 - Nuestra Gente */}
-          <Section16NuestraGente data={sections.s16_nuestra_gente} />
-          
-          {/* S17 - Continuidad */}
-          <Section17Continuidad data={sections.s17_continuidad} />
-          
-          {/* S18 - KPIs */}
-          <Section18KPIs data={sections.s18_kpis} />
-          
-          {/* S19 - Resultados */}
-          <Section19Resultados data={sections.s19_resultados} />
-          
-          {/* S20 - Clientes */}
-          <Section20Clientes data={sections.s20_clientes} />
-          
-          {/* S21 - Sectores */}
-          <Section21Sectores data={sections.s21_sectores} />
+          {/* ── Secciones de credenciales y equipo (solo web) ── */}
+          {!pdfMode && (
+            <>
+              {/* S10 - Supervisión */}
+              <Section10Supervision data={sections.s10_supervision} />
+              
+              {/* S11 - Reportabilidad */}
+              <Section11Reportabilidad data={sections.s11_reportabilidad} />
+              
+              {/* S12 - Cumplimiento */}
+              <Section12Cumplimiento data={sections.s12_cumplimiento} />
+              
+              {/* S13 - Certificaciones */}
+              <Section13Certificaciones data={sections.s13_certificaciones} />
+              
+              {/* S14 - Tecnología */}
+              <Section14Tecnologia data={sections.s14_tecnologia} />
+              
+              {/* S15 - Selección de Personal */}
+              <Section15Seleccion data={sections.s15_seleccion} />
+              
+              {/* S16 - Nuestra Gente */}
+              <Section16NuestraGente data={sections.s16_nuestra_gente} />
+              
+              {/* S17 - Continuidad */}
+              <Section17Continuidad data={sections.s17_continuidad} />
+              
+              {/* S18 - KPIs */}
+              <Section18KPIs data={sections.s18_kpis} />
+              
+              {/* S19 - Resultados */}
+              <Section19Resultados data={sections.s19_resultados} />
+              
+              {/* S20 - Clientes */}
+              <Section20Clientes data={sections.s20_clientes} />
+              
+              {/* S21 - Sectores */}
+              <Section21Sectores data={sections.s21_sectores} />
+            </>
+          )}
           
           {/* S22 - TCO - ELIMINADA: Funcionalidad fusionada con S06 (Costo Real) */}
-          {/* La comparación de costos TCO ahora se muestra en Section06CostoReal con valores en UF y modal interactivo */}
           
-          {/* S23 - Propuesta Económica */}
+          {/* S23 - Propuesta Económica (incluido en PDF: detalle del servicio y precios) */}
           <Section23PropuestaEconomica 
             data={sections.s23_propuesta_economica} 
             showTokens={showTokens}
@@ -261,19 +286,24 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             contactPhone="+56 9 8230 7771"
           />
           
-          {/* S24 - Términos y Condiciones */}
+          {/* S24 - Términos y Condiciones (incluido en PDF) */}
           <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />
           
-          {/* S25 - Comparación Competitiva */}
-          <Section25Comparacion data={sections.s25_comparacion} />
+          {/* ── Secciones de comparación (solo web) ── */}
+          {!pdfMode && (
+            <>
+              {/* S25 - Comparación Competitiva */}
+              <Section25Comparacion data={sections.s25_comparacion} />
+              
+              {/* S26 - Por Qué Nos Eligen */}
+              <Section26PorqueEligen data={sections.s26_porque_eligen} />
+            </>
+          )}
           
-          {/* S26 - Por Qué Nos Eligen */}
-          <Section26PorqueEligen data={sections.s26_porque_eligen} />
-          
-          {/* S27 - Implementación */}
+          {/* S27 - Implementación (incluido en PDF) */}
           <Section27Implementacion data={sections.s27_implementacion} />
           
-          {/* S28 - Cierre + CTA */}
+          {/* S28 - Cierre + CTA (incluido en PDF: contacto) */}
           <Section28Cierre 
             data={sections.s28_cierre}
             contactEmail="comercial@gard.cl"
