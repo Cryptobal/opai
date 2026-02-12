@@ -34,7 +34,7 @@ export interface AppShellProps {
 export function AppShell({ sidebar, children, userName, userEmail, userRole, className }: AppShellProps) {
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleMobileRefresh = () => {
@@ -68,12 +68,13 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
         {
           className: cn(
             (sidebar as ReactElement<{ className?: string }>).props.className,
-            'z-50 transition-transform duration-300 ease-out h-full max-h-full',
+            'z-50 transition-transform duration-300 ease-out',
+            'top-0 h-[100dvh] max-h-[100dvh]',
             isMobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
           ),
           onNavigate: () => setIsMobileOpen(false),
           onToggleSidebar: () => setIsSidebarOpen((o) => !o),
-          isSidebarOpen,
+          isSidebarOpen: true,
           showCloseButton: isMobileOpen,
           onClose: () => setIsMobileOpen(false),
         }
@@ -153,13 +154,10 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             onClick={() => setIsMobileOpen(false)}
             aria-hidden="true"
           />
-          {/* Close button */}
+          {/* Sidebar móvil: de arriba a abajo (anclado arriba), X arriba */}
           <div
-            className="fixed left-0 top-0 z-50 w-[280px] max-w-[82vw] shadow-xl flex flex-col"
-            style={{
-              height: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))',
-              maxHeight: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))',
-            }}
+            className="fixed left-0 top-0 z-50 w-[280px] max-w-[82vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
+            style={{ pointerEvents: isMobileOpen ? 'auto' : 'none' }}
           >
             {mobileSidebar}
           </div>
