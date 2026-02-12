@@ -4,7 +4,6 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   FileText,
-  LogOut,
   Building2,
   Grid3x3,
   Calculator,
@@ -67,17 +66,6 @@ export function AppLayoutClient({
     },
   ];
 
-  const userMenu = (
-    <Link
-      href="/api/auth/signout?callbackUrl=/opai/login"
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      title="Cerrar sesión"
-    >
-      <LogOut className="h-3.5 w-3.5" />
-      <span>Salir</span>
-    </Link>
-  );
-
   return (
     <AppShell
       sidebar={
@@ -85,7 +73,6 @@ export function AppLayoutClient({
           navItems={navItems}
           userName={userName ?? undefined}
           userEmail={userEmail ?? undefined}
-          footer={userMenu}
         />
       }
       userName={userName ?? undefined}

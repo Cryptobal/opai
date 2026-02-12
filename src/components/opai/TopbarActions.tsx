@@ -66,6 +66,12 @@ export function TopbarActions({
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
+            <Link href="/opai/perfil" className="cursor-pointer">
+              <User className="h-4 w-4 mr-2" />
+              Mi perfil
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link href="/opai/configuracion" className="cursor-pointer">
               <Settings className="h-4 w-4 mr-2" />
               Configuración
