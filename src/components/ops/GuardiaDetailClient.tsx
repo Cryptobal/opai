@@ -10,11 +10,13 @@ import {
   FilePlus2,
   History,
   Landmark,
+  Loader2,
   Mail,
   MessageCircle,
   MessageSquare,
   Link2,
   MapPin,
+  Pencil,
   Save,
   Send,
   Trash2,
@@ -24,6 +26,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/opai";
 import {
   AFP_CHILE,
@@ -109,12 +119,15 @@ type GuardiaDetail = {
     eventType: string;
     newValue?: Record<string, unknown> | null;
     reason?: string | null;
+    createdBy?: string | null;
+    createdByName?: string | null;
     createdAt: string;
   }>;
   comments?: Array<{
     id: string;
     comment: string;
     createdBy?: string | null;
+    createdByName?: string | null;
     createdAt: string;
   }>;
 };
@@ -156,6 +169,21 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   cuenta_rut: "Cuenta RUT",
 };
 
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  lifecycle_changed: "Cambio de estado",
+  document_uploaded: "Documento subido",
+  document_updated: "Documento actualizado",
+  document_deleted: "Documento eliminado",
+  bank_account_created: "Cuenta bancaria creada",
+  bank_account_updated: "Cuenta bancaria actualizada",
+  bank_account_deleted: "Cuenta bancaria eliminada",
+  status_changed: "Cambio de estado",
+  blacklist_added: "Agregado a lista negra",
+  blacklist_removed: "Quitado de lista negra",
+  assigned: "Asignado a puesto",
+  unassigned: "Desasignado de puesto",
+};
+
 export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole }: GuardiaDetailClientProps) {
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
@@ -190,6 +218,24 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   >({});
   const [commentText, setCommentText] = useState("");
   const [commentSaving, setCommentSaving] = useState(false);
+  const [editPersonalOpen, setEditPersonalOpen] = useState(false);
+  const [editPersonalSaving, setEditPersonalSaving] = useState(false);
+  const [editPersonalForm, setEditPersonalForm] = useState({
+    firstName: "",
+    lastName: "",
+    rut: "",
+    email: "",
+    phoneMobile: "",
+    sex: "",
+    birthDate: "",
+    afp: "",
+    healthSystem: "",
+    isapreName: "",
+    isapreHasExtraPercent: false,
+    isapreExtraPercent: "",
+    hasMobilization: false,
+    availableExtraShifts: false,
+  });
   const [availableDocs, setAvailableDocs] = useState<
     Array<{
       id: string;
@@ -235,6 +281,91 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
+
+  function toDateInput(val: string | Date | undefined | null): string {
+    if (!val) return "";
+    const d = typeof val === "string" ? new Date(val) : val;
+    if (Number.isNaN(d.getTime())) return "";
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  const openEditPersonal = () => {
+    setEditPersonalForm({
+      firstName: guardia.persona.firstName || "",
+      lastName: guardia.persona.lastName || "",
+      rut: guardia.persona.rut || "",
+      email: guardia.persona.email || "",
+      phoneMobile: guardia.persona.phoneMobile || "",
+      sex: guardia.persona.sex || "",
+      birthDate: toDateInput(guardia.persona.birthDate),
+      afp: guardia.persona.afp || "",
+      healthSystem: guardia.persona.healthSystem || "",
+      isapreName: guardia.persona.isapreName || "",
+      isapreHasExtraPercent: guardia.persona.isapreHasExtraPercent || false,
+      isapreExtraPercent: guardia.persona.isapreExtraPercent || "",
+      hasMobilization: guardia.persona.hasMobilization || false,
+      availableExtraShifts: guardia.availableExtraShifts || false,
+    });
+    setEditPersonalOpen(true);
+  };
+
+  const saveEditPersonal = async () => {
+    setEditPersonalSaving(true);
+    try {
+      const res = await fetch(`/api/personas/guardias/${guardia.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: editPersonalForm.firstName.trim() || undefined,
+          lastName: editPersonalForm.lastName.trim() || undefined,
+          rut: editPersonalForm.rut.trim() || undefined,
+          email: editPersonalForm.email.trim() || undefined,
+          phoneMobile: editPersonalForm.phoneMobile.trim() || undefined,
+          sex: editPersonalForm.sex || undefined,
+          birthDate: editPersonalForm.birthDate || undefined,
+          afp: editPersonalForm.afp || undefined,
+          healthSystem: editPersonalForm.healthSystem || undefined,
+          isapreName: editPersonalForm.healthSystem === "isapre" ? editPersonalForm.isapreName || undefined : undefined,
+          isapreHasExtraPercent: editPersonalForm.healthSystem === "isapre" ? editPersonalForm.isapreHasExtraPercent : undefined,
+          isapreExtraPercent: editPersonalForm.healthSystem === "isapre" && editPersonalForm.isapreHasExtraPercent ? editPersonalForm.isapreExtraPercent || undefined : undefined,
+          hasMobilization: editPersonalForm.hasMobilization,
+          availableExtraShifts: editPersonalForm.availableExtraShifts,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || "Error al guardar");
+        return;
+      }
+      // Update local state with returned data
+      setGuardia((prev) => ({
+        ...prev,
+        availableExtraShifts: editPersonalForm.availableExtraShifts,
+        persona: {
+          ...prev.persona,
+          firstName: editPersonalForm.firstName.trim() || prev.persona.firstName,
+          lastName: editPersonalForm.lastName.trim() || prev.persona.lastName,
+          rut: editPersonalForm.rut.trim() || prev.persona.rut,
+          email: editPersonalForm.email.trim() || prev.persona.email,
+          phoneMobile: editPersonalForm.phoneMobile.trim() || prev.persona.phoneMobile,
+          sex: editPersonalForm.sex || prev.persona.sex,
+          birthDate: editPersonalForm.birthDate || prev.persona.birthDate,
+          afp: editPersonalForm.afp || prev.persona.afp,
+          healthSystem: editPersonalForm.healthSystem || prev.persona.healthSystem,
+          isapreName: editPersonalForm.isapreName || prev.persona.isapreName,
+          isapreHasExtraPercent: editPersonalForm.isapreHasExtraPercent,
+          isapreExtraPercent: editPersonalForm.isapreExtraPercent || prev.persona.isapreExtraPercent,
+          hasMobilization: editPersonalForm.hasMobilization,
+        },
+      }));
+      toast.success("Datos actualizados");
+      setEditPersonalOpen(false);
+    } catch {
+      toast.error("Error al guardar datos personales");
+    } finally {
+      setEditPersonalSaving(false);
+    }
+  };
 
   const loadDocLinks = async () => {
     setLoadingDocLinks(true);
@@ -518,11 +649,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     });
   }, [guardia.documents]);
 
-  const toDateInput = (value?: string | null) => {
-    if (!value) return "";
-    return value.slice(0, 10);
-  };
-
   const handleSendCommunication = async () => {
     if (!commForm.templateId) {
       toast.error("Selecciona una plantilla");
@@ -707,8 +833,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       </Card>
 
       <Card id="datos">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Datos personales</CardTitle>
+          {canManageGuardias && (
+            <Button size="sm" variant="outline" onClick={openEditPersonal}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Editar
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
           <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly />
@@ -1260,7 +1392,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   <p className="text-sm">{comment.comment}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(comment.createdAt).toLocaleString("es-CL")}
-                    {comment.createdBy ? ` · ${comment.createdBy}` : ""}
+                    {comment.createdByName ? ` · ${comment.createdByName}` : ""}
                   </p>
                 </div>
               ))}
@@ -1281,9 +1413,10 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           ) : (
             guardia.historyEvents.map((event) => (
               <div key={event.id} className="rounded-md border border-border p-3">
-                <p className="text-sm font-medium">{event.eventType}</p>
+                <p className="text-sm font-medium">{EVENT_TYPE_LABEL[event.eventType] || event.eventType}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(event.createdAt).toLocaleString("es-CL")}
+                  {event.createdByName ? ` · por ${event.createdByName}` : ""}
                   {event.reason ? ` · ${event.reason}` : ""}
                 </p>
               </div>
@@ -1291,6 +1424,168 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           )}
         </CardContent>
       </Card>
+
+      {/* ── Edit Personal Data Modal ── */}
+      <Dialog open={editPersonalOpen} onOpenChange={setEditPersonalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Editar datos personales</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nombre *</Label>
+              <Input
+                value={editPersonalForm.firstName}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, firstName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Apellido *</Label>
+              <Input
+                value={editPersonalForm.lastName}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, lastName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">RUT</Label>
+              <Input
+                value={editPersonalForm.rut}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, rut: e.target.value }))}
+                placeholder="12.345.678-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input
+                type="email"
+                value={editPersonalForm.email}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Celular</Label>
+              <Input
+                value={editPersonalForm.phoneMobile}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, phoneMobile: e.target.value }))}
+                placeholder="912345678"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sexo</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editPersonalForm.sex}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, sex: e.target.value }))}
+              >
+                <option value="">Sin especificar</option>
+                <option value="masculino">Masculino</option>
+                <option value="femenino">Femenino</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha de nacimiento</Label>
+              <Input
+                type="date"
+                value={editPersonalForm.birthDate}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">AFP</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editPersonalForm.afp}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, afp: e.target.value }))}
+              >
+                <option value="">Sin AFP</option>
+                {AFP_CHILE.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sistema de salud</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editPersonalForm.healthSystem}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, healthSystem: e.target.value }))}
+              >
+                <option value="">Sin sistema</option>
+                {HEALTH_SYSTEMS.map((h) => (
+                  <option key={h} value={h}>{h.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+            {editPersonalForm.healthSystem === "isapre" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Isapre</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={editPersonalForm.isapreName}
+                    onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreName: e.target.value }))}
+                  >
+                    <option value="">Seleccionar</option>
+                    {ISAPRES_CHILE.map((i) => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5 flex items-end gap-3">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editPersonalForm.isapreHasExtraPercent}
+                      onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreHasExtraPercent: e.target.checked }))}
+                      className="rounded border-input"
+                    />
+                    Cotización extra
+                  </label>
+                  {editPersonalForm.isapreHasExtraPercent && (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="w-24"
+                      placeholder="%"
+                      value={editPersonalForm.isapreExtraPercent}
+                      onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreExtraPercent: e.target.value }))}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+            <div className="space-y-1.5 sm:col-span-2 flex gap-6">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editPersonalForm.hasMobilization}
+                  onChange={(e) => setEditPersonalForm((p) => ({ ...p, hasMobilization: e.target.checked }))}
+                  className="rounded border-input"
+                />
+                Con movilización
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editPersonalForm.availableExtraShifts}
+                  onChange={(e) => setEditPersonalForm((p) => ({ ...p, availableExtraShifts: e.target.checked }))}
+                  className="rounded border-input"
+                />
+                Disponible para turnos extra
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPersonalOpen(false)} disabled={editPersonalSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEditPersonal} disabled={editPersonalSaving}>
+              {editPersonalSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

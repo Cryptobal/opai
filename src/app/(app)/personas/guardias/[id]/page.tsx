@@ -22,7 +22,7 @@ export default async function GuardiaDetailPage({
   }
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const [guardia, asignaciones] = await Promise.all([
+  const [guardia, asignaciones, adminUsers] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },
       include: {
@@ -47,9 +47,27 @@ export default async function GuardiaDetailPage({
       },
       orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
     }),
+    prisma.admin.findMany({
+      where: { tenantId },
+      select: { id: true, name: true },
+    }),
   ]);
 
   if (!guardia) notFound();
+
+  // Enrich history events and comments with user names
+  const userMap = new Map(adminUsers.map((u) => [u.id, u.name]));
+  const enrichedGuardia = {
+    ...guardia,
+    historyEvents: guardia.historyEvents.map((e) => ({
+      ...e,
+      createdByName: e.createdBy ? userMap.get(e.createdBy) ?? null : null,
+    })),
+    comments: guardia.comments.map((c) => ({
+      ...c,
+      createdByName: c.createdBy ? userMap.get(c.createdBy) ?? null : null,
+    })),
+  };
 
   return (
     <div className="space-y-6">
@@ -59,7 +77,7 @@ export default async function GuardiaDetailPage({
       />
       <PersonasSubnav />
       <GuardiaDetailClient
-        initialGuardia={JSON.parse(JSON.stringify(guardia))}
+        initialGuardia={JSON.parse(JSON.stringify(enrichedGuardia))}
         asignaciones={JSON.parse(JSON.stringify(asignaciones))}
         userRole={role}
       />

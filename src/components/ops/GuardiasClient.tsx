@@ -701,18 +701,19 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             <EmptyState
               icon={<ShieldUser className="h-8 w-8" />}
               title="Sin guardias"
-              description="Agrega guardias para habilitar asignación en pauta. Luego haz clic en «Ficha y documentos» para cargar antecedentes, OS-10, cédula, currículum y contratos de cada uno."
+              description="Agrega guardias para habilitar asignación en pauta. Haz clic en un guardia para ver su ficha, documentos, cuentas bancarias e historial."
               compact
             />
           ) : (
             <div className={viewMode === "grid" ? "grid gap-2 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
               {filtered.map((item) => (
-                <div
+                <Link
                   key={item.id}
+                  href={`/personas/guardias/${item.id}`}
                   className={
                     viewMode === "grid"
-                      ? "rounded-lg border border-border p-3 sm:p-4 flex h-full flex-col justify-between gap-3"
-                      : "rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                      ? "rounded-lg border border-border p-3 sm:p-4 flex h-full flex-col justify-between gap-3 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                      : "rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                   }
                 >
                   <div>
@@ -739,13 +740,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       <p className="text-xs text-red-400 mt-1">Motivo: {item.blacklistReason}</p>
                     )}
                   </div>
-                  <div className={viewMode === "grid" ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"}>
+                  <div className={viewMode === "grid" ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"} onClick={(e) => e.stopPropagation()}>
                     <StatusBadge status={item.status} />
                     <select
                       className="h-8 rounded-md border border-border bg-background px-2 text-xs"
                       value={item.lifecycleStatus}
                       disabled={updatingId === item.id || !canManageGuardias}
-                      onChange={(e) => void handleLifecycleChange(item, e.target.value)}
+                      onClick={(e) => e.preventDefault()}
+                      onChange={(e) => { e.preventDefault(); void handleLifecycleChange(item, e.target.value); }}
                     >
                       {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
                         <option key={status} value={status}>
@@ -758,25 +760,18 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         Lista negra
                       </span>
                     ) : null}
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Link href={`/personas/guardias/${item.id}`}>Ficha y documentos</Link>
-                    </Button>
                     {canManageBlacklist ? (
                       <Button
                         size="sm"
                         variant={item.isBlacklisted ? "outline" : "ghost"}
                         disabled={updatingId === item.id}
-                        onClick={() => void handleBlacklistToggle(item)}
+                        onClick={(e) => { e.preventDefault(); void handleBlacklistToggle(item); }}
                       >
                         {item.isBlacklisted ? "Quitar lista negra" : "Lista negra"}
                       </Button>
                     ) : null}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

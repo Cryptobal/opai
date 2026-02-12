@@ -342,9 +342,9 @@ export function OpsPautaMensualClient({
       toast.success(`Serie pintada (${payload.data.updated} días)`);
       setSerieModalOpen(false);
       await fetchPauta();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("No se pudo pintar la serie");
+      toast.error(error?.message || "No se pudo pintar la serie");
     } finally {
       setSerieSaving(false);
     }

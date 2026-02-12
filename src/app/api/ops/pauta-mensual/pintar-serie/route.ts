@@ -125,15 +125,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { start: monthStart, end: monthEnd } = getMonthDateRange(body.year, body.month);
-    const monthDates = listDatesBetween(monthStart, monthEnd);
 
-    // Generate the series pattern
+    // Only paint from the assignment start date (or click date), not before
+    const effectiveStart = asignacion.startDate > monthStart ? asignacion.startDate : monthStart;
+    const paintDates = listDatesBetween(effectiveStart, monthEnd);
+
+    // Generate the series pattern (only for dates from effectiveStart)
     const serieEntries = generateSerieForMonth(
       startDate,
       body.startPosition,
       body.patternWork,
       body.patternOff,
-      monthDates
+      paintDates
     );
 
     // Save the serie definition (deactivate previous ones for same puesto+slot)
