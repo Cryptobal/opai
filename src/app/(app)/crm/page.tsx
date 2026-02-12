@@ -19,10 +19,7 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import {
-  TrendingUp,
-  TrendingDown,
-} from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -69,7 +66,7 @@ export default async function CRMPage() {
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-  // All queries in parallel
+  // All queries in parallel (CRM only, no ops)
   const [
     leadsThisMonth,
     leadsPrevMonth,
@@ -81,92 +78,48 @@ export default async function CRMPage() {
     installationsActive,
     openDealsCount,
     openDealsAmountResult,
-    // Funnel 30d
     leadsCreated30,
     leadsConverted30,
     proposalsSent30,
     wonDealsWithProposal30Rows,
-    // Chart data
     leadsByMonthRaw,
     quotesByMonthRaw,
     leadsBySourceGroup,
   ] = await Promise.all([
-    // KPIs
-    prisma.crmLead.count({
-      where: { tenantId, createdAt: { gte: startOfThisMonth } },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, status: 'pending' },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, status: 'in_review' },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, status: 'approved', createdAt: { gte: twelveMonthsAgo } },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, status: 'rejected', createdAt: { gte: twelveMonthsAgo } },
-    }),
-    prisma.crmAccount.count({
-      where: { tenantId, status: 'client_active' },
-    }),
-    prisma.crmInstallation.count({
-      where: { tenantId, isActive: true },
-    }),
-    prisma.crmDeal.count({
-      where: { tenantId, status: 'open' },
-    }),
-    prisma.crmDeal.aggregate({
-      where: { tenantId, status: 'open' },
-      _sum: { amount: true },
-    }),
-    // Funnel
-    prisma.crmLead.count({
-      where: { tenantId, createdAt: { gte: thirtyDaysAgo } },
-    }),
-    prisma.crmLead.count({
-      where: { tenantId, createdAt: { gte: thirtyDaysAgo }, convertedDealId: { not: null } },
-    }),
-    prisma.crmDeal.count({
-      where: { tenantId, proposalSentAt: { gte: thirtyDaysAgo } },
-    }),
+    prisma.crmLead.count({ where: { tenantId, createdAt: { gte: startOfThisMonth } } }),
+    prisma.crmLead.count({ where: { tenantId, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } } }),
+    prisma.crmLead.count({ where: { tenantId, status: 'pending' } }),
+    prisma.crmLead.count({ where: { tenantId, status: 'in_review' } }),
+    prisma.crmLead.count({ where: { tenantId, status: 'approved', createdAt: { gte: twelveMonthsAgo } } }),
+    prisma.crmLead.count({ where: { tenantId, status: 'rejected', createdAt: { gte: twelveMonthsAgo } } }),
+    prisma.crmAccount.count({ where: { tenantId, status: 'client_active' } }),
+    prisma.crmInstallation.count({ where: { tenantId, isActive: true } }),
+    prisma.crmDeal.count({ where: { tenantId, status: 'open' } }),
+    prisma.crmDeal.aggregate({ where: { tenantId, status: 'open' }, _sum: { amount: true } }),
+    prisma.crmLead.count({ where: { tenantId, createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.crmLead.count({ where: { tenantId, createdAt: { gte: thirtyDaysAgo }, convertedDealId: { not: null } } }),
+    prisma.crmDeal.count({ where: { tenantId, proposalSentAt: { gte: thirtyDaysAgo } } }),
     prisma.crmDealStageHistory.findMany({
-      where: {
-        tenantId,
-        changedAt: { gte: thirtyDaysAgo },
-        toStage: { is: { isClosedWon: true } },
-        deal: { is: { proposalSentAt: { not: null } } },
-      },
+      where: { tenantId, changedAt: { gte: thirtyDaysAgo }, toStage: { is: { isClosedWon: true } }, deal: { is: { proposalSentAt: { not: null } } } },
       select: { dealId: true },
       distinct: ['dealId'],
     }),
-    // Charts
     prisma.$queryRaw<Array<{ month: Date; status: string; count: bigint }>>`
       SELECT date_trunc('month', created_at)::date as month, status, COUNT(*)::bigint as count
-      FROM crm.leads
-      WHERE tenant_id = ${tenantId} AND created_at >= ${twelveMonthsAgo}
+      FROM crm.leads WHERE tenant_id = ${tenantId} AND created_at >= ${twelveMonthsAgo}
       GROUP BY 1, 2 ORDER BY 1
     `,
     prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
       SELECT date_trunc('month', proposal_sent_at)::date as month, COUNT(*)::bigint as count
-      FROM crm.deals
-      WHERE tenant_id = ${tenantId} AND proposal_sent_at >= ${twentyFourMonthsAgo}
+      FROM crm.deals WHERE tenant_id = ${tenantId} AND proposal_sent_at >= ${twentyFourMonthsAgo}
       GROUP BY 1 ORDER BY 1
     `,
-    prisma.crmLead.groupBy({
-      by: ['source'],
-      where: { tenantId, createdAt: { gte: twelveMonthsAgo } },
-      _count: true,
-    }),
+    prisma.crmLead.groupBy({ by: ['source'], where: { tenantId, createdAt: { gte: twelveMonthsAgo } }, _count: true }),
   ]);
 
   // Derived metrics
   const wonDealsWithProposal30 = wonDealsWithProposal30Rows.length;
   const leadToDealRate30 = toPercent(leadsConverted30, leadsCreated30);
-  const proposalToWonRate30 = toPercent(wonDealsWithProposal30, proposalsSent30);
   const leadsMonthDelta = leadsPrevMonth > 0 ? Math.round(((leadsThisMonth - leadsPrevMonth) / leadsPrevMonth) * 100) : 0;
   const openDealsAmountFormatted =
     openDealsAmountResult._sum.amount != null
@@ -178,7 +131,7 @@ export default async function CRMPage() {
     { label: 'Leads nuevos', value: leadsCreated30, rate: null as number | null },
     { label: 'Convertidos', value: leadsConverted30, rate: toPercent(leadsConverted30, leadsCreated30) },
     { label: 'Propuestas', value: proposalsSent30, rate: toPercent(proposalsSent30, leadsConverted30) },
-    { label: 'Ganados', value: wonDealsWithProposal30, rate: proposalToWonRate30 },
+    { label: 'Ganados', value: wonDealsWithProposal30, rate: toPercent(wonDealsWithProposal30, proposalsSent30) },
   ];
 
   // Process leads by month
@@ -186,13 +139,13 @@ export default async function CRMPage() {
   for (const row of leadsByMonthRaw) {
     const key = row.month instanceof Date ? row.month.toISOString().slice(0, 7) : String(row.month).slice(0, 7);
     if (!monthMap.has(key)) monthMap.set(key, { pending: 0, in_review: 0, approved: 0, rejected: 0 });
-    const counts = monthMap.get(key)!;
     const c = Number(row.count);
     const s = row.status ?? 'pending';
-    if (s === 'pending') counts.pending = c;
-    else if (s === 'in_review') counts.in_review = c;
-    else if (s === 'approved') counts.approved = c;
-    else if (s === 'rejected') counts.rejected = c;
+    const m = monthMap.get(key)!;
+    if (s === 'pending') m.pending = c;
+    else if (s === 'in_review') m.in_review = c;
+    else if (s === 'approved') m.approved = c;
+    else if (s === 'rejected') m.rejected = c;
   }
   const leadsByMonthData: LeadByMonthRow[] = Array.from(monthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -224,7 +177,6 @@ export default async function CRMPage() {
     .map((r) => ({ ...r, percent: toPercent(r.count, totalSrc) }))
     .sort((a, b) => b.count - a.count);
 
-  // Total leads in 12m
   const totalLeads12m = leadsByMonthData.reduce((s, r) => s + r.total, 0);
   const totalQuotes24m = quotesByMonthData.reduce((s, r) => s + r.count, 0);
 
@@ -234,7 +186,7 @@ export default async function CRMPage() {
       <CrmSubnav role={role} />
 
       {/* ─── Resumen ejecutivo ─── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link href="/crm/leads" className="group">
           <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03]">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads este mes</p>
@@ -357,25 +309,16 @@ export default async function CRMPage() {
                     <div className="mb-1 flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{step.label}</span>
                       <div className="flex items-center gap-2">
-                        {step.rate !== null && (
-                          <span className="text-muted-foreground/50">{step.rate}%</span>
-                        )}
+                        {step.rate !== null && <span className="text-muted-foreground/50">{step.rate}%</span>}
                         <span className="font-semibold tabular-nums">{step.value}</span>
                       </div>
                     </div>
                     <div className="h-7 w-full overflow-hidden rounded-md bg-muted/30">
                       <div
-                        className="flex h-full items-center justify-end rounded-md px-2 transition-all"
+                        className="flex h-full items-center rounded-md transition-all"
                         style={{
                           width: `${widthPct}%`,
-                          background:
-                            i === 0
-                              ? 'rgba(29,185,144,0.2)'
-                              : i === 1
-                                ? 'rgba(29,185,144,0.35)'
-                                : i === 2
-                                  ? 'rgba(29,185,144,0.5)'
-                                  : 'rgba(29,185,144,0.7)',
+                          background: i === 0 ? 'rgba(29,185,144,0.2)' : i === 1 ? 'rgba(29,185,144,0.35)' : i === 2 ? 'rgba(29,185,144,0.5)' : 'rgba(29,185,144,0.7)',
                         }}
                       />
                     </div>
@@ -390,7 +333,6 @@ export default async function CRMPage() {
           </CardContent>
         </Card>
       </div>
-
     </div>
   );
 }
