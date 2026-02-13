@@ -24,6 +24,7 @@ import {
   Info,
   Shield,
   QrCode,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -63,6 +64,7 @@ export type CrmSectionKey =
   | "comentarios"
   | "dias-trabajados"
   | "turnos-extra"
+  | "rendiciones"
   | "historial"
   | "files";
 
@@ -280,6 +282,11 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: CalendarPlus,
     label: "Turnos extra",
   },
+  rendiciones: {
+    key: "rendiciones",
+    icon: Receipt,
+    label: "Rendiciones de gastos",
+  },
   historial: {
     key: "historial",
     icon: History,
@@ -344,5 +351,5 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
   installations: ["general", "account", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "quotes", "communication", "notes"],
-  guardias: ["datos", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "historial"],
+  guardias: ["datos", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };
