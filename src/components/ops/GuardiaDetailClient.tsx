@@ -11,6 +11,7 @@ import {
   FilePlus2,
   History,
   Landmark,
+  List,
   Loader2,
   KeyRound,
   Mail,
@@ -1961,11 +1962,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   ];
 
   const recordActions: RecordAction[] = [];
-  if (
+  const puedeDesvincular =
     canManageGuardias &&
     guardia.lifecycleStatus !== "desvinculado" &&
-    !guardia.isBlacklisted
-  ) {
+    !guardia.isBlacklisted;
+
+  if (puedeDesvincular) {
     recordActions.push({
       label: "Desvincular guardia",
       icon: Trash2,
@@ -1973,6 +1975,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       onClick: () => void handleDesvincular(),
     });
   }
+
+  // Siempre mostrar el menú de tres puntos (al menos con "Ir a lista")
+  const actionsToShow: RecordAction[] =
+    recordActions.length > 0
+      ? recordActions
+      : [
+          {
+            label: "Ir a lista de guardias",
+            icon: List,
+            onClick: () => router.push("/personas/guardias"),
+          },
+        ];
 
   return (
     <>
@@ -1985,7 +1999,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         badge={{ label: guardiaBadgeLabel, variant: guardiaBadgeVariant }}
         backHref="/personas/guardias"
         backLabel="Guardias"
-        actions={recordActions.length > 0 ? recordActions : undefined}
+        actions={actionsToShow}
         extra={
           guardia.isBlacklisted ? (
             <span className="text-[11px] rounded-full bg-red-500/15 px-2 py-1 text-red-400">
