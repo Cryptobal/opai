@@ -85,17 +85,27 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           .map((r) => {
             const bg = STATUS_BG[r.status] || STATUS_BG.pendiente;
             const label = r.status === "completada" && r.horaMarcada ? r.horaMarcada : STATUS_LABEL[r.status] || "—";
-            return `<td style="text-align:center;font-size:9px;padding:2px 3px;background:${bg}20;color:${bg};font-weight:600;border:1px solid #333">${label}</td>`;
+            const hasNote = r.notes ? `<div style="font-size:7px;color:#a5b4fc;margin-top:1px">💬</div>` : "";
+            return `<td style="text-align:center;font-size:9px;padding:2px 3px;background:${bg}20;color:${bg};font-weight:600;border:1px solid #333">${label}${hasNote}</td>`;
           })
           .join("");
 
         const instBg = INST_STATUS_BG[inst.statusInstalacion] || INST_STATUS_BG.normal;
+
+        // Collect notes for this installation (installation + rounds)
+        const hasInstNotes = inst.notes;
+        const roundsWithNotes = inst.rondas.filter((r) => r.notes);
+        const hasAnyNotes = hasInstNotes || roundsWithNotes.length > 0;
+        const notesIndicator = hasAnyNotes
+          ? `<div style="font-size:8px;color:#a5b4fc;margin-top:2px">📝 Ver notas abajo</div>`
+          : "";
 
         return `<tr>
           <td style="text-align:center;padding:4px;border:1px solid #333;font-size:10px;font-weight:600">${idx + 1}</td>
           <td style="padding:4px;border:1px solid #333;font-size:10px;max-width:100px">
             ${escapeHtml(inst.installationName)}
             <span style="display:inline-block;margin-left:4px;background:${instBg}20;color:${instBg};font-size:8px;padding:1px 4px;border-radius:6px;font-weight:600">${inst.guardiasPresentes}/${inst.guardiasRequeridos}</span>
+            ${notesIndicator}
           </td>
           <td style="padding:4px;border:1px solid #333;font-size:9px">${guardiaNames || "—"}</td>
           <td style="text-align:center;padding:4px;border:1px solid #333;font-size:9px">${horaLlegada}</td>
@@ -104,6 +114,35 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           <td style="padding:4px;border:1px solid #333;font-size:9px">${escapeHtml(inst.guardiaDiaNombres) || "—"}</td>
         </tr>`;
       })
+      .join("");
+
+    // Build notes section (installation notes + round notes)
+    const notesEntries = reporte.instalaciones
+      .map((inst, idx) => {
+        const parts: string[] = [];
+
+        // Installation-level notes
+        if (inst.notes) {
+          parts.push(`<div style="margin-bottom:2px"><span style="color:#a5b4fc;font-weight:600">Nota:</span> ${escapeHtml(inst.notes)}</div>`);
+        }
+
+        // Round notes
+        const roundNotes = inst.rondas.filter((r) => r.notes);
+        for (const r of roundNotes) {
+          const rLabel = r.status === "completada" ? "✓" : r.status === "omitida" ? "✗" : "—";
+          parts.push(
+            `<div style="margin-bottom:2px"><span style="color:#94a3b8">R${r.rondaNumber} (${r.horaEsperada.slice(0, 5)}) ${rLabel}:</span> ${escapeHtml(r.notes)}</div>`,
+          );
+        }
+
+        if (parts.length === 0) return "";
+
+        return `<div style="margin-bottom:8px">
+          <p style="font-size:10px;font-weight:700;color:#e4e4e7;margin-bottom:3px">${idx + 1}. ${escapeHtml(inst.installationName)}</p>
+          <div style="font-size:9px;color:#d4d4d8;padding-left:12px">${parts.join("")}</div>
+        </div>`;
+      })
+      .filter(Boolean)
       .join("");
 
     const rondaHeaders = (reporte.instalaciones[0]?.rondas || [])
@@ -156,6 +195,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   </table>
 
   ${reporte.generalNotes ? `<div style="margin-top:16px;padding:8px 12px;background:#1e1e2e;border-radius:6px;border:1px solid #333"><p style="font-size:9px;color:#a5b4fc;font-weight:600;margin-bottom:4px">Notas generales</p><p style="font-size:10px;color:#d4d4d8;white-space:pre-wrap">${escapeHtml(reporte.generalNotes)}</p></div>` : ""}
+
+  ${notesEntries ? `<div style="margin-top:16px;padding:8px 12px;background:#1e1e2e;border-radius:6px;border:1px solid #333"><p style="font-size:10px;color:#a5b4fc;font-weight:700;margin-bottom:8px">Comentarios por instalación y rondas</p>${notesEntries}</div>` : ""}
 
   <div style="margin-top:12px;display:flex;gap:16px;font-size:9px;color:#71717a">
     <span>Total instalaciones: ${reporte.instalaciones.length}</span>
