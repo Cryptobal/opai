@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, MessageCircle, Plus, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,58 @@ type ChatMessage = {
 
 const MAX_VISIBLE_MESSAGES = 120;
 
+function renderMessageContent(content: string) {
+  const lines = content.split("\n");
+  return lines.map((line, idx) => (
+    <Fragment key={`${idx}-${line.slice(0, 12)}`}>
+      {linkifyLine(line)}
+      {idx < lines.length - 1 ? <br /> : null}
+    </Fragment>
+  ));
+}
+
+function linkifyLine(line: string) {
+  const parts: Array<JSX.Element | string> = [];
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = regex.exec(line);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      parts.push(line.slice(lastIndex, match.index));
+    }
+
+    const label = match[1];
+    const markdownHref = match[2];
+    const rawHref = match[3];
+    const href = markdownHref ?? rawHref;
+    const text = label ?? "Ingresa acá";
+
+    if (href) {
+      parts.push(
+        <a
+          key={`${match.index}-${href}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="underline underline-offset-2 text-cyan-300 hover:text-cyan-200"
+        >
+          {text}
+        </a>,
+      );
+    }
+
+    lastIndex = regex.lastIndex;
+    match = regex.exec(line);
+  }
+
+  if (lastIndex < line.length) {
+    parts.push(line.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : line;
+}
+
 export function AiHelpChatWidget() {
   const [open, setOpen] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -34,6 +86,7 @@ export function AiHelpChatWidget() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(true);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -97,6 +150,11 @@ export function AiHelpChatWidget() {
     setMessages([]);
   };
 
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, sending]);
+
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -127,14 +185,26 @@ export function AiHelpChatWidget() {
 
       const newConversationId = json.data?.conversationId as string;
       const assistant = json.data?.assistantMessage as ChatMessage | undefined;
+      const assistantText =
+        typeof json.data?.assistantText === "string" ? json.data.assistantText.trim() : "";
       setPersistenceEnabled(json.data?.persistenceEnabled !== false);
 
       if (newConversationId) {
         setActiveConversationId(newConversationId);
         setIsNewConversation(false);
       }
-      if (assistant) {
+      if (assistant && assistant.content?.trim()) {
         setMessages((prev) => [...prev, assistant].slice(-MAX_VISIBLE_MESSAGES));
+      } else if (assistantText) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `tmp-assistant-fallback-${Date.now()}`,
+            role: "assistant",
+            content: assistantText,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
       }
 
       const listRes = await fetch("/api/ai/help-chat/conversations");
@@ -167,7 +237,7 @@ export function AiHelpChatWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-[1.03] bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] md:bottom-6"
+        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-transform hover:scale-[1.05] bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] md:bottom-6"
         aria-label="Abrir asistente IA"
       >
         <MessageCircle className="mx-auto h-5 w-5" />
@@ -182,10 +252,10 @@ export function AiHelpChatWidget() {
           />
 
           {/* Desktop: panel anclado abajo derecha */}
-          <div className="hidden md:flex fixed right-6 bottom-24 z-50 h-[68vh] max-h-[680px] w-[420px] flex-col rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="hidden md:flex fixed right-6 bottom-24 z-50 h-[68vh] max-h-[680px] w-[420px] flex-col rounded-2xl border border-cyan-500/20 bg-background/95 backdrop-blur shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
               <div className="flex items-center gap-2 text-base font-semibold">
-                <Bot className="h-4 w-4 text-primary" />
+                <Bot className="h-4 w-4 text-cyan-400" />
                 Asistente IA
               </div>
               <button
@@ -223,7 +293,7 @@ export function AiHelpChatWidget() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {loadingMessages ? (
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -243,7 +313,7 @@ export function AiHelpChatWidget() {
                         : "bg-muted text-foreground",
                     )}
                   >
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                   </div>
                 ))
               )}
@@ -279,10 +349,10 @@ export function AiHelpChatWidget() {
           </div>
 
           {/* Mobile: full-screen */}
-          <div className="md:hidden fixed inset-0 z-50 bg-background flex flex-col">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="md:hidden fixed inset-0 z-50 bg-background flex flex-col">
+              <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-gradient-to-r from-cyan-500/10 via-emerald-500/5 to-indigo-500/10">
               <div className="flex items-center gap-2 text-base font-semibold">
-                <Bot className="h-4 w-4 text-primary" />
+                  <Bot className="h-4 w-4 text-cyan-400" />
                 Asistente IA
               </div>
               <button
@@ -320,7 +390,7 @@ export function AiHelpChatWidget() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {loadingMessages ? (
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -340,7 +410,7 @@ export function AiHelpChatWidget() {
                         : "bg-muted text-foreground",
                     )}
                   >
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                   </div>
                 ))
               )}

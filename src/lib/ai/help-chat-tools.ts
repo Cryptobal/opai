@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { todayChileStr } from "@/lib/fx-date";
 
 export type GuardiasSearchResult = {
   id: string;
@@ -107,5 +108,52 @@ export async function getGuardiasMetrics(tenantId: string): Promise<Record<strin
     seleccionados,
     conAsignacionActiva,
     sinAsignacionActiva,
+  };
+}
+
+export type FxIndicatorsResult = {
+  uf: {
+    value: number;
+    date: string;
+    source: string | null;
+  } | null;
+  utm: {
+    value: number;
+    month: string;
+    source: string | null;
+  } | null;
+};
+
+export async function getUfUtmIndicators(): Promise<FxIndicatorsResult> {
+  const today = new Date(`${todayChileStr()}T00:00:00Z`);
+
+  const ufToday = await prisma.fxUfRate.findUnique({
+    where: { date: today },
+  });
+  const ufLatest = ufToday
+    ? ufToday
+    : await prisma.fxUfRate.findFirst({
+        orderBy: { date: "desc" },
+      });
+
+  const utmLatest = await prisma.fxUtmRate.findFirst({
+    orderBy: { month: "desc" },
+  });
+
+  return {
+    uf: ufLatest
+      ? {
+          value: Number(ufLatest.value),
+          date: ufLatest.date.toISOString().slice(0, 10),
+          source: ufLatest.source ?? null,
+        }
+      : null,
+    utm: utmLatest
+      ? {
+          value: Number(utmLatest.value),
+          month: utmLatest.month.toISOString().slice(0, 10),
+          source: utmLatest.source ?? null,
+        }
+      : null,
   };
 }

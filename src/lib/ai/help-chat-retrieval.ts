@@ -3,8 +3,11 @@ import path from "node:path";
 
 type DocChunk = {
   id: string;
+  source: string;
   title: string;
   body: string;
+  normalizedText: string;
+  tokenSet: Set<string>;
 };
 
 type RetrievalChunk = {
@@ -22,14 +25,89 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 let cache: DocsCache | null = null;
 
-function tokenize(text: string): string[] {
-  return text
+const STOPWORDS = new Set([
+  "como",
+  "donde",
+  "cuando",
+  "para",
+  "con",
+  "sin",
+  "que",
+  "del",
+  "las",
+  "los",
+  "una",
+  "uno",
+  "unos",
+  "unas",
+  "por",
+  "esta",
+  "este",
+  "esto",
+  "hay",
+  "puedo",
+  "quiero",
+  "necesito",
+  "hacer",
+  "saber",
+  "funciona",
+  "sistema",
+]);
+
+const TOKEN_SYNONYMS: Record<string, string[]> = {
+  cliente: ["clientes", "cuenta", "cuentas", "account", "accounts", "crm", "prospecto", "prospectos"],
+  cuenta: ["cliente", "clientes", "account", "accounts", "crm", "prospecto", "prospectos"],
+  ingreso: ["ingresar", "crear", "nuevo", "nueva", "alta", "registrar", "agregar"],
+  crear: ["ingresar", "alta", "nuevo", "nueva", "registrar", "agregar"],
+  guardia: ["guardias", "postulante", "postulantes", "desvinculado", "desvinculados", "persona", "personas"],
+  ronda: ["rondas", "patrulla", "patrullaje", "monitoreo"],
+  checkpoint: ["checkpoints", "punto", "puntos", "qr", "codigo", "codigoqr"],
+  qr: ["checkpoint", "checkpoints", "codigo", "codigoqr", "marcacion", "marcaciones"],
+  marcacion: ["marcaciones", "marcar", "entrada", "salida", "asistencia"],
+  programacion: ["programar", "agenda", "horario", "frecuencia", "plantilla", "templates"],
+  plantilla: ["plantillas", "template", "templates", "checkpoints", "ronda", "rondas"],
+  pauta: ["pauta_mensual", "pauta_diaria", "asistencia", "turno", "turnos", "puesto", "puestos", "series"],
+  mensual: ["mes", "pauta_mensual", "planificacion", "planificacionmensual"],
+  diaria: ["dia", "pauta_diaria", "asistencia", "asistencias", "reemplazo"],
+  puesto: ["puestos", "slot", "slots", "dotacion", "dotacionactiva"],
+  asistencia: ["pauta_diaria", "presente", "ausente", "reemplazo", "turnoextra"],
+  armar: ["crear", "configurar", "definir", "programar"],
+  ruta: ["modulo", "menu", "navegacion", "donde", "acceso", "pantalla"],
+  control: ["monitoreo", "seguimiento", "alertas", "dashboard", "gestion"],
+  seguridad: ["ronda", "rondas", "guardia", "guardias", "ops"],
+};
+
+function normalizeWord(word: string): string {
+  let w = word
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^a-z0-9]/g, "");
+
+  if (w.length > 4 && w.endsWith("es")) w = w.slice(0, -2);
+  else if (w.length > 3 && w.endsWith("s")) w = w.slice(0, -1);
+  return w;
+}
+
+function tokenize(text: string, keepStopwords = false): string[] {
+  return text
     .split(/\s+/)
-    .filter((t) => t.length >= 3);
+    .map((raw) => normalizeWord(raw))
+    .filter((t) => t.length >= 3)
+    .filter((t) => keepStopwords || !STOPWORDS.has(t));
+}
+
+function expandQueryTokens(tokens: string[]): Set<string> {
+  const expanded = new Set<string>();
+  for (const token of tokens) {
+    expanded.add(token);
+    const synonyms = TOKEN_SYNONYMS[token] ?? [];
+    for (const synonym of synonyms) {
+      const normalized = normalizeWord(synonym);
+      if (normalized.length >= 3) expanded.add(normalized);
+    }
+  }
+  return expanded;
 }
 
 function chunkMarkdown(content: string, fileLabel: string): DocChunk[] {
@@ -43,10 +121,14 @@ function chunkMarkdown(content: string, fileLabel: string): DocChunk[] {
   const flush = () => {
     const body = buffer.join("\n").trim();
     if (!body) return;
+    const combined = `${currentTitle}\n${body}`;
     chunks.push({
       id: `${fileLabel}-${idCounter++}`,
+      source: fileLabel,
       title: currentTitle,
       body: body.slice(0, 2400),
+      normalizedText: tokenize(combined, true).join(" "),
+      tokenSet: new Set(tokenize(combined)),
     });
     buffer = [];
   };
@@ -116,20 +198,35 @@ export async function retrieveDocsContext(
   const chunks = await getChunks();
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
-  const qSet = new Set(qTokens);
+  const qExpanded = expandQueryTokens(qTokens);
+  const normalizedQuery = tokenize(query, true).join(" ");
+
+  const hasClientIntent = qExpanded.has("cliente") || qExpanded.has("cuenta");
+  const hasGuardiaIntent = qExpanded.has("guardia");
+  const hasRondaIntent = qExpanded.has("ronda") || qExpanded.has("checkpoint") || qExpanded.has("qr");
 
   const scored = chunks
     .map((chunk) => {
-      const bodyTokens = tokenize(`${chunk.title}\n${chunk.body}`);
       let overlap = 0;
-      for (const token of bodyTokens) {
-        if (qSet.has(token)) overlap += 1;
+      for (const token of qExpanded) {
+        if (chunk.tokenSet.has(token)) overlap += 1;
       }
-      const titleBoost = qTokens.some((t) => tokenize(chunk.title).includes(t)) ? 4 : 0;
-      const score = overlap + titleBoost;
+
+      const source = chunk.source.toLowerCase();
+      const titleTokens = tokenize(chunk.title);
+      const titleBoost = qTokens.some((t) => titleTokens.includes(t)) ? 3 : 0;
+      const queryPhraseBoost = normalizedQuery && chunk.normalizedText.includes(normalizedQuery) ? 4 : 0;
+      const faqBoost = source.includes("asistente_faq_uso_funcional") ? 3 : 0;
+
+      let intentBoost = 0;
+      if (hasClientIntent && (source.includes("crm") || chunk.tokenSet.has("crm"))) intentBoost += 2;
+      if (hasGuardiaIntent && (source.includes("ops") || chunk.tokenSet.has("guardia"))) intentBoost += 2;
+      if (hasRondaIntent && (chunk.tokenSet.has("ronda") || chunk.tokenSet.has("checkpoint"))) intentBoost += 2;
+
+      const score = overlap * 2 + titleBoost + queryPhraseBoost + faqBoost + intentBoost;
       return { chunk, score };
     })
-    .filter((item) => item.score > 0)
+    .filter((item) => item.score >= 2)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(({ chunk, score }) => ({

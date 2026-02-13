@@ -4,7 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext } from "@/lib/ai/help-chat-retrieval";
-import { getGuardiasMetrics, searchGuardiasByNameOrRut } from "@/lib/ai/help-chat-tools";
+import {
+  getGuardiasMetrics,
+  getUfUtmIndicators,
+  searchGuardiasByNameOrRut,
+} from "@/lib/ai/help-chat-tools";
+import { buildHelpChatSystemPrompt } from "@/lib/ai/help-chat-system-prompt";
+import {
+  resolveFunctionalIntent,
+  shouldPreferFunctionalInference,
+} from "@/lib/ai/help-chat-intents";
 
 const MODEL = "gpt-4o-mini";
 
@@ -15,6 +24,42 @@ function hasChatPersistence(): boolean {
 
 function fallbackMessage(question: string): string {
   return `No tengo suficiente información para asegurar esto. ¿Quieres que te deje la pregunta para hacerla al administrador? Cópiala y pégala tal cual: "${question}"`;
+}
+
+function toAbsoluteUrl(pathname: string, appBaseUrl: string): string {
+  if (!pathname.startsWith("/")) return pathname;
+  const base = appBaseUrl.endsWith("/") ? appBaseUrl.slice(0, -1) : appBaseUrl;
+  return `${base}${pathname}`;
+}
+
+function normalizeAssistantLinks(text: string, appBaseUrl: string): string {
+  let output = text;
+
+  // "- URL: `/ruta`" -> "- Ingresa acá: [Abrir enlace](https://.../ruta)"
+  output = output.replace(
+    /-\s*URL:\s*`(\/[^`]+)`/gi,
+    (_, path: string) => `- Ingresa acá: [Abrir enlace](${toAbsoluteUrl(path, appBaseUrl)})`,
+  );
+
+  // [texto](/ruta) -> [texto](https://.../ruta)
+  output = output.replace(
+    /\[([^\]]+)\]\((\/[^)\s]+)\)/g,
+    (_, label: string, path: string) => `[${label}](${toAbsoluteUrl(path, appBaseUrl)})`,
+  );
+
+  // "`/ruta`" -> "[Ingresa acá](https://.../ruta)"
+  output = output.replace(
+    /`(\/[a-z0-9\-/_[\]]+)`/gi,
+    (_, path: string) => `[Ingresa acá](${toAbsoluteUrl(path, appBaseUrl)})`,
+  );
+
+  // "( /ruta )" textual -> "(Ingresa acá: [Abrir enlace](https://.../ruta))"
+  output = output.replace(
+    /\((\/[a-z0-9\-/_[\]]+)\)/gi,
+    (_, path: string) => `(Ingresa acá: [Abrir enlace](${toAbsoluteUrl(path, appBaseUrl)}))`,
+  );
+
+  return output;
 }
 
 function clipTitle(text: string): string {
@@ -33,28 +78,29 @@ async function runModelWithTools(params: {
   docsContext: string;
   tenantId: string;
   allowDataQuestions: boolean;
+  appBaseUrl: string;
 }): Promise<ToolCallResult> {
-  const { userMessage, docsContext, tenantId, allowDataQuestions } = params;
+  const { userMessage, docsContext, tenantId, allowDataQuestions, appBaseUrl } = params;
   let toolCallsUsed = 0;
+  const fallback = fallbackMessage(userMessage);
+  const todayLabel = new Date().toLocaleString("es-CL", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
 
   const baseMessages: Array<Record<string, unknown>> = [
     {
       role: "system",
-      content:
-        "Eres un asistente de ayuda funcional de una aplicación SaaS interna. " +
-        "Reglas obligatorias: " +
-        "1) Nunca inventes datos, nunca infieras datos duros y nunca inventes pasos internos. " +
-        "2) Si no hay información suficiente para responder con certeza, responde exactamente con el texto de fallback que se te indique. " +
-        "3) Explica de forma clara y accionable, sin mencionar archivos, rutas técnicas ni ubicación de documentos. " +
-        "4) No cites fuentes textuales; responde como explicación directa al usuario final. " +
-        "5) Si hay datos de guardias o métricas entregados por herramientas, úsalos tal cual y aclara cuando un campo viene vacío.",
+      content: buildHelpChatSystemPrompt({
+        fallbackText: fallback,
+        allowDataQuestions,
+        todayLabel,
+        appBaseUrl,
+      }),
     },
     {
       role: "system",
-      content:
-        `Contexto documental disponible:\n${docsContext || "[sin contexto documental relevante]"}` +
-        "\n\nTexto fallback obligatorio cuando falte contexto: " +
-        `"${fallbackMessage(userMessage)}"`,
+      content: `Contexto documental relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}`,
     },
     { role: "user", content: userMessage },
   ];
@@ -82,6 +128,19 @@ async function runModelWithTools(params: {
           function: {
             name: "get_guardias_metrics",
             description: "Obtiene métricas agregadas de guardias del tenant actual.",
+            parameters: {
+              type: "object",
+              properties: {},
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "get_uf_utm",
+            description:
+              "Obtiene UF y UTM actuales desde la base de datos interna del sistema.",
             parameters: {
               type: "object",
               properties: {},
@@ -125,7 +184,12 @@ async function runModelWithTools(params: {
         continue;
       }
       const toolName = call.function.name;
-      const args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
+      } catch {
+        args = {};
+      }
       let result: unknown = { ok: false, error: "Herramienta no soportada" };
 
       if (toolName === "search_guardias") {
@@ -152,6 +216,18 @@ async function runModelWithTools(params: {
           result = {
             ok: false,
             error: "No fue posible consultar métricas en este momento.",
+          };
+        }
+      } else if (toolName === "get_uf_utm") {
+        try {
+          result = {
+            ok: true,
+            data: await getUfUtmIndicators(),
+          };
+        } catch {
+          result = {
+            ok: false,
+            error: "No fue posible consultar UF/UTM en este momento.",
           };
         }
       }
@@ -184,6 +260,7 @@ export async function POST(request: NextRequest) {
       message?: unknown;
       conversationId?: unknown;
     };
+    const appBaseUrl = request.nextUrl.origin;
 
     const userMessage = typeof body.message === "string" ? body.message.trim() : "";
     if (!userMessage) {
@@ -241,24 +318,25 @@ export async function POST(request: NextRequest) {
       )
       .join("\n\n");
 
-    let assistantText = "";
-    if (docsChunks.length === 0 && !cfg.allowDataQuestions) {
-      assistantText = fallbackMessage(userMessage);
-    } else {
-      const modelResult = await runModelWithTools({
-        userMessage,
-        docsContext,
-        tenantId: ctx.tenantId,
-        allowDataQuestions: cfg.allowDataQuestions,
-      });
-      assistantText = modelResult.assistantText || fallbackMessage(userMessage);
-      if (
-        docsChunks.length === 0 &&
-        modelResult.toolCallsUsed === 0 &&
-        !assistantText.includes("No tengo suficiente información para asegurar esto")
-      ) {
-        assistantText = fallbackMessage(userMessage);
-      }
+    /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs si hay) ── */
+    const modelResult = await runModelWithTools({
+      userMessage,
+      docsContext,
+      tenantId: ctx.tenantId,
+      allowDataQuestions: cfg.allowDataQuestions,
+      appBaseUrl,
+    });
+    let assistantText = normalizeAssistantLinks(
+      modelResult.assistantText || fallbackMessage(userMessage),
+      appBaseUrl,
+    );
+    const inferredFunctionalAnswer = resolveFunctionalIntent(userMessage, appBaseUrl);
+    const assistantUsedFallback = assistantText.includes("No tengo suficiente información para asegurar esto");
+    if (
+      inferredFunctionalAnswer &&
+      (assistantUsedFallback || shouldPreferFunctionalInference(userMessage, assistantText))
+    ) {
+      assistantText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
     }
 
     const assistantMessage =
@@ -296,6 +374,7 @@ export async function POST(request: NextRequest) {
       data: {
         conversationId: conversation?.id ?? null,
         assistantMessage,
+        assistantText: assistantText,
         persistenceEnabled,
       },
     });
