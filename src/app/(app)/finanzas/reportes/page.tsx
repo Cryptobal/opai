@@ -47,7 +47,7 @@ export default async function ReportesPage() {
         COALESCE(SUM(amount), 0)::int AS total,
         COUNT(*)::int AS count
       FROM finance.finance_rendiciones
-      WHERE tenant_id = ${tenantId}::uuid
+      WHERE tenant_id = ${tenantId}
         AND date >= NOW() - INTERVAL '12 months'
       GROUP BY to_char(date, 'YYYY-MM')
       ORDER BY month ASC
