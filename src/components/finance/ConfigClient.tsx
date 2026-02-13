@@ -177,6 +177,29 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
     maxPerMonth: "",
   });
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  // Categorías únicas existentes para el selector
+  const existingCategories = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
+
+  const handleSeedDefaults = useCallback(async () => {
+    if (!confirm("¿Cargar ítems por defecto? Los ítems existentes no se duplicarán.")) return;
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/finance/seed", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error");
+      toast.success(data.message || "Ítems cargados");
+      // Reload items
+      const listRes = await fetch("/api/finance/items");
+      const listData = await listRes.json();
+      if (listRes.ok && listData.data) setItems(listData.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cargar ítems");
+    } finally {
+      setSeeding(false);
+    }
+  }, []);
 
   const openCreate = useCallback(() => {
     setEditingItem(null);
@@ -274,69 +297,86 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold">Ítems de rendición</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Define los ítems disponibles para clasificar rendiciones.
           </p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nuevo ítem
-        </Button>
+        <div className="flex gap-2">
+          {items.length === 0 && (
+            <Button size="sm" variant="outline" onClick={handleSeedDefaults} disabled={seeding}>
+              {seeding ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              Cargar por defecto
+            </Button>
+          )}
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" />
+            Nuevo ítem
+          </Button>
+        </div>
       </div>
 
       {items.length === 0 ? (
         <Card>
-          <CardContent className="pt-8 pb-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              No hay ítems configurados.
-            </p>
+          <CardContent className="pt-8 pb-8 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">No hay ítems configurados.</p>
+            <Button variant="outline" onClick={handleSeedDefaults} disabled={seeding}>
+              {seeding ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+              Cargar ítems por defecto
+            </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-1.5">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className={cn(
-                "flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors",
-                item.active ? "border-border" : "border-border/50 opacity-60"
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  {item.code && (
-                    <span className="text-xs text-muted-foreground font-mono">{item.code}</span>
-                  )}
-                  {!item.active && (
-                    <Badge className="bg-zinc-500/15 text-zinc-400 text-[10px]">Inactivo</Badge>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
-                  {item.category && <span>Categoría: {item.category}</span>}
-                  {item.accountCode && <span>Cuenta: {item.accountCode}</span>}
-                  {item.maxPerDay != null && <span>Máx/día: {fmtCLP.format(item.maxPerDay)}</span>}
-                  {item.maxPerMonth != null && <span>Máx/mes: {fmtCLP.format(item.maxPerMonth)}</span>}
+      ) : (() => {
+        // Agrupar por categoría
+        const grouped: Record<string, ItemData[]> = {};
+        items.forEach((item) => {
+          const cat = item.category || "Sin categoría";
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(item);
+        });
+        const sortedCategories = Object.keys(grouped).sort((a, b) => a === "Sin categoría" ? 1 : b === "Sin categoría" ? -1 : a.localeCompare(b, "es"));
+
+        return (
+          <div className="space-y-4">
+            {sortedCategories.map((cat) => (
+              <div key={cat}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 px-1">{cat}</p>
+                <div className="space-y-1">
+                  {grouped[cat].map((item) => (
+                    <div key={item.id} className={cn("flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors", item.active ? "border-border" : "border-border/50 opacity-60")}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{item.name}</p>
+                          {item.code && <span className="text-xs text-muted-foreground font-mono">{item.code}</span>}
+                          {!item.active && <Badge className="bg-zinc-500/15 text-zinc-400 text-[10px]">Inactivo</Badge>}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
+                          {item.accountCode && <span>Cuenta: {item.accountCode}</span>}
+                          {item.maxPerDay != null && <span>Máx/día: {fmtCLP.format(item.maxPerDay)}</span>}
+                          {item.maxPerMonth != null && <span>Máx/mes: {fmtCLP.format(item.maxPerMonth)}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => handleToggleActive(item)} className="h-8 w-8 p-0" title={item.active ? "Desactivar" : "Activar"}>
+                          {item.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(item)} className="h-8 w-8 p-0">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(item)} className="h-8 w-8 p-0" title={item.active ? "Desactivar" : "Activar"}>
-                  {item.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(item)} className="h-8 w-8 p-0">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Item dialog — mobile-friendly */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -352,11 +392,25 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="itemCode">Código</Label>
-                <Input id="itemCode" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="mt-1" />
+                <Input id="itemCode" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ej: ALM" className="mt-1" />
               </div>
               <div>
                 <Label htmlFor="itemCategory">Categoría</Label>
-                <Input id="itemCategory" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1" />
+                {existingCategories.length > 0 ? (
+                  <Select value={form.category || NONE_VALUE} onValueChange={(v) => setForm({ ...form, category: v === NONE_VALUE ? "" : v })}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>Sin categoría</SelectItem>
+                      {existingCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input id="itemCategory" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Ej: Alimentación" className="mt-1" />
+                )}
               </div>
             </div>
             <div>

@@ -11,8 +11,8 @@ import { z } from "zod";
 
 const createItemSchema = z.object({
   name: z.string().min(1).max(200),
-  code: z.string().max(50).optional(),
-  category: z.string().max(100).optional(),
+  code: z.string().max(50).optional().nullable(),
+  category: z.string().max(100).optional().nullable(),
   active: z.boolean().default(true),
   maxPerDay: z.number().int().positive().optional().nullable(),
   maxPerMonth: z.number().int().positive().optional().nullable(),

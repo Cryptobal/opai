@@ -256,6 +256,11 @@ export function RendicionForm({
       if (!endLocation) errs.endLocation = "Captura la ubicación de fin";
     }
 
+    // Si no adjunta imagen, la observación es obligatoria (explicar por qué no hay comprobante)
+    if (attachments.length === 0 && !description.trim()) {
+      errs.description = "Si no adjuntas imagen, debes indicar el motivo en las observaciones";
+    }
+
     if (config?.requireImage && attachments.length === 0) {
       errs.attachments = "Debes adjuntar al menos una imagen";
     }
