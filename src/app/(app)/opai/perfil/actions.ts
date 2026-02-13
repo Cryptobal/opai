@@ -61,3 +61,56 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
   return { success: true };
 }
+
+/**
+ * Actualizar nombre del usuario autenticado.
+ */
+export async function updateDisplayName(name: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  const normalizedName = name.trim().replace(/\s+/g, ' ');
+  if (normalizedName.length < 2) {
+    return { success: false, error: 'El nombre debe tener al menos 2 caracteres' };
+  }
+  if (normalizedName.length > 120) {
+    return { success: false, error: 'El nombre no puede superar 120 caracteres' };
+  }
+
+  const user = await prisma.admin.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, tenantId: true, email: true, name: true },
+  });
+
+  if (!user) {
+    return { success: false, error: 'Usuario no encontrado' };
+  }
+
+  if (user.name === normalizedName) {
+    return { success: true, name: normalizedName };
+  }
+
+  await prisma.admin.update({
+    where: { id: user.id },
+    data: { name: normalizedName },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId: user.tenantId,
+      userId: user.id,
+      userEmail: user.email,
+      action: 'user.name_changed',
+      entity: 'user',
+      entityId: user.id,
+      details: {
+        fromName: user.name,
+        toName: normalizedName,
+      },
+    },
+  });
+
+  return { success: true, name: normalizedName };
+}

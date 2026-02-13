@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
@@ -35,18 +36,24 @@ export default async function AppLayout({
     redirect('/opai/login');
   }
 
-  // Resolver permisos desde role template (BD) o role legacy (defaults)
-  const permissions = await resolvePermissions({
-    role: session.user.role,
-    roleTemplateId: session.user.roleTemplateId,
-  });
+  // Resolver permisos y refrescar nombre/email desde BD.
+  const [permissions, dbUser] = await Promise.all([
+    resolvePermissions({
+      role: session.user.role,
+      roleTemplateId: session.user.roleTemplateId,
+    }),
+    prisma.admin.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, email: true },
+    }),
+  ]);
 
   // Delegar UI al Client Component con permisos resueltos
   return (
     <PermissionsProvider permissions={permissions}>
       <AppLayoutClient
-        userName={session.user?.name}
-        userEmail={session.user?.email}
+        userName={dbUser?.name ?? session.user?.name}
+        userEmail={dbUser?.email ?? session.user?.email}
         userRole={session.user.role}
         permissions={permissions}
       >

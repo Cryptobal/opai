@@ -1,4 +1,8 @@
-import { User, Mail, Shield, Calendar } from 'lucide-react';
+"use client";
+
+import { useState, useTransition } from "react";
+import { Loader2, Mail, Pencil, Save, Shield, User, X } from "lucide-react";
+import { updateDisplayName } from "@/app/(app)/opai/perfil/actions";
 
 interface UserInfoProps {
   user: {
@@ -9,17 +13,60 @@ interface UserInfoProps {
 }
 
 const roleLabels: Record<string, string> = {
-  owner: 'Propietario',
-  admin: 'Administrador',
-  editor: 'Editor',
-  solo_documentos: 'Solo Documentos',
-  solo_crm: 'Solo CRM',
-  solo_ops: 'Solo Ops',
-  solo_payroll: 'Solo Payroll',
-  viewer: 'Visualizador',
+  owner: "Propietario",
+  admin: "Administrador",
+  editor: "Editor",
+  solo_documentos: "Solo Documentos",
+  solo_crm: "Solo CRM",
+  solo_ops: "Solo Ops",
+  solo_payroll: "Solo Payroll",
+  viewer: "Visualizador",
 };
 
 export function UserInfo({ user }: UserInfoProps) {
+  const [isPending, startTransition] = useTransition();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [currentName, setCurrentName] = useState(user.name ?? "");
+  const [draftName, setDraftName] = useState(user.name ?? "");
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const startEditName = () => {
+    setStatusMessage(null);
+    setDraftName(currentName);
+    setIsEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setStatusMessage(null);
+    setDraftName(currentName);
+    setIsEditingName(false);
+  };
+
+  const saveName = () => {
+    setStatusMessage(null);
+    startTransition(async () => {
+      const result = await updateDisplayName(draftName);
+      if (!result.success) {
+        setStatusMessage({
+          type: "error",
+          message: result.error || "No se pudo actualizar el nombre",
+        });
+        return;
+      }
+      const newName = result.name ?? draftName.trim();
+      setCurrentName(newName);
+      setDraftName(newName);
+      setIsEditingName(false);
+      setStatusMessage({
+        type: "success",
+        message: "Nombre actualizado correctamente",
+      });
+    });
+  };
+
   return (
     <div className="bg-muted rounded-lg border border-border p-6">
       <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -30,9 +77,54 @@ export function UserInfo({ user }: UserInfoProps) {
       <div className="space-y-4">
         <div className="flex items-start gap-3">
           <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Nombre</p>
-            <p className="text-foreground font-medium">{user.name}</p>
+            {!isEditingName ? (
+              <button
+                type="button"
+                onClick={startEditName}
+                className="group mt-0.5 inline-flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-border hover:bg-accent/40"
+                title="Haz clic para cambiar tu nombre"
+              >
+                <span className="text-foreground font-medium">{currentName}</span>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground" />
+              </button>
+            ) : (
+              <div className="mt-1 space-y-2">
+                <input
+                  type="text"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  disabled={isPending}
+                  maxLength={120}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveName}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditName}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -53,6 +145,18 @@ export function UserInfo({ user }: UserInfoProps) {
             </p>
           </div>
         </div>
+
+        {statusMessage && (
+          <div
+            className={
+              statusMessage.type === "success"
+                ? "rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400"
+                : "rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400"
+            }
+          >
+            {statusMessage.message}
+          </div>
+        )}
       </div>
     </div>
   );

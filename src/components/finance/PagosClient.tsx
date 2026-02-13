@@ -84,6 +84,25 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+function extractFilenameFromDisposition(
+  contentDisposition: string | null,
+  fallback: string
+): string {
+  if (!contentDisposition) return fallback;
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return asciiMatch?.[1] ?? fallback;
+}
+
 /* ── Component ── */
 
 export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) {
@@ -149,7 +168,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/finance/pagos", {
+      const res = await fetch("/api/finance/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -158,11 +177,58 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
           notes: paymentNotes || undefined,
         }),
       });
-      const data = await res.json();
+
+      const data = (await res
+        .json()
+        .catch(() => ({}))) as {
+        error?: string;
+        data?: { id?: string; code?: string };
+      };
       if (!res.ok) throw new Error(data.error || "Error al crear pago");
-      toast.success(
-        `Pago ${data.code} creado con ${selectedIds.size} rendición(es)`
-      );
+
+      const paymentId = data.data?.id;
+      const paymentCode = data.data?.code ?? "sin-codigo";
+
+      if (paymentType === "BATCH_SANTANDER" && paymentId) {
+        const exportRes = await fetch(
+          `/api/finance/payments/${paymentId}/export-santander`,
+          { method: "GET" }
+        );
+        if (!exportRes.ok) {
+          const exportData = (await exportRes
+            .json()
+            .catch(() => ({}))) as { error?: string };
+          toast.success(
+            `Pago ${paymentCode} creado con ${selectedIds.size} rendición(es)`
+          );
+          throw new Error(
+            exportData.error ||
+              "Pago creado, pero no se pudo descargar el archivo Santander"
+          );
+        }
+
+        const blob = await exportRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = extractFilenameFromDisposition(
+          exportRes.headers.get("Content-Disposition"),
+          `${paymentCode}-santander.xlsx`
+        );
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        toast.success(
+          `Pago ${paymentCode} creado y archivo Santander descargado`
+        );
+      } else {
+        toast.success(
+          `Pago ${paymentCode} creado con ${selectedIds.size} rendición(es)`
+        );
+      }
+
       setCreateDialogOpen(false);
       setSelectedIds(new Set());
       setPaymentNotes("");
@@ -179,19 +245,26 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
       setExportingId(paymentId);
       try {
         const res = await fetch(
-          `/api/finance/pagos/${paymentId}/export-santander`,
-          { method: "POST" }
+          `/api/finance/payments/${paymentId}/export-santander`,
+          { method: "GET" }
         );
         if (!res.ok) {
-          const data = await res.json();
+          const data = (await res
+            .json()
+            .catch(() => ({}))) as { error?: string };
           throw new Error(data.error || "Error al exportar");
         }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `pago_santander_${paymentId}.txt`;
+        a.download = extractFilenameFromDisposition(
+          res.headers.get("Content-Disposition"),
+          `pago_santander_${paymentId}.xlsx`
+        );
+        document.body.appendChild(a);
         a.click();
+        a.remove();
         URL.revokeObjectURL(url);
         toast.success("Archivo Santander descargado");
       } catch (err) {
@@ -249,6 +322,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
         ].map((tab) => (
           <button
             key={tab.value}
+            type="button"
             onClick={() => setActiveTab(tab.value)}
             className={cn(
               "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
@@ -287,6 +361,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     onClick={selectAll}
@@ -311,6 +386,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                   )}
                 </div>
                 <Button
+                  type="button"
                   size="sm"
                   onClick={() => setCreateDialogOpen(true)}
                   disabled={selectedIds.size === 0}
@@ -327,6 +403,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                   return (
                     <button
                       key={r.id}
+                      type="button"
                       onClick={() => toggleSelect(r.id)}
                       className={cn(
                         "w-full text-left p-3 rounded-lg border transition-colors",
@@ -419,6 +496,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                   <Card key={p.id}>
                     <CardContent className="pt-4 pb-4">
                       <button
+                        type="button"
                         onClick={() =>
                           setExpandedPayment(isExpanded ? null : p.id)
                         }
@@ -502,6 +580,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                               </a>
                             )}
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleExportSantander(p.id)}
@@ -592,12 +671,13 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
 
             <div className="flex justify-end gap-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setCreateDialogOpen(false)}
               >
                 Cancelar
               </Button>
-              <Button onClick={handleCreatePayment} disabled={creating}>
+              <Button type="button" onClick={handleCreatePayment} disabled={creating}>
                 {creating ? (
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                 ) : (

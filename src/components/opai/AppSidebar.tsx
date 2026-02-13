@@ -77,7 +77,14 @@ export function AppSidebar({
               className="h-7 w-7 object-contain"
             />
             {!collapsed && (
-              <span className="text-sm font-semibold tracking-tight">OPAI</span>
+              <span
+                className={cn(
+                  "font-semibold tracking-tight",
+                  showCloseButton ? "text-base" : "text-sm"
+                )}
+              >
+                OPAI
+              </span>
             )}
           </Link>
         )}
@@ -94,7 +101,12 @@ export function AppSidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
+      <nav
+        className={cn(
+          "flex-1 overflow-y-auto",
+          showCloseButton ? "px-3.5 py-4" : "px-3 py-3"
+        )}
+      >
         <div className="space-y-0.5">
           {navItems.map((item) => {
             if (item.show === false) return null;
@@ -110,8 +122,13 @@ export function AppSidebar({
                 onClick={onNavigate}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "group relative flex items-center rounded-md text-sm transition-colors",
-                  collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2",
+                  "group relative flex items-center rounded-md transition-colors",
+                  showCloseButton ? "text-base" : "text-sm",
+                  collapsed
+                    ? "justify-center px-0 py-2.5"
+                    : showCloseButton
+                    ? "gap-3.5 px-3.5 py-2.5"
+                    : "gap-3 px-3 py-2",
                   isActive
                     ? "bg-accent text-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -121,8 +138,13 @@ export function AppSidebar({
                 {isActive && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
                 )}
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                <Icon
+                  className={cn(
+                    "shrink-0",
+                    showCloseButton ? "h-5 w-5" : "h-4 w-4"
+                  )}
+                />
+                {!collapsed && <span className={cn(showCloseButton && "leading-none")}>{item.label}</span>}
               </Link>
             );
           })}
@@ -133,7 +155,7 @@ export function AppSidebar({
       <div
         className={cn(
           "border-t border-border shrink-0 transition-[padding] duration-200 mt-auto",
-          collapsed ? "p-2" : "p-3"
+          collapsed ? "p-2" : showCloseButton ? "p-4" : "p-3"
         )}
       >
         {/* User info */}
@@ -144,19 +166,42 @@ export function AppSidebar({
             title={collapsed ? userName || userEmail : undefined}
             className={cn(
               "flex rounded-md transition-colors hover:bg-accent",
-              collapsed ? "justify-center p-2 mb-1" : "items-center gap-2.5 px-2 py-1.5 mb-2"
+              collapsed
+                ? "justify-center p-2 mb-1"
+                : showCloseButton
+                ? "items-center gap-2.5 px-2.5 py-2 mb-2"
+                : "items-center gap-2.5 px-2 py-1.5 mb-2"
             )}
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary",
+                showCloseButton ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"
+              )}
+            >
               {userName?.charAt(0)?.toUpperCase() || userEmail?.charAt(0)?.toUpperCase() || '?'}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 {userName && (
-                  <p className="truncate text-xs font-medium text-foreground">{userName}</p>
+                  <p
+                    className={cn(
+                      "truncate font-medium text-foreground",
+                      showCloseButton ? "text-sm" : "text-xs"
+                    )}
+                  >
+                    {userName}
+                  </p>
                 )}
                 {userEmail && (
-                  <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
+                  <p
+                    className={cn(
+                      "truncate text-muted-foreground",
+                      showCloseButton ? "text-[13px]" : "text-xs"
+                    )}
+                  >
+                    {userEmail}
+                  </p>
                 )}
               </div>
             )}

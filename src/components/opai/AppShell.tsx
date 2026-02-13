@@ -157,7 +157,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           />
           {/* Sidebar móvil: de arriba a abajo (anclado arriba), X arriba */}
           <div
-            className="fixed left-0 top-0 z-50 w-[280px] max-w-[82vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
+            className="fixed left-0 top-0 z-50 w-[320px] max-w-[88vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
             style={{ pointerEvents: isMobileOpen ? 'auto' : 'none' }}
           >
             {mobileSidebar}

@@ -95,15 +95,14 @@ export function AprobacionesClient({
     async (rendicionId: string) => {
       setLoadingAction(`approve-${rendicionId}`);
       try {
-        const res = await fetch(
-          `/api/finance/rendiciones/${rendicionId}/actions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "approve" }),
-          }
-        );
-        const data = await res.json();
+        const res = await fetch(`/api/finance/rendiciones/${rendicionId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const data = (await res
+          .json()
+          .catch(() => ({}))) as { error?: string };
         if (!res.ok) throw new Error(data.error || "Error al aprobar");
         toast.success("Rendición aprobada");
         router.refresh();
@@ -132,15 +131,14 @@ export function AprobacionesClient({
     }
     setLoadingAction(`reject-${rejectTarget}`);
     try {
-      const res = await fetch(
-        `/api/finance/rendiciones/${rejectTarget}/actions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject", reason: rejectReason }),
-        }
-      );
-      const data = await res.json();
+      const res = await fetch(`/api/finance/rendiciones/${rejectTarget}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: rejectReason }),
+      });
+      const data = (await res
+        .json()
+        .catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Error al rechazar");
       toast.success("Rendición rechazada");
       setRejectDialogOpen(false);
@@ -254,6 +252,7 @@ export function AprobacionesClient({
                       </p>
                       <div className="flex gap-1.5">
                         <Button
+                          type="button"
                           size="sm"
                           onClick={() => handleApprove(a.rendicionId)}
                           disabled={isApproving || isRejecting}
@@ -266,6 +265,7 @@ export function AprobacionesClient({
                           )}
                         </Button>
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => openRejectDialog(a.rendicionId)}
@@ -308,6 +308,7 @@ export function AprobacionesClient({
             </div>
             <div className="flex justify-end gap-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setRejectDialogOpen(false)}
@@ -315,6 +316,7 @@ export function AprobacionesClient({
                 Cancelar
               </Button>
               <Button
+                type="button"
                 size="sm"
                 onClick={handleReject}
                 disabled={!!loadingAction}

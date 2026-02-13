@@ -18,6 +18,9 @@ import {
   Calculator,
   ClipboardList,
   Settings,
+  Receipt,
+  Wallet,
+  BarChart3,
   // CRM
   Users,
   MapPin,
@@ -54,6 +57,7 @@ import {
   getDefaultPermissions,
   hasModuleAccess,
   canView,
+  hasCapability,
 } from "./permissions";
 
 /* ── Types ── */
@@ -75,6 +79,7 @@ const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
   { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
+  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
   { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
 
@@ -139,6 +144,19 @@ const DOCS_ITEMS: BottomNavItem[] = [
   { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen },
 ];
 
+/* ── Finance sub-items ── */
+
+const FINANCE_ITEMS: (BottomNavItem & {
+  subKey: "rendiciones" | "aprobaciones" | "pagos" | "reportes" | null;
+  capability?: "rendicion_approve" | "rendicion_pay";
+})[] = [
+  { key: "finance-home", href: "/finanzas", label: "Inicio", icon: Grid3x3, subKey: null },
+  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rend.", icon: Receipt, subKey: "rendiciones" },
+  { key: "finance-aprobaciones", href: "/finanzas/aprobaciones", label: "Aprob.", icon: CheckCircle2, subKey: "aprobaciones", capability: "rendicion_approve" },
+  { key: "finance-pagos", href: "/finanzas/pagos", label: "Pagos", icon: Wallet, subKey: "pagos", capability: "rendicion_pay" },
+  { key: "finance-reportes", href: "/finanzas/reportes", label: "Reportes", icon: BarChart3, subKey: "reportes" },
+];
+
 /* ── Config sub-items (top 5 for bottom nav) ── */
 
 const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
@@ -190,6 +208,16 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
       p.startsWith("/opai/documentos") ||
       p.startsWith("/opai/templates"),
     getItems: () => DOCS_ITEMS,
+  },
+  {
+    test: (p) => p === "/finanzas" || p.startsWith("/finanzas/"),
+    getItems: (perms) =>
+      FINANCE_ITEMS.filter((item) => {
+        if (!item.subKey) return true;
+        if (!canView(perms, "finance", item.subKey)) return false;
+        if (item.capability && !hasCapability(perms, item.capability)) return false;
+        return true;
+      }),
   },
   {
     test: (p) => p.startsWith("/opai/configuracion"),
@@ -287,12 +315,13 @@ export function getBottomNavItems(
   }
 
   // Default: main nav items
-  const moduleMapping: Record<string, "hub" | "docs" | "crm" | "payroll" | "ops" | "config"> = {
+  const moduleMapping: Record<string, "hub" | "docs" | "crm" | "payroll" | "ops" | "config" | "finance"> = {
     hub: "hub",
     docs: "docs",
     crm: "crm",
     payroll: "payroll",
     ops: "ops",
+    finance: "finance",
     admin: "config",
   };
 

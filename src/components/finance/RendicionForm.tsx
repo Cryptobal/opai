@@ -328,7 +328,7 @@ export function RendicionForm({
             body: JSON.stringify({
               startLat: startLocation.lat,
               startLng: startLocation.lng,
-              startAddress: startLocation.address || null,
+              startAddress: startLocation.address?.trim() || undefined,
             }),
           });
           const tripStartData = await tripStartRes.json();
@@ -343,7 +343,7 @@ export function RendicionForm({
             body: JSON.stringify({
               endLat: endLocation.lat,
               endLng: endLocation.lng,
-              endAddress: endLocation.address || null,
+              endAddress: endLocation.address?.trim() || undefined,
               tollAmount: parseInt(tollAmount.replace(/[^\d]/g, "")) || 0,
             }),
           });

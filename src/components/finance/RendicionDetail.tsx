@@ -124,6 +124,8 @@ interface RendicionDetailProps {
   };
 }
 
+type RendicionAction = "submit" | "approve" | "reject" | "resubmit" | "pay";
+
 /* ── Constants ── */
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; icon: typeof Receipt }> = {
@@ -170,17 +172,72 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
   /* ── Actions ── */
 
   const performAction = useCallback(
-    async (action: string, body?: Record<string, unknown>) => {
+    async (action: RendicionAction, body?: Record<string, unknown>) => {
       setLoading(action);
       try {
-        const res = await fetch(`/api/finance/rendiciones/${r.id}/actions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, ...body }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al ejecutar acción");
-        toast.success(data.message || "Acción realizada correctamente");
+        const requestJson = async (
+          url: string,
+          options?: { method?: "POST" | "PATCH"; body?: Record<string, unknown> }
+        ) => {
+          const res = await fetch(url, {
+            method: options?.method ?? "POST",
+            headers: { "Content-Type": "application/json" },
+            ...(options?.body !== undefined
+              ? { body: JSON.stringify(options.body) }
+              : {}),
+          });
+          const payload = (await res
+            .json()
+            .catch(() => ({}))) as { error?: string; message?: string };
+          if (!res.ok) {
+            throw new Error(payload.error || "Error al ejecutar acción");
+          }
+          return payload;
+        };
+
+        let response: { message?: string } = {};
+        switch (action) {
+          case "submit":
+            response = await requestJson(`/api/finance/rendiciones/${r.id}/submit`, {
+              body: {},
+            });
+            break;
+          case "approve":
+            response = await requestJson(`/api/finance/rendiciones/${r.id}/approve`, {
+              body: body?.comment ? { comment: body.comment } : {},
+            });
+            break;
+          case "reject":
+            response = await requestJson(`/api/finance/rendiciones/${r.id}/reject`, {
+              body: { reason: body?.reason },
+            });
+            break;
+          case "resubmit":
+            // Rechazada -> DRAFT, luego se envía nuevamente a aprobación.
+            await requestJson(`/api/finance/rendiciones/${r.id}`, {
+              method: "PATCH",
+              body: {},
+            });
+            response = await requestJson(`/api/finance/rendiciones/${r.id}/submit`, {
+              body: {},
+            });
+            break;
+          case "pay":
+            await requestJson("/api/finance/payments", {
+              body: { rendicionIds: [r.id], type: "MANUAL" },
+            });
+            response = { message: "Rendición marcada como pagada" };
+            break;
+        }
+
+        const successByAction: Record<RendicionAction, string> = {
+          submit: "Rendición enviada a aprobación",
+          approve: "Rendición aprobada",
+          reject: "Rendición rechazada",
+          resubmit: "Rendición reenviada a aprobación",
+          pay: "Rendición marcada como pagada",
+        };
+        toast.success(response.message || successByAction[action]);
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Error inesperado");
@@ -571,6 +628,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               </Button>
             </Link>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={handleDelete}
@@ -585,6 +643,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               Eliminar
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={() => performAction("submit")}
               disabled={loading === "submit"}
@@ -604,6 +663,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
           permissions.canApprove && (
             <>
               <Button
+                type="button"
                 size="sm"
                 onClick={() => performAction("approve")}
                 disabled={loading === "approve"}
@@ -617,6 +677,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 Aprobar
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setRejectDialogOpen(true)}
@@ -638,6 +699,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               </Button>
             </Link>
             <Button
+              type="button"
               size="sm"
               onClick={() => performAction("resubmit")}
               disabled={loading === "resubmit"}
@@ -655,6 +717,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
         {/* APPROVED → Mark as Paid (for finance) */}
         {r.status === "APPROVED" && permissions.canPay && (
           <Button
+            type="button"
             size="sm"
             onClick={() => performAction("pay")}
             disabled={loading === "pay"}
@@ -690,6 +753,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
             </div>
             <div className="flex justify-end gap-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setRejectDialogOpen(false)}
@@ -697,6 +761,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 Cancelar
               </Button>
               <Button
+                type="button"
                 size="sm"
                 onClick={handleReject}
                 disabled={loading === "reject"}
