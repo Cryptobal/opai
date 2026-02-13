@@ -149,7 +149,9 @@ function formatTimeInput(raw: string): string {
 }
 
 function formatDateFull(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
+  // Handle both "2026-02-13" and "2026-02-13T00:00:00.000Z"
+  const dateOnly = dateStr.slice(0, 10);
+  const d = new Date(dateOnly + "T12:00:00");
   return d.toLocaleDateString("es-CL", {
     weekday: "long",
     day: "numeric",

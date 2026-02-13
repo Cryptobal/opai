@@ -66,7 +66,8 @@ function toDateInput(date: Date): string {
 }
 
 function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
+  const dateOnly = dateStr.slice(0, 10);
+  const d = new Date(dateOnly + "T12:00:00");
   return d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
 }
 
