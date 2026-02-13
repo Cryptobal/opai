@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { EmptyState, StatusBadge } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, LayoutGrid, List } from "lucide-react";
+import { EmptyState } from "@/components/opai";
+import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,10 @@ type GuardiaItem = {
   availableExtraShifts?: boolean;
   isBlacklisted: boolean;
   blacklistReason?: string | null;
+  currentInstallation?: {
+    id: string;
+    name: string;
+  } | null;
   persona: {
     firstName: string;
     lastName: string;
@@ -52,6 +56,8 @@ type GuardiaItem = {
     addressFormatted?: string | null;
     city?: string | null;
     commune?: string | null;
+    lat?: string | null;
+    lng?: string | null;
     birthDate?: string | null;
     afp?: string | null;
     healthSystem?: string | null;
@@ -83,7 +89,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [loadingPublicForm, setLoadingPublicForm] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
-  const [blacklistFilter, setBlacklistFilter] = useState<"all" | "blacklisted" | "active">("all");
+  
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -122,26 +128,32 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     desvinculado: "Desvinculado",
   };
 
+  const LIFECYCLE_COLORS: Record<string, string> = {
+    postulante: "bg-blue-500/15 text-blue-400",
+    seleccionado: "bg-amber-500/15 text-amber-400",
+    contratado_activo: "bg-cyan-500/15 text-cyan-400",
+    inactivo: "bg-muted text-muted-foreground",
+    desvinculado: "bg-red-500/15 text-red-400",
+  };
+
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
     cuenta_corriente: "Cuenta corriente",
     cuenta_vista: "Cuenta vista",
     cuenta_rut: "Cuenta RUT",
   };
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
-  const canManageBlacklist = hasOpsCapability(userRole, "guardias_blacklist");
+  
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return guardias.filter((item) => {
       if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
-      if (blacklistFilter === "blacklisted" && !item.isBlacklisted) return false;
-      if (blacklistFilter === "active" && item.isBlacklisted) return false;
       if (!query) return true;
       const text =
         `${item.persona.firstName} ${item.persona.lastName} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""}`.toLowerCase();
       return text.includes(query);
     });
-  }, [guardias, search, lifecycleFilter, blacklistFilter]);
+  }, [guardias, search, lifecycleFilter]);
 
   const onAddressChange = (result: AddressResult) => {
     setForm((prev) => ({
@@ -630,61 +642,63 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       </div>
 
       <Card>
-        <CardContent className="pt-5 space-y-3">
-          <div className="flex flex-col gap-2 lg:flex-row">
+        <CardContent className="pt-4 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Input
-              placeholder="Buscar por nombre, RUT, email o código..."
+              placeholder="Buscar..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="lg:flex-1"
+              className="h-8 text-xs w-full sm:w-[260px] shrink-0"
             />
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={lifecycleFilter}
-              onChange={(e) => setLifecycleFilter(e.target.value)}
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
+                lifecycleFilter === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+              onClick={() => setLifecycleFilter("all")}
             >
-              <option value="all">Todos los estados</option>
-              {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {LIFECYCLE_LABELS[status] || status}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={blacklistFilter}
-              onChange={(e) =>
-                setBlacklistFilter(e.target.value as "all" | "blacklisted" | "active")
-              }
-            >
-              <option value="all">Todos</option>
-              <option value="active">Sin lista negra</option>
-              <option value="blacklisted">Solo lista negra</option>
-            </select>
-            <div className="flex items-center rounded-md border border-border">
-              <Button
+              Todos
+            </button>
+            {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
+              <button
+                key={status}
                 type="button"
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                className="h-10 rounded-none rounded-l-md px-3"
-                onClick={() => setViewMode("grid")}
+                className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
+                  lifecycleFilter === status
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                onClick={() => setLifecycleFilter(status)}
               >
-                <LayoutGrid className="mr-1.5 h-4 w-4" />
-                Grid
-              </Button>
-              <Button
-                type="button"
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                className="h-10 rounded-none rounded-r-md px-3"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="mr-1.5 h-4 w-4" />
-                Lista
-              </Button>
+                {LIFECYCLE_LABELS[status] || status}
+              </button>
+            ))}
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                {filtered.length} guardia{filtered.length === 1 ? "" : "s"}
+              </span>
+              <div className="flex items-center rounded-md border border-border">
+                <Button
+                  type="button"
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  className="h-7 rounded-none rounded-l-md px-2"
+                  onClick={() => setViewMode("grid")}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  className="h-7 rounded-none rounded-r-md px-2"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {filtered.length} guardia{filtered.length === 1 ? "" : "s"} encontrados
-          </p>
 
           {filtered.length === 0 ? (
             <EmptyState
@@ -694,74 +708,104 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               compact
             />
           ) : (
-            <div className={viewMode === "grid" ? "grid gap-2 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
-              {filtered.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/personas/guardias/${item.id}`}
-                  className={
-                    viewMode === "grid"
-                      ? "rounded-lg border border-border p-3 sm:p-4 flex h-full flex-col justify-between gap-3 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                      : "rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                  }
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {item.persona.firstName} {item.persona.lastName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.persona.rut || "Sin RUT"}
-                      {item.code ? ` · Código ${item.code}` : ""}
-                      {item.persona.phoneMobile ? ` · +56 ${item.persona.phoneMobile}` : ""}
-                      {typeof item.availableExtraShifts === "boolean"
-                        ? ` · ${item.availableExtraShifts ? "TE disponible" : "Sin TE"}`
-                        : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.persona.addressFormatted || "Sin dirección validada"}
-                    </p>
-                    {item.bankAccounts?.[0] ? (
-                      <p className="text-xs text-muted-foreground">
-                        {item.bankAccounts[0].bankName} · {ACCOUNT_TYPE_LABELS[item.bankAccounts[0].accountType] || item.bankAccounts[0].accountType}
-                      </p>
-                    ) : null}
-                    {item.blacklistReason && (
-                      <p className="text-xs text-red-400 mt-1">Motivo: {item.blacklistReason}</p>
-                    )}
-                  </div>
-                  <div className={viewMode === "grid" ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"} onClick={(e) => e.stopPropagation()}>
-                    <StatusBadge status={item.status} />
-                    <select
-                      className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                      value={item.lifecycleStatus}
-                      disabled={updatingId === item.id || !canManageGuardias}
-                      onClick={(e) => e.preventDefault()}
-                      onChange={(e) => { e.preventDefault(); void handleLifecycleChange(item, e.target.value); }}
-                    >
-                      {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {LIFECYCLE_LABELS[status] || status}
-                        </option>
-                      ))}
-                    </select>
-                    {item.isBlacklisted ? (
-                      <span className="text-[11px] rounded-full bg-red-500/15 px-2 py-1 text-red-400">
-                        Lista negra
-                      </span>
-                    ) : null}
-                    {canManageBlacklist ? (
-                      <Button
-                        size="sm"
-                        variant={item.isBlacklisted ? "outline" : "ghost"}
-                        disabled={updatingId === item.id}
-                        onClick={(e) => { e.preventDefault(); void handleBlacklistToggle(item); }}
-                      >
-                        {item.isBlacklisted ? "Quitar lista negra" : "Lista negra"}
-                      </Button>
-                    ) : null}
-                  </div>
-                </Link>
-              ))}
+            <div className={viewMode === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
+              {filtered.map((item) => {
+                const phone = item.persona.phoneMobile;
+                const lat = item.persona.lat;
+                const lng = item.persona.lng;
+                const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/personas/guardias/${item.id}`}
+                    className={
+                      viewMode === "grid"
+                        ? "rounded-lg border border-border p-3 flex gap-3 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        : "rounded-lg border border-border p-3 flex flex-col gap-1.5 md:flex-row md:items-center md:gap-6 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                    }
+                  >
+                    {/* Nombre y contacto */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold truncate">
+                          {item.persona.firstName} {item.persona.lastName}
+                        </p>
+                        <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}>
+                          {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
+                        </span>
+                        {item.code && (
+                          <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
+                        )}
+                      </div>
+
+                      {phone ? (
+                        <div className="flex items-center gap-2 mt-1 ml-4" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`tel:+56${phone}`}
+                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="h-3 w-3" />
+                            +56 {phone}
+                          </a>
+                          <a
+                            href={`https://wa.me/56${phone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-[11px] font-medium text-green-500 hover:bg-green-600/25 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                            WhatsApp
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 ml-4">Sin teléfono</p>
+                      )}
+                    </div>
+
+                    {/* Instalación, ubicación y mapa — a la derecha en grid */}
+                    <div className={
+                      viewMode === "grid"
+                        ? "shrink-0 flex flex-col items-end gap-1 text-right"
+                        : "flex items-center gap-6 shrink-0"
+                    }>
+                      <div className={viewMode === "list" ? "min-w-[180px]" : ""}>
+                        {item.currentInstallation ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                            <span className="text-xs font-medium truncate max-w-[160px]">{item.currentInstallation.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
+                        )}
+                      </div>
+                      {(item.persona.city || item.persona.commune) && (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-xs text-muted-foreground">
+                            {[item.persona.commune, item.persona.city].filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      {lat && lng && mapsKey ? (
+                        <div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=120x80&scale=2&maptype=roadmap&markers=size:small%7Ccolor:red%7C${lat},${lng}&key=${mapsKey}`}
+                            alt="Mapa"
+                            className="rounded border border-border w-[90px] h-[58px] object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </CardContent>

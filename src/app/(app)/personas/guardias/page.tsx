@@ -31,6 +31,14 @@ export default async function GuardiasPage() {
           addressFormatted: true,
           city: true,
           commune: true,
+          lat: true,
+          lng: true,
+        },
+      },
+      currentInstallation: {
+        select: {
+          id: true,
+          name: true,
         },
       },
       bankAccounts: {
