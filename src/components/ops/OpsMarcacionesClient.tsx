@@ -17,7 +17,6 @@ import {
   Filter,
   Copy,
   Link2,
-  QrCode,
   Download,
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -103,6 +102,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
   const [hasta, setHasta] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchText, setSearchText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [urlsMarcacionOpen, setUrlsMarcacionOpen] = useState(false);
 
   // Todas las instalaciones (flatten)
   const allInstallations = initialClients.flatMap((c) =>
@@ -276,87 +276,76 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
 
   return (
     <div className="space-y-4">
-      {/* ── Links de marcación por instalación ── */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-muted-foreground" />
-          URLs de marcación
-        </h3>
-        {installationsWithCode.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-muted-foreground border-b border-border">
-                  <th className="text-left py-2 font-medium">Instalación</th>
-                  <th className="text-left py-2 font-medium">Código</th>
-                  <th className="text-left py-2 font-medium">URL</th>
-                  <th className="text-right py-2 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {installationsWithCode.map((i) => {
-                  const url = getMarcacionUrl(i.marcacionCode!);
-                  return (
-                    <tr key={i.id} className="border-b border-border/60 last:border-0">
-                      <td className="py-2.5 font-medium">{i.name}</td>
-                      <td className="py-2.5 font-mono text-muted-foreground">{i.marcacionCode}</td>
-                      <td className="py-2.5 text-primary truncate max-w-[200px]">
-                        <a href={url} target="_blank" rel="noopener noreferrer">{url}</a>
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2"
-                            title="Copiar URL"
-                            onClick={() => {
-                              copyMarcacionUrl(i.marcacionCode!);
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2"
-                            title="Descargar QR para imprimir"
-                            onClick={() => void downloadQr(i.marcacionCode!, i.name)}
-                          >
-                            <QrCode className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* ── Links de marcación por instalación (contraíble, minimalista) ── */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setUrlsMarcacionOpen((o) => !o)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-muted/30 transition-colors"
+        >
+          <span className="text-sm font-semibold flex items-center gap-2">
+            {urlsMarcacionOpen ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+            URLs de marcación
+            {installationsWithCode.length > 0 && (
+              <span className="text-[10px] font-normal text-muted-foreground">
+                ({installationsWithCode.length})
+              </span>
+            )}
+          </span>
+        </button>
+        {urlsMarcacionOpen && (
+          <div className="px-4 pb-4 pt-0 border-t border-border/60">
+            {installationsWithCode.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {installationsWithCode.map((i) => (
+                  <div
+                    key={i.id}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="font-medium truncate max-w-[180px]">{i.name}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 shrink-0"
+                      title="Copiar URL de marcación"
+                      onClick={() => copyMarcacionUrl(i.marcacionCode!)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {installationsWithoutCode.length > 0 && (
+              <div className={installationsWithCode.length > 0 ? "mt-3 pt-3 border-t border-border/60" : ""}>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Sin código de marcación:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {installationsWithoutCode.map((i) => (
+                    <Button
+                      key={i.id}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={generatingCodeId === i.id}
+                      onClick={() => void generateCode(i.id)}
+                    >
+                      {generatingCodeId === i.id ? "Generando…" : i.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {installationsWithCode.length === 0 && installationsWithoutCode.length === 0 && (
+              <p className="text-xs text-muted-foreground">No hay instalaciones activas.</p>
+            )}
           </div>
-        )}
-        {installationsWithoutCode.length > 0 && (
-          <div className={installationsWithCode.length > 0 ? "mt-3 pt-3 border-t border-border/60" : ""}>
-            <p className="text-xs text-muted-foreground mb-2">
-              Instalaciones sin código de marcación:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {installationsWithoutCode.map((i) => (
-                <Button
-                  key={i.id}
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  disabled={generatingCodeId === i.id}
-                  onClick={() => void generateCode(i.id)}
-                >
-                  {generatingCodeId === i.id ? "Generando…" : `Generar código — ${i.name}`}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-        {installationsWithCode.length === 0 && installationsWithoutCode.length === 0 && (
-          <p className="text-xs text-muted-foreground">No hay instalaciones activas.</p>
         )}
       </div>
 

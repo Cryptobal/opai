@@ -54,6 +54,8 @@ export function forbiddenOpsCapability(capability: OpsCapability) {
 const OPS_CAP_MAP: Partial<Record<OpsCapability, CapabilityKey>> = {
   guardias_blacklist: "guardias_blacklist",
   te_execution: "te_approve",
+  rondas_configure: "rondas_configure",
+  rondas_resolve: "rondas_resolve_alerts",
 };
 
 export async function ensureOpsCapability(

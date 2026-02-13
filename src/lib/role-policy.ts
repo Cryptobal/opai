@@ -65,7 +65,10 @@ export type OpsCapability =
   | "guardias_documents"
   | "ops_execution"
   | "te_execution"
-  | "rrhh_events";
+  | "rrhh_events"
+  | "rondas_configure"
+  | "rondas_monitor"
+  | "rondas_resolve";
 
 export interface RolePolicy {
   rank: number;
@@ -113,6 +116,9 @@ const ALL_OPS_CAPABILITIES: OpsCapability[] = [
   "ops_execution",
   "te_execution",
   "rrhh_events",
+  "rondas_configure",
+  "rondas_monitor",
+  "rondas_resolve",
 ];
 
 export const ROLE_POLICIES: Record<Role, RolePolicy> = {
@@ -170,7 +176,14 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ALL_CRM_SUBMODULES,
     configSubmodules: [],
     docsSubmodules: ALL_DOCS_SUBMODULES,
-    opsCapabilities: ["guardias_manage", "guardias_documents", "ops_execution", "te_execution"],
+    opsCapabilities: [
+      "guardias_manage",
+      "guardias_documents",
+      "ops_execution",
+      "te_execution",
+      "rondas_monitor",
+      "rondas_resolve",
+    ],
   },
   rrhh: {
     rank: 2,
@@ -179,7 +192,13 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: [],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_manage", "guardias_blacklist", "guardias_documents", "rrhh_events"],
+    opsCapabilities: [
+      "guardias_manage",
+      "guardias_blacklist",
+      "guardias_documents",
+      "rrhh_events",
+      "rondas_monitor",
+    ],
   },
   operaciones: {
     rank: 2,
@@ -188,7 +207,14 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: [],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_documents", "ops_execution", "te_execution"],
+    opsCapabilities: [
+      "guardias_documents",
+      "ops_execution",
+      "te_execution",
+      "rondas_configure",
+      "rondas_monitor",
+      "rondas_resolve",
+    ],
   },
   reclutamiento: {
     rank: 2,
@@ -206,7 +232,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: [],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_documents", "ops_execution", "te_execution"],
+    opsCapabilities: ["guardias_documents", "ops_execution", "te_execution", "rondas_monitor"],
   },
   solo_crm: {
     rank: 1,

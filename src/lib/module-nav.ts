@@ -29,6 +29,8 @@ import {
   UserRoundCheck,
   ShieldAlert,
   Fingerprint,
+  Route,
+  Radio,
   // TE
   CheckCircle2,
   Layers,
@@ -94,6 +96,15 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
+  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
+];
+
+const RONDAS_ITEMS: BottomNavItem[] = [
+  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
+  { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
+  { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
+  { key: "rondas-checkpoints", href: "/ops/rondas/checkpoints", label: "Puntos", icon: MapPin },
+  { key: "rondas-config", href: "/ops/rondas/templates", label: "Config", icon: Settings },
 ];
 
 /* ── TE sub-items ── */
@@ -145,6 +156,10 @@ interface ModuleDetection {
 }
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
+  {
+    test: (p) => p.startsWith("/ops/rondas"),
+    getItems: () => RONDAS_ITEMS,
+  },
   {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
     getItems: (perms) =>

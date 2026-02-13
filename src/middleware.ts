@@ -29,6 +29,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/preview/')) return true;
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
+  if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
 
   // API (rutas reales en /api/)
   if (pathname.startsWith('/api/auth')) return true;

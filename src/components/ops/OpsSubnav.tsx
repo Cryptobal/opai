@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Shield,
   Fingerprint,
+  Route,
 } from "lucide-react";
 
 /** subKey: clave del submódulo en permissions (null = siempre visible si tiene acceso al módulo) */
@@ -26,6 +27,7 @@ const OPS_ITEMS = [
   { href: "/ops/turnos-extra", label: "Turnos extra", icon: Clock3, subKey: "turnos_extra" as const },
   { href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" as const },
   { href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" as const },
+  { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" as const },
   { href: "/personas/guardias", label: "Guardias", icon: Shield, subKey: "guardias" as const },
 ];
 

@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/opai";
 import { OpsSubnav } from "@/components/ops";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Route,
   CalendarDays,
   ClipboardList,
   Clock3,
@@ -77,6 +78,14 @@ export default async function OpsDashboardPage() {
       icon: Clock3,
       count: teCount > 0 ? teCount : null,
       color: "text-rose-400 bg-rose-400/10",
+    },
+    {
+      href: "/ops/rondas",
+      title: "Rondas de seguridad",
+      description: "Control de rondas por checkpoints QR con monitoreo en vivo.",
+      icon: Route,
+      count: null,
+      color: "text-indigo-400 bg-indigo-400/10",
     },
     {
       href: "/ops/marcaciones",

@@ -838,6 +838,9 @@ model CrmInstallation {
   opsTurnosExtra       OpsTurnoExtra[]
   opsAsignacionGuardias OpsAsignacionGuardia[] @relation("ops_asignacion_installation")
   opsMarcaciones       OpsMarcacion[]
+  opsCheckpoints       OpsCheckpoint[]
+  opsRondaTemplates    OpsRondaTemplate[]
+  opsRondaAlertas      OpsAlertaRonda[]
   guardiasActuales     OpsGuardia[]           @relation("ops_guardia_current_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
@@ -1402,6 +1405,9 @@ model OpsGuardia {
   eventosRrhh           OpsEventoRrhh[]
   pagoItems             OpsPagoTeItem[]        @relation("ops_pago_item_guardia")
   marcaciones           OpsMarcacion[]
+  rondaEjecuciones      OpsRondaEjecucion[]
+  rondaMarcaciones      OpsMarcacionCheckpoint[]
+  rondaIncidentes       OpsRondaIncidente[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -1811,6 +1817,235 @@ model OpsMarcacion {
   @@index([installationId, timestamp], map: "idx_ops_marcaciones_inst_ts")
   @@index([timestamp], map: "idx_ops_marcaciones_timestamp")
   @@map("marcaciones")
+  @@schema("ops")
+}
+
+// ============================================
+// OPS — CONTROL DE RONDAS DE SEGURIDAD
+// ============================================
+
+model OpsCheckpoint {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  name           String
+  description    String?
+  qrCode         String   @map("qr_code")
+  lat            Float?
+  lng            Float?
+  geoRadiusM     Int      @default(30) @map("geo_radius_m")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation    CrmInstallation        @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  rondaLinks      OpsRondaCheckpoint[]
+  marcaciones     OpsMarcacionCheckpoint[]
+  incidentes      OpsRondaIncidente[]
+
+  @@unique([tenantId, qrCode], map: "uq_ops_checkpoint_tenant_qr")
+  @@index([tenantId], map: "idx_ops_checkpoints_tenant")
+  @@index([tenantId, installationId], map: "idx_ops_checkpoints_tenant_installation")
+  @@index([installationId], map: "idx_ops_checkpoints_installation")
+  @@index([isActive], map: "idx_ops_checkpoints_active")
+  @@map("checkpoints")
+  @@schema("ops")
+}
+
+model OpsRondaTemplate {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String   @map("tenant_id")
+  installationId      String   @map("installation_id") @db.Uuid
+  name                String
+  description         String?
+  orderMode           String   @default("flexible") @map("order_mode") // "strict" | "flexible"
+  estimatedDurationMin Int?    @map("estimated_duration_min")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdBy           String?  @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation        @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  checkpoints  OpsRondaCheckpoint[]
+  programaciones OpsRondaProgramacion[]
+  ejecuciones  OpsRondaEjecucion[]
+  incidentes   OpsRondaIncidente[]
+
+  @@index([tenantId], map: "idx_ops_ronda_templates_tenant")
+  @@index([tenantId, installationId], map: "idx_ops_ronda_templates_tenant_installation")
+  @@index([installationId], map: "idx_ops_ronda_templates_installation")
+  @@index([isActive], map: "idx_ops_ronda_templates_active")
+  @@map("ronda_templates")
+  @@schema("ops")
+}
+
+model OpsRondaCheckpoint {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  rondaTemplateId String   @map("ronda_template_id") @db.Uuid
+  checkpointId    String   @map("checkpoint_id") @db.Uuid
+  orderIndex      Int      @default(1) @map("order_index")
+  isRequired      Boolean  @default(true) @map("is_required")
+  maxTimeMinutes  Int?     @map("max_time_minutes")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rondaTemplate OpsRondaTemplate @relation(fields: [rondaTemplateId], references: [id], onDelete: Cascade)
+  checkpoint    OpsCheckpoint    @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+
+  @@unique([rondaTemplateId, checkpointId], map: "uq_ops_ronda_checkpoint")
+  @@index([tenantId], map: "idx_ops_ronda_checkpoints_tenant")
+  @@index([rondaTemplateId], map: "idx_ops_ronda_checkpoints_template")
+  @@index([checkpointId], map: "idx_ops_ronda_checkpoints_checkpoint")
+  @@map("ronda_checkpoints")
+  @@schema("ops")
+}
+
+model OpsRondaProgramacion {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String   @map("tenant_id")
+  rondaTemplateId  String   @map("ronda_template_id") @db.Uuid
+  diasSemana       Json     @default("[]") @map("dias_semana") @db.JsonB
+  horaInicio       String   @map("hora_inicio")
+  horaFin          String   @map("hora_fin")
+  frecuenciaMinutos Int     @default(120) @map("frecuencia_minutos")
+  toleranciaMinutos Int     @default(10) @map("tolerancia_minutos")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdBy        String?  @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rondaTemplate OpsRondaTemplate  @relation(fields: [rondaTemplateId], references: [id], onDelete: Cascade)
+  ejecuciones   OpsRondaEjecucion[]
+
+  @@index([tenantId], map: "idx_ops_ronda_programaciones_tenant")
+  @@index([rondaTemplateId], map: "idx_ops_ronda_programaciones_template")
+  @@index([isActive], map: "idx_ops_ronda_programaciones_active")
+  @@map("ronda_programaciones")
+  @@schema("ops")
+}
+
+model OpsRondaEjecucion {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId              String    @map("tenant_id")
+  rondaTemplateId       String    @map("ronda_template_id") @db.Uuid
+  programacionId        String?   @map("programacion_id") @db.Uuid
+  guardiaId             String?   @map("guardia_id") @db.Uuid
+  status                String    @default("pendiente") // "pendiente" | "en_curso" | "completada" | "incompleta" | "no_realizada"
+  scheduledAt           DateTime  @map("scheduled_at") @db.Timestamptz(6)
+  startedAt             DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt           DateTime? @map("completed_at") @db.Timestamptz(6)
+  checkpointsTotal      Int       @default(0) @map("checkpoints_total")
+  checkpointsCompletados Int      @default(0) @map("checkpoints_completados")
+  porcentajeCompletado  Float     @default(0) @map("porcentaje_completado")
+  trustScore            Int       @default(0) @map("trust_score")
+  deviceInfo            Json?     @map("device_info") @db.JsonB
+  alertas               Json?     @db.JsonB
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rondaTemplate OpsRondaTemplate      @relation(fields: [rondaTemplateId], references: [id], onDelete: Cascade)
+  programacion  OpsRondaProgramacion? @relation(fields: [programacionId], references: [id], onDelete: SetNull)
+  guardia       OpsGuardia?           @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  marcaciones   OpsMarcacionCheckpoint[]
+  alertasRows   OpsAlertaRonda[]
+  incidentes    OpsRondaIncidente[]
+
+  @@index([tenantId], map: "idx_ops_ronda_ejecuciones_tenant")
+  @@index([rondaTemplateId], map: "idx_ops_ronda_ejecuciones_template")
+  @@index([programacionId], map: "idx_ops_ronda_ejecuciones_programacion")
+  @@index([guardiaId], map: "idx_ops_ronda_ejecuciones_guardia")
+  @@index([scheduledAt], map: "idx_ops_ronda_ejecuciones_scheduled_at")
+  @@index([status], map: "idx_ops_ronda_ejecuciones_status")
+  @@map("ronda_ejecuciones")
+  @@schema("ops")
+}
+
+model OpsMarcacionCheckpoint {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String   @map("tenant_id")
+  ejecucionId      String   @map("ejecucion_id") @db.Uuid
+  checkpointId     String   @map("checkpoint_id") @db.Uuid
+  guardiaId        String   @map("guardia_id") @db.Uuid
+  timestamp        DateTime @default(now()) @db.Timestamptz(6)
+  lat              Float?
+  lng              Float?
+  geoValidada      Boolean  @default(false) @map("geo_validada")
+  geoDistanciaM    Float?   @map("geo_distancia_m")
+  batteryLevel     Int?     @map("battery_level")
+  motionData       Json?    @map("motion_data") @db.JsonB
+  speedFromPrevKmh Float?   @map("speed_from_prev_kmh")
+  timeFromPrevSec  Int?     @map("time_from_prev_sec")
+  fotoEvidenciaUrl String?  @map("foto_evidencia_url")
+  hashIntegridad   String   @map("hash_integridad")
+  anomalias        Json?    @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ejecucion  OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
+  checkpoint OpsCheckpoint     @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
+  guardia    OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId], map: "idx_ops_marcacion_checkpoint_tenant")
+  @@index([ejecucionId], map: "idx_ops_marcacion_checkpoint_ejecucion")
+  @@index([checkpointId], map: "idx_ops_marcacion_checkpoint_checkpoint")
+  @@index([guardiaId], map: "idx_ops_marcacion_checkpoint_guardia")
+  @@index([timestamp], map: "idx_ops_marcacion_checkpoint_timestamp")
+  @@map("marcacion_checkpoints")
+  @@schema("ops")
+}
+
+model OpsAlertaRonda {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  ejecucionId    String    @map("ejecucion_id") @db.Uuid
+  installationId String    @map("installation_id") @db.Uuid
+  tipo           String
+  severidad      String    @default("warning") // "info" | "warning" | "critical"
+  mensaje        String
+  data           Json?     @db.JsonB
+  resuelta       Boolean   @default(false)
+  resueltaPor    String?   @map("resuelta_por")
+  resueltaAt     DateTime? @map("resuelta_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ejecucion    OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
+  installation CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_alerta_ronda_tenant")
+  @@index([ejecucionId], map: "idx_ops_alerta_ronda_ejecucion")
+  @@index([installationId], map: "idx_ops_alerta_ronda_installation")
+  @@index([severidad], map: "idx_ops_alerta_ronda_severidad")
+  @@index([resuelta], map: "idx_ops_alerta_ronda_resuelta")
+  @@map("alertas_ronda")
+  @@schema("ops")
+}
+
+model OpsRondaIncidente {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  ejecucionId    String?  @map("ejecucion_id") @db.Uuid
+  rondaTemplateId String? @map("ronda_template_id") @db.Uuid
+  checkpointId   String?  @map("checkpoint_id") @db.Uuid
+  guardiaId      String   @map("guardia_id") @db.Uuid
+  tipo           String
+  descripcion    String
+  fotoUrl        String?  @map("foto_url")
+  lat            Float?
+  lng            Float?
+  status         String   @default("abierto")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ejecucion     OpsRondaEjecucion? @relation(fields: [ejecucionId], references: [id], onDelete: SetNull)
+  rondaTemplate OpsRondaTemplate?  @relation(fields: [rondaTemplateId], references: [id], onDelete: SetNull)
+  checkpoint    OpsCheckpoint?     @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
+  guardia       OpsGuardia         @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId], map: "idx_ops_ronda_incidente_tenant")
+  @@index([ejecucionId], map: "idx_ops_ronda_incidente_ejecucion")
+  @@index([guardiaId], map: "idx_ops_ronda_incidente_guardia")
+  @@index([status], map: "idx_ops_ronda_incidente_status")
+  @@map("ronda_incidentes")
   @@schema("ops")
 }
 
