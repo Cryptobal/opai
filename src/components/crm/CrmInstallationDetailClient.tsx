@@ -25,6 +25,7 @@ import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
+import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -1130,6 +1131,13 @@ export function CrmInstallationDetailClient({
       label: "Marcación rondas",
       children: (
         <MarcacionRondasSection installation={installation} />
+      ),
+    },
+    {
+      key: "rendiciones",
+      label: "Rendiciones de gastos",
+      children: (
+        <InstallationExpensesSection installationId={installation.id} />
       ),
     },
     {

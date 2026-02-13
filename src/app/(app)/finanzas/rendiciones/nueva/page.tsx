@@ -25,16 +25,28 @@ export default async function NuevaRendicionPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [items, costCenters, config] = await Promise.all([
+  const [items, installations, config] = await Promise.all([
     prisma.financeRendicionItem.findMany({
       where: { tenantId, active: true },
       select: { id: true, name: true, code: true, category: true },
       orderBy: { name: "asc" },
     }),
-    prisma.financeCostCenter.findMany({
-      where: { tenantId, active: true },
-      select: { id: true, name: true, code: true },
-      orderBy: { name: "asc" },
+    // Cargar instalaciones activas con su cliente activo
+    prisma.crmInstallation.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        account: { isActive: true },
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        account: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [{ account: { name: "asc" } }, { name: "asc" }],
     }),
     prisma.financeRendicionConfig.findUnique({
       where: { tenantId },
@@ -49,6 +61,15 @@ export default async function NuevaRendicionPage() {
     }),
   ]);
 
+  // Agrupar instalaciones por cliente para el selector
+  const installationOptions = installations.map((inst) => ({
+    id: inst.id,
+    name: inst.name,
+    address: inst.address,
+    accountId: inst.account?.id ?? null,
+    accountName: inst.account?.name ?? "Sin cliente",
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -62,11 +83,7 @@ export default async function NuevaRendicionPage() {
           code: i.code,
           category: i.category,
         }))}
-        costCenters={costCenters.map((c) => ({
-          id: c.id,
-          name: c.name,
-          code: c.code,
-        }))}
+        installations={installationOptions}
         config={
           config
             ? {

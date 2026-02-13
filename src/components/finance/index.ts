@@ -7,3 +7,5 @@ export { PagosClient } from "./PagosClient";
 export { ReportesClient } from "./ReportesClient";
 export { ConfigClient } from "./ConfigClient";
 export { PersonaRendicionesTab } from "./PersonaRendicionesTab";
+export { InstallationExpensesSection } from "./InstallationExpensesSection";
+export { AccountExpensesSection } from "./AccountExpensesSection";

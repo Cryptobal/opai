@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
+import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -759,6 +760,16 @@ export function CrmAccountDetailClient({
     {
       key: "communication",
       children: <EmailHistoryList accountId={account.id} compact />,
+    },
+    {
+      key: "rendiciones",
+      label: "Rendiciones de gastos",
+      children: (
+        <AccountExpensesSection
+          accountId={account.id}
+          installationIds={account.installations?.map((i) => i.id) || []}
+        />
+      ),
     },
     {
       key: "notes",

@@ -36,10 +36,12 @@ interface ItemOption {
   category: string | null;
 }
 
-interface CostCenterOption {
+interface InstallationOption {
   id: string;
   name: string;
-  code: string | null;
+  address: string | null;
+  accountId: string | null;
+  accountName: string;
 }
 
 interface KmConfig {
@@ -53,7 +55,7 @@ interface KmConfig {
 
 interface RendicionFormProps {
   items: ItemOption[];
-  costCenters: CostCenterOption[];
+  installations: InstallationOption[];
   config: KmConfig | null;
   /** If editing, pass initial data */
   initialData?: {
@@ -97,7 +99,7 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 
 export function RendicionForm({
   items,
-  costCenters,
+  installations,
   config,
   initialData,
 }: RendicionFormProps) {
@@ -121,7 +123,7 @@ export function RendicionForm({
     initialData?.documentType ?? ""
   );
   const [itemId, setItemId] = useState(initialData?.itemId ?? "");
-  const [costCenterId, setCostCenterId] = useState(
+  const [installationId, setInstallationId] = useState(
     initialData?.costCenterId ?? ""
   );
 
@@ -333,13 +335,13 @@ export function RendicionForm({
           rendicionId = tripEndData.data?.rendicionId || tripEndData.rendicionId;
 
           // Update rendicion with extra fields if needed
-          if (rendicionId && (description || costCenterId)) {
+          if (rendicionId && (description || installationId)) {
             await fetch(`/api/finance/rendiciones/${rendicionId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 description: description || null,
-                costCenterId: costCenterId || null,
+                costCenterId: installationId || null,
                 date,
               }),
             });
@@ -353,7 +355,7 @@ export function RendicionForm({
             description: description || null,
             documentType: documentType || null,
             itemId: itemId || null,
-            costCenterId: costCenterId || null,
+            costCenterId: installationId || null,
           };
 
           const url = initialData
@@ -414,7 +416,7 @@ export function RendicionForm({
       amount,
       documentType,
       itemId,
-      costCenterId,
+      installationId,
       attachments,
       startLocation,
       endLocation,
@@ -702,27 +704,42 @@ export function RendicionForm({
             </Select>
           </div>
 
-          {/* Cost center selector */}
-          <div>
-            <Label htmlFor="costCenter">Centro de costo</Label>
-            <Select value={costCenterId} onValueChange={setCostCenterId}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Seleccionar centro de costo (opcional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {costCenters.map((cc) => (
-                  <SelectItem key={cc.id} value={cc.id}>
-                    {cc.name}
-                    {cc.code && (
-                      <span className="text-muted-foreground ml-1">
-                        ({cc.code})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Instalación / Centro de costo */}
+          {installations.length > 0 && (
+            <div>
+              <Label htmlFor="installation">Instalación (centro de costo)</Label>
+              <Select value={installationId || "__none__"} onValueChange={(v) => setInstallationId(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Seleccionar instalación (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin asignar</SelectItem>
+                  {(() => {
+                    // Agrupar por cliente
+                    const grouped: Record<string, InstallationOption[]> = {};
+                    installations.forEach((inst) => {
+                      const key = inst.accountName;
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(inst);
+                    });
+                    return Object.entries(grouped)
+                      .sort(([a], [b]) => a.localeCompare(b, "es"))
+                      .map(([accountName, insts]) => (
+                        <div key={accountName}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{accountName}</div>
+                          {insts.map((inst) => (
+                            <SelectItem key={inst.id} value={inst.id}>
+                              {inst.name}
+                              {inst.address && <span className="text-muted-foreground ml-1 text-xs">— {inst.address}</span>}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Description */}
           <div>
