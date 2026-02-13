@@ -60,7 +60,7 @@ const DEFAULT_FORM: PuestoFormData = {
   customName: "",
   startTime: "08:00",
   endTime: "20:00",
-  weekdays: [],
+  weekdays: [...WEEKDAY_ORDER],
   numGuards: 1,
   baseSalary: 550000,
   activeFrom: new Date().toISOString().slice(0, 10),

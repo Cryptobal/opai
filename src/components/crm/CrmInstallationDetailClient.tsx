@@ -431,6 +431,24 @@ function StaffingSection({
     setFormModalOpen(true);
   };
 
+  // Duplicate puesto (open create modal pre-filled with same data)
+  const openDuplicate = (puesto: NonNullable<InstallationDetail["puestosActivos"]>[number]) => {
+    setEditingPuestoId(null); // null = crear nuevo
+    setFormModalTitle("Duplicar puesto operativo");
+    setFormModalInitial({
+      puestoTrabajoId: puesto.puestoTrabajoId ?? "",
+      cargoId: puesto.cargoId ?? "",
+      rolId: puesto.rolId ?? "",
+      customName: `${puesto.name} (copia)`,
+      startTime: puesto.shiftStart,
+      endTime: puesto.shiftEnd,
+      weekdays: puesto.weekdays,
+      numGuards: puesto.requiredGuards,
+      baseSalary: Number(puesto.baseSalary ?? 0),
+    });
+    setFormModalOpen(true);
+  };
+
   // Save (create or edit)
   const handleSave = async (data: PuestoFormData) => {
     const body = {
@@ -592,6 +610,9 @@ function StaffingSection({
                     <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)} title="Editar">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
