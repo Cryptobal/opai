@@ -7,7 +7,7 @@ import { z } from "zod";
 const startTripSchema = z.object({
   startLat: z.number().min(-90).max(90),
   startLng: z.number().min(-180).max(180),
-  startAddress: z.string().max(500).optional(),
+  startAddress: z.string().max(500).nullish(),
 });
 
 // ── POST: start a trip (check-in) ──

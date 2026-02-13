@@ -9,7 +9,7 @@ type Params = { id: string };
 const endTripSchema = z.object({
   endLat: z.number().min(-90).max(90),
   endLng: z.number().min(-180).max(180),
-  endAddress: z.string().max(500).optional(),
+  endAddress: z.string().max(500).nullish(),
 });
 
 // ── POST: end trip (check-out) ──
