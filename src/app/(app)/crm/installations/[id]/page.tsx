@@ -45,6 +45,7 @@ export default async function CrmInstallationDetailPage({
         requiredGuards: true,
         baseSalary: true,
         teMontoClp: true,
+        activeFrom: true,
         puestoTrabajo: { select: { id: true, name: true } },
         cargo: { select: { id: true, name: true } },
         rol: { select: { id: true, name: true } },

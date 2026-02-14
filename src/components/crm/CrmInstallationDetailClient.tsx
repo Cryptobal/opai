@@ -58,6 +58,7 @@ export type InstallationDetail = {
     requiredGuards: number;
     baseSalary?: number | string | null;
     teMontoClp?: number | string | null;
+    activeFrom?: string | null;
     puestoTrabajo?: { id: string; name: string } | null;
     cargo?: { id: string; name: string } | null;
     rol?: { id: string; name: string } | null;
@@ -522,6 +523,7 @@ function StaffingSection({
       weekdays: puesto.weekdays,
       numGuards: puesto.requiredGuards,
       baseSalary: Number(puesto.baseSalary ?? 0),
+      activeFrom: puesto.activeFrom ? new Date(puesto.activeFrom).toISOString().slice(0, 10) : "",
     });
     setFormModalOpen(true);
   };
