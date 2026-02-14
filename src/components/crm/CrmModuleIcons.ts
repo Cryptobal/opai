@@ -13,6 +13,7 @@ import {
   UserCircle,
   DollarSign,
   FileText,
+  Gavel,
   Mail,
   Landmark,
   CalendarDays,
@@ -60,6 +61,7 @@ export type CrmSectionKey =
   | "datos"
   | "documentos"
   | "docs-vinculados"
+  | "eventos-laborales"
   | "cuentas"
   | "comentarios"
   | "dias-trabajados"
@@ -262,6 +264,11 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: Link2,
     label: "Docs vinculados",
   },
+  "eventos-laborales": {
+    key: "eventos-laborales",
+    icon: Gavel,
+    label: "Eventos laborales",
+  },
   cuentas: {
     key: "cuentas",
     icon: Landmark,
@@ -351,5 +358,5 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
   installations: ["general", "account", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "quotes", "communication", "notes"],
-  guardias: ["datos", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
+  guardias: ["datos", "eventos-laborales", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };

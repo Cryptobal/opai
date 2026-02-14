@@ -51,6 +51,7 @@ import {
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
+import { GuardEventsTab } from "@/components/ops/guard-events";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -1314,6 +1315,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             )}
           </div>
         </div>
+      ),
+    },
+    /* eventos laborales */
+    {
+      key: "eventos-laborales" as const,
+      label: "Eventos laborales",
+      children: (
+        <GuardEventsTab
+          guardiaId={guardia.id}
+          guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
+          userRole={userRole}
+        />
       ),
     },
     /* documentos */
