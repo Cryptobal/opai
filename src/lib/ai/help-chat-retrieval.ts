@@ -1,6 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import { prisma } from "@/lib/prisma";
+import { openai } from "@/lib/openai";
+
 type DocChunk = {
   id: string;
   source: string;
@@ -10,7 +13,7 @@ type DocChunk = {
   tokenSet: Set<string>;
 };
 
-type RetrievalChunk = {
+export type RetrievalChunk = {
   title: string;
   body: string;
   score: number;
@@ -81,7 +84,7 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   instalar: ["app", "aplicacion", "descargar", "acceso", "directo", "home", "homescreen"],
 };
 
-function normalizeWord(word: string): string {
+export function normalizeWord(word: string): string {
   let w = word
     .toLowerCase()
     .normalize("NFD")
@@ -93,7 +96,7 @@ function normalizeWord(word: string): string {
   return w;
 }
 
-function tokenize(text: string, keepStopwords = false): string[] {
+export function tokenize(text: string, keepStopwords = false): string[] {
   return text
     .split(/\s+/)
     .map((raw) => normalizeWord(raw))
@@ -101,7 +104,7 @@ function tokenize(text: string, keepStopwords = false): string[] {
     .filter((t) => keepStopwords || !STOPWORDS.has(t));
 }
 
-function expandQueryTokens(tokens: string[]): Set<string> {
+export function expandQueryTokens(tokens: string[]): Set<string> {
   const expanded = new Set<string>();
   for (const token of tokens) {
     expanded.add(token);
@@ -195,7 +198,43 @@ async function getChunks(): Promise<DocChunk[]> {
   return chunks;
 }
 
-export async function retrieveDocsContext(
+async function semanticSearch(query: string, limit: number): Promise<RetrievalChunk[]> {
+  try {
+    // Generate embedding for the query
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: query,
+    });
+    const queryEmbedding = embeddingResponse.data[0]?.embedding;
+    if (!queryEmbedding) return [];
+
+    const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+
+    // Query pgvector for nearest neighbors using cosine distance
+    type PgVectorRow = { section: string; content: string; source_path: string; distance: number };
+    const results: PgVectorRow[] = await prisma.$queryRawUnsafe(
+      `SELECT section, content, source_path, (embedding <=> $1::vector) as distance
+       FROM "public"."AiDocChunk"
+       WHERE embedding IS NOT NULL
+       ORDER BY embedding <=> $1::vector
+       LIMIT $2`,
+      vectorLiteral,
+      limit,
+    );
+
+    // Convert cosine distance to a similarity score (0-10 scale)
+    return results.map((r: PgVectorRow) => ({
+      title: r.section,
+      body: r.content,
+      score: Math.max(0, (1 - r.distance) * 10), // cosine similarity * 10
+    }));
+  } catch (error) {
+    console.warn("Semantic search unavailable, falling back to keyword-only:", error);
+    return [];
+  }
+}
+
+async function keywordSearch(
   query: string,
   limit = 6,
 ): Promise<RetrievalChunk[]> {
@@ -244,4 +283,43 @@ export async function retrieveDocsContext(
     }));
 
   return scored;
+}
+
+export async function retrieveDocsContext(
+  query: string,
+  limit = 6,
+): Promise<RetrievalChunk[]> {
+  // Run keyword search and semantic search in parallel
+  const [keywordResults, semanticResults] = await Promise.all([
+    keywordSearch(query, limit),
+    semanticSearch(query, limit),
+  ]);
+
+  // Merge results: combine by title+body key, take max score from each source
+  const merged = new Map<string, RetrievalChunk>();
+
+  for (const chunk of keywordResults) {
+    const key = `${chunk.title}::${chunk.body.slice(0, 100)}`;
+    const existing = merged.get(key);
+    if (!existing || chunk.score > existing.score) {
+      merged.set(key, chunk);
+    }
+  }
+
+  for (const chunk of semanticResults) {
+    const key = `${chunk.title}::${chunk.body.slice(0, 100)}`;
+    const existing = merged.get(key);
+    if (existing) {
+      // Boost: if found by both methods, add semantic score
+      existing.score = existing.score + chunk.score * 0.5;
+    } else {
+      merged.set(key, chunk);
+    }
+  }
+
+  // Sort by score descending and take top limit
+  return [...merged.values()]
+    .filter((c) => c.score >= 2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 }

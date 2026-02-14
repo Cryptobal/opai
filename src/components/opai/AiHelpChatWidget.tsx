@@ -193,12 +193,18 @@ export function AiHelpChatWidget() {
       content: text,
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimisticUser].slice(-MAX_VISIBLE_MESSAGES));
+    const streamingAssistant: ChatMessage = {
+      id: `tmp-streaming-${Date.now()}`,
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUser, streamingAssistant].slice(-MAX_VISIBLE_MESSAGES));
     setInput("");
     setSending(true);
 
     try {
-      const res = await fetch("/api/ai/help-chat", {
+      const res = await fetch("/api/ai/help-chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -206,35 +212,89 @@ export function AiHelpChatWidget() {
           conversationId: activeConversationId ?? undefined,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "No se pudo enviar el mensaje");
+
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({ error: "Error de conexión" }));
+        throw new Error(errorJson.error || "No se pudo enviar el mensaje");
       }
 
-      const newConversationId = json.data?.conversationId as string;
-      const assistant = json.data?.assistantMessage as ChatMessage | undefined;
-      const assistantText =
-        typeof json.data?.assistantText === "string" ? json.data.assistantText.trim() : "";
-      setPersistenceEnabled(json.data?.persistenceEnabled !== false);
+      if (!res.body) throw new Error("No se recibió respuesta del servidor");
 
-      if (newConversationId) {
-        setActiveConversationId(newConversationId);
-        setIsNewConversation(false);
-      }
-      if (assistant && assistant.content?.trim()) {
-        setMessages((prev) => [...prev, assistant].slice(-MAX_VISIBLE_MESSAGES));
-      } else if (assistantText) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `tmp-assistant-fallback-${Date.now()}`,
-            role: "assistant",
-            content: assistantText,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamedText = "";
+      let finalConversationId: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let eventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7).trim();
+            continue;
+          }
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (eventType === "meta") {
+                if (data.conversationId) {
+                  finalConversationId = data.conversationId;
+                  setActiveConversationId(data.conversationId);
+                  setIsNewConversation(false);
+                }
+                setPersistenceEnabled(data.persistenceEnabled !== false);
+              } else if (eventType === "token") {
+                streamedText += data.token || "";
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last && last.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+                    updated[updated.length - 1] = { ...last, content: streamedText };
+                  }
+                  return updated;
+                });
+              } else if (eventType === "done") {
+                const finalText = data.assistantText || streamedText;
+                const msgId = data.assistantMessageId || `done-${Date.now()}`;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const lastIdx = updated.findIndex(
+                    (m) => m.role === "assistant" && m.id.startsWith("tmp-streaming-"),
+                  );
+                  if (lastIdx !== -1) {
+                    updated[lastIdx] = {
+                      id: msgId,
+                      role: "assistant",
+                      content: finalText,
+                      createdAt: new Date().toISOString(),
+                    };
+                  }
+                  return updated;
+                });
+              } else if (eventType === "error") {
+                throw new Error(data.error || "Error del asistente");
+              }
+            } catch (parseError) {
+              if (eventType === "error") {
+                throw parseError;
+              }
+              // ignore non-critical parse errors
+            }
+            eventType = "";
+          }
+        }
       }
 
+      // Refresh conversation list
       const listRes = await fetch("/api/ai/help-chat/conversations");
       const listJson = await listRes.json();
       if (listJson.success && Array.isArray(listJson.data)) {
@@ -242,17 +302,21 @@ export function AiHelpChatWidget() {
         setPersistenceEnabled(listJson.persistenceEnabled !== false);
       }
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `tmp-assistant-${Date.now()}`,
-          role: "assistant",
-          content:
-            (error as Error).message ||
-            "Ocurrió un error al responder. Intenta nuevamente.",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      setMessages((prev) => {
+        // Remove the streaming placeholder if it exists
+        const filtered = prev.filter(
+          (m) => !(m.role === "assistant" && m.id.startsWith("tmp-streaming-") && !m.content),
+        );
+        return [
+          ...filtered,
+          {
+            id: `tmp-error-${Date.now()}`,
+            role: "assistant",
+            content: (error as Error).message || "Ocurrió un error al responder. Intenta nuevamente.",
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      });
     } finally {
       setSending(false);
     }
@@ -344,6 +408,12 @@ export function AiHelpChatWidget() {
                     {renderMessageContent(msg.content)}
                   </div>
                 ))
+              )}
+              {sending && (
+                <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Escribiendo...</span>
+                </div>
               )}
             </div>
 
@@ -441,6 +511,12 @@ export function AiHelpChatWidget() {
                     {renderMessageContent(msg.content)}
                   </div>
                 ))
+              )}
+              {sending && (
+                <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Escribiendo...</span>
+                </div>
               )}
             </div>
 

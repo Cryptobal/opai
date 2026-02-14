@@ -16,8 +16,7 @@ import {
   resolveFunctionalIntent,
   shouldPreferFunctionalInference,
 } from "@/lib/ai/help-chat-intents";
-
-const MODEL = "gpt-4o-mini";
+import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
 
 function hasChatPersistence(): boolean {
   const db = prisma as unknown as Record<string, unknown>;
@@ -83,6 +82,9 @@ async function runModelWithTools(params: {
   allowDataQuestions: boolean;
   canViewAllRendiciones: boolean;
   appBaseUrl: string;
+  conversationHistory: Array<{ role: string; content: string }>;
+  retrievalHasEvidence: boolean;
+  model: string;
 }): Promise<ToolCallResult> {
   const {
     userMessage,
@@ -92,6 +94,9 @@ async function runModelWithTools(params: {
     allowDataQuestions,
     canViewAllRendiciones,
     appBaseUrl,
+    conversationHistory,
+    retrievalHasEvidence,
+    model,
   } = params;
   let toolCallsUsed = 0;
   const fallback = fallbackMessage(userMessage);
@@ -99,6 +104,15 @@ async function runModelWithTools(params: {
     dateStyle: "full",
     timeStyle: "short",
   });
+
+  const MAX_HISTORY_CHARS = 12_000;
+  // Trim history if too large
+  let trimmedHistory = [...conversationHistory];
+  let historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
+  while (historySize > MAX_HISTORY_CHARS && trimmedHistory.length > 2) {
+    trimmedHistory = trimmedHistory.slice(2); // Remove oldest pair
+    historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
+  }
 
   const baseMessages: Array<Record<string, unknown>> = [
     {
@@ -108,12 +122,17 @@ async function runModelWithTools(params: {
         allowDataQuestions,
         todayLabel,
         appBaseUrl,
+        retrievalHasEvidence,
       }),
     },
     {
       role: "system",
       content: `Contexto documental relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}`,
     },
+    ...trimmedHistory.map(m => ({
+      role: m.role as string,
+      content: m.content,
+    })),
     { role: "user", content: userMessage },
   ];
 
@@ -188,12 +207,12 @@ async function runModelWithTools(params: {
 
   for (let step = 0; step < 4; step += 1) {
     const completion = await openai.chat.completions.create({
-      model: MODEL,
+      model,
       messages: messages as never,
       tools: tools.length > 0 ? (tools as never) : undefined,
       tool_choice: tools.length > 0 ? "auto" : undefined,
       temperature: 0.2,
-      max_tokens: 700,
+      max_tokens: 1400,
     });
 
     const choice = completion.choices[0]?.message;
@@ -296,6 +315,7 @@ async function runModelWithTools(params: {
 
 export async function POST(request: NextRequest) {
   try {
+    const t0 = Date.now();
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
@@ -362,6 +382,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Load conversation history for multi-turn context
+    let conversationHistory: Array<{ role: string; content: string }> = [];
+    if (persistenceEnabled && conversation) {
+      const historyMessages = await prisma.aiChatMessage.findMany({
+        where: { conversationId: conversation.id },
+        select: { role: true, content: true, createdAt: true },
+        orderBy: [{ createdAt: "asc" }],
+        take: 24,
+      });
+      // Exclude the message we just saved (the current user message) since it'll be added separately
+      conversationHistory = historyMessages
+        .slice(0, -1) // Remove the last one (current message, just saved above)
+        .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+    }
+
     const docsChunks = await retrieveDocsContext(userMessage, 6);
     const docsContext = docsChunks
       .map(
@@ -371,6 +406,13 @@ export async function POST(request: NextRequest) {
       .join("\n\n");
 
     /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs si hay) ── */
+    const retrievalHasEvidence = docsChunks.length > 0;
+    const retrievalMaxScore = docsChunks.length > 0 ? Math.max(...docsChunks.map(c => c.score)) : 0;
+    const recentFallbackCount = conversationHistory
+      .slice(-6)
+      .filter(m => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
+    const frustrated = detectFrustration(userMessage);
+    const model = chooseModel({ retrievalMaxScore, recentFallbackCount, frustrated });
     const modelResult = await runModelWithTools({
       userMessage,
       docsContext,
@@ -379,6 +421,9 @@ export async function POST(request: NextRequest) {
       allowDataQuestions: cfg.allowDataQuestions,
       canViewAllRendiciones: hasCapability(perms, "rendicion_view_all"),
       appBaseUrl,
+      conversationHistory,
+      retrievalHasEvidence,
+      model,
     });
     let assistantText = normalizeAssistantLinks(
       modelResult.assistantText || fallbackMessage(userMessage),
@@ -422,6 +467,21 @@ export async function POST(request: NextRequest) {
         data: { updatedAt: new Date() },
       });
     }
+
+    console.log(
+      JSON.stringify({
+        event: "ai_help_chat",
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        model,
+        toolCallsUsed: modelResult.toolCallsUsed,
+        retrievalChunks: docsChunks.length,
+        retrievalTopScore: retrievalMaxScore,
+        fallbackUsed: assistantUsedFallback,
+        frustrated,
+        latencyMs: Date.now() - t0,
+      }),
+    );
 
     return NextResponse.json({
       success: true,

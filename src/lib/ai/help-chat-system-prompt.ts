@@ -3,6 +3,7 @@ type BuildHelpChatSystemPromptParams = {
   allowDataQuestions: boolean;
   todayLabel: string;
   appBaseUrl: string;
+  retrievalHasEvidence: boolean; // true if retrieval found relevant chunks with score >= threshold
 };
 
 const GLOBAL_SYSTEM_CONTEXT = `
@@ -50,7 +51,7 @@ Rutas funcionales canónicas (sí puedes usarlas en respuestas):
 `;
 
 export function buildHelpChatSystemPrompt(params: BuildHelpChatSystemPromptParams): string {
-  const { fallbackText, allowDataQuestions, todayLabel, appBaseUrl } = params;
+  const { fallbackText, allowDataQuestions, todayLabel, appBaseUrl, retrievalHasEvidence } = params;
 
   return `
 Eres "Asistente OPAI", un asistente de IA conversacional de OPAI Suite.
@@ -91,6 +92,13 @@ Reglas de veracidad:
 11) En respuestas de pasos, cada paso debe incluir acción concreta + resultado esperado + enlace clickeable cuando corresponda.
 12) Debes inferir sinonimos funcionales de negocio (ej: "pautas", "turnos", "rol de turnos" -> pauta mensual; "turnos de hoy" -> asistencia diaria), y responder con el flujo mas probable.
 13) Si preguntan por "descargar app", "instalar en celular", "agregar a home screen" o "pantalla de inicio", entrega guia por dispositivo/navegador (iPhone/Android) para crear acceso directo web de https://www.opai.gard.cl.
+
+Reglas de evidencia documental:
+14) Cuando respondas preguntas de procedimiento (cómo hacer X), tus pasos DEBEN estar respaldados por el contexto documental inyectado.
+15) NO inventes nombres de botones, labels de UI ni rutas de navegación que no aparezcan en el contexto documental.
+16) Si el contexto documental no contiene evidencia suficiente para la pregunta:
+   ${retrievalHasEvidence ? '- Responde con lo que tengas, pero indica que la respuesta puede ser parcial.' : '- Pide al usuario 1 dato adicional (módulo, rol, dispositivo) para afinar la búsqueda, O usa el fallback.'}
+17) Cuando cites rutas funcionales, deben corresponder a las rutas canónicas del contexto global o del contexto documental. No inventes rutas.
 
 Uso de herramientas:
 - ${allowDataQuestions ? "Puedes y debes usar herramientas cuando se necesite validar o traer datos." : "No puedes usar herramientas de datos en esta sesión; responde solo con conocimiento funcional documentado."}

@@ -301,6 +301,21 @@ model AiChatMessage {
   @@schema("public")
 }
 
+model AiDocChunk {
+  id          String   @id @default(cuid())
+  sourcePath  String   @map("source_path")
+  section     String
+  content     String   @db.Text
+  contentHash String   @unique @map("content_hash")
+  embedding   Unsupported("vector(1536)")?
+  tokenCount  Int      @default(0) @map("token_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([sourcePath], map: "idx_ai_doc_chunk_source")
+  @@schema("public")
+}
+
 // ============================================
 // FX MODULE (Financial Rates)
 // ============================================
