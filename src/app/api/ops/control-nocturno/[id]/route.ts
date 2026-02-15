@@ -70,12 +70,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!reporte) {
       return NextResponse.json({ success: false, error: "Reporte no encontrado" }, { status: 404 });
     }
-    if (reporte.status === "aprobado") {
-      return NextResponse.json({ success: false, error: "El reporte ya está aprobado" }, { status: 400 });
+    // Allow "resend" on finalized reports, block other edits
+    const isFinal = reporte.status === "aprobado" || reporte.status === "enviado";
+    if (isFinal && body.action !== "resend") {
+      return NextResponse.json({ success: false, error: "El reporte ya fue enviado" }, { status: 400 });
     }
 
     const {
-      action, // "save" | "submit"
+      action, // "save" | "submit" | "resend"
       generalNotes,
       centralOperatorName,
       centralLabel,
@@ -213,8 +215,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await createOpsAuditLog(ctx, action || "update", "control_nocturno", id, { action });
 
-    // Send email on submit (fire-and-forget)
-    if (updated && action === "submit") {
+    // Send email on submit or resend (fire-and-forget)
+    if (updated && (action === "submit" || action === "resend")) {
       const baseUrl = process.env.NEXTAUTH_URL || "https://opai.gard.cl";
 
       const emailData = {

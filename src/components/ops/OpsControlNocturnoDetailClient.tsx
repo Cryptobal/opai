@@ -98,11 +98,13 @@ interface Props {
 
 const STATUS_LABELS: Record<string, string> = {
   borrador: "Borrador",
+  enviado: "Enviado",
   aprobado: "Enviado",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-zinc-500/15 text-zinc-400",
+  enviado: "bg-emerald-500/15 text-emerald-400",
   aprobado: "bg-emerald-500/15 text-emerald-400",
 };
 
@@ -307,6 +309,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         const msgs: Record<string, string> = {
           save: "Guardado",
           submit: "Reporte enviado a operaciones",
+          resend: "Reporte reenviado a operaciones",
         };
         toast.success(msgs[action || "save"] || "Actualizado");
       } else {
@@ -963,11 +966,23 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
             </Button>
           </>
         )}
-        {reporte.status === "aprobado" && (
-          <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4" />
-            Reporte enviado
-          </p>
+        {(reporte.status === "aprobado" || reporte.status === "enviado") && (
+          <>
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4" />
+              Reporte enviado
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => doSave("resend")}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+              Reenviar
+            </Button>
+          </>
         )}
       </div>
 

@@ -52,6 +52,7 @@ interface Props {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   borrador: { label: "Borrador", color: "bg-zinc-500/15 text-zinc-400", icon: Clock },
+  enviado: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
   aprobado: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
 };
 
