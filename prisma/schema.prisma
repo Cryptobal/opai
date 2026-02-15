@@ -27,6 +27,7 @@ model Tenant {
   aiChatMessages  AiChatMessage[]
   financeConfig   FinanceRendicionConfig?
   financePayments FinancePayment[]
+  adminGroups     AdminGroup[]
 
   @@index([slug])
   @@index([active])
@@ -163,6 +164,7 @@ model Admin {
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   roleTemplate    RoleTemplate? @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
   aiChatConversations AiChatConversation[]
+  groupMemberships AdminGroupMembership[]
 
   @@index([email])
   @@index([status])
@@ -189,6 +191,45 @@ model RoleTemplate {
   @@unique([tenantId, slug], map: "uq_role_template_tenant_slug")
   @@index([tenantId], map: "idx_role_templates_tenant")
   @@map("role_templates")
+  @@schema("public")
+}
+
+model AdminGroup {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  slug        String
+  name        String
+  description String?
+  color       String   @default("#6B7280")
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships AdminGroupMembership[]
+  approvalSteps OpsTicketTypeApprovalStep[]
+
+  @@unique([tenantId, slug], map: "uq_admin_groups_tenant_slug")
+  @@index([tenantId], map: "idx_admin_groups_tenant")
+  @@map("admin_groups")
+  @@schema("public")
+}
+
+model AdminGroupMembership {
+  id        String   @id @default(cuid())
+  groupId   String   @map("group_id")
+  adminId   String   @map("admin_id")
+  role      String   @default("member")
+  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  group     AdminGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  admin     Admin      @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, adminId], map: "uq_admin_group_memberships_group_admin")
+  @@index([groupId], map: "idx_admin_group_memberships_group")
+  @@index([adminId], map: "idx_admin_group_memberships_admin")
+  @@map("admin_group_memberships")
   @@schema("public")
 }
 
@@ -1465,6 +1506,7 @@ model OpsGuardia {
   rondaMarcaciones      OpsMarcacionCheckpoint[]
   rondaIncidentes       OpsRondaIncidente[]
   controlNocturnoGuardias OpsControlNocturnoGuardia[]
+  tickets                 OpsTicket[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2202,6 +2244,130 @@ model OpsControlNocturnoRonda {
   @@unique([controlInstalacionId, rondaNumber], map: "uq_ops_cn_ronda_inst_number")
   @@index([controlInstalacionId], map: "idx_ops_cn_ronda_instalacion")
   @@map("control_nocturno_rondas")
+  @@schema("ops")
+}
+
+model OpsTicketType {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String   @map("tenant_id")
+  slug              String
+  name              String
+  description       String?
+  origin            String   @default("internal")
+  requiresApproval  Boolean  @default(false) @map("requires_approval")
+  assignedTeam      String   @map("assigned_team")
+  defaultPriority   String   @default("p3") @map("default_priority")
+  slaHours          Int      @default(72) @map("sla_hours")
+  icon              String?
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  approvalSteps     OpsTicketTypeApprovalStep[]
+  tickets           OpsTicket[]
+
+  @@unique([tenantId, slug], map: "uq_ops_ticket_types_tenant_slug")
+  @@index([tenantId], map: "idx_ops_ticket_types_tenant")
+  @@index([tenantId, isActive], map: "idx_ops_ticket_types_tenant_active")
+  @@map("ops_ticket_types")
+  @@schema("ops")
+}
+
+model OpsTicketTypeApprovalStep {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketTypeId    String   @map("ticket_type_id") @db.Uuid
+  stepOrder       Int      @map("step_order")
+  approverType    String   @default("group") @map("approver_type")
+  approverGroupId String?  @map("approver_group_id")
+  approverUserId  String?  @map("approver_user_id")
+  label           String
+  isRequired      Boolean  @default(true) @map("is_required")
+
+  ticketType      OpsTicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+  approverGroup   AdminGroup?   @relation(fields: [approverGroupId], references: [id], onDelete: SetNull)
+
+  @@index([ticketTypeId], map: "idx_ops_ticket_type_approval_steps_type")
+  @@map("ops_ticket_type_approval_steps")
+  @@schema("ops")
+}
+
+model OpsTicket {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String    @map("tenant_id")
+  code                String
+  ticketTypeId        String?   @map("ticket_type_id") @db.Uuid
+  status              String    @default("open")
+  priority            String    @default("p3")
+  title               String
+  description         String?
+  assignedTeam        String    @map("assigned_team")
+  assignedTo          String?   @map("assigned_to")
+  installationId      String?   @map("installation_id") @db.Uuid
+  source              String    @default("manual")
+  sourceGuardEventId  String?   @map("source_guard_event_id")
+  guardiaId           String?   @map("guardia_id") @db.Uuid
+  reportedBy          String    @map("reported_by")
+  slaDueAt            DateTime? @map("sla_due_at") @db.Timestamptz(6)
+  slaBreached         Boolean   @default(false) @map("sla_breached")
+  resolvedAt          DateTime? @map("resolved_at") @db.Timestamptz(6)
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz(6)
+  resolutionNotes     String?   @map("resolution_notes")
+  tags                String[]  @default([])
+  currentApprovalStep Int?      @map("current_approval_step")
+  approvalStatus      String?   @map("approval_status")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ticketType          OpsTicketType? @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
+  guardia             OpsGuardia?    @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  approvals           OpsTicketApproval[]
+  comments            OpsTicketComment[]
+
+  @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
+  @@index([tenantId], map: "idx_ops_tickets_tenant")
+  @@index([tenantId, status], map: "idx_ops_tickets_tenant_status")
+  @@index([tenantId, assignedTeam], map: "idx_ops_tickets_tenant_team")
+  @@index([guardiaId], map: "idx_ops_tickets_guardia")
+  @@index([ticketTypeId], map: "idx_ops_tickets_type")
+  @@map("ops_tickets")
+  @@schema("ops")
+}
+
+model OpsTicketApproval {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketId        String    @map("ticket_id") @db.Uuid
+  stepOrder       Int       @map("step_order")
+  stepLabel       String    @map("step_label")
+  approverType    String    @map("approver_type")
+  approverGroupId String?   @map("approver_group_id")
+  approverUserId  String?   @map("approver_user_id")
+  decision        String    @default("pending")
+  decidedById     String?   @map("decided_by_id")
+  comment         String?
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket          OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId], map: "idx_ops_ticket_approvals_ticket")
+  @@index([ticketId, stepOrder], map: "idx_ops_ticket_approvals_ticket_step")
+  @@map("ops_ticket_approvals")
+  @@schema("ops")
+}
+
+model OpsTicketComment {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  userId     String   @map("user_id")
+  body       String
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket     OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId], map: "idx_ops_ticket_comments_ticket")
+  @@map("ops_ticket_comments")
   @@schema("ops")
 }
 
