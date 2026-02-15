@@ -878,6 +878,7 @@ model CrmInstallation {
   teMontoClp Decimal @default(0) @map("te_monto_clp") @db.Decimal(12, 2)
   notes     String?
   metadata  Json?    @db.JsonB // dotacion sugerida, datos extra
+  nocturnoEnabled Boolean @default(true) @map("nocturno_enabled") // incluir en control nocturno
   startDate DateTime? @map("start_date") @db.Date
   endDate   DateTime? @map("end_date") @db.Date
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

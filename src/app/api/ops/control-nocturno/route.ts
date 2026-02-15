@@ -92,11 +92,12 @@ export async function POST(request: NextRequest) {
         orderBy: { name: "asc" },
       });
     } else {
-      // Obtener todas las instalaciones activas del tenant con puestos nocturnos
+      // Obtener instalaciones activas con nocturno habilitado
       installations = await prisma.crmInstallation.findMany({
         where: {
           account: { tenantId: ctx.tenantId },
           isActive: true,
+          nocturnoEnabled: true,
         },
         select: { id: true, name: true },
         orderBy: { name: "asc" },

@@ -1,7 +1,7 @@
 /**
  * Envío de reporte de control nocturno por email.
  *
- * Al enviar o aprobar un reporte, se genera el PDF inline
+ * Al finalizar un reporte, se genera el PDF inline
  * y se manda como adjunto a operaciones@gard.cl.
  */
 
@@ -14,11 +14,11 @@ interface ControlNocturnoEmailData {
   date: string; // YYYY-MM-DD
   centralOperatorName: string;
   centralLabel: string | null;
-  status: "enviado" | "aprobado";
   totalInstalaciones: number;
   novedades: number;
   criticos: number;
   generalNotes: string | null;
+  aiSummary?: string | null;
   /** Base URL del sistema (ej: https://opai.gard.cl) */
   baseUrl: string;
 }
@@ -33,12 +33,15 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function buildHtml(data: ControlNocturnoEmailData): string {
-  const isApproval = data.status === "aprobado";
-  const statusLabel = isApproval ? "APROBADO" : "ENVIADO PARA REVISIÓN";
-  const statusColor = isApproval ? "#059669" : "#d97706";
-  const reportUrl = `${data.baseUrl}/ops/control-nocturno/${data.reporteId}`;
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
+function buildHtml(data: ControlNocturnoEmailData): string {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/></head>
@@ -53,19 +56,13 @@ function buildHtml(data: ControlNocturnoEmailData): string {
             <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff">${formatDate(data.date)}</p>
           </td>
         </tr>
-        <!-- Status badge -->
-        <tr>
-          <td style="padding:20px 32px 0">
-            <span style="display:inline-block;background:${statusColor}18;color:${statusColor};font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid ${statusColor}40">${statusLabel}</span>
-          </td>
-        </tr>
         <!-- Info -->
         <tr>
-          <td style="padding:16px 32px">
+          <td style="padding:20px 32px 16px">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="padding:4px 0;font-size:13px;color:#64748b;width:140px">Operador</td>
-                <td style="padding:4px 0;font-size:13px;color:#1e293b;font-weight:500">${data.centralOperatorName}${data.centralLabel ? ` · ${data.centralLabel}` : ""}</td>
+                <td style="padding:4px 0;font-size:13px;color:#1e293b;font-weight:500">${escapeHtml(data.centralOperatorName)}${data.centralLabel ? ` · ${escapeHtml(data.centralLabel)}` : ""}</td>
               </tr>
               <tr>
                 <td style="padding:4px 0;font-size:13px;color:#64748b">Instalaciones</td>
@@ -82,20 +79,30 @@ function buildHtml(data: ControlNocturnoEmailData): string {
             </table>
           </td>
         </tr>
+        ${data.aiSummary ? `
+        <!-- AI Analysis -->
+        <tr>
+          <td style="padding:0 32px 16px">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 4px;font-size:11px;color:#15803d;font-weight:600;text-transform:uppercase">Análisis de la jornada</p>
+              <p style="margin:0;font-size:13px;color:#14532d;line-height:1.5">${escapeHtml(data.aiSummary)}</p>
+            </div>
+          </td>
+        </tr>` : ""}
         ${data.generalNotes ? `
         <!-- Notes -->
         <tr>
           <td style="padding:0 32px 16px">
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px">
               <p style="margin:0 0 4px;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase">Notas generales</p>
-              <p style="margin:0;font-size:13px;color:#334155;white-space:pre-wrap">${data.generalNotes}</p>
+              <p style="margin:0;font-size:13px;color:#334155;white-space:pre-wrap">${escapeHtml(data.generalNotes)}</p>
             </div>
           </td>
         </tr>` : ""}
-        <!-- CTA -->
+        <!-- PDF note -->
         <tr>
           <td style="padding:8px 32px 24px" align="center">
-            <a href="${reportUrl}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:13px;font-weight:600;padding:10px 24px;border-radius:6px;text-decoration:none">Ver reporte completo</a>
+            <p style="margin:0;font-size:12px;color:#64748b">El reporte completo se encuentra adjunto en formato PDF.</p>
           </td>
         </tr>
         <!-- Footer -->
@@ -115,7 +122,7 @@ function buildHtml(data: ControlNocturnoEmailData): string {
 
 /**
  * Envía el reporte de control nocturno por email con PDF adjunto.
- * Se llama al enviar (submit) y al aprobar (approve).
+ * Se llama al finalizar (submit) el reporte.
  */
 export async function sendControlNocturnoEmail(
   data: ControlNocturnoEmailData,
@@ -123,8 +130,7 @@ export async function sendControlNocturnoEmail(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const dateSlug = data.date;
-    const subjectPrefix = data.status === "aprobado" ? "✅ Aprobado" : "📋 Nuevo reporte";
-    const subject = `${subjectPrefix}: Control Nocturno ${formatDate(data.date)}`;
+    const subject = `📋 Control Nocturno ${formatDate(data.date)}`;
 
     const attachments = pdfBuffer
       ? [

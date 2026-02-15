@@ -31,8 +31,6 @@ import {
   Clock,
   Users,
   Building2,
-  AlertTriangle,
-  RotateCcw,
   FileDown,
   MessageSquare,
 } from "lucide-react";
@@ -101,15 +99,13 @@ interface Props {
 const STATUS_LABELS: Record<string, string> = {
   borrador: "Borrador",
   enviado: "Enviado",
-  aprobado: "Aprobado",
-  rechazado: "Rechazado",
+  aprobado: "Enviado",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   borrador: "bg-zinc-500/15 text-zinc-400",
-  enviado: "bg-amber-500/15 text-amber-400",
+  enviado: "bg-emerald-500/15 text-emerald-400",
   aprobado: "bg-emerald-500/15 text-emerald-400",
-  rechazado: "bg-red-500/15 text-red-400",
 };
 
 const INST_STATUS_LABELS: Record<string, string> = {
@@ -215,8 +211,6 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
   const [saving, setSaving] = useState(false);
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [expandedInst, setExpandedInst] = useState<string | null>(null);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
   const [exporting, setExporting] = useState(false);
   const [rondaModalOpen, setRondaModalOpen] = useState(false);
   const [selectedRonda, setSelectedRonda] = useState<{ instId: string; ronda: RondaItem } | null>(null);
@@ -225,13 +219,11 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
 
   // Permissions from context (works with any role, including custom RoleTemplates)
   const canEditCN = useCanEdit("ops", "control_nocturno");
-  const canApproveCN = useHasCapability("control_nocturno_approve");
   const canDeleteCN = useHasCapability("control_nocturno_delete");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isEditable = canEditCN && (reporte?.status === "borrador" || reporte?.status === "rechazado");
-  const canApprove = canApproveCN;
+  const isEditable = canEditCN && reporte?.status === "borrador";
 
   // Mark dirty on any local change
   const markDirty = useCallback(() => setDirty(true), []);
@@ -316,10 +308,8 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         setReporte(data);
         const msgs: Record<string, string> = {
           save: "Guardado",
-          submit: "Reporte enviado",
-          approve: "Reporte aprobado",
-          reject: "Reporte rechazado",
-          reopen: "Reporte reabierto",
+          submit: "Reporte enviado a operaciones",
+          resend: "Reporte reenviado a operaciones",
         };
         toast.success(msgs[action || "save"] || "Actualizado");
       } else {
@@ -590,14 +580,6 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
               </Button>
             </div>
           </div>
-
-          {/* Rejection banner */}
-          {reporte.status === "rechazado" && reporte.rejectionReason && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
-              <p className="text-xs text-red-400 font-medium">Motivo de rechazo:</p>
-              <p className="text-xs text-red-300 mt-0.5">{reporte.rejectionReason}</p>
-            </div>
-          )}
 
           {/* KPI row */}
           <div className="grid grid-cols-4 gap-2">
@@ -980,50 +962,27 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
               disabled={saving}
             >
               <Send className="h-4 w-4 mr-1.5" />
-              Enviar
+              Finalizar y Enviar
             </Button>
           </>
         )}
-        {reporte.status === "enviado" && canApprove && (
+        {(reporte.status === "aprobado" || reporte.status === "enviado") && (
           <>
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4" />
+              Reporte enviado
+            </p>
             <Button
               size="sm"
-              className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => doSave("approve")}
+              variant="outline"
+              className="ml-auto"
+              onClick={() => doSave("resend")}
               disabled={saving}
             >
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              Aprobar
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="flex-1 sm:flex-none"
-              onClick={() => setRejectOpen(true)}
-              disabled={saving}
-            >
-              <XCircle className="h-4 w-4 mr-1.5" />
-              Rechazar
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
+              Reenviar
             </Button>
           </>
-        )}
-        {reporte.status === "rechazado" && isEditable && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 sm:flex-none"
-            onClick={() => doSave("reopen")}
-            disabled={saving}
-          >
-            <RotateCcw className="h-4 w-4 mr-1.5" />
-            Reabrir
-          </Button>
-        )}
-        {reporte.status === "aprobado" && (
-          <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4" />
-            Reporte aprobado
-          </p>
         )}
       </div>
 
@@ -1137,43 +1096,6 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         loadingLabel="Eliminando…"
       />
 
-      {/* ── Modal rechazo ── */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-400" />
-              Rechazar reporte
-            </DialogTitle>
-          </DialogHeader>
-          <div>
-            <Label>Motivo del rechazo</Label>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Indica el motivo..."
-              rows={3}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                doSave("reject", { rejectionReason: rejectReason });
-                setRejectOpen(false);
-                setRejectReason("");
-              }}
-              disabled={!rejectReason.trim()}
-            >
-              Confirmar rechazo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
