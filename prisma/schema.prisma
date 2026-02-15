@@ -2649,3 +2649,189 @@ model FinancePayment {
   @@map("finance_payments")
   @@schema("finance")
 }
+
+// ── ERP: Account Types ──
+enum FinanceAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  COST
+  EXPENSE
+
+  @@schema("finance")
+}
+
+enum FinanceAccountNature {
+  DEBIT
+  CREDIT
+
+  @@schema("finance")
+}
+
+enum FinancePeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+
+  @@schema("finance")
+}
+
+enum FinanceJournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+
+  @@schema("finance")
+}
+
+enum FinanceJournalSourceType {
+  MANUAL
+  INVOICE_ISSUED
+  INVOICE_RECEIVED
+  PAYMENT
+  RECONCILIATION
+  FACTORING
+  EXPENSE_REPORT
+  OPENING
+  CLOSING
+
+  @@schema("finance")
+}
+
+enum FinanceThirdPartyType {
+  CUSTOMER
+  SUPPLIER
+
+  @@schema("finance")
+}
+
+// ── ERP: Plan de Cuentas ──
+model FinanceAccountPlan {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  code            String
+  name            String
+  type            FinanceAccountType
+  nature          FinanceAccountNature
+  parentId        String?  @map("parent_id") @db.Uuid
+  parent          FinanceAccountPlan?  @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        FinanceAccountPlan[] @relation("AccountHierarchy")
+  level           Int      @default(1)
+  isSystem        Boolean  @default(false) @map("is_system")
+  isActive        Boolean  @default(true) @map("is_active")
+  acceptsEntries  Boolean  @default(true) @map("accepts_entries")
+  description     String?
+  taxCode         String?  @map("tax_code")
+
+  journalLines    FinanceJournalLine[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, code], map: "uq_finance_account_plan_code")
+  @@index([tenantId], map: "idx_finance_account_plan_tenant")
+  @@index([tenantId, type], map: "idx_finance_account_plan_type")
+  @@map("finance_account_plan")
+  @@schema("finance")
+}
+
+// ── ERP: Periodos Contables ──
+model FinanceAccountingPeriod {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  year            Int
+  month           Int
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
+  status          FinancePeriodStatus @default(OPEN)
+  closedBy        String?  @map("closed_by")
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  journalEntries  FinanceJournalEntry[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, year, month], map: "uq_finance_period_tenant_year_month")
+  @@index([tenantId], map: "idx_finance_period_tenant")
+  @@map("finance_accounting_periods")
+  @@schema("finance")
+}
+
+// ── ERP: Asientos Contables ──
+model FinanceJournalEntry {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  number          Int
+  date            DateTime @db.Date
+  periodId        String   @map("period_id") @db.Uuid
+  period          FinanceAccountingPeriod @relation(fields: [periodId], references: [id])
+  description     String
+  reference       String?
+  sourceType      FinanceJournalSourceType @default(MANUAL) @map("source_type")
+  sourceId        String?  @map("source_id")
+  status          FinanceJournalStatus @default(DRAFT)
+  reversedById    String?  @unique @map("reversed_by_id") @db.Uuid
+  reversedBy      FinanceJournalEntry? @relation("JournalReversal", fields: [reversedById], references: [id])
+  reversalOf      FinanceJournalEntry? @relation("JournalReversal")
+  costCenterId    String?  @map("cost_center_id") @db.Uuid
+  totalDebit      Decimal  @default(0) @map("total_debit") @db.Decimal(14, 2)
+  totalCredit     Decimal  @default(0) @map("total_credit") @db.Decimal(14, 2)
+  createdBy       String   @map("created_by")
+  postedBy        String?  @map("posted_by")
+  postedAt        DateTime? @map("posted_at") @db.Timestamptz(6)
+
+  lines           FinanceJournalLine[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, number], map: "uq_finance_journal_tenant_number")
+  @@index([tenantId, date], map: "idx_finance_journal_tenant_date")
+  @@index([tenantId, sourceType, sourceId], map: "idx_finance_journal_source")
+  @@map("finance_journal_entries")
+  @@schema("finance")
+}
+
+model FinanceJournalLine {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  entryId         String   @map("entry_id") @db.Uuid
+  entry           FinanceJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId       String   @map("account_id") @db.Uuid
+  account         FinanceAccountPlan @relation(fields: [accountId], references: [id])
+  description     String?
+  debit           Decimal  @default(0) @db.Decimal(14, 2)
+  credit          Decimal  @default(0) @db.Decimal(14, 2)
+  costCenterId    String?  @map("cost_center_id") @db.Uuid
+  thirdPartyId    String?  @map("third_party_id")
+  thirdPartyType  FinanceThirdPartyType? @map("third_party_type")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([entryId], map: "idx_finance_journal_line_entry")
+  @@index([accountId], map: "idx_finance_journal_line_account")
+  @@map("finance_journal_lines")
+  @@schema("finance")
+}
+
+// ── ERP: Auditoria ──
+model FinanceAuditLog {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  userId          String   @map("user_id")
+  userName        String   @map("user_name")
+  action          String
+  entityType      String   @map("entity_type")
+  entityId        String   @map("entity_id")
+  previousData    Json?    @map("previous_data")
+  newData         Json?    @map("new_data")
+  ipAddress       String?  @map("ip_address")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, entityType, entityId], map: "idx_finance_audit_entity")
+  @@index([tenantId, createdAt], map: "idx_finance_audit_date")
+  @@map("finance_audit_log")
+  @@schema("finance")
+}
