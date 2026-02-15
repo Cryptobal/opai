@@ -22,8 +22,6 @@ import {
   Loader2,
   CheckCircle2,
   Clock,
-  Send,
-  XCircle,
   Building2,
   ChevronRight,
 } from "lucide-react";
@@ -54,9 +52,7 @@ interface Props {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   borrador: { label: "Borrador", color: "bg-zinc-500/15 text-zinc-400", icon: Clock },
-  enviado: { label: "Enviado", color: "bg-amber-500/15 text-amber-400", icon: Send },
-  aprobado: { label: "Aprobado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
-  rechazado: { label: "Rechazado", color: "bg-red-500/15 text-red-400", icon: XCircle },
+  aprobado: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
 };
 
 function toDateInput(date: Date): string {

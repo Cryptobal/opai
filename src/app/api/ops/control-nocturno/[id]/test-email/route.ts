@@ -34,7 +34,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Reporte no encontrado" }, { status: 404 });
     }
 
-    const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     // Generate PDF
     let pdfBuffer: Uint8Array | undefined;
@@ -75,7 +75,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       date: reporte.date.toISOString().slice(0, 10),
       centralOperatorName: reporte.centralOperatorName,
       centralLabel: reporte.centralLabel,
-      status: "enviado" as const,
       totalInstalaciones: reporte.instalaciones.length,
       novedades: reporte.instalaciones.filter((i) => i.statusInstalacion === "novedad").length,
       criticos: reporte.instalaciones.filter((i) => i.statusInstalacion === "critico").length,

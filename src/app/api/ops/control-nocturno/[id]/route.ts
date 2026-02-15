@@ -75,18 +75,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const {
-      action, // "save" | "submit" | "approve" | "reject"
+      action, // "save" | "submit"
       generalNotes,
       centralOperatorName,
       centralLabel,
-      rejectionReason,
       instalaciones,
     } = body as {
       action?: string;
       generalNotes?: string;
       centralOperatorName?: string;
       centralLabel?: string;
-      rejectionReason?: string;
       instalaciones?: Array<{
         id: string;
         guardiasRequeridos?: number;
@@ -117,41 +115,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (centralOperatorName !== undefined) updateData.centralOperatorName = centralOperatorName;
     if (centralLabel !== undefined) updateData.centralLabel = centralLabel;
 
-    // Handle workflow actions
+    // Handle workflow actions — submit goes directly to "aprobado" (no review step)
     if (action === "submit") {
-      updateData.status = "enviado";
-      updateData.submittedAt = new Date();
-      updateData.submittedBy = ctx.userId;
-    } else if (action === "approve") {
-      const perms = await resolveApiPerms(ctx);
-      if (!hasCapability(perms, "control_nocturno_approve")) {
-        return NextResponse.json(
-          { success: false, error: "Sin permisos para aprobar" },
-          { status: 403 },
-        );
-      }
+      const now = new Date();
       updateData.status = "aprobado";
-      updateData.approvedAt = new Date();
+      updateData.submittedAt = now;
+      updateData.submittedBy = ctx.userId;
+      updateData.approvedAt = now;
       updateData.approvedBy = ctx.userId;
-    } else if (action === "reject") {
-      const perms = await resolveApiPerms(ctx);
-      if (!hasCapability(perms, "control_nocturno_approve")) {
-        return NextResponse.json(
-          { success: false, error: "Sin permisos para rechazar" },
-          { status: 403 },
-        );
-      }
-      updateData.status = "rechazado";
-      updateData.rejectedAt = new Date();
-      updateData.rejectedBy = ctx.userId;
-      updateData.rejectionReason = rejectionReason || null;
-    } else if (action === "reopen") {
-      updateData.status = "borrador";
-      updateData.submittedAt = null;
-      updateData.submittedBy = null;
-      updateData.rejectedAt = null;
-      updateData.rejectedBy = null;
-      updateData.rejectionReason = null;
     }
 
     await prisma.opsControlNocturno.update({
@@ -242,18 +213,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await createOpsAuditLog(ctx, action || "update", "control_nocturno", id, { action });
 
-    // Send email on submit or approve (fire-and-forget)
-    if (updated && (action === "submit" || action === "approve")) {
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://opai.gard.cl";
+    // Send email on submit (fire-and-forget)
+    if (updated && action === "submit") {
+      const baseUrl = process.env.NEXTAUTH_URL || "https://opai.gard.cl";
 
       const emailData = {
         reporteId: id,
         date: updated.date.toISOString().slice(0, 10),
         centralOperatorName: updated.centralOperatorName,
         centralLabel: updated.centralLabel,
-        status: action as "enviado" | "aprobado",
         totalInstalaciones: updated.instalaciones.length,
         novedades: updated.instalaciones.filter(
           (i) => i.statusInstalacion === "novedad",
