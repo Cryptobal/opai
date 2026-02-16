@@ -37,7 +37,7 @@ export default async function CrmInstallationsPage() {
         updatedAt: true,
         account: { select: { id: true, name: true, type: true, isActive: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
     }),
     prisma.crmAccount.findMany({
       where: { tenantId },
