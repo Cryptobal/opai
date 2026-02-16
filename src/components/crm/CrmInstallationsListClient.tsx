@@ -307,7 +307,7 @@ export function CrmInstallationsListClient({
                             )}
                           </>
                         ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
-                          <span className="text-[10px] text-muted-foreground/70 italic">Sin puestos</span>
+                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos</span>
                         ) : null}
                       </div>
                       {inst.account && (
@@ -390,7 +390,7 @@ export function CrmInstallationsListClient({
                         </div>
                       ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
                         <div className="mt-2 pt-2 border-t border-border/50">
-                          <span className="text-[10px] text-muted-foreground/70 italic">Sin puestos creados</span>
+                          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos creados</span>
                         </div>
                       ) : null}
                     </div>
