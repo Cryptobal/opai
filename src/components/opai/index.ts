@@ -10,7 +10,7 @@ export { AppShell } from './AppShell';
 export type { AppShellProps } from './AppShell';
 
 export { AppSidebar } from './AppSidebar';
-export type { AppSidebarProps, NavItem } from './AppSidebar';
+export type { AppSidebarProps, NavItem, NavSubItem } from './AppSidebar';
 
 export { AppLayoutClient } from './AppLayoutClient';
 

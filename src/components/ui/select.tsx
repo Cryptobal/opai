@@ -77,6 +77,7 @@ const SelectContent = React.forwardRef<
         className
       )}
       position={position}
+      collisionPadding={12}
       {...props}
     >
       <SelectScrollUpButton />
@@ -84,7 +85,7 @@ const SelectContent = React.forwardRef<
         className={cn(
           "p-1",
           position === "popper" &&
-            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+            "max-h-[var(--radix-select-content-available-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
       >
         {children}

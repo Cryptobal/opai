@@ -1,17 +1,24 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronRight, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+
+export interface NavSubItem {
+  href: string;
+  label: string;
+  icon?: LucideIcon;
+}
 
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   show?: boolean;
+  children?: NavSubItem[];
 }
 
 export interface AppSidebarProps {
@@ -24,7 +31,6 @@ export interface AppSidebarProps {
   onToggleSidebar?: () => void;
   isSidebarOpen?: boolean;
   className?: string;
-  /** En móvil: mostrar botón Cerrar y padding inferior para que Salir quede visible */
   showCloseButton?: boolean;
   onClose?: () => void;
 }
@@ -45,19 +51,56 @@ export function AppSidebar({
   const pathname = usePathname();
   const collapsed = !isSidebarOpen;
   const [tooltip, setTooltip] = useState<{ label: string; top: number } | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  const showTooltip = collapsed && !showCloseButton; // solo en desktop con sidebar contraído
+  const showTooltip = collapsed && !showCloseButton;
+
+  const isItemActive = useCallback(
+    (href: string) => pathname === href || pathname?.startsWith(href + '/'),
+    [pathname]
+  );
+
+  // Auto-expand active module section
+  useEffect(() => {
+    for (const item of navItems) {
+      if (item.children && item.children.length > 0) {
+        const isModuleActive =
+          isItemActive(item.href) ||
+          item.children.some((child) => isItemActive(child.href));
+        if (isModuleActive) {
+          setExpandedSections((prev) => {
+            if (prev.has(item.href)) return prev;
+            const next = new Set(prev);
+            next.add(item.href);
+            return next;
+          });
+        }
+      }
+    }
+  }, [pathname, navItems, isItemActive]);
+
+  const toggleSection = (href: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) {
+        next.delete(href);
+      } else {
+        next.add(href);
+      }
+      return next;
+    });
+  };
 
   return (
     <aside
       className={cn(
         "fixed left-0 top-0 z-30 border-r border-border bg-card flex flex-col transition-[width] duration-200 ease-out",
         showCloseButton ? "h-full max-h-full" : "h-screen",
-        collapsed ? "w-[72px]" : "w-60",
+        collapsed ? "w-[72px]" : "w-64",
         className
       )}
     >
-      {/* Logo — compacto o solo icono; en móvil + botón Cerrar */}
+      {/* Logo */}
       <div
         className={cn(
           "flex h-14 items-center border-b border-border shrink-0 transition-[padding] duration-200",
@@ -106,59 +149,167 @@ export function AppSidebar({
       {/* Navigation */}
       <nav
         className={cn(
-          "flex-1 overflow-y-auto",
-          showCloseButton ? "px-3.5 py-4" : "px-3 py-3"
+          "flex-1 overflow-y-auto scrollbar-thin",
+          showCloseButton ? "px-2.5 py-3" : "px-2 py-2.5"
         )}
       >
         <div className="space-y-0.5">
           {navItems.map((item) => {
             if (item.show === false) return null;
 
-            const isActive =
-              pathname === item.href || pathname?.startsWith(item.href + '/');
+            const hasChildren = item.children && item.children.length > 0;
+            const isModuleActive =
+              isItemActive(item.href) ||
+              (hasChildren && item.children!.some((child) => isItemActive(child.href)));
+            const isExpanded = expandedSections.has(item.href);
             const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                title={showTooltip ? undefined : (collapsed ? item.label : undefined)}
-                onMouseEnter={(e) => {
-                  if (!showTooltip) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
-                }}
-                onMouseLeave={() => showTooltip && setTooltip(null)}
-                className={cn(
-                  "group relative flex items-center rounded-md transition-colors",
-                  showCloseButton ? "text-base" : "text-sm",
-                  collapsed
-                    ? "justify-center px-0 py-2.5"
-                    : showCloseButton
-                    ? "gap-3.5 px-3.5 py-2.5"
-                    : "gap-3 px-3 py-2",
-                  isActive
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                )}
-              >
-                {/* Active indicator bar — siempre visible */}
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
-                )}
-                <Icon
+            // Simple item (no children) - e.g. "Inicio"
+            if (!hasChildren) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  onMouseEnter={(e) => {
+                    if (!showTooltip) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
+                  }}
+                  onMouseLeave={() => showTooltip && setTooltip(null)}
                   className={cn(
-                    "shrink-0",
-                    showCloseButton ? "h-5 w-5" : "h-4 w-4"
+                    "group relative flex items-center rounded-md transition-colors",
+                    showCloseButton ? "text-[15px]" : "text-sm",
+                    collapsed
+                      ? "justify-center px-0 py-2.5"
+                      : showCloseButton
+                      ? "gap-3 px-3 py-2.5"
+                      : "gap-3 px-3 py-2",
+                    isModuleActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                   )}
-                />
-                {!collapsed && <span className={cn(showCloseButton && "leading-none")}>{item.label}</span>}
-              </Link>
+                >
+                  {isModuleActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                  )}
+                  <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              );
+            }
+
+            // Module with children
+            return (
+              <div key={item.href} className="space-y-0.5">
+                {/* Module header */}
+                <div
+                  className={cn(
+                    "group relative flex items-center rounded-md transition-colors cursor-pointer select-none",
+                    showCloseButton ? "text-[15px]" : "text-sm",
+                    collapsed
+                      ? "justify-center px-0 py-2.5"
+                      : showCloseButton
+                      ? "gap-3 px-3 py-2.5"
+                      : "gap-3 px-3 py-2",
+                    isModuleActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  )}
+                  onMouseEnter={(e) => {
+                    if (!showTooltip) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
+                  }}
+                  onMouseLeave={() => showTooltip && setTooltip(null)}
+                  onClick={() => {
+                    if (collapsed) {
+                      onNavigate?.();
+                      window.location.href = item.href;
+                      return;
+                    }
+                    toggleSection(item.href);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (collapsed) {
+                        window.location.href = item.href;
+                      } else {
+                        toggleSection(item.href);
+                      }
+                    }
+                  }}
+                >
+                  {isModuleActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                  )}
+                  <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <ChevronRight
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+                          isExpanded && "rotate-90"
+                        )}
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Children */}
+                {!collapsed && (
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all duration-200 ease-out",
+                      isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                    )}
+                  >
+                    <div className="ml-3 border-l border-border/60 pl-0 space-y-px py-0.5">
+                      {item.children!.map((child) => {
+                        const isChildActive = isItemActive(child.href);
+                        const ChildIcon = child.icon;
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onNavigate}
+                            className={cn(
+                              "group relative flex items-center rounded-md transition-colors",
+                              showCloseButton ? "text-[13px] gap-2.5 px-3 py-2" : "text-[13px] gap-2.5 px-3 py-[6px]",
+                              isChildActive
+                                ? "bg-accent text-foreground font-medium"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            )}
+                          >
+                            {isChildActive && (
+                              <span className="absolute -left-px top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-r-full bg-primary" />
+                            )}
+                            {ChildIcon && (
+                              <ChildIcon
+                                className={cn(
+                                  "shrink-0 h-3.5 w-3.5",
+                                  isChildActive ? "text-primary" : "text-muted-foreground/70"
+                                )}
+                              />
+                            )}
+                            <span className="truncate">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
-        {/* Tooltip al hover cuando el sidebar está contraído (solo desktop) */}
+
+        {/* Tooltip on hover when sidebar is collapsed (desktop only) */}
         {showTooltip && tooltip && (
           <div
             className="fixed left-[72px] z-50 -translate-y-1/2 px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-sm font-medium shadow-md border border-border pointer-events-none whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-150"
@@ -169,14 +320,13 @@ export function AppSidebar({
         )}
       </nav>
 
-      {/* User footer — mt-auto para que quede abajo y no quede espacio vacío */}
+      {/* User footer */}
       <div
         className={cn(
           "border-t border-border shrink-0 transition-[padding] duration-200 mt-auto",
-          collapsed ? "p-2" : showCloseButton ? "p-4" : "p-3"
+          collapsed ? "p-2" : showCloseButton ? "p-3.5" : "p-3"
         )}
       >
-        {/* User info */}
         {(userName || userEmail) && (
           <Link
             href="/opai/perfil"
@@ -215,7 +365,7 @@ export function AppSidebar({
                   <p
                     className={cn(
                       "truncate text-muted-foreground",
-                      showCloseButton ? "text-[13px]" : "text-xs"
+                      showCloseButton ? "text-[13px]" : "text-[11px]"
                     )}
                   >
                     {userEmail}
@@ -226,7 +376,6 @@ export function AppSidebar({
           </Link>
         )}
 
-        {/* Footer: contenido a la izquierda, botón cerrar/expandir siempre a la derecha */}
         <div className={cn("flex gap-1 w-full", collapsed ? "flex-col items-center" : "items-center")}>
           {footer && (
             <div

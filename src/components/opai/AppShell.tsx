@@ -35,7 +35,7 @@ export interface AppShellProps {
 export function AppShell({ sidebar, children, userName, userEmail, userRole, className }: AppShellProps) {
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleMobileRefresh = () => {
@@ -169,7 +169,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
       <div
         className={cn(
           'transition-[padding] duration-200 ease-out',
-          isSidebarOpen ? 'lg:pl-60' : 'lg:pl-[72px]',
+          isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
           className
         )}
       >
