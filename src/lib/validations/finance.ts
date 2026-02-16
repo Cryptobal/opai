@@ -203,6 +203,14 @@ export const registerReceivedDteSchema = z.object({
   receptionStatus: z.enum(["PENDING_REVIEW", "ACCEPTED", "CLAIMED", "PARTIAL_CLAIM"]).optional(),
 });
 
+export const updateReceivedDteSchema = z.object({
+  dueDate: optNull(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  supplierId: optNull(z.string().uuid()),
+  accountId: optNull(z.string().uuid()),
+  receptionStatus: z.enum(["PENDING_REVIEW", "ACCEPTED", "CLAIMED", "PARTIAL_CLAIM"]).optional(),
+  notes: optNull(z.string().trim().max(1000)),
+});
+
 // ── Payment Records (supplier payments / customer collections) ──
 
 export const createPaymentRecordSchema = z.object({
