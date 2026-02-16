@@ -54,9 +54,11 @@ export async function POST(request: NextRequest) {
 
     const guardia = persona.guardia;
 
-    // Validate PIN
+    // Validate PIN — check hashed pin first, fallback to visible/plain pin
     const storedPin = guardia.marcacionPin;
-    if (!storedPin) {
+    const visiblePin = guardia.marcacionPinVisible;
+
+    if (!storedPin && !visiblePin) {
       return NextResponse.json(
         { success: false, error: "PIN no configurado. Contacte a su supervisor." },
         { status: 401 },
@@ -64,12 +66,19 @@ export async function POST(request: NextRequest) {
     }
 
     let pinValid = false;
-    if (storedPin.startsWith("$2")) {
-      // bcrypt hash
-      pinValid = await bcrypt.compare(pin, storedPin);
-    } else {
-      // Plain text comparison
-      pinValid = storedPin === pin;
+
+    // Try hashed PIN first
+    if (storedPin) {
+      if (storedPin.startsWith("$2")) {
+        pinValid = await bcrypt.compare(pin, storedPin);
+      } else {
+        pinValid = storedPin === pin;
+      }
+    }
+
+    // Fallback: try visible/plain PIN if hash didn't match
+    if (!pinValid && visiblePin) {
+      pinValid = visiblePin === pin;
     }
 
     if (!pinValid) {

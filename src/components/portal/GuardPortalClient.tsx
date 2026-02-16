@@ -182,7 +182,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
         return;
       }
       toast.success("Sesión iniciada correctamente");
-      onLogin(data.session as GuardSession);
+      onLogin((data.data ?? data.session) as GuardSession);
     } catch {
       setError("Error de conexión. Intenta nuevamente.");
     } finally {
