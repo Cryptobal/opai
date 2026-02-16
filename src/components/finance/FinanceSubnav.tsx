@@ -14,6 +14,9 @@ import {
   BookText,
   FileText,
   Building2,
+  Landmark,
+  CreditCard,
+  GitCompareArrows,
 } from "lucide-react";
 
 const FINANCE_ITEMS = [
@@ -25,6 +28,9 @@ const FINANCE_ITEMS = [
   { href: "/finanzas/contabilidad", label: "Contabilidad", icon: BookText, subKey: "contabilidad" as const, capability: null },
   { href: "/finanzas/facturacion", label: "Facturación", icon: FileText, subKey: "facturacion" as const, capability: null },
   { href: "/finanzas/proveedores", label: "Proveedores", icon: Building2, subKey: "proveedores" as const, capability: null },
+  { href: "/finanzas/bancos", label: "Bancos", icon: Landmark, subKey: "bancos" as const, capability: null },
+  { href: "/finanzas/pagos-proveedores", label: "Pagos Prov.", icon: CreditCard, subKey: "pagos" as const, capability: null },
+  { href: "/finanzas/conciliacion", label: "Conciliación", icon: GitCompareArrows, subKey: "bancos" as const, capability: null },
 ];
 
 function filterByPermissions(perms: RolePermissions) {
