@@ -869,7 +869,7 @@ function PerfilSection({
         );
         if (res.ok && !cancelled) {
           const data = await res.json();
-          setProfile(data.profile ?? null);
+          setProfile(data.data ?? data.profile ?? null);
         }
       } catch {
         if (!cancelled) toast.error("Error al cargar perfil");

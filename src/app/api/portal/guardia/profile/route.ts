@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = {
+    const profile = {
       id: guardia.id,
       firstName: guardia.persona.firstName,
       lastName: guardia.persona.lastName,
@@ -53,15 +53,15 @@ export async function GET(request: NextRequest) {
       status: guardia.status,
       lifecycleStatus: guardia.lifecycleStatus,
       currentInstallationId: guardia.currentInstallationId,
-      currentInstallation: guardia.currentInstallation?.name ?? null,
-      hiredAt: guardia.hiredAt instanceof Date ? guardia.hiredAt.toISOString() : guardia.hiredAt,
+      installationName: guardia.currentInstallation?.name ?? null,
+      hireDate: guardia.hiredAt instanceof Date ? guardia.hiredAt.toISOString() : guardia.hiredAt,
       addressFormatted: guardia.persona.addressFormatted,
       birthDate: guardia.persona.birthDate instanceof Date
         ? guardia.persona.birthDate.toISOString().split("T")[0]
         : guardia.persona.birthDate,
     };
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: profile, profile });
   } catch (error) {
     console.error("[Portal Guardia] Profile error:", error);
     return NextResponse.json(
