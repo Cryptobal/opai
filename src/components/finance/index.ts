@@ -17,3 +17,4 @@ export { DteForm } from "./DteForm";
 export { CreditNoteForm } from "./CreditNoteForm";
 export { BancosClient } from "./BancosClient";
 export { PagosProveedoresClient } from "./PagosProveedoresClient";
+export { ConciliacionClient } from "./ConciliacionClient";
