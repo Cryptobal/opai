@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       rutWithDots = `${groups.reverse().join(".")}-${rutDv}`;
     }
 
-    // Find persona by RUT (try multiple formats)
-    const persona = await prisma.opsPersona.findFirst({
+    // Find ALL personas matching this RUT (handle duplicates)
+    const personas = await prisma.opsPersona.findMany({
       where: {
         OR: [
           { rut: cleanRut },
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!persona) {
+    if (personas.length === 0) {
       console.warn(`[Portal Guardia] RUT no encontrado: ${rutWithDash}`);
       return NextResponse.json(
         { success: false, error: "RUT no encontrado. Verifique que su RUT esté registrado en el sistema." },
@@ -64,15 +64,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!persona.guardia) {
-      console.warn(`[Portal Guardia] Persona sin guardia asociado: ${persona.id} / ${rutWithDash}`);
+    // Prioritize: active guardia > any guardia with PIN > first with guardia
+    const withGuardia = personas.filter((p) => p.guardia);
+    if (withGuardia.length === 0) {
+      console.warn(`[Portal Guardia] Persona(s) sin guardia asociado: ${rutWithDash}`);
       return NextResponse.json(
         { success: false, error: "Su RUT no está asociado a un guardia activo. Contacte a su supervisor." },
         { status: 401 },
       );
     }
 
-    const guardia = persona.guardia;
+    // Sort: active guardias first, then ones with PIN configured
+    withGuardia.sort((a, b) => {
+      const aActive = a.guardia!.status === "active" ? 1 : 0;
+      const bActive = b.guardia!.status === "active" ? 1 : 0;
+      if (bActive !== aActive) return bActive - aActive;
+      const aHasPin = (a.guardia!.marcacionPin || a.guardia!.marcacionPinVisible) ? 1 : 0;
+      const bHasPin = (b.guardia!.marcacionPin || b.guardia!.marcacionPinVisible) ? 1 : 0;
+      return bHasPin - aHasPin;
+    });
+
+    const persona = withGuardia[0];
+    const guardia = persona.guardia!;
 
     // Validate PIN — check hashed pin first, fallback to visible/plain pin
     const storedPin = guardia.marcacionPin;

@@ -731,6 +731,29 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     }
   };
 
+  const handleEliminar = async () => {
+    if (
+      !window.confirm(
+        "¿ELIMINAR permanentemente a este guardia y su persona asociada? Esta acción no se puede deshacer. Si tiene registros asociados (marcaciones, asistencia, rondas), no se podrá eliminar."
+      )
+    )
+      return;
+    try {
+      const response = await fetch(`/api/personas/guardias/${guardia.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo eliminar");
+      }
+      toast.success("Guardia eliminado permanentemente");
+      router.push("/personas/guardias");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.message || "No se pudo eliminar al guardia");
+    }
+  };
+
   const handleLinkDocument = async () => {
     if (!linkForm.documentId) {
       toast.error("Selecciona un documento");
@@ -1993,6 +2016,15 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       icon: Trash2,
       variant: "destructive",
       onClick: () => void handleDesvincular(),
+    });
+  }
+
+  if (canManageGuardias) {
+    recordActions.push({
+      label: "Eliminar guardia",
+      icon: Trash2,
+      variant: "destructive",
+      onClick: () => void handleEliminar(),
     });
   }
 

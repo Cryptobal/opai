@@ -229,3 +229,60 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureOpsCapability(ctx, "guardias_manage");
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+
+    const existing = await prisma.opsGuardia.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { id: true, personaId: true, persona: { select: { firstName: true, lastName: true, rut: true } } },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete guardia (cascade deletes related records like flags, docs, comments, history, bank accounts)
+      await tx.opsGuardia.delete({ where: { id } });
+      // Delete the persona record as well
+      await tx.opsPersona.delete({ where: { id: existing.personaId } });
+    });
+
+    await createOpsAuditLog(ctx, "personas.guardia.deleted", "ops_guardia", id, {
+      firstName: existing.persona.firstName,
+      lastName: existing.persona.lastName,
+      rut: existing.persona.rut,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[PERSONAS] Error deleting guardia:", error);
+
+    const msg = error instanceof Error ? error.message : "No se pudo eliminar el guardia";
+    const isPrismaFK =
+      error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2003";
+    if (isPrismaFK) {
+      return NextResponse.json(
+        { success: false, error: "No se puede eliminar: el guardia tiene registros asociados (marcaciones, asistencia, rondas, etc.). Desvincularlo en su lugar." },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: msg },
+      { status: 500 }
+    );
+  }
+}
