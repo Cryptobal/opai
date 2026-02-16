@@ -18,7 +18,17 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/opai";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   FileText,
+  FileInput,
   Hash,
   Plus,
   Search,
@@ -55,15 +65,41 @@ interface FolioStatus {
   totalIssued: number;
 }
 
+interface ReceivedDteRow {
+  id: string;
+  dteType: number;
+  folio: number;
+  issuerRut: string;
+  issuerName: string;
+  date: string;
+  dueDate: string | null;
+  netAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  receptionStatus: string;
+  paymentStatus: string;
+  amountPaid: number;
+  amountPending: number;
+  supplier: { id: string; name: string; rut: string } | null;
+}
+
+interface SupplierOption {
+  id: string;
+  rut: string;
+  name: string;
+}
+
 interface Props {
   dtes: DteRow[];
   canManage: boolean;
+  suppliers?: SupplierOption[];
 }
 
 /* ── Constants ── */
 
 const TABS = [
   { id: "dtes", label: "DTEs Emitidos", icon: FileText },
+  { id: "recibidos", label: "DTEs Recibidos", icon: FileInput },
   { id: "folios", label: "Folios", icon: Hash },
 ] as const;
 
@@ -91,9 +127,37 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+const RECEPTION_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  PENDING_REVIEW: { label: "Pendiente", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  ACCEPTED: { label: "Aceptado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  CLAIMED: { label: "Reclamado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  PARTIAL_CLAIM: { label: "Reclamo parcial", className: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
+};
+
+const PAYMENT_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  UNPAID: { label: "No pagado", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  PARTIAL: { label: "Parcial", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  PAID: { label: "Pagado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+};
+
+const EMPTY_RECEIVED_FORM = {
+  dteType: "33",
+  folio: "",
+  date: "",
+  dueDate: "",
+  issuerRut: "",
+  issuerName: "",
+  netAmount: "",
+  taxAmount: "",
+  totalAmount: "",
+  supplierId: "",
+  notes: "",
+  receptionStatus: "PENDING_REVIEW",
+};
+
 /* ── Component ── */
 
-export function FacturacionClient({ dtes, canManage }: Props) {
+export function FacturacionClient({ dtes, canManage, suppliers = [] }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("dtes");
 
   return (
@@ -124,6 +188,7 @@ export function FacturacionClient({ dtes, canManage }: Props) {
       </nav>
 
       {activeTab === "dtes" && <DtesTab dtes={dtes} canManage={canManage} />}
+      {activeTab === "recibidos" && <RecibidosTab suppliers={suppliers} canManage={canManage} />}
       {activeTab === "folios" && <FoliosTab canManage={canManage} />}
     </div>
   );
@@ -523,6 +588,444 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   Tab 3: DTEs Recibidos
+   ═══════════════════════════════════════════════ */
+
+function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; canManage: boolean }) {
+  const router = useRouter();
+  const [receivedDtes, setReceivedDtes] = useState<ReceivedDteRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(EMPTY_RECEIVED_FORM);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [receptionFilter, setReceptionFilter] = useState("ALL");
+  const [paymentFilter, setPaymentFilter] = useState("ALL");
+
+  const loadReceivedDtes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/finance/billing/received");
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setReceivedDtes(json.data ?? []);
+    } catch {
+      toast.error("Error al cargar DTEs recibidos");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadReceivedDtes(); }, [loadReceivedDtes]);
+
+  const filtered = useMemo(() => {
+    let list = receivedDtes;
+    if (typeFilter !== "ALL") list = list.filter((d) => String(d.dteType) === typeFilter);
+    if (receptionFilter !== "ALL") list = list.filter((d) => d.receptionStatus === receptionFilter);
+    if (paymentFilter !== "ALL") list = list.filter((d) => d.paymentStatus === paymentFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (d) =>
+          String(d.folio).includes(q) ||
+          d.issuerRut.toLowerCase().includes(q) ||
+          d.issuerName.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [receivedDtes, typeFilter, receptionFilter, paymentFilter, search]);
+
+  // Auto-calc total when net or tax changes
+  const updateFormField = (field: string, value: string) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "netAmount" || field === "taxAmount") {
+        const net = parseFloat(next.netAmount) || 0;
+        const tax = parseFloat(next.taxAmount) || 0;
+        next.totalAmount = String(net + tax);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const body = {
+        dteType: Number(form.dteType),
+        folio: Number(form.folio),
+        date: form.date,
+        dueDate: form.dueDate || null,
+        issuerRut: form.issuerRut,
+        issuerName: form.issuerName,
+        netAmount: parseFloat(form.netAmount) || 0,
+        taxAmount: parseFloat(form.taxAmount) || 0,
+        totalAmount: parseFloat(form.totalAmount) || 0,
+        supplierId: form.supplierId || null,
+        notes: form.notes || null,
+        receptionStatus: form.receptionStatus,
+      };
+      const res = await fetch("/api/finance/billing/received", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al registrar DTE recibido");
+      }
+      toast.success("DTE recibido registrado");
+      setDialogOpen(false);
+      setForm(EMPTY_RECEIVED_FORM);
+      loadReceivedDtes();
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar folio, RUT, emisor..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-40 h-9">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos los tipos</SelectItem>
+              <SelectItem value="33">Factura</SelectItem>
+              <SelectItem value="34">Factura Exenta</SelectItem>
+              <SelectItem value="56">Nota Débito</SelectItem>
+              <SelectItem value="61">Nota Crédito</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={receptionFilter} onValueChange={setReceptionFilter}>
+            <SelectTrigger className="w-36 h-9">
+              <SelectValue placeholder="Recepción" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos</SelectItem>
+              {Object.entries(RECEPTION_STATUS_CONFIG).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="w-36 h-9">
+              <SelectValue placeholder="Pago" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos</SelectItem>
+              {Object.entries(PAYMENT_STATUS_CONFIG).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {canManage && (
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Registrar DTE
+          </Button>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground">{filtered.length} documento(s) recibido(s)</p>
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<FileInput className="h-10 w-10" />}
+          title="Sin documentos recibidos"
+          description="No hay DTEs recibidos registrados."
+          action={
+            canManage ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Registrar DTE
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Folio</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Emisor</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Neto</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">IVA</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Total</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Recepción</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground">Pago</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((d) => {
+                      const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
+                      const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
+                      return (
+                        <tr key={d.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-4 py-3 text-xs">
+                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs">{d.folio}</td>
+                          <td className="px-4 py-3">
+                            <div>{d.issuerName}</div>
+                            <div className="text-xs text-muted-foreground font-mono">{d.issuerRut}</div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                            {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
+                              {recCfg.label}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
+                              {payCfg.label}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((d) => {
+              const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
+              const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
+              return (
+                <Card key={d.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs text-muted-foreground">
+                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
+                          </span>
+                          <span className="font-mono text-xs">#{d.folio}</span>
+                          <Badge variant="outline" className={cn("text-[10px]", recCfg.className)}>
+                            {recCfg.label}
+                          </Badge>
+                          <Badge variant="outline" className={cn("text-[10px]", payCfg.className)}>
+                            {payCfg.label}
+                          </Badge>
+                        </div>
+                        <p className="font-medium text-sm">{d.issuerName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{d.issuerRut}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="font-mono text-sm font-medium">{fmtCLP.format(d.totalAmount)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Dialog: Registrar DTE Recibido */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar DTE recibido</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo DTE</Label>
+                <Select value={form.dteType} onValueChange={(v) => updateFormField("dteType", v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="33">Factura</SelectItem>
+                    <SelectItem value="34">Factura Exenta</SelectItem>
+                    <SelectItem value="56">Nota Débito</SelectItem>
+                    <SelectItem value="61">Nota Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Folio</Label>
+                <Input
+                  type="number"
+                  placeholder="Ej: 1234"
+                  value={form.folio}
+                  onChange={(e) => updateFormField("folio", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Fecha emisión</Label>
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => updateFormField("date", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha vencimiento</Label>
+                <Input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => updateFormField("dueDate", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>RUT emisor</Label>
+                <Input
+                  placeholder="Ej: 76.123.456-7"
+                  value={form.issuerRut}
+                  onChange={(e) => updateFormField("issuerRut", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nombre emisor</Label>
+                <Input
+                  placeholder="Razón social"
+                  value={form.issuerName}
+                  onChange={(e) => updateFormField("issuerName", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Monto neto</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={form.netAmount}
+                  onChange={(e) => updateFormField("netAmount", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>IVA</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={form.taxAmount}
+                  onChange={(e) => updateFormField("taxAmount", e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Total</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={form.totalAmount}
+                  readOnly
+                  className="h-9 bg-muted"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Proveedor</Label>
+                <Select value={form.supplierId} onValueChange={(v) => updateFormField("supplierId", v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.rut})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Estado recepción</Label>
+                <Select value={form.receptionStatus} onValueChange={(v) => updateFormField("receptionStatus", v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(RECEPTION_STATUS_CONFIG).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Textarea
+                placeholder="Observaciones opcionales..."
+                value={form.notes}
+                onChange={(e) => updateFormField("notes", e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

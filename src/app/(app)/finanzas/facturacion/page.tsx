@@ -50,6 +50,12 @@ export default async function FacturacionPage() {
     createdAt: d.createdAt.toISOString(),
   }));
 
+  const suppliers = await prisma.financeSupplier.findMany({
+    where: { tenantId },
+    select: { id: true, rut: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -60,6 +66,7 @@ export default async function FacturacionPage() {
       <FacturacionClient
         dtes={dtesData}
         canManage={canManage}
+        suppliers={suppliers}
       />
     </div>
   );
