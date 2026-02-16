@@ -177,6 +177,7 @@ INSTRUCCIONES:
 8. Si hay exámenes, mencionar los tipos (preocupacionales, drogas, etc.)
 9. Si hay equipos operativos con celular, mencionar "celular con plan de datos"
 10. Si hay alimentación, detallar los tipos de comida
+11. OBLIGATORIO: En el primer ítem (dotación de guardias) debes describir explícitamente los DÍAS de trabajo de cada tipo de puesto, usando lenguaje claro para el cliente. Por ejemplo: "todos los días (24x7)", "de lunes a viernes", "fines de semana (sábado y domingo)", "viernes a domingo", "entre semana" + "fines de semana" si hay puestos con distintos días. No uses solo "Lun, Mar..."; traduce a cómo lo entiende el cliente (ej: 2 guardias día entre semana + 2 guardias noche entre semana + 1 guardia noche fin de semana).
 
 Formato esperado (ejemplo):
 El servicio contempla:

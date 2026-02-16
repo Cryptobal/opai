@@ -136,6 +136,7 @@ Requisitos CRÍTICOS:
 - Tono: ejecutivo, directo, memorable
 - NO inventes características que no están en los datos
 - Si no hay sitio web ni datos de empresa, NO inventes historia corporativa; enfócate en instalación, dotación y necesidad operativa
+- OBLIGATORIO: Al describir la dotación de guardias, menciona explícitamente los DÍAS de cobertura (ej: "entre semana", "fines de semana", "todos los días 24x7", "viernes a domingo") usando lenguaje claro para el cliente, según los días indicados en cada puesto
 
 Estructura ideal:
 1. Para [Cliente] + contexto industria/ciudad

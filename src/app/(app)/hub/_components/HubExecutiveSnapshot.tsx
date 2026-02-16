@@ -40,7 +40,7 @@ export function HubExecutiveSnapshot({
       {hasOpsKpis && (
         <>
           <HubKpiLinkCard
-            href="/ops/puestos"
+            href="/crm/installations"
             title="Puestos Activos"
             value={opsMetrics.activePuestos}
             icon={<ClipboardList className="h-4 w-4" />}

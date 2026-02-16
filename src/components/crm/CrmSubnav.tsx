@@ -22,11 +22,13 @@ export function CrmSubnav({
   const pathname = usePathname();
   const permissions = usePermissions();
   const visibleSubs = getVisibleSubmodules(permissions, "crm");
-  const navItems = visibleSubs.map((s) => ({
-    key: s.submodule,
-    href: s.href,
-    label: s.label,
-  }));
+  const navItems = visibleSubs
+    .filter((s) => s.href)
+    .map((s) => ({
+      key: s.submodule,
+      href: s.href,
+      label: s.label,
+    }));
 
   if (navItems.length === 0) {
     return null;

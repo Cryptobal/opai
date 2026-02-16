@@ -91,13 +91,12 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
   { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
   { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
-  { key: "crm-quotes", href: "/crm/cotizaciones", label: "CPQ", icon: DollarSign, subKey: "quotes" },
+  { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
 ];
 
 /* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "ops-puestos", href: "/ops/puestos", label: "Puestos", icon: ClipboardList, subKey: "puestos" },
   { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditPositionModal } from "@/components/cpq/EditPositionModal";
 import { CostBreakdownModal } from "@/components/cpq/CostBreakdownModal";
-import { formatCurrency } from "@/components/cpq/utils";
+import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
 import { cn } from "@/lib/utils";
 import type { CpqPosition } from "@/types/cpq";
 import { Copy, Pencil, RefreshCw, Trash2 } from "lucide-react";
@@ -135,6 +135,12 @@ export function CpqPositionCard({
               )}
             >
               {position.numGuards} {position.numGuards === 1 ? "guardia" : "guardias"}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(premiumBadgeClass, "border-amber-500/30 bg-amber-500/15 text-amber-300")}
+            >
+              {formatWeekdaysShort(position.weekdays)}
             </Badge>
           </div>
         </div>

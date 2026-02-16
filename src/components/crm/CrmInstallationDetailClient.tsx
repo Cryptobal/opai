@@ -2,9 +2,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -334,17 +335,214 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
   );
 }
 
-/* ── Dotación Section (guardias asignados, read-only from OPS) ── */
+/* ── Dotación Section (interactive guard assignment) ── */
 
-function DotacionSection({ installation }: { installation: InstallationDetail }) {
-  const asignaciones = installation.asignacionGuardias ?? [];
+function toDateInput(d: Date): string { return d.toISOString().slice(0, 10); }
+
+type GuardiaOption = {
+  id: string;
+  code?: string | null;
+  lifecycleStatus: string;
+  persona: { firstName: string; lastName: string; rut?: string | null };
+};
+
+type AssignWarning = {
+  puestoName: string;
+  installationName: string;
+  accountName: string | null;
+  startDate?: string;
+} | null;
+
+function DotacionSection({ installation, canEdit: canEditProp = false }: { installation: InstallationDetail; canEdit?: boolean }) {
+  const router = useRouter();
+
+  /* ── data state (can be refreshed after mutations) ── */
+  const [asignaciones, setAsignaciones] = useState(installation.asignacionGuardias ?? []);
   const puestos = installation.puestosActivos ?? [];
   const guardiasDirectos = installation.guardiasActuales ?? [];
 
-  // IDs de guardias ya mostrados vía asignaciones (para evitar duplicados)
-  const assignedGuardiaIds = new Set(asignaciones.map((a) => a.guardia.id));
-  // Guardias directos que NO aparecen ya en asignaciones
-  const guardiasExtraDirectos = guardiasDirectos.filter((g) => !assignedGuardiaIds.has(g.id));
+  /* ── guardias list for assignment modal ── */
+  const [guardias, setGuardias] = useState<GuardiaOption[]>([]);
+  const [guardiasLoaded, setGuardiasLoaded] = useState(false);
+
+  /* ── assignment modal state ── */
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{ puestoId: string; slotNumber: number; puestoName: string } | null>(null);
+  const [assignGuardiaId, setAssignGuardiaId] = useState("");
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assignDate, setAssignDate] = useState(toDateInput(new Date()));
+  const [assignWarning, setAssignWarning] = useState<AssignWarning>(null);
+  const [assignEndDateSameAsStart, setAssignEndDateSameAsStart] = useState(true);
+  const [assignEndDatePrevious, setAssignEndDatePrevious] = useState("");
+  const [assignSaving, setAssignSaving] = useState(false);
+
+  /* ── unassign modal state ── */
+  const [unassignOpen, setUnassignOpen] = useState(false);
+  const [unassignTarget, setUnassignTarget] = useState<{ asignacionId: string; guardiaName: string } | null>(null);
+  const [unassignDate, setUnassignDate] = useState(toDateInput(new Date()));
+  const [unassignSaving, setUnassignSaving] = useState(false);
+
+  const assignedGuardiaIds = useMemo(
+    () => new Set(asignaciones.map((a) => a.guardia.id)),
+    [asignaciones]
+  );
+  const guardiasExtraDirectos = useMemo(
+    () => guardiasDirectos.filter((g) => !assignedGuardiaIds.has(g.id)),
+    [guardiasDirectos, assignedGuardiaIds]
+  );
+
+  /* ── Fetch guardias list (lazy, first time modal opens) ── */
+  const loadGuardias = useCallback(async () => {
+    if (guardiasLoaded) return;
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}/guardias`, { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGuardias(data.data as GuardiaOption[]);
+      }
+    } catch { /* silent */ }
+    setGuardiasLoaded(true);
+  }, [installation.id, guardiasLoaded]);
+
+  /* ── Refresh assignments after mutations ── */
+  const refreshAsignaciones = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones?activeOnly=true`, { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAsignaciones(data.data);
+      }
+    } catch { /* silent */ }
+  }, [installation.id]);
+
+  /* ── Check for existing assignment when guard is selected ── */
+  useEffect(() => {
+    if (!assignGuardiaId) { setAssignWarning(null); return; }
+    const controller = new AbortController();
+    fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "check", guardiaId: assignGuardiaId }),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((payload) => {
+        if (payload.success && payload.data?.hasActiveAssignment) {
+          setAssignWarning({
+            puestoName: payload.data.assignment.puestoName,
+            installationName: payload.data.assignment.installationName,
+            accountName: payload.data.assignment.accountName,
+            startDate: payload.data.assignment.startDate,
+          });
+          setAssignEndDateSameAsStart(true);
+          setAssignEndDatePrevious(assignDate);
+        } else {
+          setAssignWarning(null);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignGuardiaId, installation.id]);
+
+  /* ── Open assign modal ── */
+  const openAssign = (puestoId: string, slotNumber: number, puestoName: string) => {
+    setAssignTarget({ puestoId, slotNumber, puestoName });
+    setAssignGuardiaId("");
+    setAssignSearch("");
+    setAssignDate(toDateInput(new Date()));
+    setAssignWarning(null);
+    setAssignEndDateSameAsStart(true);
+    setAssignEndDatePrevious("");
+    setAssignOpen(true);
+    void loadGuardias();
+  };
+
+  /* ── Available guardias filtered ── */
+  const availableGuardias = useMemo(() => {
+    const q = assignSearch.trim().toLowerCase();
+    return guardias.filter((g) => {
+      if (q) {
+        const hay = `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [guardias, assignSearch]);
+
+  /* ── Handle assign ── */
+  const handleAssign = async () => {
+    if (!assignTarget || !assignGuardiaId) { toast.error("Selecciona un guardia"); return; }
+    setAssignSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        guardiaId: assignGuardiaId,
+        puestoId: assignTarget.puestoId,
+        slotNumber: assignTarget.slotNumber,
+        startDate: assignDate,
+      };
+      if (assignWarning && !assignEndDateSameAsStart) {
+        body.endDatePrevious = assignEndDatePrevious;
+      }
+      const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "Error");
+      toast.success("Guardia asignado correctamente");
+      setAssignOpen(false);
+      await refreshAsignaciones();
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo asignar");
+    } finally { setAssignSaving(false); }
+  };
+
+  /* ── Open unassign modal ── */
+  const openUnassign = (asignacionId: string, guardiaName: string) => {
+    setUnassignTarget({ asignacionId, guardiaName });
+    setUnassignDate(toDateInput(new Date()));
+    setUnassignOpen(true);
+  };
+
+  /* ── Handle unassign ── */
+  const handleUnassign = async () => {
+    if (!unassignTarget) return;
+    setUnassignSaving(true);
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "desasignar",
+          asignacionId: unassignTarget.asignacionId,
+          endDate: unassignDate,
+          reason: "Desasignado desde instalación",
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "Error");
+      toast.success("Guardia desasignado");
+      setUnassignOpen(false);
+      await refreshAsignaciones();
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo desasignar");
+    } finally { setUnassignSaving(false); }
+  };
+
+  /* ── Group assignments by puesto ── */
+  const assignmentsByPuesto = useMemo(() => {
+    const map = new Map<string, typeof asignaciones>();
+    for (const a of asignaciones) {
+      const list = map.get(a.puestoId) ?? [];
+      list.push(a);
+      map.set(a.puestoId, list);
+    }
+    return map;
+  }, [asignaciones]);
 
   if (puestos.length === 0 && guardiasExtraDirectos.length === 0) {
     return (
@@ -357,26 +555,8 @@ function DotacionSection({ installation }: { installation: InstallationDetail })
     );
   }
 
-  // Group assignments by puestoId
-  const assignmentsByPuesto = new Map<string, typeof asignaciones>();
-  for (const a of asignaciones) {
-    const list = assignmentsByPuesto.get(a.puestoId) ?? [];
-    list.push(a);
-    assignmentsByPuesto.set(a.puestoId, list);
-  }
-
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Link
-          href="/ops/puestos"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
-          Gestionar en OPS
-        </Link>
-      </div>
-
       <div className="space-y-2">
         {puestos.map((puesto) => {
           const puestoAssignments = assignmentsByPuesto.get(puesto.id) ?? [];
@@ -411,28 +591,66 @@ function DotacionSection({ installation }: { installation: InstallationDetail })
                           : "border border-dashed border-amber-500/30 bg-amber-500/5"
                       }`}
                     >
-                      <span className="text-muted-foreground font-mono text-[10px] w-10">
+                      <span className="text-muted-foreground font-mono text-[10px] w-10 shrink-0">
                         Slot {slotNum}
                       </span>
                       {assignment ? (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Link
+                            href={`/personas/guardias/${assignment.guardia.id}`}
+                            className="font-medium hover:underline hover:text-primary transition-colors truncate"
+                          >
                             {assignment.guardia.persona.firstName} {assignment.guardia.persona.lastName}
-                          </span>
+                          </Link>
                           {assignment.guardia.code && (
-                            <span className="text-muted-foreground">({assignment.guardia.code})</span>
+                            <span className="text-muted-foreground shrink-0">({assignment.guardia.code})</span>
                           )}
-                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border shrink-0 ${
                             LIFECYCLE_COLORS[assignment.guardia.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
                           }`}>
                             {LIFECYCLE_LABELS[assignment.guardia.lifecycleStatus] ?? assignment.guardia.lifecycleStatus}
                           </span>
                           {assignment.guardia.persona.rut && (
-                            <span className="text-[10px] text-muted-foreground">{assignment.guardia.persona.rut}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">{assignment.guardia.persona.rut}</span>
+                          )}
+                          {canEditProp && (
+                            <div className="ml-auto shrink-0 flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => openAssign(puesto.id, slotNum, puesto.name)}
+                                className="rounded p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Reemplazar guardia"
+                              >
+                                <UserPlus className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openUnassign(
+                                  assignment.id,
+                                  `${assignment.guardia.persona.firstName} ${assignment.guardia.persona.lastName}`
+                                )}
+                                className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                title="Desasignar guardia"
+                              >
+                                <UserMinus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-amber-400 italic text-[11px]">Vacante</span>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-amber-400 italic text-[11px]">Vacante</span>
+                          {canEditProp && (
+                            <button
+                              type="button"
+                              onClick={() => openAssign(puesto.id, slotNum, puesto.name)}
+                              className="ml-auto shrink-0 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+                            >
+                              <UserPlus className="h-3 w-3" />
+                              Asignar
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -447,7 +665,7 @@ function DotacionSection({ installation }: { installation: InstallationDetail })
       {guardiasExtraDirectos.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
-            Guardias asignados ({guardiasExtraDirectos.length})
+            Guardias asignados directamente ({guardiasExtraDirectos.length})
           </p>
           <div className="space-y-1">
             {guardiasExtraDirectos.map((g) => (
@@ -474,9 +692,176 @@ function DotacionSection({ installation }: { installation: InstallationDetail })
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground/60 border-t border-border pt-3">
-        La asignación de guardias se gestiona desde OPS (Puestos operativos). Esta vista es de solo lectura.
-      </p>
+      {/* ── Assign Guard Modal ── */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asignar guardia</DialogTitle>
+            <DialogDescription>
+              {assignTarget ? `${assignTarget.puestoName} — Slot ${assignTarget.slotNumber}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {/* Fecha de inicio */}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Fecha de inicio
+              </Label>
+              <input
+                type="date"
+                value={assignDate}
+                onChange={(e) => {
+                  setAssignDate(e.target.value);
+                  if (assignEndDateSameAsStart) setAssignEndDatePrevious(e.target.value);
+                }}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+
+            {/* Buscador de guardias */}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5" />
+                Buscar guardia (solo contratados activos)
+              </Label>
+              <Input
+                placeholder="Nombre, RUT o código..."
+                value={assignSearch}
+                onChange={(e) => setAssignSearch(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            {/* Lista de guardias */}
+            <div className="max-h-48 overflow-y-auto space-y-0.5 rounded-md border border-border p-1">
+              {!guardiasLoaded ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : availableGuardias.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">
+                  {assignSearch ? "Sin resultados" : "No hay guardias disponibles"}
+                </p>
+              ) : (
+                availableGuardias.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setAssignGuardiaId(g.id)}
+                    className={`w-full text-left flex items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
+                      assignGuardiaId === g.id
+                        ? "bg-primary/15 text-primary border border-primary/30"
+                        : "hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    <span className="font-medium truncate">
+                      {g.persona.firstName} {g.persona.lastName}
+                    </span>
+                    {g.code && <span className="text-muted-foreground shrink-0">({g.code})</span>}
+                    {g.persona.rut && <span className="text-[10px] text-muted-foreground shrink-0">{g.persona.rut}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Warning: guard already assigned elsewhere */}
+            {assignWarning && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-200">
+                    <p className="font-medium">Este guardia ya está asignado</p>
+                    <p className="text-amber-300/80 mt-0.5">
+                      {assignWarning.puestoName} en {assignWarning.installationName}
+                      {assignWarning.accountName ? ` (${assignWarning.accountName})` : ""}
+                    </p>
+                    <p className="text-amber-300/80 mt-1">
+                      Al asignar aquí, se cerrará la asignación anterior automáticamente.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Fecha de término de la asignación anterior */}
+                <div className="space-y-1.5 pt-1 border-t border-amber-500/20">
+                  <label className="flex items-center gap-2 text-xs text-amber-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={assignEndDateSameAsStart}
+                      onChange={(e) => {
+                        setAssignEndDateSameAsStart(e.target.checked);
+                        if (e.target.checked) setAssignEndDatePrevious(assignDate);
+                      }}
+                      className="rounded border-amber-500/50"
+                    />
+                    Fecha de término anterior = fecha de inicio ({assignDate})
+                  </label>
+                  {!assignEndDateSameAsStart && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-amber-300">Fecha de término en la instalación anterior</Label>
+                      <input
+                        type="date"
+                        value={assignEndDatePrevious}
+                        onChange={(e) => setAssignEndDatePrevious(e.target.value)}
+                        className="h-8 w-full rounded-md border border-amber-500/30 bg-amber-500/5 px-3 text-xs text-amber-200"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignSaving}>Cancelar</Button>
+            <Button onClick={handleAssign} disabled={assignSaving || !assignGuardiaId}>
+              {assignSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Asignando…
+                </>
+              ) : (
+                "Asignar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Unassign Guard Modal ── */}
+      <Dialog open={unassignOpen} onOpenChange={setUnassignOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Desasignar guardia</DialogTitle>
+            <DialogDescription>
+              ¿Desasignar a {unassignTarget?.guardiaName}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha de término</Label>
+              <input
+                type="date"
+                value={unassignDate}
+                onChange={(e) => setUnassignDate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnassignOpen(false)} disabled={unassignSaving}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleUnassign} disabled={unassignSaving}>
+              {unassignSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Desasignando…
+                </>
+              ) : (
+                "Desasignar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -656,15 +1041,7 @@ function StaffingSection({
           <Plus className="h-3.5 w-3.5" />
           Agregar puesto
         </Button>
-        {hasPuestos && (
-          <Link
-            href="/ops/puestos"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Ver en OPS
-          </Link>
-        )}
+        
       </div>
 
       {/* Puestos table */}
@@ -860,8 +1237,10 @@ function StaffingSection({
 
 export function CrmInstallationDetailClient({
   installation,
+  canEditDotacion = false,
 }: {
   installation: InstallationDetail;
+  canEditDotacion?: boolean;
 }) {
   const router = useRouter();
   const hasCoords = installation.lat != null && installation.lng != null;
@@ -1266,7 +1645,7 @@ export function CrmInstallationDetailClient({
       key: "dotacion",
       label: "Dotación activa",
       children: (
-        <DotacionSection installation={installation} />
+        <DotacionSection installation={installation} canEdit={canEditDotacion} />
       ),
     },
     {

@@ -67,6 +67,7 @@ export const SUBMODULE_KEYS = {
     "leads",
     "accounts",
     "installations",
+    "dotacion",
     "contacts",
     "deals",
     "quotes",
@@ -194,6 +195,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
   { key: "crm.installations", module: "crm", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
+  { key: "crm.dotacion", module: "crm", submodule: "dotacion", label: "Dotación", href: "" },
   { key: "crm.contacts", module: "crm", submodule: "contacts", label: "Contactos", href: "/crm/contacts" },
   { key: "crm.deals", module: "crm", submodule: "deals", label: "Negocios", href: "/crm/deals" },
   { key: "crm.quotes", module: "crm", submodule: "quotes", label: "Cotizaciones", href: "/crm/cotizaciones" },
@@ -352,7 +354,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "view",
     },
-    submodules: {},
+    submodules: { "crm.installations": "view", "crm.dotacion": "view" },
     capabilities: { rendicion_view_all: true, ticket_approve: true },
   },
 
@@ -367,7 +369,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "edit",
     },
-    submodules: { "finance.pagos": "none", "finance.configuracion": "none" },
+    submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit" },
     capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true },
   },
 
@@ -384,7 +386,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "none",
     },
-    submodules: { "ops.rondas": "none" },
+    submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit" },
     capabilities: {},
   },
 
@@ -399,7 +401,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "none",
     },
-    submodules: {},
+    submodules: { "crm.installations": "view", "crm.dotacion": "edit" },
     capabilities: {},
   },
 
@@ -774,6 +776,9 @@ export function apiPathToSubmodule(
   // CRM
   if (pathname.startsWith("/api/crm/leads")) return { module: "crm", submodule: "leads" };
   if (pathname.startsWith("/api/crm/accounts")) return { module: "crm", submodule: "accounts" };
+  if (pathname.match(/^\/api\/crm\/installations\/[^/]+\/asignaciones/)) return { module: "crm", submodule: "dotacion" };
+  if (pathname.match(/^\/api\/crm\/installations\/[^/]+\/puestos/)) return { module: "crm", submodule: "dotacion" };
+  if (pathname.match(/^\/api\/crm\/installations\/[^/]+\/guardias/)) return { module: "crm", submodule: "dotacion" };
   if (pathname.startsWith("/api/crm/installations")) return { module: "crm", submodule: "installations" };
   if (pathname.startsWith("/api/crm/contacts")) return { module: "crm", submodule: "contacts" };
   if (pathname.startsWith("/api/crm/deals")) return { module: "crm", submodule: "deals" };

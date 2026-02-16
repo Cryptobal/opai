@@ -802,9 +802,9 @@ export function OpsPautaMensualClient({
                           Configurar en CRM
                         </Button>
                       </Link>
-                      <Link href="/ops/puestos">
+                      <Link href="/crm/installations">
                         <Button variant="outline" size="sm">
-                          Ir a Puestos
+                          Ir a Instalaciones
                         </Button>
                       </Link>
                     </div>
@@ -1343,9 +1343,9 @@ export function OpsPautaMensualClient({
           </SheetHeader>
           <div className="pt-4">
             <Button variant="outline" className="w-full justify-center gap-2" asChild>
-              <Link href="/ops/puestos">
+              <Link href="/crm/installations">
                 <ExternalLink className="h-4 w-4" />
-                Ver en Puestos
+                Ver en Instalaciones
               </Link>
             </Button>
           </div>

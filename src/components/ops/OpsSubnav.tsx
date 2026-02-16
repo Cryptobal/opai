@@ -8,7 +8,6 @@ import { usePermissions } from "@/lib/permissions-context";
 import { canView, type RolePermissions } from "@/lib/permissions";
 import {
   LayoutDashboard,
-  ClipboardList,
   CalendarDays,
   UserRoundCheck,
   Clock3,
@@ -23,7 +22,6 @@ import {
 /** subKey: clave del submódulo en permissions (null = siempre visible si tiene acceso al módulo) */
 const OPS_ITEMS = [
   { href: "/ops", label: "Inicio", icon: LayoutDashboard, subKey: null },
-  { href: "/ops/puestos", label: "Puestos", icon: ClipboardList, subKey: "puestos" as const },
   { href: "/ops/pauta-mensual", label: "Pauta mensual", icon: CalendarDays, subKey: "pauta_mensual" as const },
   { href: "/ops/pauta-diaria", label: "Asistencia diaria", icon: UserRoundCheck, subKey: "pauta_diaria" as const },
   { href: "/ops/turnos-extra", label: "Turnos extra", icon: Clock3, subKey: "turnos_extra" as const },

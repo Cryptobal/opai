@@ -1,14 +1,13 @@
 "use client";
 
 import { SubNav } from "@/components/opai";
-import { LayoutDashboard, ClipboardList, CalendarDays, UserRoundCheck, Clock3, ShieldAlert, Shield } from "lucide-react";
+import { LayoutDashboard, CalendarDays, UserRoundCheck, Clock3, ShieldAlert, Shield } from "lucide-react";
 
 export function PersonasSubnav() {
   return (
     <SubNav
       items={[
         { href: "/ops", label: "Inicio", icon: LayoutDashboard },
-        { href: "/ops/puestos", label: "Puestos", icon: ClipboardList },
         { href: "/ops/pauta-mensual", label: "Pauta mensual", icon: CalendarDays },
         { href: "/ops/pauta-diaria", label: "Asistencia diaria", icon: UserRoundCheck },
         { href: "/ops/turnos-extra", label: "Turnos extra", icon: Clock3 },

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/components/cpq/utils";
+import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo, CpqPosition } from "@/types/cpq";
 import { Calculator } from "lucide-react";
@@ -131,13 +131,16 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.weekdays || form.weekdays.length === 0) {
+      alert("Debes seleccionar al menos un día de la semana");
+      return;
+    }
     setLoading(true);
     try {
-      const { weekdays: _w, ...payload } = form;
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions/${position.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, healthPlanPct }),
+        body: JSON.stringify({ ...form, healthPlanPct }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error");
@@ -148,6 +151,18 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleWeekday = (day: string) => {
+    setForm((prev) => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(day) ? prev.weekdays.filter((d) => d !== day) : [...prev.weekdays, day],
+    }));
+  };
+
+  const applyWeekdayPreset = (preset: "weekdays" | "weekend" | "all" | "clear") => {
+    const map = { clear: [] as string[], all: [...WEEKDAY_ORDER], weekdays: WEEKDAY_ORDER.slice(0, 5), weekend: WEEKDAY_ORDER.slice(5) };
+    setForm((prev) => ({ ...prev, weekdays: map[preset] }));
   };
 
   const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
@@ -218,6 +233,24 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
               <p className="text-xs text-muted-foreground">
                 Jornada: <span className="font-medium text-foreground">{shiftHours === null ? "--" : `${shiftHours % 1 === 0 ? shiftHours.toFixed(0) : shiftHours.toFixed(1)} h`}</span>
               </p>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Días *</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekdays")}>Lun-Vie</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekend")}>Sáb-Dom</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("all")}>Todos</Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-muted-foreground" onClick={() => applyWeekdayPreset("clear")}>Limpiar</Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAY_ORDER.map((day) => {
+                    const active = form.weekdays.includes(day);
+                    return (
+                      <button key={day} type="button" onClick={() => toggleWeekday(day)} aria-pressed={active} className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${active ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}>{day}</button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">

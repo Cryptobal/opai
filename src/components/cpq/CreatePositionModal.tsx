@@ -122,6 +122,10 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.weekdays || form.weekdays.length === 0) {
+      alert("Debes seleccionar al menos un día de la semana");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {

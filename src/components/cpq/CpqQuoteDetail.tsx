@@ -18,7 +18,7 @@ import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { formatCurrency } from "@/components/cpq/utils";
+import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf";
 import type {
@@ -1738,6 +1738,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                       <tr style={{ background: "#eff6ff" }}>
                         <th className="text-left p-1.5 font-semibold">Puesto</th>
                         <th className="text-left p-1.5 font-semibold">Guardias</th>
+                        <th className="text-left p-1.5 font-semibold">Días</th>
                         <th className="text-left p-1.5 font-semibold">Horario</th>
                         <th className="text-right p-1.5 font-semibold">Precio mensual</th>
                       </tr>
@@ -1753,13 +1754,14 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                           <tr key={pos.id} className="border-b border-gray-100">
                             <td className="p-1.5">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
                             <td className="p-1.5">{pos.numGuards}</td>
+                            <td className="p-1.5">{formatWeekdaysShort(pos.weekdays)}</td>
                             <td className="p-1.5">{pos.startTime} - {pos.endTime}</td>
                             <td className="p-1.5 text-right">{formatted}</td>
                           </tr>
                         );
                       })}
                       <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
-                        <td colSpan={3} className="p-1.5 text-right">Total mensual</td>
+                        <td colSpan={4} className="p-1.5 text-right">Total mensual</td>
                         <td className="p-1.5 text-right">
                           {crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))

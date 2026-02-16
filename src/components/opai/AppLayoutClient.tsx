@@ -75,7 +75,7 @@ export function AppLayoutClient({
         canView(permissions, 'crm', 'installations') && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin },
         canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp },
         canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact },
-        canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'CPQ', icon: DollarSign },
+        canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign },
       ].filter(Boolean) as NavItem['children'],
     },
     {
@@ -94,7 +94,6 @@ export function AppLayoutClient({
       icon: ClipboardList,
       show: hasModuleAccess(permissions, 'ops'),
       children: [
-        canView(permissions, 'ops', 'puestos') && { href: '/ops/puestos', label: 'Puestos', icon: ClipboardList },
         canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
         canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },

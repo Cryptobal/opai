@@ -49,9 +49,9 @@ export default async function OpsDashboardPage() {
 
   const modules = [
     {
-      href: "/ops/puestos",
-      title: "Puestos operativos",
-      description: "Visualiza estructura base por instalación, horario y días.",
+      href: "/crm/installations",
+      title: "Puestos y dotación",
+      description: "Gestiona puestos y asignación de guardias desde las fichas de instalación.",
       icon: ClipboardList,
       count: puestosCount,
       color: "text-blue-400 bg-blue-400/10",

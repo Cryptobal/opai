@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, Breadcrumb } from "@/components/opai";
@@ -162,10 +162,12 @@ export default async function CrmInstallationDetailPage({
     })
   );
 
+  const canEditDotacion = canEdit(perms, "crm", "dotacion");
+
   return (
     <>
       <CrmSubnav role={role} />
-      <CrmInstallationDetailClient installation={data} />
+      <CrmInstallationDetailClient installation={data} canEditDotacion={canEditDotacion} />
     </>
   );
 }
