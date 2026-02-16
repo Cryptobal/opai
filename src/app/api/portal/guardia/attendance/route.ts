@@ -1,91 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import type { GuardAttendanceRecord } from "@/lib/guard-portal";
+import { ATTENDANCE_STATUS_LABELS } from "@/lib/guard-portal";
 
 export async function GET(request: NextRequest) {
-  // TODO: Replace with Prisma query + guard session validation
-  const { searchParams } = new URL(request.url);
-  const guardiaId = searchParams.get("guardiaId");
-  const month = searchParams.get("month"); // e.g. "2026-02"
+  try {
+    const { searchParams } = new URL(request.url);
+    const guardiaId = searchParams.get("guardiaId");
+    const month = searchParams.get("month"); // e.g. "2026-02"
 
-  if (!guardiaId) {
-    return NextResponse.json(
-      { success: false, error: "guardiaId es requerido" },
-      { status: 400 },
-    );
-  }
-
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    return NextResponse.json(
-      { success: false, error: "month es requerido (formato YYYY-MM)" },
-      { status: 400 },
-    );
-  }
-
-  const [yearStr, monthStr] = month.split("-");
-  const year = parseInt(yearStr, 10);
-  const monthNum = parseInt(monthStr, 10);
-  const daysInMonth = new Date(year, monthNum, 0).getDate();
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-
-  // 4-on / 2-off pattern matching schedule
-  const pattern = ["T", "T", "T", "T", "-", "-"];
-
-  const statusLabels: Record<string, string> = {
-    present: "Presente",
-    absent: "Ausente",
-    late: "Atraso",
-    rest: "Descanso",
-  };
-
-  const data: GuardAttendanceRecord[] = [];
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const dateObj = new Date(`${dateStr}T23:59:59`);
-
-    // Only include past days
-    if (dateObj > today) break;
-
-    const patternIndex = (day - 1) % pattern.length;
-    const isWorkDay = pattern[patternIndex] === "T";
-
-    if (!isWorkDay) {
-      data.push({
-        date: dateStr,
-        status: "rest",
-        statusLabel: statusLabels.rest,
-        entryTime: null,
-        exitTime: null,
-        installationName: null,
-      });
-      continue;
+    if (!guardiaId) {
+      return NextResponse.json(
+        { success: false, error: "guardiaId es requerido" },
+        { status: 400 },
+      );
     }
 
-    // Mock: mostly present, every 7th work day is late, every 13th is absent
-    let status: GuardAttendanceRecord["status"] = "present";
-    let entryTime: string | null = "07:02";
-    let exitTime: string | null = "19:05";
-
-    if (day % 13 === 0) {
-      status = "absent";
-      entryTime = null;
-      exitTime = null;
-    } else if (day % 7 === 0) {
-      status = "late";
-      entryTime = "07:18";
-      exitTime = "19:10";
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json(
+        { success: false, error: "month es requerido (formato YYYY-MM)" },
+        { status: 400 },
+      );
     }
 
-    data.push({
-      date: dateStr,
-      status,
-      statusLabel: statusLabels[status] ?? status,
-      entryTime,
-      exitTime,
-      installationName: status !== "absent" ? "Sede Central" : null,
+    const [yearStr, monthStr] = month.split("-");
+    const year = parseInt(yearStr, 10);
+    const monthNum = parseInt(monthStr, 10);
+
+    // Build date range for the month
+    const startDate = new Date(year, monthNum - 1, 1);
+    const endDate = new Date(year, monthNum, 0); // last day of month
+
+    // Query asistencia records where this guard is planned, actual, or replacement
+    const asistencias = await prisma.opsAsistenciaDiaria.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        OR: [
+          { plannedGuardiaId: guardiaId },
+          { actualGuardiaId: guardiaId },
+        ],
+      },
+      include: {
+        installation: { select: { name: true } },
+      },
+      orderBy: { date: "asc" },
     });
-  }
 
-  return NextResponse.json({ success: true, data });
+    // Map attendance status from DB format to portal format
+    const statusMap: Record<string, GuardAttendanceRecord["status"]> = {
+      presente: "present",
+      ausente: "absent",
+      atraso: "late",
+      descanso: "rest",
+      vacaciones: "vacation",
+      licencia: "license",
+      permiso: "permission",
+      pendiente: "present", // pending defaults to present for display
+    };
+
+    const data: GuardAttendanceRecord[] = asistencias.map((a) => {
+      const dateStr = a.date instanceof Date
+        ? a.date.toISOString().split("T")[0]
+        : String(a.date).split("T")[0];
+
+      const rawStatus = a.attendanceStatus.toLowerCase();
+      const status = statusMap[rawStatus] ?? "present";
+
+      const entryTime = a.checkInAt instanceof Date
+        ? a.checkInAt.toISOString().substring(11, 16) // HH:mm
+        : null;
+      const exitTime = a.checkOutAt instanceof Date
+        ? a.checkOutAt.toISOString().substring(11, 16) // HH:mm
+        : null;
+
+      return {
+        date: dateStr,
+        status,
+        statusLabel: ATTENDANCE_STATUS_LABELS[status]?.label ?? rawStatus,
+        entryTime,
+        exitTime,
+        installationName: a.installation?.name ?? null,
+      };
+    });
+
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error("[Portal Guardia] Attendance error:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al obtener asistencia" },
+      { status: 500 },
+    );
+  }
 }

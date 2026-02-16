@@ -1,65 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import {
-  TICKET_TYPE_SEEDS,
-  type TicketType,
-  type TicketTypeApprovalStep,
-} from "@/lib/tickets";
+import type { TicketType, TicketTypeApprovalStep } from "@/lib/tickets";
 
-/**
- * GET /api/ops/ticket-types — List ticket types
- * Returns seed data mapped to TicketType objects (Cloud stub).
- *
- * POST /api/ops/ticket-types — Create a ticket type
- * Body: { slug, name, description?, origin, requiresApproval, assignedTeam, defaultPriority, slaHours, icon?, approvalChainGroupSlugs? }
- *
- * TODO: Replace with Prisma query when DB migration is ready
- */
-export async function GET() {
+/* ── Mappers ─────────────────────────────────────────────────── */
+
+function mapApprovalStep(step: any): TicketTypeApprovalStep {
+  return {
+    id: step.id,
+    ticketTypeId: step.ticketTypeId,
+    stepOrder: step.stepOrder,
+    approverType: step.approverType,
+    approverGroupId: step.approverGroupId,
+    approverUserId: step.approverUserId,
+    label: step.label,
+    isRequired: step.isRequired,
+    approverGroupName: step.approverGroup?.name ?? undefined,
+  };
+}
+
+function mapTicketType(tt: any): TicketType {
+  return {
+    id: tt.id,
+    tenantId: tt.tenantId,
+    slug: tt.slug,
+    name: tt.name,
+    description: tt.description,
+    origin: tt.origin,
+    requiresApproval: tt.requiresApproval,
+    assignedTeam: tt.assignedTeam,
+    defaultPriority: tt.defaultPriority,
+    slaHours: tt.slaHours,
+    icon: tt.icon,
+    isActive: tt.isActive,
+    sortOrder: tt.sortOrder,
+    approvalSteps: (tt.approvalSteps ?? []).map(mapApprovalStep),
+    createdAt:
+      tt.createdAt instanceof Date
+        ? tt.createdAt.toISOString()
+        : tt.createdAt,
+    updatedAt:
+      tt.updatedAt instanceof Date
+        ? tt.updatedAt.toISOString()
+        : tt.updatedAt,
+  };
+}
+
+/* ── Include fragment for approval steps ─────────────────────── */
+
+const approvalStepsInclude = {
+  approvalSteps: {
+    include: { approverGroup: { select: { name: true } } },
+    orderBy: { stepOrder: "asc" as const },
+  },
+};
+
+/* ── GET /api/ops/ticket-types ──────────────────────────────── */
+
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    // TODO: Replace with Prisma query when DB migration is ready
-    const items: TicketType[] = TICKET_TYPE_SEEDS.map((seed, i) => {
-      const id = `ttype-${i}`;
-      const now = new Date().toISOString();
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get("activeOnly") !== "false"; // default true
 
-      const approvalSteps: TicketTypeApprovalStep[] =
-        seed.approvalChainGroupSlugs.map((groupSlug, stepIdx) => ({
-          id: `step-${i}-${stepIdx}`,
-          ticketTypeId: id,
-          stepOrder: stepIdx + 1,
-          approverType: "group" as const,
-          approverGroupId: `group-${groupSlug}`,
-          approverUserId: null,
-          label: `Aprobación ${groupSlug}`,
-          isRequired: true,
-          approverGroupName: groupSlug,
-        }));
-
-      return {
-        id,
+    const rows = await prisma.opsTicketType.findMany({
+      where: {
         tenantId: ctx.tenantId,
-        slug: seed.slug,
-        name: seed.name,
-        description: seed.description,
-        origin: seed.origin,
-        requiresApproval: seed.requiresApproval,
-        assignedTeam: seed.assignedTeam,
-        defaultPriority: seed.defaultPriority,
-        slaHours: seed.slaHours,
-        icon: seed.icon,
-        isActive: true,
-        sortOrder: i + 1,
-        approvalSteps,
-        createdAt: now,
-        updatedAt: now,
-      };
+        ...(activeOnly ? { isActive: true } : {}),
+      },
+      include: approvalStepsInclude,
+      orderBy: { sortOrder: "asc" },
     });
+
+    const items: TicketType[] = rows.map(mapTicketType);
 
     return NextResponse.json({ success: true, data: { items } });
   } catch (error) {
@@ -70,6 +88,8 @@ export async function GET() {
     );
   }
 }
+
+/* ── POST /api/ops/ticket-types ─────────────────────────────── */
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,44 +107,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Replace with Prisma query when DB migration is ready
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
+    // Check unique slug within tenant
+    const existing = await prisma.opsTicketType.findUnique({
+      where: {
+        tenantId_slug: { tenantId: ctx.tenantId, slug: body.slug },
+      },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: `Ya existe un tipo de ticket con slug "${body.slug}"` },
+        { status: 409 },
+      );
+    }
 
-    const approvalSteps: TicketTypeApprovalStep[] = (
-      body.approvalChainGroupSlugs ?? []
-    ).map((groupSlug: string, stepIdx: number) => ({
-      id: crypto.randomUUID(),
-      ticketTypeId: id,
-      stepOrder: stepIdx + 1,
-      approverType: "group" as const,
-      approverGroupId: `group-${groupSlug}`,
-      approverUserId: null,
-      label: `Aprobación ${groupSlug}`,
-      isRequired: true,
-      approverGroupName: groupSlug,
-    }));
+    // Auto-calculate sortOrder as max + 1
+    const maxSort = await prisma.opsTicketType.aggregate({
+      where: { tenantId: ctx.tenantId },
+      _max: { sortOrder: true },
+    });
+    const nextSortOrder = (maxSort._max.sortOrder ?? 0) + 1;
 
-    const stubType: TicketType = {
-      id,
-      tenantId: ctx.tenantId,
-      slug: body.slug,
-      name: body.name,
-      description: body.description ?? null,
-      origin: body.origin ?? "internal",
-      requiresApproval: body.requiresApproval ?? false,
-      assignedTeam: body.assignedTeam,
-      defaultPriority: body.defaultPriority ?? "p3",
-      slaHours: body.slaHours ?? 72,
-      icon: body.icon ?? null,
-      isActive: true,
-      sortOrder: 99,
-      approvalSteps,
-      createdAt: now,
-      updatedAt: now,
-    };
+    // Build nested approval steps (if provided)
+    const approvalStepsData = Array.isArray(body.approvalSteps)
+      ? body.approvalSteps.map((s: any, idx: number) => ({
+          stepOrder: s.stepOrder ?? idx + 1,
+          approverType: s.approverType ?? "group",
+          approverGroupId: s.approverGroupId ?? null,
+          approverUserId: s.approverUserId ?? null,
+          label: s.label ?? `Paso ${idx + 1}`,
+          isRequired: s.isRequired ?? true,
+        }))
+      : [];
 
-    return NextResponse.json({ success: true, data: stubType }, { status: 201 });
+    const ticketType = await prisma.opsTicketType.create({
+      data: {
+        tenantId: ctx.tenantId,
+        slug: body.slug,
+        name: body.name,
+        description: body.description ?? null,
+        origin: body.origin ?? "internal",
+        requiresApproval: body.requiresApproval ?? false,
+        assignedTeam: body.assignedTeam,
+        defaultPriority: body.defaultPriority ?? "p3",
+        slaHours: body.slaHours ?? 72,
+        icon: body.icon ?? null,
+        isActive: true,
+        sortOrder: nextSortOrder,
+        approvalSteps: {
+          create: approvalStepsData,
+        },
+      },
+      include: approvalStepsInclude,
+    });
+
+    return NextResponse.json(
+      { success: true, data: mapTicketType(ticketType) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[OPS] Error creating ticket type:", error);
     return NextResponse.json(
