@@ -80,6 +80,10 @@ export default function GroupsConfigClient({ userRole }: Props) {
   const [newMemberRole, setNewMemberRole] = useState<GroupMemberRole>("member");
   const [addingMember, setAddingMember] = useState(false);
 
+  // Available admins for member selection
+  const [availableAdmins, setAvailableAdmins] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
+  const [adminsLoaded, setAdminsLoaded] = useState(false);
+
   const canManage =
     userRole === "owner" || userRole === "admin" || userRole === "superadmin";
   const selectedGroup = groups.find((g: AdminGroup) => g.id === selectedGroupId) ?? null;
@@ -116,9 +120,22 @@ export default function GroupsConfigClient({ userRole }: Props) {
     }
   }, []);
 
+  const fetchAdmins = useCallback(async () => {
+    if (adminsLoaded) return;
+    try {
+      const res = await fetch("/api/ops/admins");
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableAdmins(json.data ?? []);
+      }
+    } catch { /* ignore */ }
+    setAdminsLoaded(true);
+  }, [adminsLoaded]);
+
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
+    fetchAdmins();
+  }, [fetchGroups, fetchAdmins]);
 
   useEffect(() => {
     if (selectedGroupId) {
@@ -531,16 +548,25 @@ export default function GroupsConfigClient({ userRole }: Props) {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="flex-1 space-y-1.5">
-                <Label htmlFor="member-admin-id" className="text-xs">
-                  ID de usuario
-                </Label>
-                <Input
-                  id="member-admin-id"
-                  placeholder="ID del administrador..."
+                <Label className="text-xs">Usuario</Label>
+                <Select
                   value={newMemberAdminId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMemberAdminId(e.target.value)}
+                  onValueChange={(v: string) => setNewMemberAdminId(v)}
                   disabled={addingMember}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar usuario..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAdmins
+                      .filter((a) => !members.some((m) => m.adminId === a.id))
+                      .map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name} ({a.email})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="w-full sm:w-[160px] space-y-1.5">
                 <Label className="text-xs">Rol en grupo</Label>
