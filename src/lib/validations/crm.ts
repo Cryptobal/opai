@@ -138,6 +138,9 @@ export const updateInstallationSchema = z.object({
   geoRadiusM: z.number().int().min(10).max(1000).optional(),
   teMontoClp: z.number().min(0).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
+  nocturnoEnabled: z.boolean().optional(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
   activateAccount: z.boolean().optional(),
 });
 

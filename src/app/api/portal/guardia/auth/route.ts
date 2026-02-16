@@ -21,11 +21,21 @@ export async function POST(request: NextRequest) {
     // Clean RUT: remove dots and dashes, uppercase
     const cleanRut = rut.replace(/[.\-]/g, "").toUpperCase();
 
-    // Also build formatted variants to search
-    // e.g. "12345678-5", "12.345.678-5"
+    // Build all common format variants
     const rutBody = cleanRut.slice(0, -1);
     const rutDv = cleanRut.slice(-1);
     const rutWithDash = `${rutBody}-${rutDv}`;
+
+    // Build dotted variant: 13.255.838-8
+    let rutWithDots = rutWithDash;
+    if (rutBody.length >= 2) {
+      const reversed = rutBody.split("").reverse();
+      const groups: string[] = [];
+      for (let i = 0; i < reversed.length; i += 3) {
+        groups.push(reversed.slice(i, i + 3).reverse().join(""));
+      }
+      rutWithDots = `${groups.reverse().join(".")}-${rutDv}`;
+    }
 
     // Find persona by RUT (try multiple formats)
     const persona = await prisma.opsPersona.findFirst({
@@ -33,7 +43,8 @@ export async function POST(request: NextRequest) {
         OR: [
           { rut: cleanRut },
           { rut: rutWithDash },
-          { rut: rut }, // exact as provided
+          { rut: rutWithDots },
+          { rut: rut },
         ],
       },
       include: {
@@ -45,9 +56,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!persona || !persona.guardia) {
+    if (!persona) {
+      console.warn(`[Portal Guardia] RUT no encontrado: ${rutWithDash}`);
       return NextResponse.json(
-        { success: false, error: "RUT no encontrado o no es guardia activo" },
+        { success: false, error: "RUT no encontrado. Verifique que su RUT esté registrado en el sistema." },
+        { status: 401 },
+      );
+    }
+
+    if (!persona.guardia) {
+      console.warn(`[Portal Guardia] Persona sin guardia asociado: ${persona.id} / ${rutWithDash}`);
+      return NextResponse.json(
+        { success: false, error: "Su RUT no está asociado a un guardia activo. Contacte a su supervisor." },
         { status: 401 },
       );
     }
@@ -59,8 +79,9 @@ export async function POST(request: NextRequest) {
     const visiblePin = guardia.marcacionPinVisible;
 
     if (!storedPin && !visiblePin) {
+      console.warn(`[Portal Guardia] PIN no configurado para guardia: ${guardia.id} / ${rutWithDash}`);
       return NextResponse.json(
-        { success: false, error: "PIN no configurado. Contacte a su supervisor." },
+        { success: false, error: "PIN no configurado. Contacte a su supervisor para que le asigne un PIN." },
         { status: 401 },
       );
     }
@@ -82,8 +103,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!pinValid) {
+      console.warn(`[Portal Guardia] PIN incorrecto para guardia: ${guardia.id} / ${rutWithDash}`);
       return NextResponse.json(
-        { success: false, error: "PIN incorrecto" },
+        { success: false, error: "PIN incorrecto. Use el mismo PIN de marcación de asistencia." },
         { status: 401 },
       );
     }

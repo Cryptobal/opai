@@ -38,6 +38,7 @@ export async function GET(
         marcacionCode: true,
         notes: true,
         metadata: true,
+        nocturnoEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,

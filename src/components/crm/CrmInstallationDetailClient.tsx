@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export type InstallationDetail = {
   marcacionCode?: string | null;
   geoRadiusM?: number;
   metadata?: Record<string, unknown> | null;
+  nocturnoEnabled?: boolean;
   startDate?: string | null;
   endDate?: string | null;
   puestosActivos?: Array<{
@@ -935,6 +936,42 @@ export function CrmInstallationDetailClient({
     }
   };
 
+  // ── Nocturno toggle ──
+  const [nocturnoEnabled, setNocturnoEnabled] = useState(installation.nocturnoEnabled !== false);
+  const [nocturnoConfirmOpen, setNocturnoConfirmOpen] = useState(false);
+  const [nocturnoNextValue, setNocturnoNextValue] = useState(false);
+  const [nocturnoSaving, setNocturnoSaving] = useState(false);
+
+  const openNocturnoToggle = (nextVal: boolean) => {
+    setNocturnoNextValue(nextVal);
+    setNocturnoConfirmOpen(true);
+  };
+
+  const confirmNocturnoToggle = async () => {
+    setNocturnoSaving(true);
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nocturnoEnabled: nocturnoNextValue }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar");
+      setNocturnoEnabled(nocturnoNextValue);
+      setNocturnoConfirmOpen(false);
+      toast.success(
+        nocturnoNextValue
+          ? "Instalación incluida en control nocturno"
+          : "Instalación excluida del control nocturno"
+      );
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error?.message || "Error al actualizar control nocturno");
+    } finally {
+      setNocturnoSaving(false);
+    }
+  };
+
   // ── Edit state ──
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -1054,6 +1091,34 @@ export function CrmInstallationDetailClient({
                 fullWidth
               />
             )}
+            {/* Control Nocturno toggle */}
+            <div className="col-span-full">
+              <button
+                type="button"
+                onClick={() => openNocturnoToggle(!nocturnoEnabled)}
+                disabled={nocturnoSaving}
+                className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                  nocturnoEnabled
+                    ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
+                    : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-indigo-400" : "text-muted-foreground"}`} />
+                <div className="flex-1 text-left">
+                  <span className="font-medium">Control nocturno</span>
+                  <span className="ml-2 text-xs opacity-70">
+                    {nocturnoEnabled ? "Incluida en reportes nocturnos" : "Excluida de reportes nocturnos"}
+                  </span>
+                </div>
+                <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
+                }`}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    nocturnoEnabled ? "translate-x-4" : "translate-x-0"
+                  }`} />
+                </div>
+              </button>
+            </div>
           </DetailFieldGrid>
 
           {/* Mapa */}
@@ -1309,6 +1374,21 @@ export function CrmInstallationDetailClient({
         loading={statusUpdating}
         loadingLabel="Guardando..."
         onConfirm={toggleInstallationStatus}
+      />
+      <ConfirmDialog
+        open={nocturnoConfirmOpen}
+        onOpenChange={setNocturnoConfirmOpen}
+        title={nocturnoNextValue ? "Incluir en control nocturno" : "Excluir del control nocturno"}
+        description={
+          nocturnoNextValue
+            ? "Esta instalación aparecerá en los reportes de control nocturno y se le asignarán rondas."
+            : "Esta instalación dejará de aparecer en los nuevos reportes de control nocturno. Los reportes existentes no se verán afectados."
+        }
+        confirmLabel={nocturnoNextValue ? "Incluir" : "Excluir"}
+        variant="default"
+        loading={nocturnoSaving}
+        loadingLabel="Guardando..."
+        onConfirm={confirmNocturnoToggle}
       />
     </>
   );
