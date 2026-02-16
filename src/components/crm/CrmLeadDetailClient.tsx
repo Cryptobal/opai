@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +37,9 @@ import {
   Save,
   CheckCircle2,
   XCircle,
+  Building2,
+  FileText,
+  ArrowRight,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
@@ -335,6 +339,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
+
+  // ─── Approval success modal state ───
+  const [approvalResult, setApprovalResult] = useState<{
+    account: { id: string; name: string };
+    contact: { id: string; firstName: string; lastName: string };
+    deal: { id: string; title: string };
+    quotes: { id: string; code: string; installationName: string | null }[];
+  } | null>(null);
 
   // ─── Reject modal state ───
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -833,8 +845,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         return;
       }
       if (!response.ok) throw new Error(result?.error || "Error aprobando lead");
-      toast.success("Lead aprobado — Cuenta, contacto y negocio creados");
-      router.push("/crm/leads");
+      setApprovalResult({
+        account: { id: result.data.account.id, name: result.data.account.name },
+        contact: { id: result.data.contact.id, firstName: result.data.contact.firstName, lastName: result.data.contact.lastName },
+        deal: { id: result.data.deal.id, title: result.data.deal.title },
+        quotes: result.data.quotes || [],
+      });
     } catch (error) {
       console.error(error);
       toast.error("No se pudo aprobar el lead.");
@@ -1582,6 +1598,72 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         </div>
       )}
+
+      {/* ── Approval Success Modal ── */}
+      <Dialog open={!!approvalResult} onOpenChange={(open) => { if (!open) { setApprovalResult(null); router.push("/crm/leads"); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Lead aprobado
+            </DialogTitle>
+            <DialogDescription>
+              Se crearon los siguientes registros:
+            </DialogDescription>
+          </DialogHeader>
+          {approvalResult && (
+            <div className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <Link href={`/crm/contacts/${approvalResult.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Contacto</p>
+                    <p className="font-medium truncate">{approvalResult.contact.firstName} {approvalResult.contact.lastName}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+                <Link href={`/crm/accounts/${approvalResult.account.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Building2 className="h-4 w-4 text-violet-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Cuenta</p>
+                    <p className="font-medium truncate">{approvalResult.account.name}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+                <Link href={`/crm/deals/${approvalResult.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Negocio</p>
+                    <p className="font-medium truncate">{approvalResult.deal.title}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+                {approvalResult.quotes.map((q) => (
+                  <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                    <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground">Cotización CPQ</p>
+                      <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {approvalResult && approvalResult.quotes.length > 0 && (
+              <Button className="w-full" onClick={() => router.push(`/cpq/${approvalResult.quotes[0].id}`)}>
+                Ir a cotización CPQ
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => { setApprovalResult(null); router.push("/crm/leads"); }}>
+              Volver a leads
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Reject Modal ── */}
       <Dialog open={rejectOpen} onOpenChange={(open) => { setRejectOpen(open); }}>
