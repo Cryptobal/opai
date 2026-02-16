@@ -90,7 +90,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loadingPublicForm, setLoadingPublicForm] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
+  const [lifecycleFilter, setLifecycleFilter] = useState<string>("contratado_activo");
   
   const [form, setForm] = useState({
     firstName: "",
