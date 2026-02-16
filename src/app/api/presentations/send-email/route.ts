@@ -73,13 +73,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Generar uniqueId para URL pública
-    const uniqueId = nanoid(12); // Ej: "xyz123abc456"
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
+    const tenantId = await getDefaultTenantId();
+
+    // 4. Si ya existe una presentación draft para esta sesión (flujo CPQ), usar su uniqueId
+    //    para el enlace del email. Así el link del correo y el de WhatsApp apuntan a la misma página.
+    const existingDraftPresentation = await prisma.presentation.findFirst({
+      where: {
+        clientData: { path: ['id'], equals: sessionId },
+        status: 'draft',
+        tenantId,
+      },
+    });
+
+    const uniqueId = existingDraftPresentation?.uniqueId ?? nanoid(12);
     const presentationUrl = `${siteUrl}/p/${uniqueId}`;
 
     // 5. Obtener template (commercial por defecto, tenant actual)
-    const tenantId = await getDefaultTenantId();
     const template = await prisma.template.findFirst({
       where: { slug: 'commercial', active: true, tenantId },
     });
@@ -91,7 +101,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Preparar datos del email
+    // 6. Preparar datos del email (presentationUrl ya es el correcto: draft o nuevo)
     const emailProps = {
       recipientName: recipientName || 'Estimado/a',
       companyName,
@@ -134,16 +144,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 9. Guardar o actualizar presentación en BD
-    // Si hay una presentación draft existente para esta sesión (flujo CPQ), actualizarla
-    const existingDraftPresentation = await prisma.presentation.findFirst({
-      where: {
-        clientData: { path: ['id'], equals: sessionId },
-        status: 'draft',
-        tenantId,
-      },
-    });
-
+    // 9. Guardar o actualizar presentación en BD (existingDraftPresentation ya buscada en paso 4)
     let presentation;
     if (existingDraftPresentation) {
       // Actualizar la presentación draft existente a sent
@@ -160,10 +161,6 @@ export async function POST(req: NextRequest) {
           tags: ['cpq', 'sent-from-preview'],
         },
       });
-      // Use existing uniqueId for the public URL
-      const existingUrl = `${siteUrl}/p/${existingDraftPresentation.uniqueId}`;
-      // Override presentationUrl for the response
-      Object.defineProperty(presentation, '_publicUrl', { value: existingUrl });
     } else {
       presentation = await prisma.presentation.create({
         data: {
@@ -218,9 +215,7 @@ export async function POST(req: NextRequest) {
               to: recipientEmail,
               contactName: recipientName,
               quoteCode: cpqQuoteCode,
-              presentationUrl: existingDraftPresentation
-                ? `${siteUrl}/p/${existingDraftPresentation.uniqueId}`
-                : presentationUrl,
+              presentationUrl,
               presentationId: presentation.id,
             },
           },
@@ -235,9 +230,7 @@ export async function POST(req: NextRequest) {
               action: 'presentation_sent',
               details: {
                 quoteCode: cpqQuoteCode,
-                presentationUrl: existingDraftPresentation
-                  ? `${siteUrl}/p/${existingDraftPresentation.uniqueId}`
-                  : presentationUrl,
+                presentationUrl,
                 presentationId: presentation.id,
                 recipientEmail,
               },
@@ -315,16 +308,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 14. Retornar respuesta exitosa
-    const finalUniqueId = existingDraftPresentation?.uniqueId || uniqueId;
-    const finalPublicUrl = `${siteUrl}/p/${finalUniqueId}`;
-
+    // 14. Retornar respuesta exitosa (presentationUrl ya es el enlace correcto)
     return NextResponse.json({
       success: true,
       presentation: {
         id: presentation.id,
-        uniqueId: finalUniqueId,
-        publicUrl: finalPublicUrl,
+        uniqueId,
+        publicUrl: presentationUrl,
       },
       email: {
         messageId: emailResponse.data?.id,
