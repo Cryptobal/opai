@@ -155,8 +155,8 @@ export function GuardContractsTab({
     if (!canRenew) return;
     const nextPeriod = currentPeriod + 1;
     setCurrentPeriod(nextPeriod);
-    toast.info(`Renovación ${nextPeriod - 1} activada. Ingresa la nueva fecha de término.`);
     setEditing(true);
+    toast.info(`Renovación ${nextPeriod - 1} activada. Ingresa la fecha de fin del período ${nextPeriod} y guarda.`);
   }
 
   async function handleGenerateContract() {
@@ -249,44 +249,94 @@ export function GuardContractsTab({
 
             {contractType === "plazo_fijo" && (
               <>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Fin período 1 (original)</Label>
-                    <Input
-                      type="date"
-                      value={period1End}
-                      min={contractStartDate}
-                      onChange={(e) => setPeriod1End(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  {currentPeriod >= 2 && (
+                <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Fin período 2 (1ra renovación)</Label>
+                      <Label className="text-xs">
+                        Fin período 1 (original) *
+                      </Label>
+                      <Input
+                        type="date"
+                        value={period1End}
+                        min={contractStartDate}
+                        onChange={(e) => setPeriod1End(e.target.value)}
+                        className="text-sm"
+                      />
+                      {period1End && contractStartDate && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {Math.round((new Date(period1End).getTime() - new Date(contractStartDate).getTime()) / 86400000)} días
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Fin período 2 (1ra renovación)
+                      </Label>
                       <Input
                         type="date"
                         value={period2End}
-                        min={period1End}
+                        min={period1End || contractStartDate}
                         onChange={(e) => setPeriod2End(e.target.value)}
                         className="text-sm"
+                        placeholder="Sin renovación aún"
                       />
+                      {!period2End && (
+                        <p className="text-[10px] text-muted-foreground italic">Opcional — se llena al renovar</p>
+                      )}
                     </div>
-                  )}
-                  {currentPeriod >= 3 && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Fin período 3 (2da renovación)</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        Fin período 3 (2da renovación)
+                      </Label>
                       <Input
                         type="date"
                         value={period3End}
-                        min={period2End}
+                        min={period2End || period1End || contractStartDate}
                         onChange={(e) => setPeriod3End(e.target.value)}
                         className="text-sm"
+                        disabled={!period2End}
+                        placeholder="Sin renovación aún"
                       />
+                      {!period3End && period2End && (
+                        <p className="text-[10px] text-muted-foreground italic">Opcional — última renovación posible</p>
+                      )}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Visual timeline */}
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="font-medium">{contractStartDate ? formatDateUTC(contractStartDate) : "Inicio"}</span>
+                    <span className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                    {period1End && (
+                      <>
+                        <span className={`px-1.5 py-0.5 rounded ${currentPeriod === 1 ? "bg-primary/10 text-primary font-medium" : "bg-muted"}`}>
+                          P1: {formatDateUTC(period1End)}
+                        </span>
+                        <span className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                      </>
+                    )}
+                    {period2End && (
+                      <>
+                        <span className={`px-1.5 py-0.5 rounded ${currentPeriod === 2 ? "bg-primary/10 text-primary font-medium" : "bg-muted"}`}>
+                          P2: {formatDateUTC(period2End)}
+                        </span>
+                        <span className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                      </>
+                    )}
+                    {period3End && (
+                      <>
+                        <span className={`px-1.5 py-0.5 rounded ${currentPeriod === 3 ? "bg-primary/10 text-primary font-medium" : "bg-muted"}`}>
+                          P3: {formatDateUTC(period3End)}
+                        </span>
+                        <span className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                      </>
+                    )}
+                    <span className="font-medium">→ Indefinido</span>
+                  </div>
                 </div>
+
                 <p className="text-[10px] text-muted-foreground">
-                  Plazo fijo: de 1 día a 1 año por período. Máximo 2 renovaciones. Tras la 2da renovación o vencimiento sin finiquito, pasa a indefinido.
+                  Plazo fijo: de 1 día a 1 año por período. Máximo 2 renovaciones. Tras la 2da renovación o vencimiento sin finiquito, pasa a indefinido automáticamente.
                 </p>
               </>
             )}
@@ -317,30 +367,32 @@ export function GuardContractsTab({
               <>
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Período actual</p>
-                  <p>{currentPeriod === 1 ? "Original" : `Renovación ${currentPeriod - 1}`}</p>
+                  <p className="font-medium">{currentPeriod === 1 ? "Original" : `Renovación ${currentPeriod - 1}`}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Vencimiento</p>
-                  <p>{currentEndDate ? formatDateUTC(currentEndDate) : "No definido"}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Vencimiento actual</p>
+                  <p className="font-medium">{currentEndDate ? formatDateUTC(currentEndDate) : "No definido"}</p>
                 </div>
-                {period1End && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fin período 1</p>
-                    <p>{formatDateUTC(period1End)}</p>
+                <div className="sm:col-span-2 mt-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Períodos del contrato</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className={`rounded-md border p-2 ${currentPeriod === 1 ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <p className="text-muted-foreground">Período 1</p>
+                      <p className="font-medium">{period1End ? formatDateUTC(period1End) : "—"}</p>
+                      {currentPeriod === 1 && <Badge variant="default" className="mt-1 text-[9px]">Activo</Badge>}
+                    </div>
+                    <div className={`rounded-md border p-2 ${currentPeriod === 2 ? "border-primary bg-primary/5" : period2End ? "border-border" : "border-dashed border-border/50"}`}>
+                      <p className="text-muted-foreground">1ra Renovación</p>
+                      <p className="font-medium">{period2End ? formatDateUTC(period2End) : "Sin renovar"}</p>
+                      {currentPeriod === 2 && <Badge variant="default" className="mt-1 text-[9px]">Activo</Badge>}
+                    </div>
+                    <div className={`rounded-md border p-2 ${currentPeriod === 3 ? "border-primary bg-primary/5" : period3End ? "border-border" : "border-dashed border-border/50"}`}>
+                      <p className="text-muted-foreground">2da Renovación</p>
+                      <p className="font-medium">{period3End ? formatDateUTC(period3End) : "Sin renovar"}</p>
+                      {currentPeriod === 3 && <Badge variant="default" className="mt-1 text-[9px]">Activo</Badge>}
+                    </div>
                   </div>
-                )}
-                {period2End && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fin período 2 (1ra renov.)</p>
-                    <p>{formatDateUTC(period2End)}</p>
-                  </div>
-                )}
-                {period3End && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fin período 3 (2da renov.)</p>
-                    <p>{formatDateUTC(period3End)}</p>
-                  </div>
-                )}
+                </div>
               </>
             )}
           </div>
