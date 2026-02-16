@@ -56,18 +56,33 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 //  GUARD PORTAL CLIENT
 // ═══════════════════════════════════════════════════════════════
 
+const SESSION_KEY = "guard_portal_session";
+
 export function GuardPortalClient() {
-  const [session, setSession] = useState<GuardSession | null>(null);
+  const [session, setSession] = useState<GuardSession | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      if (stored) return JSON.parse(stored) as GuardSession;
+    } catch { /* ignore */ }
+    return null;
+  });
   const [activeSection, setActiveSection] = useState<PortalSection>("inicio");
+
+  function handleLogin(s: GuardSession) {
+    setSession(s);
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+  }
 
   function handleLogout() {
     setSession(null);
     setActiveSection("inicio");
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     toast.success("Sesión cerrada correctamente");
   }
 
   if (!session) {
-    return <LoginScreen onLogin={setSession} />;
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (
@@ -181,9 +196,16 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
         setError(data.error ?? "Error al iniciar sesión.");
         return;
       }
+      const sessionData = (data.data ?? data.session) as GuardSession | undefined;
+      if (!sessionData || !sessionData.guardiaId) {
+        console.error("[Portal] Respuesta inesperada del servidor:", data);
+        setError("Error al procesar la respuesta. Intenta nuevamente.");
+        return;
+      }
       toast.success("Sesión iniciada correctamente");
-      onLogin((data.data ?? data.session) as GuardSession);
-    } catch {
+      onLogin(sessionData);
+    } catch (err) {
+      console.error("[Portal] Error de conexión:", err);
       setError("Error de conexión. Intenta nuevamente.");
     } finally {
       setLoading(false);
