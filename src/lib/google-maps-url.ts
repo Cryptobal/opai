@@ -1,30 +1,51 @@
 /**
  * Parsea URLs de Google Maps y extrae coordenadas lat/lng.
- * Solo URLs largas (google.com/maps); enlaces cortos (goo.gl, maps.app.goo.gl) no tienen coords en la URL.
  * Soporta formatos:
  * - !3dLAT!4dLNG (coordenadas exactas del lugar)
  * - @LAT,LNG (centro del mapa)
+ * - ?q=LAT,LNG (query con coordenadas, típico de enlaces cortos resueltos)
+ * - /maps?ll=LAT,LNG
  */
 export function parseGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
   if (!url || typeof url !== "string") return null;
   const trimmed = url.trim();
-  // Solo parsear URLs largas; las cortas se resuelven en el servidor
   if (!/google\.com\/maps/i.test(trimmed) && !/maps\.google\.com/i.test(trimmed)) return null;
 
-  // Preferir coordenadas exactas del lugar: !3dLAT!4dLNG
-  const dataMatch = trimmed.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
-  if (dataMatch) {
-    const lat = parseFloat(dataMatch[1]);
-    const lng = parseFloat(dataMatch[2]);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  function tryParse(lat: string, lng: string): { lat: number; lng: number } | null {
+    const la = parseFloat(lat);
+    const ln = parseFloat(lng);
+    if (Number.isFinite(la) && Number.isFinite(ln) && Math.abs(la) <= 90 && Math.abs(ln) <= 180) {
+      return { lat: la, lng: ln };
+    }
+    return null;
   }
 
-  // Fallback: centro del mapa @LAT,LNG
+  // 1. Coordenadas exactas del lugar: !3dLAT!4dLNG
+  const dataMatch = trimmed.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (dataMatch) {
+    const r = tryParse(dataMatch[1], dataMatch[2]);
+    if (r) return r;
+  }
+
+  // 2. Centro del mapa: @LAT,LNG
   const atMatch = trimmed.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
   if (atMatch) {
-    const lat = parseFloat(atMatch[1]);
-    const lng = parseFloat(atMatch[2]);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    const r = tryParse(atMatch[1], atMatch[2]);
+    if (r) return r;
+  }
+
+  // 3. Query param: ?q=LAT,LNG o &q=LAT,LNG (enlaces cortos resueltos)
+  const qMatch = trimmed.match(/[?&]q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (qMatch) {
+    const r = tryParse(qMatch[1], qMatch[2]);
+    if (r) return r;
+  }
+
+  // 4. Query param: ?ll=LAT,LNG
+  const llMatch = trimmed.match(/[?&]ll=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (llMatch) {
+    const r = tryParse(llMatch[1], llMatch[2]);
+    if (r) return r;
   }
 
   return null;
