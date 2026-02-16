@@ -1,36 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import type { GuardMarcacion } from "@/lib/guard-portal";
 
 export async function GET(request: NextRequest) {
-  // TODO: Replace with Prisma query + guard session validation
-  const { searchParams } = new URL(request.url);
-  const guardiaId = searchParams.get("guardiaId");
-  const limit = parseInt(searchParams.get("limit") ?? "20", 10);
+  try {
+    const { searchParams } = new URL(request.url);
+    const guardiaId = searchParams.get("guardiaId");
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
 
-  if (!guardiaId) {
+    if (!guardiaId) {
+      return NextResponse.json(
+        { success: false, error: "guardiaId es requerido" },
+        { status: 400 },
+      );
+    }
+
+    const marcaciones = await prisma.opsMarcacion.findMany({
+      where: { guardiaId },
+      include: {
+        installation: { select: { name: true } },
+      },
+      orderBy: { timestamp: "desc" },
+      take: limit,
+    });
+
+    const data: GuardMarcacion[] = marcaciones.map((m) => ({
+      id: m.id,
+      type: m.tipo as "entrada" | "salida",
+      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
+      installationName: m.installation?.name ?? "Sin instalación",
+      geoValidated: m.geoValidada,
+      geoDistanceM: m.geoDistanciaM ?? null,
+    }));
+
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error("[Portal Guardia] Marcaciones error:", error);
     return NextResponse.json(
-      { success: false, error: "guardiaId es requerido" },
-      { status: 400 },
+      { success: false, error: "Error al obtener marcaciones" },
+      { status: 500 },
     );
   }
-
-  const now = new Date();
-  const data: GuardMarcacion[] = [];
-
-  for (let i = 0; i < 5; i++) {
-    const isEntrada = i % 2 === 0;
-    const hoursAgo = i * 12; // alternating every ~12 hours
-    const ts = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-
-    data.push({
-      id: `marc_mock_${String(i + 1).padStart(3, "0")}`,
-      type: isEntrada ? "entrada" : "salida",
-      timestamp: ts.toISOString(),
-      installationName: "Sede Central",
-      geoValidated: true,
-      geoDistanceM: Math.floor(Math.random() * 50) + 5,
-    });
-  }
-
-  return NextResponse.json({ success: true, data: data.slice(0, limit) });
 }

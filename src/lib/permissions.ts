@@ -94,6 +94,9 @@ export const SUBMODULE_KEYS = {
     "pagos",
     "reportes",
     "configuracion",
+    "contabilidad",
+    "facturacion",
+    "proveedores",
   ] as const,
 } as const satisfies Record<ModuleKey, readonly string[]>;
 
@@ -116,6 +119,8 @@ export const CAPABILITY_KEYS = [
   "rendicion_configure",
   "rendicion_view_all",
   "rendicion_export",
+  "contabilidad_manage",
+  "facturacion_manage",
   "ticket_approve",
   "ticket_manage_types",
 ] as const;
@@ -205,6 +210,9 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "finance.pagos", module: "finance", submodule: "pagos", label: "Pagos", href: "/finanzas/pagos" },
   { key: "finance.reportes", module: "finance", submodule: "reportes", label: "Reportes", href: "/finanzas/reportes" },
   { key: "finance.configuracion", module: "finance", submodule: "configuracion", label: "Configuración", href: "/opai/configuracion/finanzas" },
+  { key: "finance.contabilidad", module: "finance", submodule: "contabilidad", label: "Contabilidad", href: "/finanzas/contabilidad" },
+  { key: "finance.facturacion", module: "finance", submodule: "facturacion", label: "Facturación", href: "/finanzas/facturacion" },
+  { key: "finance.proveedores", module: "finance", submodule: "proveedores", label: "Proveedores", href: "/finanzas/proveedores" },
   // ── Config ──
   { key: "config.usuarios", module: "config", submodule: "usuarios", label: "Usuarios", href: "/opai/configuracion/usuarios" },
   { key: "config.grupos", module: "config", submodule: "grupos", label: "Grupos", href: "/opai/configuracion/grupos" },
@@ -237,6 +245,8 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "rendicion_configure", label: "Configurar rendiciones", description: "Puede configurar ítems, parámetros y reglas de rendiciones" },
   { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias" },
   { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel" },
+  { key: "contabilidad_manage", label: "Gestionar contabilidad", description: "Puede crear asientos, gestionar plan de cuentas y periodos contables" },
+  { key: "facturacion_manage", label: "Gestionar facturación", description: "Puede emitir DTEs (facturas, boletas, notas de crédito/débito) y gestionar proveedores" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación" },
 ];
@@ -303,6 +313,8 @@ function finanzasPermissions(): RolePermissions {
       rendicion_configure: true,
       rendicion_view_all: true,
       rendicion_export: true,
+      contabilidad_manage: true,
+      facturacion_manage: true,
     },
   };
 }
@@ -718,6 +730,9 @@ export function pathToPermission(
   if (pathname.startsWith("/finanzas/aprobaciones")) return { module: "finance", submodule: "aprobaciones" };
   if (pathname.startsWith("/finanzas/pagos")) return { module: "finance", submodule: "pagos" };
   if (pathname.startsWith("/finanzas/reportes")) return { module: "finance", submodule: "reportes" };
+  if (pathname.startsWith("/finanzas/contabilidad")) return { module: "finance", submodule: "contabilidad" };
+  if (pathname.startsWith("/finanzas/facturacion")) return { module: "finance", submodule: "facturacion" };
+  if (pathname.startsWith("/finanzas/proveedores")) return { module: "finance", submodule: "proveedores" };
   if (pathname === "/finanzas" || pathname.startsWith("/finanzas/")) return { module: "finance" };
 
   // Hub
@@ -783,6 +798,9 @@ export function apiPathToSubmodule(
     return { module: "finance", submodule: "configuracion" };
   if (pathname.startsWith("/api/finance/trips")) return { module: "finance", submodule: "rendiciones" };
   if (pathname.startsWith("/api/finance/attachments")) return { module: "finance", submodule: "rendiciones" };
+  if (pathname.startsWith("/api/finance/accounting")) return { module: "finance", submodule: "contabilidad" };
+  if (pathname.startsWith("/api/finance/billing")) return { module: "finance", submodule: "facturacion" };
+  if (pathname.startsWith("/api/finance/purchases")) return { module: "finance", submodule: "proveedores" };
 
   return null;
 }

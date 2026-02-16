@@ -49,9 +49,14 @@ function parseRelevoDiaForPdf(
   const s = guardiaDiaNombres.trim();
   if (s.startsWith("[")) {
     try {
-      const arr = JSON.parse(s) as Array<{ nombre?: string; hora?: string | null }>;
+      const arr = JSON.parse(s) as Array<{ nombre?: string; hora?: string | null; isExtra?: boolean }>;
       if (Array.isArray(arr) && arr.length > 0) {
-        const nombres = arr.map((x) => escapeHtml(typeof x.nombre === "string" ? x.nombre : "")).join("<br/>");
+        const nombres = arr
+          .map((x) => {
+            const n = escapeHtml(typeof x.nombre === "string" ? x.nombre : "");
+            return x.isExtra ? `${n} <span style="color:#d97706;font-size:9px;font-weight:600">EXTRA</span>` : n;
+          })
+          .join("<br/>");
         const horas = arr.map((x) => escapeHtml(typeof x.hora === "string" ? x.hora : "") || "—").join("<br/>");
         return { nombres: nombres || "—", horas: horas || "—" };
       }

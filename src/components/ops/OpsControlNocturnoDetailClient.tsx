@@ -54,7 +54,7 @@ type GuardiaItem = {
   horaLlegada: string | null;
 };
 
-type RelevoDiaItem = { nombre: string; hora: string | null };
+type RelevoDiaItem = { nombre: string; hora: string | null; isExtra?: boolean };
 
 type InstalacionItem = {
   id: string;
@@ -142,23 +142,24 @@ function parseRelevoDiaList(
   horaLlegadaTurnoDia: string | null
 ): RelevoDiaItem[] {
   if (!guardiaDiaNombres?.trim()) {
-    return horaLlegadaTurnoDia ? [{ nombre: "", hora: horaLlegadaTurnoDia }] : [];
+    return horaLlegadaTurnoDia ? [{ nombre: "", hora: horaLlegadaTurnoDia, isExtra: false }] : [];
   }
   const s = guardiaDiaNombres.trim();
   if (s.startsWith("[")) {
     try {
-      const arr = JSON.parse(s) as Array<{ nombre?: string; hora?: string | null }>;
+      const arr = JSON.parse(s) as Array<{ nombre?: string; hora?: string | null; isExtra?: boolean }>;
       if (Array.isArray(arr)) {
         return arr.map((x) => ({
           nombre: typeof x.nombre === "string" ? x.nombre : "",
           hora: typeof x.hora === "string" ? x.hora : null,
+          isExtra: !!x.isExtra,
         }));
       }
     } catch {
       /* fallback */
     }
   }
-  return [{ nombre: s, hora: horaLlegadaTurnoDia }];
+  return [{ nombre: s, hora: horaLlegadaTurnoDia, isExtra: false }];
 }
 
 /** Serializa relevoDiaList a guardiaDiaNombres y horaLlegadaTurnoDia. */
@@ -394,7 +395,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         instalaciones: prev.instalaciones.map((i) => {
           if (i.id !== instId) return i;
           const list = i.relevoDiaList ?? parseRelevoDiaList(i.guardiaDiaNombres, i.horaLlegadaTurnoDia);
-          return { ...i, relevoDiaList: [...list, { nombre: "", hora: null }] };
+          return { ...i, relevoDiaList: [...list, { nombre: "", hora: null, isExtra: false }] };
         }),
       };
     });
@@ -882,6 +883,17 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                               />
                               <button
                                 type="button"
+                                onClick={() => updateRelevoDia(inst.id, rIdx, { isExtra: !r.isExtra })}
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                  r.isExtra
+                                    ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                                    : "border-border text-muted-foreground"
+                                }`}
+                              >
+                                EXTRA
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => removeRelevoDia(inst.id, rIdx)}
                                 className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
                               >
@@ -899,6 +911,11 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
                           (inst.relevoDiaList ?? parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia)).map((r, rIdx) => (
                             <div key={rIdx} className="flex items-center gap-2 text-sm">
                               <span>{r.nombre || "—"}</span>
+                              {r.isExtra && (
+                                <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+                                  EXTRA
+                                </span>
+                              )}
                               {r.hora && (
                                 <span className="text-xs text-muted-foreground">{r.hora}</span>
                               )}

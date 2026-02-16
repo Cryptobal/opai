@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import { seedPayrollData } from './seeds/payroll-initial-data';
 import { seedCpqData } from './seeds/cpq-initial-data';
 import { seedCrmData } from './seeds/crm-initial-data';
+import { seedGroupsAndTicketTypes } from './seeds/ops-groups-ticket-types';
 
 const prisma = new PrismaClient();
 
@@ -105,6 +106,9 @@ async function main() {
   await seedCpqData();
   // 6. Seed CRM data
   await seedCrmData(tenant.id);
+
+  // 7. Seed Ops groups & ticket types
+  await seedGroupsAndTicketTypes(tenant.id);
 
   console.log('🎉 Seeding completed!');
 }
