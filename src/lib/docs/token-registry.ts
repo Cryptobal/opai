@@ -23,10 +23,26 @@ export interface TokenModule {
 
 export const TOKEN_MODULES: TokenModule[] = [
   {
+    key: "empresa",
+    label: "Empresa (Gard)",
+    icon: "Building",
+    description: "Datos de la empresa empleadora (configurados en Configuración > Empresa)",
+    tokens: [
+      { key: "empresa.razonSocial", label: "Razón Social", path: "razonSocial" },
+      { key: "empresa.rut", label: "RUT Empresa", path: "rut" },
+      { key: "empresa.direccion", label: "Dirección", path: "direccion" },
+      { key: "empresa.comuna", label: "Comuna", path: "comuna" },
+      { key: "empresa.ciudad", label: "Ciudad", path: "ciudad" },
+      { key: "empresa.telefono", label: "Teléfono", path: "telefono" },
+      { key: "empresa.repLegalNombre", label: "Rep. Legal (Nombre)", path: "repLegalNombre" },
+      { key: "empresa.repLegalRut", label: "Rep. Legal (RUT)", path: "repLegalRut" },
+    ],
+  },
+  {
     key: "account",
-    label: "Cuenta",
+    label: "Cuenta (Cliente)",
     icon: "Building2",
-    description: "Datos de la empresa / cuenta",
+    description: "Datos de la empresa / cuenta cliente (CRM)",
     tokens: [
       { key: "account.name", label: "Nombre Empresa", path: "name" },
       { key: "account.rut", label: "RUT", path: "rut" },
@@ -119,6 +135,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "guardia.isapreName", label: "Isapre", path: "isapreName" },
       { key: "guardia.hiredAt", label: "Fecha de Contratación", path: "hiredAt", type: "date" },
       { key: "guardia.code", label: "Código Guardia", path: "code" },
+      { key: "guardia.cargo", label: "Último Cargo Desempeñado", path: "cargo" },
       { key: "guardia.currentInstallation", label: "Instalación Actual", path: "currentInstallation" },
       { key: "guardia.contractType", label: "Tipo de Contrato", path: "contractType" },
       { key: "guardia.contractStartDate", label: "Inicio Contrato", path: "contractStartDate", type: "date" },
@@ -141,6 +158,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "labor_event.category", label: "Categoría", path: "category" },
       { key: "labor_event.subtype", label: "Tipo", path: "subtype" },
       { key: "labor_event.finiquitoDate", label: "Fecha de Finiquito", path: "finiquitoDate", type: "date" },
+      { key: "labor_event.lastWorkDay", label: "Último Día Trabajado", path: "lastWorkDay", type: "date" },
       { key: "labor_event.causalDtCode", label: "Código Causal DT", path: "causalDtCode" },
       { key: "labor_event.causalDtLabel", label: "Causal de Término", path: "causalDtLabel" },
       { key: "labor_event.causalDtArticle", label: "Artículo Causal", path: "causalDtArticle" },

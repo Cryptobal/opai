@@ -14,6 +14,7 @@ import {
   DollarSign,
   ChevronRight,
   Bell,
+  Building,
   ClipboardList,
   ShieldCheck,
   Bot,
@@ -42,6 +43,14 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   {
     title: "General",
     items: [
+      {
+        submodule: "usuarios",
+        href: "/opai/configuracion/empresa",
+        title: "Datos de la Empresa",
+        description: "Razón social, RUT, dirección, representante legal — para documentos laborales",
+        icon: Building,
+        adminOnly: true,
+      },
       {
         submodule: "usuarios",
         href: "/opai/configuracion/usuarios",

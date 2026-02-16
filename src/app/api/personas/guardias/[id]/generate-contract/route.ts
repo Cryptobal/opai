@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsCapability } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildGuardiaEntityData } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, buildEmpresaEntityData } from "@/lib/docs/token-resolver";
 
 type Params = { id: string };
 
@@ -83,9 +83,23 @@ export async function POST(
       );
     }
 
-    // Resolve tokens
+    // Load empresa settings + cargo
+    const empresaSettings = await prisma.setting.findMany({
+      where: { tenantId: ctx.tenantId, key: { startsWith: "empresa." } },
+    });
+    const empresaData = buildEmpresaEntityData(empresaSettings);
+
+    const activeAssignment = await prisma.opsAsignacionGuardia.findFirst({
+      where: { guardiaId: guardia.id, isActive: true },
+      include: { puesto: { include: { cargo: { select: { name: true } } } } },
+      orderBy: { startDate: "desc" },
+    });
+
     const guardiaData = buildGuardiaEntityData(guardia as any);
+    guardiaData.cargo = activeAssignment?.puesto?.cargo?.name ?? "Guardia de Seguridad";
+
     const { resolvedContent, tokenValues } = resolveDocument(template.content, {
+      empresa: empresaData,
       guardia: guardiaData,
     });
 

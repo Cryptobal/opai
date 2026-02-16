@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, buildEmpresaEntityData } from "@/lib/docs/token-resolver";
 
 /**
  * POST /api/ops/guard-events/[id]/generate-doc — Generate document from template
@@ -46,13 +46,23 @@ export async function POST(
       );
     }
 
-    // 2. Load guard + persona + installation + bank
+    // 2. Load guard + persona + installation + bank + active assignment with cargo
     const guardia = await prisma.opsGuardia.findFirst({
       where: { id: event.guardiaId, tenantId: ctx.tenantId },
       include: {
         persona: true,
         currentInstallation: { select: { name: true } },
         bankAccounts: { where: { isDefault: true }, take: 1 },
+        asignaciones: {
+          where: { isActive: true },
+          include: {
+            puesto: {
+              include: { cargo: { select: { name: true } } },
+            },
+          },
+          take: 1,
+          orderBy: { startDate: "desc" },
+        },
       },
     });
     if (!guardia) {
@@ -73,11 +83,23 @@ export async function POST(
       );
     }
 
-    // 4. Resolve tokens
+    // 4. Load empresa settings
+    const empresaSettings = await prisma.setting.findMany({
+      where: { tenantId: ctx.tenantId, key: { startsWith: "empresa." } },
+    });
+    const empresaData = buildEmpresaEntityData(empresaSettings);
+
+    // 5. Build guard data with cargo from assignment
+    const activeAssignment = (guardia as any).asignaciones?.[0];
+    const cargoName = activeAssignment?.puesto?.cargo?.name ?? "Guardia de Seguridad";
+
     const guardiaData = buildGuardiaEntityData(guardia as any);
+    guardiaData.cargo = cargoName;
+
     const laborEventData = buildLaborEventEntityData(event as any);
 
     const { resolvedContent, tokenValues } = resolveDocument(template.content, {
+      empresa: empresaData,
       guardia: guardiaData,
       labor_event: laborEventData,
     });

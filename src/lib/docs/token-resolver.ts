@@ -10,6 +10,7 @@ import { es } from "date-fns/locale";
 import { CAUSALES_DT } from "@/lib/guard-events";
 
 export interface EntityData {
+  empresa?: Record<string, any> | null;
   account?: Record<string, any> | null;
   contact?: Record<string, any> | null;
   installation?: Record<string, any> | null;
@@ -208,6 +209,7 @@ export function buildGuardiaEntityData(guardia: {
   contractCurrentPeriod?: number | null;
   hiredAt?: string | Date | null;
   code?: string | null;
+  cargo?: string | null;
 }): Record<string, any> {
   const persona = guardia.persona;
   const bank = guardia.bankAccounts?.[0];
@@ -233,6 +235,7 @@ export function buildGuardiaEntityData(guardia: {
     isapreName: persona.isapreName,
     hiredAt: guardia.hiredAt ? format(new Date(guardia.hiredAt as string), "dd/MM/yyyy") : null,
     code: guardia.code,
+    cargo: guardia.cargo ?? null,
     currentInstallation: guardia.currentInstallation?.name ?? null,
     contractType: guardia.contractType,
     contractStartDate: guardia.contractStartDate ? format(new Date(guardia.contractStartDate as string), "dd/MM/yyyy") : null,
@@ -248,6 +251,29 @@ export function buildGuardiaEntityData(guardia: {
 }
 
 /**
+ * Build entity data for the company (empresa).
+ * Loads from Setting model key-value pairs with prefix "empresa."
+ */
+export function buildEmpresaEntityData(settings: Array<{ key: string; value: string }>): Record<string, any> {
+  const data: Record<string, any> = {};
+  const EMPRESA_KEYS: Record<string, string> = {
+    "empresa.razonSocial": "razonSocial",
+    "empresa.rut": "rut",
+    "empresa.direccion": "direccion",
+    "empresa.comuna": "comuna",
+    "empresa.ciudad": "ciudad",
+    "empresa.telefono": "telefono",
+    "empresa.repLegalNombre": "repLegalNombre",
+    "empresa.repLegalRut": "repLegalRut",
+  };
+  for (const s of settings) {
+    const field = EMPRESA_KEYS[s.key];
+    if (field) data[field] = s.value;
+  }
+  return data;
+}
+
+/**
  * Build entity data for a labor event (finiquito).
  */
 export function buildLaborEventEntityData(event: Record<string, any>): Record<string, any> {
@@ -256,6 +282,7 @@ export function buildLaborEventEntityData(event: Record<string, any>): Record<st
     category: event.category,
     subtype: event.subtype,
     finiquitoDate: event.finiquitoDate ? format(new Date(event.finiquitoDate), "dd/MM/yyyy") : null,
+    lastWorkDay: event.finiquitoDate ? format(new Date(event.finiquitoDate), "dd/MM/yyyy") : null,
     causalDtCode: event.causalDtCode,
     causalDtLabel: event.causalDtLabel,
     causalDtArticle: causal ? `${causal.article} ${causal.number}` : null,
