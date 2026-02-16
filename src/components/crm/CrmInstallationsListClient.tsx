@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { MapPin, Search, ChevronRight, Plus, Loader2, Moon } from "lucide-react";
+import { MapPin, Search, ChevronRight, Plus, Loader2, Moon, ShieldAlert, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,8 @@ export type InstallationRow = {
   updatedAt?: string | null;
   isActive?: boolean;
   nocturnoEnabled?: boolean;
+  totalSlots?: number;
+  assignedGuards?: number;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
 };
 
@@ -292,6 +294,19 @@ export function CrmInstallationsListClient({
                         {inst.nocturnoEnabled !== false && (
                           <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
                         )}
+                        {inst.isActive && (inst.totalSlots ?? 0) > 0 && (
+                          <>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Guardias asignados / Slots requeridos">
+                              <Users className="h-3 w-3" />
+                              {inst.assignedGuards ?? 0}/{inst.totalSlots}
+                            </span>
+                            {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
+                              <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400" title="Puestos por cubrir">
+                                {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                       {inst.account && (
                         <p className="mt-0.5 text-xs text-muted-foreground">{inst.account.name}</p>
@@ -357,6 +372,20 @@ export function CrmInstallationsListClient({
                         <p className="text-xs text-muted-foreground">
                           {[inst.commune, inst.city].filter(Boolean).join(", ")}
                         </p>
+                      )}
+                      {inst.isActive && (inst.totalSlots ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1" title="Guardias asignados / Slots requeridos">
+                            <Users className="h-3 w-3" />
+                            {inst.assignedGuards ?? 0}/{inst.totalSlots} guardias
+                          </span>
+                          {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
+                            <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400" title="Puestos por cubrir">
+                              <ShieldAlert className="h-2.5 w-2.5 inline mr-0.5" />
+                              {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />

@@ -33,21 +33,32 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    // If deactivating: set activeUntil and clean future pauta/assignments
+    // If deactivating: block if there are active guard assignments
     if (body.active === false && existing.active === true) {
+      const activeAssignments = await prisma.opsAsignacionGuardia.findMany({
+        where: { puestoId: id, tenantId: ctx.tenantId, isActive: true },
+        select: {
+          slotNumber: true,
+          guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+        },
+      });
+
+      if (activeAssignments.length > 0) {
+        const names = activeAssignments
+          .map((a) => `${a.guardia.persona.firstName} ${a.guardia.persona.lastName} (Slot ${a.slotNumber})`)
+          .join(", ");
+        return NextResponse.json(
+          {
+            success: false,
+            error: `No se puede desactivar: tiene ${activeAssignments.length} guardia(s) asignado(s): ${names}. Desasígnalos primero desde la sección Dotación activa.`,
+          },
+          { status: 400 }
+        );
+      }
+
       const deactivateDate = body.activeUntil
         ? parseDateOnly(body.activeUntil as string)
         : parseDateOnly(toISODate(new Date()));
-
-      // Close all active guard assignments for this puesto
-      const closedAssignments = await prisma.opsAsignacionGuardia.updateMany({
-        where: { puestoId: id, tenantId: ctx.tenantId, isActive: true },
-        data: {
-          isActive: false,
-          endDate: deactivateDate,
-          reason: "Puesto desactivado",
-        },
-      });
 
       // Clean pauta from deactivateDate forward
       await prisma.opsPautaMensual.updateMany({
@@ -96,7 +107,6 @@ export async function PATCH(
 
       await createOpsAuditLog(ctx, "ops.puesto.deactivated", "ops_puesto", id, {
         activeUntil: toISODate(deactivateDate),
-        closedAssignments: closedAssignments.count,
       });
 
       return NextResponse.json({ success: true, data: updated });
@@ -181,6 +191,21 @@ export async function DELETE(
       );
     }
 
+    // Check if puesto has active guard assignments
+    const activeAssignmentCount = await prisma.opsAsignacionGuardia.count({
+      where: { puestoId: id, tenantId: ctx.tenantId, isActive: true },
+    });
+
+    if (activeAssignmentCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No se puede eliminar: tiene ${activeAssignmentCount} guardia(s) asignado(s). Desasígnalos primero desde la sección Dotación activa.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // Check if puesto has historical data
     const [pautaCount, asistenciaCount] = await Promise.all([
       prisma.opsPautaMensual.count({ where: { puestoId: id } }),
@@ -197,7 +222,12 @@ export async function DELETE(
       );
     }
 
-    // Safe to delete (no historical data)
+    // Also clean up any inactive assignments before deleting
+    await prisma.opsAsignacionGuardia.deleteMany({
+      where: { puestoId: id, tenantId: ctx.tenantId },
+    });
+
+    // Safe to delete (no historical data, no active assignments)
     await prisma.opsPuestoOperativo.delete({ where: { id } });
     await createOpsAuditLog(ctx, "ops.puesto.deleted", "ops_puesto", id);
 

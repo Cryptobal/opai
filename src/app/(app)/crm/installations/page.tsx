@@ -20,7 +20,7 @@ export default async function CrmInstallationsPage() {
   const role = session.user.role;
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const [installations, accounts] = await Promise.all([
+  const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
     prisma.crmInstallation.findMany({
       where: { tenantId },
       select: {
@@ -44,9 +44,34 @@ export default async function CrmInstallationsPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.opsPuestoOperativo.groupBy({
+      by: ["installationId"],
+      where: { tenantId, active: true },
+      _sum: { requiredGuards: true },
+    }),
+    prisma.opsAsignacionGuardia.groupBy({
+      by: ["installationId"],
+      where: { tenantId, isActive: true },
+      _count: { id: true },
+    }),
   ]);
 
-  const initialInstallations = JSON.parse(JSON.stringify(installations));
+  const slotsByInstallation = new Map<string, number>();
+  for (const row of puestosData) {
+    slotsByInstallation.set(row.installationId, row._sum.requiredGuards ?? 0);
+  }
+  const guardsByInstallation = new Map<string, number>();
+  for (const row of asignacionesData) {
+    guardsByInstallation.set(row.installationId, row._count.id);
+  }
+
+  const initialInstallations = JSON.parse(JSON.stringify(
+    installations.map((inst) => ({
+      ...inst,
+      totalSlots: slotsByInstallation.get(inst.id) ?? 0,
+      assignedGuards: guardsByInstallation.get(inst.id) ?? 0,
+    }))
+  ));
   const initialAccounts = JSON.parse(JSON.stringify(accounts));
 
   return (
