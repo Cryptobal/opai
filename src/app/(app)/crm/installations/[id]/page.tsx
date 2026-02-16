@@ -42,7 +42,6 @@ export default async function CrmInstallationDetailPage({
         marcacionCode: true,
         notes: true,
         metadata: true,
-        nocturnoEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,

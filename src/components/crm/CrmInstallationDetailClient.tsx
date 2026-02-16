@@ -937,7 +937,12 @@ export function CrmInstallationDetailClient({
   };
 
   // ── Nocturno toggle ──
-  const [nocturnoEnabled, setNocturnoEnabled] = useState(installation.nocturnoEnabled !== false);
+  // NOTE: nocturnoEnabled column may not exist in production yet.
+  // The toggle is shown but uses a safe fallback. The PATCH will silently
+  // ignore unknown fields thanks to Zod .optional().
+  const [nocturnoEnabled, setNocturnoEnabled] = useState(
+    typeof installation.nocturnoEnabled === "boolean" ? installation.nocturnoEnabled : true
+  );
   const [nocturnoConfirmOpen, setNocturnoConfirmOpen] = useState(false);
   const [nocturnoNextValue, setNocturnoNextValue] = useState(false);
   const [nocturnoSaving, setNocturnoSaving] = useState(false);
