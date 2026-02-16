@@ -10,13 +10,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Route,
   CalendarDays,
-  ClipboardList,
   Clock3,
   Fingerprint,
   ShieldAlert,
-  ShieldUser,
   UserRoundCheck,
   Moon,
+  Users,
+  Building2,
+  Ticket,
 } from "lucide-react";
 
 export default async function OpsDashboardPage() {
@@ -31,11 +32,14 @@ export default async function OpsDashboardPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [puestosCount, guardiasCount, teCount, ppcCount] = await Promise.all([
-    prisma.opsPuestoOperativo.count({ where: { tenantId, active: true } }),
-    prisma.opsGuardia.count({ where: { tenantId } }),
+  const [totalSlots, assignedGuards, activeInstallations, teCount, ppcCount] = await Promise.all([
+    prisma.opsPuestoOperativo.aggregate({
+      where: { tenantId, active: true },
+      _sum: { requiredGuards: true },
+    }),
+    prisma.opsAsignacionGuardia.count({ where: { tenantId, isActive: true } }),
+    prisma.crmInstallation.count({ where: { tenantId, isActive: true } }),
     prisma.opsTurnoExtra.count({ where: { tenantId, status: "pending" } }),
-    // PPC correcto: puestos sin guardia planificado o con V/L/P
     prisma.opsPautaMensual.count({
       where: {
         tenantId,
@@ -47,15 +51,11 @@ export default async function OpsDashboardPage() {
     }),
   ]);
 
+  const slotsTotal = totalSlots._sum.requiredGuards ?? 0;
+  const guardsAssigned = assignedGuards;
+  const vacantes = slotsTotal - guardsAssigned;
+
   const modules = [
-    {
-      href: "/crm/installations",
-      title: "Puestos y dotación",
-      description: "Gestiona puestos y asignación de guardias desde las fichas de instalación.",
-      icon: ClipboardList,
-      count: puestosCount,
-      color: "text-blue-400 bg-blue-400/10",
-    },
     {
       href: "/ops/pauta-mensual",
       title: "Pauta mensual",
@@ -113,23 +113,78 @@ export default async function OpsDashboardPage() {
       color: "text-indigo-400 bg-indigo-400/10",
     },
     {
-      href: "/personas/guardias",
-      title: "Personas / Guardias",
-      description: "Alta de guardias, ficha y control de lista negra.",
-      icon: ShieldUser,
-      count: guardiasCount,
-      color: "text-sky-400 bg-sky-400/10",
+      href: "/ops/tickets",
+      title: "Tickets",
+      description: "Gestión de solicitudes y aprobaciones internas.",
+      icon: Ticket,
+      count: null,
+      color: "text-orange-400 bg-orange-400/10",
     },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ops"
-        description="Operación diaria: estructura, pauta, cobertura y guardias."
+        title="Operaciones"
+        description="Operación diaria: pauta, cobertura, asistencia y control."
       />
       <OpsSubnav />
 
+      {/* ── KPI Dotación ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Link href="/crm/installations">
+          <Card className="transition-colors hover:bg-accent/40">
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                <Building2 className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{activeInstallations}</p>
+                <p className="text-[10px] text-muted-foreground">Instalaciones activas</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/crm/installations">
+          <Card className="transition-colors hover:bg-accent/40">
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                <Users className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{guardsAssigned}<span className="text-sm font-normal text-muted-foreground">/{slotsTotal}</span></p>
+                <p className="text-[10px] text-muted-foreground">Guardias asignados</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/crm/installations">
+          <Card className={`transition-colors hover:bg-accent/40 ${vacantes > 0 ? "border-amber-500/30" : ""}`}>
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${vacantes > 0 ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                <ShieldAlert className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className={`text-xl font-bold ${vacantes > 0 ? "text-red-400" : "text-emerald-400"}`}>{vacantes}</p>
+                <p className="text-[10px] text-muted-foreground">Vacantes (PPC)</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Card>
+          <CardContent className="pt-4 pb-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400">
+              <Users className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-xl font-bold">{slotsTotal > 0 ? Math.round((guardsAssigned / slotsTotal) * 100) : 0}<span className="text-sm font-normal text-muted-foreground">%</span></p>
+              <p className="text-[10px] text-muted-foreground">Cobertura dotación</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Módulos ── */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((item) => (
           <Link key={item.href} href={item.href}>

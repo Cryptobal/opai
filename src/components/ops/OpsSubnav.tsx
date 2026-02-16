@@ -12,7 +12,6 @@ import {
   UserRoundCheck,
   Clock3,
   ShieldAlert,
-  Shield,
   Fingerprint,
   Route,
   Moon,
@@ -30,7 +29,6 @@ const OPS_ITEMS = [
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" as const },
   { href: "/ops/control-nocturno", label: "Control nocturno", icon: Moon, subKey: "control_nocturno" as const },
   { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" as const },
-  { href: "/personas/guardias", label: "Guardias", icon: Shield, subKey: "guardias" as const },
 ];
 
 function filterByPermissions(perms: RolePermissions) {

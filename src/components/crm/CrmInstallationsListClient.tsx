@@ -294,7 +294,7 @@ export function CrmInstallationsListClient({
                         {inst.nocturnoEnabled !== false && (
                           <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
                         )}
-                        {inst.isActive && (inst.totalSlots ?? 0) > 0 && (
+                        {inst.isActive && (inst.totalSlots ?? 0) > 0 ? (
                           <>
                             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Guardias asignados / Slots requeridos">
                               <Users className="h-3 w-3" />
@@ -306,7 +306,9 @@ export function CrmInstallationsListClient({
                               </span>
                             )}
                           </>
-                        )}
+                        ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
+                          <span className="text-[10px] text-muted-foreground/70 italic">Sin puestos</span>
+                        ) : null}
                       </div>
                       {inst.account && (
                         <p className="mt-0.5 text-xs text-muted-foreground">{inst.account.name}</p>
@@ -373,7 +375,7 @@ export function CrmInstallationsListClient({
                           {[inst.commune, inst.city].filter(Boolean).join(", ")}
                         </p>
                       )}
-                      {inst.isActive && (inst.totalSlots ?? 0) > 0 && (
+                      {inst.isActive && (inst.totalSlots ?? 0) > 0 ? (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1" title="Guardias asignados / Slots requeridos">
                             <Users className="h-3 w-3" />
@@ -386,7 +388,11 @@ export function CrmInstallationsListClient({
                             </span>
                           )}
                         </div>
-                      )}
+                      ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
+                        <div className="mt-2 pt-2 border-t border-border/50">
+                          <span className="text-[10px] text-muted-foreground/70 italic">Sin puestos creados</span>
+                        </div>
+                      ) : null}
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                   </div>
