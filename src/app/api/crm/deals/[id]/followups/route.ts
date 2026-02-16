@@ -66,7 +66,6 @@ export async function POST(
         break;
       }
       case "restart": {
-        const proposalDate = deal.proposalSentAt ?? new Date();
         const result = await scheduleFollowUps({
           tenantId: ctx.tenantId,
           dealId: deal.id,
@@ -85,23 +84,60 @@ export async function POST(
     }
 
     // Reload follow-up logs for the response
-    const updatedLogs = await prisma.crmFollowUpLog.findMany({
+    const updatedLogsRaw = await prisma.crmFollowUpLog.findMany({
       where: { dealId: deal.id },
-      include: {
-        emailMessage: {
+      select: {
+        id: true,
+        sequence: true,
+        status: true,
+        scheduledAt: true,
+        sentAt: true,
+        error: true,
+        createdAt: true,
+      },
+      orderBy: [{ sequence: "asc" }, { createdAt: "desc" }],
+    });
+    const followUpLogIds = updatedLogsRaw.map((log) => log.id);
+    const followUpMessages = followUpLogIds.length > 0
+      ? await prisma.crmEmailMessage.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            followUpLogId: { in: followUpLogIds },
+          },
+          orderBy: { createdAt: "desc" },
           select: {
             id: true,
+            followUpLogId: true,
             subject: true,
             toEmails: true,
-            sentAt: true,
             status: true,
+            sentAt: true,
+            deliveredAt: true,
             openCount: true,
             clickCount: true,
+            bouncedAt: true,
           },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        })
+      : [];
+
+    const messageByFollowUpLogId = new Map<string, (typeof followUpMessages)[number]>();
+    for (const email of followUpMessages) {
+      if (!email.followUpLogId) continue;
+      if (!messageByFollowUpLogId.has(email.followUpLogId)) {
+        messageByFollowUpLogId.set(email.followUpLogId, email);
+      }
+    }
+
+    const updatedLogs = updatedLogsRaw.map((log) => ({
+      id: log.id,
+      sequence: log.sequence,
+      status: log.status,
+      scheduledAt: log.scheduledAt,
+      sentAt: log.sentAt,
+      error: log.error,
+      createdAt: log.createdAt,
+      emailMessage: messageByFollowUpLogId.get(log.id) ?? null,
+    }));
 
     return NextResponse.json({
       success: true,
