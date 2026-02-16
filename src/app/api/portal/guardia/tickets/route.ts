@@ -53,17 +53,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { guardiaId, ticketTypeId, title, description, tenantId } = body as {
+    const { guardiaId, ticketTypeId, typeSlug, title, description, tenantId } = body as {
       guardiaId?: string;
       ticketTypeId?: string;
+      typeSlug?: string;
       title?: string;
       description?: string;
       tenantId?: string;
     };
 
-    if (!guardiaId || !ticketTypeId || !title) {
+    if (!guardiaId || (!ticketTypeId && !typeSlug) || !title) {
       return NextResponse.json(
-        { success: false, error: "guardiaId, ticketTypeId y title son requeridos" },
+        { success: false, error: "guardiaId, ticketTypeId (o typeSlug) y title son requeridos" },
         { status: 400 },
       );
     }
@@ -83,9 +84,11 @@ export async function POST(request: NextRequest) {
 
     const effectiveTenantId = tenantId ?? guardia.tenantId;
 
-    // Load ticket type for defaults
+    // Load ticket type by ID or slug
     const ticketType = await prisma.opsTicketType.findFirst({
-      where: { id: ticketTypeId, tenantId: effectiveTenantId },
+      where: ticketTypeId
+        ? { id: ticketTypeId, tenantId: effectiveTenantId }
+        : { slug: typeSlug, tenantId: effectiveTenantId },
       include: {
         approvalSteps: { orderBy: { stepOrder: "asc" } },
       },
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId: effectiveTenantId,
         code,
-        ticketTypeId,
+        ticketTypeId: ticketType.id,
         status: initialStatus,
         priority: ticketType.defaultPriority,
         title,

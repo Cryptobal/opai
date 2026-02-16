@@ -446,7 +446,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
       );
       if (res.ok) {
         const data = await res.json();
-        setTickets(data.tickets ?? []);
+        setTickets(data.data ?? data.tickets ?? []);
       }
     } catch {
       toast.error("Error al cargar solicitudes");
