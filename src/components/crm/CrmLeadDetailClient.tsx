@@ -785,7 +785,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         setDuplicates(checkData.duplicates || []);
         const exContact = checkData.existingContact ?? null;
         setExistingContact(exContact);
-        if (exContact) setContactResolution("overwrite");
+        if (exContact) setContactResolution("use_existing");
+        const dups = checkData.duplicates || [];
+        if (dups.length > 0) setUseExistingAccountId(dups[0]?.id ?? null);
         const conflicts: InstallationConflict[] = checkData.installationConflicts || [];
         setInstallationConflicts(conflicts);
         setInstallationUseExisting((prev) => {
@@ -798,35 +800,25 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           return next;
         });
         setDuplicateChecked(true);
-        const hasAccountOrContactConflict = (checkData.duplicates?.length > 0) || checkData.existingContact;
-        const hasInstallationConflictOnly = conflicts.length > 0 && !hasAccountOrContactConflict;
-        if (hasAccountOrContactConflict) { setApproving(false); return; }
-        if (hasInstallationConflictOnly) {
-          const resolvedInstPayload = installations
-            .filter((inst) => inst.name.trim())
-            .map((inst) => {
-              const conf = conflicts.find((c) => c.name.toLowerCase() === inst.name.trim().toLowerCase());
-              const useExistingInstallationId = conf ? conf.id : (installationUseExisting[inst._key] || undefined);
-              const { _key, ...rest } = inst;
-              return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
-            });
-          const resolvedPayload = { ...payload, installations: resolvedInstPayload };
-          const response = await fetch(`/api/crm/leads/${lead.id}/approve`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(resolvedPayload),
-          });
-          const result = await response.json();
-          if (response.status === 409 && result.conflict === "installation") {
-            toast.error(`Instalación "${result.installationName || ""}" ya existe. Elige "Usar existente" o otro nombre.`);
-            setApproving(false);
-            return;
+
+        const hasAnyConflict = (checkData.duplicates?.length > 0) || checkData.existingContact || conflicts.length > 0;
+        if (hasAnyConflict) {
+          const hasInstallationConflictOnly = conflicts.length > 0 && !(checkData.duplicates?.length > 0) && !checkData.existingContact;
+          if (hasInstallationConflictOnly) {
+            for (const conf of conflicts) {
+              for (const inst of installations) {
+                if (inst.name.trim().toLowerCase() === conf.name.toLowerCase()) {
+                  setInstallationUseExisting((prev) => ({ ...prev, [inst._key]: conf.id }));
+                }
+              }
+            }
           }
-          if (!response.ok) { setApproving(false); throw new Error(result?.error || "Error aprobando lead"); }
-          toast.success("Lead aprobado — Cuenta, contacto y negocio creados");
-          router.push("/crm/leads");
-          return;
+          toast.info("Revisa los datos y haz clic en \"Confirmar aprobación\" para crear la cuenta, contacto y negocio.");
+        } else {
+          toast.info("Sin conflictos detectados. Haz clic en \"Confirmar aprobación\" para crear la cuenta, contacto y negocio.");
         }
+        setApproving(false);
+        return;
       }
 
       const response = await fetch(`/api/crm/leads/${lead.id}/approve`, {
@@ -1533,6 +1525,41 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       {/* ── Sticky action bar for editable leads ── */}
       {isEditable && (
         <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 z-10">
+          {!duplicateChecked && (
+            <p className="text-xs text-muted-foreground mb-2 w-full text-center sm:text-left">
+              Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
+            </p>
+          )}
+          {duplicateChecked && (
+            <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground space-y-1">
+              <p className="font-medium text-emerald-400">Verificación completada — al confirmar se creará:</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pl-1">
+                <li>
+                  <span className="text-foreground font-medium">Cuenta:</span>{" "}
+                  {useExistingAccountId
+                    ? <><span className="text-amber-400">usar existente</span> ({duplicates.find((d) => d.id === useExistingAccountId)?.name || "cuenta seleccionada"})</>
+                    : <><span className="text-emerald-400">nueva</span> &quot;{approveForm.accountName}&quot;</>}
+                </li>
+                <li>
+                  <span className="text-foreground font-medium">Contacto:</span>{" "}
+                  {existingContact
+                    ? contactResolution === "use_existing"
+                      ? <><span className="text-amber-400">mantener existente</span> ({existingContact.firstName} {existingContact.lastName})</>
+                      : contactResolution === "overwrite"
+                        ? <><span className="text-amber-400">sobrescribir</span> {existingContact.firstName} {existingContact.lastName}</>
+                        : <><span className="text-emerald-400">nuevo contacto</span></>
+                    : <><span className="text-emerald-400">nuevo</span> {approveForm.contactFirstName} {approveForm.contactLastName}</>}
+                </li>
+                <li><span className="text-foreground font-medium">Negocio:</span> &quot;{approveForm.dealTitle}&quot;</li>
+                {installations.filter((i) => i.name.trim()).length > 0 && (
+                  <li>
+                    <span className="text-foreground font-medium">Instalaciones:</span>{" "}
+                    {installations.filter((i) => i.name.trim()).map((i) => i.name).join(", ")}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row items-center justify-end gap-2">
             <Button variant="outline" onClick={saveLeadDraft} disabled={approving || savingLead}>
               {savingLead && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1546,7 +1573,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <Button onClick={approveLead} disabled={approving || savingLead}>
               {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              {duplicates.length > 0 ? "Crear de todos modos" : "Confirmar aprobación"}
+              {!duplicateChecked
+                ? "Verificar y aprobar"
+                : duplicates.length > 0
+                  ? "Confirmar aprobación (con conflictos)"
+                  : "Confirmar aprobación"}
             </Button>
           </div>
         </div>

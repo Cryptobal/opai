@@ -54,6 +54,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Un solo contacto principal por cuenta: si marcamos este como principal, quitar principal a los demás
+    if (body.isPrimary) {
+      await prisma.crmContact.updateMany({
+        where: { tenantId: ctx.tenantId, accountId: body.accountId },
+        data: { isPrimary: false },
+      });
+    }
+
     const contact = await prisma.crmContact.create({
       data: {
         tenantId: ctx.tenantId,
@@ -63,7 +71,7 @@ export async function POST(request: NextRequest) {
         email: body.email || null,
         phone: body.phone || null,
         roleTitle: body.roleTitle || null,
-        isPrimary: body.isPrimary,
+        isPrimary: body.isPrimary ?? false,
       },
       include: { account: true },
     });
@@ -107,6 +115,14 @@ export async function PATCH(request: NextRequest) {
         { success: false, error: "Contacto no encontrado" },
         { status: 404 }
       );
+    }
+
+    // Un solo contacto principal por cuenta: si marcamos este como principal, quitar principal a los demás de la misma cuenta
+    if (parsed.data.isPrimary === true && !existing.isPrimary) {
+      await prisma.crmContact.updateMany({
+        where: { tenantId: ctx.tenantId, accountId: existing.accountId },
+        data: { isPrimary: false },
+      });
     }
 
     const contact = await prisma.crmContact.update({

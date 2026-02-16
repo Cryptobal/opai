@@ -352,59 +352,9 @@ export async function POST(
 
         // ── Programar follow-ups automáticos ──
         try {
-          // Garantiza configuración por tenant (con defaults de schema) para que
-          // los seguimientos 1 y 2 siempre queden operativos tras enviar propuesta.
-          const followUpConfig = await prisma.crmFollowUpConfig.upsert({
-            where: { tenantId: ctx.tenantId },
-            update: {},
-            create: { tenantId: ctx.tenantId },
-          });
-
-          if (followUpConfig.isActive) {
-            const proposalDate = new Date();
-
-            // Cancelar follow-ups pendientes anteriores del mismo deal
-            await prisma.crmFollowUpLog.updateMany({
-              where: { dealId: deal.id, status: "pending" },
-              data: { status: "cancelled", error: "Nueva propuesta enviada" },
-            });
-
-            // Programar primer seguimiento
-            const firstDate = new Date(proposalDate);
-            firstDate.setDate(firstDate.getDate() + followUpConfig.firstFollowUpDays);
-            firstDate.setHours(followUpConfig.sendHour, 0, 0, 0);
-
-            await prisma.crmFollowUpLog.create({
-              data: {
-                tenantId: ctx.tenantId,
-                dealId: deal.id,
-                sequence: 1,
-                status: "pending",
-                scheduledAt: firstDate,
-                templateId: followUpConfig.firstEmailTemplateId,
-              },
-            });
-
-            // Programar segundo seguimiento
-            const secondDate = new Date(proposalDate);
-            secondDate.setDate(secondDate.getDate() + followUpConfig.secondFollowUpDays);
-            secondDate.setHours(followUpConfig.sendHour, 0, 0, 0);
-
-            await prisma.crmFollowUpLog.create({
-              data: {
-                tenantId: ctx.tenantId,
-                dealId: deal.id,
-                sequence: 2,
-                status: "pending",
-                scheduledAt: secondDate,
-                templateId: followUpConfig.secondEmailTemplateId,
-              },
-            });
-
-            console.log(`📅 Follow-ups programados: deal ${deal.id} → ${firstDate.toISOString()}, ${secondDate.toISOString()}`);
-          }
+          const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+          await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: deal.id });
         } catch (followUpError) {
-          // No bloquear el envío de presentación si falla programar follow-ups
           console.error("Error programando follow-ups:", followUpError);
         }
 

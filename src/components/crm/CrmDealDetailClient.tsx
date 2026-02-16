@@ -495,18 +495,67 @@ export function CrmDealDetailClient({
     ),
   };
 
+  const [followUpActioning, setFollowUpActioning] = useState(false);
+  const [localFollowUpLogs, setLocalFollowUpLogs] = useState(followUpLogs);
+  const localFollowUpLogsDesc = useMemo(() => [...localFollowUpLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [localFollowUpLogs]);
+  const localPendingCount = localFollowUpLogs.filter((l) => l.status === "pending").length;
+  const localPausedCount = localFollowUpLogs.filter((l) => l.status === "paused").length;
+
+  const handleFollowUpAction = async (action: "pause" | "resume" | "restart" | "cancel") => {
+    setFollowUpActioning(true);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}/followups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Error");
+      toast.success(data.message);
+      if (data.data) setLocalFollowUpLogs(data.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al gestionar seguimientos");
+    } finally {
+      setFollowUpActioning(false);
+    }
+  };
+
   const followUpSection: DetailSection = {
     key: "followup",
-    count: followUpLogs.length,
+    count: localFollowUpLogs.length,
     action: (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        {localPendingCount > 0 && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
+            onClick={() => handleFollowUpAction("pause")}>
+            Pausar
+          </Button>
+        )}
+        {localPausedCount > 0 && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
+            onClick={() => handleFollowUpAction("resume")}>
+            Reanudar
+          </Button>
+        )}
+        {deal.proposalSentAt && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
+            onClick={() => handleFollowUpAction("restart")}>
+            Reprogramar
+          </Button>
+        )}
+        {localPendingCount > 0 && (
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" disabled={followUpActioning}
+            onClick={() => handleFollowUpAction("cancel")}>
+            Cancelar
+          </Button>
+        )}
         {canConfigureCrm && (
-          <Button asChild size="sm" variant="ghost">
+          <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
             <Link href="/opai/configuracion/crm#seguimientos-automaticos">Configurar</Link>
           </Button>
         )}
         {gmailConnected && (
-          <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
             <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
           </Button>
         )}
@@ -609,13 +658,13 @@ export function CrmDealDetailClient({
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Historial de seguimientos
               </p>
-              {followUpLogsDesc.length === 0 ? (
+              {localFollowUpLogsDesc.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No hay eventos de seguimiento registrados.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {followUpLogsDesc.map((log) => {
+                  {localFollowUpLogsDesc.map((log) => {
                     const statusMeta = getFollowUpStatusMeta(log.status);
                     const timingMeta = log.status === "pending" ? getPendingTimingMeta(log.scheduledAt) : null;
                     return (

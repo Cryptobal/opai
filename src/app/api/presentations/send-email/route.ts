@@ -236,6 +236,18 @@ export async function POST(req: NextRequest) {
               },
             },
           });
+
+          // Schedule follow-ups for the deal
+          try {
+            await prisma.crmDeal.update({
+              where: { id: cpqDealId },
+              data: { proposalLink: presentationUrl, proposalSentAt: new Date() },
+            });
+            const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+            await scheduleFollowUps({ tenantId, dealId: cpqDealId });
+          } catch (fuErr) {
+            console.error("Error scheduling follow-ups from presentation send:", fuErr);
+          }
         }
       } catch (cpqError) {
         console.error('Error updating CPQ quote status:', cpqError);

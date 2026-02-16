@@ -88,6 +88,32 @@ export async function POST(
         },
       });
 
+      // Si se mueve a "Cotización enviada" y no hay follow-ups pendientes, programarlos
+      if (stage.name === "Cotización enviada" && nextStatus === "open") {
+        try {
+          const existingPending = await tx.crmFollowUpLog.count({
+            where: { dealId: deal.id, status: { in: ["pending", "sent"] } },
+          });
+          if (existingPending === 0) {
+            const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+            const proposalDate = deal.proposalSentAt ?? new Date();
+            await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: deal.id, proposalDate });
+          }
+        } catch (e) {
+          console.error("Error scheduling follow-ups on stage change:", e);
+        }
+      }
+
+      // Si se mueve a etapa de cierre (ganado/perdido), cancelar follow-ups pendientes
+      if (nextStatus === "won" || nextStatus === "lost") {
+        try {
+          const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
+          await cancelPendingFollowUps(deal.id, `Deal ${nextStatus === "won" ? "ganado" : "perdido"}`);
+        } catch (e) {
+          console.error("Error cancelling follow-ups on deal close:", e);
+        }
+      }
+
       // Si el negocio fue ganado, crear notificación de contrato pendiente
       if (nextStatus === "won") {
         await tx.notification.create({

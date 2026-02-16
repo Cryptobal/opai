@@ -195,6 +195,9 @@ export function CrmAccountDetailClient({
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [deleteContactConfirm, setDeleteContactConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
+  // ── Cambio de contacto principal (solo uno por cuenta) ──
+  const [primaryChangeConfirm, setPrimaryChangeConfirm] = useState<{ type: "edit" | "new"; otherName: string } | null>(null);
+
   // ── Enrich / Regenerate company info ──
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [enrichWebsiteInput, setEnrichWebsiteInput] = useState("");
@@ -454,7 +457,7 @@ export function CrmAccountDetailClient({
     });
   };
 
-  const saveContact = async () => {
+  const doSaveContact = async () => {
     if (!editContact) return;
     setSavingContact(true);
     try {
@@ -470,12 +473,26 @@ export function CrmAccountDetailClient({
         contacts: prev.contacts.map((c) => (c.id === editContact.id ? { ...c, ...editForm } : c)),
       }));
       setEditContact(null);
+      setPrimaryChangeConfirm(null);
       toast.success("Contacto actualizado");
     } catch {
       toast.error("No se pudo actualizar");
     } finally {
       setSavingContact(false);
     }
+  };
+
+  const saveContact = async () => {
+    if (!editContact) return;
+    if (editForm.isPrimary) {
+      const otherPrimary = account.contacts.find((c) => c.id !== editContact.id && c.isPrimary);
+      if (otherPrimary) {
+        const otherName = [otherPrimary.firstName, otherPrimary.lastName].filter(Boolean).join(" ").trim() || "Otro contacto";
+        setPrimaryChangeConfirm({ type: "edit", otherName });
+        return;
+      }
+    }
+    await doSaveContact();
   };
 
   const deleteContact = async (id: string) => {
@@ -494,7 +511,7 @@ export function CrmAccountDetailClient({
     }
   };
 
-  const createContact = async () => {
+  const doCreateContact = async () => {
     if (!newContactForm.firstName.trim() || !newContactForm.email.trim()) {
       toast.error("Nombre y email son obligatorios.");
       return;
@@ -515,12 +532,29 @@ export function CrmAccountDetailClient({
       }));
       setNewContactOpen(false);
       setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
+      setPrimaryChangeConfirm(null);
       toast.success("Contacto creado");
     } catch {
       toast.error("No se pudo crear el contacto.");
     } finally {
       setCreatingContact(false);
     }
+  };
+
+  const createContact = async () => {
+    if (!newContactForm.firstName.trim() || !newContactForm.email.trim()) {
+      toast.error("Nombre y email son obligatorios.");
+      return;
+    }
+    if (newContactForm.isPrimary) {
+      const otherPrimary = account.contacts.find((c) => c.isPrimary);
+      if (otherPrimary) {
+        const otherName = [otherPrimary.firstName, otherPrimary.lastName].filter(Boolean).join(" ").trim() || "Otro contacto";
+        setPrimaryChangeConfirm({ type: "new", otherName });
+        return;
+      }
+    }
+    await doCreateContact();
   };
 
   // ── Lifecycle badge ──
@@ -1022,6 +1056,22 @@ export function CrmAccountDetailClient({
         title="Eliminar contacto"
         description="El contacto será eliminado permanentemente. Esta acción no se puede deshacer."
         onConfirm={() => deleteContact(deleteContactConfirm.id)}
+      />
+      <ConfirmDialog
+        open={!!primaryChangeConfirm}
+        onOpenChange={(v) => !v && setPrimaryChangeConfirm(null)}
+        title="Cambiar contacto principal"
+        description={
+          primaryChangeConfirm
+            ? `Al marcar este contacto como principal, ${primaryChangeConfirm.otherName} dejará de ser el contacto principal. ¿Continuar?`
+            : ""
+        }
+        confirmLabel="Continuar"
+        variant="default"
+        onConfirm={() => {
+          if (primaryChangeConfirm?.type === "edit") doSaveContact();
+          else if (primaryChangeConfirm?.type === "new") doCreateContact();
+        }}
       />
 
     </>

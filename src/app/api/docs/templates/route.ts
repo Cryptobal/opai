@@ -65,6 +65,80 @@ const WA_SEEDS: {
   },
 ];
 
+/** Seeds de email de seguimiento automático */
+const MAIL_FOLLOWUP_SEEDS: {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  body: string;
+}[] = [
+  {
+    slug: "email_followup_1",
+    name: "1er Seguimiento automático",
+    category: "followup",
+    description: "Email del primer seguimiento automático tras enviar propuesta. Se envía según los días configurados en Configuración CRM.",
+    body: `Estimado/a {contact.firstName},
+
+Espero que se encuentre bien. Me permito hacer un breve seguimiento respecto a la propuesta que le enviamos el {deal.proposalSentDate} para {deal.title}.
+
+Entendemos que este tipo de decisiones requieren análisis, y quedamos a su completa disposición para resolver cualquier consulta, ajustar la propuesta a sus requerimientos específicos, o coordinar una reunión para revisar los detalles en conjunto.
+
+Puede revisar la propuesta completa aquí:
+{deal.proposalLink}
+
+Quedo atento a sus comentarios.
+
+Saludos cordiales`,
+  },
+  {
+    slug: "email_followup_2",
+    name: "2do Seguimiento automático",
+    category: "followup",
+    description: "Email del segundo seguimiento automático tras enviar propuesta. Se envía según los días configurados en Configuración CRM.",
+    body: `Hola {contact.firstName},
+
+Le escribo nuevamente respecto a la propuesta que le compartimos el {deal.proposalSentDate} para {deal.title} de {account.name}.
+
+Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos. Estamos abiertos a adaptar nuestra propuesta para que se ajuste mejor a las necesidades de su operación.
+
+Le comparto nuevamente el enlace para su comodidad:
+{deal.proposalLink}
+
+Si lo prefiere, podemos coordinar una breve llamada o reunión para revisar los puntos clave juntos. Estaré encantado de agendar en el horario que mejor le acomode.
+
+Saludos cordiales`,
+  },
+];
+
+/** Crea los templates de email de seguimiento si no existen para este tenant */
+async function ensureFollowUpMailSeeds(tenantId: string, userId: string) {
+  for (const seed of MAIL_FOLLOWUP_SEEDS) {
+    const existing = await prisma.docTemplate.findFirst({
+      where: { tenantId, module: "mail", usageSlug: seed.slug },
+    });
+    if (existing) continue;
+
+    const content = plainTextToTiptap(seed.body);
+    const tokensUsed = extractTokenKeys(content);
+    await prisma.docTemplate.create({
+      data: {
+        tenantId,
+        name: seed.name,
+        description: seed.description,
+        content,
+        module: "mail",
+        category: seed.category,
+        tokensUsed,
+        isActive: true,
+        isDefault: false,
+        usageSlug: seed.slug,
+        createdBy: userId,
+      },
+    });
+  }
+}
+
 /** Crea los templates WA del sistema si no existen para este tenant */
 async function ensureWhatsAppSeeds(tenantId: string, userId: string) {
   const existing = await prisma.docTemplate.count({
@@ -105,6 +179,10 @@ export async function GET(request: NextRequest) {
     // Auto-seed WhatsApp del sistema si aún no existen
     if (!module || module === "whatsapp") {
       await ensureWhatsAppSeeds(ctx.tenantId, ctx.userId);
+    }
+    // Auto-seed email follow-up templates
+    if (!module || module === "mail") {
+      await ensureFollowUpMailSeeds(ctx.tenantId, ctx.userId);
     }
 
     const templates = await prisma.docTemplate.findMany({

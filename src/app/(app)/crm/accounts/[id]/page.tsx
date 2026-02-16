@@ -27,7 +27,7 @@ export default async function CrmAccountDetailPage({
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
-  const [account, quotes] = await Promise.all([
+  let [account, quotes] = await Promise.all([
     prisma.crmAccount.findFirst({
       where: { id, tenantId },
       include: {
@@ -49,6 +49,26 @@ export default async function CrmAccountDetailPage({
 
   if (!account) {
     redirect("/crm/accounts");
+  }
+
+  // Un solo contacto principal por cuenta: si hay más de uno, normalizar (dejar el primero)
+  const primaryContacts = account.contacts?.filter((c) => c.isPrimary) ?? [];
+  if (primaryContacts.length > 1) {
+    const keepId = primaryContacts[0].id;
+    await prisma.crmContact.updateMany({
+      where: { accountId: account.id },
+      data: { isPrimary: false },
+    });
+    await prisma.crmContact.update({ where: { id: keepId }, data: { isPrimary: true } });
+    account = await prisma.crmAccount.findFirst({
+      where: { id, tenantId },
+      include: {
+        contacts: { orderBy: { createdAt: "desc" } },
+        deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
+        installations: { orderBy: { createdAt: "desc" } },
+        _count: { select: { contacts: true, deals: true, installations: true } },
+      },
+    }) ?? account;
   }
 
   const data = JSON.parse(JSON.stringify({ ...account, quotes }));
