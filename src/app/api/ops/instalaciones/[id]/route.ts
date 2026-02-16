@@ -32,10 +32,24 @@ export async function GET(
 
     const installation = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: {
-        account: {
-          select: { id: true, name: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        marcacionCode: true,
+        notes: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true,
+        account: { select: { id: true, name: true } },
         opsPuestos: {
           where: { active: true },
           orderBy: { createdAt: "asc" },
@@ -88,10 +102,24 @@ export async function PATCH(
     const installation = await prisma.crmInstallation.update({
       where: { id },
       data: parsed.data,
-      include: {
-        account: {
-          select: { id: true, name: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        marcacionCode: true,
+        notes: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true,
+        account: { select: { id: true, name: true } },
       },
     });
 

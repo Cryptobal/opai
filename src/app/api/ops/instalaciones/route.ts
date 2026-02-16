@@ -30,7 +30,21 @@ export async function GET() {
         account: { type: "client", isActive: true },
         isActive: true,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true,
         account: { select: { id: true, name: true } },
         _count: {
           select: {
@@ -87,10 +101,22 @@ export async function POST(request: NextRequest) {
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
       },
-      include: {
-        account: {
-          select: { id: true, name: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true,
+        account: { select: { id: true, name: true } },
       },
     });
 

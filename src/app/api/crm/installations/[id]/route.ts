@@ -24,7 +24,28 @@ export async function GET(
 
     const installation = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        marcacionCode: true,
+        notes: true,
+        metadata: true,
+        startDate: true,
+        endDate: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true,
+        leadId: true,
+        account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
+      },
     });
 
     if (!installation) {
@@ -56,6 +77,7 @@ export async function PATCH(
 
     const existing = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
+      select: { id: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -78,7 +100,23 @@ export async function PATCH(
       const updatedInstallation = await tx.crmInstallation.update({
         where: { id },
         data: normalizedData,
-        include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          city: true,
+          commune: true,
+          lat: true,
+          lng: true,
+          isActive: true,
+          geoRadiusM: true,
+          teMontoClp: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          accountId: true,
+          account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
+        },
       });
 
       const accountNeedsActivation =
@@ -153,6 +191,7 @@ export async function DELETE(
 
     const existing = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
+      select: { id: true },
     });
     if (!existing) {
       return NextResponse.json(

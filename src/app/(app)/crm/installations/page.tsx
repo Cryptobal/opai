@@ -23,7 +23,19 @@ export default async function CrmInstallationsPage() {
   const [installations, accounts] = await Promise.all([
     prisma.crmInstallation.findMany({
       where: { tenantId },
-      include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        account: { select: { id: true, name: true, type: true, isActive: true } },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.crmAccount.findMany({

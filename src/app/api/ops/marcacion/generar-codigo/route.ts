@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       code = generateMarcacionCode();
       const existing = await prisma.crmInstallation.findFirst({
         where: { marcacionCode: code },
+        select: { id: true },
       });
       if (!existing) break;
       attempts++;

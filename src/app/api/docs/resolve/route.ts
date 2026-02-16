@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       installationId
         ? prisma.crmInstallation.findFirst({
             where: { id: installationId, tenantId: ctx.tenantId },
+            select: { id: true, name: true, address: true, city: true, commune: true },
           })
         : null,
       dealId
