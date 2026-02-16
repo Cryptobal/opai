@@ -290,7 +290,7 @@ export function CrmInstallationsListClient({
                           {inst.isActive ? "Activa" : "Inactiva"}
                         </span>
                         {inst.nocturnoEnabled !== false && (
-                          <Moon className="h-3.5 w-3.5 text-indigo-400" title="Control nocturno activo" />
+                          <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
                         )}
                       </div>
                       {inst.account && (
@@ -341,7 +341,7 @@ export function CrmInstallationsListClient({
                               {inst.isActive ? "Activa" : "Inactiva"}
                             </span>
                             {inst.nocturnoEnabled !== false && (
-                              <Moon className="h-3.5 w-3.5 text-indigo-400" title="Control nocturno activo" />
+                              <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
                             )}
                           </div>
                           {inst.account && <p className="text-[11px] text-muted-foreground">{inst.account.name}</p>}
