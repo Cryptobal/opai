@@ -8,6 +8,8 @@ import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+export const maxDuration = 60;
+
 /* ── GET — obtener reporte con todo el detalle ── */
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -216,9 +218,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await createOpsAuditLog(ctx, action || "update", "control_nocturno", id, { action });
 
-    // Send email on submit or resend (fire-and-forget)
+    // Send email on submit or resend (must await: serverless kills fire-and-forget on return)
     if (updated && (action === "submit" || action === "resend")) {
-      const baseUrl = process.env.NEXTAUTH_URL || "https://opai.gard.cl";
+      const baseUrl =
+        process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : process.env.NEXTAUTH_URL || "https://opai.gard.cl";
 
       // Generate AI summary (non-blocking, best-effort)
       const aiSummaryPromise = generateControlNocturnoSummary(
@@ -254,11 +259,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           `/api/ops/control-nocturno/${id}/export-pdf`,
           baseUrl,
         );
-        const pdfRes = await fetch(pdfUrl.toString(), {
-          headers: { cookie: request.headers.get("cookie") || "" },
-        });
-        if (pdfRes.ok) {
-          pdfBuffer = new Uint8Array(await pdfRes.arrayBuffer());
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45_000);
+        try {
+          const pdfRes = await fetch(pdfUrl.toString(), {
+            headers: { cookie: request.headers.get("cookie") || "" },
+            signal: controller.signal,
+          });
+          if (pdfRes.ok) {
+            pdfBuffer = new Uint8Array(await pdfRes.arrayBuffer());
+          } else {
+            console.warn("[OPS] PDF export returned", pdfRes.status, pdfRes.statusText);
+          }
+        } finally {
+          clearTimeout(timeoutId);
         }
       } catch (pdfErr) {
         console.warn("[OPS] Could not generate PDF for email attachment:", pdfErr);
@@ -284,10 +298,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         baseUrl,
       };
 
-      // Send email (don't block response)
-      sendControlNocturnoEmail(emailData, pdfBuffer).catch((err) =>
-        console.error("[OPS] Email send error:", err),
-      );
+      // Send email — MUST await: Vercel serverless kills fire-and-forget on return
+      try {
+        const emailResult = await sendControlNocturnoEmail(emailData, pdfBuffer);
+        if (!emailResult.ok) {
+          console.error("[OPS] Control nocturno email failed:", emailResult.error);
+        }
+      } catch (err) {
+        console.error("[OPS] Control nocturno email error:", err);
+      }
     }
 
     return NextResponse.json({ success: true, data: updated });
