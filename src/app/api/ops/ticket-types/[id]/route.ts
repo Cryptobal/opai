@@ -185,6 +185,9 @@ export async function PATCH(
   }
 }
 
+// PUT is an alias for PATCH (client uses PUT)
+export { PATCH as PUT };
+
 /* ── DELETE /api/ops/ticket-types/[id] ──────────────────────── */
 
 export async function DELETE(
