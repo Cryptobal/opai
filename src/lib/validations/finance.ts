@@ -152,3 +152,89 @@ export const ledgerQuerySchema = z.object({
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
+
+// ── Bank Accounts ──
+
+export const createBankAccountSchema = z.object({
+  bankCode: z.string().trim().min(1).max(10),
+  bankName: z.string().trim().min(1).max(100),
+  accountType: z.enum(["CHECKING", "SAVINGS", "VISTA"]),
+  accountNumber: z.string().trim().min(1).max(30),
+  currency: z.enum(["CLP", "USD", "UF"]).optional(),
+  holderName: z.string().trim().min(1).max(200),
+  holderRut: z.string().trim().min(8).max(12),
+  accountPlanId: optNull(z.string().uuid()),
+  isDefault: z.boolean().optional(),
+});
+
+export const updateBankAccountSchema = createBankAccountSchema.partial();
+
+// ── Bank Transactions (manual entry) ──
+
+export const createBankTransactionSchema = z.object({
+  bankAccountId: z.string().uuid(),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD"),
+  description: z.string().trim().min(1).max(500),
+  reference: optNull(z.string().trim().max(100)),
+  amount: z.number(),
+  balance: z.number().optional(),
+  category: optNull(z.string().trim().max(50)),
+  source: z.enum(["API", "MANUAL", "CSV_IMPORT"]).optional(),
+});
+
+// ── DTE Received (purchase invoices) ──
+
+export const registerReceivedDteSchema = z.object({
+  dteType: z.number().int().refine((v) => [33, 34, 56, 61].includes(v), {
+    message: "Tipo de DTE recibido inválido",
+  }),
+  folio: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  dueDate: optNull(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  issuerRut: z.string().trim().min(8).max(12),
+  issuerName: z.string().trim().min(1).max(200),
+  netAmount: z.number().min(0),
+  exemptAmount: z.number().min(0).optional(),
+  taxAmount: z.number().min(0),
+  totalAmount: z.number().min(0),
+  supplierId: optNull(z.string().uuid()),
+  accountId: optNull(z.string().uuid()),
+  notes: optNull(z.string().trim().max(1000)),
+  receptionStatus: z.enum(["PENDING_REVIEW", "ACCEPTED", "CLAIMED", "PARTIAL_CLAIM"]).optional(),
+});
+
+// ── Payment Records (supplier payments / customer collections) ──
+
+export const createPaymentRecordSchema = z.object({
+  type: z.enum(["COLLECTION", "DISBURSEMENT"]),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amount: z.number().positive(),
+  currency: z.enum(["CLP", "USD", "UF"]).optional(),
+  paymentMethod: z.enum(["TRANSFER", "CHECK", "CASH", "CREDIT_CARD", "FACTORING", "COMPENSATION", "OTHER"]),
+  bankAccountId: optNull(z.string().uuid()),
+  checkNumber: optNull(z.string().trim().max(30)),
+  transferReference: optNull(z.string().trim().max(100)),
+  supplierId: optNull(z.string().uuid()),
+  notes: optNull(z.string().trim().max(500)),
+  allocations: z.array(z.object({
+    dteId: z.string().uuid(),
+    amount: z.number().positive(),
+  })).optional(),
+});
+
+// ── Reconciliation ──
+
+export const createReconciliationSchema = z.object({
+  bankAccountId: z.string().uuid(),
+  periodYear: z.number().int().min(2020).max(2099),
+  periodMonth: z.number().int().min(1).max(12),
+  bankBalance: z.number(),
+  bookBalance: z.number(),
+});
+
+export const reconciliationMatchSchema = z.object({
+  bankTransactionId: z.string().uuid(),
+  paymentRecordId: optNull(z.string().uuid()),
+  journalEntryId: optNull(z.string().uuid()),
+  matchType: z.enum(["AUTO", "MANUAL"]),
+});
