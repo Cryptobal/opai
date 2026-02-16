@@ -562,7 +562,7 @@ export function CrmDealDetailClient({
       </div>
     ),
     children: (
-        !deal.proposalSentAt && !deal.proposalLink ? (
+        !deal.proposalSentAt && !deal.proposalLink && localFollowUpLogs.length === 0 ? (
           <EmptyState
             icon={<Clock3 className="h-8 w-8" />}
             title="Sin flujo activo"

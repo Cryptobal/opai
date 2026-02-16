@@ -42,6 +42,10 @@ export async function POST(
 
     const nextStatus =
       stage.isClosedWon ? "won" : stage.isClosedLost ? "lost" : "open";
+    const shouldSetProposalSentAt =
+      stage.name === "Cotización enviada" &&
+      nextStatus === "open" &&
+      !deal.proposalSentAt;
 
     const updatedDeal = await prisma.$transaction(async (tx) => {
       const updated = await tx.crmDeal.update({
@@ -49,6 +53,7 @@ export async function POST(
         data: {
           stageId: stage.id,
           status: nextStatus,
+          proposalSentAt: shouldSetProposalSentAt ? new Date() : undefined,
         },
         include: {
           account: {
