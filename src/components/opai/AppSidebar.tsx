@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -35,6 +35,11 @@ export interface AppSidebarProps {
   onClose?: () => void;
 }
 
+interface FlyoutState {
+  item: NavItem;
+  top: number;
+}
+
 export function AppSidebar({
   navItems,
   logo,
@@ -50,10 +55,29 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const collapsed = !isSidebarOpen;
-  const [tooltip, setTooltip] = useState<{ label: string; top: number } | null>(null);
+  const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const flyoutTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showTooltip = collapsed && !showCloseButton;
+  const showFlyout = collapsed && !showCloseButton;
+
+  const clearFlyoutTimer = () => {
+    if (flyoutTimeout.current) {
+      clearTimeout(flyoutTimeout.current);
+      flyoutTimeout.current = null;
+    }
+  };
+
+  const scheduleFlyoutClose = () => {
+    clearFlyoutTimer();
+    flyoutTimeout.current = setTimeout(() => setFlyout(null), 120);
+  };
+
+  const openFlyout = (item: NavItem, el: HTMLElement) => {
+    clearFlyoutTimer();
+    const rect = el.getBoundingClientRect();
+    setFlyout({ item, top: rect.top });
+  };
 
   const isItemActive = useCallback(
     (href: string) => pathname === href || pathname?.startsWith(href + '/'),
@@ -86,6 +110,11 @@ export function AppSidebar({
       return new Set([href]);
     });
   };
+
+  // Close flyout on route change
+  useEffect(() => {
+    setFlyout(null);
+  }, [pathname]);
 
   return (
     <aside
@@ -160,7 +189,7 @@ export function AppSidebar({
             const isExpanded = expandedSections.has(item.href);
             const Icon = item.icon;
 
-            // Simple item (no children) - e.g. "Inicio"
+            // Simple item (no children) - e.g. "Inicio", "Guardias"
             if (!hasChildren) {
               return (
                 <Link
@@ -168,11 +197,10 @@ export function AppSidebar({
                   href={item.href}
                   onClick={onNavigate}
                   onMouseEnter={(e) => {
-                    if (!showTooltip) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
+                    if (!showFlyout) return;
+                    openFlyout(item, e.currentTarget);
                   }}
-                  onMouseLeave={() => showTooltip && setTooltip(null)}
+                  onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
                   className={cn(
                     "group relative flex items-center rounded-md transition-colors",
                     showCloseButton ? "text-[15px]" : "text-sm",
@@ -213,17 +241,12 @@ export function AppSidebar({
                       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                   )}
                   onMouseEnter={(e) => {
-                    if (!showTooltip) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
+                    if (!showFlyout) return;
+                    openFlyout(item, e.currentTarget);
                   }}
-                  onMouseLeave={() => showTooltip && setTooltip(null)}
+                  onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
                   onClick={() => {
-                    if (collapsed) {
-                      onNavigate?.();
-                      window.location.href = item.href;
-                      return;
-                    }
+                    if (collapsed) return;
                     toggleSection(item.href);
                   }}
                   role="button"
@@ -231,9 +254,7 @@ export function AppSidebar({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      if (collapsed) {
-                        window.location.href = item.href;
-                      } else {
+                      if (!collapsed) {
                         toggleSection(item.href);
                       }
                     }
@@ -256,7 +277,7 @@ export function AppSidebar({
                   )}
                 </div>
 
-                {/* Children */}
+                {/* Children (expanded sidebar only) */}
                 {!collapsed && (
                   <div
                     className={cn(
@@ -305,13 +326,63 @@ export function AppSidebar({
           })}
         </div>
 
-        {/* Tooltip on hover when sidebar is collapsed (desktop only) */}
-        {showTooltip && tooltip && (
+        {/* Flyout panel when sidebar is collapsed (desktop only) */}
+        {showFlyout && flyout && (
           <div
-            className="fixed left-[72px] z-50 -translate-y-1/2 px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-sm font-medium shadow-md border border-border pointer-events-none whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-150"
-            style={{ top: tooltip.top }}
+            className="fixed left-[72px] z-50 min-w-[180px] rounded-lg bg-popover text-popover-foreground shadow-lg border border-border animate-in fade-in-0 zoom-in-95 slide-in-from-left-1 duration-150"
+            style={{ top: flyout.top }}
+            onMouseEnter={clearFlyoutTimer}
+            onMouseLeave={scheduleFlyoutClose}
           >
-            {tooltip.label}
+            {/* Module title */}
+            {flyout.item.children && flyout.item.children.length > 0 ? (
+              <>
+                <Link
+                  href={flyout.item.href}
+                  onClick={() => { setFlyout(null); onNavigate?.(); }}
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-foreground border-b border-border/60 hover:bg-accent/50 rounded-t-lg transition-colors"
+                >
+                  {flyout.item.label}
+                </Link>
+                <div className="py-1.5 px-1.5 space-y-0.5">
+                  {flyout.item.children.map((child) => {
+                    const isChildActive = isItemActive(child.href);
+                    const ChildIcon = child.icon;
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={() => { setFlyout(null); onNavigate?.(); }}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-md px-2.5 py-[6px] text-[13px] transition-colors",
+                          isChildActive
+                            ? "bg-accent text-foreground font-medium"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                      >
+                        {ChildIcon && (
+                          <ChildIcon
+                            className={cn(
+                              "shrink-0 h-3.5 w-3.5",
+                              isChildActive ? "text-primary" : "text-muted-foreground/60"
+                            )}
+                          />
+                        )}
+                        <span>{child.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <Link
+                href={flyout.item.href}
+                onClick={() => { setFlyout(null); onNavigate?.(); }}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/50 rounded-lg transition-colors whitespace-nowrap"
+              >
+                {flyout.item.label}
+              </Link>
+            )}
           </div>
         )}
       </nav>
