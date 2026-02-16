@@ -1483,6 +1483,17 @@ model OpsGuardia {
   currentInstallationId String? @map("current_installation_id") @db.Uuid
   montoAnticipo   Int       @default(0) @map("monto_anticipo")
   recibeAnticipo  Boolean   @default(false) @map("recibe_anticipo")
+
+  // ── Contract tracking (Código del Trabajo - plazo fijo / indefinido) ──
+  contractType              String?   @default("indefinido") @map("contract_type") // "plazo_fijo" | "indefinido"
+  contractStartDate         DateTime? @map("contract_start_date") @db.Date
+  contractPeriod1End        DateTime? @map("contract_period_1_end") @db.Date // Fin del período original (plazo fijo, hasta 1 año)
+  contractPeriod2End        DateTime? @map("contract_period_2_end") @db.Date // Fin de la 1ra renovación
+  contractPeriod3End        DateTime? @map("contract_period_3_end") @db.Date // Fin de la 2da renovación
+  contractCurrentPeriod     Int?      @default(1) @map("contract_current_period") // 1, 2 o 3
+  contractBecameIndefinidoAt DateTime? @map("contract_became_indefinido_at") @db.Date
+  contractAlertDaysBefore   Int?      @default(5) @map("contract_alert_days_before") // Días hábiles antes para alertar
+
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1493,6 +1504,7 @@ model OpsGuardia {
   comments              OpsComentarioGuardia[]
   documents             OpsDocumentoPersona[]
   historyEvents         OpsGuardiaHistory[]
+  guardEvents           OpsGuardEvent[]
   pautas                OpsPautaMensual[]      @relation("ops_pauta_guardia")
   asistenciasPlanificadas OpsAsistenciaDiaria[] @relation("ops_asistencia_planificada_guardia")
   asistenciasReales     OpsAsistenciaDiaria[]  @relation("ops_asistencia_real_guardia")
@@ -1760,6 +1772,67 @@ model OpsEventoRrhh {
   @@index([guardiaId], map: "idx_ops_eventos_rrhh_guardia")
   @@index([date], map: "idx_ops_eventos_rrhh_date")
   @@map("eventos_rrhh")
+  @@schema("ops")
+}
+
+// ── Guard Events (Eventos Laborales: ausencias, finiquitos, amonestaciones) ──
+model OpsGuardEvent {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id")
+  guardiaId       String    @map("guardia_id") @db.Uuid
+
+  // Classification
+  category        String    // "ausencia" | "finiquito" | "amonestacion"
+  subtype         String    // "vacaciones" | "licencia_medica" | "finiquito" | "amonestacion_verbal" | etc.
+
+  // Dates — ausencias usan startDate+endDate, finiquito usa finiquitoDate, amonestaciones usan startDate
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  totalDays       Int?      @map("total_days")
+  finiquitoDate   DateTime? @map("finiquito_date") @db.Date
+
+  // Causal DT (solo finiquito)
+  causalDtCode    String?   @map("causal_dt_code")   // e.g. "159-4"
+  causalDtLabel   String?   @map("causal_dt_label")   // e.g. "Vencimiento del plazo convenido"
+
+  // Finiquito — montos de liquidación
+  vacationDaysPending       Int?      @map("vacation_days_pending")
+  vacationPaymentAmount     Decimal?  @map("vacation_payment_amount") @db.Decimal(12, 0)
+  pendingRemunerationAmount Decimal?  @map("pending_remuneration_amount") @db.Decimal(12, 0)
+  yearsOfServiceAmount      Decimal?  @map("years_of_service_amount") @db.Decimal(12, 0)
+  substituteNoticeAmount    Decimal?  @map("substitute_notice_amount") @db.Decimal(12, 0)
+  totalSettlementAmount     Decimal?  @map("total_settlement_amount") @db.Decimal(12, 0)
+
+  // Content
+  reason          String?
+  internalNotes   String?   @map("internal_notes")
+  attachments     Json?     @db.JsonB   // Array of { url, name, type, uploadedAt }
+  metadata        Json?     @db.JsonB
+
+  // Workflow
+  status          String    @default("draft") // "draft" | "pending" | "approved" | "rejected" | "cancelled"
+
+  // Audit
+  createdBy       String    @map("created_by")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  rejectedBy      String?   @map("rejected_by")
+  rejectedAt      DateTime? @map("rejected_at") @db.Timestamptz(6)
+  cancelledBy     String?   @map("cancelled_by")
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  rejectionReason String?   @map("rejection_reason")
+
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  guardia         OpsGuardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_guard_events_tenant")
+  @@index([guardiaId], map: "idx_ops_guard_events_guardia")
+  @@index([category], map: "idx_ops_guard_events_category")
+  @@index([status], map: "idx_ops_guard_events_status")
+  @@index([finiquitoDate], map: "idx_ops_guard_events_finiquito_date")
+  @@map("guard_events")
   @@schema("ops")
 }
 

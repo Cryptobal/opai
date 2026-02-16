@@ -1,0 +1,1 @@
+export { GuardContractsTab } from "./GuardContractsTab";

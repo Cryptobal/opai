@@ -29,7 +29,7 @@ type Note = {
 };
 
 interface NotesSectionProps {
-  entityType: "account" | "contact" | "deal" | "quote";
+  entityType: "account" | "contact" | "deal" | "quote" | "ops_guardia";
   entityId: string;
   currentUserId: string;
 }

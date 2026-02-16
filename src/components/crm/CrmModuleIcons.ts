@@ -61,6 +61,7 @@ export type CrmSectionKey =
   | "datos"
   | "documentos"
   | "docs-vinculados"
+  | "contratos"
   | "eventos-laborales"
   | "cuentas"
   | "comentarios"
@@ -264,6 +265,11 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: Link2,
     label: "Docs vinculados",
   },
+  contratos: {
+    key: "contratos",
+    icon: FileText,
+    label: "Contratos",
+  },
   "eventos-laborales": {
     key: "eventos-laborales",
     icon: Gavel,
@@ -358,5 +364,5 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
   installations: ["general", "account", "deals", "quotes", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
-  guardias: ["datos", "eventos-laborales", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
+  guardias: ["datos", "contratos", "eventos-laborales", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };

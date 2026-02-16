@@ -8,8 +8,10 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  DollarSign,
   FileWarning,
   Gavel,
+  Info,
   Loader2,
   Palmtree,
   Paperclip,
@@ -35,7 +37,7 @@ import {
   type GuardEventCategory,
   type GuardEventSubtype,
   type GuardEventStatus,
-  type CausalDt,
+  type GuardContract,
   EVENT_CATEGORIES,
   EVENT_SUBTYPES,
   EVENT_STATUS_CONFIG,
@@ -43,9 +45,11 @@ import {
   getCategoryLabel,
   getSubtypeLabel,
   formatDateUTC,
+  formatCLP,
   isEditable,
   isApprovable,
   isCancellable,
+  validateCausal159N4,
   CAUSALES_DT,
 } from "@/lib/guard-events";
 import { EventDocuments } from "./EventDocuments";
@@ -78,6 +82,7 @@ interface GuardEventsTabProps {
   guardiaId: string;
   guardiaName: string;
   userRole: string;
+  guardContract?: GuardContract | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -88,6 +93,7 @@ export function GuardEventsTab({
   guardiaId,
   guardiaName,
   userRole,
+  guardContract,
 }: GuardEventsTabProps) {
   const [viewState, setViewState] = useState<ViewState>({ view: "list" });
   const [events, setEvents] = useState<GuardEvent[]>([]);
@@ -186,6 +192,7 @@ export function GuardEventsTab({
       <EventCreateForm
         guardiaId={guardiaId}
         guardiaName={guardiaName}
+        guardContract={guardContract ?? null}
         onBack={() => setViewState({ view: "list" })}
         onCreated={handleEventCreated}
       />
@@ -209,7 +216,6 @@ export function GuardEventsTab({
   // ── LIST VIEW ──
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Select
@@ -239,7 +245,6 @@ export function GuardEventsTab({
         </Button>
       </div>
 
-      {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -290,9 +295,18 @@ function EventListItem({
 }) {
   const statusCfg = EVENT_STATUS_CONFIG[event.status];
   const Icon = SUBTYPE_ICON[event.subtype] ?? Gavel;
-  const dateLabel = event.endDate
-    ? `${formatDateUTC(event.startDate)} → ${formatDateUTC(event.endDate)}`
-    : formatDateUTC(event.startDate);
+
+  let dateLabel: string;
+  if (event.category === "finiquito" && event.finiquitoDate) {
+    dateLabel = `Finiquito: ${formatDateUTC(event.finiquitoDate)}`;
+  } else if (event.endDate && event.startDate) {
+    dateLabel = `${formatDateUTC(event.startDate)} → ${formatDateUTC(event.endDate)}`;
+  } else if (event.startDate) {
+    dateLabel = formatDateUTC(event.startDate);
+  } else {
+    dateLabel = "";
+  }
+
   const daysLabel =
     event.totalDays != null ? `${event.totalDays} día${event.totalDays !== 1 ? "s" : ""}` : null;
 
@@ -314,10 +328,16 @@ function EventListItem({
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{dateLabel}</span>
-          {daysLabel && (
+          {daysLabel && event.category !== "finiquito" && (
             <>
               <span className="text-border">·</span>
               <span>{daysLabel}</span>
+            </>
+          )}
+          {event.totalSettlementAmount != null && event.category === "finiquito" && (
+            <>
+              <span className="text-border">·</span>
+              <span className="font-medium">{formatCLP(event.totalSettlementAmount)}</span>
             </>
           )}
           {event.attachments.length > 0 && (
@@ -337,23 +357,34 @@ function EventListItem({
 function EventCreateForm({
   guardiaId,
   guardiaName,
+  guardContract,
   onBack,
   onCreated,
 }: {
   guardiaId: string;
   guardiaName: string;
+  guardContract: GuardContract | null;
   onBack: () => void;
   onCreated: (event: GuardEvent) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [category, setCategory] = useState<GuardEventCategory | "">("");
   const [subtype, setSubtype] = useState<GuardEventSubtype | "">("");
+  // Dates - ausencia uses startDate + endDate; finiquito uses finiquitoDate; amonestacion uses startDate
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [finiquitoDate, setFiniquitoDate] = useState("");
   const [reason, setReason] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [causalDtCode, setCausalDtCode] = useState("");
   const [status, setStatus] = useState<"draft" | "pending" | "approved">("draft");
+
+  // Finiquito financial fields
+  const [vacationDaysPending, setVacationDaysPending] = useState<string>("");
+  const [vacationPaymentAmount, setVacationPaymentAmount] = useState<string>("");
+  const [pendingRemunerationAmount, setPendingRemunerationAmount] = useState<string>("");
+  const [yearsOfServiceAmount, setYearsOfServiceAmount] = useState<string>("");
+  const [substituteNoticeAmount, setSubstituteNoticeAmount] = useState<string>("");
 
   // Derive causales for finiquito
   const causales = useMemo(
@@ -369,28 +400,56 @@ function EventCreateForm({
   // Subtypes for selected category
   const subtypeOptions = category ? EVENT_SUBTYPES[category] ?? [] : [];
 
+  // Category flags
+  const isFiniquito = category === "finiquito";
+  const isAusencia = category === "ausencia";
+  const isAmonestacion = category === "amonestacion";
+  const needsDateRange = isAusencia;
+  const needsCausal = isFiniquito;
+
+  // Causal 159-4 validation
+  const causal159N4Validation = useMemo(() => {
+    if (causalDtCode !== "159-4" || !finiquitoDate || !guardContract) return null;
+    return validateCausal159N4(finiquitoDate, guardContract);
+  }, [causalDtCode, finiquitoDate, guardContract]);
+
+  // Calculate settlement total
+  const totalSettlement = useMemo(() => {
+    const vac = Number(vacationPaymentAmount) || 0;
+    const rem = Number(pendingRemunerationAmount) || 0;
+    const yos = Number(yearsOfServiceAmount) || 0;
+    const sub = Number(substituteNoticeAmount) || 0;
+    return vac + rem + yos + sub;
+  }, [vacationPaymentAmount, pendingRemunerationAmount, yearsOfServiceAmount, substituteNoticeAmount]);
+
   // Reset subtype when category changes
   function handleCategoryChange(val: string) {
     setCategory(val as GuardEventCategory);
     setSubtype("");
     setCausalDtCode("");
+    setFiniquitoDate("");
+    setStartDate("");
+    setEndDate("");
   }
 
-  // Calculate total days
+  // Calculate total days (only for ausencia)
   const totalDays = startDate && endDate ? calcTotalDays(startDate, endDate) : null;
 
-  // Whether form needs end date
-  const needsEndDate = category === "ausencia" || category === "finiquito";
-  const needsCausal = category === "finiquito";
-  const isAmonestacion = category === "amonestacion";
-
   // Validation
-  const isValid =
-    category &&
-    subtype &&
-    startDate &&
-    (isAmonestacion || endDate) &&
-    (!needsCausal || causalDtCode);
+  const isValid = useMemo(() => {
+    if (!category || !subtype) return false;
+
+    if (isFiniquito) {
+      if (!finiquitoDate || !causalDtCode) return false;
+      if (causal159N4Validation && !causal159N4Validation.valid) return false;
+    } else if (isAusencia) {
+      if (!startDate || !endDate) return false;
+    } else if (isAmonestacion) {
+      if (!startDate) return false;
+    }
+
+    return true;
+  }, [category, subtype, isFiniquito, isAusencia, isAmonestacion, finiquitoDate, causalDtCode, startDate, endDate, causal159N4Validation]);
 
   async function handleSubmit() {
     if (!isValid) return;
@@ -406,14 +465,22 @@ function EventCreateForm({
           guardiaId,
           category,
           subtype,
-          startDate,
-          endDate: isAmonestacion ? null : endDate,
-          totalDays: isAmonestacion ? null : totalDays,
+          startDate: isFiniquito ? null : startDate || null,
+          endDate: isAusencia ? endDate : null,
+          totalDays: isAusencia ? totalDays : null,
+          finiquitoDate: isFiniquito ? finiquitoDate : null,
           reason: reason || null,
           internalNotes: internalNotes || null,
           causalDtCode: selectedCausal?.code ?? null,
           causalDtLabel: selectedCausal?.label ?? null,
           status,
+          // Finiquito financial fields
+          vacationDaysPending: isFiniquito ? (Number(vacationDaysPending) || null) : null,
+          vacationPaymentAmount: isFiniquito ? (Number(vacationPaymentAmount) || null) : null,
+          pendingRemunerationAmount: isFiniquito ? (Number(pendingRemunerationAmount) || null) : null,
+          yearsOfServiceAmount: isFiniquito ? (Number(yearsOfServiceAmount) || null) : null,
+          substituteNoticeAmount: isFiniquito ? (Number(substituteNoticeAmount) || null) : null,
+          totalSettlementAmount: isFiniquito ? totalSettlement : null,
         }),
       });
       const data = await res.json();
@@ -428,7 +495,6 @@ function EventCreateForm({
 
   return (
     <div className="space-y-4">
-      {/* Back button */}
       <button
         type="button"
         onClick={onBack}
@@ -483,7 +549,7 @@ function EventCreateForm({
       )}
 
       {/* ── Causal DT (finiquito only) ── */}
-      {needsCausal && (
+      {needsCausal && subtype && (
         <div className="space-y-1.5">
           <Label className="text-xs">Causal de término (DT) *</Label>
           <Select value={causalDtCode} onValueChange={setCausalDtCode}>
@@ -499,43 +565,157 @@ function EventCreateForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      )}
 
-      {/* ── Dates ── */}
-      {subtype && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              {isAmonestacion ? "Fecha *" : "Fecha inicio *"}
-            </Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-sm"
-            />
-          </div>
-          {needsEndDate && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Fecha término *</Label>
-              <Input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="text-sm"
-              />
+          {/* Warning for 159-4 when contract is not plazo fijo */}
+          {causalDtCode === "159-4" && guardContract?.contractType !== "plazo_fijo" && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-amber-600">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <p>Esta causal solo aplica a contratos a plazo fijo. El contrato actual es indefinido.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Days summary */}
-      {totalDays != null && totalDays > 0 && (
+      {/* ── Dates ── */}
+      {subtype && (
+        <>
+          {isFiniquito ? (
+            /* Finiquito: single date */
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha de finiquito *</Label>
+              <Input
+                type="date"
+                value={finiquitoDate}
+                onChange={(e) => setFiniquitoDate(e.target.value)}
+                className="text-sm max-w-xs"
+              />
+              {/* Causal 159-4 validation message */}
+              {causal159N4Validation && !causal159N4Validation.valid && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p>{causal159N4Validation.reason}</p>
+                </div>
+              )}
+              {causal159N4Validation && causal159N4Validation.valid && (
+                <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-xs text-emerald-600">
+                  <Check className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p>Causal 159 N°4 válida — dentro de la ventana de tiempo permitida.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Ausencia / Amonestación: date range or single date */
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  {isAmonestacion ? "Fecha *" : "Fecha inicio *"}
+                </Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              {needsDateRange && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fecha término *</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Days summary (ausencia only) */}
+      {totalDays != null && totalDays > 0 && !isFiniquito && (
         <p className="text-xs text-muted-foreground">
           Total: <strong>{totalDays}</strong> día{totalDays !== 1 ? "s" : ""} (incluye inicio y término)
         </p>
+      )}
+
+      {/* ── Finiquito Financial Fields ── */}
+      {isFiniquito && subtype && finiquitoDate && (
+        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-medium">Liquidación del finiquito</h4>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Días de vacaciones pendientes</Label>
+              <Input
+                type="number"
+                min="0"
+                value={vacationDaysPending}
+                onChange={(e) => setVacationDaysPending(e.target.value)}
+                placeholder="0"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Monto vacaciones pendientes ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={vacationPaymentAmount}
+                onChange={(e) => setVacationPaymentAmount(e.target.value)}
+                placeholder="0"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Remuneración pendiente ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={pendingRemunerationAmount}
+                onChange={(e) => setPendingRemunerationAmount(e.target.value)}
+                placeholder="0"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Indemnización por años de servicio ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={yearsOfServiceAmount}
+                onChange={(e) => setYearsOfServiceAmount(e.target.value)}
+                placeholder="0"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Indemnización sustitutiva aviso previo ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={substituteNoticeAmount}
+                onChange={(e) => setSubstituteNoticeAmount(e.target.value)}
+                placeholder="0"
+                className="text-sm max-w-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Solo aplica si se invoca Art. 161 con menos de 30 días de aviso previo
+              </p>
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 p-3">
+            <span className="text-sm font-medium">Total liquidación</span>
+            <span className="text-lg font-bold text-primary">{formatCLP(totalSettlement)}</span>
+          </div>
+        </div>
       )}
 
       {/* ── Reason ── */}
@@ -640,10 +820,10 @@ function EventDetailView({
     isApprovable(event.status) &&
     ["owner", "admin", "rrhh", "operaciones"].includes(userRole);
   const canCancel = isCancellable(event.status);
+  const isFiniquito = event.category === "finiquito";
 
   return (
     <div className="space-y-4">
-      {/* Back */}
       <button
         type="button"
         onClick={onBack}
@@ -671,9 +851,16 @@ function EventDetailView({
 
       {/* Info grid */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <InfoField label="Fecha inicio" value={formatDateUTC(event.startDate)} />
-        {event.endDate && <InfoField label="Fecha término" value={formatDateUTC(event.endDate)} />}
-        {event.totalDays != null && (
+        {isFiniquito && event.finiquitoDate && (
+          <InfoField label="Fecha de finiquito" value={formatDateUTC(event.finiquitoDate)} />
+        )}
+        {!isFiniquito && event.startDate && (
+          <InfoField label="Fecha inicio" value={formatDateUTC(event.startDate)} />
+        )}
+        {!isFiniquito && event.endDate && (
+          <InfoField label="Fecha término" value={formatDateUTC(event.endDate)} />
+        )}
+        {event.totalDays != null && !isFiniquito && (
           <InfoField label="Duración" value={`${event.totalDays} día${event.totalDays !== 1 ? "s" : ""}`} />
         )}
         {event.causalDtCode && (
@@ -684,6 +871,54 @@ function EventDetailView({
           />
         )}
       </div>
+
+      {/* Finiquito financial summary */}
+      {isFiniquito && (event.vacationDaysPending != null || event.totalSettlementAmount != null) && (
+        <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-medium">Liquidación</h4>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 text-sm">
+            {event.vacationDaysPending != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Días vacaciones pendientes</span>
+                <span className="font-medium">{event.vacationDaysPending}</span>
+              </div>
+            )}
+            {event.vacationPaymentAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monto vacaciones</span>
+                <span className="font-medium">{formatCLP(event.vacationPaymentAmount)}</span>
+              </div>
+            )}
+            {event.pendingRemunerationAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Remuneración pendiente</span>
+                <span className="font-medium">{formatCLP(event.pendingRemunerationAmount)}</span>
+              </div>
+            )}
+            {event.yearsOfServiceAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Indemnización años servicio</span>
+                <span className="font-medium">{formatCLP(event.yearsOfServiceAmount)}</span>
+              </div>
+            )}
+            {event.substituteNoticeAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Indemn. sustitutiva aviso</span>
+                <span className="font-medium">{formatCLP(event.substituteNoticeAmount)}</span>
+              </div>
+            )}
+          </div>
+          {event.totalSettlementAmount != null && (
+            <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 p-3 mt-2">
+              <span className="text-sm font-medium">Total liquidación</span>
+              <span className="text-lg font-bold text-primary">{formatCLP(event.totalSettlementAmount)}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reason */}
       {event.reason && (

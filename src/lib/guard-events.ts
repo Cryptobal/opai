@@ -1,8 +1,10 @@
 /**
  * Guard Events — Tipos, constantes y helpers para Eventos Laborales
  *
- * Entidades lógicas (sin migración de DB todavía).
- * Se usan en componentes UI + stub API routes.
+ * Incluye lógica de validación según normativa de la DT chilena:
+ * - Art. 159 N°4: Término de plazo convenido (restricciones de ventana)
+ * - Art. 162: Carta de aviso de término
+ * - Art. 177: Finiquito
  */
 
 // ═══════════════════════════════════════════════════════════════
@@ -28,6 +30,8 @@ export type GuardEventStatus =
   | "rejected"
   | "cancelled";
 
+export type ContractType = "plazo_fijo" | "indefinido";
+
 export interface GuardEventAttachment {
   url: string;
   name: string;
@@ -48,18 +52,26 @@ export interface GuardEvent {
   guardiaId: string;
   category: GuardEventCategory;
   subtype: GuardEventSubtype;
-  startDate: string; // ISO date
+  startDate: string | null;
   endDate: string | null;
   totalDays: number | null;
-  isPartialDay: boolean;
+  finiquitoDate: string | null;
   status: GuardEventStatus;
   causalDtCode: string | null;
   causalDtLabel: string | null;
+  // Finiquito financial fields
+  vacationDaysPending: number | null;
+  vacationPaymentAmount: number | null;
+  pendingRemunerationAmount: number | null;
+  yearsOfServiceAmount: number | null;
+  substituteNoticeAmount: number | null;
+  totalSettlementAmount: number | null;
+  // Content
   reason: string | null;
   internalNotes: string | null;
   attachments: GuardEventAttachment[];
   metadata: Record<string, unknown>;
-  requestId: string | null;
+  // Audit
   createdBy: string;
   createdByName?: string | null;
   approvedBy: string | null;
@@ -96,24 +108,17 @@ export interface CausalDt {
   fullText: string | null;
   isActive: boolean;
   defaultTemplateId: string | null;
+  requiresNoticeWindow?: boolean;
 }
 
-export interface GuardRequest {
-  id: string;
-  tenantId: string;
-  guardiaId: string;
-  type: string;
-  startDate: string;
-  endDate: string;
-  totalDays: number;
-  reason: string | null;
-  attachments: GuardEventAttachment[];
-  status: "pending" | "approved" | "rejected" | "cancelled";
-  reviewedBy: string | null;
-  reviewedAt: string | null;
-  reviewNotes: string | null;
-  createdAt: string;
-  updatedAt: string;
+export interface GuardContract {
+  contractType: ContractType;
+  contractStartDate: string | null;
+  contractPeriod1End: string | null;
+  contractPeriod2End: string | null;
+  contractPeriod3End: string | null;
+  contractCurrentPeriod: number;
+  contractBecameIndefinidoAt: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -171,6 +176,23 @@ export const DOC_STATUS_CONFIG: Record<
   uploaded_dt: { label: "Subido a DT", variant: "success" },
 };
 
+export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  plazo_fijo: "Plazo Fijo",
+  indefinido: "Indefinido",
+};
+
+/**
+ * Máximo de renovaciones para contrato a plazo fijo (Código del Trabajo)
+ * Después de 2 renovaciones, se convierte en indefinido automáticamente.
+ */
+export const MAX_RENEWALS = 2;
+
+/**
+ * Máximo plazo de un contrato a plazo fijo: 1 año (365 días).
+ * Puede ser desde 1 día hasta 1 año.
+ */
+export const MAX_FIXED_TERM_DAYS = 365;
+
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════════════════════
@@ -198,16 +220,6 @@ export function calcTotalDays(startDate: string, endDate: string | null): number
   return diff + 1; // inclusive
 }
 
-/** Whether a category requires date range (vs single date) */
-export function categoryRequiresDateRange(category: GuardEventCategory): boolean {
-  return category === "ausencia" || category === "finiquito";
-}
-
-/** Whether a category supports document generation */
-export function categorySupportsDocuments(category: GuardEventCategory): boolean {
-  return true; // all categories can have associated documents
-}
-
 /** Whether status allows editing */
 export function isEditable(status: GuardEventStatus): boolean {
   return status === "draft" || status === "pending";
@@ -232,15 +244,151 @@ export function formatDateUTC(value: string | Date): string {
   return `${day}/${month}/${year}`;
 }
 
+/** Format currency in CLP */
+export function formatCLP(amount: number | null | undefined): string {
+  if (amount == null) return "$0";
+  return `$${amount.toLocaleString("es-CL")}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CAUSAL 159-4 — Validación de ventana de tiempo
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Calcula la fecha efectiva de fin de contrato según el período actual.
+ */
+export function getContractEndDate(contract: GuardContract): string | null {
+  switch (contract.contractCurrentPeriod) {
+    case 3: return contract.contractPeriod3End;
+    case 2: return contract.contractPeriod2End;
+    case 1: return contract.contractPeriod1End;
+    default: return contract.contractPeriod1End;
+  }
+}
+
+/**
+ * Calcula los días calendario entre dos fechas (fecha2 - fecha1).
+ */
+function daysBetween(date1: string, date2: string): number {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Valida si la causal "Término de plazo convenido" (Art. 159 N°4) puede usarse.
+ *
+ * Reglas (normativa DT):
+ * - Solo aplica a contratos a plazo fijo
+ * - El finiquito debe hacerse ANTES de la fecha de vencimiento del contrato
+ * - Deben faltar 3 o más días para el vencimiento
+ * - Si ya venció o faltan menos de 3 días → no se puede usar esta causal
+ */
+export function validateCausal159N4(
+  finiquitoDate: string,
+  contract: GuardContract
+): { valid: boolean; reason: string } {
+  if (contract.contractType !== "plazo_fijo") {
+    return { valid: false, reason: "La causal 'Término de plazo convenido' solo aplica a contratos a plazo fijo." };
+  }
+
+  const contractEnd = getContractEndDate(contract);
+  if (!contractEnd) {
+    return { valid: false, reason: "No hay fecha de término de contrato registrada." };
+  }
+
+  const daysUntilEnd = daysBetween(finiquitoDate, contractEnd);
+
+  if (daysUntilEnd < 0) {
+    return {
+      valid: false,
+      reason: `El contrato ya venció el ${formatDateUTC(contractEnd)}. No se puede usar esta causal después del vencimiento.`,
+    };
+  }
+
+  if (daysUntilEnd < 3) {
+    return {
+      valid: false,
+      reason: `Faltan solo ${daysUntilEnd} día(s) para el vencimiento (${formatDateUTC(contractEnd)}). Se requieren al menos 3 días de anticipación para usar esta causal.`,
+    };
+  }
+
+  return { valid: true, reason: "" };
+}
+
+/**
+ * Verifica si un contrato a plazo fijo ha expirado y debe convertirse en indefinido.
+ * Retorna true si el contrato debería ser indefinido.
+ */
+export function shouldBecomeIndefinido(contract: GuardContract, today: string = new Date().toISOString().slice(0, 10)): boolean {
+  if (contract.contractType !== "plazo_fijo") return false;
+
+  const contractEnd = getContractEndDate(contract);
+  if (!contractEnd) return false;
+
+  const daysUntilEnd = daysBetween(today, contractEnd);
+  // Si ya pasó la fecha de vencimiento y no se finiquitó, es indefinido
+  return daysUntilEnd < 0;
+}
+
+/**
+ * Calcula cuántas renovaciones quedan disponibles.
+ */
+export function renewalsRemaining(contract: GuardContract): number {
+  return Math.max(0, MAX_RENEWALS - (contract.contractCurrentPeriod - 1));
+}
+
+/**
+ * Verifica si un contrato puede ser renovado.
+ */
+export function canRenewContract(contract: GuardContract): boolean {
+  if (contract.contractType !== "plazo_fijo") return false;
+  return contract.contractCurrentPeriod < MAX_RENEWALS + 1; // max 3 períodos (original + 2 renovaciones)
+}
+
+/**
+ * Calcula los días hábiles entre dos fechas (excluye sáb/dom).
+ */
+export function businessDaysBetween(date1: string, date2: string): number {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  let count = 0;
+  const current = new Date(d1);
+  while (current < d2) {
+    current.setDate(current.getDate() + 1);
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
+}
+
+/**
+ * Verifica si se debe enviar alerta de vencimiento de contrato.
+ * Retorna true si faltan exactamente N días hábiles para el vencimiento.
+ */
+export function shouldAlertContractExpiration(
+  contract: GuardContract,
+  alertDaysBefore: number = 5,
+  today: string = new Date().toISOString().slice(0, 10)
+): boolean {
+  if (contract.contractType !== "plazo_fijo") return false;
+
+  const contractEnd = getContractEndDate(contract);
+  if (!contractEnd) return false;
+
+  const bDays = businessDaysBetween(today, contractEnd);
+  return bDays <= alertDaysBefore && bDays > 0;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  SEED DATA — Causales DT (Código del Trabajo Chile)
 // ═══════════════════════════════════════════════════════════════
 
-export const CAUSALES_DT: Omit<CausalDt, "id" | "defaultTemplateId">[] = [
+export const CAUSALES_DT: (Omit<CausalDt, "id" | "defaultTemplateId"> & { requiresNoticeWindow?: boolean })[] = [
   { code: "159-1", article: "Art. 159", number: "N° 1", label: "Mutuo acuerdo de las partes", fullText: null, isActive: true },
   { code: "159-2", article: "Art. 159", number: "N° 2", label: "Renuncia del trabajador", fullText: null, isActive: true },
   { code: "159-3", article: "Art. 159", number: "N° 3", label: "Muerte del trabajador", fullText: null, isActive: true },
-  { code: "159-4", article: "Art. 159", number: "N° 4", label: "Vencimiento del plazo convenido", fullText: null, isActive: true },
+  { code: "159-4", article: "Art. 159", number: "N° 4", label: "Vencimiento del plazo convenido", fullText: null, isActive: true, requiresNoticeWindow: true },
   { code: "159-5", article: "Art. 159", number: "N° 5", label: "Conclusión del trabajo o servicio", fullText: null, isActive: true },
   { code: "159-6", article: "Art. 159", number: "N° 6", label: "Caso fortuito o fuerza mayor", fullText: null, isActive: true },
   { code: "160-1", article: "Art. 160", number: "N° 1", label: "Conductas indebidas de carácter grave", fullText: null, isActive: true },

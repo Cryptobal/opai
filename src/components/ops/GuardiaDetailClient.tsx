@@ -52,6 +52,8 @@ import {
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
 import { GuardEventsTab } from "@/components/ops/guard-events";
+import { GuardContractsTab } from "@/components/ops/guard-contracts";
+import { NotesSection } from "@/components/crm/NotesSection";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -69,6 +71,15 @@ type GuardiaDetail = {
   lifecycleStatus: string;
   isBlacklisted: boolean;
   blacklistReason?: string | null;
+  // Contract tracking
+  contractType?: string | null;
+  contractStartDate?: string | null;
+  contractPeriod1End?: string | null;
+  contractPeriod2End?: string | null;
+  contractPeriod3End?: string | null;
+  contractCurrentPeriod?: number | null;
+  contractBecameIndefinidoAt?: string | null;
+  contractAlertDaysBefore?: number | null;
   persona: {
     firstName: string;
     lastName: string;
@@ -159,6 +170,7 @@ interface GuardiaDetailClientProps {
   asignaciones?: AsignacionHistorial[];
   userRole: string;
   personaAdminId?: string | null;
+  currentUserId?: string;
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -206,7 +218,7 @@ function lifecycleBadgeVariant(
   return "secondary";
 }
 
-export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId }: GuardiaDetailClientProps) {
+export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId }: GuardiaDetailClientProps) {
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
@@ -1338,6 +1350,27 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </div>
       ),
     },
+    /* contratos de trabajo */
+    {
+      key: "contratos" as const,
+      label: "Contratos",
+      children: (
+        <GuardContractsTab
+          guardiaId={guardia.id}
+          guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
+          hiredAt={guardia.hiredAt ?? null}
+          contract={guardia.contractType ? {
+            contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+            contractStartDate: guardia.contractStartDate ?? null,
+            contractPeriod1End: guardia.contractPeriod1End ?? null,
+            contractPeriod2End: guardia.contractPeriod2End ?? null,
+            contractPeriod3End: guardia.contractPeriod3End ?? null,
+            contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
+            contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+          } : null}
+        />
+      ),
+    },
     /* eventos laborales */
     {
       key: "eventos-laborales" as const,
@@ -1347,6 +1380,15 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           guardiaId={guardia.id}
           guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
           userRole={userRole}
+          guardContract={guardia.contractType ? {
+            contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+            contractStartDate: guardia.contractStartDate ?? null,
+            contractPeriod1End: guardia.contractPeriod1End ?? null,
+            contractPeriod2End: guardia.contractPeriod2End ?? null,
+            contractPeriod3End: guardia.contractPeriod3End ?? null,
+            contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
+            contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+          } : null}
         />
       ),
     },
@@ -1798,42 +1840,16 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </div>
       ),
     },
-    /* comentarios */
+    /* comentarios internos con @ mentions */
     {
       key: "comentarios" as const,
       label: "Comentarios internos",
       children: (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Escribe una nota o comentario sobre este guardia"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-            />
-            <Button
-              type="button"
-              onClick={() => void handleCreateComment()}
-              disabled={commentSaving || !canManageGuardias}
-            >
-              {commentSaving ? "Guardando..." : "Comentar"}
-            </Button>
-          </div>
-          {guardia.comments && guardia.comments.length > 0 ? (
-            <div className="space-y-2">
-              {guardia.comments.map((comment) => (
-                <div key={comment.id} className="rounded-md border border-border p-3">
-                  <p className="text-sm">{comment.comment}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(comment.createdAt).toLocaleString("es-CL")}
-                    {comment.createdByName ? ` · ${comment.createdByName}` : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Sin comentarios.</p>
-          )}
-        </div>
+        <NotesSection
+          entityType="ops_guardia"
+          entityId={guardia.id}
+          currentUserId={currentUserId ?? ""}
+        />
       ),
     },
     /* dias-trabajados */
