@@ -787,7 +787,7 @@ export default function GroupsConfigClient({ userRole }: Props) {
               )}
 
               {/* Members (mobile) */}
-              {isSelected && !isEditing && !isCreating && (
+              {isSelected && !isCreating && (
                 <div className="rounded-b-lg border border-t-0 border-border bg-card/40 px-4 pb-4">
                   {renderMembersSection()}
                 </div>
@@ -1010,7 +1010,7 @@ export default function GroupsConfigClient({ userRole }: Props) {
             )}
 
             {/* Members section */}
-            {!isEditing && renderMembersSection()}
+            {renderMembersSection()}
           </div>
         )}
 
