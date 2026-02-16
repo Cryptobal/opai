@@ -25,7 +25,7 @@ export default async function CrmInstallationDetailPage({
   const role = session.user.role;
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, dealsOfAccount] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       select: {
@@ -127,6 +127,23 @@ export default async function CrmInstallationDetailPage({
       },
       orderBy: [{ persona: { lastName: "asc" } }],
     }),
+    // Negocios de la cuenta (para mostrar en sección Negocios)
+    prisma.crmInstallation.findFirst({ where: { id, tenantId }, select: { accountId: true } }).then((inst) =>
+      inst?.accountId
+        ? prisma.crmDeal.findMany({
+            where: { tenantId, accountId: inst.accountId },
+            orderBy: { createdAt: "desc" },
+            take: 50,
+            select: {
+              id: true,
+              title: true,
+              amount: true,
+              status: true,
+              stage: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([])
+    ),
   ]);
 
   if (!installation) {
@@ -141,6 +158,7 @@ export default async function CrmInstallationDetailPage({
       quotesInstalacion,
       asignacionGuardias,
       guardiasActuales,
+      dealsOfAccount: dealsOfAccount ?? [],
     })
   );
 

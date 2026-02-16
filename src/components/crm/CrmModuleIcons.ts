@@ -357,6 +357,6 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   accounts: ["general", "contacts", "installations", "deals", "quotes", "rendiciones", "communication", "notes"],
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
-  installations: ["general", "account", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "quotes", "communication", "notes"],
+  installations: ["general", "account", "deals", "quotes", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
   guardias: ["datos", "eventos-laborales", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };

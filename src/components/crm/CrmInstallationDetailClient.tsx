@@ -22,7 +22,7 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
-import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
+import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
@@ -105,6 +105,14 @@ export type InstallationDetail = {
     persona: { firstName: string; lastName: string; rut?: string | null };
   }>;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
+  /** Negocios de la cuenta asociada (solo cuando hay accountId) */
+  dealsOfAccount?: Array<{
+    id: string;
+    title: string;
+    amount: string;
+    status: string;
+    stage?: { name: string } | null;
+  }>;
 };
 
 /* ── Lifecycle colors (shared) ── */
@@ -1043,6 +1051,8 @@ export function CrmInstallationDetailClient({
   // ── Helpers ──
   const AccountIcon = CRM_MODULES.accounts.icon;
   const StaffingIcon = CRM_MODULES.installations.icon;
+  const DealsIcon = CRM_MODULES.deals.icon;
+  const QuotesIcon = CRM_MODULES.quotes.icon;
 
   const subtitle = [
     installation.account?.name,
@@ -1166,6 +1176,78 @@ export function CrmInstallationDetailClient({
         />
       ) : (
         <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
+      ),
+    },
+    {
+      key: "deals",
+      label: "Negocios",
+      count: installation.dealsOfAccount?.length ?? 0,
+      children: !installation.account ? (
+        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
+      ) : !installation.dealsOfAccount?.length ? (
+        <EmptyState
+          icon={<DealsIcon className="h-8 w-8" />}
+          title="Sin negocios"
+          description="No hay negocios asociados a la cuenta de esta instalación."
+          compact
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/crm/deals">Ver negocios</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {installation.dealsOfAccount.map((deal) => (
+            <CrmRelatedRecordCard
+              key={deal.id}
+              module="deals"
+              title={deal.title}
+              subtitle={deal.stage?.name || "Sin etapa"}
+              meta={deal.amount ? `$${Number(deal.amount).toLocaleString("es-CL")}` : undefined}
+              badge={
+                deal.status === "won"
+                  ? { label: "Ganado", variant: "success" }
+                  : deal.status === "lost"
+                    ? { label: "Perdido", variant: "destructive" }
+                    : undefined
+              }
+              href={`/crm/deals/${deal.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
+      ),
+    },
+    {
+      key: "quotes",
+      label: "Cotizaciones",
+      count: installation.quotesInstalacion?.length ?? 0,
+      children: !installation.quotesInstalacion?.length ? (
+        <EmptyState
+          icon={<QuotesIcon className="h-8 w-8" />}
+          title="Sin cotizaciones"
+          description="No hay cotizaciones asociadas a esta instalación."
+          compact
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/crm/cotizaciones">Ver cotizaciones</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {installation.quotesInstalacion.map((q) => (
+            <CrmRelatedRecordCard
+              key={q.id}
+              module="quotes"
+              title={q.code}
+              subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+              meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+              badge={{ label: q.status, variant: "secondary" }}
+              href={`/crm/cotizaciones/${q.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
       ),
     },
     {
