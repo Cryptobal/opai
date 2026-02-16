@@ -15,3 +15,5 @@ export { JournalEntryForm } from "./JournalEntryForm";
 export { FacturacionClient } from "./FacturacionClient";
 export { DteForm } from "./DteForm";
 export { CreditNoteForm } from "./CreditNoteForm";
+export { BancosClient } from "./BancosClient";
+export { PagosProveedoresClient } from "./PagosProveedoresClient";
