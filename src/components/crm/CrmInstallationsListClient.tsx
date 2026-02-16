@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { MapPin, Search, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { MapPin, Search, ChevronRight, Plus, Loader2, Moon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ export type InstallationRow = {
   createdAt?: string | null;
   updatedAt?: string | null;
   isActive?: boolean;
+  nocturnoEnabled?: boolean;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
 };
 
@@ -288,6 +289,9 @@ export function CrmInstallationsListClient({
                         >
                           {inst.isActive ? "Activa" : "Inactiva"}
                         </span>
+                        {inst.nocturnoEnabled !== false && (
+                          <Moon className="h-3.5 w-3.5 text-indigo-400" title="Control nocturno activo" />
+                        )}
                       </div>
                       {inst.account && (
                         <p className="mt-0.5 text-xs text-muted-foreground">{inst.account.name}</p>
@@ -336,6 +340,9 @@ export function CrmInstallationsListClient({
                             >
                               {inst.isActive ? "Activa" : "Inactiva"}
                             </span>
+                            {inst.nocturnoEnabled !== false && (
+                              <Moon className="h-3.5 w-3.5 text-indigo-400" title="Control nocturno activo" />
+                            )}
                           </div>
                           {inst.account && <p className="text-[11px] text-muted-foreground">{inst.account.name}</p>}
                         </div>

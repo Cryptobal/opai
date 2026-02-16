@@ -32,6 +32,7 @@ export default async function CrmInstallationsPage() {
         lat: true,
         lng: true,
         isActive: true,
+        nocturnoEnabled: true,
         createdAt: true,
         updatedAt: true,
         account: { select: { id: true, name: true, type: true, isActive: true } },

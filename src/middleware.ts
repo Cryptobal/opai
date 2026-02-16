@@ -31,6 +31,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
+  if (pathname.startsWith('/portal/')) return true; // Portal del guardia (auth propia con PIN)
 
   // API (rutas reales en /api/)
   if (pathname.startsWith('/api/auth')) return true;
@@ -42,6 +43,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/email-preview')) return true;
   if (pathname.startsWith('/api/pdf')) return true;
   if (pathname.startsWith('/api/public')) return true;
+  if (pathname.startsWith('/api/portal')) return true; // Portal del guardia (auth propia con PIN)
   // Firma electrónica pública: GET/POST por token sin sesión
   if (pathname.startsWith('/api/docs/sign')) return true;
   // Vista pública de documento firmado (por viewToken)
