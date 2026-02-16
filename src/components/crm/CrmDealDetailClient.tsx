@@ -65,7 +65,14 @@ function buildReplySubject(subject?: string | null): string {
   return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
 }
 
-type QuoteOption = { id: string; code: string; clientName?: string | null; status: string; };
+type QuoteOption = {
+  id: string;
+  code: string;
+  clientName?: string | null;
+  status: string;
+  monthlyCost?: string | number | null;
+  currency?: "CLP" | "UF" | string;
+};
 type DealQuote = { id: string; quoteId: string; };
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean; };
 type DealContactRow = { id: string; dealId: string; contactId: string; role: string; contact: ContactRow; };
@@ -119,7 +126,7 @@ type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], canConfigureCrm = false, currentUserId = "",
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], ufValue, canConfigureCrm = false, currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
@@ -128,6 +135,7 @@ export function CrmDealDetailClient({
   gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[]; docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   followUpConfig?: FollowUpConfigState | null;
   followUpLogs?: FollowUpLog[];
+  ufValue: number;
   canConfigureCrm?: boolean;
   currentUserId?: string;
 }) {
@@ -172,12 +180,17 @@ export function CrmDealDetailClient({
 
   const selectCn = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
+  const [dealProposalLink, setDealProposalLink] = useState<string | null>(deal.proposalLink || null);
+  const [dealProposalSentAt, setDealProposalSentAt] = useState<string | null>(deal.proposalSentAt || null);
+  const [followUpActioning, setFollowUpActioning] = useState(false);
+  const [localFollowUpLogs, setLocalFollowUpLogs] = useState(followUpLogs);
+
   const followUpLogsDesc = useMemo(
     () =>
-      [...followUpLogs].sort(
+      [...localFollowUpLogs].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
-    [followUpLogs]
+    [localFollowUpLogs]
   );
   const latestFollowUpBySequence = useMemo(() => {
     const bySequence: Record<number, FollowUpLog | null> = { 1: null, 2: null };
@@ -188,31 +201,32 @@ export function CrmDealDetailClient({
     }
     return bySequence;
   }, [followUpLogsDesc]);
-  const pendingFollowUps = followUpLogs.filter((log) => log.status === "pending");
+  const pendingFollowUps = localFollowUpLogs.filter((log) => log.status === "pending");
   const overdueFollowUpsCount = pendingFollowUps.filter(
     (log) => new Date(log.scheduledAt).getTime() <= Date.now()
   ).length;
-  const sentFollowUpsCount = followUpLogs.filter((log) => log.status === "sent").length;
-  const failedFollowUpsCount = followUpLogs.filter((log) => log.status === "failed").length;
+  const sentFollowUpsCount = localFollowUpLogs.filter((log) => log.status === "sent").length;
+  const failedFollowUpsCount = localFollowUpLogs.filter((log) => log.status === "failed").length;
   const followUpFlowStatus = useMemo(
     () =>
       getFollowUpFlowStatus({
-        proposalSentAt: deal.proposalSentAt || null,
-        proposalLink: deal.proposalLink || null,
+        proposalSentAt: dealProposalSentAt,
+        proposalLink: dealProposalLink,
         config: followUpConfig,
-        totalLogs: followUpLogs.length,
+        totalLogs: localFollowUpLogs.length,
         pendingLogs: pendingFollowUps.length,
         overdueLogs: overdueFollowUpsCount,
       }),
     [
-      deal.proposalSentAt,
-      deal.proposalLink,
+      dealProposalSentAt,
+      dealProposalLink,
       followUpConfig,
-      followUpLogs.length,
+      localFollowUpLogs.length,
       pendingFollowUps.length,
       overdueFollowUpsCount,
     ]
   );
+  const localFollowUpLogsDesc = followUpLogsDesc;
 
   const deleteDeal = async () => {
     try { const res = await fetch(`/api/crm/deals/${deal.id}`, { method: "DELETE" }); if (!res.ok) throw new Error(); toast.success("Negocio eliminado"); router.push("/crm/deals"); }
@@ -264,6 +278,21 @@ export function CrmDealDetailClient({
   };
 
   const quotesById = useMemo(() => quotes.reduce<Record<string, QuoteOption>>((acc, q) => { acc[q.id] = q; return acc; }, {}), [quotes]);
+  const formatQuoteAmounts = useCallback(
+    (quote?: QuoteOption) => {
+      if (!quote) return "Monto no disponible";
+      const raw = Number(quote.monthlyCost ?? 0);
+      if (!Number.isFinite(raw) || raw <= 0) return "Monto no disponible";
+      const safeUf = ufValue > 0 ? ufValue : 38000;
+      const amountClp = quote.currency === "UF" ? raw * safeUf : raw;
+      const amountUf = quote.currency === "UF" ? raw : raw / safeUf;
+      return `$${Math.round(amountClp).toLocaleString("es-CL")} · UF ${amountUf.toLocaleString("es-CL", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    },
+    [ufValue]
+  );
 
   const linkQuote = async () => {
     if (!selectedQuoteId) { toast.error("Selecciona una cotización."); return; }
@@ -400,6 +429,12 @@ export function CrmDealDetailClient({
           ? { id: payload.data.stage.id, name: payload.data.stage.name }
           : { id: nextStage.id, name: nextStage.name }
       );
+      if (payload.data?.proposalSentAt) {
+        setDealProposalSentAt(payload.data.proposalSentAt);
+      }
+      if (typeof payload.data?.proposalLink === "string") {
+        setDealProposalLink(payload.data.proposalLink);
+      }
       toast.success("Etapa actualizada");
     } catch (error) {
       console.error(error);
@@ -419,7 +454,6 @@ export function CrmDealDetailClient({
   const subtitle = [
     deal.account?.name || "Sin cliente",
     currentStage?.name || "Sin etapa",
-    `$${Number(deal.amount).toLocaleString("es-CL")}`,
   ].join(" · ");
 
   const statusBadge = deal.status === "won"
@@ -465,7 +499,6 @@ export function CrmDealDetailClient({
             </div>
           }
         />
-        <DetailField label="Monto" value={`$${Number(deal.amount).toLocaleString("es-CL")}`} mono />
         <DetailField
           label="Contacto"
           value={deal.primaryContact && deal.primaryContactId ? (
@@ -476,16 +509,11 @@ export function CrmDealDetailClient({
         />
         <DetailField
           label="Link propuesta"
-          value={deal.proposalLink ? (
-            <a href={deal.proposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+          value={dealProposalLink ? (
+            <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
               Ver propuesta<ExternalLink className="h-3 w-3" />
             </a>
           ) : undefined}
-        />
-        <DetailField
-          label="Propuesta enviada"
-          value={deal.proposalSentAt ? formatDealDateTime(deal.proposalSentAt) : undefined}
-          placeholder="No enviada"
         />
         <DetailField
           label="Flujo seguimiento"
@@ -495,9 +523,6 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const [followUpActioning, setFollowUpActioning] = useState(false);
-  const [localFollowUpLogs, setLocalFollowUpLogs] = useState(followUpLogs);
-  const localFollowUpLogsDesc = useMemo(() => [...localFollowUpLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [localFollowUpLogs]);
   const localPendingCount = localFollowUpLogs.filter((l) => l.status === "pending").length;
   const localPausedCount = localFollowUpLogs.filter((l) => l.status === "paused").length;
 
@@ -537,7 +562,7 @@ export function CrmDealDetailClient({
             Reanudar
           </Button>
         )}
-        {deal.proposalSentAt && (
+        {dealProposalSentAt && (
           <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
             onClick={() => handleFollowUpAction("restart")}>
             Reprogramar
@@ -757,6 +782,7 @@ export function CrmDealDetailClient({
               module="quotes"
               title={info?.code || "CPQ"}
               subtitle={info?.clientName || "Sin cliente"}
+              meta={formatQuoteAmounts(info)}
               badge={{ label: statusLabel, variant: statusVariant as any }}
               href={`/crm/cotizaciones/${quote.quoteId}`}
             />
@@ -1061,7 +1087,7 @@ function getFollowUpFlowStatus({
   pendingLogs: number;
   overdueLogs: number;
 }) {
-  if (!proposalSentAt && !proposalLink) {
+  if (!proposalSentAt && !proposalLink && totalLogs === 0) {
     return {
       label: "Sin iniciar",
       className: "text-[10px] border-muted text-muted-foreground",

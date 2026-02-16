@@ -7,8 +7,8 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { PageHeader, Breadcrumb } from "@/components/opai";
-import { CrmDealDetailClient, type DealDetail, CrmSubnav } from "@/components/crm";
+import { getUfValue } from "@/lib/uf";
+import { CrmDealDetailClient, type DealDetail } from "@/components/crm";
 
 export default async function CrmDealDetailPage({
   params,
@@ -23,8 +23,6 @@ export default async function CrmDealDetailPage({
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "deals")) redirect("/crm");
   const canConfigureCrm = canView(perms, "config", "crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const deal = await prisma.crmDeal.findFirst({
     where: { id, tenantId },
@@ -58,11 +56,19 @@ export default async function CrmDealDetailPage({
     accountInstallations,
     followUpConfig,
     followUpLogsRaw,
+    ufValue,
   ] = await Promise.all([
     prisma.cpqQuote.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, code: true, clientName: true, status: true },
+      select: {
+        id: true,
+        code: true,
+        clientName: true,
+        status: true,
+        monthlyCost: true,
+        currency: true,
+      },
     }),
     prisma.crmPipelineStage.findMany({
       where: { tenantId, isActive: true },
@@ -140,6 +146,7 @@ export default async function CrmDealDetailPage({
         createdAt: true,
       },
     }),
+    getUfValue(),
   ]);
 
   const followUpLogIds = followUpLogsRaw.map((log: { id: string }) => log.id);
@@ -224,7 +231,6 @@ export default async function CrmDealDetailPage({
 
   return (
     <>
-      <CrmSubnav role={role} />
       <div className="space-y-4">
         <CrmDealDetailClient
           deal={initialDeal}
@@ -238,6 +244,7 @@ export default async function CrmDealDetailPage({
           docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
           followUpConfig={initialFollowUpConfig}
           followUpLogs={initialFollowUpLogs}
+          ufValue={ufValue}
           canConfigureCrm={canConfigureCrm}
           currentUserId={session.user.id}
         />
