@@ -125,9 +125,12 @@ export function useSectionPreferences({
     [fixedSectionKey, stableKeys]
   );
 
-  const [prefs, setPrefs] = useState<SectionPrefs>(() =>
-    readCache(pageType, fixedSectionKey, stableKeys)
-  );
+  // Inicializar siempre con orden por defecto para que servidor y cliente coincidan (evitar hydration mismatch).
+  // El orden guardado en localStorage se aplica en useEffect después del montaje.
+  const [prefs, setPrefs] = useState<SectionPrefs>(() => ({
+    order: getDefaultOrder(fixedSectionKey, stableKeys),
+    collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys),
+  }));
   const [loading, setLoading] = useState(true);
 
   const didLoadServerRef = useRef(false);

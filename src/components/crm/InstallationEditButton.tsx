@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -149,6 +150,7 @@ export function InstallationEditButton({
                 placeholder="Buscar dirección en Google Maps..."
                 showMap={true}
               />
+              <MapsUrlPasteInput onResolve={handleAddressChange} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

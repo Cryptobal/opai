@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
@@ -1264,6 +1265,7 @@ export function CrmInstallationDetailClient({
                 placeholder="Buscar dirección en Google Maps..."
                 showMap={true}
               />
+              <MapsUrlPasteInput onResolve={handleAddressChange} disabled={saving} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

@@ -139,8 +139,8 @@ export const updateInstallationSchema = z.object({
   teMontoClp: z.number().min(0).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
   nocturnoEnabled: z.boolean().optional(),
-  startDate: z.string().optional().nullable(),
-  endDate: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable().transform((v) => (v === "" ? null : v)),
+  endDate: z.string().optional().nullable().transform((v) => (v === "" ? null : v)),
   activateAccount: z.boolean().optional(),
 });
 
