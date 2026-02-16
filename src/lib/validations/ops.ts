@@ -257,10 +257,6 @@ export const updateGuardiaSchema = z.object({
   terminationReason: z.string().trim().max(500).optional().nullable(),
 });
 
-export const updateBlacklistSchema = z.object({
-  isBlacklisted: z.boolean(),
-  reason: z.string().trim().max(500).optional().nullable(),
-});
 
 export const createGuardiaBankAccountSchema = z.object({
   bankCode: z.string().trim().refine((v) => CHILE_BANK_CODES.includes(v), "Banco inválido"),

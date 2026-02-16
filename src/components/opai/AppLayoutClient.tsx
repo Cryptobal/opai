@@ -28,7 +28,6 @@ import {
   BarChart3,
   CheckCircle2,
   Shield,
-  Ban,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -106,14 +105,10 @@ export function AppLayoutClient({
       ].filter(Boolean) as NavItem['children'],
     },
     {
-      href: '/personas',
-      label: 'Personas',
+      href: '/personas/guardias',
+      label: 'Guardias',
       icon: Shield,
       show: hasModuleAccess(permissions, 'ops'),
-      children: [
-        { href: '/personas/guardias', label: 'Guardias', icon: Shield },
-        { href: '/personas/lista-negra', label: 'Lista negra', icon: Ban },
-      ],
     },
     {
       href: '/finanzas',

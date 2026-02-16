@@ -64,7 +64,6 @@ export type DocsSubmoduleKey =
 
 export type OpsCapability =
   | "guardias_manage"
-  | "guardias_blacklist"
   | "guardias_documents"
   | "ops_execution"
   | "te_execution"
@@ -115,7 +114,6 @@ const ALL_DOCS_SUBMODULES: DocsSubmoduleKey[] = [
 ];
 const ALL_OPS_CAPABILITIES: OpsCapability[] = [
   "guardias_manage",
-  "guardias_blacklist",
   "guardias_documents",
   "ops_execution",
   "te_execution",
@@ -198,7 +196,6 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     docsSubmodules: [],
     opsCapabilities: [
       "guardias_manage",
-      "guardias_blacklist",
       "guardias_documents",
       "rrhh_events",
       "rondas_monitor",

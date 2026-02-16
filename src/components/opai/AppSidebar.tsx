@@ -60,7 +60,7 @@ export function AppSidebar({
     [pathname]
   );
 
-  // Auto-expand active module section
+  // Auto-expand active module section (accordion: only one open at a time)
   useEffect(() => {
     for (const item of navItems) {
       if (item.children && item.children.length > 0) {
@@ -69,11 +69,10 @@ export function AppSidebar({
           item.children.some((child) => isItemActive(child.href));
         if (isModuleActive) {
           setExpandedSections((prev) => {
-            if (prev.has(item.href)) return prev;
-            const next = new Set(prev);
-            next.add(item.href);
-            return next;
+            if (prev.size === 1 && prev.has(item.href)) return prev;
+            return new Set([item.href]);
           });
+          break;
         }
       }
     }
@@ -81,13 +80,10 @@ export function AppSidebar({
 
   const toggleSection = (href: string) => {
     setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(href)) {
-        next.delete(href);
-      } else {
-        next.add(href);
+      if (prev.has(href)) {
+        return new Set();
       }
-      return next;
+      return new Set([href]);
     });
   };
 

@@ -42,7 +42,6 @@ import {
   Banknote,
   // Personas
   Shield,
-  Ban,
   // Docs
   FolderOpen,
   // Config
@@ -129,7 +128,6 @@ const TE_ITEMS: BottomNavItem[] = [
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
   { key: "personas-guardias", href: "/personas/guardias", label: "Guardias", icon: Shield },
-  { key: "personas-lista-negra", href: "/personas/lista-negra", label: "Lista negra", icon: Ban },
 ];
 
 /* ── Payroll sub-items ── */

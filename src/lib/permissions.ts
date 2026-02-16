@@ -107,7 +107,6 @@ export const CAPABILITY_KEYS = [
   "manage_users",
   "te_approve",
   "te_pay",
-  "guardias_blacklist",
   "manage_settings",
   "rondas_configure",
   "rondas_resolve_alerts",
@@ -233,7 +232,6 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "manage_users", label: "Gestionar usuarios", description: "Puede editar roles y desactivar usuarios" },
   { key: "te_approve", label: "Aprobar turnos extra", description: "Puede aprobar o rechazar turnos extra" },
   { key: "te_pay", label: "Generar pagos TE", description: "Puede crear lotes de pago de turnos extra" },
-  { key: "guardias_blacklist", label: "Gestionar lista negra", description: "Puede agregar/remover guardias de la lista negra" },
   { key: "manage_settings", label: "Configuración global", description: "Puede modificar configuración general del sistema" },
   { key: "rondas_configure", label: "Configurar rondas", description: "Puede crear/editar checkpoints, plantillas y programación de rondas" },
   { key: "rondas_resolve_alerts", label: "Resolver alertas rondas", description: "Puede marcar como resueltas las alertas de rondas" },
@@ -355,7 +353,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "view",
     },
     submodules: {},
-    capabilities: { guardias_blacklist: true, rendicion_view_all: true, ticket_approve: true },
+    capabilities: { rendicion_view_all: true, ticket_approve: true },
   },
 
   operaciones: {
@@ -681,7 +679,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
-  if (pathname.startsWith("/personas/guardias") || pathname.startsWith("/personas/lista-negra"))
+  if (pathname.startsWith("/personas/guardias"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
 

@@ -185,8 +185,6 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   bank_account_updated: "Cuenta bancaria actualizada",
   bank_account_deleted: "Cuenta bancaria eliminada",
   status_changed: "Cambio de estado",
-  blacklist_added: "Agregado a lista negra",
-  blacklist_removed: "Quitado de lista negra",
   assigned: "Asignado a puesto",
   unassigned: "Desasignado de puesto",
 };
@@ -204,7 +202,7 @@ function lifecycleBadgeVariant(
   const normalized = value.toLowerCase();
   if (normalized.includes("activo")) return "success";
   if (normalized.includes("inactivo")) return "warning";
-  if (normalized.includes("desvinculado") || normalized.includes("blacklist")) return "destructive";
+  if (normalized.includes("desvinculado")) return "destructive";
   return "secondary";
 }
 
@@ -2007,8 +2005,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const recordActions: RecordAction[] = [];
   const puedeDesvincular =
     canManageGuardias &&
-    guardia.lifecycleStatus !== "desvinculado" &&
-    !guardia.isBlacklisted;
+    guardia.lifecycleStatus !== "desvinculado";
 
   if (puedeDesvincular) {
     recordActions.push({
@@ -2052,13 +2049,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         backHref="/personas/guardias"
         backLabel="Guardias"
         actions={actionsToShow}
-        extra={
-          guardia.isBlacklisted ? (
-            <span className="text-[11px] rounded-full bg-red-500/15 px-2 py-1 text-red-400">
-              Lista negra
-            </span>
-          ) : null
-        }
+        extra={null}
         sections={sections}
       />
 

@@ -9,7 +9,6 @@ export * from "./TeTurnosClient";
 export * from "./TeLotesClient";
 export * from "./GuardiasClient";
 export * from "./GuardiaDetailClient";
-export * from "./ListaNegraClient";
 export * from "./OpsMarcacionesClient";
 export * from "./OpsConfigClient";
 export * from "./OpsControlNocturnoListClient";

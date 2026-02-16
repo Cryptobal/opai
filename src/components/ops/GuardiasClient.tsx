@@ -319,46 +319,6 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     }
   };
 
-  const handleBlacklistToggle = async (item: GuardiaItem) => {
-    const isBlacklisted = !item.isBlacklisted;
-    const reason = isBlacklisted
-      ? window.prompt("Motivo de lista negra:", item.blacklistReason ?? "") ?? ""
-      : null;
-
-    setUpdatingId(item.id);
-    try {
-      const response = await fetch(`/api/personas/guardias/${item.id}/lista-negra`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isBlacklisted,
-          reason,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo actualizar lista negra");
-      }
-      setGuardias((prev) =>
-        prev.map((row) =>
-          row.id === item.id
-            ? {
-                ...row,
-                isBlacklisted: payload.data.isBlacklisted,
-                blacklistReason: payload.data.blacklistReason,
-              }
-            : row
-        )
-      );
-      toast.success(isBlacklisted ? "Guardia enviado a lista negra" : "Guardia removido de lista negra");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo actualizar lista negra");
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
   const handleOpenPublicPostulacion = async () => {
     setLoadingPublicForm(true);
     try {
