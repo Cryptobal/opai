@@ -11,7 +11,7 @@ export async function GET() {
     if (forbidden) return forbidden;
 
     const admins = await prisma.admin.findMany({
-      where: { tenantId: ctx.tenantId, isActive: true },
+      where: { tenantId: ctx.tenantId, status: "active" },
       select: {
         id: true,
         name: true,
