@@ -470,6 +470,7 @@ export async function POST(
       // Generar código de cotización
       const year = new Date().getFullYear();
       let quoteCodeCounter = await tx.cpqQuote.count({ where: { tenantId: ctx.tenantId } });
+      let anyQuoteCreated = false;
 
       for (const inst of installationsPayload) {
         const instName = toSentenceCase(inst?.name);
@@ -675,6 +676,7 @@ export async function POST(
                 quoteId: quote.id,
               },
             });
+            anyQuoteCreated = true;
 
             // Crear ítems de costo preseleccionados según selectedCostGroups
             if (selectedCostGroups.length > 0) {
@@ -756,6 +758,108 @@ export async function POST(
             commune: body?.installationCommune?.trim() || null,
           },
         });
+      }
+
+      // ── Cotización fallback: si ninguna instalación tenía dotación, crear cotización básica ──
+      if (!anyQuoteCreated) {
+        quoteCodeCounter++;
+        const baseCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
+        const fallbackQuoteCode = `${baseCode}-${randomBytes(2).toString("hex")}`;
+        // Buscar la primera instalación creada para vincularla (si existe)
+        const firstInstallation = await tx.crmInstallation.findFirst({
+          where: { tenantId: ctx.tenantId, accountId: account.id },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        });
+        try {
+          const fallbackQuote = await tx.cpqQuote.create({
+            data: {
+              tenantId: ctx.tenantId,
+              code: fallbackQuoteCode,
+              status: "draft",
+              clientName: accountName,
+              accountId: account.id,
+              contactId: contact.id,
+              dealId: deal.id,
+              installationId: firstInstallation?.id || null,
+              totalPositions: 0,
+              totalGuards: 0,
+              notes: dealNotes,
+            },
+          });
+          if (dealNotes) {
+            await tx.crmNote.create({
+              data: {
+                tenantId: ctx.tenantId,
+                entityType: "quote",
+                entityId: fallbackQuote.id,
+                content: dealNotes,
+                createdBy: ctx.userId,
+              },
+            });
+          }
+          await tx.crmDealQuote.create({
+            data: {
+              tenantId: ctx.tenantId,
+              dealId: deal.id,
+              quoteId: fallbackQuote.id,
+            },
+          });
+
+          // Crear ítems de costo preseleccionados para cotización fallback
+          if (selectedCostGroups.length > 0) {
+            const typesSet = new Set<string>();
+            for (const g of selectedCostGroups) {
+              const types = COST_GROUP_TYPES[g];
+              if (types) for (const t of types) typesSet.add(t);
+            }
+            const typesList = [...typesSet];
+            if (typesList.length > 0) {
+              const catalogItems = await tx.cpqCatalogItem.findMany({
+                where: {
+                  OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+                  active: true,
+                  type: { in: typesList },
+                },
+              });
+              for (const item of catalogItems) {
+                if (item.type === "uniform") {
+                  await tx.cpqQuoteUniformItem.create({
+                    data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, active: true },
+                  });
+                } else if (item.type === "exam") {
+                  await tx.cpqQuoteExamItem.create({
+                    data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, active: true },
+                  });
+                } else if (item.type === "meal") {
+                  await tx.cpqQuoteMeal.create({
+                    data: {
+                      quoteId: fallbackQuote.id, mealType: item.name,
+                      mealsPerDay: 0, daysOfService: 0, priceOverride: null, isEnabled: true, visibility: "visible",
+                    },
+                  });
+                } else {
+                  await tx.cpqQuoteCostItem.create({
+                    data: {
+                      quoteId: fallbackQuote.id, catalogItemId: item.id,
+                      calcMode: "per_month", quantity: 1, unitPriceOverride: null,
+                      isEnabled: true, visibility: item.defaultVisibility || "visible", notes: null,
+                    },
+                  });
+                }
+              }
+            }
+          }
+        } catch (quoteErr: unknown) {
+          const prismaErr = quoteErr as { code?: string; meta?: { code?: string }; message?: string };
+          const code = prismaErr?.code ?? prismaErr?.meta?.code;
+          if (code === "P2002" || (typeof prismaErr?.message === "string" && prismaErr.message.includes("25P02"))) {
+            throw new Error(
+              "Conflicto al crear la cotización (código duplicado o transacción abortada). Por favor intenta aprobar de nuevo."
+            );
+          }
+          throw quoteErr;
+        }
       }
 
       await tx.crmDealContact.create({

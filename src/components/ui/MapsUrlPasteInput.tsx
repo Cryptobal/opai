@@ -7,6 +7,25 @@ import { isGoogleMapsUrl, parseGoogleMapsUrl } from "@/lib/google-maps-url";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Link2, Loader2 } from "lucide-react";
 
+/** Tipos mínimos para Geocoder API (sin @types/google.maps) */
+interface GeocoderAddressComponent {
+  long_name: string;
+  types: string[];
+}
+interface GeocoderResult {
+  formatted_address?: string;
+  address_components?: GeocoderAddressComponent[];
+}
+interface GeocoderInstance {
+  geocode(
+    request: { location: { lat: number; lng: number } },
+    callback: (results: GeocoderResult[] | null, status: string) => void
+  ): void;
+}
+interface GoogleMapsGeocoder {
+  Geocoder: new () => GeocoderInstance;
+}
+
 interface MapsUrlPasteInputProps {
   onResolve: (result: AddressResult) => void;
   disabled?: boolean;
@@ -14,7 +33,7 @@ interface MapsUrlPasteInputProps {
 }
 
 /** Misma lógica de extractComponents que AddressAutocomplete usa. */
-function extractFromGeocoderResult(result: google.maps.GeocoderResult): {
+function extractFromGeocoderResult(result: GeocoderResult): {
   address: string;
   city: string;
   commune: string;
@@ -67,7 +86,7 @@ function reverseGeocodeInBrowser(
   lng: number
 ): Promise<{ address: string; city: string; commune: string }> {
   return new Promise((resolve, reject) => {
-    const g = typeof window !== "undefined" ? window.google : undefined;
+    const g = typeof window !== "undefined" ? (window as Window & { google?: { maps?: GoogleMapsGeocoder } }).google : undefined;
     if (!g?.maps?.Geocoder) {
       reject(new Error("Google Maps no está cargado."));
       return;
@@ -75,7 +94,7 @@ function reverseGeocodeInBrowser(
     const geocoder = new g.maps.Geocoder();
     geocoder.geocode(
       { location: { lat, lng } },
-      (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
+      (results: GeocoderResult[] | null, status: string) => {
         if (status === "OK" && results && results.length > 0) {
           resolve(extractFromGeocoderResult(results[0]));
         } else if (status === "ZERO_RESULTS") {
