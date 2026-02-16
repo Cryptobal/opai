@@ -92,12 +92,11 @@ export async function POST(request: NextRequest) {
         orderBy: { name: "asc" },
       });
     } else {
-      // NOTE: nocturnoEnabled filter disabled — migration not yet applied in production.
-      // Re-enable once migration 20260315000000_add_nocturno_enabled_to_installations runs.
       installations = await prisma.crmInstallation.findMany({
         where: {
           account: { tenantId: ctx.tenantId },
           isActive: true,
+          nocturnoEnabled: true,
         },
         select: { id: true, name: true },
         orderBy: { name: "asc" },

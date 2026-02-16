@@ -38,6 +38,7 @@ export async function GET(
         marcacionCode: true,
         notes: true,
         metadata: true,
+        nocturnoEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,
@@ -91,9 +92,6 @@ export async function PATCH(
     const payload = parsed.data;
     const installationData: Record<string, unknown> = { ...payload };
     delete installationData.activateAccount;
-    // nocturnoEnabled column may not exist in production yet — strip to avoid crash
-    // Re-enable once migration 20260315000000_add_nocturno_enabled_to_installations is applied
-    delete installationData.nocturnoEnabled;
 
     const normalizedData =
       payload.name === undefined
