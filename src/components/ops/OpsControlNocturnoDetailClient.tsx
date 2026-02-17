@@ -56,10 +56,17 @@ type GuardiaItem = {
 
 type RelevoDiaItem = { nombre: string; hora: string | null; isExtra?: boolean };
 
+type OpsInstallationOption = {
+  id: string;
+  name: string;
+  account?: { id: string; name: string } | null;
+};
+
 type InstalacionItem = {
   id: string;
   installationId: string | null;
   installationName: string;
+  accountName?: string | null;
   orderIndex: number;
   guardiasRequeridos: number;
   guardiasPresentes: number;
@@ -215,6 +222,15 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
   const [exporting, setExporting] = useState(false);
   const [rondaModalOpen, setRondaModalOpen] = useState(false);
   const [selectedRonda, setSelectedRonda] = useState<{ instId: string; ronda: RondaItem } | null>(null);
+  const [dayReliefModalOpen, setDayReliefModalOpen] = useState(false);
+  const [loadingDayReliefOptions, setLoadingDayReliefOptions] = useState(false);
+  const [savingDayRelief, setSavingDayRelief] = useState(false);
+  const [dayReliefOptions, setDayReliefOptions] = useState<OpsInstallationOption[]>([]);
+  const [dayReliefSearch, setDayReliefSearch] = useState("");
+  const [selectedDayReliefInstallationId, setSelectedDayReliefInstallationId] = useState("");
+  const [dayReliefDraft, setDayReliefDraft] = useState<RelevoDiaItem[]>([
+    { nombre: "", hora: null, isExtra: false },
+  ]);
   const [dirty, setDirty] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -238,6 +254,8 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         const data = json.data as Reporte;
         data.instalaciones = data.instalaciones.map((i) => ({
           ...i,
+          accountName: (i as InstalacionItem & { installation?: { account?: { name?: string | null } | null } | null })
+            .installation?.account?.name ?? i.accountName ?? null,
           relevoDiaList: parseRelevoDiaList(i.guardiaDiaNombres, i.horaLlegadaTurnoDia),
         }));
         setReporte(data);
@@ -254,6 +272,88 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
   }, [reporteId]);
 
   useEffect(() => { fetchReporte(); }, [fetchReporte]);
+
+  const fetchDayReliefOptions = useCallback(async () => {
+    setLoadingDayReliefOptions(true);
+    try {
+      const res = await fetch("/api/ops/instalaciones");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setDayReliefOptions(json.data as OpsInstallationOption[]);
+      } else {
+        toast.error("No se pudieron cargar las instalaciones");
+      }
+    } catch {
+      toast.error("Error al cargar instalaciones");
+    } finally {
+      setLoadingDayReliefOptions(false);
+    }
+  }, []);
+
+  const openDayReliefModal = useCallback(() => {
+    setDayReliefDraft([{ nombre: "", hora: null, isExtra: false }]);
+    setDayReliefSearch("");
+    setSelectedDayReliefInstallationId("");
+    setDayReliefModalOpen(true);
+    if (dayReliefOptions.length === 0) {
+      fetchDayReliefOptions();
+    }
+  }, [dayReliefOptions.length, fetchDayReliefOptions]);
+
+  const upsertDayRelief = useCallback(async () => {
+    if (!selectedDayReliefInstallationId) {
+      toast.error("Selecciona una instalación");
+      return;
+    }
+    const cleaned = dayReliefDraft
+      .map((item) => ({
+        nombre: item.nombre.trim(),
+        hora: item.hora?.trim() || null,
+        isExtra: !!item.isExtra,
+      }))
+      .filter((item) => item.nombre || item.hora);
+
+    if (cleaned.length === 0) {
+      toast.error("Agrega al menos un relevo");
+      return;
+    }
+
+    setSavingDayRelief(true);
+    try {
+      const res = await fetch(`/api/ops/control-nocturno/${reporteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert_day_relief",
+          installationId: selectedDayReliefInstallationId,
+          relevoDiaList: cleaned,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const data = json.data as Reporte;
+        data.instalaciones = data.instalaciones.map((i) => ({
+          ...i,
+          accountName: (i as InstalacionItem & { installation?: { account?: { name?: string | null } | null } | null })
+            .installation?.account?.name ?? i.accountName ?? null,
+          relevoDiaList: parseRelevoDiaList(i.guardiaDiaNombres, i.horaLlegadaTurnoDia),
+        }));
+        setReporte(data);
+        const target = data.instalaciones.find(
+          (i) => i.installationId === selectedDayReliefInstallationId,
+        );
+        if (target) setExpandedInst(target.id);
+        setDayReliefModalOpen(false);
+        toast.success("Relevo de mañana guardado");
+      } else {
+        toast.error(json.error || "No se pudo guardar el relevo");
+      }
+    } catch {
+      toast.error("Error al guardar relevo");
+    } finally {
+      setSavingDayRelief(false);
+    }
+  }, [dayReliefDraft, reporteId, selectedDayReliefInstallationId]);
 
   /* ── Save helper ── */
 
@@ -304,6 +404,8 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         const data = json.data as Reporte;
         data.instalaciones = data.instalaciones.map((i) => ({
           ...i,
+          accountName: (i as InstalacionItem & { installation?: { account?: { name?: string | null } | null } | null })
+            .installation?.account?.name ?? i.accountName ?? null,
           relevoDiaList: parseRelevoDiaList(i.guardiaDiaNombres, i.horaLlegadaTurnoDia),
         }));
         setReporte(data);
@@ -521,6 +623,381 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
     };
   }, [reporte]);
 
+  const installationIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!reporte) return map;
+    reporte.instalaciones.forEach((inst, index) => {
+      map.set(inst.id, index + 1);
+    });
+    return map;
+  }, [reporte]);
+
+  const groupedInstalaciones = useMemo(() => {
+    if (!reporte) return [];
+    const groups = new Map<string, InstalacionItem[]>();
+
+    for (const inst of reporte.instalaciones) {
+      const key = inst.accountName?.trim() || "Sin cliente asignado";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(inst);
+    }
+
+    return Array.from(groups.entries()).map(([accountName, instalaciones]) => ({
+      accountName,
+      instalaciones,
+      total: instalaciones.length,
+      normales: instalaciones.filter((i) => i.statusInstalacion === "normal").length,
+      novedades: instalaciones.filter((i) => i.statusInstalacion === "novedad").length,
+      criticos: instalaciones.filter((i) => i.statusInstalacion === "critico").length,
+    }));
+  }, [reporte]);
+
+  const filteredDayReliefOptions = useMemo(() => {
+    const q = dayReliefSearch.trim().toLowerCase();
+    if (!q) return dayReliefOptions;
+    return dayReliefOptions.filter((opt) => {
+      const accountName = opt.account?.name?.toLowerCase() || "";
+      return opt.name.toLowerCase().includes(q) || accountName.includes(q);
+    });
+  }, [dayReliefOptions, dayReliefSearch]);
+
+  const renderInstalacionCard = (inst: InstalacionItem, displayIndex: number) => {
+    const isExpanded = expandedInst === inst.id;
+    const instStatusColor =
+      INST_STATUS_COLORS[inst.statusInstalacion] || INST_STATUS_COLORS.normal;
+    const completedRondas = inst.rondas.filter((r) => r.status === "completada").length;
+    const totalRondas = inst.rondas.filter((r) => r.status !== "no_aplica").length;
+
+    return (
+      <Card key={inst.id} className="overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setExpandedInst(isExpanded ? null : inst.id)}
+          className="w-full text-left"
+        >
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-bold text-muted-foreground w-5 text-right shrink-0">
+                {displayIndex}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{inst.installationName}</p>
+                <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                  Cliente: {inst.accountName?.trim() || "Sin cliente asignado"}
+                </p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {inst.guardiasPresentes}/{inst.guardiasRequeridos}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Rondas: {completedRondas}/{totalRondas}
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${instStatusColor}`}
+                  >
+                    {INST_STATUS_LABELS[inst.statusInstalacion]}
+                  </span>
+                </div>
+              </div>
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+            </div>
+          </CardContent>
+        </button>
+
+        {isExpanded && (
+          <div className="border-t border-border px-3 pb-4 space-y-4">
+            {isEditable && (
+              <div className="pt-3">
+                <Label className="text-xs">Estado instalación</Label>
+                <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                  {Object.entries(INST_STATUS_LABELS).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => updateInst(inst.id, { statusInstalacion: val })}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                        inst.statusInstalacion === val
+                          ? INST_STATUS_COLORS[val]
+                          : "border-border text-muted-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-center justify-between mb-2 pt-2">
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <Moon className="h-3.5 w-3.5 text-indigo-400" />
+                  Guardias nocturnos
+                </p>
+                {isEditable && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => addGuardia(inst.id)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Agregar
+                  </Button>
+                )}
+              </div>
+              {inst.guardias.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Sin guardias registrados</p>
+              ) : (
+                <div className="space-y-2">
+                  {inst.guardias.map((g, gIdx) => (
+                    <div key={g.id || `new-${gIdx}`} className="flex items-center gap-2">
+                      {isEditable ? (
+                        <>
+                          <GuardiaSearchInput
+                            value={g.guardiaNombre}
+                            onChange={(patch) =>
+                              updateGuardia(inst.id, gIdx, {
+                                guardiaNombre: patch.guardiaNombre,
+                                guardiaId: patch.guardiaId ?? undefined,
+                              })
+                            }
+                            placeholder="Buscar guardia o escribir nombre"
+                            className="h-8 text-xs"
+                          />
+                          <Input
+                            value={g.horaLlegada || ""}
+                            onChange={(e) =>
+                              updateGuardia(inst.id, gIdx, {
+                                horaLlegada: formatTimeInput(e.target.value) || null,
+                              })
+                            }
+                            placeholder="HH:MM"
+                            className="h-8 text-xs w-16 text-center"
+                            maxLength={5}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateGuardia(inst.id, gIdx, { isExtra: !g.isExtra })}
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                              g.isExtra
+                                ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                                : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            EXTRA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeGuardia(inst.id, gIdx)}
+                            className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="text-sm">{g.guardiaNombre}</span>
+                          {g.isExtra && (
+                            <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+                              EXTRA
+                            </span>
+                          )}
+                          {g.horaLlegada && (
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {g.horaLlegada}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-blue-400" />
+                  Rondas
+                </p>
+                {isEditable && (
+                  <p className="text-[10px] text-muted-foreground">Toca para editar</p>
+                )}
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                {inst.rondas.map((r) => {
+                  const rColor = RONDA_STATUS_COLORS[r.status] || RONDA_STATUS_COLORS.pendiente;
+                  const hasNote = !!r.notes;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRonda({ instId: inst.id, ronda: r });
+                        setRondaModalOpen(true);
+                      }}
+                      className={`relative flex flex-col items-center justify-center rounded-lg border p-1.5 transition-colors ${rColor} active:scale-95`}
+                    >
+                      <span className="text-[10px] font-medium opacity-70">
+                        {r.horaEsperada.slice(0, 5)}
+                      </span>
+                      {r.status === "completada" && r.horaMarcada ? (
+                        <span className="text-[11px] font-bold">{r.horaMarcada}</span>
+                      ) : r.status === "completada" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : r.status === "omitida" ? (
+                        <XCircle className="h-3.5 w-3.5" />
+                      ) : r.status === "no_aplica" ? (
+                        <span className="text-[10px]">N/A</span>
+                      ) : (
+                        <span className="text-[10px]">—</span>
+                      )}
+                      {hasNote && (
+                        <MessageSquare className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-blue-400" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+                  <CheckCircle2 className="h-2.5 w-2.5" /> OK
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-red-400">
+                  <XCircle className="h-2.5 w-2.5" /> Omitida
+                </span>
+                <span className="text-[10px] text-zinc-500">— Pendiente</span>
+                <span className="text-[10px] text-zinc-500">N/A No aplica</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-orange-400" />
+                  Relevo mañana
+                </p>
+                {isEditable && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => addRelevoDia(inst.id)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Agregar
+                  </Button>
+                )}
+              </div>
+              {isEditable ? (
+                <div className="space-y-2">
+                  {(inst.relevoDiaList ??
+                    parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia))
+                    .length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Sin guardias de relevo
+                    </p>
+                  ) : (
+                    (inst.relevoDiaList ??
+                      parseRelevoDiaList(
+                        inst.guardiaDiaNombres,
+                        inst.horaLlegadaTurnoDia,
+                      )).map((r, rIdx) => (
+                      <div key={rIdx} className="flex items-center gap-2">
+                        <GuardiaSearchInput
+                          value={r.nombre}
+                          onChange={(patch) =>
+                            updateRelevoDia(inst.id, rIdx, { nombre: patch.guardiaNombre })
+                          }
+                          placeholder="Buscar guardia o escribir nombre"
+                          className="h-8 text-xs flex-1"
+                        />
+                        <Input
+                          value={r.hora || ""}
+                          onChange={(e) =>
+                            updateRelevoDia(inst.id, rIdx, {
+                              hora: formatTimeInput(e.target.value) || null,
+                            })
+                          }
+                          placeholder="HH:MM"
+                          className="h-8 text-xs w-16 text-center"
+                          maxLength={5}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateRelevoDia(inst.id, rIdx, { isExtra: !r.isExtra })}
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                            r.isExtra
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          EXTRA
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeRelevoDia(inst.id, rIdx)}
+                          className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {(inst.relevoDiaList ??
+                    parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia))
+                    .length === 0 ? (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  ) : (
+                    (inst.relevoDiaList ??
+                      parseRelevoDiaList(
+                        inst.guardiaDiaNombres,
+                        inst.horaLlegadaTurnoDia,
+                      )).map((r, rIdx) => (
+                      <div key={rIdx} className="flex items-center gap-2 text-sm">
+                        <span>{r.nombre || "—"}</span>
+                        {r.isExtra && (
+                          <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+                            EXTRA
+                          </span>
+                        )}
+                        {r.hora && <span className="text-xs text-muted-foreground">{r.hora}</span>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {isEditable ? (
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Notas</Label>
+                <Input
+                  value={inst.notes || ""}
+                  onChange={(e) => updateInst(inst.id, { notes: e.target.value || null })}
+                  placeholder="Comentarios de esta instalación"
+                  className="h-8 text-xs mt-0.5"
+                />
+              </div>
+            ) : inst.notes ? (
+              <p className="text-xs text-muted-foreground italic">{inst.notes}</p>
+            ) : null}
+          </div>
+        )}
+      </Card>
+    );
+  };
+
   /* ── Loading ── */
 
   if (loading || !reporte) {
@@ -625,326 +1102,56 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
         </Card>
       ) : null}
 
-      {/* ── Lista de instalaciones (accordion mobile-first) ── */}
-      <div className="space-y-2">
-        {reporte.instalaciones.map((inst, instIdx) => {
-          const isExpanded = expandedInst === inst.id;
-          const instStatusColor = INST_STATUS_COLORS[inst.statusInstalacion] || INST_STATUS_COLORS.normal;
-          const completedRondas = inst.rondas.filter((r) => r.status === "completada").length;
-          const totalRondas = inst.rondas.filter((r) => r.status !== "no_aplica").length;
+      {isEditable && (
+        <div className="flex items-center justify-end">
+          <Button size="sm" variant="outline" onClick={openDayReliefModal}>
+            <Building2 className="h-4 w-4 mr-1.5" />
+            Relevos de mañana
+          </Button>
+        </div>
+      )}
 
-          return (
-            <Card key={inst.id} className="overflow-hidden">
-              {/* Instalacion header — always visible, tappable */}
-              <button
-                type="button"
-                onClick={() => setExpandedInst(isExpanded ? null : inst.id)}
-                className="w-full text-left"
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-bold text-muted-foreground w-5 text-right shrink-0">
-                      {instIdx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{inst.installationName}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {inst.guardiasPresentes}/{inst.guardiasRequeridos}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          Rondas: {completedRondas}/{totalRondas}
-                        </span>
-                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${instStatusColor}`}>
-                          {INST_STATUS_LABELS[inst.statusInstalacion]}
-                        </span>
-                      </div>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                    )}
-                  </div>
-                </CardContent>
-              </button>
+      {/* ── Lista de instalaciones (mobile-first + agrupación por cliente en desktop) ── */}
+      <div className="space-y-2 lg:hidden">
+        {reporte.instalaciones.map((inst) =>
+          renderInstalacionCard(inst, installationIndexMap.get(inst.id) || 0),
+        )}
+      </div>
 
-              {/* Expanded content */}
-              {isExpanded && (
-                <div className="border-t border-border px-3 pb-4 space-y-4">
-                  {/* ── Status selector ── */}
-                  {isEditable && (
-                    <div className="pt-3">
-                      <Label className="text-xs">Estado instalación</Label>
-                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                        {Object.entries(INST_STATUS_LABELS).map(([val, label]) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => updateInst(inst.id, { statusInstalacion: val })}
-                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
-                              inst.statusInstalacion === val
-                                ? INST_STATUS_COLORS[val]
-                                : "border-border text-muted-foreground hover:bg-accent/50"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Guardias nocturnos ── */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2 pt-2">
-                      <p className="text-xs font-semibold flex items-center gap-1.5">
-                        <Moon className="h-3.5 w-3.5 text-indigo-400" />
-                        Guardias nocturnos
-                      </p>
-                      {isEditable && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => addGuardia(inst.id)}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Agregar
-                        </Button>
-                      )}
-                    </div>
-                    {inst.guardias.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">Sin guardias registrados</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {inst.guardias.map((g, gIdx) => (
-                          <div key={g.id || `new-${gIdx}`} className="flex items-center gap-2">
-                            {isEditable ? (
-                              <>
-                                <GuardiaSearchInput
-                                  value={g.guardiaNombre}
-                                  onChange={(patch) =>
-                                    updateGuardia(inst.id, gIdx, {
-                                      guardiaNombre: patch.guardiaNombre,
-                                      guardiaId: patch.guardiaId ?? undefined,
-                                    })
-                                  }
-                                  placeholder="Buscar guardia o escribir nombre"
-                                  className="h-8 text-xs"
-                                />
-                                <Input
-                                  value={g.horaLlegada || ""}
-                                  onChange={(e) =>
-                                    updateGuardia(inst.id, gIdx, { horaLlegada: formatTimeInput(e.target.value) || null })
-                                  }
-                                  placeholder="HH:MM"
-                                  className="h-8 text-xs w-16 text-center"
-                                  maxLength={5}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateGuardia(inst.id, gIdx, { isExtra: !g.isExtra })}
-                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
-                                    g.isExtra
-                                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                                      : "border-border text-muted-foreground"
-                                  }`}
-                                >
-                                  EXTRA
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeGuardia(inst.id, gIdx)}
-                                  className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-2 flex-1">
-                                <span className="text-sm">{g.guardiaNombre}</span>
-                                {g.isExtra && (
-                                  <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
-                                    EXTRA
-                                  </span>
-                                )}
-                                {g.horaLlegada && (
-                                  <span className="text-xs text-muted-foreground ml-auto">
-                                    {g.horaLlegada}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── Rondas — grid compacto mobile ── */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-blue-400" />
-                        Rondas
-                      </p>
-                      {isEditable && (
-                        <p className="text-[10px] text-muted-foreground">Toca para editar</p>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                      {inst.rondas.map((r) => {
-                        const rColor = RONDA_STATUS_COLORS[r.status] || RONDA_STATUS_COLORS.pendiente;
-                        const hasNote = !!r.notes;
-                        return (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedRonda({ instId: inst.id, ronda: r });
-                              setRondaModalOpen(true);
-                            }}
-                            className={`relative flex flex-col items-center justify-center rounded-lg border p-1.5 transition-colors ${rColor} active:scale-95`}
-                          >
-                            <span className="text-[10px] font-medium opacity-70">{r.horaEsperada.slice(0, 5)}</span>
-                            {r.status === "completada" && r.horaMarcada ? (
-                              <span className="text-[11px] font-bold">{r.horaMarcada}</span>
-                            ) : r.status === "completada" ? (
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                            ) : r.status === "omitida" ? (
-                              <XCircle className="h-3.5 w-3.5" />
-                            ) : r.status === "no_aplica" ? (
-                              <span className="text-[10px]">N/A</span>
-                            ) : (
-                              <span className="text-[10px]">—</span>
-                            )}
-                            {hasNote && (
-                              <MessageSquare className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-blue-400" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Leyenda */}
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-[10px] text-emerald-400"><CheckCircle2 className="h-2.5 w-2.5" /> OK</span>
-                      <span className="flex items-center gap-1 text-[10px] text-red-400"><XCircle className="h-2.5 w-2.5" /> Omitida</span>
-                      <span className="text-[10px] text-zinc-500">— Pendiente</span>
-                      <span className="text-[10px] text-zinc-500">N/A No aplica</span>
-                    </div>
-                  </div>
-
-                  {/* ── Relevo mañana (múltiples guardias) ── */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold flex items-center gap-1.5">
-                        <Building2 className="h-3.5 w-3.5 text-orange-400" />
-                        Relevo mañana
-                      </p>
-                      {isEditable && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => addRelevoDia(inst.id)}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Agregar
-                        </Button>
-                      )}
-                    </div>
-                    {isEditable ? (
-                      <div className="space-y-2">
-                        {(inst.relevoDiaList ?? parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia)).length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic">Sin guardias de relevo</p>
-                        ) : (
-                          (inst.relevoDiaList ?? parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia)).map((r, rIdx) => (
-                            <div key={rIdx} className="flex items-center gap-2">
-                              <GuardiaSearchInput
-                                value={r.nombre}
-                                onChange={(patch) =>
-                                  updateRelevoDia(inst.id, rIdx, { nombre: patch.guardiaNombre })
-                                }
-                                placeholder="Buscar guardia o escribir nombre"
-                                className="h-8 text-xs flex-1"
-                              />
-                              <Input
-                                value={r.hora || ""}
-                                onChange={(e) =>
-                                  updateRelevoDia(inst.id, rIdx, {
-                                    hora: formatTimeInput(e.target.value) || null,
-                                  })
-                                }
-                                placeholder="HH:MM"
-                                className="h-8 text-xs w-16 text-center"
-                                maxLength={5}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => updateRelevoDia(inst.id, rIdx, { isExtra: !r.isExtra })}
-                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
-                                  r.isExtra
-                                    ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                                    : "border-border text-muted-foreground"
-                                }`}
-                              >
-                                EXTRA
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeRelevoDia(inst.id, rIdx)}
-                                className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {(inst.relevoDiaList ?? parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia)).length === 0 ? (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        ) : (
-                          (inst.relevoDiaList ?? parseRelevoDiaList(inst.guardiaDiaNombres, inst.horaLlegadaTurnoDia)).map((r, rIdx) => (
-                            <div key={rIdx} className="flex items-center gap-2 text-sm">
-                              <span>{r.nombre || "—"}</span>
-                              {r.isExtra && (
-                                <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
-                                  EXTRA
-                                </span>
-                              )}
-                              {r.hora && (
-                                <span className="text-xs text-muted-foreground">{r.hora}</span>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── Notas instalación ── */}
-                  {isEditable ? (
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Notas</Label>
-                      <Input
-                        value={inst.notes || ""}
-                        onChange={(e) => updateInst(inst.id, { notes: e.target.value || null })}
-                        placeholder="Comentarios de esta instalación"
-                        className="h-8 text-xs mt-0.5"
-                      />
-                    </div>
-                  ) : inst.notes ? (
-                    <p className="text-xs text-muted-foreground italic">{inst.notes}</p>
-                  ) : null}
+      <div className="hidden lg:block space-y-4">
+        {groupedInstalaciones.map((group) => (
+          <Card key={group.accountName}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold">{group.accountName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {group.total} instalación{group.total !== 1 ? "es" : ""}
+                  </p>
                 </div>
-              )}
-            </Card>
-          );
-        })}
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                  <span>Normal: {group.normales}</span>
+                  <span className="text-amber-400">Novedad: {group.novedades}</span>
+                  <span className="text-red-400">Crítico: {group.criticos}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
+                {group.instalaciones.map((inst) => {
+                  const isExpanded = expandedInst === inst.id;
+                  return (
+                    <div
+                      key={inst.id}
+                      className={isExpanded ? "xl:col-span-2 2xl:col-span-3" : undefined}
+                    >
+                      {renderInstalacionCard(inst, installationIndexMap.get(inst.id) || 0)}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* ── Action bar fijo abajo (mobile-first) ── */}
@@ -1002,6 +1209,155 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
           </>
         )}
       </div>
+
+      {/* ── Modal Relevos de mañana ── */}
+      <Dialog
+        open={dayReliefModalOpen}
+        onOpenChange={(open) => {
+          setDayReliefModalOpen(open);
+          if (!open) {
+            setDayReliefSearch("");
+            setSelectedDayReliefInstallationId("");
+            setDayReliefDraft([{ nombre: "", hora: null, isExtra: false }]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Relevos de mañana</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Buscar instalación o cliente</Label>
+              <Input
+                value={dayReliefSearch}
+                onChange={(e) => setDayReliefSearch(e.target.value)}
+                placeholder="Ej: CIMS o nombre del cliente"
+              />
+              <Label className="text-xs">Instalación</Label>
+              <select
+                value={selectedDayReliefInstallationId}
+                onChange={(e) => setSelectedDayReliefInstallationId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                disabled={loadingDayReliefOptions}
+              >
+                <option value="">Seleccionar instalación</option>
+                {filteredDayReliefOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {(opt.account?.name ? `${opt.account.name} · ` : "") + opt.name}
+                  </option>
+                ))}
+              </select>
+              {loadingDayReliefOptions && (
+                <p className="text-xs text-muted-foreground">Cargando instalaciones...</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Guardias de relevo</Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setDayReliefDraft((prev) => [
+                      ...prev,
+                      { nombre: "", hora: null, isExtra: false },
+                    ])
+                  }
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Agregar
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {dayReliefDraft.map((item, idx) => (
+                  <div key={`day-relief-${idx}`} className="flex items-center gap-2">
+                    <GuardiaSearchInput
+                      value={item.nombre}
+                      onChange={(patch) =>
+                        setDayReliefDraft((prev) =>
+                          prev.map((row, rowIdx) =>
+                            rowIdx === idx ? { ...row, nombre: patch.guardiaNombre } : row,
+                          ),
+                        )
+                      }
+                      placeholder="Buscar guardia o escribir nombre"
+                      className="h-8 text-xs flex-1"
+                    />
+                    <Input
+                      value={item.hora || ""}
+                      onChange={(e) =>
+                        setDayReliefDraft((prev) =>
+                          prev.map((row, rowIdx) =>
+                            rowIdx === idx
+                              ? { ...row, hora: formatTimeInput(e.target.value) || null }
+                              : row,
+                          ),
+                        )
+                      }
+                      placeholder="HH:MM"
+                      className="h-8 text-xs w-16 text-center"
+                      maxLength={5}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDayReliefDraft((prev) =>
+                          prev.map((row, rowIdx) =>
+                            rowIdx === idx ? { ...row, isExtra: !row.isExtra } : row,
+                          ),
+                        )
+                      }
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                        item.isExtra
+                          ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      EXTRA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDayReliefDraft((prev) =>
+                          prev.length > 1 ? prev.filter((_, rowIdx) => rowIdx !== idx) : prev,
+                        )
+                      }
+                      className="shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDayReliefModalOpen(false)}
+              disabled={savingDayRelief}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={upsertDayRelief} disabled={savingDayRelief}>
+              {savingDayRelief ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar relevo"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Modal detalle ronda ── */}
       <Dialog open={rondaModalOpen} onOpenChange={(open) => {

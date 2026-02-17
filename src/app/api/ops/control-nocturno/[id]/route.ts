@@ -5,10 +5,43 @@ import { hasCapability } from "@/lib/permissions";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
 import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
+import { generateControlNocturnoPdfBuffer } from "@/lib/control-nocturno-pdf";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const maxDuration = 60;
+
+const RONDA_HOURS = [
+  "20:00", "21:00", "22:00", "23:00",
+  "00:00", "01:00", "02:00", "03:00",
+  "04:00", "05:00", "06:00", "07:00",
+];
+
+type RelevoDiaInput = { nombre?: string; hora?: string | null; isExtra?: boolean };
+
+function serializeRelevoDiaList(list: RelevoDiaInput[]): {
+  guardiaDiaNombres: string | null;
+  horaLlegadaTurnoDia: string | null;
+} {
+  if (!Array.isArray(list) || list.length === 0) {
+    return { guardiaDiaNombres: null, horaLlegadaTurnoDia: null };
+  }
+  const normalized = list
+    .map((item) => ({
+      nombre: typeof item.nombre === "string" ? item.nombre.trim() : "",
+      hora: typeof item.hora === "string" ? item.hora.trim() : null,
+      isExtra: !!item.isExtra,
+    }))
+    .filter((item) => item.nombre || item.hora);
+
+  if (normalized.length === 0) {
+    return { guardiaDiaNombres: null, horaLlegadaTurnoDia: null };
+  }
+  return {
+    guardiaDiaNombres: JSON.stringify(normalized),
+    horaLlegadaTurnoDia: normalized[0]?.hora ?? null,
+  };
+}
 
 /* ── GET — obtener reporte con todo el detalle ── */
 
@@ -31,6 +64,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
             },
             rondas: {
               orderBy: { rondaNumber: "asc" },
+            },
+            installation: {
+              select: {
+                account: {
+                  select: { name: true },
+                },
+              },
             },
           },
           orderBy: { orderIndex: "asc" },
@@ -85,11 +125,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       centralOperatorName,
       centralLabel,
       instalaciones,
+      installationId,
+      relevoDiaList,
     } = body as {
       action?: string;
       generalNotes?: string;
       centralOperatorName?: string;
       centralLabel?: string;
+      installationId?: string;
+      relevoDiaList?: RelevoDiaInput[];
       instalaciones?: Array<{
         id: string;
         guardiasRequeridos?: number;
@@ -113,6 +157,102 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }>;
       }>;
     };
+
+    if (action === "upsert_day_relief") {
+      if (!installationId || !Array.isArray(relevoDiaList)) {
+        return NextResponse.json(
+          { success: false, error: "installationId y relevoDiaList son requeridos" },
+          { status: 400 },
+        );
+      }
+
+      const installation = await prisma.crmInstallation.findFirst({
+        where: {
+          id: installationId,
+          tenantId: ctx.tenantId,
+          isActive: true,
+        },
+        select: { id: true, name: true },
+      });
+
+      if (!installation) {
+        return NextResponse.json(
+          { success: false, error: "Instalación no encontrada" },
+          { status: 404 },
+        );
+      }
+
+      const serialized = serializeRelevoDiaList(relevoDiaList);
+      const existingInst = await prisma.opsControlNocturnoInstalacion.findFirst({
+        where: {
+          controlNocturnoId: id,
+          installationId: installation.id,
+        },
+        select: { id: true },
+      });
+
+      if (existingInst) {
+        await prisma.opsControlNocturnoInstalacion.update({
+          where: { id: existingInst.id },
+          data: {
+            guardiaDiaNombres: serialized.guardiaDiaNombres,
+            horaLlegadaTurnoDia: serialized.horaLlegadaTurnoDia,
+          },
+        });
+      } else {
+        const maxOrder = await prisma.opsControlNocturnoInstalacion.aggregate({
+          where: { controlNocturnoId: id },
+          _max: { orderIndex: true },
+        });
+
+        await prisma.opsControlNocturnoInstalacion.create({
+          data: {
+            controlNocturnoId: id,
+            installationId: installation.id,
+            installationName: installation.name,
+            orderIndex: (maxOrder._max.orderIndex ?? 0) + 1,
+            guardiasRequeridos: 0,
+            guardiasPresentes: 0,
+            statusInstalacion: "no_aplica",
+            guardiaDiaNombres: serialized.guardiaDiaNombres,
+            horaLlegadaTurnoDia: serialized.horaLlegadaTurnoDia,
+            rondas: {
+              create: RONDA_HOURS.map((hora, idx) => ({
+                rondaNumber: idx + 1,
+                horaEsperada: hora,
+                status: "no_aplica",
+              })),
+            },
+          },
+        });
+      }
+
+      const updatedDayRelief = await prisma.opsControlNocturno.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        include: {
+          instalaciones: {
+            include: {
+              guardias: { orderBy: { createdAt: "asc" } },
+              rondas: { orderBy: { rondaNumber: "asc" } },
+              installation: {
+                select: {
+                  account: {
+                    select: { name: true },
+                  },
+                },
+              },
+            },
+            orderBy: { orderIndex: "asc" },
+          },
+        },
+      });
+
+      await createOpsAuditLog(ctx, "upsert_day_relief", "control_nocturno", id, {
+        installationId,
+      });
+
+      return NextResponse.json({ success: true, data: updatedDayRelief });
+    }
 
     // Update base fields
     const updateData: Record<string, unknown> = {};
@@ -210,6 +350,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           include: {
             guardias: { orderBy: { createdAt: "asc" } },
             rondas: { orderBy: { rondaNumber: "asc" } },
+            installation: {
+              select: {
+                account: {
+                  select: { name: true },
+                },
+              },
+            },
           },
           orderBy: { orderIndex: "asc" },
         },
@@ -252,28 +399,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ctx.tenantId,
       ).catch(() => null);
 
-      // Generate PDF inline for attachment
+      // Generate PDF inline for attachment (direct call, no self-fetch)
       let pdfBuffer: Uint8Array | undefined;
       try {
-        const pdfUrl = new URL(
-          `/api/ops/control-nocturno/${id}/export-pdf`,
-          baseUrl,
-        );
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45_000);
-        try {
-          const pdfRes = await fetch(pdfUrl.toString(), {
-            headers: { cookie: request.headers.get("cookie") || "" },
-            signal: controller.signal,
-          });
-          if (pdfRes.ok) {
-            pdfBuffer = new Uint8Array(await pdfRes.arrayBuffer());
-          } else {
-            console.warn("[OPS] PDF export returned", pdfRes.status, pdfRes.statusText);
-          }
-        } finally {
-          clearTimeout(timeoutId);
-        }
+        pdfBuffer = await Promise.race([
+          generateControlNocturnoPdfBuffer(id, ctx.tenantId),
+          new Promise<Uint8Array>((_, reject) =>
+            setTimeout(() => reject(new Error("PDF generation timeout")), 45_000),
+          ),
+        ]);
       } catch (pdfErr) {
         console.warn("[OPS] Could not generate PDF for email attachment:", pdfErr);
       }

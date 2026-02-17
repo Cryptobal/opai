@@ -86,6 +86,11 @@ export async function GET(request: NextRequest) {
             patternOff: true,
             startDate: true,
             startPosition: true,
+            isRotativo: true,
+            rotatePuestoId: true,
+            rotateSlotNumber: true,
+            startShift: true,
+            linkedSerieId: true,
             guardia: {
               select: {
                 id: true,
@@ -98,6 +103,23 @@ export async function GET(request: NextRequest) {
           },
         })
       : [];
+
+    // Get all puestos for this installation (for rotative puesto selector in UI)
+    const allPuestos = await prisma.opsPuestoOperativo.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        installationId,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        shiftStart: true,
+        shiftEnd: true,
+        requiredGuards: true,
+      },
+      orderBy: { name: "asc" },
+    });
 
     // Also get active guard assignments for this installation
     const asignaciones = await prisma.opsAsignacionGuardia.findMany({
@@ -174,6 +196,7 @@ export async function GET(request: NextRequest) {
         series,
         asignaciones,
         executionByCell,
+        allPuestos,
       },
     });
   } catch (error) {

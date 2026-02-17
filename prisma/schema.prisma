@@ -1741,6 +1741,14 @@ model OpsSerieAsignacion {
   startPosition   Int       @default(1) @map("start_position")
   endDate         DateTime? @map("end_date") @db.Date
   isActive        Boolean   @default(true) @map("is_active")
+
+  // Rotative shift fields
+  isRotativo       Boolean  @default(false) @map("is_rotativo")
+  rotatePuestoId   String?  @map("rotate_puesto_id") @db.Uuid
+  rotateSlotNumber Int?     @map("rotate_slot_number")
+  startShift       String?  @map("start_shift")       // "day" | "night"
+  linkedSerieId    String?  @map("linked_serie_id") @db.Uuid
+
   createdBy       String?   @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1751,6 +1759,7 @@ model OpsSerieAsignacion {
   @@index([tenantId], map: "idx_ops_serie_asig_tenant")
   @@index([puestoId, slotNumber], map: "idx_ops_serie_asig_puesto_slot")
   @@index([guardiaId], map: "idx_ops_serie_asig_guardia")
+  @@index([linkedSerieId], map: "idx_ops_serie_asig_linked")
   @@map("serie_asignaciones")
   @@schema("ops")
 }

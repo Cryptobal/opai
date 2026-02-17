@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw } from "lucide-react";
+import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -115,11 +115,24 @@ type SerieInfo = {
   patternCode: string;
   patternWork: number;
   patternOff: number;
+  isRotativo?: boolean;
+  rotatePuestoId?: string | null;
+  rotateSlotNumber?: number | null;
+  startShift?: string | null;
+  linkedSerieId?: string | null;
   guardia?: {
     id: string;
     code?: string | null;
     persona: { firstName: string; lastName: string };
   } | null;
+};
+
+type PuestoInfo = {
+  id: string;
+  name: string;
+  shiftStart: string;
+  shiftEnd: string;
+  requiredGuards: number;
 };
 
 type SlotAsignacion = {
@@ -229,10 +242,42 @@ export function OpsPautaMensualClient({
   const [year, setYear] = useState<number>(today.getUTCFullYear());
   const [overwrite, setOverwrite] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Overview vs detail view
+  const [pageView, setPageView] = useState<"overview" | "detail">(() => {
+    return urlInstallationId ? "detail" : "overview";
+  });
+
+  type InstallationSummary = {
+    id: string;
+    name: string;
+    clientName: string;
+    clientId: string | null;
+    puestos: {
+      id: string;
+      name: string;
+      shiftStart: string;
+      shiftEnd: string;
+      isNight: boolean;
+      requiredGuards: number;
+      assignedGuards: number;
+    }[];
+    totalPuestos: number;
+    totalRequired: number;
+    assignedSlots: number;
+    vacantes: number;
+    hasPauta: boolean;
+    hasPainted: boolean;
+    ppcCount: number;
+    status: "sin_crear" | "sin_pintar" | "incompleta" | "completa";
+  };
+  const [overviewData, setOverviewData] = useState<InstallationSummary[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
+  const [allPuestos, setAllPuestos] = useState<PuestoInfo[]>([]);
 
   // View mode: month on desktop (>=768px), week on mobile; sync on resize
   const [viewMode, setViewMode] = useState<"week" | "month">(() => {
@@ -258,6 +303,10 @@ export function OpsPautaMensualClient({
     patternCode: "",
     startDate: "",
     startPosition: 1,
+    isRotativo: false,
+    rotatePuestoId: "",
+    rotateSlotNumber: 1,
+    startShift: "day" as "day" | "night",
   });
   const [serieSaving, setSerieSaving] = useState(false);
 
@@ -321,6 +370,7 @@ export function OpsPautaMensualClient({
         throw new Error(payload.error || "Error cargando pauta");
 
       const fetchedItems = payload.data.items as PautaItem[];
+      if (payload.data.allPuestos) setAllPuestos(payload.data.allPuestos as PuestoInfo[]);
 
       if (fetchedItems.length === 0) {
         // No hay pauta → intentar auto-generar silenciosamente
@@ -344,6 +394,7 @@ export function OpsPautaMensualClient({
               setSeries(payload2.data.series as SerieInfo[]);
               if (payload2.data.asignaciones) setSlotAsignaciones(payload2.data.asignaciones as SlotAsignacion[]);
               setExecutionByCell((payload2.data.executionByCell || {}) as Record<string, ExecutionCell>);
+              if (payload2.data.allPuestos) setAllPuestos(payload2.data.allPuestos as PuestoInfo[]);
               setLoading(false);
               return;
             }
@@ -382,8 +433,45 @@ export function OpsPautaMensualClient({
   }, [installationId, month, year]);
 
   useEffect(() => {
-    void fetchPauta();
-  }, [fetchPauta]);
+    if (pageView === "detail") void fetchPauta();
+  }, [fetchPauta, pageView]);
+
+  // Fetch overview data
+  const fetchOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    try {
+      const res = await fetch(
+        `/api/ops/pauta-mensual/resumen?month=${month}&year=${year}`,
+        { cache: "no-store" }
+      );
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "Error");
+      setOverviewData(payload.data.installations as InstallationSummary[]);
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo cargar el resumen de instalaciones");
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [month, year]);
+
+  useEffect(() => {
+    if (pageView === "overview") void fetchOverview();
+  }, [fetchOverview, pageView]);
+
+  // Navigate to a specific installation from the overview
+  const goToInstallation = (instId: string) => {
+    // Find the client for this installation
+    for (const c of clients) {
+      const inst = c.installations.find((i) => i.id === instId);
+      if (inst) {
+        setClientId(c.id);
+        setInstallationId(inst.id);
+        setPageView("detail");
+        return;
+      }
+    }
+  };
 
   // Build matrix: group by puestoId+slotNumber → map of dateKey → PautaItem
   type RowKey = string; // `${puestoId}|${slotNumber}`
@@ -401,6 +489,7 @@ export function OpsPautaMensualClient({
         guardiaId?: string;
         guardiaName?: string;
         patternCode?: string;
+        isRotativo?: boolean;
       }
     >();
 
@@ -421,12 +510,13 @@ export function OpsPautaMensualClient({
       row.cells.set(toDateKey(item.date), item);
     }
 
-    // Enrich with serie info (pattern code only)
+    // Enrich with serie info (pattern code + rotativo)
     for (const s of series) {
       const key: RowKey = `${s.puestoId}|${s.slotNumber}`;
       const row = rows.get(key);
       if (row) {
         row.patternCode = s.patternCode;
+        row.isRotativo = s.isRotativo ?? false;
       }
     }
 
@@ -505,14 +595,34 @@ export function OpsPautaMensualClient({
     await handleGenerate(true);
   };
 
+  // Determine if a puesto is "night" based on its shiftStart hour
+  const isPuestoNight = (shiftStart: string) => {
+    const h = parseInt(shiftStart.split(":")[0], 10);
+    return h >= 18 || h < 6;
+  };
+
+  // Get the "opposite" puestos (if current is day, show night puestos and vice versa)
+  const getOppositePuestos = (currentPuestoId: string) => {
+    const currentPuesto = allPuestos.find((p) => p.id === currentPuestoId);
+    if (!currentPuesto) return [];
+    const currentIsNight = isPuestoNight(currentPuesto.shiftStart);
+    return allPuestos.filter((p) => p.id !== currentPuestoId && isPuestoNight(p.shiftStart) !== currentIsNight);
+  };
+
   // Open serie modal
   const openSerieModal = (puestoId: string, slotNumber: number, dateKey: string) => {
+    const currentPuesto = allPuestos.find((p) => p.id === puestoId);
+    const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
     setSerieForm({
       puestoId,
       slotNumber,
       patternCode: PATTERNS[0]?.code ?? "4x4",
       startDate: dateKey,
       startPosition: 1,
+      isRotativo: false,
+      rotatePuestoId: "",
+      rotateSlotNumber: 1,
+      startShift: currentIsNight ? "night" : "day",
     });
     setSerieModalOpen(true);
   };
@@ -525,32 +635,51 @@ export function OpsPautaMensualClient({
       return;
     }
 
+    if (serieForm.isRotativo && !serieForm.rotatePuestoId) {
+      toast.error("Selecciona el puesto par para el turno rotativo");
+      return;
+    }
+
     setSerieSaving(true);
     try {
+      const payload_body: Record<string, unknown> = {
+        puestoId: serieForm.puestoId,
+        slotNumber: serieForm.slotNumber,
+        patternCode: pattern.code,
+        patternWork: pattern.work,
+        patternOff: pattern.off,
+        startDate: serieForm.startDate,
+        startPosition: serieForm.startPosition,
+        month,
+        year,
+        isRotativo: serieForm.isRotativo,
+      };
+
+      if (serieForm.isRotativo) {
+        payload_body.rotatePuestoId = serieForm.rotatePuestoId;
+        payload_body.rotateSlotNumber = serieForm.rotateSlotNumber;
+        payload_body.startShift = serieForm.startShift;
+      }
+
       const res = await fetch("/api/ops/pauta-mensual/pintar-serie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          puestoId: serieForm.puestoId,
-          slotNumber: serieForm.slotNumber,
-          patternCode: pattern.code,
-          patternWork: pattern.work,
-          patternOff: pattern.off,
-          startDate: serieForm.startDate,
-          startPosition: serieForm.startPosition,
-          month,
-          year,
-        }),
+        body: JSON.stringify(payload_body),
       });
       const payload = await res.json();
       if (!res.ok || !payload.success)
         throw new Error(payload.error || "Error pintando serie");
-      toast.success(`Serie pintada (${payload.data.updated} días)`);
+      toast.success(
+        serieForm.isRotativo
+          ? `Serie rotativa pintada (${payload.data.updated} días en ambos puestos)`
+          : `Serie pintada (${payload.data.updated} días)`
+      );
       setSerieModalOpen(false);
       await fetchPauta();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "No se pudo pintar la serie";
       console.error(error);
-      toast.error(error?.message || "No se pudo pintar la serie");
+      toast.error(msg);
     } finally {
       setSerieSaving(false);
     }
@@ -657,12 +786,192 @@ export function OpsPautaMensualClient({
   }, [viewMode, monthDays]);
 
   /* ── render ── */
+
+  // ── OVERVIEW VIEW ──
+  if (pageView === "overview") {
+    const STATUS_CONFIG = {
+      completa: { label: "Completa", icon: CheckCircle2, cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" },
+      incompleta: { label: "Incompleta", icon: AlertTriangle, cls: "text-amber-400 bg-amber-500/10 border-amber-500/30" },
+      sin_pintar: { label: "Sin pintar", icon: Clock, cls: "text-blue-400 bg-blue-500/10 border-blue-500/30" },
+      sin_crear: { label: "Sin crear", icon: XCircle, cls: "text-zinc-500 bg-zinc-500/10 border-zinc-500/30" },
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Month/Year selector for overview */}
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+              <div className="flex gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Mes</Label>
+                  <select
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    value={month}
+                    onChange={(e) => setMonth(Number(e.target.value))}
+                  >
+                    {MESES.map((nombre, idx) => (
+                      <option key={idx} value={idx + 1}>{nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Año</Label>
+                  <Input
+                    type="number"
+                    min={2020}
+                    max={2100}
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value) || year)}
+                    className="h-8 text-sm w-24"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                  <span key={key} className="flex items-center gap-1">
+                    <cfg.icon className={`h-3 w-3 ${cfg.cls.split(" ")[0]}`} />
+                    {cfg.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Installation cards */}
+        {overviewLoading ? (
+          <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Cargando resumen…
+          </div>
+        ) : overviewData.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 pb-6">
+              <EmptyState
+                icon={<Building2 className="h-8 w-8" />}
+                title="Sin instalaciones"
+                description="No hay instalaciones activas configuradas."
+                compact
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {overviewData.map((inst) => {
+              const cfg = STATUS_CONFIG[inst.status];
+              const StatusIcon = cfg.icon;
+              return (
+                <Card
+                  key={inst.id}
+                  className="cursor-pointer hover:border-primary/40 transition-colors group"
+                  onClick={() => goToInstallation(inst.id)}
+                >
+                  <CardContent className="pt-4 pb-3 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                          {inst.name}
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground truncate">{inst.clientName}</p>
+                      </div>
+                      <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${cfg.cls}`}>
+                        <StatusIcon className="h-3 w-3" />
+                        {cfg.label}
+                      </span>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span><span className="font-medium text-foreground">{inst.totalPuestos}</span> <span className="text-muted-foreground">puestos</span></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>
+                          <span className="font-medium text-foreground">{inst.assignedSlots}</span>
+                          <span className="text-muted-foreground">/{inst.totalRequired}</span>
+                          <span className="text-muted-foreground"> guardias</span>
+                        </span>
+                      </div>
+                      {inst.vacantes > 0 && (
+                        <span className="text-[10px] font-medium text-amber-400">
+                          {inst.vacantes} vacante{inst.vacantes > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {inst.ppcCount > 0 && (
+                        <span className="text-[10px] font-medium text-rose-400">
+                          PPC: {inst.ppcCount}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Puestos mini-table */}
+                    {inst.puestos.length > 0 && (
+                      <div className="rounded border border-border/50 overflow-hidden">
+                        <table className="w-full text-[10px]">
+                          <thead>
+                            <tr className="bg-muted/20 text-muted-foreground">
+                              <th className="text-left px-2 py-1 font-medium">Puesto</th>
+                              <th className="text-center px-1 py-1 font-medium w-10">Turno</th>
+                              <th className="text-center px-1 py-1 font-medium w-16">Guardias</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {inst.puestos.map((p) => (
+                              <tr key={p.id} className="border-t border-border/30">
+                                <td className="px-2 py-1 text-foreground truncate max-w-[160px]">{p.name}</td>
+                                <td className="text-center px-1 py-1">
+                                  <span className={`inline-block rounded-full px-1.5 py-px text-[8px] font-semibold border ${
+                                    p.isNight
+                                      ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                  }`}>
+                                    {p.isNight ? "N" : "D"}
+                                  </span>
+                                </td>
+                                <td className="text-center px-1 py-1">
+                                  <span className={`font-medium ${p.assignedGuards >= p.requiredGuards ? "text-emerald-400" : "text-amber-400"}`}>
+                                    {p.assignedGuards}
+                                  </span>
+                                  <span className="text-muted-foreground">/{p.requiredGuards}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── DETAIL VIEW ──
   return (
     <div className="space-y-3">
       {/* Controls — filtros siempre visibles, layout compacto */}
       <Card>
         <CardContent className="pt-4 pb-3 space-y-3">
           <div className="flex flex-col gap-3">
+            {/* Back button + Filtros */}
+            <div className="flex items-center gap-2 mb-1">
+              <button
+                type="button"
+                onClick={() => setPageView("overview")}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Volver al resumen
+              </button>
+            </div>
             {/* Filtros: Cliente + Instalación (fila 1), Mes + Año (fila 2 en móvil) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               <div className="space-y-1 col-span-2 sm:col-span-1">
@@ -933,7 +1242,14 @@ export function OpsPautaMensualClient({
                               <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
                             )}
                             {row.patternCode && (
-                              <span className="text-primary/50 text-[10px] hidden sm:inline">{row.patternCode}</span>
+                              <span className="text-primary/50 text-[10px] hidden sm:inline">
+                                {row.patternCode}
+                                {row.isRotativo && (
+                                  <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                    rot
+                                  </span>
+                                )}
+                              </span>
                             )}
                           </div>
                         </td>
@@ -1184,6 +1500,161 @@ export function OpsPautaMensualClient({
                       : `Día ${serieForm.startPosition - pattern.work} de descanso`
                     }
                   </p>
+                </div>
+              );
+            })()}
+
+            {/* Turno rotativo toggle */}
+            {(() => {
+              const oppositePuestos = getOppositePuestos(serieForm.puestoId);
+              const currentPuesto = allPuestos.find((p) => p.id === serieForm.puestoId);
+              const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
+              const selectedRotatePuesto = allPuestos.find((p) => p.id === serieForm.rotatePuestoId);
+
+              return (
+                <div className="rounded-md border border-border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium">Turno rotativo</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Alterna entre turno diurno y nocturno cada ciclo
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={serieForm.isRotativo}
+                      onClick={() =>
+                        setSerieForm((p) => ({
+                          ...p,
+                          isRotativo: !p.isRotativo,
+                          rotatePuestoId: !p.isRotativo ? (oppositePuestos[0]?.id ?? "") : "",
+                          rotateSlotNumber: 1,
+                          startShift: currentIsNight ? "night" : "day",
+                        }))
+                      }
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                        serieForm.isRotativo ? "bg-violet-500" : "bg-zinc-600"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                          serieForm.isRotativo ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {serieForm.isRotativo && (
+                    <>
+                      {oppositePuestos.length === 0 ? (
+                        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-medium text-amber-300">
+                                No hay puesto con turno {currentIsNight ? "diurno" : "nocturno"}
+                              </p>
+                              <p className="text-[10px] text-amber-400/80 mt-0.5">
+                                Para usar turno rotativo necesitas crear un puesto con horario {currentIsNight ? "diurno" : "nocturno"} en esta instalación.
+                              </p>
+                            </div>
+                          </div>
+                          {installationId && (
+                            <Link
+                              href={`/crm/installations/${installationId}`}
+                              className="inline-flex items-center gap-1.5 text-[10px] font-medium text-amber-300 hover:text-amber-200 transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ir a configurar puestos de esta instalación
+                            </Link>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Puesto par ({currentIsNight ? "diurno" : "nocturno"})</Label>
+                            <select
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                              value={serieForm.rotatePuestoId}
+                              onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: 1 }))}
+                            >
+                              {oppositePuestos.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} ({p.shiftStart}-{p.shiftEnd})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {selectedRotatePuesto && selectedRotatePuesto.requiredGuards > 1 && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Slot en puesto par</Label>
+                              <select
+                                className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                                value={serieForm.rotateSlotNumber}
+                                onChange={(e) => setSerieForm((p) => ({ ...p, rotateSlotNumber: Number(e.target.value) }))}
+                              >
+                                {Array.from({ length: selectedRotatePuesto.requiredGuards }, (_, i) => (
+                                  <option key={i + 1} value={i + 1}>Slot {i + 1}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">El primer ciclo de trabajo es</Label>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "day" }))}
+                                className={`flex-1 rounded-md px-3 py-2 text-xs font-medium border-2 transition-all ${
+                                  serieForm.startShift === "day"
+                                    ? "border-amber-400 bg-amber-500/15 text-amber-300"
+                                    : "border-transparent bg-muted/30 text-muted-foreground hover:border-muted-foreground/30"
+                                }`}
+                              >
+                                Diurno (D)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "night" }))}
+                                className={`flex-1 rounded-md px-3 py-2 text-xs font-medium border-2 transition-all ${
+                                  serieForm.startShift === "night"
+                                    ? "border-indigo-400 bg-indigo-500/15 text-indigo-300"
+                                    : "border-transparent bg-muted/30 text-muted-foreground hover:border-muted-foreground/30"
+                                }`}
+                              >
+                                Nocturno (N)
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Visual preview of rotative cycle */}
+                          {(() => {
+                            const pattern = PATTERNS.find((p) => p.code === serieForm.patternCode);
+                            if (!pattern) return null;
+                            return (
+                              <div className="rounded border border-violet-500/20 bg-violet-500/5 p-2">
+                                <p className="text-[10px] font-medium text-violet-300 mb-1.5">Vista previa del ciclo completo</p>
+                                <div className="flex flex-wrap gap-1 text-[9px]">
+                                  <span className={`rounded px-1.5 py-0.5 font-medium ${serieForm.startShift === "day" ? "bg-amber-500/20 text-amber-300" : "bg-indigo-500/20 text-indigo-300"}`}>
+                                    {pattern.work}T {serieForm.startShift === "day" ? "Día" : "Noche"}
+                                  </span>
+                                  <span className="rounded px-1.5 py-0.5 bg-zinc-700/30 text-zinc-500">{pattern.off}D</span>
+                                  <span className={`rounded px-1.5 py-0.5 font-medium ${serieForm.startShift === "day" ? "bg-indigo-500/20 text-indigo-300" : "bg-amber-500/20 text-amber-300"}`}>
+                                    {pattern.work}T {serieForm.startShift === "day" ? "Noche" : "Día"}
+                                  </span>
+                                  <span className="rounded px-1.5 py-0.5 bg-zinc-700/30 text-zinc-500">{pattern.off}D</span>
+                                  <span className="text-muted-foreground/50">y repite…</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               );
             })()}

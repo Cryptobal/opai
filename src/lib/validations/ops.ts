@@ -114,6 +114,11 @@ export const pintarSerieSchema = z.object({
   startPosition: z.coerce.number().int().min(1).max(60),
   month: z.coerce.number().int().min(1).max(12),
   year: z.coerce.number().int().min(2020).max(2100),
+  // Rotative shift fields (optional, backward compatible)
+  isRotativo: z.boolean().default(false),
+  rotatePuestoId: z.string().uuid("rotatePuestoId inválido").optional().nullable(),
+  rotateSlotNumber: z.coerce.number().int().min(1).max(20).optional().nullable(),
+  startShift: z.enum(["day", "night"]).optional().nullable(),
 });
 
 export const updateAsistenciaSchema = z.object({
