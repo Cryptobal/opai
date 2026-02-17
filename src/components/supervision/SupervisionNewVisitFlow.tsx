@@ -16,8 +16,8 @@ type NearbyInstallation = {
   commune: string | null;
   city: string | null;
   geoRadiusM: number;
-  distanceM: number;
-  insideGeofence: boolean;
+  distanceM: number | null;
+  insideGeofence: boolean | null;
 };
 
 type Visit = {
@@ -48,6 +48,7 @@ type DotacionRow = {
 
 export function SupervisionNewVisitFlow() {
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [loadingInstallations, setLoadingInstallations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [installations, setInstallations] = useState<NearbyInstallation[]>([]);
@@ -68,6 +69,31 @@ export function SupervisionNewVisitFlow() {
     () => installations.find((i) => i.id === selectedInstallationId) ?? null,
     [installations, selectedInstallationId],
   );
+
+  useEffect(() => {
+    async function fetchAssigned() {
+      setLoadingInstallations(true);
+      try {
+        const res = await fetch("/api/ops/supervision/installations");
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          setInstallations(json.data);
+          if (json.data.length > 0 && !selectedInstallationId) {
+            setSelectedInstallationId(json.data[0].id);
+          }
+        } else {
+          setInstallations([]);
+          setSelectedInstallationId("");
+        }
+      } catch {
+        setInstallations([]);
+        setSelectedInstallationId("");
+      } finally {
+        setLoadingInstallations(false);
+      }
+    }
+    void fetchAssigned();
+  }, []);
 
   useEffect(() => {
     async function fetchDotacion() {
@@ -96,8 +122,8 @@ export function SupervisionNewVisitFlow() {
     if (!res.ok || !json.success) {
       throw new Error(json.error ?? "No se pudieron obtener instalaciones cercanas");
     }
-    setInstallations(json.data);
     if (json.data.length > 0) {
+      setInstallations(json.data);
       setSelectedInstallationId(json.data[0].id);
     }
   }
@@ -266,31 +292,60 @@ export function SupervisionNewVisitFlow() {
 
           <div className="space-y-2">
             <Label>Instalación</Label>
-            <Select value={selectedInstallationId} onValueChange={setSelectedInstallationId}>
+            <Select
+              value={selectedInstallationId}
+              onValueChange={setSelectedInstallationId}
+              disabled={loadingInstallations || installations.length === 0}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona instalación" />
+                <SelectValue
+                  placeholder={
+                    loadingInstallations
+                      ? "Cargando instalaciones..."
+                      : installations.length === 0
+                        ? "No tienes instalaciones asignadas"
+                        : "Selecciona instalación"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {installations.map((inst) => (
                   <SelectItem key={inst.id} value={inst.id}>
-                    {inst.name} ({inst.distanceM}m)
+                    {inst.name}
+                    {inst.distanceM != null ? ` (${inst.distanceM}m)` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!loadingInstallations && installations.length === 0 && (
+              <p className="text-xs text-amber-600">
+                No tienes instalaciones asignadas. Contacta al administrador para que te asigne instalaciones en Supervisión.
+              </p>
+            )}
           </div>
 
           {selectedInstallation && (
             <div className="rounded-md border p-3 text-sm">
               <p className="font-medium">{selectedInstallation.name}</p>
               <p className="text-muted-foreground">{selectedInstallation.address ?? "Sin dirección"}</p>
-              <p className="mt-1 text-xs">
-                Distancia: {selectedInstallation.distanceM}m | Radio: {selectedInstallation.geoRadiusM}m
-              </p>
+              {selectedInstallation.distanceM != null && (
+                <p className="mt-1 text-xs">
+                  Distancia: {selectedInstallation.distanceM}m | Radio: {selectedInstallation.geoRadiusM}m
+                </p>
+              )}
+              {selectedInstallation.distanceM == null && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Usa &quot;Usar mi ubicación&quot; para ver distancia y validar geocerca.
+                </p>
+              )}
             </div>
           )}
 
-          <Button onClick={handleStartVisit} disabled={submitting || !location || !selectedInstallationId} className="w-full">
+          <Button
+            onClick={handleStartVisit}
+            disabled={submitting || !location || !selectedInstallationId || installations.length === 0}
+            className="w-full"
+          >
             Iniciar visita (check-in)
           </Button>
 
