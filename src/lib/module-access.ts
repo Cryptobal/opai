@@ -58,6 +58,7 @@ const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
   solo_documentos: ROLE_POLICIES.solo_documentos.crmSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.crmSubmodules,
   solo_finanzas: ROLE_POLICIES.solo_finanzas.crmSubmodules,
+  supervisor: ROLE_POLICIES.supervisor.crmSubmodules,
   viewer: ROLE_POLICIES.viewer.crmSubmodules,
 };
 
@@ -74,6 +75,7 @@ const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
   solo_documentos: ROLE_POLICIES.solo_documentos.configSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.configSubmodules,
   solo_finanzas: ROLE_POLICIES.solo_finanzas.configSubmodules,
+  supervisor: ROLE_POLICIES.supervisor.configSubmodules,
   viewer: ROLE_POLICIES.viewer.configSubmodules,
 };
 
@@ -90,6 +92,7 @@ const ROLE_DOCS_SUBMODULE_ACCESS: Record<Role, DocsSubmoduleKey[]> = {
   solo_documentos: ROLE_POLICIES.solo_documentos.docsSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.docsSubmodules,
   solo_finanzas: ROLE_POLICIES.solo_finanzas.docsSubmodules,
+  supervisor: ROLE_POLICIES.supervisor.docsSubmodules,
   viewer: ROLE_POLICIES.viewer.docsSubmodules,
 };
 

@@ -122,6 +122,16 @@ export function AppLayoutClient({
         },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket },
+        canView(permissions, 'ops', 'supervision') && {
+          href: '/ops/supervision',
+          label: 'Supervisión',
+          icon: ClipboardCheck,
+          children: [
+            { href: '/ops/supervision', label: 'Dashboard', icon: ClipboardCheck },
+            { href: '/ops/supervision/mis-visitas', label: 'Mis Visitas', icon: ClipboardCheck },
+            { href: '/ops/supervision/reportes', label: 'Reportes', icon: BarChart3 },
+          ],
+        },
       ].filter(Boolean) as NavItem['children'],
     },
     {

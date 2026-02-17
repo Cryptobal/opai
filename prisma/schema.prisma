@@ -28,6 +28,9 @@ model Tenant {
   financeConfig   FinanceRendicionConfig?
   financePayments FinancePayment[]
   adminGroups     AdminGroup[]
+  opsSupervisorAssignments OpsAsignacionSupervisor[]
+  opsSupervisionVisits OpsVisitaSupervision[]
+  opsSupervisionVisitImages OpsVisitaImagen[]
 
   @@index([slug])
   @@index([active])
@@ -165,6 +168,8 @@ model Admin {
   roleTemplate    RoleTemplate? @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
   aiChatConversations AiChatConversation[]
   groupMemberships AdminGroupMembership[]
+  supervisorAssignments OpsAsignacionSupervisor[] @relation("ops_supervisor_assignment_admin")
+  supervisionVisits OpsVisitaSupervision[] @relation("ops_supervision_visit_supervisor")
 
   @@index([email])
   @@index([status])
@@ -480,6 +485,265 @@ model PayrollSalaryComponent {
   @@index([isActive], map: "idx_components_active")
   @@index([code], map: "idx_components_code")
   @@map("salary_components_catalog")
+  @@schema("payroll")
+}
+
+// ============================================
+// PAYROLL - BONUS CATALOG
+// ============================================
+
+model PayrollBonoCatalog {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String   @map("tenant_id")
+  code              String   @unique
+  name              String
+  description       String?
+  bonoType          String   @map("bono_type") // FIJO | PORCENTUAL | CONDICIONAL
+  isTaxable         Boolean  @default(true) @map("is_taxable")
+  isTributable      Boolean  @default(true) @map("is_tributable")
+  defaultAmount     Decimal? @map("default_amount") @db.Decimal(12, 2)
+  defaultPercentage Decimal? @map("default_percentage") @db.Decimal(5, 2)
+  conditionType     String?  @map("condition_type") // ASISTENCIA_PERFECTA | CUMPLIMIENTO_RONDAS | CUSTOM
+  conditionThreshold Decimal? @map("condition_threshold") @db.Decimal(5, 2)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  structureBonos PayrollSalaryStructureBono[]
+
+  @@index([tenantId], map: "idx_payroll_bono_catalog_tenant")
+  @@index([isActive], map: "idx_payroll_bono_catalog_active")
+  @@index([bonoType], map: "idx_payroll_bono_catalog_type")
+  @@map("bono_catalog")
+  @@schema("payroll")
+}
+
+// ============================================
+// PAYROLL - SALARY STRUCTURE
+// ============================================
+
+model PayrollSalaryStructure {
+  id                        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                  String    @map("tenant_id")
+  sourceType                String    @map("source_type") // PUESTO | GUARDIA_RUT
+  sourceId                  String    @map("source_id") @db.Uuid
+  baseSalary                Decimal   @map("base_salary") @db.Decimal(12, 2)
+  colacion                  Decimal   @default(0) @db.Decimal(12, 2)
+  movilizacion              Decimal   @default(0) @db.Decimal(12, 2)
+  gratificationType         String    @default("AUTO_25") @map("gratification_type") // AUTO_25 | CUSTOM
+  gratificationCustomAmount Decimal?  @map("gratification_custom_amount") @db.Decimal(12, 2)
+  netSalaryEstimate         Decimal?  @map("net_salary_estimate") @db.Decimal(12, 2)
+  isActive                  Boolean   @default(true) @map("is_active")
+  effectiveFrom             DateTime? @map("effective_from") @db.Date
+  effectiveUntil            DateTime? @map("effective_until") @db.Date
+  createdBy                 String?   @map("created_by")
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bonos         PayrollSalaryStructureBono[]
+  liquidaciones PayrollLiquidacion[]
+  puestos       OpsPuestoOperativo[]  @relation("ops_puesto_salary_structure")
+  guardias      OpsGuardia[]          @relation("ops_guardia_salary_structure")
+
+  @@index([tenantId], map: "idx_payroll_salary_structure_tenant")
+  @@index([sourceType, sourceId], map: "idx_payroll_salary_structure_source")
+  @@index([isActive], map: "idx_payroll_salary_structure_active")
+  @@map("salary_structures")
+  @@schema("payroll")
+}
+
+model PayrollSalaryStructureBono {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  salaryStructureId  String   @map("salary_structure_id") @db.Uuid
+  bonoCatalogId      String   @map("bono_catalog_id") @db.Uuid
+  overrideAmount     Decimal? @map("override_amount") @db.Decimal(12, 2)
+  overridePercentage Decimal? @map("override_percentage") @db.Decimal(5, 2)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  salaryStructure PayrollSalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+  bonoCatalog     PayrollBonoCatalog     @relation(fields: [bonoCatalogId], references: [id], onDelete: Cascade)
+
+  @@index([salaryStructureId], map: "idx_payroll_structure_bono_structure")
+  @@index([bonoCatalogId], map: "idx_payroll_structure_bono_catalog")
+  @@map("salary_structure_bonos")
+  @@schema("payroll")
+}
+
+// ============================================
+// PAYROLL - PERIODS & LIQUIDACIONES
+// ============================================
+
+model PayrollPeriod {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String    @map("tenant_id")
+  year      Int
+  month     Int
+  status    String    @default("OPEN") // OPEN | PROCESSING | CLOSED | PAID
+  openedAt  DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  closedAt  DateTime? @map("closed_at") @db.Timestamptz(6)
+  paidAt    DateTime? @map("paid_at") @db.Timestamptz(6)
+  closedBy  String?   @map("closed_by")
+  notes     String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  liquidaciones     PayrollLiquidacion[]
+  anticipoProcesses PayrollAnticipoProcess[]
+  attendanceImports PayrollAttendanceImport[]
+  attendanceRecords PayrollAttendanceRecord[]
+
+  @@unique([tenantId, year, month], map: "uq_payroll_period_tenant_year_month")
+  @@index([tenantId], map: "idx_payroll_period_tenant")
+  @@index([status], map: "idx_payroll_period_status")
+  @@map("periods")
+  @@schema("payroll")
+}
+
+model PayrollLiquidacion {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String    @map("tenant_id")
+  periodId            String    @map("period_id") @db.Uuid
+  guardiaId           String    @map("guardia_id") @db.Uuid
+  personaId           String    @map("persona_id") @db.Uuid
+  installationId      String?   @map("installation_id") @db.Uuid
+  puestoId            String?   @map("puesto_id") @db.Uuid
+  salaryStructureId   String?   @map("salary_structure_id") @db.Uuid
+  salarySource        String    @map("salary_source") // PUESTO | RUT
+  attendanceSource    String    @default("OPAI") @map("attendance_source") // OPAI | IMPORT
+  daysWorked          Int       @map("days_worked")
+  totalDaysMonth      Int       @default(30) @map("total_days_month")
+  breakdown           Json      @db.JsonB
+  grossSalary         Decimal   @map("gross_salary") @db.Decimal(12, 2)
+  netSalary           Decimal   @map("net_salary") @db.Decimal(12, 2)
+  totalDeductions     Decimal   @map("total_deductions") @db.Decimal(12, 2)
+  employerCost        Decimal   @map("employer_cost") @db.Decimal(12, 2)
+  status              String    @default("DRAFT") // DRAFT | APPROVED | PAID | VOIDED
+  parametersSnapshot  Json      @map("parameters_snapshot") @db.JsonB
+  paidAt              DateTime? @map("paid_at") @db.Timestamptz(6)
+  voidedAt            DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidReason          String?   @map("void_reason")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  period           PayrollPeriod           @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  salaryStructure  PayrollSalaryStructure? @relation(fields: [salaryStructureId], references: [id], onDelete: SetNull)
+
+  @@unique([periodId, guardiaId], map: "uq_payroll_liquidacion_period_guardia")
+  @@index([tenantId], map: "idx_payroll_liquidacion_tenant")
+  @@index([periodId], map: "idx_payroll_liquidacion_period")
+  @@index([guardiaId], map: "idx_payroll_liquidacion_guardia")
+  @@index([status], map: "idx_payroll_liquidacion_status")
+  @@map("liquidaciones")
+  @@schema("payroll")
+}
+
+// ============================================
+// PAYROLL - ANTICIPOS
+// ============================================
+
+model PayrollAnticipoProcess {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  periodId          String    @map("period_id") @db.Uuid
+  processDate       DateTime  @map("process_date") @db.Date
+  status            String    @default("DRAFT") // DRAFT | APPROVED | PAID
+  totalAmount       Decimal   @default(0) @map("total_amount") @db.Decimal(12, 2)
+  totalGuards       Int       @default(0) @map("total_guards")
+  bankFileGenerated Boolean   @default(false) @map("bank_file_generated")
+  createdBy         String?   @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  period PayrollPeriod        @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  items  PayrollAnticipoItem[]
+
+  @@index([tenantId], map: "idx_payroll_anticipo_process_tenant")
+  @@index([periodId], map: "idx_payroll_anticipo_process_period")
+  @@map("anticipo_processes")
+  @@schema("payroll")
+}
+
+model PayrollAnticipoItem {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  anticipoProcessId   String    @map("anticipo_process_id") @db.Uuid
+  guardiaId           String    @map("guardia_id") @db.Uuid
+  amount              Decimal   @db.Decimal(12, 2)
+  status              String    @default("PENDING") // PENDING | PAID
+  paidAt              DateTime? @map("paid_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  anticipoProcess PayrollAnticipoProcess @relation(fields: [anticipoProcessId], references: [id], onDelete: Cascade)
+
+  @@index([anticipoProcessId], map: "idx_payroll_anticipo_item_process")
+  @@index([guardiaId], map: "idx_payroll_anticipo_item_guardia")
+  @@map("anticipo_items")
+  @@schema("payroll")
+}
+
+// ============================================
+// PAYROLL - ATTENDANCE RECORDS
+// ============================================
+
+model PayrollAttendanceImport {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String    @map("tenant_id")
+  periodId      String    @map("period_id") @db.Uuid
+  fileName      String    @map("file_name")
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  uploadedBy    String?   @map("uploaded_by")
+  totalRows     Int       @default(0) @map("total_rows")
+  matchedRows   Int       @default(0) @map("matched_rows")
+  unmatchedRows Int       @default(0) @map("unmatched_rows")
+  status        String    @default("UPLOADED") // UPLOADED | PROCESSED | APPLIED
+  rawData       Json?     @map("raw_data") @db.JsonB
+  processLog    Json?     @map("process_log") @db.JsonB
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  period  PayrollPeriod            @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  records PayrollAttendanceRecord[]
+
+  @@index([tenantId], map: "idx_payroll_attendance_import_tenant")
+  @@index([periodId], map: "idx_payroll_attendance_import_period")
+  @@map("attendance_imports")
+  @@schema("payroll")
+}
+
+model PayrollAttendanceRecord {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String   @map("tenant_id")
+  periodId         String   @map("period_id") @db.Uuid
+  importId         String?  @map("import_id") @db.Uuid
+  guardiaId        String   @map("guardia_id") @db.Uuid
+  source           String   // OPAI | IMPORT
+  year             Int
+  month            Int
+  daysWorked       Int      @default(0) @map("days_worked")
+  daysAbsent       Int      @default(0) @map("days_absent")
+  daysMedicalLeave Int      @default(0) @map("days_medical_leave")
+  daysVacation     Int      @default(0) @map("days_vacation")
+  daysUnpaidLeave  Int      @default(0) @map("days_unpaid_leave")
+  totalDaysMonth   Int      @default(30) @map("total_days_month")
+  scheduledDays    Int      @default(0) @map("scheduled_days")
+  sundaysWorked    Int      @default(0) @map("sundays_worked")
+  sundaysScheduled Int      @default(0) @map("sundays_scheduled")
+  normalHours      Decimal  @default(0) @map("normal_hours") @db.Decimal(8, 2)
+  overtimeHours50  Decimal  @default(0) @map("overtime_hours_50") @db.Decimal(8, 2)
+  overtimeHours100 Decimal  @default(0) @map("overtime_hours_100") @db.Decimal(8, 2)
+  lateHours        Decimal  @default(0) @map("late_hours") @db.Decimal(8, 2)
+  dailyDetail      Json?    @map("daily_detail") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  period    PayrollPeriod            @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  import    PayrollAttendanceImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+
+  @@unique([guardiaId, year, month], map: "uq_payroll_attendance_guardia_period")
+  @@index([tenantId], map: "idx_payroll_attendance_record_tenant")
+  @@index([periodId], map: "idx_payroll_attendance_record_period")
+  @@index([guardiaId], map: "idx_payroll_attendance_record_guardia")
+  @@map("attendance_records")
   @@schema("payroll")
 }
 
@@ -939,6 +1203,8 @@ model CrmInstallation {
   opsRondaAlertas      OpsAlertaRonda[]
   guardiasActuales     OpsGuardia[]           @relation("ops_guardia_current_installation")
   opsControlNocturnoInstalaciones OpsControlNocturnoInstalacion[]
+  supervisorAssignments OpsAsignacionSupervisor[] @relation("ops_supervisor_assignment_installation")
+  supervisionVisits OpsVisitaSupervision[] @relation("ops_supervision_visit_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1483,6 +1749,7 @@ model OpsGuardia {
   currentInstallationId String? @map("current_installation_id") @db.Uuid
   montoAnticipo   Int       @default(0) @map("monto_anticipo")
   recibeAnticipo  Boolean   @default(false) @map("recibe_anticipo")
+  salaryStructureId String? @map("salary_structure_id") @db.Uuid
 
   // ── Contract tracking (Código del Trabajo - plazo fijo / indefinido) ──
   contractType              String?   @default("indefinido") @map("contract_type") // "plazo_fijo" | "indefinido"
@@ -1499,6 +1766,7 @@ model OpsGuardia {
 
   persona               OpsPersona              @relation(fields: [personaId], references: [id], onDelete: Cascade)
   currentInstallation   CrmInstallation?        @relation("ops_guardia_current_installation", fields: [currentInstallationId], references: [id], onDelete: SetNull)
+  salaryStructure       PayrollSalaryStructure? @relation("ops_guardia_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
   bankAccounts          OpsCuentaBancaria[]
   flags                 OpsGuardiaFlag[]
   comments              OpsComentarioGuardia[]
@@ -1648,6 +1916,7 @@ model OpsPuestoOperativo {
   requiredGuards  Int      @default(1) @map("required_guards")
   baseSalary      Decimal? @map("base_salary") @db.Decimal(12, 2)
   teMontoClp      Decimal? @map("te_monto_clp") @db.Decimal(12, 2)
+  salaryStructureId String? @map("salary_structure_id") @db.Uuid
   active          Boolean  @default(true)
   activeFrom      DateTime? @map("active_from") @db.Date
   activeUntil     DateTime? @map("active_until") @db.Date
@@ -1655,10 +1924,11 @@ model OpsPuestoOperativo {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  installation   CrmInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  puestoTrabajo  CpqPuestoTrabajo?    @relation(fields: [puestoTrabajoId], references: [id], onDelete: SetNull)
-  cargo          CpqCargo?            @relation(fields: [cargoId], references: [id], onDelete: SetNull)
-  rol            CpqRol?              @relation(fields: [rolId], references: [id], onDelete: SetNull)
+  installation   CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  puestoTrabajo  CpqPuestoTrabajo?       @relation(fields: [puestoTrabajoId], references: [id], onDelete: SetNull)
+  cargo          CpqCargo?               @relation(fields: [cargoId], references: [id], onDelete: SetNull)
+  rol            CpqRol?                 @relation(fields: [rolId], references: [id], onDelete: SetNull)
+  salaryStructure PayrollSalaryStructure? @relation("ops_puesto_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
   asignacionGuardias OpsAsignacionGuardia[] @relation("ops_asignacion_puesto")
   pautas             OpsPautaMensual[]
   asistencias        OpsAsistenciaDiaria[]
@@ -1725,6 +1995,92 @@ model OpsAsignacionGuardia {
   @@index([installationId], map: "idx_ops_asignacion_guardia_installation")
   @@index([isActive], map: "idx_ops_asignacion_guardia_active")
   @@map("asignacion_guardias")
+  @@schema("ops")
+}
+
+model OpsAsignacionSupervisor {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  supervisorId    String   @map("supervisor_id")
+  installationId  String   @map("installation_id") @db.Uuid
+  isActive        Boolean  @default(true) @map("is_active")
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  notes           String?
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor      Admin           @relation("ops_supervisor_assignment_admin", fields: [supervisorId], references: [id], onDelete: Cascade)
+  installation    CrmInstallation @relation("ops_supervisor_assignment_installation", fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_asignacion_supervisor_tenant")
+  @@index([supervisorId], map: "idx_ops_asignacion_supervisor_supervisor")
+  @@index([installationId], map: "idx_ops_asignacion_supervisor_installation")
+  @@index([isActive], map: "idx_ops_asignacion_supervisor_active")
+  @@unique([supervisorId, installationId], map: "uq_ops_asignacion_supervisor_pair")
+  @@map("asignacion_supervisores")
+  @@schema("ops")
+}
+
+model OpsVisitaSupervision {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  supervisorId      String    @map("supervisor_id")
+  installationId    String    @map("installation_id") @db.Uuid
+  checkInAt         DateTime  @map("check_in_at") @db.Timestamptz(6)
+  checkInLat        Decimal   @map("check_in_lat") @db.Decimal(10, 7)
+  checkInLng        Decimal   @map("check_in_lng") @db.Decimal(10, 7)
+  checkInGeoValidada Boolean  @default(false) @map("check_in_geo_validada")
+  checkInDistanciaM Float?    @map("check_in_distancia_m")
+  checkOutAt        DateTime? @map("check_out_at") @db.Timestamptz(6)
+  checkOutLat       Decimal?  @map("check_out_lat") @db.Decimal(10, 7)
+  checkOutLng       Decimal?  @map("check_out_lng") @db.Decimal(10, 7)
+  checkOutGeoValidada Boolean? @map("check_out_geo_validada")
+  checkOutDistanciaM Float?   @map("check_out_distancia_m")
+  status            String    @default("in_progress")
+  generalComments   String?   @map("general_comments") @db.Text
+  guardsCounted     Int?      @map("guards_counted")
+  installationState String?   @map("installation_state")
+  ratings           Json?     @db.JsonB
+  startedVia        String?   @map("started_via")
+  completedVia      String?   @map("completed_via")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor        Admin           @relation("ops_supervision_visit_supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  installation      CrmInstallation @relation("ops_supervision_visit_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  images            OpsVisitaImagen[]
+
+  @@index([tenantId], map: "idx_ops_visitas_supervision_tenant")
+  @@index([supervisorId], map: "idx_ops_visitas_supervision_supervisor")
+  @@index([installationId], map: "idx_ops_visitas_supervision_installation")
+  @@index([status], map: "idx_ops_visitas_supervision_status")
+  @@index([checkInAt], map: "idx_ops_visitas_supervision_checkin")
+  @@map("visitas_supervision")
+  @@schema("ops")
+}
+
+model OpsVisitaImagen {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  visitaId    String   @map("visita_id") @db.Uuid
+  fileName    String   @map("file_name")
+  mimeType    String?  @map("mime_type")
+  size        Int?
+  storageKey  String   @map("storage_key")
+  publicUrl   String   @map("public_url")
+  caption     String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visita      OpsVisitaSupervision @relation(fields: [visitaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_visita_imagen_tenant")
+  @@index([visitaId], map: "idx_ops_visita_imagen_visita")
+  @@map("visita_imagenes")
   @@schema("ops")
 }
 
