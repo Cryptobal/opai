@@ -19,7 +19,6 @@ const MONTHS = [
 
 interface Liquidacion {
   id: string;
-  periodId: string;
   salarySource: string;
   daysWorked: number;
   grossSalary: string | number;
@@ -28,40 +27,26 @@ interface Liquidacion {
   employerCost: string | number;
   status: string;
   breakdown: any;
-  createdAt: string;
   period?: { year: number; month: number };
+}
+
+function formatCLP(val: string | number): string {
+  return `$${Number(val).toLocaleString("es-CL")}`;
 }
 
 export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [selectedLiq, setSelectedLiq] = useState<Liquidacion | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/payroll/periodos?guardiaId=${guardiaId}`);
-      if (!res.ok) { setLoading(false); return; }
-
-      // Get all periods and filter liquidaciones for this guard
-      const periodsRes = await fetch("/api/payroll/periodos");
-      if (!periodsRes.ok) { setLoading(false); return; }
-      const periodsData = await periodsRes.json();
-      const periods = periodsData.data || [];
-
-      const allLiqs: Liquidacion[] = [];
-      for (const p of periods) {
-        const detailRes = await fetch(`/api/payroll/periodos/${p.id}`);
-        if (!detailRes.ok) continue;
-        const detail = await detailRes.json();
-        const myLiqs = (detail.data?.liquidaciones || [])
-          .filter((l: any) => l.guardiaId === guardiaId)
-          .map((l: any) => ({ ...l, period: { year: p.year, month: p.month } }));
-        allLiqs.push(...myLiqs);
+      const res = await fetch(`/api/payroll/guardias/${guardiaId}/liquidaciones`);
+      if (res.ok) {
+        const json = await res.json();
+        setLiquidaciones(json.data || []);
       }
-
-      setLiquidaciones(allLiqs);
     } catch (err) {
       console.error("Error loading liquidaciones:", err);
     } finally {
@@ -70,17 +55,6 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   }, [guardiaId]);
 
   useEffect(() => { load(); }, [load]);
-
-  const openDetail = async (liq: Liquidacion) => {
-    try {
-      const res = await fetch(`/api/payroll/liquidaciones/${liq.id}`);
-      if (res.ok) {
-        const json = await res.json();
-        setSelectedLiq({ ...json.data, period: liq.period });
-        setDetailOpen(true);
-      }
-    } catch { /* ignore */ }
-  };
 
   if (loading) {
     return (
@@ -93,7 +67,7 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   if (liquidaciones.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
-        No hay liquidaciones generadas para este guardia.
+        No hay liquidaciones pagadas para este guardia. Las liquidaciones aparecen aquí cuando el período se marca como pagado.
       </p>
     );
   }
@@ -101,7 +75,7 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   return (
     <div className="space-y-2">
       {liquidaciones.map((liq) => (
-        <Card key={liq.id} className="cursor-pointer hover:bg-accent/30 transition-colors" onClick={() => openDetail(liq)}>
+        <Card key={liq.id} className="cursor-pointer hover:bg-accent/30 transition-colors" onClick={() => setSelectedLiq(liq)}>
           <CardContent className="pt-3 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
@@ -109,8 +83,8 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                   <span className="text-sm font-medium">
                     {liq.period ? `${MONTHS[liq.period.month - 1]} ${liq.period.year}` : "—"}
                   </span>
-                  <Badge variant="outline" className="text-[9px]">
-                    {liq.status}
+                  <Badge variant="outline" className="text-[9px] bg-emerald-500/15 text-emerald-400">
+                    PAGADO
                   </Badge>
                   {liq.salarySource === "RUT" ? (
                     <Badge className="text-[9px] bg-amber-500/15 text-amber-400 border-amber-500/30">
@@ -125,22 +99,23 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {liq.daysWorked} días · Bruto: ${Number(liq.grossSalary).toLocaleString("es-CL")}
+                  {liq.daysWorked} días · Bruto: {formatCLP(liq.grossSalary)}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold text-emerald-400">
-                ${Number(liq.netSalary).toLocaleString("es-CL")}
-              </p>
-              <p className="text-[10px] text-muted-foreground">Líquido</p>
+            <div className="text-right flex items-center gap-2">
+              <div>
+                <p className="text-sm font-semibold text-emerald-400">{formatCLP(liq.netSalary)}</p>
+                <p className="text-[10px] text-muted-foreground">Líquido</p>
+              </div>
+              <Eye className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
       ))}
 
       {/* Detail modal */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+      <Dialog open={!!selectedLiq} onOpenChange={(open) => !open && setSelectedLiq(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -152,70 +127,48 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] text-muted-foreground">Total Haberes</p>
-                  <p className="font-medium">${Number(selectedLiq.grossSalary).toLocaleString("es-CL")}</p>
+                  <p className="font-medium">{formatCLP(selectedLiq.grossSalary)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Total Descuentos</p>
-                  <p className="font-medium text-destructive">-${Number(selectedLiq.totalDeductions).toLocaleString("es-CL")}</p>
+                  <p className="font-medium text-destructive">-{formatCLP(selectedLiq.totalDeductions)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Sueldo Líquido</p>
-                  <p className="font-semibold text-emerald-400">${Number(selectedLiq.netSalary).toLocaleString("es-CL")}</p>
+                  <p className="font-semibold text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Costo Empleador</p>
-                  <p className="font-medium text-amber-400">${Number(selectedLiq.employerCost).toLocaleString("es-CL")}</p>
+                  <p className="font-medium text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
                 </div>
               </div>
 
               {selectedLiq.breakdown && (() => {
                 const hab = selectedLiq.breakdown.haberes || {};
                 const ded = selectedLiq.breakdown.deductions || {};
-                const SKIP_KEYS = new Set(["gross_salary", "total_taxable", "total_non_taxable"]);
-                const haberesEntries = Object.entries(hab)
-                  .filter(([k, v]) => typeof v === "number" && (v as number) > 0 && !SKIP_KEYS.has(k))
-                  .slice(0, 10);
+                const vol = selectedLiq.breakdown.voluntaryDeductions || {};
 
                 return (
                   <>
                     <div className="border-t border-border pt-3">
                       <p className="text-xs font-semibold mb-2">Haberes</p>
                       <div className="space-y-1 text-xs">
-                        {haberesEntries.map(([key, val]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-muted-foreground">{formatKey(key)}</span>
-                            <span>${(val as number).toLocaleString("es-CL")}</span>
-                          </div>
-                        ))}
+                        {hab.base_salary > 0 && <Row label="Sueldo Base" val={hab.base_salary} />}
+                        {hab.gratification > 0 && <Row label="Gratificación" val={hab.gratification} />}
+                        {hab.meal > 0 && <Row label="Colación" val={hab.meal} />}
+                        {hab.transport > 0 && <Row label="Movilización" val={hab.transport} />}
+                        {hab.other_taxable > 0 && <Row label="Bonos Imponibles" val={hab.other_taxable} />}
+                        {hab.other_non_taxable > 0 && <Row label="Bonos No Imponibles" val={hab.other_non_taxable} />}
                       </div>
                     </div>
                     <div className="border-t border-border pt-3">
-                      <p className="text-xs font-semibold mb-2">Descuentos Legales</p>
+                      <p className="text-xs font-semibold mb-2">Descuentos</p>
                       <div className="space-y-1 text-xs">
-                        {ded.afp?.amount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">AFP ({(ded.afp.total_rate * 100).toFixed(2)}%)</span>
-                            <span className="text-destructive">-${ded.afp.amount.toLocaleString("es-CL")}</span>
-                          </div>
-                        )}
-                        {ded.health?.amount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Salud ({(ded.health.rate * 100).toFixed(1)}%)</span>
-                            <span className="text-destructive">-${ded.health.amount.toLocaleString("es-CL")}</span>
-                          </div>
-                        )}
-                        {ded.afc?.amount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">AFC</span>
-                            <span className="text-destructive">-${ded.afc.amount.toLocaleString("es-CL")}</span>
-                          </div>
-                        )}
-                        {ded.tax?.amount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Impuesto Único</span>
-                            <span className="text-destructive">-${ded.tax.amount.toLocaleString("es-CL")}</span>
-                          </div>
-                        )}
+                        {ded.afp?.amount > 0 && <Row label={`AFP (${(ded.afp.total_rate * 100).toFixed(2)}%)`} val={ded.afp.amount} neg />}
+                        {ded.health?.amount > 0 && <Row label={`Salud (${(ded.health.rate * 100).toFixed(1)}%)`} val={ded.health.amount} neg />}
+                        {ded.afc?.amount > 0 && <Row label="AFC" val={ded.afc.amount} neg />}
+                        {ded.tax?.amount > 0 && <Row label="Impuesto Único" val={ded.tax.amount} neg />}
+                        {vol.advance > 0 && <Row label="Anticipo" val={vol.advance} neg />}
                       </div>
                     </div>
                   </>
@@ -229,8 +182,11 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
   );
 }
 
-function formatKey(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+function Row({ label, val, neg }: { label: string; val: number; neg?: boolean }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={neg ? "text-destructive" : ""}>{neg ? "-" : ""}${Math.abs(val).toLocaleString("es-CL")}</span>
+    </div>
+  );
 }

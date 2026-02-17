@@ -112,23 +112,28 @@ export async function simulatePayslip(
   const proportional_base =
     (input.base_salary_clp / total_days_month) * effective_worked_days;
 
-  // 6b. Gratificación Legal (Art. 50 CT - Régimen 25% mensual)
+  // 6b. Recargo Legal por Trabajo en Día Feriado (Art. 38 CT)
+  // Los trabajadores que trabajan en feriados tienen derecho a recargo del 100% del valor hora
+  const hour_value = input.base_salary_clp / 30 / 8; // Valor hora normal (Art. 32 CT)
+  const holiday_hours = input.holiday_hours_worked || 0;
+  const holiday_surcharge = Math.round(holiday_hours * hour_value * 2); // Doble pago por feriado
+
+  // 6c. Gratificación Legal (Art. 50 CT - Régimen 25% mensual)
+  // La base incluye sueldo base + recargo feriado (Art. 41 CT - remuneración)
+  const gratification_base = proportional_base + holiday_surcharge;
   let gratification = 0;
   if (input.gratification_clp !== undefined) {
-    // Si se provee explícitamente, usar ese valor
     gratification = input.gratification_clp;
   } else if (params.gratification?.regime_25_monthly) {
-    // Calcular automáticamente: 25% del sueldo base, tope 4.75 IMM anuales
     const monthly_rate = params.gratification?.regime_25_monthly?.monthly_rate || 0.25;
     const cap_multiple = params.gratification?.regime_25_monthly?.annual_cap_imm_multiple || 4.75;
-    const monthly_gratification = proportional_base * monthly_rate;
+    const monthly_gratification = gratification_base * monthly_rate;
     const annual_cap = references.imm_clp * cap_multiple;
     const monthly_cap = annual_cap / 12;
     gratification = Math.min(monthly_gratification, monthly_cap);
   }
 
-  // 6c. Horas extra
-  const hour_value = input.base_salary_clp / 30 / 8; // Valor hora normal (Art. 32 CT)
+  // 6d. Horas extra
   const overtime_50 = (input.overtime_hours_50 || 0) * hour_value * 1.5;
   const overtime_100 = (input.overtime_hours_100 || 0) * hour_value * 2.0;
 
@@ -138,9 +143,9 @@ export async function simulatePayslip(
   // 6e. Otros haberes imponibles
   const other_taxable = input.other_taxable_allowances || 0;
 
-  // 6f. Total imponible
+  // 6g. Total imponible
   const total_taxable =
-    proportional_base + gratification + overtime_50 + overtime_100 + commissions + other_taxable;
+    proportional_base + holiday_surcharge + gratification + overtime_50 + overtime_100 + commissions + other_taxable;
 
   // ── 7. HABERES NO IMPONIBLES ───────────────────────────
   const non_taxable = input.non_taxable_allowances || {};
@@ -170,8 +175,12 @@ export async function simulatePayslip(
 
   // ── 9. DESCUENTOS PREVISIONALES ───────────────────────
   // 9a. AFP (10% + comisión)
+  // Case-insensitive lookup: params store lowercase ("modelo"), input may be "Modelo"
+  const afp_key = Object.keys(params.afp.commissions).find(
+    (k) => k.toLowerCase() === input.afp_name.toLowerCase()
+  ) || input.afp_name;
   const afp_commission =
-    params.afp.commissions[input.afp_name]?.commission_rate || 0;
+    params.afp.commissions[afp_key]?.commission_rate || 0;
   const afp_base_rate = params.afp.base_rate;
   const afp_total_rate = afp_base_rate + afp_commission;
   const afp_amount = Math.floor(base_pension * afp_total_rate);
@@ -306,6 +315,7 @@ export async function simulatePayslip(
     haberes: {
       base_salary: Math.round(proportional_base),
       gratification: Math.round(gratification),
+      holiday_surcharge: Math.round(holiday_surcharge),
       overtime_50: Math.round(overtime_50),
       overtime_100: Math.round(overtime_100),
       commissions: Math.round(commissions),

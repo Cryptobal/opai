@@ -42,6 +42,7 @@ export async function GET(req: NextRequest, { params }: Params) {
             totalDeductions: true,
             employerCost: true,
             status: true,
+            breakdown: true,
             createdAt: true,
           },
         },
@@ -66,7 +67,45 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Período no encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json({ data: period });
+    // Enrich with guard names and RUTs
+    const allGuardIds = new Set<string>();
+    period.liquidaciones.forEach((l) => allGuardIds.add(l.guardiaId));
+    period.attendanceRecords.forEach((r) => allGuardIds.add(r.guardiaId));
+
+    const guardNames = allGuardIds.size > 0
+      ? await prisma.opsGuardia.findMany({
+          where: { id: { in: [...allGuardIds] } },
+          select: {
+            id: true,
+            persona: { select: { rut: true, firstName: true, lastName: true } },
+          },
+        })
+      : [];
+
+    const guardMap = new Map(guardNames.map((g) => [
+      g.id,
+      { rut: g.persona.rut || "", name: `${g.persona.firstName} ${g.persona.lastName}` },
+    ]));
+
+    const enrichedLiquidaciones = period.liquidaciones.map((l) => ({
+      ...l,
+      guardiaRut: guardMap.get(l.guardiaId)?.rut || "",
+      guardiaName: guardMap.get(l.guardiaId)?.name || "",
+    }));
+
+    const enrichedAttendance = period.attendanceRecords.map((r) => ({
+      ...r,
+      guardiaRut: guardMap.get(r.guardiaId)?.rut || "",
+      guardiaName: guardMap.get(r.guardiaId)?.name || "",
+    }));
+
+    return NextResponse.json({
+      data: {
+        ...period,
+        liquidaciones: enrichedLiquidaciones,
+        attendanceRecords: enrichedAttendance,
+      },
+    });
   } catch (err: any) {
     console.error("[GET /api/payroll/periodos/[id]]", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -111,9 +150,54 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
     }
 
+    // If reopening (PAID -> OPEN), revert liquidaciones to DRAFT
+    if (body.status === "OPEN" && existing.status === "PAID") {
+      await prisma.payrollLiquidacion.updateMany({
+        where: { periodId: id, status: "PAID" },
+        data: { status: "DRAFT", paidAt: null },
+      });
+    }
+
     return NextResponse.json({ data: updated });
   } catch (err: any) {
     console.error("[PATCH /api/payroll/periodos/[id]]", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: Params) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "payroll");
+    if (forbiddenMod) return forbiddenMod;
+
+    const { id } = await params;
+
+    const existing = await prisma.payrollPeriod.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Período no encontrado" }, { status: 404 });
+    }
+    if (existing.status === "PAID") {
+      return NextResponse.json(
+        { error: "No se puede eliminar un período pagado. Primero reabre el período." },
+        { status: 400 }
+      );
+    }
+
+    // Delete in order: liquidaciones, attendance records, attendance imports, then period
+    // Cascade should handle most, but be explicit
+    await prisma.payrollLiquidacion.deleteMany({ where: { periodId: id } });
+    await prisma.payrollAttendanceRecord.deleteMany({ where: { periodId: id } });
+    await prisma.payrollAttendanceImport.deleteMany({ where: { periodId: id } });
+    await prisma.payrollAnticipoProcess.deleteMany({ where: { periodId: id } });
+    await prisma.payrollPeriod.delete({ where: { id } });
+
+    return NextResponse.json({ data: { deleted: true } });
+  } catch (err: any) {
+    console.error("[DELETE /api/payroll/periodos/[id]]", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

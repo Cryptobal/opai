@@ -5,6 +5,7 @@ import { ConfigBackLink } from "@/components/opai";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { BonosCatalogManager } from "@/components/payroll/BonosCatalogManager";
+import { HolidaysManager } from "@/components/payroll/HolidaysManager";
 
 export default async function PayrollConfigPage() {
   const session = await auth();
@@ -24,6 +25,9 @@ export default async function PayrollConfigPage() {
         title="Configuración Payroll"
         description="Parámetros, bonos y supuestos para remuneraciones"
       />
+
+      {/* Feriados */}
+      <HolidaysManager />
 
       {/* Catálogo de bonos */}
       <BonosCatalogManager />

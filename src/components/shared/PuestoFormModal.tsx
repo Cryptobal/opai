@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Calculator, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
 /* ── Constants ─────────────────────────────────── */
@@ -150,13 +151,25 @@ export function PuestoFormModal({
     }
   }, [open]);
 
-  // Reset form when modal opens with initial data
+  const prevOpenRef = useRef(false);
+  const liquidResultRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (open) {
       setForm({ ...DEFAULT_FORM, ...initialData });
-      setNetEstimate(null);
+      if (!prevOpenRef.current) setNetEstimate(null);
+      prevOpenRef.current = true;
+    } else {
+      prevOpenRef.current = false;
     }
   }, [open, initialData]);
+
+  // Scroll result into view when estimate is ready
+  useEffect(() => {
+    if (netEstimate && liquidResultRef.current) {
+      liquidResultRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [netEstimate]);
 
   const calculateNetEstimate = useCallback(async () => {
     if (form.baseSalary <= 0) return;
@@ -192,12 +205,15 @@ export function PuestoFormModal({
           bonosNoImponibles,
         }),
       });
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json();
+      if (res.ok && json?.data && typeof json.data.netSalary === "number") {
         setNetEstimate(json.data);
+      } else {
+        if (!res.ok) toast.error(json?.error || "Error al calcular sueldo líquido");
       }
     } catch (err) {
       console.error("Error estimating net:", err);
+      toast.error("Error al calcular sueldo líquido");
     } finally {
       setEstimating(false);
     }
@@ -703,33 +719,38 @@ export function PuestoFormModal({
               </div>
             )}
 
-            {/* Calcular sueldo líquido */}
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={calculateNetEstimate}
-                disabled={estimating || form.baseSalary <= 0}
-              >
-                {estimating ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            {/* Calcular sueldo líquido — Líquido estimado en la misma línea para que siempre sea visible */}
+            <div className="space-y-2" ref={liquidResultRef}>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={calculateNetEstimate}
+                  disabled={estimating || form.baseSalary <= 0}
+                >
+                  {estimating ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Calcular sueldo líquido
+                </Button>
+                <span className="text-xs text-muted-foreground shrink-0">Líquido estimado:</span>
+                {netEstimate ? (
+                  <strong className="text-emerald-400 text-sm">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
                 ) : (
-                  <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                  <span className="text-muted-foreground/80 text-xs">{estimating ? "Calculando…" : "—"}</span>
                 )}
-                Calcular sueldo líquido
-              </Button>
+              </div>
               {netEstimate && (
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-3 text-xs">
                   <span className="text-muted-foreground">
                     Bruto: <strong className="text-foreground">${netEstimate.grossSalary.toLocaleString("es-CL")}</strong>
                   </span>
                   <span className="text-muted-foreground">
                     Desc: <strong className="text-destructive">-${netEstimate.totalDeductions.toLocaleString("es-CL")}</strong>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Líquido: <strong className="text-emerald-400">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
                   </span>
                 </div>
               )}

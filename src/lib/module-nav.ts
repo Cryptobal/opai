@@ -132,6 +132,8 @@ const PERSONAS_ITEMS: BottomNavItem[] = [
 /* ── Payroll sub-items ── */
 
 const PAYROLL_ITEMS: BottomNavItem[] = [
+  { key: "payroll-periodos", href: "/payroll/periodos", label: "Períodos", icon: CalendarDays },
+  { key: "payroll-anticipos", href: "/payroll/anticipos", label: "Anticipos", icon: Banknote },
   { key: "payroll-simulator", href: "/payroll/simulator", label: "Simulador", icon: Calculator },
   { key: "payroll-parameters", href: "/payroll/parameters", label: "Parámetros", icon: FileText },
 ];

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updatePuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, parseDateOnly, toISODate } from "@/lib/ops";
+import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
 
 type Params = { id: string };
 
@@ -161,6 +162,8 @@ export async function PATCH(
       body.movilizacion !== undefined || body.gratificationType !== undefined ||
       body.bonos !== undefined;
 
+    let salaryStructureId: string | null = null;
+
     if (hasSalaryFields && body.baseSalary != null && body.baseSalary > 0) {
       const fullPuesto = await prisma.opsPuestoOperativo.findUnique({
         where: { id },
@@ -168,6 +171,7 @@ export async function PATCH(
       });
 
       if (fullPuesto?.salaryStructureId) {
+        salaryStructureId = fullPuesto.salaryStructureId;
         // Update existing salary structure
         await prisma.payrollSalaryStructure.update({
           where: { id: fullPuesto.salaryStructureId },
@@ -216,6 +220,8 @@ export async function PATCH(
           },
         });
 
+        salaryStructureId = salaryStructure.id;
+
         await prisma.opsPuestoOperativo.update({
           where: { id },
           data: { salaryStructureId: salaryStructure.id },
@@ -234,6 +240,58 @@ export async function PATCH(
               })),
           });
         }
+      }
+    }
+
+    // Calcular y persistir líquido estimado para que aparezca en la tabla de puestos
+    if (salaryStructureId && body.baseSalary != null && body.baseSalary > 0) {
+      try {
+        const baseSalary = Number(body.baseSalary);
+        const colacion = Number(body.colacion ?? 0);
+        const movilizacion = Number(body.movilizacion ?? 0);
+        const gratificationType = (body.gratificationType as string) ?? "AUTO_25";
+        const gratificationCustomAmount = Number(body.gratificationCustomAmount ?? 0);
+
+        let bonosImponibles = 0;
+        let bonosNoImponibles = 0;
+        const bonos = Array.isArray(body.bonos) ? body.bonos : [];
+        if (bonos.length > 0) {
+          const bonoIds = bonos.map((b: any) => b.bonoCatalogId).filter(Boolean);
+          const catalog = await prisma.payrollBonoCatalog.findMany({
+            where: { id: { in: bonoIds }, tenantId: ctx.tenantId },
+            select: { id: true, bonoType: true, isTaxable: true, defaultAmount: true, defaultPercentage: true },
+          });
+          for (const b of bonos) {
+            const cat = catalog.find((c) => c.id === b.bonoCatalogId);
+            if (!cat) continue;
+            let amt = 0;
+            if (cat.bonoType === "FIJO") amt = Number(b.overrideAmount ?? cat.defaultAmount ?? 0);
+            else if (cat.bonoType === "PORCENTUAL") {
+              const pct = Number(b.overridePercentage ?? cat.defaultPercentage ?? 0);
+              amt = Math.round(baseSalary * pct / 100);
+            } else if (cat.bonoType === "CONDICIONAL") amt = Number(b.overrideAmount ?? cat.defaultAmount ?? 0);
+            if (cat.isTaxable) bonosImponibles += amt;
+            else bonosNoImponibles += amt;
+          }
+        }
+
+        const result = await simulatePayslip({
+          base_salary_clp: baseSalary,
+          gratification_clp: gratificationType === "CUSTOM" ? gratificationCustomAmount : undefined,
+          other_taxable_allowances: bonosImponibles,
+          non_taxable_allowances: { transport: movilizacion, meal: colacion, other: bonosNoImponibles },
+          contract_type: "indefinite",
+          afp_name: "Modelo",
+          health_system: "fonasa",
+          save_simulation: false,
+        });
+
+        await prisma.payrollSalaryStructure.update({
+          where: { id: salaryStructureId },
+          data: { netSalaryEstimate: result.net_salary },
+        });
+      } catch (err) {
+        console.error("[OPS] Error computing netSalaryEstimate for puesto:", err);
       }
     }
 

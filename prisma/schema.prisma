@@ -489,6 +489,28 @@ model PayrollSalaryComponent {
 }
 
 // ============================================
+// PAYROLL - HOLIDAYS (Feriados)
+// ============================================
+
+model PayrollHoliday {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  date      DateTime @db.Date
+  name      String
+  type      String   @default("normal") // irrenunciable | normal
+  year      Int
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, date], map: "uq_payroll_holiday_tenant_date")
+  @@index([tenantId], map: "idx_payroll_holiday_tenant")
+  @@index([year], map: "idx_payroll_holiday_year")
+  @@map("holidays")
+  @@schema("payroll")
+}
+
+// ============================================
 // PAYROLL - BONUS CATALOG
 // ============================================
 

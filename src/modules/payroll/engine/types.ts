@@ -342,6 +342,9 @@ export interface PayslipSimulationInput {
   commissions?: number;
   other_taxable_allowances?: number;
   
+  // RECARGO FERIADO (horas trabajadas en días feriados)
+  holiday_hours_worked?: number;
+
   // HABERES NO IMPONIBLES
   non_taxable_allowances?: {
     transport?: number;
@@ -399,6 +402,7 @@ export interface PayslipSimulationOutput {
   haberes: {
     base_salary: number;
     gratification: number;
+    holiday_surcharge: number;
     overtime_50: number;
     overtime_100: number;
     commissions: number;

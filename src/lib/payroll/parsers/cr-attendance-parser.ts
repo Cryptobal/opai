@@ -250,6 +250,15 @@ export function crRowToAttendanceData(
   };
 }
 
+/**
+ * Normalize a RUT to just the base number (without DV, dots, or dashes).
+ * "17.385.726-8" -> "17385726"
+ * "17385726-8"   -> "17385726"
+ * "17385726"     -> "17385726"
+ */
 function normalizeRut(rut: string): string {
-  return rut.replace(/\./g, "").replace(/-/g, "").replace(/^0+/, "").trim();
+  const cleaned = rut.replace(/\./g, "").replace(/\s/g, "").trim();
+  // Remove DV (everything after the dash)
+  const basePart = cleaned.includes("-") ? cleaned.split("-")[0] : cleaned;
+  return basePart.replace(/^0+/, "");
 }

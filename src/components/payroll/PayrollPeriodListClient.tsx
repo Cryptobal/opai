@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,6 @@ interface Period {
 }
 
 export function PayrollPeriodListClient() {
-  const router = useRouter();
   const [periods, setPeriods] = useState<Period[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,10 +113,10 @@ export function PayrollPeriodListClient() {
         ) : (
           <div className="space-y-2">
             {periods.map((p) => (
-              <div
+              <Link
                 key={p.id}
+                href={`/payroll/periodos/${p.id}`}
                 className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer transition-colors hover:bg-accent/40"
-                onClick={() => router.push(`/payroll/periodos/${p.id}`)}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -133,7 +132,7 @@ export function PayrollPeriodListClient() {
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
+              </Link>
             ))}
           </div>
         )}

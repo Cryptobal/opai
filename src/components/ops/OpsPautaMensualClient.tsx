@@ -278,6 +278,7 @@ export function OpsPautaMensualClient({
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
   const [allPuestos, setAllPuestos] = useState<PuestoInfo[]>([]);
+  const [holidayDates, setHolidayDates] = useState<Map<string, string>>(new Map());
 
   // View mode: month on desktop (>=768px), week on mobile; sync on resize
   const [viewMode, setViewMode] = useState<"week" | "month">(() => {
@@ -435,6 +436,21 @@ export function OpsPautaMensualClient({
   useEffect(() => {
     if (pageView === "detail") void fetchPauta();
   }, [fetchPauta, pageView]);
+
+  // Load holidays for the current month/year
+  useEffect(() => {
+    fetch(`/api/payroll/holidays?year=${year}`)
+      .then((r) => r.json())
+      .then((json) => {
+        const map = new Map<string, string>();
+        for (const h of json.data || []) {
+          const dateStr = typeof h.date === "string" ? h.date.slice(0, 10) : "";
+          if (dateStr) map.set(dateStr, h.name);
+        }
+        setHolidayDates(map);
+      })
+      .catch(() => setHolidayDates(new Map()));
+  }, [year]);
 
   // Fetch overview data
   const fetchOverview = useCallback(async () => {
@@ -1163,15 +1179,25 @@ export function OpsPautaMensualClient({
                       const dayName = WEEKDAY_SHORT[d.getUTCDay()];
                       const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
                       const isToday = toDateKey(d) === toDateKey(new Date());
+                      const dateKey = toDateKey(d);
+                      const holidayName = holidayDates.get(dateKey);
+                      const isHoliday = !!holidayName;
                       return (
                         <th
                           key={dayNum}
                           className={`text-center px-0.5 py-1 ${
-                            isToday ? "text-primary" : isWeekend ? "text-amber-400" : "text-muted-foreground"
+                            isToday ? "text-primary" : isHoliday ? "text-rose-400" : isWeekend ? "text-amber-400" : "text-muted-foreground"
                           }`}
+                          title={holidayName || undefined}
                         >
                           <div className="text-[11px] sm:text-[10px] leading-tight">{dayName}</div>
-                          <div className={`font-semibold text-sm sm:text-xs ${isToday ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto" : ""}`}>
+                          <div className={`font-semibold text-sm sm:text-xs ${
+                            isToday
+                              ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
+                              : isHoliday
+                                ? "bg-rose-500/20 text-rose-400 rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
+                                : ""
+                          }`}>
                             {dayNum}
                           </div>
                         </th>
