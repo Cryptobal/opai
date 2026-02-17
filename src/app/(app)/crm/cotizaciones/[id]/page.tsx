@@ -10,7 +10,6 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
-import { CrmSubnav } from "@/components/crm/CrmSubnav";
 import { QuoteNotesWrapper } from "@/components/crm/QuoteNotesWrapper";
 
 export default async function CrmCotizacionDetailPage({
@@ -25,8 +24,6 @@ export default async function CrmCotizacionDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const quote = await prisma.cpqQuote.findFirst({
     where: { id, tenantId },
@@ -43,7 +40,6 @@ export default async function CrmCotizacionDetailPage({
         ]}
         className="mb-4"
       />
-      <CrmSubnav role={role} />
       <div className="mb-4">
         <CpqIndicators />
       </div>

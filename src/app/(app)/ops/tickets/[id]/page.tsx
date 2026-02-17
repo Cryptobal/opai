@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { TicketDetailClient } from "@/components/ops/tickets";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function TicketDetailPage({
   params,
@@ -26,7 +26,7 @@ export default async function TicketDetailPage({
         title="Detalle de ticket"
         description="Seguimiento, comentarios y gestión del ticket."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <TicketDetailClient ticketId={id} userRole={session.user.role} />
     </div>
   );

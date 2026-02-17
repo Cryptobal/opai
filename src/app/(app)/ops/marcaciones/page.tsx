@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { OpsMarcacionesClient } from "@/components/ops/OpsMarcacionesClient";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function OpsMarcacionesPage() {
   const session = await auth();
@@ -44,7 +44,7 @@ export default async function OpsMarcacionesPage() {
         title="Marcaciones"
         description="Registro de marcaciones de asistencia digital. Conforme a Res. Exenta N°38 — DT Chile."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsMarcacionesClient
         initialClients={JSON.parse(JSON.stringify(clients))}
       />

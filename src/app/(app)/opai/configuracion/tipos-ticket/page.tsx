@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigSubnav, ConfigBackLink } from "@/components/opai";
+import { ConfigBackLink } from "@/components/opai";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import { TicketTypesConfigClient } from "@/components/config/TicketTypesConfigClient";
 
@@ -21,7 +21,6 @@ export default async function TiposTicketConfigPage() {
         title="Tipos de Ticket"
         description="Define tipos de solicitud (vacaciones, desvinculaciones, etc.), su origen y cadena de aprobación"
       />
-      <ConfigSubnav role={role} />
       <TicketTypesConfigClient userRole={role} />
     </div>
   );

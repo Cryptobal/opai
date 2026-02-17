@@ -4,7 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav, TeTurnosClient } from "@/components/ops";
+import { TeTurnosClient } from "@/components/ops";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function OpsTurnosExtraPage() {
   const session = await auth();
@@ -41,7 +42,7 @@ export default async function OpsTurnosExtraPage() {
         title="Turnos extra"
         description="Gestión de turnos extra generados desde asistencia diaria."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <TeTurnosClient
         initialItems={JSON.parse(JSON.stringify(turnos))}
         defaultStatusFilter="all"

@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { CrmLeadDetailClient, CrmSubnav } from "@/components/crm";
+import { CrmLeadDetailClient } from "@/components/crm";
 
 export default async function CrmLeadDetailPage({
   params,
@@ -21,8 +21,6 @@ export default async function CrmLeadDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "leads")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
   const lead = await prisma.crmLead.findFirst({
@@ -37,7 +35,6 @@ export default async function CrmLeadDetailPage({
 
   return (
     <>
-      <CrmSubnav role={role} />
       <div className="space-y-4">
         <CrmLeadDetailClient lead={initialLead} />
       </div>

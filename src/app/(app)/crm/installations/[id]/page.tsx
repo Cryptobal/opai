@@ -7,8 +7,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { PageHeader, Breadcrumb } from "@/components/opai";
-import { CrmInstallationDetailClient, InstallationEditButton, CrmSubnav } from "@/components/crm";
+import { CrmInstallationDetailClient } from "@/components/crm";
 
 export default async function CrmInstallationDetailPage({
   params,
@@ -22,8 +21,6 @@ export default async function CrmInstallationDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "installations")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, dealsOfAccount] = await Promise.all([
     prisma.crmInstallation.findFirst({
@@ -166,7 +163,6 @@ export default async function CrmInstallationDetailPage({
 
   return (
     <>
-      <CrmSubnav role={role} />
       <CrmInstallationDetailClient installation={data} canEditDotacion={canEditDotacion} />
     </>
   );

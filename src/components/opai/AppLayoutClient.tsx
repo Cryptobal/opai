@@ -28,6 +28,10 @@ import {
   BarChart3,
   CheckCircle2,
   Shield,
+  PenLine,
+  FolderTree,
+  Bot,
+  ClipboardCheck,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -47,6 +51,7 @@ export function AppLayoutClient({
   userRole,
   permissions,
 }: AppLayoutClientProps) {
+  const isAdmin = userRole === 'owner' || userRole === 'admin';
   const navItems: NavItem[] = useMemo(() => [
     {
       href: '/hub',
@@ -101,6 +106,12 @@ export function AppLayoutClient({
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
         canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/monitoreo', label: 'Rondas · Monitoreo', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/alertas', label: 'Rondas · Alertas', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/checkpoints', label: 'Rondas · Checkpoints', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/templates', label: 'Rondas · Plantillas', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/programacion', label: 'Rondas · Programación', icon: Route },
+        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/reportes', label: 'Rondas · Reportes', icon: Route },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket },
       ].filter(Boolean) as NavItem['children'],
@@ -130,17 +141,25 @@ export function AppLayoutClient({
       icon: Settings,
       show: hasModuleAccess(permissions, 'config'),
       children: [
+        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/empresa', label: 'Empresa', icon: Building2 },
         canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/usuarios', label: 'Usuarios', icon: Users },
+        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/roles', label: 'Roles y permisos', icon: Shield },
         canView(permissions, 'config', 'grupos') && { href: '/opai/configuracion/grupos', label: 'Grupos', icon: Users },
         canView(permissions, 'config', 'integraciones') && { href: '/opai/configuracion/integraciones', label: 'Integraciones', icon: Plug },
+        canView(permissions, 'config', 'firmas') && { href: '/opai/configuracion/firmas', label: 'Firmas', icon: PenLine },
+        canView(permissions, 'config', 'categorias') && { href: '/opai/configuracion/categorias-plantillas', label: 'Categorías', icon: FolderTree },
         canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/notificaciones', label: 'Alertas', icon: Bell },
+        isAdmin && canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/asistente-ia', label: 'Asistente IA', icon: Bot },
+        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/auditoria', label: 'Auditoría', icon: ClipboardCheck },
         canView(permissions, 'config', 'crm') && { href: '/opai/configuracion/crm', label: 'CRM', icon: TrendingUp },
         canView(permissions, 'config', 'cpq') && { href: '/opai/configuracion/cpq', label: 'CPQ', icon: DollarSign },
+        canView(permissions, 'config', 'payroll') && { href: '/opai/configuracion/payroll', label: 'Payroll', icon: Calculator },
         canView(permissions, 'config', 'ops') && { href: '/opai/configuracion/ops', label: 'Ops', icon: ClipboardList },
         canView(permissions, 'config', 'tipos_ticket') && { href: '/opai/configuracion/tipos-ticket', label: 'Tickets', icon: Ticket },
+        canView(permissions, 'config', 'finanzas') && { href: '/opai/configuracion/finanzas', label: 'Finanzas', icon: Receipt },
       ].filter(Boolean) as NavItem['children'],
     },
-  ], [permissions]);
+  ], [permissions, isAdmin]);
 
   return (
     <AppShell

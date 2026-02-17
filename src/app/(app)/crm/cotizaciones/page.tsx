@@ -8,7 +8,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmSubnav } from "@/components/crm/CrmSubnav";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
@@ -20,8 +20,6 @@ export default async function CrmCotizacionesPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
   const [quotes, accounts] = await Promise.all([
@@ -117,7 +115,7 @@ export default async function CrmCotizacionesPage() {
         description="Cotizaciones CPQ vinculadas al CRM"
         actions={<CpqIndicators />}
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} />
     </>
   );

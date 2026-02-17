@@ -8,7 +8,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmInstallationsListClient, CrmSubnav } from "@/components/crm";
+import { CrmInstallationsListClient } from "@/components/crm";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 export default async function CrmInstallationsPage() {
   const session = await auth();
@@ -17,8 +18,6 @@ export default async function CrmInstallationsPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "installations")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
     prisma.crmInstallation.findMany({
@@ -80,7 +79,7 @@ export default async function CrmInstallationsPage() {
         title="Instalaciones"
         description="Sedes y ubicaciones de clientes"
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmInstallationsListClient
         initialInstallations={initialInstallations}
         accounts={initialAccounts}

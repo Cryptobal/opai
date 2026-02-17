@@ -8,7 +8,6 @@ import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-se
 import { getDefaultTenantId } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { PageHeader } from '@/components/opai';
-import { CrmSubnav } from '@/components/crm/CrmSubnav';
 import {
   LeadsByMonthChart,
   QuotesByMonthChart,
@@ -49,8 +48,6 @@ export default async function CRMPage() {
   if (!session?.user) redirect('/opai/login?callbackUrl=/crm');
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, 'crm')) redirect('/hub');
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const now = new Date();
   const twelveMonthsAgo = new Date(now);
@@ -184,8 +181,6 @@ export default async function CRMPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
-      <CrmSubnav role={role} />
-
       {/* ─── Resumen ejecutivo ─── */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link href="/crm/leads" className="group">

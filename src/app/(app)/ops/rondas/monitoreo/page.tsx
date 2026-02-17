@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasMonitoreoClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasMonitoreoClient } from "@/components/ops/rondas";
 
 export default async function RondasMonitoreoPage() {
   const session = await auth();
@@ -36,8 +36,7 @@ export default async function RondasMonitoreoPage() {
         title="Monitoreo de rondas"
         description="Seguimiento casi en tiempo real (polling cada 30 segundos)."
       />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasMonitoreoClient initialRows={JSON.parse(JSON.stringify(activeRows))} />
     </div>
   );

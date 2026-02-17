@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { TicketsClient } from "@/components/ops/tickets";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function OpsTicketsPage() {
   const session = await auth();
@@ -22,7 +22,7 @@ export default async function OpsTicketsPage() {
         title="Tickets"
         description="Seguimiento de solicitudes, incidentes y requerimientos internos con SLA y prioridades."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <Suspense>
         <TicketsClient userRole={session.user.role} />
       </Suspense>

@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { ControlNocturnoKpisClient } from "@/components/ops/ControlNocturnoKpisClient";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function ControlNocturnoKpisPage() {
   const session = await auth();
@@ -21,7 +21,7 @@ export default async function ControlNocturnoKpisPage() {
         title="KPIs Control Nocturno"
         description="Cumplimiento de rondas, tendencias y alertas por instalación."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <ControlNocturnoKpisClient />
     </div>
   );

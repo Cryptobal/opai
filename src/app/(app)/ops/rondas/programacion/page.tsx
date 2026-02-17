@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasProgramacionClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasProgramacionClient } from "@/components/ops/rondas";
 
 export default async function RondasProgramacionPage() {
   const session = await auth();
@@ -32,8 +32,7 @@ export default async function RondasProgramacionPage() {
         title="Programación de rondas"
         description="Define días, horarios y frecuencia de ejecución."
       />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasProgramacionClient
         templates={JSON.parse(JSON.stringify(templates))}
         initialRows={JSON.parse(JSON.stringify(programaciones))}

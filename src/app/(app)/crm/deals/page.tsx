@@ -8,7 +8,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmDealsClient, CrmSubnav } from "@/components/crm";
+import { CrmDealsClient } from "@/components/crm";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 type DealsFocus =
   | "all"
@@ -47,8 +48,6 @@ export default async function CrmDealsPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "deals")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const now = new Date();
   const thirtyDaysAgo = new Date(now);
@@ -176,7 +175,7 @@ export default async function CrmDealsPage({
         title="Negocios"
         description={getDealsFocusText(focus) ?? "Pipeline comercial y oportunidades"}
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmDealsClient
         initialDeals={initialDeals}
         accounts={initialAccounts}

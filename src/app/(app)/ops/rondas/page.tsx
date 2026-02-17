@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasDashboardClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasDashboardClient } from "@/components/ops/rondas";
 
 export default async function OpsRondasPage() {
   const session = await auth();
@@ -46,8 +46,7 @@ export default async function OpsRondasPage() {
         title="Rondas de seguridad"
         description="Ejecución y control de rondas asociadas a instalaciones."
       />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasDashboardClient rows={JSON.parse(JSON.stringify(rows))} stats={stats} />
     </div>
   );

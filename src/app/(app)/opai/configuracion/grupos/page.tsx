@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigSubnav, ConfigBackLink } from "@/components/opai";
+import { ConfigBackLink } from "@/components/opai";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import GroupsConfigClient from "@/components/config/GroupsConfigClient";
 
@@ -21,7 +21,6 @@ export default async function GruposConfigPage() {
         title="Grupos de Usuarios"
         description="Crea y administra grupos organizacionales (RRHH, Operaciones, etc.) para cadenas de aprobación y asignación de equipo"
       />
-      <ConfigSubnav role={role} />
       <GroupsConfigClient userRole={role} />
     </div>
   );

@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasTemplatesClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasTemplatesClient } from "@/components/ops/rondas";
 
 export default async function RondasTemplatesPage() {
   const session = await auth();
@@ -25,8 +25,7 @@ export default async function RondasTemplatesPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Plantillas de ronda" description="No hay instalaciones activas para crear plantillas." />
-        <OpsSubnav />
-        <RondasSubnav />
+        <OpsGlobalSearch className="w-full sm:max-w-xs" />
       </div>
     );
   }
@@ -51,8 +50,7 @@ export default async function RondasTemplatesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Plantillas de ronda" description="Configura plantillas por instalación." />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasTemplatesClient
         installations={JSON.parse(JSON.stringify(installations))}
         initialInstallationId={installation.id}

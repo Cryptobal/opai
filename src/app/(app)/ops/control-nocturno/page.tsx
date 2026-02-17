@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { OpsControlNocturnoListClient } from "@/components/ops/OpsControlNocturnoListClient";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function OpsControlNocturnoPage() {
   const session = await auth();
@@ -21,7 +21,7 @@ export default async function OpsControlNocturnoPage() {
         title="Control nocturno"
         description="Reportes de la central de operaciones nocturna."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsControlNocturnoListClient userRole={session.user.role} />
     </div>
   );

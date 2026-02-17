@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigSubnav } from "@/components/opai/ConfigSubnav";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import { OpsConfigClient } from "@/components/ops/OpsConfigClient";
 
@@ -20,7 +19,6 @@ export default async function OpsConfigPage() {
         title="Operaciones"
         description="Configuración de marcaciones, rondas, emails automáticos y parámetros operativos"
       />
-      <ConfigSubnav role={role} />
       <OpsConfigClient />
     </div>
   );

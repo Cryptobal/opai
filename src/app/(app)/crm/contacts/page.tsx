@@ -8,7 +8,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmContactsClient, CrmSubnav } from "@/components/crm";
+import { CrmContactsClient } from "@/components/crm";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 export default async function CrmContactsPage() {
   const session = await auth();
@@ -17,8 +18,6 @@ export default async function CrmContactsPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "contacts")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const [contacts, accounts] = await Promise.all([
     prisma.crmContact.findMany({
@@ -42,7 +41,7 @@ export default async function CrmContactsPage() {
         title="Contactos"
         description="Personas clave por cliente"
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmContactsClient
         initialContacts={initialContacts}
         accounts={initialAccounts}

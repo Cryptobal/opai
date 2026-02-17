@@ -1,6 +1,4 @@
-export * from "./OpsSubnav";
 export * from "./TeSubnav";
-export * from "./PersonasSubnav";
 export * from "./OpsPuestosClient";
 export * from "./OpsPautaMensualClient";
 export * from "./OpsPautaDiariaClient";
@@ -13,4 +11,5 @@ export * from "./OpsMarcacionesClient";
 export * from "./OpsConfigClient";
 export * from "./OpsControlNocturnoListClient";
 export * from "./OpsControlNocturnoDetailClient";
+export * from "./OpsGlobalSearch";
 export * from "./rondas";

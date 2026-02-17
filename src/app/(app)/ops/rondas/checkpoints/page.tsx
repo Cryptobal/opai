@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasCheckpointsClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasCheckpointsClient } from "@/components/ops/rondas";
 
 export default async function RondasCheckpointsPage() {
   const session = await auth();
@@ -31,8 +31,7 @@ export default async function RondasCheckpointsPage() {
         title="Checkpoints QR"
         description="Configura puntos de marcación por instalación."
       />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasCheckpointsClient
         installations={JSON.parse(JSON.stringify(installations))}
         initialCheckpoints={JSON.parse(JSON.stringify(checkpoints))}

@@ -5,7 +5,7 @@ import { resolvePagePerms, canView, hasModuleAccess } from "@/lib/permissions-se
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Route,
@@ -128,7 +128,7 @@ export default async function OpsDashboardPage() {
         title="Operaciones"
         description="Operación diaria: pauta, cobertura, asistencia y control."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
 
       {/* ── KPI Dotación ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

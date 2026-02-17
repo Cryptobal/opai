@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
 import { OpsControlNocturnoDetailClient } from "@/components/ops/OpsControlNocturnoDetailClient";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -25,7 +25,7 @@ export default async function OpsControlNocturnoDetailPage({ params }: Props) {
         title="Reporte nocturno"
         description="Detalle del control de guardia nocturna."
       />
-      <OpsSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsControlNocturnoDetailClient reporteId={id} userRole={session.user.role} />
     </div>
   );

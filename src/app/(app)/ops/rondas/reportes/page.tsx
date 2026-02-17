@@ -4,8 +4,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsSubnav } from "@/components/ops";
-import { RondasSubnav, RondasReportesClient } from "@/components/ops/rondas";
+import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { RondasReportesClient } from "@/components/ops/rondas";
 
 export default async function RondasReportesPage() {
   const session = await auth();
@@ -54,8 +54,7 @@ export default async function RondasReportesPage() {
         title="Reportes de rondas"
         description="Cumplimiento, cobertura y confiabilidad de rondas por instalación y guardia."
       />
-      <OpsSubnav />
-      <RondasSubnav />
+      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasReportesClient rows={mapped} totals={totals} />
     </div>
   );

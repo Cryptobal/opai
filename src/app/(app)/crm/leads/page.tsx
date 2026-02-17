@@ -8,7 +8,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmLeadsClient, CrmSubnav } from "@/components/crm";
+import { CrmLeadsClient } from "@/components/crm";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -31,8 +32,6 @@ export default async function CrmLeadsPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "leads")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const leads = await prisma.crmLead.findMany({
     where: { tenantId },
@@ -47,7 +46,7 @@ export default async function CrmLeadsPage({
         title="Prospectos"
         description="Solicitudes entrantes y aprobación manual"
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmLeadsClient
         initialLeads={initialLeads}
         initialStatusFilter={initialStatusFilter}

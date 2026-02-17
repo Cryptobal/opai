@@ -35,12 +35,14 @@ type ConfigItem = {
 };
 
 type ConfigSection = {
+  key: string;
   title: string;
   items: ConfigItem[];
 };
 
 const CONFIG_SECTIONS: ConfigSection[] = [
   {
+    key: "general",
     title: "General",
     items: [
       {
@@ -106,6 +108,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     ],
   },
   {
+    key: "correos-documentos",
     title: "Correos y Documentos",
     items: [
       {
@@ -125,6 +128,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     ],
   },
   {
+    key: "modulos",
     title: "Módulos",
     items: [
       {
@@ -206,39 +210,82 @@ export default async function ConfiguracionPage() {
         description="Administración global y por módulo"
       />
 
-      <div className="space-y-6">
-        {visibleSections.map((section) => (
-          <section key={section.title}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
-              {section.title}
-            </h2>
-            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60 group"
+      <div className="space-y-5">
+        <div className="rounded-xl border border-border bg-card/70 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {visibleSections.map((section) => (
+              <a
+                key={section.key}
+                href={`#config-section-${section.key}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-accent/50"
+              >
+                <span>{section.title}</span>
+                <span className="rounded-full bg-muted px-1.5 py-px text-[10px] tabular-nums">
+                  {section.items.length}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 rounded-xl border border-border bg-card/70 p-3">
+              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Navegación
+              </p>
+              <div className="space-y-1">
+                {visibleSections.map((section) => (
+                  <a
+                    key={section.key}
+                    href={`#config-section-${section.key}`}
+                    className="flex items-center justify-between rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-tight">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {item.description}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                  </Link>
-                );
-              })}
+                    <span>{section.title}</span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground/80">
+                      {section.items.length}
+                    </span>
+                  </a>
+                ))}
+              </div>
             </div>
-          </section>
-        ))}
+          </aside>
+
+          <div className="space-y-6">
+            {visibleSections.map((section) => (
+              <section key={section.key} id={`config-section-${section.key}`} className="scroll-mt-24">
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                  {section.title}
+                </h2>
+                <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40 active:bg-accent/60 group"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-tight">
+                            {item.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.description}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
 
         {/* Portal del Guardia — enlace externo */}
         {isAdmin && (

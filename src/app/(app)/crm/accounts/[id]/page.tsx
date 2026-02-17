@@ -7,9 +7,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { PageHeader, Breadcrumb } from "@/components/opai";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
-import { CrmSubnav } from "@/components/crm/CrmSubnav";
 
 export default async function CrmAccountDetailPage({
   params,
@@ -23,8 +21,6 @@ export default async function CrmAccountDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
   let [account, quotes] = await Promise.all([
@@ -84,7 +80,6 @@ export default async function CrmAccountDetailPage({
 
   return (
     <>
-      <CrmSubnav role={role} />
       <CrmAccountDetailClient
         account={data}
         quotes={data.quotes || []}

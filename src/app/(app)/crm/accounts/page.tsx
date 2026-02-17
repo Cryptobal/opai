@@ -8,7 +8,8 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmAccountsClient, CrmSubnav } from "@/components/crm";
+import { CrmAccountsClient } from "@/components/crm";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 export default async function CrmAccountsPage() {
   const session = await auth();
@@ -17,8 +18,6 @@ export default async function CrmAccountsPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
-  const role = session.user.role;
-
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const accounts = await prisma.crmAccount.findMany({
     where: { tenantId },
@@ -34,7 +33,7 @@ export default async function CrmAccountsPage() {
         title="Cuentas"
         description="Prospectos y clientes"
       />
-      <CrmSubnav role={role} />
+      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmAccountsClient initialAccounts={initialAccounts} />
     </>
   );
