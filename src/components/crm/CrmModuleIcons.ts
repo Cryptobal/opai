@@ -63,6 +63,8 @@ export type CrmSectionKey =
   | "docs-vinculados"
   | "contratos"
   | "eventos-laborales"
+  | "estructura-sueldo"
+  | "liquidaciones"
   | "cuentas"
   | "comentarios"
   | "dias-trabajados"
@@ -275,6 +277,16 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: Gavel,
     label: "Eventos laborales",
   },
+  "estructura-sueldo": {
+    key: "estructura-sueldo",
+    icon: Receipt,
+    label: "Estructura de sueldo",
+  },
+  liquidaciones: {
+    key: "liquidaciones",
+    icon: Receipt,
+    label: "Liquidaciones",
+  },
   cuentas: {
     key: "cuentas",
     icon: Landmark,
@@ -364,5 +376,5 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
   installations: ["general", "account", "deals", "quotes", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
-  guardias: ["datos", "contratos", "eventos-laborales", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
+  guardias: ["datos", "contratos", "eventos-laborales", "estructura-sueldo", "liquidaciones", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };

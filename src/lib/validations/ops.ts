@@ -61,6 +61,20 @@ export const createPuestoSchema = z.object({
   weekdays: z.array(weekdayEnum).min(1, "Debe seleccionar al menos un día"),
   requiredGuards: z.number().int().min(1).max(20).default(1),
   baseSalary: z.number().min(0).optional().nullable(),
+  colacion: z.number().min(0).optional().nullable(),
+  movilizacion: z.number().min(0).optional().nullable(),
+  gratificationType: z.enum(["AUTO_25", "LEGAL_25", "NONE", "CUSTOM"]).optional(),
+  gratificationCustomAmount: z.number().min(0).optional().nullable(),
+  bonos: z
+    .array(
+      z.object({
+        bonoCatalogId: z.string().uuid().optional().nullable(),
+        overrideAmount: z.number().min(0).optional().nullable(),
+        overridePercentage: z.number().min(0).max(100).optional().nullable(),
+      }),
+    )
+    .optional()
+    .default([]),
   teMontoClp: z.number().min(0).optional().nullable(),
   activeFrom: z.string().regex(dateRegex, "activeFrom debe tener formato YYYY-MM-DD").optional().nullable(),
   active: z.boolean().optional(),
@@ -76,6 +90,19 @@ export const updatePuestoSchema = z.object({
   weekdays: z.array(weekdayEnum).min(1).optional(),
   requiredGuards: z.number().int().min(1).max(20).optional(),
   baseSalary: z.number().min(0).optional().nullable(),
+  colacion: z.number().min(0).optional().nullable(),
+  movilizacion: z.number().min(0).optional().nullable(),
+  gratificationType: z.enum(["AUTO_25", "LEGAL_25", "NONE", "CUSTOM"]).optional(),
+  gratificationCustomAmount: z.number().min(0).optional().nullable(),
+  bonos: z
+    .array(
+      z.object({
+        bonoCatalogId: z.string().uuid().optional().nullable(),
+        overrideAmount: z.number().min(0).optional().nullable(),
+        overridePercentage: z.number().min(0).max(100).optional().nullable(),
+      }),
+    )
+    .optional(),
   teMontoClp: z.number().min(0).optional().nullable(),
   activeFrom: z.string().regex(dateRegex).optional().nullable(),
   activeUntil: z.string().regex(dateRegex).optional().nullable(),

@@ -85,10 +85,10 @@ export async function resolveMonthlyAttendance(
   const turnosExtra = await prisma.opsTurnoExtra.findMany({
     where: {
       guardiaId: guardiaId,
-      fecha: { gte: startDate, lte: endDate },
+      date: { gte: startDate, lte: endDate },
     },
     select: {
-      fecha: true,
+      date: true,
       status: true,
     },
   });
