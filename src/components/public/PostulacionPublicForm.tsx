@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { CalendarDays, FilePlus2, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
     notes: "",
   });
   const [rutError, setRutError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onAddressChange = (result: AddressResult) => {
     setForm((prev) => ({
@@ -526,23 +527,43 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                   </option>
                 ))}
               </select>
-              <Button type="button" size="sm" variant="outline" onClick={() => setDocFileName("")}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDocFileName("");
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Agregar otro
               </Button>
-              <label className="inline-flex">
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,image/*"
-                  onChange={(e) => void handleUpload(e.target.files?.[0])}
-                  disabled={uploading}
-                />
-                <Button type="button" variant="outline" size="sm" disabled={uploading}>
-                  <FilePlus2 className="h-4 w-4 mr-1" />
-                  {uploading ? "Subiendo..." : "Cargar documento"}
-                </Button>
-              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  void handleUpload(file);
+                  e.target.value = "";
+                }}
+                disabled={uploading}
+                aria-hidden
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FilePlus2 className="h-4 w-4 mr-1" />
+                {uploading ? "Subiendo..." : "Cargar documento"}
+              </Button>
             </div>
             {docFileName ? (
               <p className="text-xs text-muted-foreground">Archivo seleccionado: {docFileName}</p>

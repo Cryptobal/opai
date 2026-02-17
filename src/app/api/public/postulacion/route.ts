@@ -66,7 +66,11 @@ const postulacionSchema = z.object({
           .string()
           .trim()
           .max(2000)
-          .refine((value) => value.startsWith("/uploads/guardias/"), "Archivo inválido"),
+          .refine(
+            (value) =>
+              value.startsWith("/uploads/guardias/") || /^https?:\/\//i.test(value),
+            "Archivo inválido (URL o path /uploads/guardias/)"
+          ),
       })
     )
     .min(1, "Debes subir al menos un documento"),
