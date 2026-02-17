@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { DteForm } from "@/components/finance/DteForm";
 
 export default async function EmitirDtePage() {
@@ -41,7 +40,6 @@ export default async function EmitirDtePage() {
         title="Emitir DTE"
         description="Emisión de factura electrónica o factura exenta."
       />
-      <FinanceSubnav />
       <DteForm
         availableTypes={availableTypes}
         accounts={accounts}

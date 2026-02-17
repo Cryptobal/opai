@@ -11,6 +11,7 @@ export interface NavSubItem {
   href: string;
   label: string;
   icon?: LucideIcon;
+  children?: NavSubItem[];
 }
 
 export interface NavItem {
@@ -57,6 +58,7 @@ export function AppSidebar({
   const collapsed = !isSidebarOpen;
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedSubSections, setExpandedSubSections] = useState<Set<string>>(new Set());
   const flyoutTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showFlyout = collapsed && !showCloseButton;
@@ -110,6 +112,39 @@ export function AppSidebar({
       return new Set([href]);
     });
   };
+
+  const toggleSubSection = (href: string) => {
+    setExpandedSubSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) {
+        next.delete(href);
+      } else {
+        next.add(href);
+      }
+      return next;
+    });
+  };
+
+  // Auto-expand active sub-sections
+  useEffect(() => {
+    for (const item of navItems) {
+      if (item.children) {
+        for (const child of item.children) {
+          if (child.children && child.children.length > 0) {
+            const isSubActive = isItemActive(child.href) || child.children.some((sc) => isItemActive(sc.href));
+            if (isSubActive) {
+              setExpandedSubSections((prev) => {
+                if (prev.has(child.href)) return prev;
+                const next = new Set(prev);
+                next.add(child.href);
+                return next;
+              });
+            }
+          }
+        }
+      }
+    }
+  }, [pathname, navItems, isItemActive]);
 
   // Close flyout on route change
   useEffect(() => {
@@ -282,13 +317,101 @@ export function AppSidebar({
                   <div
                     className={cn(
                       "overflow-hidden transition-all duration-200 ease-out",
-                      isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                      isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
                     )}
                   >
                     <div className="ml-3 border-l border-border/60 pl-0 space-y-px py-0.5">
                       {item.children!.map((child) => {
                         const isChildActive = isItemActive(child.href);
                         const ChildIcon = child.icon;
+                        const hasSubChildren = child.children && child.children.length > 0;
+
+                        if (hasSubChildren) {
+                          const isSubGroupActive = isChildActive || child.children!.some((sc) => isItemActive(sc.href));
+                          const isSubExpanded = expandedSubSections.has(child.href);
+
+                          return (
+                            <div key={child.href} className="space-y-px">
+                              <div
+                                onClick={() => toggleSubSection(child.href)}
+                                className={cn(
+                                  "group relative flex items-center rounded-md transition-colors cursor-pointer select-none",
+                                  showCloseButton ? "text-[13px] gap-2.5 px-3 py-2" : "text-[13px] gap-2.5 px-3 py-[6px]",
+                                  isSubGroupActive
+                                    ? "bg-accent text-foreground font-medium"
+                                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                )}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleSubSection(child.href);
+                                  }
+                                }}
+                              >
+                                {isSubGroupActive && (
+                                  <span className="absolute -left-px top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-r-full bg-primary" />
+                                )}
+                                {ChildIcon && (
+                                  <ChildIcon
+                                    className={cn(
+                                      "shrink-0 h-3.5 w-3.5",
+                                      isSubGroupActive ? "text-primary" : "text-muted-foreground/70"
+                                    )}
+                                  />
+                                )}
+                                <span className="flex-1 truncate">{child.label}</span>
+                                <ChevronRight
+                                  className={cn(
+                                    "h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+                                    isSubExpanded && "rotate-90"
+                                  )}
+                                />
+                              </div>
+                              <div
+                                className={cn(
+                                  "overflow-hidden transition-all duration-200 ease-out",
+                                  isSubExpanded ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
+                                )}
+                              >
+                                <div className="ml-3 border-l border-border/40 pl-0 space-y-px py-0.5">
+                                  {child.children!.map((subChild) => {
+                                    const isSubChildActive = isItemActive(subChild.href);
+                                    const SubChildIcon = subChild.icon;
+                                    return (
+                                      <Link
+                                        key={subChild.href}
+                                        href={subChild.href}
+                                        onClick={onNavigate}
+                                        className={cn(
+                                          "group relative flex items-center rounded-md transition-colors",
+                                          showCloseButton ? "text-[12px] gap-2 px-3 py-1.5" : "text-[12px] gap-2 px-3 py-[5px]",
+                                          isSubChildActive
+                                            ? "bg-accent text-foreground font-medium"
+                                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                        )}
+                                      >
+                                        {isSubChildActive && (
+                                          <span className="absolute -left-px top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r-full bg-primary" />
+                                        )}
+                                        {SubChildIcon && (
+                                          <SubChildIcon
+                                            className={cn(
+                                              "shrink-0 h-3 w-3",
+                                              isSubChildActive ? "text-primary" : "text-muted-foreground/70"
+                                            )}
+                                          />
+                                        )}
+                                        <span className="truncate">{subChild.label}</span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
 
                         return (
                           <Link
@@ -348,6 +471,61 @@ export function AppSidebar({
                   {flyout.item.children.map((child) => {
                     const isChildActive = isItemActive(child.href);
                     const ChildIcon = child.icon;
+                    const hasSubChildren = child.children && child.children.length > 0;
+
+                    if (hasSubChildren) {
+                      const isSubGroupActive = isChildActive || child.children!.some((sc) => isItemActive(sc.href));
+                      return (
+                        <div key={child.href}>
+                          <div
+                            className={cn(
+                              "flex items-center gap-2.5 px-2.5 py-[6px] text-[13px] font-medium",
+                              isSubGroupActive ? "text-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            {ChildIcon && (
+                              <ChildIcon
+                                className={cn(
+                                  "shrink-0 h-3.5 w-3.5",
+                                  isSubGroupActive ? "text-primary" : "text-muted-foreground/60"
+                                )}
+                              />
+                            )}
+                            <span>{child.label}</span>
+                          </div>
+                          <div className="ml-3 border-l border-border/40 pl-0 space-y-0.5 mb-1">
+                            {child.children!.map((subChild) => {
+                              const isSubChildActive = isItemActive(subChild.href);
+                              const SubChildIcon = subChild.icon;
+                              return (
+                                <Link
+                                  key={subChild.href}
+                                  href={subChild.href}
+                                  onClick={() => { setFlyout(null); onNavigate?.(); }}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-md px-2.5 py-[5px] text-[12px] transition-colors",
+                                    isSubChildActive
+                                      ? "bg-accent text-foreground font-medium"
+                                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                  )}
+                                >
+                                  {SubChildIcon && (
+                                    <SubChildIcon
+                                      className={cn(
+                                        "shrink-0 h-3 w-3",
+                                        isSubChildActive ? "text-primary" : "text-muted-foreground/60"
+                                      )}
+                                    />
+                                  )}
+                                  <span>{subChild.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <Link
                         key={child.href}

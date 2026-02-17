@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
 interface PageProps {
@@ -62,7 +61,6 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
         title="Emitir Nota de Débito"
         description="Emitir nota de débito electrónica referenciando un DTE."
       />
-      <FinanceSubnav />
       <CreditNoteForm
         noteType="debit"
         referenceDte={referenceDte}

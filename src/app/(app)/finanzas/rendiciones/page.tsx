@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { RendicionesClient } from "@/components/finance/RendicionesClient";
 
 export default async function RendicionesPage() {
@@ -77,7 +76,6 @@ export default async function RendicionesPage() {
         title="Rendiciones"
         description="Listado de rendiciones de gastos y kilometraje."
       />
-      <FinanceSubnav />
       <RendicionesClient
         rendiciones={data}
         items={items}

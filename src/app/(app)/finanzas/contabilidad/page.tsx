@@ -9,7 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { ContabilidadClient } from "@/components/finance/ContabilidadClient";
 
 export default async function ContabilidadPage() {
@@ -88,7 +87,6 @@ export default async function ContabilidadPage() {
         title="Contabilidad"
         description="Plan de cuentas, asientos contables, libro mayor y períodos."
       />
-      <FinanceSubnav />
       <ContabilidadClient
         accounts={accountsData}
         journalEntries={journalData}

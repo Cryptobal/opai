@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { ReportesClient } from "@/components/finance/ReportesClient";
 
 export default async function ReportesPage() {
@@ -78,7 +77,6 @@ export default async function ReportesPage() {
         title="Reportes"
         description="Resumen y análisis de rendiciones."
       />
-      <FinanceSubnav />
       <ReportesClient
         statusSummary={statusSummary}
         typeSummary={typeSummary}

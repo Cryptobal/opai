@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
 
 export default async function NuevoAsientoPage() {
@@ -45,7 +44,6 @@ export default async function NuevoAsientoPage() {
         title="Nuevo asiento contable"
         description="Registre un asiento contable manual."
       />
-      <FinanceSubnav />
       <JournalEntryForm accounts={accounts} periods={periods} />
     </div>
   );

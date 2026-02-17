@@ -19,8 +19,9 @@ import {
   ClipboardList,
   Settings,
   Receipt,
-  Wallet,
   BarChart3,
+  Landmark,
+  BookText,
   // CRM
   Users,
   MapPin,
@@ -57,7 +58,6 @@ import {
   getDefaultPermissions,
   hasModuleAccess,
   canView,
-  hasCapability,
 } from "./permissions";
 
 /* ── Types ── */
@@ -146,14 +146,14 @@ const DOCS_ITEMS: BottomNavItem[] = [
 /* ── Finance sub-items ── */
 
 const FINANCE_ITEMS: (BottomNavItem & {
-  subKey: "rendiciones" | "aprobaciones" | "pagos" | "reportes" | null;
-  capability?: "rendicion_approve" | "rendicion_pay";
+  subKey: "rendiciones" | "facturacion" | "proveedores" | "contabilidad" | "reportes";
 })[] = [
-  { key: "finance-home", href: "/finanzas", label: "Inicio", icon: Grid3x3, subKey: null },
-  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rend.", icon: Receipt, subKey: "rendiciones" },
-  { key: "finance-aprobaciones", href: "/finanzas/aprobaciones", label: "Aprob.", icon: CheckCircle2, subKey: "aprobaciones", capability: "rendicion_approve" },
-  { key: "finance-pagos", href: "/finanzas/pagos", label: "Pagos", icon: Wallet, subKey: "pagos", capability: "rendicion_pay" },
-  { key: "finance-reportes", href: "/finanzas/reportes", label: "Reportes", icon: BarChart3, subKey: "reportes" },
+  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
+  { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
+  { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
+  { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
+  { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
+  { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
 ];
 
 /* ── Config sub-items (top 5 for bottom nav) ── */
@@ -214,9 +214,7 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
     test: (p) => p === "/finanzas" || p.startsWith("/finanzas/"),
     getItems: (perms) =>
       FINANCE_ITEMS.filter((item) => {
-        if (!item.subKey) return true;
         if (!canView(perms, "finance", item.subKey)) return false;
-        if (item.capability && !hasCapability(perms, item.capability)) return false;
         return true;
       }),
   },

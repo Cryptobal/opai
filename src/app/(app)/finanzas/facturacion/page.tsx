@@ -9,7 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function FacturacionPage() {
@@ -62,7 +61,6 @@ export default async function FacturacionPage() {
         title="Facturación electrónica"
         description="Emisión y gestión de documentos tributarios electrónicos (DTE)."
       />
-      <FinanceSubnav />
       <FacturacionClient
         dtes={dtesData}
         canManage={canManage}

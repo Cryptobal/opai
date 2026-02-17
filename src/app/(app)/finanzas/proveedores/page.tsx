@@ -9,7 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
 export default async function ProveedoresPage() {
@@ -64,7 +63,6 @@ export default async function ProveedoresPage() {
         title="Proveedores"
         description="Gestión de proveedores y sus datos bancarios."
       />
-      <FinanceSubnav />
       <ProveedoresClient
         suppliers={data}
         accounts={accounts}

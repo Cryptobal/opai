@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { AprobacionesClient } from "@/components/finance/AprobacionesClient";
 
 export default async function AprobacionesPage() {
@@ -82,7 +81,6 @@ export default async function AprobacionesPage() {
         title="Aprobaciones"
         description="Rendiciones pendientes de tu aprobación."
       />
-      <FinanceSubnav />
       <AprobacionesClient pendingApprovals={data} />
     </div>
   );

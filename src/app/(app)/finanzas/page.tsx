@@ -5,7 +5,6 @@ import { resolvePagePerms, hasModuleAccess, hasCapability } from "@/lib/permissi
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Receipt,
@@ -100,8 +99,6 @@ export default async function FinanzasDashboardPage() {
         title="Finanzas"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."
       />
-      <FinanceSubnav />
-
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {modules.filter((m) => m.show).map((item) => (
           <Link key={item.href} href={item.href}>

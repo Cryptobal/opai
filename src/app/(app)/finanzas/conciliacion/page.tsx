@@ -9,7 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { ConciliacionClient } from "@/components/finance/ConciliacionClient";
 
 export default async function ConciliacionPage() {
@@ -36,7 +35,6 @@ export default async function ConciliacionPage() {
         title="Conciliación Bancaria"
         description="Conciliación de movimientos bancarios con registros contables."
       />
-      <FinanceSubnav />
       <ConciliacionClient bankAccounts={bankAccounts} canManage={canManage} />
     </div>
   );

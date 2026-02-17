@@ -32,6 +32,9 @@ import {
   FolderTree,
   Bot,
   ClipboardCheck,
+  Landmark,
+  GitCompareArrows,
+  BookText,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -99,19 +102,24 @@ export function AppLayoutClient({
       icon: ClipboardList,
       show: hasModuleAccess(permissions, 'ops'),
       children: [
-        { href: '/ops', label: 'Inicio', icon: ClipboardList },
         canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
         canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
         canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
         canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/monitoreo', label: 'Rondas · Monitoreo', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/alertas', label: 'Rondas · Alertas', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/checkpoints', label: 'Rondas · Checkpoints', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/templates', label: 'Rondas · Plantillas', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/programacion', label: 'Rondas · Programación', icon: Route },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas/reportes', label: 'Rondas · Reportes', icon: Route },
+        canView(permissions, 'ops', 'rondas') && {
+          href: '/ops/rondas',
+          label: 'Rondas',
+          icon: Route,
+          children: [
+            { href: '/ops/rondas/monitoreo', label: 'Monitoreo', icon: Route },
+            { href: '/ops/rondas/alertas', label: 'Alertas', icon: Route },
+            { href: '/ops/rondas/checkpoints', label: 'Checkpoints', icon: Route },
+            { href: '/ops/rondas/templates', label: 'Plantillas', icon: Route },
+            { href: '/ops/rondas/programacion', label: 'Programación', icon: Route },
+            { href: '/ops/rondas/reportes', label: 'Reportes', icon: Route },
+          ],
+        },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket },
       ].filter(Boolean) as NavItem['children'],
@@ -129,10 +137,62 @@ export function AppLayoutClient({
       show: hasModuleAccess(permissions, 'finance'),
       children: [
         { href: '/finanzas', label: 'Inicio', icon: Grid3x3 },
-        canView(permissions, 'finance', 'rendiciones') && { href: '/finanzas/rendiciones', label: 'Rendiciones', icon: Receipt },
-        canView(permissions, 'finance', 'aprobaciones') && hasCapability(permissions, 'rendicion_approve') && { href: '/finanzas/aprobaciones', label: 'Aprobaciones', icon: CheckCircle2 },
-        canView(permissions, 'finance', 'pagos') && hasCapability(permissions, 'rendicion_pay') && { href: '/finanzas/pagos', label: 'Pagos', icon: Wallet },
-        canView(permissions, 'finance', 'reportes') && { href: '/finanzas/reportes', label: 'Reportes', icon: BarChart3 },
+        (
+          canView(permissions, 'finance', 'rendiciones') ||
+          (canView(permissions, 'finance', 'aprobaciones') && hasCapability(permissions, 'rendicion_approve')) ||
+          (canView(permissions, 'finance', 'pagos') && hasCapability(permissions, 'rendicion_pay'))
+        ) && {
+          href: '/finanzas/rendiciones',
+          label: 'Rendiciones',
+          icon: Receipt,
+          children: [
+            canView(permissions, 'finance', 'rendiciones') && { href: '/finanzas/rendiciones', label: 'Rendiciones', icon: Receipt },
+            canView(permissions, 'finance', 'aprobaciones') && hasCapability(permissions, 'rendicion_approve') && { href: '/finanzas/aprobaciones', label: 'Aprobaciones', icon: CheckCircle2 },
+            canView(permissions, 'finance', 'pagos') && hasCapability(permissions, 'rendicion_pay') && { href: '/finanzas/pagos', label: 'Pagos', icon: Wallet },
+          ].filter(Boolean) as NavItem['children'],
+        },
+        canView(permissions, 'finance', 'facturacion') && {
+          href: '/finanzas/facturacion',
+          label: 'Ventas',
+          icon: FileText,
+          children: [
+            { href: '/finanzas/facturacion', label: 'Facturación', icon: FileText },
+          ],
+        },
+        canView(permissions, 'finance', 'proveedores') && {
+          href: '/finanzas/proveedores',
+          label: 'Compras',
+          icon: Building2,
+          children: [
+            { href: '/finanzas/proveedores', label: 'Proveedores', icon: Building2 },
+            { href: '/finanzas/pagos-proveedores', label: 'Pagos Proveedores', icon: Wallet },
+          ],
+        },
+        canView(permissions, 'finance', 'contabilidad') && {
+          href: '/finanzas/bancos',
+          label: 'Banca',
+          icon: Landmark,
+          children: [
+            { href: '/finanzas/bancos', label: 'Bancos', icon: Landmark },
+            { href: '/finanzas/conciliacion', label: 'Conciliación', icon: GitCompareArrows },
+          ],
+        },
+        canView(permissions, 'finance', 'contabilidad') && {
+          href: '/finanzas/contabilidad',
+          label: 'Contabilidad',
+          icon: BookText,
+          children: [
+            { href: '/finanzas/contabilidad', label: 'Contabilidad', icon: BookText },
+          ],
+        },
+        canView(permissions, 'finance', 'reportes') && {
+          href: '/finanzas/reportes',
+          label: 'Informes',
+          icon: BarChart3,
+          children: [
+            { href: '/finanzas/reportes', label: 'Reportes', icon: BarChart3 },
+          ],
+        },
       ].filter(Boolean) as NavItem['children'],
     },
     {

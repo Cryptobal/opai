@@ -9,7 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { FinanceSubnav } from "@/components/finance";
 import { BancosClient } from "@/components/finance/BancosClient";
 
 export default async function BancosPage() {
@@ -61,7 +60,6 @@ export default async function BancosPage() {
         title="Bancos"
         description="Gestión de cuentas bancarias, movimientos e importación de cartolas."
       />
-      <FinanceSubnav />
       <BancosClient
         accounts={data}
         accountPlans={accountPlans}
