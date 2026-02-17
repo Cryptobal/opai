@@ -699,16 +699,32 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                 const ded = selectedLiq.breakdown.deductions || {};
                 const vol = selectedLiq.breakdown.voluntaryDeductions || {};
                 const emp = selectedLiq.breakdown.employerCost || {};
+                const gi = selectedLiq.breakdown.guardInfo || {};
+
+                const afpLabel = gi.afpName ? `AFP ${gi.afpName}` : "AFP";
+                const healthLabel = gi.healthSystem === "isapre"
+                  ? `Isapre (${(gi.healthPlanPct * 100).toFixed(1)}%)`
+                  : `Fonasa (${(gi.healthPlanPct ? gi.healthPlanPct * 100 : 7).toFixed(1)}%)`;
+                const holidayDays = gi.holidayDaysWorked || 0;
+                const holidayHours = gi.holidayHoursWorked || 0;
 
                 return (
                   <>
+                    {/* Info previsional */}
+                    <div className="rounded-md bg-muted/30 border border-border/50 p-2.5 text-[11px] text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
+                      <span>AFP: <strong className="text-foreground">{gi.afpName || "—"}</strong></span>
+                      <span>Salud: <strong className="text-foreground">{gi.healthSystem === "isapre" ? "Isapre" : "Fonasa"}</strong></span>
+                      <span>Contrato: <strong className="text-foreground">{gi.contractType === "fixed_term" ? "Plazo fijo" : "Indefinido"}</strong></span>
+                      <span>Días feriado: <strong className="text-foreground">{holidayDays}</strong> ({holidayHours}h)</span>
+                    </div>
+
                     {/* Haberes */}
                     <div className="border-t border-border pt-3">
                       <p className="text-xs font-semibold mb-2">Haberes Imponibles</p>
                       <div className="space-y-1 text-xs">
                         {hab.base_salary > 0 && <Row label="Sueldo Base" value={hab.base_salary} />}
                         {hab.gratification > 0 && <Row label="Gratificación Legal" value={hab.gratification} />}
-                        {hab.holiday_surcharge > 0 && <Row label="Recargo Día Feriado" value={hab.holiday_surcharge} />}
+                        {hab.holiday_surcharge > 0 && <Row label={`Recargo Día Feriado (${holidayDays} día${holidayDays !== 1 ? "s" : ""}, ${holidayHours}h)`} value={hab.holiday_surcharge} />}
                         {hab.overtime_50 > 0 && <Row label="Horas Extra 50%" value={hab.overtime_50} />}
                         {hab.overtime_100 > 0 && <Row label="Horas Extra 100%" value={hab.overtime_100} />}
                         {hab.commissions > 0 && <Row label="Comisiones" value={hab.commissions} />}
@@ -733,13 +749,13 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                       <p className="text-xs font-semibold mb-2">Descuentos Legales</p>
                       <div className="space-y-1 text-xs">
                         {ded.afp?.amount > 0 && (
-                          <Row label={`AFP (${(ded.afp.total_rate * 100).toFixed(2)}%)`} value={ded.afp.amount} negative />
+                          <Row label={`${afpLabel} (${(ded.afp.total_rate * 100).toFixed(2)}%)`} value={ded.afp.amount} negative />
                         )}
                         {ded.health?.amount > 0 && (
-                          <Row label={`Salud (${(ded.health.rate * 100).toFixed(1)}%)`} value={ded.health.amount} negative />
+                          <Row label={healthLabel} value={ded.health.amount} negative />
                         )}
                         {ded.afc?.amount > 0 && (
-                          <Row label="AFC Trabajador" value={ded.afc.amount} negative />
+                          <Row label={`AFC Trabajador (${(ded.afc.total_rate * 100).toFixed(2)}%)`} value={ded.afc.amount} negative />
                         )}
                         {ded.tax?.amount > 0 && (
                           <Row label="Impuesto Único" value={ded.tax.amount} negative />

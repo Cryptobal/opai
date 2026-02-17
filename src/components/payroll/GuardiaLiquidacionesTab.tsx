@@ -147,14 +147,27 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                 const hab = selectedLiq.breakdown.haberes || {};
                 const ded = selectedLiq.breakdown.deductions || {};
                 const vol = selectedLiq.breakdown.voluntaryDeductions || {};
+                const gi = selectedLiq.breakdown.guardInfo || {};
+                const holidayDays = gi.holidayDaysWorked || 0;
+                const holidayHours = gi.holidayHoursWorked || 0;
 
                 return (
                   <>
+                    {/* Info previsional */}
+                    {gi.afpName && (
+                      <div className="rounded-md bg-muted/30 border border-border/50 p-2.5 text-[11px] text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
+                        <span>AFP: <strong className="text-foreground">{gi.afpName}</strong></span>
+                        <span>Salud: <strong className="text-foreground">{gi.healthSystem === "isapre" ? "Isapre" : "Fonasa"}</strong></span>
+                        <span>Contrato: <strong className="text-foreground">{gi.contractType === "fixed_term" ? "Plazo fijo" : "Indefinido"}</strong></span>
+                        <span>Días feriado: <strong className="text-foreground">{holidayDays}</strong> ({holidayHours}h)</span>
+                      </div>
+                    )}
                     <div className="border-t border-border pt-3">
                       <p className="text-xs font-semibold mb-2">Haberes</p>
                       <div className="space-y-1 text-xs">
                         {hab.base_salary > 0 && <Row label="Sueldo Base" val={hab.base_salary} />}
-                        {hab.gratification > 0 && <Row label="Gratificación" val={hab.gratification} />}
+                        {hab.gratification > 0 && <Row label="Gratificación Legal" val={hab.gratification} />}
+                        {hab.holiday_surcharge > 0 && <Row label={`Recargo Feriado (${holidayDays}d, ${holidayHours}h)`} val={hab.holiday_surcharge} />}
                         {hab.meal > 0 && <Row label="Colación" val={hab.meal} />}
                         {hab.transport > 0 && <Row label="Movilización" val={hab.transport} />}
                         {hab.other_taxable > 0 && <Row label="Bonos Imponibles" val={hab.other_taxable} />}
@@ -164,9 +177,9 @@ export function GuardiaLiquidacionesTab({ guardiaId }: { guardiaId: string }) {
                     <div className="border-t border-border pt-3">
                       <p className="text-xs font-semibold mb-2">Descuentos</p>
                       <div className="space-y-1 text-xs">
-                        {ded.afp?.amount > 0 && <Row label={`AFP (${(ded.afp.total_rate * 100).toFixed(2)}%)`} val={ded.afp.amount} neg />}
-                        {ded.health?.amount > 0 && <Row label={`Salud (${(ded.health.rate * 100).toFixed(1)}%)`} val={ded.health.amount} neg />}
-                        {ded.afc?.amount > 0 && <Row label="AFC" val={ded.afc.amount} neg />}
+                        {ded.afp?.amount > 0 && <Row label={`AFP ${gi.afpName || ""} (${(ded.afp.total_rate * 100).toFixed(2)}%)`} val={ded.afp.amount} neg />}
+                        {ded.health?.amount > 0 && <Row label={`${gi.healthSystem === "isapre" ? "Isapre" : "Fonasa"} (${(ded.health.rate * 100).toFixed(1)}%)`} val={ded.health.amount} neg />}
+                        {ded.afc?.amount > 0 && <Row label={`AFC (${(ded.afc.total_rate * 100).toFixed(2)}%)`} val={ded.afc.amount} neg />}
                         {ded.tax?.amount > 0 && <Row label="Impuesto Único" val={ded.tax.amount} neg />}
                         {vol.advance > 0 && <Row label="Anticipo" val={vol.advance} neg />}
                       </div>
