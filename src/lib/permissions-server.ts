@@ -70,28 +70,37 @@ export async function resolvePermissions(user: {
   }
 
   // Si tiene template asignado, resolver desde BD
+  let effectiveRole = normalizedRole;
+
   if (user.roleTemplateId) {
     const cached = getCached(user.roleTemplateId);
     if (cached) {
       const merged = mergeRolePermissions(defaultPerms, cached);
-      return ensureSupervisorSupervisionAccess(normalizedRole, merged);
+      // Recuperar slug del template para detectar si es supervisor
+      const tpl = await prisma.roleTemplate.findUnique({
+        where: { id: user.roleTemplateId },
+        select: { slug: true },
+      });
+      if (tpl?.slug) effectiveRole = normalizeRole(tpl.slug);
+      return ensureSupervisorSupervisionAccess(effectiveRole, merged);
     }
 
     const template = await prisma.roleTemplate.findUnique({
       where: { id: user.roleTemplateId },
-      select: { permissions: true },
+      select: { permissions: true, slug: true },
     });
 
     if (template && template.permissions) {
       const perms = template.permissions as unknown as RolePermissions;
       setCache(user.roleTemplateId, perms);
+      if (template.slug) effectiveRole = normalizeRole(template.slug);
       const merged = mergeRolePermissions(defaultPerms, perms);
-      return ensureSupervisorSupervisionAccess(normalizedRole, merged);
+      return ensureSupervisorSupervisionAccess(effectiveRole, merged);
     }
   }
 
   // Fallback a defaults por rol legacy
-  return ensureSupervisorSupervisionAccess(normalizedRole, defaultPerms);
+  return ensureSupervisorSupervisionAccess(effectiveRole, defaultPerms);
 }
 
 /**
@@ -117,7 +126,13 @@ function ensureSupervisorSupervisionAccess(
     changed = true;
   }
 
-  // 2. Ops al menos "view" (para sidebar)
+  // 2. Hub al menos "view" (para que "Inicio" aparezca en sidebar)
+  if (LEVEL_RANK[modules.hub ?? "none"] < LEVEL_RANK.view) {
+    modules.hub = "view";
+    changed = true;
+  }
+
+  // 3. Ops al menos "view" (para sidebar)
   if (LEVEL_RANK[modules.ops ?? "none"] < LEVEL_RANK.view) {
     modules.ops = "view";
     changed = true;
