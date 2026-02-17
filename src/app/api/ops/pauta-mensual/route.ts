@@ -68,9 +68,12 @@ export async function GET(request: NextRequest) {
     });
 
     // Also get active series for this installation
+    // Uses try-catch: rotative fields may not exist if migration hasn't been applied
     const puestoIds = [...new Set(pauta.map((p) => p.puestoId))];
-    const series = puestoIds.length > 0
-      ? await prisma.opsSerieAsignacion.findMany({
+    let series: Record<string, unknown>[] = [];
+    if (puestoIds.length > 0) {
+      try {
+        series = await prisma.opsSerieAsignacion.findMany({
           where: {
             tenantId: ctx.tenantId,
             puestoId: { in: puestoIds },
@@ -101,8 +104,38 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-        })
-      : [];
+        });
+      } catch {
+        // Fallback: rotative fields not yet in DB (migration pending)
+        series = await prisma.opsSerieAsignacion.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            puestoId: { in: puestoIds },
+            isActive: true,
+          },
+          select: {
+            id: true,
+            puestoId: true,
+            slotNumber: true,
+            guardiaId: true,
+            patternCode: true,
+            patternWork: true,
+            patternOff: true,
+            startDate: true,
+            startPosition: true,
+            guardia: {
+              select: {
+                id: true,
+                code: true,
+                persona: {
+                  select: { firstName: true, lastName: true },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
 
     // Get all puestos for this installation (for rotative puesto selector in UI)
     const allPuestos = await prisma.opsPuestoOperativo.findMany({

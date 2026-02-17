@@ -86,19 +86,6 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     });
 
-    // Check PPC: slots with shiftCode "T" but no plannedGuardiaId
-    const ppcCounts = await prisma.opsPautaMensual.groupBy({
-      by: ["installationId"],
-      where: {
-        tenantId: ctx.tenantId,
-        installationId: { in: installationIds },
-        date: { gte: start, lte: end },
-        shiftCode: "T",
-        plannedGuardiaId: null,
-      },
-      _count: { id: true },
-    });
-
     // Check painted series: slots with shiftCode not null (has been painted)
     const paintedCounts = await prisma.opsPautaMensual.groupBy({
       by: ["installationId"],
@@ -111,9 +98,75 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     });
 
+    // PPC: Get distinct puesto+slot pairs that have at least one work day ("T") in the month
+    // We'll cross-reference with OpsAsignacionGuardia to find which ones lack a real guard
+    const slotsWithWorkDays = await prisma.opsPautaMensual.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        installationId: { in: installationIds },
+        date: { gte: start, lte: end },
+        shiftCode: "T",
+      },
+      select: {
+        installationId: true,
+        puestoId: true,
+        slotNumber: true,
+      },
+      distinct: ["installationId", "puestoId", "slotNumber"],
+    });
+
+    // Also get slots with V/L/P (need temporary coverage regardless of assignment)
+    const slotsWithVLP = await prisma.opsPautaMensual.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        installationId: { in: installationIds },
+        date: { gte: start, lte: end },
+        shiftCode: { in: ["V", "L", "P"] },
+      },
+      select: {
+        installationId: true,
+        puestoId: true,
+        slotNumber: true,
+      },
+      distinct: ["installationId", "puestoId", "slotNumber"],
+    });
+
+    // Build a set of assigned slots for fast lookup
+    const assignedSlotSet = new Set(
+      asignaciones.map((a) => `${a.installationId}|${a.puestoId}|${a.slotNumber}`)
+    );
+
+    // PPC per installation:
+    // 1. Slots with work days ("T") that don't have an active OpsAsignacionGuardia
+    // 2. Plus slots with V/L/P (need temporary coverage)
+    const ppcPerInstallation = new Map<string, number>();
+
+    for (const slot of slotsWithWorkDays) {
+      const key = `${slot.installationId}|${slot.puestoId}|${slot.slotNumber}`;
+      if (!assignedSlotSet.has(key)) {
+        ppcPerInstallation.set(
+          slot.installationId,
+          (ppcPerInstallation.get(slot.installationId) ?? 0) + 1
+        );
+      }
+    }
+
+    // Add V/L/P slots (these always count as PPC since they need replacement coverage)
+    const vlpCounted = new Set<string>();
+    for (const slot of slotsWithVLP) {
+      const slotKey = `${slot.installationId}|${slot.puestoId}|${slot.slotNumber}`;
+      // Don't double-count if already counted as unassigned
+      if (!vlpCounted.has(slotKey) && assignedSlotSet.has(slotKey)) {
+        vlpCounted.add(slotKey);
+        ppcPerInstallation.set(
+          slot.installationId,
+          (ppcPerInstallation.get(slot.installationId) ?? 0) + 1
+        );
+      }
+    }
+
     // Build lookup maps
     const pautaCountMap = new Map(pautaCounts.map((p) => [p.installationId, p._count.id]));
-    const ppcCountMap = new Map(ppcCounts.map((p) => [p.installationId, p._count.id]));
     const paintedCountMap = new Map(paintedCounts.map((p) => [p.installationId, p._count.id]));
 
     // Build per-installation summary
@@ -130,10 +183,14 @@ export async function GET(request: NextRequest) {
       ).size;
 
       const pautaCount = pautaCountMap.get(inst.id) ?? 0;
-      const ppcCount = ppcCountMap.get(inst.id) ?? 0;
+      const ppcCount = ppcPerInstallation.get(inst.id) ?? 0;
       const paintedCount = paintedCountMap.get(inst.id) ?? 0;
 
       // Status determination
+      // - sin_crear: no pauta entries at all
+      // - sin_pintar: pauta entries exist but no series painted
+      // - incompleta: has vacancies (slots without guards) or PPC issues
+      // - completa: all slots assigned and no PPC
       let status: "sin_crear" | "sin_pintar" | "incompleta" | "completa" = "sin_crear";
       if (pautaCount > 0) {
         if (paintedCount === 0) {
