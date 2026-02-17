@@ -20,6 +20,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -199,6 +200,26 @@ function AccountsTab({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/finance/accounting/accounts/seed", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al inicializar plan de cuentas");
+      }
+      toast.success("Plan de cuentas chileno inicializado correctamente");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const EMPTY_FORM = {
     code: "", name: "", type: "ASSET", nature: "DEBIT",
@@ -277,7 +298,7 @@ function AccountsTab({
             name: form.name.trim(),
             type: form.type,
             nature: form.nature,
-            parentId: form.parentId || null,
+            parentId: form.parentId && form.parentId !== "__none__" ? form.parentId : null,
             level: parseInt(form.level) || 1,
             acceptsEntries: form.acceptsEntries,
             description: form.description.trim() || null,
@@ -313,10 +334,18 @@ function AccountsTab({
           />
         </div>
         {canManage && (
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nueva cuenta
-          </Button>
+          <div className="flex gap-2">
+            {accounts.length === 0 && (
+              <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+                {seeding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                Inicializar Plan CL
+              </Button>
+            )}
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nueva cuenta
+            </Button>
+          </div>
         )}
       </div>
 
@@ -326,13 +355,19 @@ function AccountsTab({
         <EmptyState
           icon={<BookText className="h-10 w-10" />}
           title="Sin cuentas"
-          description="No hay cuentas en el plan contable."
+          description="No hay cuentas en el plan contable. Puedes inicializar el plan de cuentas estándar chileno o crear cuentas manualmente."
           action={
             canManage ? (
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Crear cuenta
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+                  {seeding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                  Inicializar Plan CL
+                </Button>
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Crear cuenta
+                </Button>
+              </div>
             ) : undefined
           }
         />
@@ -447,6 +482,11 @@ function AccountsTab({
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar cuenta" : "Nueva cuenta"}</DialogTitle>
+            <DialogDescription>
+              {editingId
+                ? "Modifica los datos de la cuenta contable."
+                : "Completa los campos para agregar una nueva cuenta al plan contable."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-4 md:grid-cols-2">
@@ -498,7 +538,7 @@ function AccountsTab({
                     <Select value={form.parentId} onValueChange={(v) => setField("parentId", v)}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Sin padre" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin padre (raíz)</SelectItem>
+                        <SelectItem value="__none__">Sin padre (raíz)</SelectItem>
                         {accounts
                           .filter((a) => !a.acceptsEntries)
                           .map((a) => (
@@ -1103,6 +1143,9 @@ function PeriodsTab({
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Abrir período contable</DialogTitle>
+            <DialogDescription>
+              Selecciona el año y mes para abrir un nuevo período contable.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-4 grid-cols-2">

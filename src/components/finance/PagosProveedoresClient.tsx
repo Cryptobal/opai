@@ -609,7 +609,8 @@ function NewPaymentTab({
         if (!res.ok) throw new Error();
         const json = await res.json();
         if (!cancelled) {
-          setUnpaidDtes(json.data ?? []);
+          const dtes = Array.isArray(json.data) ? json.data : json.data?.dtes ?? [];
+          setUnpaidDtes(dtes);
           setAllocations({});
         }
       } catch {
