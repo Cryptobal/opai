@@ -71,7 +71,7 @@ export function HolidaysManager() {
 
   const openEdit = (h: Holiday) => {
     setEditingId(h.id);
-    setFormDate(h.date.slice(0, 10));
+    setFormDate(typeof h.date === "string" ? h.date.slice(0, 10) : "");
     setFormName(h.name);
     setFormType(h.type);
     setModalOpen(true);
@@ -142,7 +142,8 @@ export function HolidaysManager() {
         ) : (
           <div className="space-y-1.5">
             {holidays.map((h) => {
-              const d = new Date(h.date + "T12:00:00Z");
+              const dateStr = typeof h.date === "string" ? h.date.slice(0, 10) : "";
+              const d = new Date(dateStr + "T12:00:00Z");
               const dayName = DAY_NAMES[d.getUTCDay()];
               const monthName = MONTHS[d.getUTCMonth()];
               const dayNum = d.getUTCDate();
