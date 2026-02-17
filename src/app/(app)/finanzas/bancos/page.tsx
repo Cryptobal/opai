@@ -20,9 +20,7 @@ export default async function BancosPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "bancos")) {
-    redirect("/finanzas");
-  }
+  if (!canView(perms, "finance", "contabilidad")) redirect("/finanzas/rendiciones");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canManage = hasCapability(perms, "rendicion_configure");

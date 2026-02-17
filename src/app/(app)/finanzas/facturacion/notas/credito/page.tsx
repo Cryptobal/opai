@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
+  canView,
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +24,7 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
+  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
   if (!hasCapability(perms, "facturacion_manage")) {
     redirect("/finanzas/facturacion");
   }

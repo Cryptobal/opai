@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, hasModuleAccess, hasCapability } from "@/lib/permissions-server";
+import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
@@ -21,6 +21,17 @@ export default async function FinanzasDashboardPage() {
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
+  }
+
+  // Si el usuario solo tiene acceso a rendiciones (sin reportes ni rendicion_view_all),
+  // redirigir a rendiciones directamente en vez de mostrar dashboard sensible.
+  const canSeeFinanceDashboard =
+    hasCapability(perms, "rendicion_view_all") ||
+    canView(perms, "finance", "reportes") ||
+    canView(perms, "finance", "contabilidad") ||
+    canView(perms, "finance", "facturacion");
+  if (!canSeeFinanceDashboard) {
+    redirect("/finanzas/rendiciones");
   }
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
+  canView,
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ export default async function ReportesPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
+  if (!canView(perms, "finance", "reportes")) redirect("/finanzas/rendiciones");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canExport = hasCapability(perms, "rendicion_export");

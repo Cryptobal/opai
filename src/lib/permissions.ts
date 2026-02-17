@@ -173,6 +173,10 @@ export interface CapabilityMeta {
   key: CapabilityKey;
   label: string;
   description: string;
+  /** Módulo al que pertenece la capacidad (para agrupar en UI Roles y Permisos) */
+  moduleKey?: ModuleKey;
+  /** Submódulo opcional (ej. ops.supervision para supervision_*) */
+  submoduleKey?: string;
 }
 
 export const MODULE_META: ModuleMeta[] = [
@@ -238,29 +242,29 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
 ];
 
 export const CAPABILITY_META: CapabilityMeta[] = [
-  { key: "invite_users", label: "Invitar usuarios", description: "Puede enviar invitaciones a nuevos usuarios" },
-  { key: "manage_users", label: "Gestionar usuarios", description: "Puede editar roles y desactivar usuarios" },
-  { key: "te_approve", label: "Aprobar turnos extra", description: "Puede aprobar o rechazar turnos extra" },
-  { key: "te_pay", label: "Generar pagos TE", description: "Puede crear lotes de pago de turnos extra" },
-  { key: "manage_settings", label: "Configuración global", description: "Puede modificar configuración general del sistema" },
-  { key: "rondas_configure", label: "Configurar rondas", description: "Puede crear/editar checkpoints, plantillas y programación de rondas" },
-  { key: "rondas_resolve_alerts", label: "Resolver alertas rondas", description: "Puede marcar como resueltas las alertas de rondas" },
-  { key: "control_nocturno_approve", label: "Aprobar control nocturno", description: "Puede aprobar o rechazar reportes de control nocturno" },
-  { key: "control_nocturno_delete", label: "Eliminar control nocturno", description: "Puede eliminar reportes de control nocturno (solo admin/propietario)" },
-  { key: "rendicion_submit", label: "Crear rendiciones", description: "Puede crear y enviar rendiciones de gastos" },
-  { key: "rendicion_approve", label: "Aprobar rendiciones", description: "Puede aprobar o rechazar rendiciones de gastos" },
-  { key: "rendicion_pay", label: "Pagar rendiciones", description: "Puede generar pagos masivos o manuales de rendiciones" },
-  { key: "rendicion_configure", label: "Configurar rendiciones", description: "Puede configurar ítems, parámetros y reglas de rendiciones" },
-  { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias" },
-  { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel" },
-  { key: "contabilidad_manage", label: "Gestionar contabilidad", description: "Puede crear asientos, gestionar plan de cuentas y periodos contables" },
-  { key: "facturacion_manage", label: "Gestionar facturación", description: "Puede emitir DTEs (facturas, boletas, notas de crédito/débito) y gestionar proveedores" },
-  { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo" },
-  { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación" },
-  { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia" },
-  { key: "supervision_view_own", label: "Ver visitas propias", description: "Puede ver solo las visitas de supervisión creadas por sí mismo" },
-  { key: "supervision_view_all", label: "Ver todas las visitas", description: "Puede ver visitas de supervisión de cualquier supervisor" },
-  { key: "supervision_dashboard", label: "Dashboard supervisión", description: "Puede ver KPIs y reportes consolidados de supervisión" },
+  { key: "invite_users", label: "Invitar usuarios", description: "Puede enviar invitaciones a nuevos usuarios", moduleKey: "config" },
+  { key: "manage_users", label: "Gestionar usuarios", description: "Puede editar roles y desactivar usuarios", moduleKey: "config" },
+  { key: "te_approve", label: "Aprobar turnos extra", description: "Puede aprobar o rechazar turnos extra", moduleKey: "ops" },
+  { key: "te_pay", label: "Generar pagos TE", description: "Puede crear lotes de pago de turnos extra", moduleKey: "ops" },
+  { key: "manage_settings", label: "Configuración global", description: "Puede modificar configuración general del sistema", moduleKey: "config" },
+  { key: "rondas_configure", label: "Configurar rondas", description: "Puede crear/editar checkpoints, plantillas y programación de rondas", moduleKey: "ops", submoduleKey: "rondas" },
+  { key: "rondas_resolve_alerts", label: "Resolver alertas rondas", description: "Puede marcar como resueltas las alertas de rondas", moduleKey: "ops", submoduleKey: "rondas" },
+  { key: "control_nocturno_approve", label: "Aprobar control nocturno", description: "Puede aprobar o rechazar reportes de control nocturno", moduleKey: "ops", submoduleKey: "control_nocturno" },
+  { key: "control_nocturno_delete", label: "Eliminar control nocturno", description: "Puede eliminar reportes de control nocturno (solo admin/propietario)", moduleKey: "ops", submoduleKey: "control_nocturno" },
+  { key: "rendicion_submit", label: "Crear rendiciones", description: "Puede crear y enviar rendiciones de gastos", moduleKey: "finance" },
+  { key: "rendicion_approve", label: "Aprobar rendiciones", description: "Puede aprobar o rechazar rendiciones de gastos", moduleKey: "finance" },
+  { key: "rendicion_pay", label: "Pagar rendiciones", description: "Puede generar pagos masivos o manuales de rendiciones", moduleKey: "finance" },
+  { key: "rendicion_configure", label: "Configurar rendiciones", description: "Puede configurar ítems, parámetros y reglas de rendiciones", moduleKey: "finance" },
+  { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias", moduleKey: "finance" },
+  { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel", moduleKey: "finance" },
+  { key: "contabilidad_manage", label: "Gestionar contabilidad", description: "Puede crear asientos, gestionar plan de cuentas y periodos contables", moduleKey: "finance" },
+  { key: "facturacion_manage", label: "Gestionar facturación", description: "Puede emitir DTEs (facturas, boletas, notas de crédito/débito) y gestionar proveedores", moduleKey: "finance" },
+  { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo", moduleKey: "ops", submoduleKey: "tickets" },
+  { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación", moduleKey: "ops", submoduleKey: "tickets" },
+  { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia", moduleKey: "ops", submoduleKey: "supervision" },
+  { key: "supervision_view_own", label: "Ver visitas propias", description: "Puede ver solo las visitas de supervisión creadas por sí mismo", moduleKey: "ops", submoduleKey: "supervision" },
+  { key: "supervision_view_all", label: "Ver todas las visitas", description: "Puede ver visitas de supervisión de cualquier supervisor", moduleKey: "ops", submoduleKey: "supervision" },
+  { key: "supervision_dashboard", label: "Dashboard supervisión", description: "Puede ver KPIs y reportes consolidados de supervisión", moduleKey: "ops", submoduleKey: "supervision" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -489,7 +493,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
-      finance: "edit",
+      finance: "none",
     },
     submodules: {
       "ops.pauta_mensual": "view",

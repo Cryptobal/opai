@@ -20,9 +20,7 @@ export default async function ProveedoresPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "proveedores")) {
-    redirect("/finanzas");
-  }
+  if (!canView(perms, "finance", "proveedores")) redirect("/finanzas/rendiciones");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canManage = canEdit(perms, "finance", "proveedores");

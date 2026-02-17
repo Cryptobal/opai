@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canView(perms, "finance")) {
+    if (!canView(perms, "finance", "rendiciones")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
         { status: 403 },

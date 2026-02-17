@@ -11,6 +11,8 @@ import {
   EMPTY_PERMISSIONS,
   normalizeRole,
   mergeRolePermissions,
+  getEffectiveLevel,
+  LEVEL_RANK,
 } from "@/lib/permissions";
 
 // ── In-memory cache (TTL 5 min) ──
@@ -70,7 +72,10 @@ export async function resolvePermissions(user: {
   // Si tiene template asignado, resolver desde BD
   if (user.roleTemplateId) {
     const cached = getCached(user.roleTemplateId);
-    if (cached) return mergeRolePermissions(defaultPerms, cached);
+    if (cached) {
+      const merged = mergeRolePermissions(defaultPerms, cached);
+      return ensureSupervisorSupervisionAccess(normalizedRole, merged);
+    }
 
     const template = await prisma.roleTemplate.findUnique({
       where: { id: user.roleTemplateId },
@@ -80,12 +85,33 @@ export async function resolvePermissions(user: {
     if (template && template.permissions) {
       const perms = template.permissions as unknown as RolePermissions;
       setCache(user.roleTemplateId, perms);
-      return mergeRolePermissions(defaultPerms, perms);
+      const merged = mergeRolePermissions(defaultPerms, perms);
+      return ensureSupervisorSupervisionAccess(normalizedRole, merged);
     }
   }
 
   // Fallback a defaults por rol legacy
-  return defaultPerms;
+  return ensureSupervisorSupervisionAccess(normalizedRole, defaultPerms);
+}
+
+/**
+ * Regla de negocio: el rol "supervisor" siempre debe tener al menos vista al submódulo
+ * ops.supervision (dashboard y visitas). Evita que un template editado quite el acceso.
+ */
+function ensureSupervisorSupervisionAccess(
+  role: string,
+  perms: RolePermissions,
+): RolePermissions {
+  if (role !== "supervisor") return perms;
+  const level = getEffectiveLevel(perms, "ops", "supervision");
+  if (LEVEL_RANK[level] >= LEVEL_RANK.view) return perms;
+  return {
+    ...perms,
+    submodules: {
+      ...perms.submodules,
+      "ops.supervision": "full",
+    },
+  };
 }
 
 /**

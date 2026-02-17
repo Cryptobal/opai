@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
   hasModuleAccess,
+  canView,
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ export default async function AprobacionesPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
+  if (!canView(perms, "finance", "aprobaciones")) redirect("/finanzas/rendiciones");
   if (!hasCapability(perms, "rendicion_approve")) {
     redirect("/finanzas");
   }

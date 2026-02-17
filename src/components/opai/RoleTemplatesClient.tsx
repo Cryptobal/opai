@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   type RolePermissions,
@@ -173,78 +173,72 @@ function PermissionEditor({
     onChange(next);
   };
 
-  // Módulos que tienen submódulos
-  const modulesWithSubs = MODULE_META.filter(
-    (m) => (SUBMODULE_KEYS[m.key] as readonly string[]).length > 0,
-  );
-  // Módulos sin submódulos
-  const modulesWithoutSubs = MODULE_META.filter(
-    (m) => (SUBMODULE_KEYS[m.key] as readonly string[]).length === 0,
-  );
+  const setHubLayout = (layout: "default" | "supervisor") => {
+    onChange({ ...permissions, hubLayout: layout });
+  };
+
+  const capabilitiesByModule = useMemo(() => {
+    const map = new Map<ModuleKey, typeof CAPABILITY_META>();
+    for (const cap of CAPABILITY_META) {
+      if (!cap.moduleKey) continue;
+      const list = map.get(cap.moduleKey) ?? [];
+      list.push(cap);
+      map.set(cap.moduleKey, list);
+    }
+    return map;
+  }, []);
 
   return (
     <div className="space-y-6">
-      {/* ── Módulos sin submódulos (Hub, CPQ) ── */}
-      {modulesWithoutSubs.length > 0 && (
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Módulos simples
-          </h4>
-          <div className="rounded-lg border border-border divide-y divide-border bg-card">
-            {modulesWithoutSubs.map((mod) => (
-              <div
-                key={mod.key}
-                className="flex items-center justify-between px-4 py-3"
-              >
-                <span className="text-sm font-medium">{mod.label}</span>
-                <PermissionLevelPill
-                  level={permissions.modules[mod.key] ?? "none"}
-                  onChange={(l) => setModuleLevel(mod.key, l)}
-                  disabled={disabled}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Módulos con submódulos ── */}
       <div>
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Módulos con submódulos
+          Módulos y capacidades
         </h4>
+        <p className="text-xs text-muted-foreground mb-3">
+          Asigna nivel de acceso por módulo. Las capacidades especiales aparecen dentro de cada módulo que corresponda.
+        </p>
         <div className="rounded-lg border border-border divide-y divide-border bg-card">
-          {modulesWithSubs.map((mod) => {
+          {MODULE_META.map((mod) => {
             const isExpanded = expandedModules.has(mod.key);
             const moduleLevel = permissions.modules[mod.key] ?? "none";
             const subs = SUBMODULE_META.filter((s) => s.module === mod.key);
-
-            // Contar overrides
+            const caps = capabilitiesByModule.get(mod.key) ?? [];
+            const hasSubs = subs.length > 0;
+            const isHub = mod.key === "hub";
+            const isCpq = mod.key === "cpq";
             const overrideCount = subs.filter(
               (s) => `${mod.key}.${s.submodule}` in permissions.submodules,
             ).length;
 
             return (
               <div key={mod.key}>
-                {/* Module row */}
                 <div className="flex items-center gap-2 px-4 py-3">
-                  <button
-                    onClick={() => toggleModule(mod.key)}
-                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                    type="button"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    )}
-                    <span className="text-sm font-medium">{mod.label}</span>
-                    {overrideCount > 0 && (
-                      <span className="text-[10px] font-medium bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
-                        {overrideCount} override{overrideCount > 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </button>
+                  {(hasSubs || isHub) ? (
+                    <button
+                      onClick={() => toggleModule(mod.key)}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      type="button"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-sm font-medium">{mod.label}</span>
+                      {overrideCount > 0 && (
+                        <span className="text-[10px] font-medium bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                          {overrideCount} override{overrideCount > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {caps.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          +{caps.length} capacidad{caps.length !== 1 ? "es" : ""}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="flex-1 text-sm font-medium">{mod.label}</span>
+                  )}
                   <PermissionLevelPill
                     level={moduleLevel}
                     onChange={(l) => setModuleLevel(mod.key, l)}
@@ -252,9 +246,33 @@ function PermissionEditor({
                   />
                 </div>
 
-                {/* Submodule rows */}
                 {isExpanded && (
                   <div className="border-t border-border bg-accent/20">
+                    {/* Hub: tipo de inicio */}
+                    {isHub && (
+                      <div className="flex items-center justify-between pl-11 pr-4 py-2.5 border-t border-border/50 first:border-t-0">
+                        <span className="text-xs text-muted-foreground">
+                          Tipo de inicio (Hub)
+                        </span>
+                        <select
+                          value={permissions.hubLayout ?? "default"}
+                          onChange={(e) =>
+                            setHubLayout(
+                              e.target.value === "supervisor"
+                                ? "supervisor"
+                                : "default",
+                            )
+                          }
+                          disabled={disabled}
+                          className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium"
+                        >
+                          <option value="default">Normal (admin)</option>
+                          <option value="supervisor">Supervisor (terreno)</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Submódulos (Ops, CRM, etc.) */}
                     {subs.map((sub) => {
                       const subKey = `${mod.key}.${sub.submodule}`;
                       const hasOverride = subKey in permissions.submodules;
@@ -263,17 +281,14 @@ function PermissionEditor({
                         mod.key,
                         sub.submodule,
                       );
-
                       return (
                         <div
                           key={subKey}
                           className="flex items-center justify-between pl-11 pr-4 py-2.5 border-t border-border/50 first:border-t-0"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs text-muted-foreground">
-                              {sub.label}
-                            </span>
-                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {sub.label}
+                          </span>
                           <PermissionLevelPill
                             level={effectiveLevel}
                             onChange={(l) =>
@@ -285,43 +300,47 @@ function PermissionEditor({
                         </div>
                       );
                     })}
+
+                    {/* Capacidades de este módulo */}
+                    {caps.length > 0 && (
+                      <>
+                        <div className="pl-11 pr-4 pt-2 pb-1 border-t border-border/50">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            Capacidades
+                          </span>
+                        </div>
+                        {caps.map((cap) => (
+                          <label
+                            key={cap.key}
+                            className={cn(
+                              "flex items-center gap-3 pl-11 pr-4 py-2 cursor-pointer transition-colors hover:bg-accent/40 border-t border-border/30",
+                              disabled && "opacity-50 cursor-not-allowed",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permissions.capabilities[cap.key] === true}
+                              onChange={() => toggleCapability(cap.key)}
+                              disabled={disabled}
+                              className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium leading-tight">
+                                {cap.label}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {cap.description}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* ── Capacidades especiales ── */}
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Capacidades especiales
-        </h4>
-        <div className="rounded-lg border border-border divide-y divide-border bg-card">
-          {CAPABILITY_META.map((cap) => (
-            <label
-              key={cap.key}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-accent/40",
-                disabled && "opacity-50 cursor-not-allowed",
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={permissions.capabilities[cap.key] === true}
-                onChange={() => toggleCapability(cap.key)}
-                disabled={disabled}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-tight">{cap.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {cap.description}
-                </p>
-              </div>
-            </label>
-          ))}
         </div>
       </div>
     </div>

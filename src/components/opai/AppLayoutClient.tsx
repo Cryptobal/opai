@@ -92,6 +92,8 @@ export function AppLayoutClient({
       icon: Calculator,
       show: hasModuleAccess(permissions, 'payroll'),
       children: [
+        { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays },
+        { href: '/payroll/anticipos', label: 'Anticipos', icon: Wallet },
         { href: '/payroll/simulator', label: 'Simulador', icon: Calculator },
         { href: '/payroll/parameters', label: 'Parámetros', icon: FileText },
       ],
@@ -146,7 +148,7 @@ export function AppLayoutClient({
       icon: Receipt,
       show: hasModuleAccess(permissions, 'finance'),
       children: [
-        { href: '/finanzas', label: 'Inicio', icon: Grid3x3 },
+        (canView(permissions, 'finance', 'reportes') || hasCapability(permissions, 'rendicion_view_all')) && { href: '/finanzas', label: 'Inicio', icon: Grid3x3 },
         (
           canView(permissions, 'finance', 'rendiciones') ||
           (canView(permissions, 'finance', 'aprobaciones') && hasCapability(permissions, 'rendicion_approve')) ||

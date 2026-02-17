@@ -20,9 +20,7 @@ export default async function FacturacionPage() {
   if (!hasModuleAccess(perms, "finance")) {
     redirect("/hub");
   }
-  if (!canView(perms, "finance", "facturacion")) {
-    redirect("/finanzas");
-  }
+  if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canManage = hasCapability(perms, "facturacion_manage");
