@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2 } from "lucide-react";
+import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,25 +119,35 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Accesos rápidos</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-2">
+        <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Button asChild className="justify-start">
             <Link href="/ops/supervision/nueva-visita">
               <MapPin className="mr-2 h-4 w-4" /> Nueva visita
             </Link>
           </Button>
           <Button asChild variant="secondary" className="justify-start">
-            <Link href="/finanzas/rendiciones">
-              <Receipt className="mr-2 h-4 w-4" /> Nueva rendición
+            <Link href="/finanzas/rendiciones/nueva">
+              <Plus className="mr-2 h-4 w-4" /> Nueva rendición
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">
-            <Link href="/ops/pauta-mensual">
-              <CalendarDays className="mr-2 h-4 w-4" /> Pauta mensual
+            <Link href="/finanzas/rendiciones">
+              <Receipt className="mr-2 h-4 w-4" /> Mis rendiciones
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">
             <Link href="/ops/supervision/mis-visitas">
               <ClipboardList className="mr-2 h-4 w-4" /> Mis visitas
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="justify-start">
+            <Link href="/ops/supervision">
+              <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="justify-start">
+            <Link href="/ops/pauta-mensual">
+              <CalendarDays className="mr-2 h-4 w-4" /> Pauta mensual
             </Link>
           </Button>
         </CardContent>

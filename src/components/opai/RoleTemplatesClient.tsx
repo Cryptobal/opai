@@ -16,6 +16,8 @@ import {
   SUBMODULE_KEYS,
   getEffectiveLevel,
   EMPTY_PERMISSIONS,
+  getDefaultPermissions,
+  mergeRolePermissions,
 } from "@/lib/permissions";
 import {
   ChevronDown,
@@ -480,11 +482,15 @@ function RoleEditPanel({
 
   const [name, setName] = useState(template?.name ?? "");
   const [description, setDescription] = useState(template?.description ?? "");
-  const [permissions, setPermissions] = useState<RolePermissions>(
-    template
-      ? (template.permissions as RolePermissions)
-      : { modules: {}, submodules: {}, capabilities: {} },
-  );
+  const [permissions, setPermissions] = useState<RolePermissions>(() => {
+    if (!template) return { modules: {}, submodules: {}, capabilities: {} };
+    const raw = template.permissions as RolePermissions;
+    const defaults = getDefaultPermissions(template.slug);
+    if (!defaults || !defaults.modules || Object.keys(defaults.modules).length === 0) {
+      return raw;
+    }
+    return mergeRolePermissions(defaults, raw);
+  });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {

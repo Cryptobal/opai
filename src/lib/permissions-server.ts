@@ -95,22 +95,73 @@ export async function resolvePermissions(user: {
 }
 
 /**
- * Regla de negocio: el rol "supervisor" siempre debe tener al menos vista al submódulo
- * ops.supervision (dashboard y visitas). Evita que un template editado quite el acceso.
+ * Regla de negocio: el rol "supervisor" siempre debe tener acceso a los módulos
+ * críticos de su función (supervisión, rendiciones, hub supervisor).
+ * Evita que un template editado quite acceso esencial.
  */
 function ensureSupervisorSupervisionAccess(
   role: string,
   perms: RolePermissions,
 ): RolePermissions {
   if (role !== "supervisor") return perms;
-  const level = getEffectiveLevel(perms, "ops", "supervision");
-  if (LEVEL_RANK[level] >= LEVEL_RANK.view) return perms;
+
+  let patched = { ...perms };
+  let submodules = { ...perms.submodules };
+  let capabilities = { ...perms.capabilities };
+  let modules = { ...perms.modules };
+  let changed = false;
+
+  // 1. ops.supervision siempre full
+  if (LEVEL_RANK[getEffectiveLevel(perms, "ops", "supervision")] < LEVEL_RANK.view) {
+    submodules["ops.supervision"] = "full";
+    changed = true;
+  }
+
+  // 2. Ops al menos "view" (para sidebar)
+  if (LEVEL_RANK[modules.ops ?? "none"] < LEVEL_RANK.view) {
+    modules.ops = "view";
+    changed = true;
+  }
+
+  // 3. finance.rendiciones al menos "edit" (crear rendiciones)
+  if (LEVEL_RANK[getEffectiveLevel(perms, "finance", "rendiciones")] < LEVEL_RANK.edit) {
+    submodules["finance.rendiciones"] = "edit";
+    changed = true;
+  }
+
+  // 4. rendicion_submit siempre activo
+  if (!capabilities.rendicion_submit) {
+    capabilities.rendicion_submit = true;
+    changed = true;
+  }
+
+  // 5. supervision capabilities siempre activas
+  if (!capabilities.supervision_checkin) {
+    capabilities.supervision_checkin = true;
+    changed = true;
+  }
+  if (!capabilities.supervision_view_own) {
+    capabilities.supervision_view_own = true;
+    changed = true;
+  }
+  if (!capabilities.supervision_dashboard) {
+    capabilities.supervision_dashboard = true;
+    changed = true;
+  }
+
+  // 6. hubLayout siempre "supervisor"
+  if (patched.hubLayout !== "supervisor") {
+    patched.hubLayout = "supervisor";
+    changed = true;
+  }
+
+  if (!changed) return perms;
+
   return {
-    ...perms,
-    submodules: {
-      ...perms.submodules,
-      "ops.supervision": "full",
-    },
+    ...patched,
+    modules,
+    submodules,
+    capabilities,
   };
 }
 
