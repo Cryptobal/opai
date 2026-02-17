@@ -47,6 +47,7 @@ import { HubCrmSection } from './_components/HubCrmSection';
 import { HubFinanceSection } from './_components/HubFinanceSection';
 import { HubDocsSection } from './_components/HubDocsSection';
 import { HubActividadReciente } from './_components/HubActividadReciente';
+import { SupervisorHub } from './_components/SupervisorHub';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -101,6 +102,10 @@ export default async function HubPage() {
   const alerts = getAlerts(opsMetrics, crmMetrics, financeMetrics);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
+
+  if (perms.hubLayout === "supervisor") {
+    return <SupervisorHub tenantId={tenantId} userId={session.user.id} firstName={firstName} />;
+  }
 
   return (
     <div className="space-y-6">

@@ -34,6 +34,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppKey[]> = {
   solo_documentos: ROLE_POLICIES.solo_documentos.appAccess,
   solo_payroll: ROLE_POLICIES.solo_payroll.appAccess,
   solo_finanzas: ROLE_POLICIES.solo_finanzas.appAccess,
+  supervisor: ROLE_POLICIES.supervisor.appAccess,
   viewer: ROLE_POLICIES.viewer.appAccess,
 };
 

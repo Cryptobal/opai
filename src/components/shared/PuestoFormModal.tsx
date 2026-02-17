@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Calculator, Plus, X } from "lucide-react";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
 /* ── Constants ─────────────────────────────────── */
@@ -28,6 +29,22 @@ const WEEKDAY_ORDER = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 /* ── Types ─────────────────────────────────────── */
 
 type CatalogItem = { id: string; name: string; description?: string | null };
+type BonoCatalogItem = {
+  id: string;
+  code: string;
+  name: string;
+  bonoType: string;
+  isTaxable: boolean;
+  isTributable: boolean;
+  defaultAmount: number | null;
+  defaultPercentage: number | null;
+};
+
+export type PuestoBonoEntry = {
+  bonoCatalogId: string;
+  overrideAmount?: number;
+  overridePercentage?: number;
+};
 
 export type PuestoFormData = {
   puestoTrabajoId: string;
@@ -39,6 +56,11 @@ export type PuestoFormData = {
   weekdays: string[];
   numGuards: number;
   baseSalary: number;
+  colacion: number;
+  movilizacion: number;
+  gratificationType: "AUTO_25" | "CUSTOM";
+  gratificationCustomAmount: number;
+  bonos: PuestoBonoEntry[];
   activeFrom: string;
 };
 
@@ -46,9 +68,7 @@ export interface PuestoFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
-  /** Pre-filled data for editing */
   initialData?: Partial<PuestoFormData>;
-  /** Called on successful save */
   onSave: (data: PuestoFormData) => Promise<void>;
   saving?: boolean;
 }
@@ -63,6 +83,11 @@ const DEFAULT_FORM: PuestoFormData = {
   weekdays: [...WEEKDAY_ORDER],
   numGuards: 1,
   baseSalary: 550000,
+  colacion: 0,
+  movilizacion: 0,
+  gratificationType: "AUTO_25",
+  gratificationCustomAmount: 0,
+  bonos: [],
   activeFrom: new Date().toISOString().slice(0, 10),
 };
 
@@ -95,6 +120,16 @@ export function PuestoFormModal({
   const [cargos, setCargos] = useState<CatalogItem[]>([]);
   const [roles, setRoles] = useState<CatalogItem[]>([]);
   const [puestos, setPuestos] = useState<CatalogItem[]>([]);
+  const [bonosCatalog, setBonosCatalog] = useState<BonoCatalogItem[]>([]);
+
+  // Net salary estimation
+  const [netEstimate, setNetEstimate] = useState<{
+    netSalary: number;
+    grossSalary: number;
+    totalDeductions: number;
+    deductions: { afp: number; health: number; afc: number; tax: number };
+  } | null>(null);
+  const [estimating, setEstimating] = useState(false);
 
   // Load catalogs when modal opens
   useEffect(() => {
@@ -103,11 +138,13 @@ export function PuestoFormModal({
         fetch("/api/cpq/cargos?active=true").then((r) => r.json()),
         fetch("/api/cpq/roles?active=true").then((r) => r.json()),
         fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
+        fetch("/api/payroll/bonos?active=true").then((r) => r.json()).catch(() => ({ data: [] })),
       ])
-        .then(([c, r, p]) => {
+        .then(([c, r, p, b]) => {
           setCargos(c.data || []);
           setRoles(r.data || []);
           setPuestos(p.data || []);
+          setBonosCatalog(b.data || []);
         })
         .catch(console.error);
     }
@@ -117,8 +154,54 @@ export function PuestoFormModal({
   useEffect(() => {
     if (open) {
       setForm({ ...DEFAULT_FORM, ...initialData });
+      setNetEstimate(null);
     }
   }, [open, initialData]);
+
+  const calculateNetEstimate = useCallback(async () => {
+    if (form.baseSalary <= 0) return;
+    setEstimating(true);
+    try {
+      let bonosImponibles = 0;
+      let bonosNoImponibles = 0;
+      for (const b of form.bonos) {
+        const cat = bonosCatalog.find((c) => c.id === b.bonoCatalogId);
+        if (!cat) continue;
+        let amt = 0;
+        if (cat.bonoType === "FIJO") amt = b.overrideAmount ?? Number(cat.defaultAmount) ?? 0;
+        else if (cat.bonoType === "PORCENTUAL") {
+          const pct = b.overridePercentage ?? Number(cat.defaultPercentage) ?? 0;
+          amt = Math.round(form.baseSalary * pct / 100);
+        } else if (cat.bonoType === "CONDICIONAL") {
+          amt = b.overrideAmount ?? Number(cat.defaultAmount) ?? 0;
+        }
+        if (cat.isTaxable) bonosImponibles += amt;
+        else bonosNoImponibles += amt;
+      }
+
+      const res = await fetch("/api/payroll/estimate-net", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseSalary: form.baseSalary,
+          colacion: form.colacion,
+          movilizacion: form.movilizacion,
+          gratificationType: form.gratificationType,
+          gratificationCustomAmount: form.gratificationCustomAmount,
+          bonosImponibles,
+          bonosNoImponibles,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setNetEstimate(json.data);
+      }
+    } catch (err) {
+      console.error("Error estimating net:", err);
+    } finally {
+      setEstimating(false);
+    }
+  }, [form, bonosCatalog]);
 
   const shiftHours = useMemo(
     () => getShiftHours(form.startTime, form.endTime),
@@ -424,7 +507,7 @@ export function PuestoFormModal({
               </div>
             </div>
 
-            {/* Right column: Guardias + Sueldo */}
+            {/* Right column: Guardias */}
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -447,28 +530,219 @@ export function PuestoFormModal({
                   ))}
                 </select>
               </div>
+            </div>
+          </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sueldo base
-                </Label>
+          <div className="border-t border-border" />
+
+          {/* ── Estructura de Sueldo ── */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Estructura de sueldo
+            </Label>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Sueldo base</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
-                  value={formatNumber(form.baseSalary, {
-                    minDecimals: 0,
-                    maxDecimals: 0,
-                  })}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      baseSalary: parseLocalizedNumber(e.target.value),
-                    }))
-                  }
-                  className="h-10 bg-background text-sm"
+                  value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))}
+                  className="h-9 bg-background text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Colación</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumber(form.colacion, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) => setForm((p) => ({ ...p, colacion: parseLocalizedNumber(e.target.value) }))}
+                  className="h-9 bg-background text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Movilización</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumber(form.movilizacion, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) => setForm((p) => ({ ...p, movilizacion: parseLocalizedNumber(e.target.value) }))}
+                  className="h-9 bg-background text-sm"
                 />
               </div>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Gratificación</Label>
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={form.gratificationType === "AUTO_25" ? "default" : "outline"}
+                    className="h-7 px-2.5 text-[10px]"
+                    onClick={() => setForm((p) => ({ ...p, gratificationType: "AUTO_25" }))}
+                  >
+                    Auto 25%
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={form.gratificationType === "CUSTOM" ? "default" : "outline"}
+                    className="h-7 px-2.5 text-[10px]"
+                    onClick={() => setForm((p) => ({ ...p, gratificationType: "CUSTOM" }))}
+                  >
+                    Monto fijo
+                  </Button>
+                </div>
+              </div>
+              {form.gratificationType === "CUSTOM" && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Monto gratificación</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={formatNumber(form.gratificationCustomAmount, { minDecimals: 0, maxDecimals: 0 })}
+                    onChange={(e) => setForm((p) => ({ ...p, gratificationCustomAmount: parseLocalizedNumber(e.target.value) }))}
+                    className="h-9 bg-background text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Bonos */}
+            {bonosCatalog.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-[10px] text-muted-foreground">Bonos</Label>
+                {form.bonos.map((bono, idx) => {
+                  const cat = bonosCatalog.find((c) => c.id === bono.bonoCatalogId);
+                  return (
+                    <div key={idx} className="flex items-center gap-2">
+                      <select
+                        className="flex h-8 flex-1 rounded-md border border-input bg-card px-2 text-xs"
+                        value={bono.bonoCatalogId}
+                        onChange={(e) => {
+                          const newBonos = [...form.bonos];
+                          const newCat = bonosCatalog.find((c) => c.id === e.target.value);
+                          newBonos[idx] = {
+                            bonoCatalogId: e.target.value,
+                            overrideAmount: newCat?.defaultAmount != null ? Number(newCat.defaultAmount) : undefined,
+                            overridePercentage: newCat?.defaultPercentage != null ? Number(newCat.defaultPercentage) : undefined,
+                          };
+                          setForm((p) => ({ ...p, bonos: newBonos }));
+                        }}
+                      >
+                        <option value="">Selecciona bono...</option>
+                        {bonosCatalog.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      {cat && (cat.bonoType === "FIJO" || cat.bonoType === "CONDICIONAL") && (
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Monto"
+                          value={bono.overrideAmount != null ? formatNumber(bono.overrideAmount, { minDecimals: 0, maxDecimals: 0 }) : ""}
+                          onChange={(e) => {
+                            const newBonos = [...form.bonos];
+                            newBonos[idx] = { ...newBonos[idx], overrideAmount: parseLocalizedNumber(e.target.value) };
+                            setForm((p) => ({ ...p, bonos: newBonos }));
+                          }}
+                          className="h-8 w-28 bg-background text-xs"
+                        />
+                      )}
+                      {cat && cat.bonoType === "PORCENTUAL" && (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="%"
+                            value={bono.overridePercentage ?? ""}
+                            onChange={(e) => {
+                              const newBonos = [...form.bonos];
+                              newBonos[idx] = { ...newBonos[idx], overridePercentage: Number(e.target.value) };
+                              setForm((p) => ({ ...p, bonos: newBonos }));
+                            }}
+                            className="h-8 w-20 bg-background text-xs"
+                          />
+                          <span className="text-[10px] text-muted-foreground">%</span>
+                        </div>
+                      )}
+                      {cat && (
+                        <Badge variant="outline" className="text-[9px] shrink-0">
+                          {cat.isTaxable ? "Imp" : "No imp"}
+                        </Badge>
+                      )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-destructive"
+                        onClick={() => {
+                          const newBonos = form.bonos.filter((_, i) => i !== idx);
+                          setForm((p) => ({ ...p, bonos: newBonos }));
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px]"
+                  onClick={() => setForm((p) => ({ ...p, bonos: [...p.bonos, { bonoCatalogId: "" }] }))}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  Agregar bono
+                </Button>
+              </div>
+            )}
+
+            {/* Calcular sueldo líquido */}
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={calculateNetEstimate}
+                disabled={estimating || form.baseSalary <= 0}
+              >
+                {estimating ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Calcular sueldo líquido
+              </Button>
+              {netEstimate && (
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">
+                    Bruto: <strong className="text-foreground">${netEstimate.grossSalary.toLocaleString("es-CL")}</strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Desc: <strong className="text-destructive">-${netEstimate.totalDeductions.toLocaleString("es-CL")}</strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Líquido: <strong className="text-emerald-400">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {netEstimate && (
+              <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 text-[10px] text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
+                <span>AFP: -${netEstimate.deductions.afp.toLocaleString("es-CL")}</span>
+                <span>Salud: -${netEstimate.deductions.health.toLocaleString("es-CL")}</span>
+                <span>AFC: -${netEstimate.deductions.afc.toLocaleString("es-CL")}</span>
+                <span>Imp. Único: -${netEstimate.deductions.tax.toLocaleString("es-CL")}</span>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

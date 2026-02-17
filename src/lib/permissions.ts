@@ -62,6 +62,7 @@ export const SUBMODULE_KEYS = {
     "rondas",
     "control_nocturno",
     "tickets",
+    "supervision",
   ] as const,
   crm: [
     "leads",
@@ -123,6 +124,10 @@ export const CAPABILITY_KEYS = [
   "facturacion_manage",
   "ticket_approve",
   "ticket_manage_types",
+  "supervision_checkin",
+  "supervision_view_own",
+  "supervision_view_all",
+  "supervision_dashboard",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -132,6 +137,7 @@ export interface RolePermissions {
   modules: Partial<Record<ModuleKey, PermissionLevel>>;
   submodules: Record<string, PermissionLevel>;
   capabilities: Partial<Record<CapabilityKey, boolean>>;
+  hubLayout?: "default" | "supervisor";
 }
 
 export function mergeRolePermissions(
@@ -142,6 +148,7 @@ export function mergeRolePermissions(
     modules: { ...base.modules, ...override.modules },
     submodules: { ...base.submodules, ...override.submodules },
     capabilities: { ...base.capabilities, ...override.capabilities },
+    hubLayout: override.hubLayout ?? base.hubLayout,
   };
 }
 
@@ -191,6 +198,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.rondas", module: "ops", submodule: "rondas", label: "Rondas", href: "/ops/rondas" },
   { key: "ops.control_nocturno", module: "ops", submodule: "control_nocturno", label: "Control nocturno", href: "/ops/control-nocturno" },
   { key: "ops.tickets", module: "ops", submodule: "tickets", label: "Tickets", href: "/ops/tickets" },
+  { key: "ops.supervision", module: "ops", submodule: "supervision", label: "Supervisión", href: "/ops/supervision" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -249,6 +257,10 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "facturacion_manage", label: "Gestionar facturación", description: "Puede emitir DTEs (facturas, boletas, notas de crédito/débito) y gestionar proveedores" },
   { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo" },
   { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación" },
+  { key: "supervision_checkin", label: "Check-in de supervisión", description: "Puede iniciar y finalizar visitas con georreferencia" },
+  { key: "supervision_view_own", label: "Ver visitas propias", description: "Puede ver solo las visitas de supervisión creadas por sí mismo" },
+  { key: "supervision_view_all", label: "Ver todas las visitas", description: "Puede ver visitas de supervisión de cualquier supervisor" },
+  { key: "supervision_dashboard", label: "Dashboard supervisión", description: "Puede ver KPIs y reportes consolidados de supervisión" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -277,6 +289,7 @@ const ROLE_ALIASES: Record<string, string> = {
   "solo finanzas": "solo_finanzas",
   finance: "finanzas",
   lectura: "viewer",
+  supervisor: "supervisor",
 };
 
 export function normalizeRole(role: string): string {
@@ -466,6 +479,40 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     submodules: {},
     capabilities: {},
   },
+
+  supervisor: {
+    modules: {
+      hub: "view",
+      ops: "edit",
+      crm: "view",
+      docs: "none",
+      payroll: "none",
+      cpq: "none",
+      config: "none",
+      finance: "edit",
+    },
+    submodules: {
+      "ops.pauta_mensual": "view",
+      "ops.supervision": "full",
+      "crm.installations": "view",
+      "crm.dotacion": "view",
+      "finance.rendiciones": "edit",
+      "finance.aprobaciones": "none",
+      "finance.pagos": "none",
+      "finance.configuracion": "none",
+      "finance.contabilidad": "none",
+      "finance.facturacion": "none",
+      "finance.proveedores": "none",
+      "finance.reportes": "none",
+    },
+    capabilities: {
+      rendicion_submit: true,
+      supervision_checkin: true,
+      supervision_view_own: true,
+      supervision_dashboard: true,
+    },
+    hubLayout: "supervisor",
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -654,6 +701,13 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
     permissions: DEFAULT_ROLE_PERMISSIONS.solo_finanzas,
   },
   {
+    slug: "supervisor",
+    name: "Supervisor",
+    description: "Acceso móvil de terreno para visitas de supervisión y rendiciones.",
+    isSystem: false,
+    permissions: DEFAULT_ROLE_PERMISSIONS.supervisor,
+  },
+  {
     slug: "viewer",
     name: "Viewer",
     description: "Solo lectura en documentos.",
@@ -681,6 +735,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
+  if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/personas/guardias"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
@@ -771,6 +826,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/api/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
+  if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };
   // CRM

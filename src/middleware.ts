@@ -102,7 +102,7 @@ function resolvePermsFromAuth(authData: unknown): RolePermissions | null {
 const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
   owner: true, admin: true, editor: true, rrhh: true, operaciones: true,
   finanzas: true, reclutamiento: true, solo_ops: true, solo_crm: true,
-  solo_documentos: true, solo_payroll: true, solo_finanzas: true, viewer: true,
+  solo_documentos: true, solo_payroll: true, solo_finanzas: true, supervisor: true, viewer: true,
 };
 
 export default auth((req) => {

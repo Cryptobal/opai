@@ -53,6 +53,8 @@ import { hasOpsCapability } from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
 import { GuardEventsTab } from "@/components/ops/guard-events";
 import { GuardContractsTab } from "@/components/ops/guard-contracts";
+import { GuardiaSalaryTab } from "@/components/ops/GuardiaSalaryTab";
+import { GuardiaLiquidacionesTab } from "@/components/payroll/GuardiaLiquidacionesTab";
 import { NotesSection } from "@/components/crm/NotesSection";
 
 /** Format a date-only value using UTC to avoid timezone shift */
@@ -1369,6 +1371,22 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
           } : null}
         />
+      ),
+    },
+    /* estructura de sueldo */
+    {
+      key: "estructura-sueldo" as const,
+      label: "Estructura de sueldo",
+      children: (
+        <GuardiaSalaryTab guardiaId={guardia.id} />
+      ),
+    },
+    /* liquidaciones */
+    {
+      key: "liquidaciones" as const,
+      label: "Liquidaciones",
+      children: (
+        <GuardiaLiquidacionesTab guardiaId={guardia.id} />
       ),
     },
     /* eventos laborales */

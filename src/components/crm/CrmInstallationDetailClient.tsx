@@ -908,6 +908,7 @@ function StaffingSection({
   const openEdit = (puesto: NonNullable<InstallationDetail["puestosActivos"]>[number]) => {
     setEditingPuestoId(puesto.id);
     setFormModalTitle("Editar puesto operativo");
+    const ss = (puesto as any).salaryStructure;
     setFormModalInitial({
       puestoTrabajoId: puesto.puestoTrabajoId ?? "",
       cargoId: puesto.cargoId ?? "",
@@ -918,6 +919,15 @@ function StaffingSection({
       weekdays: puesto.weekdays,
       numGuards: puesto.requiredGuards,
       baseSalary: Number(puesto.baseSalary ?? 0),
+      colacion: ss ? Number(ss.colacion ?? 0) : 0,
+      movilizacion: ss ? Number(ss.movilizacion ?? 0) : 0,
+      gratificationType: ss?.gratificationType ?? "AUTO_25",
+      gratificationCustomAmount: ss ? Number(ss.gratificationCustomAmount ?? 0) : 0,
+      bonos: ss?.bonos?.map((b: any) => ({
+        bonoCatalogId: b.bonoCatalog.id,
+        overrideAmount: b.overrideAmount != null ? Number(b.overrideAmount) : undefined,
+        overridePercentage: b.overridePercentage != null ? Number(b.overridePercentage) : undefined,
+      })) ?? [],
       activeFrom: puesto.activeFrom ? new Date(puesto.activeFrom).toISOString().slice(0, 10) : "",
     });
     setFormModalOpen(true);
@@ -943,7 +953,7 @@ function StaffingSection({
 
   // Save (create or edit)
   const handleSave = async (data: PuestoFormData) => {
-    const body = {
+    const body: Record<string, unknown> = {
       name: data.customName || `Puesto ${data.startTime}-${data.endTime}`,
       puestoTrabajoId: data.puestoTrabajoId || null,
       cargoId: data.cargoId || null,
@@ -953,6 +963,11 @@ function StaffingSection({
       weekdays: data.weekdays,
       requiredGuards: data.numGuards,
       baseSalary: data.baseSalary || null,
+      colacion: data.colacion ?? 0,
+      movilizacion: data.movilizacion ?? 0,
+      gratificationType: data.gratificationType ?? "AUTO_25",
+      gratificationCustomAmount: data.gratificationCustomAmount ?? null,
+      bonos: (data.bonos ?? []).filter((b) => b.bonoCatalogId),
       activeFrom: data.activeFrom || null,
     };
 
@@ -1055,6 +1070,7 @@ function StaffingSection({
                 <th className="px-3 py-2 text-left font-medium">Horario</th>
                 <th className="px-3 py-2 text-right font-medium">Dotación</th>
                 <th className="px-3 py-2 text-right font-medium">Sueldo base</th>
+                <th className="px-3 py-2 text-right font-medium">Líquido est.</th>
                 <th className="px-3 py-2 text-right font-medium w-[160px]">Acciones</th>
               </tr>
             </thead>
@@ -1092,6 +1108,14 @@ function StaffingSection({
                     </td>
                     <td className="px-3 py-2 text-right">{item.requiredGuards}</td>
                     <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      {(() => {
+                        const ss = (item as any).salaryStructure;
+                        const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
+                        if (net > 0) return <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>;
+                        return <span className="text-muted-foreground">—</span>;
+                      })()}
+                    </td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
