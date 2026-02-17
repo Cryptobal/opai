@@ -225,7 +225,7 @@ export async function POST(
     const accountWebsite = normalizeOptionalText(body?.website);
 
     const result = await prisma.$transaction(async (tx) => {
-      let account: { id: string };
+      let account: { id: string; name: string };
       if (useExistingAccountId) {
         const existing = await tx.crmAccount.findFirst({
           where: { id: useExistingAccountId, tenantId: ctx.tenantId },
@@ -257,7 +257,7 @@ export async function POST(
             website: accountWebsite ?? existing.website,
           },
         });
-        account = { id: existing.id };
+        account = { id: existing.id, name: existing.name };
       } else {
         const created = await tx.crmAccount.create({
           data: {
@@ -278,16 +278,16 @@ export async function POST(
             ownerId: ctx.userId,
           },
         });
-        account = { id: created.id };
+        account = { id: created.id, name: accountName };
       }
 
-      let contact: { id: string };
+      let contact: { id: string; firstName: string; lastName: string };
       if (contactResolution === "use_existing" && contactIdForResolution) {
         const existing = await tx.crmContact.findFirst({
           where: { id: contactIdForResolution, tenantId: ctx.tenantId },
         });
         if (!existing) throw new Error("Contacto existente no encontrado");
-        contact = { id: existing.id };
+        contact = { id: existing.id, firstName: existing.firstName, lastName: existing.lastName ?? "" };
         // Opcional: asociar contacto a esta cuenta si estaba en otra
         await tx.crmContact.update({
           where: { id: existing.id },
@@ -310,7 +310,7 @@ export async function POST(
             isPrimary: true,
           },
         });
-        contact = { id: existing.id };
+        contact = { id: existing.id, firstName: contactFirstName, lastName: contactLastName };
       } else {
         const created = await tx.crmContact.create({
           data: {
@@ -324,7 +324,7 @@ export async function POST(
             isPrimary: true,
           },
         });
-        contact = { id: created.id };
+        contact = { id: created.id, firstName: contactFirstName, lastName: contactLastName };
       }
 
       const dealNotes = body?.notes?.trim() || null;
@@ -471,6 +471,7 @@ export async function POST(
       const year = new Date().getFullYear();
       let quoteCodeCounter = await tx.cpqQuote.count({ where: { tenantId: ctx.tenantId } });
       let anyQuoteCreated = false;
+      const createdQuotes: { id: string; code: string; installationName: string | null }[] = [];
 
       for (const inst of installationsPayload) {
         const instName = toSentenceCase(inst?.name);
@@ -677,6 +678,7 @@ export async function POST(
               },
             });
             anyQuoteCreated = true;
+            createdQuotes.push({ id: quote.id, code: quoteCode, installationName: instName });
 
             // Crear ítems de costo preseleccionados según selectedCostGroups
             if (selectedCostGroups.length > 0) {
@@ -806,6 +808,8 @@ export async function POST(
             },
           });
 
+          createdQuotes.push({ id: fallbackQuote.id, code: fallbackQuoteCode, installationName: null });
+
           // Crear ítems de costo preseleccionados para cotización fallback
           if (selectedCostGroups.length > 0) {
             const typesSet = new Set<string>();
@@ -886,7 +890,7 @@ export async function POST(
         },
       });
 
-      return { account, contact, deal };
+      return { account, contact, deal, quotes: createdQuotes };
     });
 
     return NextResponse.json({ success: true, data: result });
