@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/opai";
 import { ConfigBackLink } from "@/components/opai";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { BonosCatalogManager } from "@/components/payroll/BonosCatalogManager";
 
 export default async function PayrollConfigPage() {
   const session = await auth();
@@ -21,9 +22,13 @@ export default async function PayrollConfigPage() {
       <ConfigBackLink />
       <PageHeader
         title="Configuración Payroll"
-        description="Parámetros y supuestos"
+        description="Parámetros, bonos y supuestos para remuneraciones"
       />
-      <div className="grid gap-4 md:grid-cols-2">
+
+      {/* Catálogo de bonos */}
+      <BonosCatalogManager />
+
+      <div className="grid gap-4 md:grid-cols-2 mt-6">
         <Card>
           <CardHeader>
             <CardTitle>Parámetros base</CardTitle>

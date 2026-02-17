@@ -106,6 +106,46 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Create PayrollSalaryStructure for this puesto
+    if (body.baseSalary != null && body.baseSalary > 0) {
+      const salaryStructure = await prisma.payrollSalaryStructure.create({
+        data: {
+          tenantId: ctx.tenantId,
+          sourceType: "PUESTO",
+          sourceId: puesto.id,
+          baseSalary: body.baseSalary,
+          colacion: body.colacion ?? 0,
+          movilizacion: body.movilizacion ?? 0,
+          gratificationType: body.gratificationType ?? "AUTO_25",
+          gratificationCustomAmount: body.gratificationCustomAmount ?? null,
+          isActive: true,
+          effectiveFrom: body.activeFrom ? new Date(`${body.activeFrom}T00:00:00.000Z`) : new Date(),
+          createdBy: ctx.userId,
+        },
+      });
+
+      // Link structure to puesto
+      await prisma.opsPuestoOperativo.update({
+        where: { id: puesto.id },
+        data: { salaryStructureId: salaryStructure.id },
+      });
+
+      // Create salary structure bonos
+      if (Array.isArray(body.bonos) && body.bonos.length > 0) {
+        await prisma.payrollSalaryStructureBono.createMany({
+          data: body.bonos
+            .filter((b: any) => b.bonoCatalogId)
+            .map((b: any) => ({
+              salaryStructureId: salaryStructure.id,
+              bonoCatalogId: b.bonoCatalogId,
+              overrideAmount: b.overrideAmount ?? null,
+              overridePercentage: b.overridePercentage ?? null,
+              isActive: true,
+            })),
+        });
+      }
+    }
+
     await createOpsAuditLog(ctx, "ops.puesto.created", "ops_puesto", puesto.id, {
       installationId: body.installationId,
       name: body.name,

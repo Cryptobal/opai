@@ -68,6 +68,26 @@ export default async function CrmInstallationDetailPage({
         puestoTrabajo: { select: { id: true, name: true } },
         cargo: { select: { id: true, name: true } },
         rol: { select: { id: true, name: true } },
+        salaryStructure: {
+          select: {
+            id: true,
+            baseSalary: true,
+            colacion: true,
+            movilizacion: true,
+            gratificationType: true,
+            gratificationCustomAmount: true,
+            netSalaryEstimate: true,
+            bonos: {
+              where: { isActive: true },
+              select: {
+                id: true,
+                overrideAmount: true,
+                overridePercentage: true,
+                bonoCatalog: { select: { id: true, name: true, bonoType: true, isTaxable: true, defaultAmount: true, defaultPercentage: true } },
+              },
+            },
+          },
+        },
       },
     }),
     prisma.opsPuestoOperativo.findMany({
