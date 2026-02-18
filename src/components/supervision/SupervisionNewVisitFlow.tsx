@@ -399,7 +399,7 @@ export function SupervisionNewVisitFlow() {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-w-0">
             <div className="space-y-1">
               <Label className="text-xs">Presentación</Label>
               <Input type="number" min={1} max={5} value={ratingPresentacion} onChange={(e) => setRatingPresentacion(e.target.value)} />

@@ -379,7 +379,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
           Filtros
         </div>
 
-        <div className="flex-1 min-w-[140px]">
+        <div className="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[140px]">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Instalación</label>
           <select
             value={installationId}
@@ -395,27 +395,27 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
           </select>
         </div>
 
-        <div>
+        <div className="flex-1 sm:flex-none">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Desde</label>
           <Input
             type="date"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
-            className="h-8 text-xs w-[130px]"
+            className="h-8 text-xs w-full sm:w-[130px]"
           />
         </div>
 
-        <div>
+        <div className="flex-1 sm:flex-none">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Hasta</label>
           <Input
             type="date"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
-            className="h-8 text-xs w-[130px]"
+            className="h-8 text-xs w-full sm:w-[130px]"
           />
         </div>
 
-        <div className="flex-1 min-w-[140px]">
+        <div className="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[140px]">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Buscar</label>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

@@ -2225,7 +2225,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 showMap
               />
               {(editPersonalForm.commune || editPersonalForm.city || editPersonalForm.region) && (
-                <div className="grid gap-2 grid-cols-3 mt-1">
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-3 mt-1">
                   <Input value={editPersonalForm.commune} readOnly placeholder="Comuna" className="text-xs h-8" />
                   <Input value={editPersonalForm.city} readOnly placeholder="Ciudad" className="text-xs h-8" />
                   <Input value={editPersonalForm.region} readOnly placeholder="Región" className="text-xs h-8" />

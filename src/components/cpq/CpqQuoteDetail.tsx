@@ -1729,7 +1729,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   </p>
                 )}
 
-                <div>
+                <div className="overflow-x-auto">
                   <p className="text-xs font-semibold border-b pb-1 mb-2">
                     Puestos de trabajo · {stats.totalGuards} guardia(s)
                   </p>

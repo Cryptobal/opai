@@ -1060,7 +1060,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
           </div>
 
           {/* KPI row */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="text-center">
               <p className="text-lg font-bold">{stats.total}</p>
               <p className="text-[10px] text-muted-foreground">Total</p>

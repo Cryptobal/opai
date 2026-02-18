@@ -422,7 +422,7 @@ export default function PayrollSimulator() {
           ) : (
             <div className="space-y-4">
               {/* KPIs principales */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Card className="border-emerald-500/20 bg-emerald-500/5 p-3">
                   <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Líquido

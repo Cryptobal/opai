@@ -352,7 +352,7 @@ export function PresentationsList({ presentations: initialPresentations, initial
                       )}
                     </div>
 
-                    <div className="mt-3 flex flex-nowrap items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <div className="inline-flex h-9 items-center gap-2 rounded-md bg-green-500/10 border border-green-500/20 px-3 text-xs text-green-300">
                         <Eye className="w-3.5 h-3.5" />
                         <span className="font-semibold">{presentation.viewCount}</span>

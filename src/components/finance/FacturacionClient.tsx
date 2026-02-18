@@ -261,7 +261,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
+          <div className="relative flex-1 max-w-sm min-w-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar folio, RUT, nombre..."
@@ -271,7 +271,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
             />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -282,7 +282,7 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36 h-9">
+            <SelectTrigger className="w-full sm:w-36 h-9">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
@@ -568,7 +568,7 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
                   <p className="text-sm font-medium mb-2">
                     {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
                   </p>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                     <div>
                       <span className="text-muted-foreground">Último</span>
                       <p className="font-mono">{f.lastFolio || "—"}</p>
@@ -703,7 +703,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
+          <div className="relative flex-1 max-w-sm min-w-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar folio, RUT, emisor..."
@@ -713,7 +713,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -725,7 +725,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             </SelectContent>
           </Select>
           <Select value={receptionFilter} onValueChange={setReceptionFilter}>
-            <SelectTrigger className="w-36 h-9">
+            <SelectTrigger className="w-full sm:w-36 h-9">
               <SelectValue placeholder="Recepción" />
             </SelectTrigger>
             <SelectContent>
@@ -736,7 +736,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             </SelectContent>
           </Select>
           <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-36 h-9">
+            <SelectTrigger className="w-full sm:w-36 h-9">
               <SelectValue placeholder="Pago" />
             </SelectTrigger>
             <SelectContent>
@@ -943,7 +943,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Monto neto</Label>
                 <Input

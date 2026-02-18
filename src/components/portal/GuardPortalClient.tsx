@@ -752,13 +752,14 @@ function PautaSection({ session }: { session: GuardSession }) {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden overflow-x-auto">
+          <div className="min-w-[320px]">
           {/* Day header */}
           <div className="grid grid-cols-7 border-b">
             {DAY_NAMES.map((name) => (
               <div
                 key={name}
-                className="text-center text-[11px] font-medium text-muted-foreground py-2"
+                className="text-center text-[10px] sm:text-[11px] font-medium text-muted-foreground py-2"
               >
                 {name}
               </div>
@@ -808,6 +809,7 @@ function PautaSection({ session }: { session: GuardSession }) {
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       )}

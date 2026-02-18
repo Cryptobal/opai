@@ -336,7 +336,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
                     className="h-8 text-xs"
                     placeholder="Nombre del ítem *"
                   />
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2 min-w-0">
                     <div className="space-y-1">
                       <Label className="text-[10px]">Cant.</Label>
                       <Input
