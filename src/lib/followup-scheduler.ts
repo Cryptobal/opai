@@ -27,6 +27,46 @@ interface ScheduleFollowUpsResult {
 }
 
 /**
+ * Create a UTC Date that corresponds to the given hour in Chile timezone.
+ *
+ * On Vercel the server runs in UTC, so `setHours(9)` would schedule at 9:00 UTC
+ * instead of 9:00 Chile (CLT UTC-4 / CLST UTC-3). This function returns the
+ * correct UTC timestamp for the desired Chile local time.
+ */
+function scheduleAtChileHour(
+  baseDate: Date,
+  daysToAdd: number,
+  hour: number,
+): Date {
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(baseDate);
+  const [year, month, day] = dateParts.split("-").map(Number);
+
+  const targetDay = new Date(Date.UTC(year, month - 1, day + daysToAdd));
+  const tY = targetDay.getUTCFullYear();
+  const tM = targetDay.getUTCMonth() + 1;
+  const tD = targetDay.getUTCDate();
+
+  const asUTC = new Date(
+    `${tY}-${String(tM).padStart(2, "0")}-${String(tD).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00Z`,
+  );
+
+  const chileHourStr = asUTC.toLocaleString("en-US", {
+    timeZone: "America/Santiago",
+    hour: "numeric",
+    hour12: false,
+  });
+  const chileHourAtUTC = parseInt(chileHourStr, 10);
+  const offsetHours = chileHourAtUTC - hour;
+
+  return new Date(asUTC.getTime() - offsetHours * 60 * 60 * 1000);
+}
+
+/**
  * Schedule follow-up emails for a deal.
  *
  * - Upserts CrmFollowUpConfig (ensures config exists with defaults)
@@ -55,10 +95,12 @@ export async function scheduleFollowUps(
     data: { status: "cancelled", error: "Nueva propuesta enviada / reprogramado" },
   });
 
-  // Schedule 1st follow-up
-  const firstDate = new Date(proposalDate);
-  firstDate.setDate(firstDate.getDate() + config.firstFollowUpDays);
-  firstDate.setHours(config.sendHour, 0, 0, 0);
+  // Schedule 1st follow-up (Chile timezone-aware)
+  const firstDate = scheduleAtChileHour(
+    proposalDate,
+    config.firstFollowUpDays,
+    config.sendHour,
+  );
 
   await prisma.crmFollowUpLog.create({
     data: {
@@ -71,10 +113,12 @@ export async function scheduleFollowUps(
     },
   });
 
-  // Schedule 2nd follow-up
-  const secondDate = new Date(proposalDate);
-  secondDate.setDate(secondDate.getDate() + config.secondFollowUpDays);
-  secondDate.setHours(config.sendHour, 0, 0, 0);
+  // Schedule 2nd follow-up (Chile timezone-aware)
+  const secondDate = scheduleAtChileHour(
+    proposalDate,
+    config.secondFollowUpDays,
+    config.sendHour,
+  );
 
   await prisma.crmFollowUpLog.create({
     data: {

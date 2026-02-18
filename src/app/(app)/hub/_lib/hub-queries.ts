@@ -14,6 +14,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { toPercent, getTodayChile } from './hub-utils';
+import { triggerFollowUpProcessing } from '@/lib/followup-selfheal';
 import type {
   CrmMetrics,
   DocsSignals,
@@ -240,6 +241,12 @@ export async function getCommercialMetrics(
     Math.max(0, openDealsInFollowUpCount - dealsWithoutPendingFollowUpCount),
     openDealsInFollowUpCount,
   );
+
+  // Self-healing: if there are overdue follow-ups, trigger processing
+  // as a backup to the Vercel Cron job (fire-and-forget, non-blocking).
+  if (followUpsOverdueCount > 0) {
+    triggerFollowUpProcessing();
+  }
 
   const funnel = [
     {

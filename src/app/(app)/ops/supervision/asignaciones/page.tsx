@@ -34,7 +34,13 @@ export default async function SupervisionAsignacionesPage() {
     }),
     prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, name: true, address: true, commune: true },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        commune: true,
+        account: { select: { name: true } },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -47,7 +53,17 @@ export default async function SupervisionAsignacionesPage() {
       />
       <SupervisorAssignmentsClient
         supervisors={JSON.parse(JSON.stringify(supervisors))}
-        installations={JSON.parse(JSON.stringify(installations))}
+        installations={JSON.parse(
+          JSON.stringify(
+            installations.map((i) => ({
+              id: i.id,
+              name: i.name,
+              address: i.address,
+              commune: i.commune,
+              accountName: i.account?.name ?? "Sin cliente",
+            })),
+          ),
+        )}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmDealsClient } from "@/components/crm";
 import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
+import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 
 type DealsFocus =
   | "all"
@@ -91,6 +92,9 @@ export default async function CrmDealsPage({
       orderBy: { createdAt: "desc" },
     });
   } else if (focus === "followup-overdue") {
+    // Self-healing: trigger overdue follow-up processing (fire-and-forget)
+    triggerFollowUpProcessing();
+
     deals = await prisma.crmDeal.findMany({
       where: {
         tenantId,
