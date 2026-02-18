@@ -142,6 +142,10 @@ export function AppLayoutClient({
       label: 'Guardias',
       icon: Shield,
       show: hasModuleAccess(permissions, 'ops'),
+      children: [
+        { href: '/personas/guardias', label: 'Lista de Guardias', icon: Shield },
+        { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
+      ],
     },
     {
       href: '/finanzas',
