@@ -308,7 +308,7 @@ export function ReportesClient({
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="mt-1 h-9 w-40"
+                  className="mt-1 h-9 w-full sm:w-40"
                 />
               </div>
               <div>
@@ -317,7 +317,7 @@ export function ReportesClient({
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="mt-1 h-9 w-40"
+                  className="mt-1 h-9 w-full sm:w-40"
                 />
               </div>
               <Button

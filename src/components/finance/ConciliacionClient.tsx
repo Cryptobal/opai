@@ -267,7 +267,7 @@ function ListView({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Select value={bankFilter} onValueChange={setBankFilter}>
-            <SelectTrigger className="w-52 h-9">
+            <SelectTrigger className="w-full sm:w-52 h-9">
               <SelectValue placeholder="Cuenta bancaria" />
             </SelectTrigger>
             <SelectContent>

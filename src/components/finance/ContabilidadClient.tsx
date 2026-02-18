@@ -840,7 +840,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="h-9 w-40"
+                className="h-9 w-full sm:w-40"
               />
             </div>
             <div className="space-y-1.5">
@@ -849,7 +849,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="h-9 w-40"
+                className="h-9 w-full sm:w-40"
               />
             </div>
             <Button size="sm" onClick={handleSearch} disabled={loading}>
