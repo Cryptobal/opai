@@ -23,7 +23,7 @@ export default async function SupervisionAsignacionesPage() {
     prisma.admin.findMany({
       where: {
         tenantId,
-        isActive: true,
+        status: "active",
         OR: [
           { role: "supervisor" },
           { roleTemplate: { slug: "supervisor" } },
