@@ -162,7 +162,7 @@ export async function PATCH(
           hiredAt:
             body.hiredAt !== undefined
               ? toNullableDate(body.hiredAt)
-              : nextLifecycle === "contratado_activo" && !existing.hiredAt
+              : nextLifecycle === "contratado" && !existing.hiredAt
                 ? new Date()
                 : undefined,
           terminatedAt:

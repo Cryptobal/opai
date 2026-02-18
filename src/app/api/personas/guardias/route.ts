@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
               lifecycleStatus,
               status: lifecycleToLegacyStatus(lifecycleStatus),
               availableExtraShifts: body.availableExtraShifts ?? false,
-              hiredAt: lifecycleStatus === "contratado_activo" ? new Date() : null,
+              hiredAt: lifecycleStatus === "contratado" ? new Date() : null,
             },
           });
 

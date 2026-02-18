@@ -126,7 +126,7 @@ const TE_ITEMS: BottomNavItem[] = [
 /* ── Personas sub-items ── */
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
-  { key: "personas-guardias", href: "/personas/guardias", label: "Guardias", icon: Shield },
+  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: Shield },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
 ];
 

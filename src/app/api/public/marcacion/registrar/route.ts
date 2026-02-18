@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const guardia = persona.guardia;
 
     // Verificaciones de estado
-    if (!["seleccionado", "contratado_activo"].includes(guardia.lifecycleStatus)) {
+    if (!["seleccionado", "contratado"].includes(guardia.lifecycleStatus)) {
       return NextResponse.json(
         { success: false, error: "Guardia no activo" },
         { status: 403 }

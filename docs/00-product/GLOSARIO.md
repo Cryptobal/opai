@@ -44,15 +44,16 @@ Slot que no tiene guardia asignado. Se genera cuando:
 
 ---
 
-## Lifecycle del Guardia
+## Lifecycle del Guardia (Persona)
 
-| Estado | Significado | ¿Puede asignarse? | Color |
-|--------|-------------|-------------------|-------|
-| `postulante` | Candidato en proceso | No | Gris |
-| `seleccionado` | Aprobado, pendiente de contrato | Sí | Azul |
-| `contratado_activo` | Con contrato vigente | Sí | Verde |
-| `inactivo` | Suspendido temporalmente | No | Amarillo |
-| `desvinculado` | Desvinculado (finiquito/renuncia) | No | Rojo |
+| Estado | Significado | ¿Puede asignarse? | ¿Reemplazo en pauta? | Color |
+|--------|-------------|-------------------|----------------------|-------|
+| `postulante` | Candidato en proceso | No | No | Gris |
+| `seleccionado` | Aprobado, pendiente de contrato | Sí | No | Azul |
+| `contratado` | Con contrato vigente | Sí | Sí | Verde |
+| `te` | Turno extra (ingreso rápido) | Sí | Sí | Violeta |
+| `inactivo` | Finiquitado o suspendido | No | No | Amarillo |
+| `desvinculado` | Desvinculado definitivo | No | No | Rojo |
 
 ---
 

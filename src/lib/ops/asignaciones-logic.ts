@@ -92,10 +92,10 @@ export async function executeAsignar(
   if (!guardia) {
     return { success: false, error: "Guardia no encontrado", status: 404 };
   }
-  if (!["seleccionado", "contratado_activo"].includes(guardia.lifecycleStatus)) {
+  if (!["seleccionado", "contratado"].includes(guardia.lifecycleStatus)) {
     return {
       success: false,
-      error: `Guardia debe estar en estado 'seleccionado' o 'contratado_activo' (actual: ${guardia.lifecycleStatus})`,
+      error: `Guardia debe estar en estado 'seleccionado' o 'contratado' (actual: ${guardia.lifecycleStatus})`,
       status: 400,
     };
   }

@@ -85,7 +85,7 @@ export async function getGuardiasMetrics(tenantId: string): Promise<Record<strin
     sinAsignacionActiva,
   ] = await Promise.all([
     prisma.opsGuardia.count({ where: { tenantId } }),
-    prisma.opsGuardia.count({ where: { tenantId, lifecycleStatus: "contratado_activo" } }),
+    prisma.opsGuardia.count({ where: { tenantId, lifecycleStatus: "contratado" } }),
     prisma.opsGuardia.count({ where: { tenantId, lifecycleStatus: "desvinculado" } }),
     prisma.opsGuardia.count({ where: { tenantId, lifecycleStatus: "seleccionado" } }),
     prisma.opsAsignacionGuardia.count({ where: { tenantId, isActive: true } }),

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2, UserPlus } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,11 +19,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
   completeRutWithDv,
   formatRutForInput,
+  getLifecycleTransitions,
   GUARDIA_LIFECYCLE_STATUSES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
@@ -90,7 +97,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loadingPublicForm, setLoadingPublicForm] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [lifecycleFilter, setLifecycleFilter] = useState<string>("contratado_activo");
+  const [lifecycleFilter, setLifecycleFilter] = useState<string>("contratado");
   
   const [form, setForm] = useState({
     firstName: "",
@@ -125,7 +132,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const LIFECYCLE_LABELS: Record<string, string> = {
     postulante: "Postulante",
     seleccionado: "Seleccionado",
-    contratado_activo: "Contratado activo",
+    contratado: "Contratado",
     te: "Turno Extra",
     inactivo: "Inactivo",
     desvinculado: "Desvinculado",
@@ -134,7 +141,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const LIFECYCLE_COLORS: Record<string, string> = {
     postulante: "bg-blue-500/15 text-blue-400",
     seleccionado: "bg-amber-500/15 text-amber-400",
-    contratado_activo: "bg-cyan-500/15 text-cyan-400",
+    contratado: "bg-cyan-500/15 text-cyan-400",
     te: "bg-violet-500/15 text-violet-400",
     inactivo: "bg-muted text-muted-foreground",
     desvinculado: "bg-red-500/15 text-red-400",
@@ -146,6 +153,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     cuenta_rut: "Cuenta RUT",
   };
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canChangeLifecycle =
+    hasOpsCapability(userRole, "guardias_manage") ||
+    hasOpsCapability(userRole, "rrhh_events");
   const canIngresoTe =
     hasOpsCapability(userRole, "guardias_manage") ||
     hasOpsCapability(userRole, "guardias_te_ingreso");
@@ -657,7 +667,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             ))}
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                {filtered.length} guardia{filtered.length === 1 ? "" : "s"}
+                {filtered.length} persona{filtered.length === 1 ? "" : "s"}
               </span>
               <div className="flex items-center rounded-md border border-border">
                 <Button
@@ -683,8 +693,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
           {filtered.length === 0 ? (
             <EmptyState
               icon={<ShieldUser className="h-8 w-8" />}
-              title="Sin guardias"
-              description="Agrega guardias para habilitar asignación en pauta. Haz clic en un guardia para ver su ficha, documentos, cuentas bancarias e historial."
+              title="Sin personas"
+              description="Agrega personas para habilitar asignación en pauta. Haz clic en una persona para ver su ficha, documentos, cuentas bancarias e historial."
               compact
             />
           ) : (
@@ -719,9 +729,43 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <p className="text-sm font-semibold truncate">
                           {item.persona.firstName} {item.persona.lastName}
                         </p>
-                        <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}>
-                          {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
-                        </span>
+                        {canChangeLifecycle ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none hover:opacity-90 ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}
+                              >
+                                {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                              {getLifecycleTransitions(item.lifecycleStatus).map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleLifecycleChange(item, status);
+                                  }}
+                                  disabled={updatingId === item.id}
+                                >
+                                  {updatingId === item.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                  ) : null}
+                                  {LIFECYCLE_LABELS[status] || status}
+                                </DropdownMenuItem>
+                              ))}
+                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 && (
+                                <DropdownMenuItem disabled>Sin transiciones</DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}>
+                            {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
+                          </span>
+                        )}
                         {item.code && (
                           <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
                         )}

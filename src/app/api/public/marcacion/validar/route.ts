@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     const guardia = persona.guardia;
 
     // Verificar que el guardia esté activo y no en lista negra
-    if (!["seleccionado", "contratado_activo"].includes(guardia.lifecycleStatus)) {
+    if (!["seleccionado", "contratado"].includes(guardia.lifecycleStatus)) {
       return NextResponse.json(
         { success: false, error: "Guardia no activo" },
         { status: 403 }

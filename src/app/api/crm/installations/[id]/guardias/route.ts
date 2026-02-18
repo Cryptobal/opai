@@ -6,7 +6,7 @@ import { canView } from "@/lib/permissions";
 
 /**
  * GET /api/crm/installations/[id]/guardias
- * Returns guards available for assignment (contratado_activo, not blacklisted).
+ * Returns guards available for assignment (contratado, not blacklisted).
  * Used by the assignment modal in the installation detail page.
  */
 export async function GET(
@@ -30,7 +30,7 @@ export async function GET(
     const guardias = await prisma.opsGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
-        lifecycleStatus: "contratado_activo",
+        lifecycleStatus: "contratado",
         isBlacklisted: false,
       },
       select: {

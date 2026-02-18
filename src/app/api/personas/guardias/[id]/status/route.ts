@@ -39,9 +39,9 @@ export async function PATCH(
           lifecycleStatus: body.lifecycleStatus,
           status: lifecycleToLegacyStatus(body.lifecycleStatus),
           hiredAt:
-            body.lifecycleStatus === "contratado_activo" && !existing.hiredAt
+            body.lifecycleStatus === "contratado" && !existing.hiredAt
               ? effectiveAt
-              : body.lifecycleStatus === "contratado_activo"
+              : body.lifecycleStatus === "contratado"
                 ? existing.hiredAt
                 : undefined,
           terminatedAt: body.lifecycleStatus === "desvinculado" ? effectiveAt : undefined,

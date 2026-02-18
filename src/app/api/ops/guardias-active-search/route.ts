@@ -1,6 +1,6 @@
 /**
  * GET /api/ops/guardias-active-search?q=xxx
- * Búsqueda de guardias activos (contratado_activo, seleccionado) por nombre, código o RUT.
+ * Búsqueda de guardias activos (contratado, seleccionado, te) por nombre, código o RUT.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     let guardias = await prisma.opsGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
-        lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
+        lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
         OR: [
           { code: { contains: q, mode: "insensitive" } },
           { persona: { firstName: { contains: q, mode: "insensitive" } } },
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       const allActive = await prisma.opsGuardia.findMany({
         where: {
           tenantId: ctx.tenantId,
-          lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
+          lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
         },
         take: 100,
         select: {

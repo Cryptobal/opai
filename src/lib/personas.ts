@@ -1,15 +1,25 @@
 export const GUARDIA_LIFECYCLE_STATUSES = [
   "postulante",
   "seleccionado",
-  "contratado_activo",
+  "contratado",
   "te", // Turno Extra — ingreso rápido para cubrir ausencias
-  "supervisor",
-  "administrativo",
   "inactivo",
   "desvinculado",
 ] as const;
 
 export type GuardiaLifecycleStatus = (typeof GUARDIA_LIFECYCLE_STATUSES)[number];
+
+/** Transiciones permitidas desde cada estado. */
+export function getLifecycleTransitions(currentStatus: string): GuardiaLifecycleStatus[] {
+  const s = currentStatus.toLowerCase();
+  if (s === "postulante") return ["seleccionado", "te", "inactivo", "contratado"];
+  if (s === "seleccionado") return ["contratado", "inactivo", "desvinculado"];
+  if (s === "te") return ["contratado", "inactivo", "desvinculado"];
+  if (s === "contratado") return ["inactivo", "desvinculado"];
+  if (s === "inactivo") return ["contratado", "te"];
+  if (s === "desvinculado") return [];
+  return [];
+}
 
 export const DOCUMENT_TYPES = [
   "certificado_antecedentes",
@@ -220,8 +230,9 @@ export function renderGuardiaTemplate(
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, token: string) => vars[token] ?? "");
 }
 
-export function lifecycleToLegacyStatus(status: GuardiaLifecycleStatus): "active" | "inactive" {
-  if (status === "contratado_activo" || status === "te") return "active";
+export function lifecycleToLegacyStatus(status: GuardiaLifecycleStatus | string): "active" | "inactive" {
+  const s = status?.toLowerCase?.() ?? "";
+  if (s === "contratado" || s === "te") return "active";
   return "inactive";
 }
 

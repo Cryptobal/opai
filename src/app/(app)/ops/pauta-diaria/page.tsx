@@ -44,7 +44,7 @@ export default async function OpsAsistenciaDiariaPage() {
         tenantId,
         status: "active",
         isBlacklisted: false,
-        lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
+        lifecycleStatus: { in: ["contratado", "te"] },
       },
       select: {
         id: true,

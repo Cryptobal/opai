@@ -220,7 +220,7 @@ export function TeTurnosClient({
           .filter((g: { lifecycleStatus?: string; status?: string; isBlacklisted?: boolean }) => {
             const ls = g.lifecycleStatus ?? "";
             // Solo seleccionados y contratados activos
-            return (ls === "seleccionado" || ls === "contratado_activo") && !g.isBlacklisted;
+            return (ls === "seleccionado" || ls === "contratado") && !g.isBlacklisted;
           })
           .map((g: { id: string; code?: string | null; lifecycleStatus?: string; persona: { firstName: string; lastName: string; rut?: string | null } }) => ({
             id: g.id,

@@ -52,8 +52,8 @@ export default async function GuardiasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Personas · Guardias"
-        description="Alta de guardias y control de elegibilidad operativa."
+        title="Personas"
+        description="Alta de personas y control de elegibilidad operativa."
       />
       <GuardiasClient
         initialGuardias={JSON.parse(JSON.stringify(guardias))}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   CalendarDays,
   CalendarPlus,
+  ChevronDown,
   Copy,
   FilePlus2,
   History,
@@ -37,6 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CrmDetailLayout } from "@/components/crm/CrmDetailLayout";
 import type { RecordAction } from "@/components/crm/RecordActions";
 import {
@@ -45,6 +52,7 @@ import {
   CHILE_BANKS,
   DOCUMENT_STATUS,
   DOCUMENT_TYPES,
+  getLifecycleTransitions,
   GUARDIA_COMM_TEMPLATES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
@@ -104,6 +112,7 @@ type GuardiaDetail = {
     hasMobilization?: boolean | null;
   };
   hiredAt?: string | null;
+  terminatedAt?: string | null;
   availableExtraShifts?: boolean;
   marcacionPin?: string | null; // hash/indicador de PIN configurado
   marcacionPinVisible?: string | null; // PIN visible para operación en ficha
@@ -159,7 +168,7 @@ type AsignacionHistorial = {
   endDate?: string | null;
   isActive: boolean;
   reason?: string | null;
-  puesto: { id: string; name: string; shiftStart: string; shiftEnd: string };
+  puesto: { id: string; name: string; shiftStart: string; shiftEnd: string; cargo?: { name: string } | null };
   installation: {
     id: string;
     name: string;
@@ -214,11 +223,20 @@ function lifecycleBadgeVariant(
   value: string
 ): "default" | "secondary" | "success" | "warning" | "destructive" | "outline" {
   const normalized = value.toLowerCase();
-  if (normalized.includes("activo")) return "success";
+  if (normalized.includes("activo") || normalized === "contratado") return "success";
   if (normalized.includes("inactivo")) return "warning";
   if (normalized.includes("desvinculado")) return "destructive";
   return "secondary";
 }
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  postulante: "Postulante",
+  seleccionado: "Seleccionado",
+  contratado: "Contratado",
+  te: "Turno Extra",
+  inactivo: "Inactivo",
+  desvinculado: "Desvinculado",
+};
 
 export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId }: GuardiaDetailClientProps) {
   const router = useRouter();
@@ -322,6 +340,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [linkingDoc, setLinkingDoc] = useState(false);
   const [unlinkingDocId, setUnlinkingDocId] = useState<string | null>(null);
   const [desvinculando, setDesvinculando] = useState(false);
+  const [lifecycleChanging, setLifecycleChanging] = useState(false);
   const [linkForm, setLinkForm] = useState({
     documentId: "",
     role: "related",
@@ -363,6 +382,9 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   }, [guardia.documents]);
 
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canChangeLifecycle =
+    hasOpsCapability(userRole, "guardias_manage") ||
+    hasOpsCapability(userRole, "rrhh_events");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const rondaCode = guardia.currentInstallation?.marcacionCode ?? "";
@@ -706,6 +728,35 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       toast.error("No se pudo eliminar documento");
     } finally {
       setDeletingDocId(null);
+    }
+  };
+
+  const handleLifecycleChange = async (nextStatus: string) => {
+    if (lifecycleChanging) return;
+    setLifecycleChanging(true);
+    try {
+      const response = await fetch(`/api/personas/guardias/${guardia.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lifecycleStatus: nextStatus }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo cambiar el estado");
+      }
+      setGuardia((prev) => ({
+        ...prev,
+        lifecycleStatus: payload.data.lifecycleStatus,
+        status: payload.data.status,
+        hiredAt: payload.data.hiredAt ?? prev.hiredAt,
+        terminatedAt: payload.data.terminatedAt ?? prev.terminatedAt,
+      }));
+      toast.success("Estado actualizado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo actualizar el estado");
+    } finally {
+      setLifecycleChanging(false);
     }
   };
 
@@ -1109,18 +1160,24 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               <Input value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} readOnly className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Instalación actual</Label>
-              {guardia.currentInstallation ? (
-                <Link href={`/crm/installations/${guardia.currentInstallation.id}`} className="block">
-                  <Input
-                    value={`${guardia.currentInstallation.name}${guardia.currentInstallation.account ? ` · ${guardia.currentInstallation.account.name}` : ""}`}
-                    readOnly
-                    className="h-9 cursor-pointer text-primary hover:underline"
-                  />
-                </Link>
-              ) : (
-                <Input value="Sin instalación asignada" readOnly className="h-9" />
-              )}
+              <Label className="text-xs text-muted-foreground">Cargo / Instalación</Label>
+              {(() => {
+                const current = asignaciones.find((a) => a.isActive);
+                if (!current) {
+                  return <Input value="Sin cargo asignado" readOnly className="h-9" />;
+                }
+                const cargoLabel = current.puesto?.cargo?.name ?? current.puesto?.name ?? "Sin cargo";
+                const instLabel = `${current.installation.name}${current.installation.account ? ` · ${current.installation.account.name}` : ""}`;
+                return (
+                  <Link href={`/crm/installations/${current.installation.id}`} className="block">
+                    <Input
+                      value={`${cargoLabel} · ${instLabel}`}
+                      readOnly
+                      className="h-9 cursor-pointer text-primary hover:underline"
+                    />
+                  </Link>
+                );
+              })()}
             </div>
           </div>
 
@@ -2079,11 +2136,36 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         fixedSectionKey="datos"
         title={guardiaTitle}
         subtitle={guardiaSubtitle}
-        badge={{ label: guardiaBadgeLabel, variant: guardiaBadgeVariant }}
+        badge={{
+          label: guardiaBadgeLabel + (guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt ? " · Finiquitado" : ""),
+          variant: guardiaBadgeVariant,
+        }}
         backHref="/personas/guardias"
-        backLabel="Guardias"
+        backLabel="Personas"
         actions={actionsToShow}
-        extra={null}
+        extra={
+          canChangeLifecycle && getLifecycleTransitions(guardia.lifecycleStatus).length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={lifecycleChanging} className="gap-1.5">
+                  {lifecycleChanging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Cambiar estado
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {getLifecycleTransitions(guardia.lifecycleStatus).map((status) => (
+                  <DropdownMenuItem
+                    key={status}
+                    onClick={() => void handleLifecycleChange(status)}
+                  >
+                    {LIFECYCLE_LABELS[status] || status}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null
+        }
         sections={sections}
       />
 
