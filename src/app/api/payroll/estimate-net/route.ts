@@ -74,16 +74,10 @@ export async function POST(req: NextRequest) {
           movilizacion: result.haberes.transport,
           totalTaxable: result.haberes.total_taxable,
           totalNonTaxable: result.haberes.total_non_taxable,
-        },
-        employerCost: result.total_employer_cost,
-        breakdown: {
-          baseSalary: result.haberes.base_salary,
-          gratification: result.haberes.gratification,
-          colacion,
-          movilizacion,
           bonosImponibles,
           bonosNoImponibles,
         },
+        employerCost: result.total_employer_cost,
       },
     });
   } catch (err: any) {
