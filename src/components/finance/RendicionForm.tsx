@@ -539,7 +539,7 @@ export function RendicionForm({
                 <Input
                   id="amount"
                   inputMode="numeric"
-                  value={amount}
+                  value={amount ? Number(amount).toLocaleString("es-CL") : ""}
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="0"
                   className={cn("mt-1", errors.amount && "border-red-500")}

@@ -15,10 +15,10 @@ const createRendicionSchema = z.object({
   type: z.enum(["PURCHASE", "MILEAGE"]),
   amount: z.number().int().min(0),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato: YYYY-MM-DD"),
-  description: z.string().max(500).optional(),
-  documentType: z.enum(["BOLETA", "FACTURA"]).optional(),
-  itemId: z.string().uuid().optional(),
-  costCenterId: z.string().uuid().optional(),
+  description: z.string().max(500).optional().nullable().transform((v) => v ?? undefined),
+  documentType: z.enum(["BOLETA", "FACTURA", "SIN_RESPALDO"]).optional().nullable().transform((v) => v ?? undefined),
+  itemId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
+  costCenterId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
 });
 
 // ── GET: list rendiciones ──

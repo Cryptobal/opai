@@ -15,7 +15,7 @@ const updateRendicionSchema = z.object({
   amount: z.number().int().min(0).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   description: z.string().max(500).optional().nullable(),
-  documentType: z.enum(["BOLETA", "FACTURA"]).optional().nullable(),
+  documentType: z.enum(["BOLETA", "FACTURA", "SIN_RESPALDO"]).optional().nullable(),
   itemId: z.string().uuid().optional().nullable(),
   costCenterId: z.string().uuid().optional().nullable(),
   type: z.enum(["PURCHASE", "MILEAGE"]).optional(),
