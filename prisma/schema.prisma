@@ -1799,7 +1799,6 @@ model OpsGuardia {
   contractAlertDaysBefore   Int?      @default(5) @map("contract_alert_days_before") // Días hábiles antes para alertar
 
   // ── TE (Turno Extra) quick-entry fields ──
-  os10                    Boolean?   @map("os10") // Credencial OS-10: Sí/No
   estadoUniforme          String?    @map("estado_uniforme") // "completo" | "incompleto"
   prendasFaltantes        String?    @map("prendas_faltantes") @db.Text
   validadoAntecedentes    Boolean?   @map("validado_antecedentes") // Solo Admin/RRHH pueden editar
