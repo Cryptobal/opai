@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, CheckCheck, ExternalLink, Circle, MessageSquare, Trash2 } from 'lucide-react';
+import { Bell, Check, CheckCheck, ExternalLink, Circle, MessageSquare, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -42,6 +42,11 @@ const TYPE_ICONS: Record<string, string> = {
   followup_scheduled: '⏰',
   followup_failed: '❌',
   mention: '💬',
+  ticket_created: '🎫',
+  ticket_approved: '✅',
+  ticket_rejected: '❌',
+  ticket_sla_breached: '🚨',
+  ticket_sla_approaching: '⏳',
 };
 
 function timeAgo(dateStr: string): string {
@@ -204,6 +209,15 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
             )}
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => { setOpen(false); router.push('/opai/perfil/notificaciones'); }}
+              title="Configurar notificaciones"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
             {unreadCount > 0 && (
               <Button
                 variant="ghost"

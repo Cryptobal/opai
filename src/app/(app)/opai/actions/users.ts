@@ -72,7 +72,7 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
   
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'no-reply@gard.cl',
+      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
       to: emailLower,
       subject: 'Invitación a Gard Docs',
       html: `

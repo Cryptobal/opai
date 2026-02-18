@@ -138,26 +138,20 @@ export async function POST(request: NextRequest) {
 
       // Cuenta, contacto e instalaciones se crean solo al "Revisar y aprobar" el lead en el CRM.
 
-      // Crear notificación respetando preferencias
       try {
-        const { getNotificationPrefs } = await import("@/lib/notification-prefs");
-        const nPrefs = await getNotificationPrefs(tenantId);
-        if (nPrefs.newLeadBellEnabled) {
-          await prisma.notification.create({
-            data: {
-              tenantId,
-              type: "new_lead",
-              title: `Nuevo lead: ${data.empresa}`,
-              message: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
-                data.servicio === "guardias_seguridad"
-                  ? `guardias de seguridad (${totalGuards} guardias)`
-                  : data.servicio
-              }`,
-              data: { leadId: lead.id, email: data.email, company: data.empresa },
-              link: "/crm/leads",
-            },
-          });
-        }
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId,
+          type: "new_lead",
+          title: `Nuevo lead: ${data.empresa}`,
+          message: `${data.nombre} ${data.apellido} de ${data.empresa} solicita cotización de ${
+            data.servicio === "guardias_seguridad"
+              ? `guardias de seguridad (${totalGuards} guardias)`
+              : data.servicio
+          }`,
+          data: { leadId: lead.id, email: data.email, company: data.empresa },
+          link: "/crm/leads",
+        });
       } catch (e) {
         console.warn("Lead: failed to create notification", e);
       }

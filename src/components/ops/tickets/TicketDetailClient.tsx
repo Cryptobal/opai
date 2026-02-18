@@ -40,9 +40,11 @@ import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 interface TicketDetailClientProps {
   ticketId: string;
   userRole: string;
+  userId: string;
+  userGroupIds: string[];
 }
 
-export function TicketDetailClient({ ticketId, userRole }: TicketDetailClientProps) {
+export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }: TicketDetailClientProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
@@ -216,7 +218,7 @@ export function TicketDetailClient({ ticketId, userRole }: TicketDetailClientPro
 
       {/* Info grid */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoField label="Categoría" value={ticket.category?.name ?? "—"} />
+        <InfoField label="Tipo" value={ticket.ticketType?.name ?? ticket.category?.name ?? "—"} />
         <InfoField label="Equipo" value={teamCfg?.label ?? ticket.assignedTeam} />
         <InfoField label="Origen" value={sourceCfg?.label ?? ticket.source} />
         {ticket.assignedToName && <InfoField label="Asignado a" value={ticket.assignedToName} />}
@@ -285,8 +287,8 @@ export function TicketDetailClient({ ticketId, userRole }: TicketDetailClientPro
             approvals={ticket.approvals}
             currentStep={ticket.currentApprovalStep}
             approvalStatus={ticket.approvalStatus}
-            userGroupIds={[]}  // TODO: pass real group IDs
-            userId=""           // TODO: pass real user ID
+            userGroupIds={userGroupIds}
+            userId={userId}
             onApprove={handleApproveTicket}
             onReject={handleRejectTicket}
           />

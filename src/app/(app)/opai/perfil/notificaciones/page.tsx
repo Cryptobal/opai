@@ -1,0 +1,24 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { PageHeader } from "@/components/opai";
+import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationPrefsClient";
+
+export const metadata = {
+  title: "Mis Notificaciones - OPAI",
+  description: "Configura qué notificaciones recibes",
+};
+
+export default async function MisNotificacionesPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login?callbackUrl=/opai/perfil/notificaciones");
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Mis Notificaciones"
+        description="Configura qué notificaciones recibes por campana y por correo electrónico"
+      />
+      <UserNotificationPrefsClient />
+    </div>
+  );
+}

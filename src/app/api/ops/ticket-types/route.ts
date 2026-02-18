@@ -67,12 +67,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") !== "false"; // default true
+    const origin = searchParams.get("origin"); // "guard" | "internal" | "both"
+
+    const where: any = { tenantId: ctx.tenantId };
+    if (activeOnly) where.isActive = true;
+    if (origin) where.origin = { in: [origin, "both"] };
 
     const rows = await prisma.opsTicketType.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        ...(activeOnly ? { isActive: true } : {}),
-      },
+      where,
       include: approvalStepsInclude,
       orderBy: { sortOrder: "asc" },
     });

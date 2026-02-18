@@ -16,12 +16,12 @@ function mapApproval(a: any): TicketApproval {
     stepLabel: a.stepLabel,
     approverType: a.approverType,
     approverGroupId: a.approverGroupId,
-    approverGroupName: null,
+    approverGroupName: a.approverGroup?.name ?? null,
     approverUserId: a.approverUserId,
-    approverUserName: null,
+    approverUserName: a.approverUser?.name ?? null,
     decision: a.decision,
     decidedById: a.decidedById,
-    decidedByName: null,
+    decidedByName: a.decidedBy?.name ?? null,
     comment: a.comment,
     decidedAt: a.decidedAt instanceof Date ? a.decidedAt.toISOString() : a.decidedAt,
     createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
@@ -59,7 +59,30 @@ export async function GET(
       orderBy: { stepOrder: "asc" },
     });
 
-    const items: TicketApproval[] = approvals.map(mapApproval);
+    const groupIds = approvals.map((a) => a.approverGroupId).filter(Boolean) as string[];
+    const userIds = [
+      ...approvals.map((a) => a.approverUserId),
+      ...approvals.map((a) => a.decidedById),
+    ].filter(Boolean) as string[];
+
+    const [groups, admins] = await Promise.all([
+      groupIds.length
+        ? prisma.adminGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, name: true } })
+        : [],
+      userIds.length
+        ? prisma.admin.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+        : [],
+    ]);
+
+    const groupMap = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+    const adminMap = Object.fromEntries(admins.map((a) => [a.id, a.name]));
+
+    const items: TicketApproval[] = approvals.map((a) => ({
+      ...mapApproval(a),
+      approverGroupName: a.approverGroupId ? groupMap[a.approverGroupId] ?? null : null,
+      approverUserName: a.approverUserId ? adminMap[a.approverUserId] ?? null : null,
+      decidedByName: a.decidedById ? adminMap[a.decidedById] ?? null : null,
+    }));
 
     return NextResponse.json({ success: true, data: { items } });
   } catch (error) {
@@ -183,6 +206,29 @@ export async function POST(
         });
       }
     }
+
+    try {
+      const deciderName = await prisma.admin.findUnique({
+        where: { id: ctx.userId },
+        select: { name: true },
+      });
+      const notifTitle = decision === "approved"
+        ? `Ticket ${ticket.code} aprobado (paso ${ticket.currentApprovalStep})`
+        : `Ticket ${ticket.code} rechazado`;
+      const notifMessage = decision === "approved"
+        ? `${deciderName?.name ?? "Un usuario"} aprobó el paso "${currentApproval.stepLabel}"`
+        : `${deciderName?.name ?? "Un usuario"} rechazó el ticket: ${body.comment ?? "sin comentario"}`;
+
+      const { sendNotification } = await import("@/lib/notification-service");
+      await sendNotification({
+        tenantId: ctx.tenantId,
+        type: decision === "approved" ? "ticket_approved" : "ticket_rejected",
+        title: notifTitle,
+        message: notifMessage,
+        data: { ticketId, code: ticket.code, decision, step: currentApproval.stepLabel },
+        link: `/ops/tickets/${ticketId}`,
+      });
+    } catch {}
 
     return NextResponse.json(
       { success: true, data: mapApproval(updatedApproval) },

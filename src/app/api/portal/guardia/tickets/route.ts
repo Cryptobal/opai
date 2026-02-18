@@ -101,58 +101,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate sequential code
-    const ticketCount = await prisma.opsTicket.count({
-      where: { tenantId: effectiveTenantId },
-    });
-    const code = generateTicketCode(ticketCount + 1);
-
-    // Calculate SLA
     const slaHours = ticketType.slaHours;
     const slaDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
-
-    // Determine initial status
     const needsApproval =
       ticketType.requiresApproval && ticketType.approvalSteps.length > 0;
     const initialStatus = needsApproval ? "pending_approval" : "open";
 
-    // Create ticket
-    const ticket = await prisma.opsTicket.create({
-      data: {
-        tenantId: effectiveTenantId,
-        code,
-        ticketTypeId: ticketType.id,
-        status: initialStatus,
-        priority: ticketType.defaultPriority,
-        title,
-        description: description ?? null,
-        assignedTeam: ticketType.assignedTeam,
-        source: "portal",
-        guardiaId,
-        reportedBy: guardiaId,
-        slaDueAt,
-        currentApprovalStep: needsApproval ? 1 : null,
-        approvalStatus: needsApproval ? "pending" : null,
-      },
-      include: {
-        ticketType: { select: { name: true } },
-      },
+    const approvalCreateData = needsApproval
+      ? ticketType.approvalSteps.map((step) => ({
+          stepOrder: step.stepOrder,
+          stepLabel: step.label,
+          approverType: step.approverType,
+          approverGroupId: step.approverGroupId,
+          approverUserId: step.approverUserId,
+          decision: "pending",
+        }))
+      : [];
+
+    // Atomic transaction: code generation + ticket + approvals
+    const ticket = await prisma.$transaction(async (tx) => {
+      const lastTicket = await tx.opsTicket.findFirst({
+        where: { tenantId: effectiveTenantId },
+        orderBy: { createdAt: "desc" },
+        select: { code: true },
+      });
+      const lastSeq = lastTicket?.code
+        ? parseInt(lastTicket.code.split("-").pop() ?? "0", 10)
+        : 0;
+      const code = generateTicketCode(lastSeq + 1);
+
+      return tx.opsTicket.create({
+        data: {
+          tenantId: effectiveTenantId,
+          code,
+          ticketTypeId: ticketType.id,
+          status: initialStatus,
+          priority: ticketType.defaultPriority,
+          title,
+          description: description ?? null,
+          assignedTeam: ticketType.assignedTeam,
+          source: "portal",
+          guardiaId,
+          reportedBy: guardiaId,
+          slaDueAt,
+          currentApprovalStep: needsApproval ? 1 : null,
+          approvalStatus: needsApproval ? "pending" : null,
+          approvals: { create: approvalCreateData },
+        },
+        include: {
+          ticketType: { select: { name: true } },
+        },
+      });
     });
-
-    // If needs approval, create approval records
-    if (needsApproval) {
-      const approvalData = ticketType.approvalSteps.map((step) => ({
-        ticketId: ticket.id,
-        stepOrder: step.stepOrder,
-        stepLabel: step.label,
-        approverType: step.approverType,
-        approverGroupId: step.approverGroupId,
-        approverUserId: step.approverUserId,
-        decision: "pending",
-      }));
-
-      await prisma.opsTicketApproval.createMany({ data: approvalData });
-    }
 
     const result: GuardTicket = {
       id: ticket.id,

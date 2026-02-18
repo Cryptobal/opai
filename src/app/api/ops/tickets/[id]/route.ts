@@ -112,7 +112,41 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: mapTicketDetail(ticket) });
+    // Resolve approver/decider names
+    const approvalRows = ticket.approvals ?? [];
+    const groupIds = approvalRows.map((a: any) => a.approverGroupId).filter(Boolean) as string[];
+    const userIds = [
+      ...approvalRows.map((a: any) => a.approverUserId),
+      ...approvalRows.map((a: any) => a.decidedById),
+      ticket.reportedBy,
+      ticket.assignedTo,
+    ].filter(Boolean) as string[];
+
+    const [groups, admins] = await Promise.all([
+      groupIds.length
+        ? prisma.adminGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, name: true } })
+        : [],
+      userIds.length
+        ? prisma.admin.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+        : [],
+    ]);
+
+    const groupMap = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+    const adminMap = Object.fromEntries(admins.map((a) => [a.id, a.name]));
+
+    const mapped = mapTicketDetail(ticket);
+    mapped.reportedByName = ticket.reportedBy ? adminMap[ticket.reportedBy] ?? null : null;
+    mapped.assignedToName = ticket.assignedTo ? adminMap[ticket.assignedTo] ?? null : null;
+    if (mapped.approvals) {
+      mapped.approvals = mapped.approvals.map((a) => ({
+        ...a,
+        approverGroupName: a.approverGroupId ? groupMap[a.approverGroupId] ?? null : null,
+        approverUserName: a.approverUserId ? adminMap[a.approverUserId] ?? null : null,
+        decidedByName: a.decidedById ? adminMap[a.decidedById] ?? null : null,
+      }));
+    }
+
+    return NextResponse.json({ success: true, data: mapped });
   } catch (error) {
     console.error("[OPS] Error fetching ticket:", error);
     return NextResponse.json(

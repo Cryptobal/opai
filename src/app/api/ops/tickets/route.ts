@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { generateTicketCode } from "@/lib/tickets";
+import { generateTicketCode, TICKET_TEAM_CONFIG } from "@/lib/tickets";
 import type { Ticket } from "@/lib/tickets";
 
 /* ── Prisma includes for list view ──────────────────────────── */
@@ -133,17 +133,15 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // ticketTypeId is the preferred field; categoryId for backward compat
     const typeId: string | undefined = body.ticketTypeId ?? body.categoryId;
 
     if (!typeId || !body.title) {
       return NextResponse.json(
-        { success: false, error: "Campos requeridos: ticketTypeId (o categoryId), title" },
+        { success: false, error: "Campos requeridos: ticketTypeId, title" },
         { status: 400 },
       );
     }
 
-    // Load ticket type for defaults
     const ticketType = await prisma.opsTicketType.findFirst({
       where: { id: typeId, tenantId: ctx.tenantId },
       include: {
@@ -158,22 +156,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate sequential code
-    const ticketCount = await prisma.opsTicket.count({
-      where: { tenantId: ctx.tenantId },
-    });
-    const code = generateTicketCode(ticketCount + 1);
-
-    // Calculate SLA
     const slaHours = ticketType.slaHours;
     const slaDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
-
-    // Determine initial status & approval data
     const requiresApproval =
       ticketType.requiresApproval && ticketType.approvalSteps.length > 0;
     const initialStatus = requiresApproval ? "pending_approval" : "open";
 
-    // Build approval records if needed
     const approvalCreateData = requiresApproval
       ? ticketType.approvalSteps.map((step) => ({
           stepOrder: step.stepOrder,
@@ -185,33 +173,60 @@ export async function POST(request: NextRequest) {
         }))
       : [];
 
-    const ticket = await prisma.opsTicket.create({
-      data: {
-        tenantId: ctx.tenantId,
-        code,
-        ticketTypeId: typeId,
-        status: initialStatus,
-        priority: body.priority ?? ticketType.defaultPriority,
-        title: body.title,
-        description: body.description ?? null,
-        assignedTeam: body.assignedTeam ?? ticketType.assignedTeam,
-        assignedTo: body.assignedTo ?? null,
-        installationId: body.installationId ?? null,
-        source: body.source ?? "manual",
-        sourceGuardEventId: body.sourceGuardEventId ?? null,
-        guardiaId: body.guardiaId ?? null,
-        reportedBy: ctx.userId,
-        slaDueAt,
-        slaBreached: false,
-        tags: body.tags ?? [],
-        currentApprovalStep: requiresApproval ? 1 : null,
-        approvalStatus: requiresApproval ? "pending" : null,
-        approvals: {
-          create: approvalCreateData,
+    // Atomic: generate code + create ticket inside a transaction
+    const ticket = await prisma.$transaction(async (tx) => {
+      const lastTicket = await tx.opsTicket.findFirst({
+        where: { tenantId: ctx.tenantId },
+        orderBy: { createdAt: "desc" },
+        select: { code: true },
+      });
+      const lastSeq = lastTicket?.code
+        ? parseInt(lastTicket.code.split("-").pop() ?? "0", 10)
+        : 0;
+      const code = generateTicketCode(lastSeq + 1);
+
+      return tx.opsTicket.create({
+        data: {
+          tenantId: ctx.tenantId,
+          code,
+          ticketTypeId: typeId,
+          status: initialStatus,
+          priority: body.priority ?? ticketType.defaultPriority,
+          title: body.title,
+          description: body.description ?? null,
+          assignedTeam: body.assignedTeam ?? ticketType.assignedTeam,
+          assignedTo: body.assignedTo ?? null,
+          installationId: body.installationId ?? null,
+          source: body.source ?? "manual",
+          sourceGuardEventId: body.sourceGuardEventId ?? null,
+          guardiaId: body.guardiaId ?? null,
+          reportedBy: ctx.userId,
+          slaDueAt,
+          slaBreached: false,
+          tags: body.tags ?? [],
+          currentApprovalStep: requiresApproval ? 1 : null,
+          approvalStatus: requiresApproval ? "pending" : null,
+          approvals: {
+            create: approvalCreateData,
+          },
         },
-      },
-      include: ticketListIncludes,
+        include: ticketListIncludes,
+      });
     });
+
+    if (["p1", "p2"].includes(ticket.priority)) {
+      try {
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId: ctx.tenantId,
+          type: "ticket_created",
+          title: `Nuevo ticket ${ticket.priority.toUpperCase()}: ${ticket.title}`,
+          message: `Ticket ${ticket.code} asignado a ${TICKET_TEAM_CONFIG[ticket.assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? ticket.assignedTeam}`,
+          data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
+          link: `/ops/tickets/${ticket.id}`,
+        });
+      } catch {}
+    }
 
     return NextResponse.json(
       { success: true, data: mapTicket(ticket) },

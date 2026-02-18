@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Settings, User } from "lucide-react";
+import { Bell, LogOut, Settings, User } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { Avatar } from "./Avatar";
 import {
@@ -69,6 +69,12 @@ export function TopbarActions({
             <Link href="/opai/perfil" className="cursor-pointer">
               <User className="h-4 w-4 mr-2" />
               Mi perfil
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/opai/perfil/notificaciones" className="cursor-pointer">
+              <Bell className="h-4 w-4 mr-2" />
+              Mis notificaciones
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

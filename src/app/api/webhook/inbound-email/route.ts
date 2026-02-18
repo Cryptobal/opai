@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractLeadFromEmail } from "@/lib/email-lead-extractor";
-import { getNotificationPrefs } from "@/lib/notification-prefs";
+
 import { toSentenceCase } from "@/lib/text-format";
 
 const INBOUND_LEADS_TO = process.env.INBOUND_LEADS_EMAIL || "leads@inbound.gard.cl";
@@ -179,18 +179,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const prefs = await getNotificationPrefs(tenantId);
-    if (prefs.newLeadBellEnabled) {
-      await prisma.notification.create({
-        data: {
-          tenantId,
-          type: "new_lead",
-          title: "Nuevo lead por correo",
-          message: `${extracted.companyName || "Sin empresa"} – ${subject}`,
-          data: { leadId: lead.id, source: "email_forward" },
-          link: `/crm/leads?focus=${lead.id}`,
-        },
+    try {
+      const { sendNotification } = await import("@/lib/notification-service");
+      await sendNotification({
+        tenantId,
+        type: "new_lead",
+        title: "Nuevo lead por correo",
+        message: `${extracted.companyName || "Sin empresa"} – ${subject}`,
+        data: { leadId: lead.id, source: "email_forward" },
+        link: `/crm/leads?focus=${lead.id}`,
       });
+    } catch (e) {
+      console.warn("[inbound-email] Failed to send notification", e);
     }
 
     return NextResponse.json({ success: true, leadId: lead.id });

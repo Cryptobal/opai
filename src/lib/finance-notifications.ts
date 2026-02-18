@@ -17,7 +17,7 @@ const SITE_URL =
   process.env.SITE_URL ||
   "https://opai.gard.cl";
 
-const FROM = "OPAI <notificaciones@opai.gard.cl>";
+const FROM = process.env.EMAIL_FROM || "OPAI <opai@gard.cl>";
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat("es-CL", {

@@ -14,7 +14,7 @@ export const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Configuración de emails
 export const EMAIL_CONFIG = {
-  from: process.env.EMAIL_FROM || 'comercial@gard.cl',
-  replyTo: 'comercial@gard.cl',
+  from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
+  replyTo: process.env.EMAIL_REPLY_TO || 'opai@gard.cl',
   companyName: 'Gard Security',
 };

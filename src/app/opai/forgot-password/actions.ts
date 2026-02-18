@@ -47,7 +47,7 @@ export async function requestPasswordReset(email: string) {
   
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'no-reply@gard.cl',
+      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
       to: emailLower,
       subject: 'Restablecer contraseña - OPAI',
       html: `

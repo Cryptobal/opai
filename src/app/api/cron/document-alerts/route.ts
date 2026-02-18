@@ -105,12 +105,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (!existing) {
-          const p = await prefs(doc.tenantId);
-          type TxOp =
-            | ReturnType<typeof prisma.document.update>
-            | ReturnType<typeof prisma.docHistory.create>
-            | ReturnType<typeof prisma.notification.create>;
-          const txOps: TxOp[] = [
+          await prisma.$transaction([
             prisma.document.update({
               where: { id: doc.id },
               data: { status: "expiring" },
@@ -123,44 +118,21 @@ export async function GET(request: NextRequest) {
                 createdBy: "system",
               },
             }),
-          ];
-
-          if (p.docExpiryBellEnabled) {
-            txOps.push(
-              prisma.notification.create({
-                data: {
-                  tenantId: doc.tenantId,
-                  type: "contract_expiring",
-                  title: `Contrato por vencer: ${doc.title}`,
-                  message: `Vence el ${format(expDate, "dd/MM/yyyy")}. Quedan ${daysRemaining} días.`,
-                  data: { documentId: doc.id },
-                  link: `/opai/documentos/${doc.id}`,
-                },
-              })
-            );
-          }
-
-          await prisma.$transaction(txOps);
+          ]);
           expiringCount++;
 
-          // Send email to admins
-          if (p.docExpiryEmailEnabled) {
-            const emails = await admins(doc.tenantId);
-            const docUrl = `${SITE_URL}/opai/documentos/${doc.id}`;
-            for (const email of emails) {
-              try {
-                await sendDocumentExpiringEmail({
-                  to: email,
-                  documentTitle: doc.title,
-                  expirationDate: format(expDate, "dd/MM/yyyy"),
-                  daysRemaining,
-                  documentUrl: docUrl,
-                });
-                emailsSent++;
-              } catch (e) {
-                console.warn("DocAlert: failed to send expiring email to", email, e);
-              }
-            }
+          try {
+            const { sendNotification } = await import("@/lib/notification-service");
+            await sendNotification({
+              tenantId: doc.tenantId,
+              type: "contract_expiring",
+              title: `Contrato por vencer: ${doc.title}`,
+              message: `Vence el ${format(expDate, "dd/MM/yyyy")}. Quedan ${daysRemaining} días.`,
+              data: { documentId: doc.id },
+              link: `/opai/documentos/${doc.id}`,
+            });
+          } catch (e) {
+            console.warn("DocAlert: failed to send expiring notification", e);
           }
         }
       }
@@ -182,12 +154,7 @@ export async function GET(request: NextRequest) {
     });
 
     for (const doc of expiredDocs) {
-      const p = await prefs(doc.tenantId);
-      type TxOpExpired =
-        | ReturnType<typeof prisma.document.update>
-        | ReturnType<typeof prisma.docHistory.create>
-        | ReturnType<typeof prisma.notification.create>;
-      const txOps: TxOpExpired[] = [
+      await prisma.$transaction([
         prisma.document.update({
           where: { id: doc.id },
           data: { status: "expired" },
@@ -200,46 +167,21 @@ export async function GET(request: NextRequest) {
             createdBy: "system",
           },
         }),
-      ];
-
-      if (p.docExpiryBellEnabled) {
-        txOps.push(
-          prisma.notification.create({
-            data: {
-              tenantId: doc.tenantId,
-              type: "contract_expired",
-              title: `Contrato vencido: ${doc.title}`,
-              message: `Este contrato ha expirado y requiere renovación.`,
-              data: { documentId: doc.id },
-              link: `/opai/documentos/${doc.id}`,
-            },
-          })
-        );
-      }
-
-      await prisma.$transaction(txOps);
+      ]);
       expiredCount++;
 
-      // Send email to admins
-      if (p.docExpiryEmailEnabled) {
-        const emails = await admins(doc.tenantId);
-        const docUrl = `${SITE_URL}/opai/documentos/${doc.id}`;
-        const expDateStr = doc.expirationDate
-          ? format(new Date(doc.expirationDate), "dd/MM/yyyy")
-          : "—";
-        for (const email of emails) {
-          try {
-            await sendDocumentExpiredEmail({
-              to: email,
-              documentTitle: doc.title,
-              expirationDate: expDateStr,
-              documentUrl: docUrl,
-            });
-            emailsSent++;
-          } catch (e) {
-            console.warn("DocAlert: failed to send expired email to", email, e);
-          }
-        }
+      try {
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId: doc.tenantId,
+          type: "contract_expired",
+          title: `Contrato vencido: ${doc.title}`,
+          message: `Este contrato ha expirado y requiere renovación.`,
+          data: { documentId: doc.id },
+          link: `/opai/documentos/${doc.id}`,
+        });
+      } catch (e) {
+        console.warn("DocAlert: failed to send expired notification", e);
       }
     }
 

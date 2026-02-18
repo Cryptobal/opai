@@ -359,33 +359,27 @@ export async function GET(request: NextRequest) {
             ? `https://wa.me/${contactPhone}?text=${whatsappMessage}`
             : null;
 
-        // Crear notificación (respeta preferencias)
         try {
-          const { getNotificationPrefs } = await import("@/lib/notification-prefs");
-          const nPrefs = await getNotificationPrefs(followUp.tenantId);
-          if (nPrefs.followupBellEnabled) {
-            await prisma.notification.create({
-              data: {
-                tenantId: followUp.tenantId,
-                type: "followup_sent",
-                title: `${followUp.sequence === 1 ? "1er" : "2do"} seguimiento enviado: ${deal.account.name}`,
-                message: `Se envió el ${followUp.sequence === 1 ? "primer" : "segundo"} seguimiento a ${contact.firstName} ${contact.lastName} por "${deal.title}".`,
-                data: {
-                  dealId: deal.id,
-                  contactId: contact.id,
-                  contactPhone: contactPhone || null,
-                  contactFirstName: contact.firstName,
-                  proposalLink: deal.proposalLink,
-                  proposalSentDate,
-                  dealTitle: deal.title,
-                  followUpNumber: followUp.sequence,
-                  whatsappUrl,
-                  emailMessageId: message.id,
-                },
-                link: `/crm/deals/${deal.id}`,
-              },
-            });
-          }
+          const { sendNotification } = await import("@/lib/notification-service");
+          await sendNotification({
+            tenantId: followUp.tenantId,
+            type: "followup_sent",
+            title: `${followUp.sequence === 1 ? "1er" : "2do"} seguimiento enviado: ${deal.account.name}`,
+            message: `Se envió el ${followUp.sequence === 1 ? "primer" : "segundo"} seguimiento a ${contact.firstName} ${contact.lastName} por "${deal.title}".`,
+            data: {
+              dealId: deal.id,
+              contactId: contact.id,
+              contactPhone: contactPhone || null,
+              contactFirstName: contact.firstName,
+              proposalLink: deal.proposalLink,
+              proposalSentDate,
+              dealTitle: deal.title,
+              followUpNumber: followUp.sequence,
+              whatsappUrl,
+              emailMessageId: message.id,
+            },
+            link: `/crm/deals/${deal.id}`,
+          });
         } catch (e) {
           console.warn("Followup: failed to create notification", e);
         }

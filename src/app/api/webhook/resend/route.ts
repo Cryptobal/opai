@@ -286,29 +286,23 @@ async function handleCrmEmailOpened(messageId: string, tenantId: string, data: a
       },
     });
 
-    // Crear notificación en primera apertura (respeta preferencias)
     if (!current?.firstOpenedAt) {
       try {
-        const { getNotificationPrefs } = await import("@/lib/notification-prefs");
-        const nPrefs = await getNotificationPrefs(tenantId);
-        if (nPrefs.emailOpenedBellEnabled) {
-          const toEmail = current?.toEmails?.[0] || 'destinatario';
-          await prisma.notification.create({
-            data: {
-              tenantId,
-              type: 'email_opened',
-              title: `Correo abierto: ${current?.subject || 'Sin asunto'}`,
-              message: `${toEmail} abrió tu correo.`,
-              data: {
-                emailMessageId: messageId,
-                dealId: current?.thread?.dealId || null,
-              },
-              link: current?.thread?.dealId
-                ? `/crm/deals/${current.thread.dealId}`
-                : null,
-            },
-          });
-        }
+        const toEmail = current?.toEmails?.[0] || 'destinatario';
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId,
+          type: 'email_opened',
+          title: `Correo abierto: ${current?.subject || 'Sin asunto'}`,
+          message: `${toEmail} abrió tu correo.`,
+          data: {
+            emailMessageId: messageId,
+            dealId: current?.thread?.dealId || null,
+          },
+          link: current?.thread?.dealId
+            ? `/crm/deals/${current.thread.dealId}`
+            : null,
+        });
       } catch (e) {
         console.warn("Webhook: failed to create email_opened notification", e);
       }

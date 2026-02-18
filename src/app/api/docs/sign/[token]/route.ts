@@ -455,23 +455,17 @@ export async function POST(
     const signerName = payload.signerName;
     const signerEmail = recipient.email;
 
-    // Notificación en campana: firma completada (respeta preferencias)
     if (result.allSigned) {
       try {
-        const { getNotificationPrefs } = await import("@/lib/notification-prefs");
-        const nPrefs = await getNotificationPrefs(result.tenantId);
-        if (nPrefs.signatureCompleteBellEnabled) {
-          await prisma.notification.create({
-            data: {
-              tenantId: result.tenantId,
-              type: "document_signed_completed",
-              title: `Documento firmado: ${result.documentTitle}`,
-              message: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
-              data: { documentId: result.documentId, requestId: result.requestId },
-              link: `/opai/documentos/${result.documentId}`,
-            },
-          });
-        }
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId: result.tenantId,
+          type: "document_signed_completed",
+          title: `Documento firmado: ${result.documentTitle}`,
+          message: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
+          data: { documentId: result.documentId, requestId: result.requestId },
+          link: `/opai/documentos/${result.documentId}`,
+        });
       } catch (e) {
         console.warn("Sign: failed to create completion notification", e);
       }

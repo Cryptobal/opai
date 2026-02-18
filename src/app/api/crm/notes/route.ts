@@ -142,22 +142,26 @@ export async function POST(request: NextRequest) {
           const entityLinkBase = ENTITY_LINKS[entityType];
           const entityLink = entityLinkBase ? `${entityLinkBase}/${String(entityId)}` : null;
 
-          await prisma.notification.createMany({
-            data: mentionedUsers.map((user) => ({
-              tenantId: ctx.tenantId,
-              type: "mention",
-              title: `${authorName} te mencionó en una nota`,
-              message: content.trim().slice(0, 180),
-              link: entityLink,
-              data: {
-                mentionUserId: user.id,
-                entityType,
-                entityId: String(entityId),
-                noteId: note.id,
-                authorId: ctx.userId,
-              },
-            })),
-          });
+          const { sendNotificationToUser } = await import("@/lib/notification-service");
+          await Promise.allSettled(
+            mentionedUsers.map((user) =>
+              sendNotificationToUser({
+                tenantId: ctx.tenantId,
+                type: "mention",
+                title: `${authorName} te mencionó en una nota`,
+                message: content.trim().slice(0, 180),
+                link: entityLink,
+                data: {
+                  mentionUserId: user.id,
+                  entityType,
+                  entityId: String(entityId),
+                  noteId: note.id,
+                  authorId: ctx.userId,
+                },
+                targetUserId: user.id,
+              })
+            )
+          );
         }
       }
 

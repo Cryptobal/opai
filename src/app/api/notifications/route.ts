@@ -11,38 +11,28 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { addDays } from "date-fns";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { hasModuleAccess } from "@/lib/permissions";
+import { NOTIFICATION_TYPE_MODULE, type UserNotifPrefsMap } from "@/lib/notification-types";
 import type { AuthContext } from "@/lib/api-auth";
-import type { ModuleKey } from "@/lib/permissions";
 import type { Prisma } from "@prisma/client";
 
 const GUARDIA_DOC_ALERT_DAYS = 30;
-const NOTIFICATION_TYPE_APP_ACCESS: Record<string, ModuleKey> = {
-  new_lead: "crm",
-  lead_approved: "crm",
-  prospect: "crm",
-  quote_sent: "cpq",
-  quote_viewed: "cpq",
-  contract_required: "docs",
-  contract_expiring: "docs",
-  contract_expired: "docs",
-  guardia_doc_expiring: "ops",
-  guardia_doc_expired: "ops",
-  new_postulacion: "ops",
-  document_signed_completed: "docs",
-  email_opened: "crm",
-  email_clicked: "crm",
-  email_bounced: "crm",
-  followup_sent: "crm",
-  followup_scheduled: "crm",
-  followup_failed: "crm",
-  mention: "crm",
-};
 
 async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<string[]> {
   const perms = await resolveApiPerms(ctx);
-  return Object.entries(NOTIFICATION_TYPE_APP_ACCESS)
+  return Object.entries(NOTIFICATION_TYPE_MODULE)
     .filter(([, module]) => !hasModuleAccess(perms, module))
     .map(([type]) => type);
+}
+
+async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
+  const record = await prisma.userNotificationPreference.findUnique({
+    where: { userId_tenantId: { userId: ctx.userId, tenantId: ctx.tenantId } },
+  });
+  if (!record?.preferences) return [];
+  const prefs = record.preferences as unknown as UserNotifPrefsMap;
+  return Object.entries(prefs)
+    .filter(([, pref]) => pref.bell === false)
+    .map(([key]) => key);
 }
 
 function visibleNotificationsWhere(
@@ -161,6 +151,10 @@ export async function GET(request: NextRequest) {
     );
 
     const excludedTypes = new Set<string>(await getRoleExcludedNotificationTypes(ctx));
+
+    const userDisabled = await getUserBellDisabledTypes(ctx);
+    for (const t of userDisabled) excludedTypes.add(t);
+
     if (!prefs.guardiaDocExpiryBellEnabled) {
       excludedTypes.add("guardia_doc_expiring");
       excludedTypes.add("guardia_doc_expired");

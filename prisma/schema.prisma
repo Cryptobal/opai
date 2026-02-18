@@ -1138,6 +1138,20 @@ model Notification {
   @@schema("crm")
 }
 
+model UserNotificationPreference {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String   @map("user_id")
+  tenantId    String   @map("tenant_id")
+  preferences Json     @default("{}") @db.JsonB
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, tenantId], map: "uq_user_notification_prefs_user_tenant")
+  @@index([userId], map: "idx_user_notification_prefs_user")
+  @@index([tenantId], map: "idx_user_notification_prefs_tenant")
+  @@map("user_notification_preferences")
+  @@schema("crm")
+}
+
 model CrmIndustry {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name      String   @unique
