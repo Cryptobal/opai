@@ -18,9 +18,25 @@ export const DOCUMENT_TYPES = [
   "curriculum",
   "contrato",
   "anexo_contrato",
+  "certificado_ensenanza_media",
+  "certificado_afp",
+  "certificado_fonasa_isapre",
 ] as const;
 
 export type GuardiaDocumentType = (typeof DOCUMENT_TYPES)[number];
+
+/** Documentos por defecto para postulación (configurables en Operaciones). */
+export const DEFAULT_POSTULACION_DOCUMENTS: Array<{ code: string; label: string; required: boolean }> = [
+  { code: "certificado_antecedentes", label: "Certificado de antecedentes", required: false },
+  { code: "certificado_os10", label: "Certificado OS-10", required: false },
+  { code: "cedula_identidad", label: "Cédula de identidad", required: false },
+  { code: "curriculum", label: "Currículum", required: false },
+  { code: "contrato", label: "Contrato", required: false },
+  { code: "anexo_contrato", label: "Anexo de contrato", required: false },
+  { code: "certificado_ensenanza_media", label: "Certificado enseñanza media", required: false },
+  { code: "certificado_afp", label: "Certificado AFP", required: false },
+  { code: "certificado_fonasa_isapre", label: "Certificado Fonasa / Isapre", required: false },
+];
 
 export const DOCUMENT_STATUS = [
   "pendiente",

@@ -8,7 +8,6 @@ import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
   CHILE_BANK_CODES,
-  DOCUMENT_TYPES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
   PERSON_SEX,
@@ -21,6 +20,7 @@ import {
   normalizeRut,
 } from "@/lib/personas";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
+import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
 
 const postulacionSchema = z.object({
   token: z.string().trim().min(8, "Token inválido"),
@@ -61,7 +61,7 @@ const postulacionSchema = z.object({
   documents: z
     .array(
       z.object({
-        type: z.enum(DOCUMENT_TYPES),
+        type: z.string().trim().min(1).max(80),
         fileUrl: z
           .string()
           .trim()
@@ -131,6 +131,27 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = await getDefaultTenantId();
+    const docConfig = await getPostulacionDocumentTypes(tenantId);
+    const allowedTypes = new Set(docConfig.map((d) => d.code));
+    const requiredTypes = new Set(docConfig.filter((d) => d.required).map((d) => d.code));
+    const submittedTypes = new Set(body.documents.map((d) => d.type));
+    for (const d of body.documents) {
+      if (!allowedTypes.has(d.type)) {
+        return NextResponse.json(
+          { success: false, error: `Tipo de documento no permitido: ${d.type}` },
+          { status: 400 }
+        );
+      }
+    }
+    for (const code of requiredTypes) {
+      if (!submittedTypes.has(code)) {
+        const label = docConfig.find((c) => c.code === code)?.label ?? code;
+        return NextResponse.json(
+          { success: false, error: `Documento obligatorio faltante: ${label}` },
+          { status: 400 }
+        );
+      }
+    }
     const existingByRut = await prisma.opsPersona.findFirst({
       where: { tenantId, rut: body.rut },
       select: { id: true },

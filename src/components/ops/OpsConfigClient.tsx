@@ -22,6 +22,9 @@ import {
   Route,
   Camera,
   Users,
+  FileText,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 interface MarcacionConfig {
@@ -38,6 +41,8 @@ interface MarcacionConfig {
   rondasRequiereFotoEvidencia: boolean;
   rondasPermiteReemplazo: boolean;
 }
+
+type PostulacionDocItem = { code: string; label: string; required: boolean };
 
 /* ── Catálogo de emails del módulo Operaciones ── */
 
@@ -90,6 +95,10 @@ export function OpsConfigClient() {
   const [testEmailResults, setTestEmailResults] = useState<
     { type: string; status: string; error?: string }[] | null
   >(null);
+  const [postulacionDocs, setPostulacionDocs] = useState<PostulacionDocItem[]>([]);
+  const [postulacionDocsLoading, setPostulacionDocsLoading] = useState(true);
+  const [postulacionDocsSaving, setPostulacionDocsSaving] = useState(false);
+  const [newDocLabel, setNewDocLabel] = useState("");
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -103,9 +112,25 @@ export function OpsConfigClient() {
     }
   }, []);
 
+  const fetchPostulacionDocs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ops/postulacion-documentos");
+      const data = await res.json();
+      if (data.success) setPostulacionDocs(data.data);
+    } catch {
+      toast.error("No se pudo cargar documentos de postulación");
+    } finally {
+      setPostulacionDocsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchConfig();
   }, [fetchConfig]);
+
+  useEffect(() => {
+    void fetchPostulacionDocs();
+  }, [fetchPostulacionDocs]);
 
   const saveConfig = async () => {
     if (!config) return;
@@ -127,6 +152,64 @@ export function OpsConfigClient() {
       toast.error(error instanceof Error ? error.message : "Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const slugFromLabel = (label: string) =>
+    label
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+
+  const addPostulacionDoc = () => {
+    const label = newDocLabel.trim();
+    if (!label) {
+      toast.error("Escribe el nombre del documento");
+      return;
+    }
+    const code = slugFromLabel(label);
+    if (!code) {
+      toast.error("Nombre de documento inválido");
+      return;
+    }
+    if (postulacionDocs.some((d) => d.code === code)) {
+      toast.error("Ya existe un documento con ese nombre");
+      return;
+    }
+    setPostulacionDocs((prev) => [...prev, { code, label, required: false }]);
+    setNewDocLabel("");
+  };
+
+  const updatePostulacionDoc = (index: number, patch: Partial<PostulacionDocItem>) => {
+    setPostulacionDocs((prev) =>
+      prev.map((d, i) => (i === index ? { ...d, ...patch } : d))
+    );
+  };
+
+  const removePostulacionDoc = (index: number) => {
+    setPostulacionDocs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const savePostulacionDocs = async () => {
+    setPostulacionDocsSaving(true);
+    try {
+      const res = await fetch("/api/ops/postulacion-documentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documents: postulacionDocs }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPostulacionDocs(data.data);
+        toast.success("Documentos de postulación guardados");
+      } else throw new Error(data.error);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
+    } finally {
+      setPostulacionDocsSaving(false);
     }
   };
 
@@ -279,6 +362,75 @@ export function OpsConfigClient() {
               {saving ? "Guardando..." : "Guardar parámetros"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Sección 1b: Documentos de postulación (guardias) ── */}
+      <Card>
+        <CardContent className="pt-5 space-y-5">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            Documentos de postulación (guardias)
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Lista de documentos que aparecen en el formulario de postulación. Puedes agregar más y marcar si son obligatorios para enviar la postulación.
+          </p>
+
+          {postulacionDocsLoading ? (
+            <p className="text-sm text-muted-foreground py-4">Cargando...</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {postulacionDocs.map((doc, index) => (
+                  <div
+                    key={doc.code}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
+                  >
+                    <span className="text-sm font-medium min-w-[140px]">{doc.label}</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{doc.code}</span>
+                    <label className="flex items-center gap-2 cursor-pointer ml-auto">
+                      <input
+                        type="checkbox"
+                        checked={doc.required}
+                        onChange={(e) => updatePostulacionDoc(index, { required: e.target.checked })}
+                        className="rounded border-border"
+                      />
+                      <span className="text-xs">Obligatorio en postulación</span>
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => removePostulacionDoc(index)}
+                      title="Quitar documento"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  placeholder="Nombre del nuevo documento (ej: Certificado enseñanza media)"
+                  value={newDocLabel}
+                  onChange={(e) => setNewDocLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPostulacionDoc())}
+                  className="max-w-xs"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addPostulacionDoc}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar documento
+                </Button>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={() => void savePostulacionDocs()} disabled={postulacionDocsSaving} size="sm">
+                  <Save className="h-4 w-4 mr-1" />
+                  {postulacionDocsSaving ? "Guardando..." : "Guardar documentos"}
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

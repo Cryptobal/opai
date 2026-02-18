@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CalendarDays, FilePlus2, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
   completeRutWithDv,
-  DOCUMENT_TYPES,
+  DEFAULT_POSTULACION_DOCUMENTS,
   formatRutForInput,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
@@ -23,14 +23,7 @@ import {
   PERSON_SEX,
 } from "@/lib/personas";
 
-const DOC_LABEL: Record<string, string> = {
-  certificado_antecedentes: "Certificado de antecedentes",
-  certificado_os10: "Certificado OS-10",
-  cedula_identidad: "Cédula de identidad",
-  curriculum: "Currículum",
-  contrato: "Contrato",
-  anexo_contrato: "Anexo de contrato",
-};
+type DocTypeConfig = { code: string; label: string; required: boolean };
 
 type UploadedDoc = {
   id: string;
@@ -44,12 +37,36 @@ interface PostulacionPublicFormProps {
 }
 
 export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
+  const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>(DEFAULT_POSTULACION_DOCUMENTS);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
-  const [docType, setDocType] = useState("cedula_identidad");
+  const [docType, setDocType] = useState("");
   const [docFileName, setDocFileName] = useState("");
   const [healthSystem, setHealthSystem] = useState("fonasa");
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(`/api/public/postulacion/document-types?token=${encodeURIComponent(token)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (mounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setDocumentTypes(data.data);
+          setDocType((prev) => {
+            const first = data.data[0].code;
+            return data.data.some((d: DocTypeConfig) => d.code === prev) ? prev : first;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [token]);
+
+  useEffect(() => {
+    if (documentTypes.length > 0 && !documentTypes.some((d) => d.code === docType)) {
+      setDocType(documentTypes[0].code);
+    }
+  }, [documentTypes, docType]);
   const [isapreHasExtraPercent, setIsapreHasExtraPercent] = useState(false);
   const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -137,6 +154,16 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
 
   const handleSubmit = async () => {
     setSubmitSuccessMessage(null);
+    const requiredCodes = documentTypes.filter((d) => d.required).map((d) => d.code);
+    const uploadedTypes = new Set(uploadedDocs.map((d) => d.type));
+    const missingRequired = requiredCodes.filter((code) => !uploadedTypes.has(code));
+    if (missingRequired.length > 0) {
+      const names = missingRequired
+        .map((code) => documentTypes.find((d) => d.code === code)?.label ?? code)
+        .join(", ");
+      toast.error(`Faltan documentos obligatorios: ${names}`);
+      return;
+    }
     if (
       !form.firstName.trim() ||
       !form.lastName.trim() ||
@@ -521,9 +548,9 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
               >
-                {DOCUMENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {DOC_LABEL[type] || type}
+                {documentTypes.map((d) => (
+                  <option key={d.code} value={d.code}>
+                    {d.required ? "(*) " : ""}{d.label}
                   </option>
                 ))}
               </select>
@@ -572,7 +599,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               <div className="space-y-2">
                 {uploadedDocs.map((doc) => (
                   <div key={doc.id} className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-                    <span className="text-sm">{DOC_LABEL[doc.type] || doc.type}{doc.fileName ? ` · ${doc.fileName}` : ""}</span>
+                    <span className="text-sm">{documentTypes.find((d) => d.code === doc.type)?.label ?? doc.type}{doc.fileName ? ` · ${doc.fileName}` : ""}</span>
                     <div className="flex items-center gap-2">
                       <a
                         href={doc.fileUrl}
@@ -592,6 +619,9 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
             ) : (
               <p className="text-xs text-muted-foreground">
                 Debes subir al menos un documento (puedes cargar varios).
+                {documentTypes.some((d) => d.required) && (
+                  <> Los marcados con (*) son obligatorios para enviar la postulación.</>
+                )}
               </p>
             )}
           </div>
