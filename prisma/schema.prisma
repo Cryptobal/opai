@@ -298,7 +298,7 @@ model AuditLog {
 
 model Setting {
   id        String   @id @default(cuid())
-  key       String   @unique
+  key       String
   value     String
   type      String
   category  String?
@@ -307,6 +307,7 @@ model Setting {
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, key], map: "Setting_tenant_key")
   @@index([key])
   @@index([category])
   @@index([tenantId])

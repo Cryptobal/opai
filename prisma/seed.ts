@@ -92,9 +92,9 @@ async function main() {
 
   for (const setting of settings) {
     await prisma.setting.upsert({
-      where: { key: setting.key },
+      where: { tenantId_key: { tenantId: tenant.id, key: setting.key } },
       update: { value: setting.value },
-      create: setting,
+      create: { ...setting, tenantId: tenant.id },
     });
   }
 

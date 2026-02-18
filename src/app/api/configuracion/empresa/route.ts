@@ -65,7 +65,9 @@ export async function PATCH(request: NextRequest) {
     for (const key of EMPRESA_KEYS) {
       if (body[key] !== undefined) {
         await prisma.setting.upsert({
-          where: { key },
+          where: {
+            tenantId_key: { tenantId: ctx.tenantId, key },
+          },
           create: {
             key,
             value: String(body[key]),

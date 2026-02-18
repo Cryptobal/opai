@@ -2,25 +2,43 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, Check, Loader2, Save } from "lucide-react";
+import { Building, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/opai";
+import { validateRut, formatRut, cleanRut } from "@/modules/finance/shared/validators/rut.validator";
 
-const FIELDS = [
+type FieldDef = {
+  key: string;
+  label: string;
+  placeholder: string;
+  type?: "rut" | "phone";
+};
+
+const FIELDS: FieldDef[] = [
   { key: "empresa.razonSocial", label: "Razón Social", placeholder: "Ej: Gard Seguridad Ltda." },
-  { key: "empresa.rut", label: "RUT Empresa", placeholder: "Ej: 77.XXX.XXX-X" },
+  { key: "empresa.rut", label: "RUT Empresa", placeholder: "Ej: 77.123.456-K", type: "rut" },
   { key: "empresa.direccion", label: "Dirección", placeholder: "Ej: Av. Providencia 1234, Of. 501" },
   { key: "empresa.comuna", label: "Comuna", placeholder: "Ej: Providencia" },
   { key: "empresa.ciudad", label: "Ciudad", placeholder: "Ej: Santiago" },
-  { key: "empresa.telefono", label: "Teléfono", placeholder: "Ej: +56 2 1234 5678" },
+  { key: "empresa.telefono", label: "Teléfono", placeholder: "Ej: +56 2 1234 5678", type: "phone" },
   { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Jorge Andrés Montenegro Fuenzalida" },
-  { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 13.051.246-1" },
+  { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 13.051.246-1", type: "rut" },
 ];
+
+function getFieldError(field: FieldDef, value: string): string | null {
+  if (!value) return null;
+  if (field.type === "rut") {
+    const result = validateRut(value);
+    if (!result.valid) return result.error ?? "RUT inválido";
+  }
+  return null;
+}
 
 export default function EmpresaConfigPage() {
   const [form, setForm] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -40,7 +58,61 @@ export default function EmpresaConfigPage() {
     load();
   }, [load]);
 
+  function handleChange(field: FieldDef, value: string) {
+    setForm((prev) => ({ ...prev, [field.key]: value }));
+    // Clear error on change
+    if (errors[field.key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field.key];
+        return next;
+      });
+    }
+  }
+
+  function handleBlur(field: FieldDef) {
+    const value = form[field.key] ?? "";
+    if (!value) {
+      // Clear error if empty (fields are optional)
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field.key];
+        return next;
+      });
+      return;
+    }
+    // Auto-format RUT on blur
+    if (field.type === "rut" && cleanRut(value).length >= 2) {
+      setForm((prev) => ({ ...prev, [field.key]: formatRut(value) }));
+    }
+    const error = getFieldError(field, value);
+    if (error) {
+      setErrors((prev) => ({ ...prev, [field.key]: error }));
+    } else {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field.key];
+        return next;
+      });
+    }
+  }
+
   async function handleSave() {
+    // Validate all RUT fields before saving
+    const newErrors: Record<string, string> = {};
+    for (const field of FIELDS) {
+      const value = form[field.key] ?? "";
+      if (value) {
+        const error = getFieldError(field, value);
+        if (error) newErrors[field.key] = error;
+      }
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Corrige los errores antes de guardar");
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/configuracion/empresa", {
@@ -58,6 +130,8 @@ export default function EmpresaConfigPage() {
       setSaving(false);
     }
   }
+
+  const hasErrors = Object.keys(errors).length > 0;
 
   return (
     <div className="space-y-6">
@@ -84,16 +158,20 @@ export default function EmpresaConfigPage() {
                   <Label className="text-xs">{field.label}</Label>
                   <Input
                     value={form[field.key] ?? ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    onChange={(e) => handleChange(field, e.target.value)}
+                    onBlur={() => handleBlur(field)}
                     placeholder={field.placeholder}
-                    className="mt-1 text-sm"
+                    className={`mt-1 text-sm ${errors[field.key] ? "border-destructive" : ""}`}
                   />
+                  {errors[field.key] && (
+                    <p className="text-xs text-destructive mt-1">{errors[field.key]}</p>
+                  )}
                 </div>
               ))}
             </div>
 
             <div className="pt-2">
-              <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+              <Button onClick={handleSave} disabled={saving || hasErrors} className="gap-1.5">
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
