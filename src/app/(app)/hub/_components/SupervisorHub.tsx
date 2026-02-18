@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3 } from "lucide-react";
+import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3, Ticket } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,11 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
           <Button asChild variant="outline" className="justify-start">
             <Link href="/ops/supervision">
               <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="justify-start">
+            <Link href="/ops/tickets">
+              <Ticket className="mr-2 h-4 w-4" /> Enviar ticket
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">

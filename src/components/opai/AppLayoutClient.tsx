@@ -74,7 +74,7 @@ export function AppLayoutClient({
     },
     {
       href: '/crm',
-      label: 'CRM',
+      label: 'Comercial',
       icon: Building2,
       show: hasModuleAccess(permissions, 'crm'),
       children: [

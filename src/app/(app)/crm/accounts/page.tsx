@@ -19,8 +19,13 @@ export default async function CrmAccountsPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+
+  const canSeeLeads = canView(perms, "crm", "leads");
   const accounts = await prisma.crmAccount.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ...(!canSeeLeads ? { type: "client", isActive: true } : {}),
+    },
     include: { _count: { select: { contacts: true, deals: true } } },
     orderBy: { createdAt: "desc" },
   });

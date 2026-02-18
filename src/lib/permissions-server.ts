@@ -138,7 +138,27 @@ function ensureSupervisorSupervisionAccess(
     changed = true;
   }
 
-  // 3. finance.rendiciones al menos "edit" (crear rendiciones)
+  // 3a. CRM: solo cuentas, instalaciones, contactos (sin leads, negocios, cotizaciones)
+  if (LEVEL_RANK[getEffectiveLevel(patched, "crm", "leads")] > LEVEL_RANK.none) {
+    submodules["crm.leads"] = "none";
+    changed = true;
+  }
+  if (LEVEL_RANK[getEffectiveLevel(patched, "crm", "deals")] > LEVEL_RANK.none) {
+    submodules["crm.deals"] = "none";
+    changed = true;
+  }
+  if (LEVEL_RANK[getEffectiveLevel(patched, "crm", "quotes")] > LEVEL_RANK.none) {
+    submodules["crm.quotes"] = "none";
+    changed = true;
+  }
+
+  // 3b. ops.tickets al menos "edit" (enviar tickets)
+  if (LEVEL_RANK[getEffectiveLevel(patched, "ops", "tickets")] < LEVEL_RANK.edit) {
+    submodules["ops.tickets"] = "edit";
+    changed = true;
+  }
+
+  // 4. finance.rendiciones al menos "edit" (crear rendiciones)
   if (LEVEL_RANK[getEffectiveLevel(perms, "finance", "rendiciones")] < LEVEL_RANK.edit) {
     submodules["finance.rendiciones"] = "edit";
     changed = true;

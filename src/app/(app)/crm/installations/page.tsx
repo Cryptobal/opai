@@ -19,9 +19,10 @@ export default async function CrmInstallationsPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "installations")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const canSeeDeals = canView(perms, "crm", "deals");
   const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
     prisma.crmInstallation.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(!canSeeDeals ? { isActive: true } : {}) },
       select: {
         id: true,
         name: true,
