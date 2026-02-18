@@ -32,11 +32,12 @@ import {
   FolderTree,
   Bot,
   ClipboardCheck,
+  Layers,
   Landmark,
   GitCompareArrows,
   BookText,
 } from 'lucide-react';
-import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
+import { AppShell, AppSidebar, type NavItem, type NavSubItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 
 interface AppLayoutClientProps {
@@ -217,24 +218,44 @@ export function AppLayoutClient({
       label: 'Configuración',
       icon: Settings,
       show: hasModuleAccess(permissions, 'config'),
-      children: [
-        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/empresa', label: 'Empresa', icon: Building2 },
-        canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/usuarios', label: 'Usuarios', icon: Users },
-        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/roles', label: 'Roles y permisos', icon: Shield },
-        canView(permissions, 'config', 'grupos') && { href: '/opai/configuracion/grupos', label: 'Grupos', icon: Users },
-        canView(permissions, 'config', 'integraciones') && { href: '/opai/configuracion/integraciones', label: 'Integraciones', icon: Plug },
-        canView(permissions, 'config', 'firmas') && { href: '/opai/configuracion/firmas', label: 'Firmas', icon: PenLine },
-        canView(permissions, 'config', 'categorias') && { href: '/opai/configuracion/categorias-plantillas', label: 'Categorías', icon: FolderTree },
-        canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/notificaciones', label: 'Alertas', icon: Bell },
-        isAdmin && canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/asistente-ia', label: 'Asistente IA', icon: Bot },
-        isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/auditoria', label: 'Auditoría', icon: ClipboardCheck },
-        canView(permissions, 'config', 'crm') && { href: '/opai/configuracion/crm', label: 'CRM', icon: TrendingUp },
-        canView(permissions, 'config', 'cpq') && { href: '/opai/configuracion/cpq', label: 'CPQ', icon: DollarSign },
-        canView(permissions, 'config', 'payroll') && { href: '/opai/configuracion/payroll', label: 'Payroll', icon: Calculator },
-        canView(permissions, 'config', 'ops') && { href: '/opai/configuracion/ops', label: 'Ops', icon: ClipboardList },
-        canView(permissions, 'config', 'tipos_ticket') && { href: '/opai/configuracion/tipos-ticket', label: 'Tickets', icon: Ticket },
-        canView(permissions, 'config', 'finanzas') && { href: '/opai/configuracion/finanzas', label: 'Finanzas', icon: Receipt },
-      ].filter(Boolean) as NavItem['children'],
+      children: (() => {
+        const configChildren: NavItem['children'] = [];
+        // General (alineado con pestañas de la página)
+        const generalItems = [
+          isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/empresa', label: 'Datos de la Empresa', icon: Building2 },
+          canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/usuarios', label: 'Usuarios', icon: Users },
+          isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/roles', label: 'Roles y Permisos', icon: Shield },
+          canView(permissions, 'config', 'grupos') && { href: '/opai/configuracion/grupos', label: 'Grupos', icon: Users },
+          canView(permissions, 'config', 'integraciones') && { href: '/opai/configuracion/integraciones', label: 'Integraciones', icon: Plug },
+          canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/notificaciones', label: 'Notificaciones', icon: Bell },
+          isAdmin && canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/asistente-ia', label: 'Asistente IA', icon: Bot },
+          isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/auditoria', label: 'Auditoría', icon: ClipboardCheck },
+        ].filter(Boolean) as NavSubItem[];
+        if (generalItems.length > 0) {
+          configChildren.push({ href: '/opai/configuracion/empresa', label: 'General', icon: Building2, children: generalItems });
+        }
+        // Correos y Documentos
+        const correosItems = [
+          canView(permissions, 'config', 'firmas') && { href: '/opai/configuracion/firmas', label: 'Firmas', icon: PenLine },
+          canView(permissions, 'config', 'categorias') && { href: '/opai/configuracion/categorias-plantillas', label: 'Categorías de plantillas', icon: FolderTree },
+        ].filter(Boolean) as NavSubItem[];
+        if (correosItems.length > 0) {
+          configChildren.push({ href: '/opai/configuracion/firmas', label: 'Correos y Documentos', icon: PenLine, children: correosItems });
+        }
+        // Módulos
+        const modulosItems = [
+          canView(permissions, 'config', 'crm') && { href: '/opai/configuracion/crm', label: 'CRM', icon: TrendingUp },
+          canView(permissions, 'config', 'cpq') && { href: '/opai/configuracion/cpq', label: 'Cotizaciones (CPQ)', icon: DollarSign },
+          canView(permissions, 'config', 'payroll') && { href: '/opai/configuracion/payroll', label: 'Payroll', icon: Calculator },
+          canView(permissions, 'config', 'ops') && { href: '/opai/configuracion/ops', label: 'Operaciones', icon: ClipboardList },
+          canView(permissions, 'config', 'tipos_ticket') && { href: '/opai/configuracion/tipos-ticket', label: 'Tipos de Ticket', icon: Ticket },
+          canView(permissions, 'config', 'finanzas') && { href: '/opai/configuracion/finanzas', label: 'Finanzas', icon: Receipt },
+        ].filter(Boolean) as NavSubItem[];
+        if (modulosItems.length > 0) {
+          configChildren.push({ href: '/opai/configuracion/crm', label: 'Módulos', icon: Layers, children: modulosItems });
+        }
+        return configChildren;
+      })(),
     },
   ], [permissions, isAdmin]);
 

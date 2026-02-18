@@ -261,10 +261,10 @@ export function AppSidebar({
             // Module with children
             return (
               <div key={item.href} className="space-y-0.5">
-                {/* Module header */}
+                {/* Module header: nombre navega al módulo, flecha expande/contrae */}
                 <div
                   className={cn(
-                    "group relative flex items-center rounded-md transition-colors cursor-pointer select-none",
+                    "group relative flex items-center rounded-md transition-colors",
                     showCloseButton ? "text-[15px]" : "text-sm",
                     collapsed
                       ? "justify-center px-0 py-2.5"
@@ -280,35 +280,39 @@ export function AppSidebar({
                     openFlyout(item, e.currentTarget);
                   }}
                   onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
-                  onClick={() => {
-                    if (collapsed) return;
-                    toggleSection(item.href);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (!collapsed) {
-                        toggleSection(item.href);
-                      }
-                    }
-                  }}
                 >
                   {isModuleActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
                   )}
-                  <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex flex-1 min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      collapsed ? "justify-center px-0 py-0" : ""
+                    )}
+                  >
+                    <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    {!collapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                  </Link>
                   {!collapsed && (
-                    <>
-                      <span className="flex-1 truncate">{item.label}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleSection(item.href);
+                      }}
+                      className="shrink-0 -mr-1 p-1 rounded hover:bg-accent/80 transition-colors"
+                      aria-label={isExpanded ? "Contraer menú" : "Expandir menú"}
+                    >
                       <ChevronRight
                         className={cn(
-                          "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+                          "h-3.5 w-3.5 text-muted-foreground/60 transition-transform duration-200",
                           isExpanded && "rotate-90"
                         )}
                       />
-                    </>
+                    </button>
                   )}
                 </div>
 

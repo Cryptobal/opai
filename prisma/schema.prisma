@@ -1786,6 +1786,7 @@ model OpsGuardia {
   montoAnticipo   Int       @default(0) @map("monto_anticipo")
   recibeAnticipo  Boolean   @default(false) @map("recibe_anticipo")
   salaryStructureId String? @map("salary_structure_id") @db.Uuid
+  os10              Boolean? @map("os10")
 
   // ── Contract tracking (Código del Trabajo - plazo fijo / indefinido) ──
   contractType              String?   @default("indefinido") @map("contract_type") // "plazo_fijo" | "indefinido"
