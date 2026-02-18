@@ -1,7 +1,7 @@
 # Etapa 3 — Marcación de Asistencia Digital
 
-> **Fecha:** 2026-02-12  
-> **Estado:** En implementación  
+> **Fecha:** 2026-02-12 (creación) | 2026-02-18 (última actualización)  
+> **Estado:** ✅ Completado (PR-1 a PR-5). Pendientes: items de certificación DT (PR-6)  
 > **Dependencias:** Fase 1 (Ops + TE + Personas) ✅  
 > **Normativa:** Resolución Exenta N°38, DT Chile (26/04/2024)
 
@@ -400,4 +400,4 @@ El sistema cumple con los requisitos técnicos fundamentales (hash, sello de tie
 
 ---
 
-*Documento creado como parte de la implementación del módulo de marcación digital en OPAI Suite.*
+*Documento creado como parte de la implementación del módulo de marcación digital en OPAI Suite. Implementación completada el 2026-02-13. Pendientes de certificación DT documentados en sección PR-6.*

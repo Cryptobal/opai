@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         address: extracted.address?.trim() || null,
         commune: extracted.commune?.trim() || null,
         city: extracted.city?.trim() || null,
-        website: null,
+        website: extracted.website?.trim() || null,
         serviceType: extracted.serviceType?.trim() || null,
         metadata: {
           inboundEmail: {

@@ -1,5 +1,7 @@
 # FAQ de Uso Funcional para Asistente IA
 
+> **Actualizado:** 2026-02-18
+
 Esta guía es la base funcional para respuestas del asistente dentro de OPAI Suite.
 Está enfocada en cómo usar el sistema en operación diaria, ventas y administración.
 Complemento recomendado para respuestas con URL y dependencias cruzadas:
@@ -11,14 +13,16 @@ Complemento recomendado para respuestas con URL y dependencias cruzadas:
 OPAI Suite integra módulos comerciales y operativos conectados:
 1. **CRM**: clientes, prospectos, contactos, negocios e instalaciones.
 2. **CPQ**: creación de cotizaciones y estructura de servicio.
-3. **Ops**: puestos, pauta mensual, asistencia diaria, turnos extra, marcaciones y rondas.
-4. **Personas/Guardias**: alta, estado laboral, documentación y asignaciones.
+3. **Ops**: puestos, pauta mensual, asistencia diaria, turnos extra, marcaciones, rondas, tickets.
+4. **Personas/Guardias**: alta, estado laboral, documentación, asignaciones y PIN de marcación.
 5. **Payroll**: simulación y parámetros de cálculo de remuneraciones.
-6. **Documentos y Presentaciones**: plantillas, propuestas, seguimiento y exportación.
-7. **Configuración**: usuarios, roles, permisos e integraciones.
+6. **Documentos y Presentaciones**: plantillas, propuestas, seguimiento, firma digital y exportación.
+7. **Finanzas**: rendiciones de gastos, aprobaciones, pagos y exportación bancaria.
+8. **Notificaciones**: bell + email con 23 tipos y preferencias por usuario.
+9. **Configuración**: usuarios, roles, permisos e integraciones.
 
 Relación central:
-**Cuenta/Cliente -> Instalación -> Puestos/Slots -> Guardia -> Pauta mensual -> Asistencia diaria -> Turnos extra / apoyo a Payroll**
+**Cuenta/Cliente -> Instalación -> Puestos/Slots -> Guardia -> Pauta mensual -> Asistencia diaria -> Turnos extra / Marcación / Rondas / Tickets**
 
 ## Mapa rápido de rutas por flujo
 
@@ -29,6 +33,10 @@ Relación central:
 - **Asistencia diaria**: `Ops > Asistencia diaria`.
 - **Marcaciones**: `Ops > Marcaciones`.
 - **Rondas**: `Ops > Rondas` (Checkpoints, Plantillas, Programación, Monitoreo, Alertas, Reportes).
+- **Tickets**: `Ops > Tickets`.
+- **Control nocturno**: `Ops > Control nocturno`.
+- **Finanzas**: `Finanzas > Rendiciones`, `Finanzas > Aprobaciones`, `Finanzas > Pagos`.
+- **Notificaciones (preferencias)**: `Perfil > Notificaciones`.
 - **Payroll**: `Payroll`.
 - **FX (UF/UTM)**: `FX`.
 - **Documentos**: `Documentos`.
@@ -66,7 +74,7 @@ Impacto:
 - Habilita continuidad comercial en **Deals/Cotizaciones** y preparación operativa en instalaciones/Ops.
 
 ### ¿Cómo se relaciona CRM con Ops?
-Desde CRM defines cuentas, negocios e instalaciones. En Ops usas esas instalaciones para operar puestos, guardias y pauta.
+Desde CRM defines cuentas, negocios e instalaciones. En Ops usas esas instalaciones para operar puestos, guardias, pauta, marcación y rondas.
 
 ## CPQ: cotizaciones
 
@@ -88,6 +96,11 @@ Usa información de clientes/instalaciones y parámetros económicos del sistema
 ### ¿Qué estados puede tener un guardia?
 Los estados funcionales son: **postulante**, **seleccionado**, **contratado activo**, **inactivo** y **desvinculado**.
 
+### ¿Cómo asigno un PIN de marcación a un guardia?
+1. Ve a la ficha del guardia en **Personas > Guardias > [guardia]**.
+2. Busca la sección **Marcación**.
+3. Presiona **Asignar PIN** (genera PIN aleatorio que se muestra una sola vez).
+
 ## Ops: puestos, pauta y asistencia
 
 ### ¿Cómo armo una pauta mensual?
@@ -105,6 +118,24 @@ Los estados funcionales son: **postulante**, **seleccionado**, **contratado acti
 ### ¿Qué diferencia hay entre pauta mensual y asistencia diaria?
 - **Pauta mensual**: planificación.
 - **Asistencia diaria**: ejecución real (presencias, ausencias, reemplazos).
+
+## Marcación digital
+
+### ¿Cómo marca un guardia su entrada/salida?
+1. El guardia abre el link de marcación en su celular (vía QR o link directo `/marcar/[code]`).
+2. Ingresa su **RUT** y **PIN** (4-6 dígitos).
+3. El sistema captura la **geolocalización** del celular.
+4. Si está dentro del radio de la instalación, puede marcar **Entrada** o **Salida**.
+5. Recibe comprobante por email automáticamente.
+
+### ¿Qué pasa si el guardia no tiene GPS?
+Sin GPS = no puede marcar. La geolocalización es obligatoria. Si está fuera del radio = marcación rechazada.
+
+### ¿Cómo genero el QR de una instalación?
+1. Ve a la ficha de la instalación en CRM.
+2. Busca sección **Marcación digital**.
+3. Presiona **Generar código**.
+4. Descarga/imprime el QR generado.
 
 ## Rondas: checkpoints, plantillas, programación y QR
 
@@ -139,21 +170,33 @@ Desde la tabla de **Checkpoints**, en la acción de generar/visualizar QR.
 3. Define días, horarios y frecuencia.
 4. Guarda programación.
 
-## Marcación digital
+### ¿Las rondas se generan solas?
+Sí. Un cron cada 10 minutos genera automáticamente las rondas programadas.
 
-### ¿Dónde se marcan entradas/salidas?
-En el flujo de marcación habilitado para guardias según configuración de instalación y control operacional.
+## Tickets
 
-### ¿Qué valida la marcación?
-Depende de configuración, pero puede incluir identificación del guardia, PIN y reglas de contexto operacional.
+### ¿Cómo creo un ticket?
+1. Ve a **Ops > Tickets**.
+2. Presiona **+ Nuevo ticket**.
+3. Selecciona tipo de ticket.
+4. Completa descripción y datos requeridos.
+5. Guarda. Si requiere aprobación, queda en "Pendiente de aprobación".
 
-## Payroll
+### ¿Qué es el SLA de un ticket?
+Cada tipo de ticket tiene un tiempo máximo de resolución. Si se excede, el ticket se marca como "SLA breached" y se notifica al equipo.
 
-### ¿Para qué sirve Payroll en la plataforma?
-Para simulación y apoyo en cálculos de remuneraciones con parámetros vigentes.
+### ¿Un guardia puede crear tickets?
+Sí, desde el portal de guardia (`/portal/guardia/tickets`). Solo ve tipos con origen "guard" o "both".
 
-### ¿Qué relación tiene con Ops?
-Payroll se alimenta de datos operacionales como asistencia/turnos extra y parámetros económicos vigentes.
+## Notificaciones
+
+### ¿Cómo configuro mis notificaciones?
+1. Ve a **Perfil > Notificaciones** (`/opai/perfil/notificaciones`).
+2. Para cada tipo, activa/desactiva **Bell** (campana) y **Email**.
+3. Solo ves tipos de módulos a los que tienes acceso.
+
+### ¿Qué tipos de notificaciones hay?
+23 tipos en 4 módulos: CRM (leads, emails, follow-ups), CPQ (cotizaciones), Documentos (contratos), Operaciones (tickets, SLA, guardias, postulaciones).
 
 ## Finanzas: rendiciones y aprobaciones
 
@@ -166,21 +209,29 @@ En **Finanzas > Aprobaciones** (`/finanzas/aprobaciones`).
 ### ¿Qué pasa cuando una rendición se aprueba?
 La rendición avanza en su estado administrativo y queda disponible para flujo de pago según reglas del tenant.
 
+### ¿Cómo exporto pagos al banco?
+En **Finanzas > Pagos**, selecciona rendiciones aprobadas y exporta en formato ABM Santander.
+
+## Payroll
+
+### ¿Para qué sirve Payroll en la plataforma?
+Para simulación y apoyo en cálculos de remuneraciones con parámetros vigentes.
+
+### ¿Qué relación tiene con Ops?
+Payroll se alimenta de datos operacionales como asistencia/turnos extra y parámetros económicos vigentes.
+
 ## FX: UF y UTM
 
 ### ¿La plataforma maneja UF y UTM?
-Sí. El sistema mantiene valores de UF y UTM para operaciones que lo requieren.
-
-### ¿Para qué se usan UF/UTM?
-Se usan en módulos que necesitan referencias económicas para cálculo y valorización.
+Sí. El sistema sincroniza valores de UF (diaria) y UTM (mensual) automáticamente desde SBIF/SII.
 
 ## Documentos y Presentaciones
 
 ### ¿Qué se puede hacer en Documentos?
-Gestionar plantillas y documentos operacionales/comerciales con contenido estructurado y control de uso.
+Gestionar plantillas con tokens dinámicos, generar documentos, controlar versiones, firma digital y exportar a PDF.
 
 ### ¿Qué se puede hacer en Presentaciones?
-Armar propuestas/presentaciones y dar seguimiento de interacción según el flujo comercial habilitado.
+Armar propuestas comerciales B2B, enviar por email con tracking, compartir por WhatsApp, y monitorear vistas.
 
 ## Acceso desde celular (Home Screen)
 
@@ -217,7 +268,7 @@ Puedes crear un acceso directo a `https://www.opai.gard.cl` en la pantalla de in
 En **Configuración**, donde se gestionan usuarios, roles, permisos e integraciones activas.
 
 ### ¿Qué roles existen?
-Depende de políticas activas del tenant, con control de acceso por módulo y capacidades.
+13 roles con permisos granulares por módulo. Los principales son: owner, admin, editor, viewer, operaciones, rrhh, reclutamiento, finanzas, supervisor.
 
 ## Criterio de respuesta del asistente
 

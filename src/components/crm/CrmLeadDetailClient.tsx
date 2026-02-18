@@ -40,6 +40,7 @@ import {
   Building2,
   FileText,
   ArrowRight,
+  Globe,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
@@ -967,8 +968,33 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           <DetailField label="Teléfono" value={lead.phone} mono copyable />
           <DetailField label="Fuente" value={getSourceLabel(lead.source)} />
           <DetailField label="Industria" value={lead.industry} />
-          {((lead as any).address || (lead as any).commune || (lead as any).city) && (
-            <DetailField label="Dirección" value={[(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ")} />
+          {((lead as any).address || (lead as any).commune || (lead as any).city) && (() => {
+            const addressText = [(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ");
+            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText + ", Chile")}`;
+            return (
+              <DetailField
+                label="Dirección"
+                value={
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">
+                      {addressText}
+                    </a>
+                  </span>
+                }
+              />
+            );
+          })()}
+          {(lead as any).website && (
+            <DetailField
+              label="Sitio web"
+              value={
+                <a href={(lead as any).website.startsWith("http") ? (lead as any).website : `https://${(lead as any).website}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">
+                  <Globe className="h-3.5 w-3.5 shrink-0" />
+                  {(lead as any).website.replace(/^https?:\/\//, "")}
+                </a>
+              }
+            />
           )}
         </DetailFieldGrid>
 

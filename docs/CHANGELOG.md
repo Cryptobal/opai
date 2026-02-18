@@ -1,10 +1,10 @@
-# 📝 Changelog - OPAI Docs
+# Changelog - OPAI Suite
 
-**Resumen:** Historial completo de cambios, versiones y nuevas funcionalidades del módulo Docs.
+**Resumen:** Historial completo de cambios, versiones y nuevas funcionalidades.
 
 **Estado:** Vigente - Actualizado continuamente
 
-**Scope:** OPAI Docs
+**Scope:** OPAI Suite completa
 
 ---
 
@@ -12,7 +12,123 @@ Todos los cambios notables del proyecto están documentados aquí.
 
 ---
 
-## [1.2.1] - 2026-02-05 👁️
+## [3.0.0] - 2026-02-18
+
+### Sistema de Notificaciones Unificado
+
+- Servicio unificado de notificaciones (`notification-service.ts`) con 23 tipos en 4 módulos
+- Canales: bell (in-app) + email (Resend) con preferencias por usuario
+- UI de preferencias en `/opai/perfil/notificaciones`
+- Template de email con branding OPAI (dark theme)
+- Filtrado por acceso a módulos (RBAC)
+- Migración DB: tabla `user_notification_preferences`
+
+### Tickets + SLA
+
+- Tipos de ticket configurables con SLA en horas
+- Workflow de aprobación multi-paso (por grupo o usuario)
+- Monitor SLA automático cada 15 min (cron) con notificaciones de breach y approaching
+- Código formato `TK-YYYYMM-####`
+- Detalle de ticket con timeline y comentarios
+- Portal de guardia para crear tickets
+
+### Mejoras generales
+
+- Cron job SLA monitor (`/api/cron/sla-monitor`) cada 15 min
+- Integración de notificaciones en todos los flujos (leads, emails, tickets, documentos, etc.)
+- Preferencias de notificación respetan módulos accesibles por rol
+
+---
+
+## [2.5.0] - 2026-02-16
+
+### Finanzas: Rendiciones de Gastos
+
+- Módulo completo de rendiciones (compras y kilometraje)
+- Centros de costo configurables
+- Aprobación multi-nivel
+- Exportación bancaria Santander (formato ABM)
+- Alertas automáticas de finanzas (cron diario)
+- Reportes y pagos
+
+### ERP Financiero-Contable (Diseño)
+
+- Documento de diseño completo: plan de cuentas, facturación DTE, tesorería
+- Plan de implementación en 12 tasks
+- Plan de cuentas base chileno (80+ cuentas IFRS/NIC)
+
+---
+
+## [2.0.0] - 2026-02-14
+
+### Rondas (Control de Rondas)
+
+- Dashboard de estado general y cumplimiento
+- Monitoreo en ejecución en tiempo real
+- Alertas de desvíos e incumplimientos
+- Checkpoints por instalación con generación de QR
+- Plantillas con secuencia de checkpoints
+- Programación de frecuencia, días y horarios
+- Reportes de cumplimiento histórico
+- Generación automática (cron cada 10 min)
+- Ejecución pública por QR: `/ronda/[code]`
+- Control nocturno por instalación
+
+---
+
+## [1.8.0] - 2026-02-13
+
+### Marcación Digital Completada (PR-1 a PR-5)
+
+- Modelo OpsMarcacion con hash SHA-256 de integridad
+- APIs públicas de marcación (validar, registrar, mis-marcaciones)
+- Geolocalización obligatoria y bloqueante
+- Captura de foto de evidencia (cámara frontal)
+- Página pública `/marcar/[code]` mobile-first
+- APIs admin: PIN, código de instalación, reportes
+- QR por instalación con gestión de código
+- Integración automática con OpsAsistenciaDiaria
+- Comprobante por email automático
+- Cron de marcación emails cada 5 min
+- Cumplimiento Resolución Exenta N°38 DT Chile (10/13 requisitos)
+
+---
+
+## [1.5.0] - 2026-02-12
+
+### Asignación de Guardias a Puestos
+
+- Nueva tabla `asignacion_guardias` con historial
+- Modal de asignación con buscador de guardias disponibles
+- Desasignación con confirmación y generación PPC
+- Sección "Dotación activa" en CRM instalaciones
+- Ficha del guardia con sección "Asignación" y historial de movimientos
+
+### Refactorización OPS v2
+
+- Nuevo campo `slot_number` (soporte multi-guardia por puesto)
+- Sistema de pintado de series (4x4, 5x2, 7x7)
+- Vista de pauta tipo spreadsheet con colores por estado
+- Asistencia diaria multi-instalación con dashboard de resumen
+- SubNav OPS con 6+ tabs
+
+---
+
+## [1.3.0] - 2026-02-11
+
+### Fase 1 OPI: Ops + TE + Personas (MVP v1)
+
+- Puestos operativos por instalación
+- Pauta mensual con generación y asignación
+- Asistencia diaria con reemplazo y generación automática de TE
+- Registro y aprobación/rechazo de TE
+- Lotes de pago TE, marcado pagado y exportación CSV Santander
+- Gestión de guardias (ficha 360) y lista negra
+- Pipeline de postulantes
+
+---
+
+## [1.2.1] - 2026-02-05
 
 ### 🔧 MODO PREVIEW - VISTAS DE ADMIN NO SE CONTABILIZAN
 
@@ -496,5 +612,5 @@ docs/
 
 ---
 
-**Última actualización:** 05 de Febrero de 2026  
-**Versión actual:** 0.5.0
+**Última actualización:** 18 de Febrero de 2026  
+**Versión actual:** 3.0.0

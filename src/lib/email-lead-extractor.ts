@@ -27,6 +27,7 @@ export type ExtractedLeadData = {
   startDate: string | null;
   summary: string | null;
   industry: string | null;
+  website: string | null;
 };
 
 const EXTRACTOR_SCHEMA = {
@@ -58,6 +59,7 @@ const EXTRACTOR_SCHEMA = {
         startDate: { type: "string", description: "Fecha estimada de inicio del servicio (ej. 02 de marzo, inmediato)" },
         summary: { type: "string", description: "Resumen ejecutivo de la solicitud en 2-4 oraciones" },
         industry: { type: "string", description: "Industria o rubro del cliente (construcción, minería, retail, inmobiliaria, etc.)" },
+        website: { type: "string", description: "Sitio web de la empresa solicitante (URL encontrada en firma, cuerpo del correo o datos de contacto, ej. www.empresa.cl)" },
       },
       required: [
         "companyName",
@@ -81,6 +83,7 @@ const EXTRACTOR_SCHEMA = {
         "startDate",
         "summary",
         "industry",
+        "website",
       ],
       additionalProperties: false,
     },
@@ -119,7 +122,8 @@ Campos a extraer:
 - numberOfLocations: cantidad de puntos/instalaciones/sedes a cubrir
 - startDate: fecha estimada de inicio (ej. "02 de marzo", "inmediato", "a definir")
 - summary: resumen ejecutivo en 2-4 oraciones con lo más relevante de la solicitud
-- industry: rubro del cliente solicitante (construcción, minería, retail, inmobiliaria, energía, etc.)`;
+- industry: rubro del cliente solicitante (construcción, minería, retail, inmobiliaria, energía, etc.)
+- website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de Gard (gard.cl). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")`;
 
 function stripHtml(html: string): string {
   return html
@@ -212,6 +216,7 @@ export async function extractLeadFromEmail(params: {
       startDate: str("startDate"),
       summary: str("summary"),
       industry: str("industry"),
+      website: str("website"),
     };
   } catch {
     return emptyResult(params.fromEmail || null, raw.slice(0, 500));
@@ -241,5 +246,6 @@ function emptyResult(email: string | null, summary: string): ExtractedLeadData {
     startDate: null,
     summary,
     industry: null,
+    website: null,
   };
 }

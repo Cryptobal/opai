@@ -1,5 +1,7 @@
 # Mapa Funcional Completo: Modulos, Submodulos y URLs
 
+> **Actualizado:** 2026-02-18
+
 Este documento es base de conocimiento para el Asistente IA de OPAI Suite.
 Objetivo: responder con precision sobre rutas, uso, ingreso de datos, relaciones e impacto entre modulos.
 
@@ -7,11 +9,15 @@ Regla de respuesta sugerida:
 - Si el usuario pregunta "donde", "ruta", "URL" o "como llegar", responder con nombre funcional + URL relativa.
 - Si pregunta "si hago X, que pasa con Y", explicar efecto en entidades y modulos relacionados.
 
-Inferencia semantica sugerida (sinonimos de usuario -> flujo canónico):
+Inferencia semantica sugerida (sinonimos de usuario -> flujo canonico):
 - "pautas", "rol de turnos", "malla de turnos", "calendario de turnos" -> **Ops > Pauta mensual** (`/ops/pauta-mensual`).
 - "turnos de hoy", "quien asistio", "presentes y ausentes" -> **Ops > Asistencia diaria** (`/ops/pauta-diaria`).
-- "turnos extra", "TE", "horas extra de turno" -> **Turnos Extra** (`/te/registro`, `/te/aprobaciones`).
-- "control de rondas", "puntos de control", "QR de ronda" -> **Ops > Rondas** (checkpoints/plantillas/programacion).
+- "turnos extra", "TE", "horas extra de turno" -> **Turnos Extra** (`/ops/turnos-extra`).
+- "marcacion", "entrada", "salida", "PIN", "QR de asistencia" -> **Ops > Marcaciones** (`/ops/marcaciones`).
+- "control de rondas", "puntos de control", "QR de ronda", "recorrido" -> **Ops > Rondas** (checkpoints/plantillas/programacion).
+- "ticket", "solicitud", "problema", "requerimiento" -> **Ops > Tickets** (`/ops/tickets`).
+- "notificaciones", "alertas", "campana", "configurar avisos" -> **Notificaciones** (`/opai/perfil/notificaciones`).
+- "rendicion", "gasto", "reembolso" -> **Finanzas > Rendiciones** (`/finanzas/rendiciones`).
 - "accesos", "dar/quitar permisos", "perfiles" -> **Configuracion > Usuarios/Roles**.
 - "pasar prospecto a cliente", "convertir lead", "cambiar prospecto a cliente" -> **CRM > Leads/Cuentas** (`/crm/leads`, `/crm/accounts`).
 
@@ -39,7 +45,7 @@ Inferencia semantica sugerida (sinonimos de usuario -> flujo canónico):
 - **Instalaciones**
   - URL: `/crm/installations`
   - Sirve para: crear sedes operativas del cliente.
-  - Si creas instalacion: luego se usa en Ops (puestos, pauta, rondas).
+  - Si creas instalacion: luego se usa en Ops (puestos, pauta, rondas, marcacion).
 - **Contactos**
   - URL: `/crm/contacts`
   - Sirve para: personas de relacion comercial del cliente.
@@ -51,7 +57,7 @@ Inferencia semantica sugerida (sinonimos de usuario -> flujo canónico):
   - Sirve para: construir oferta economica vinculada al negocio.
 
 Relacion clave CRM -> Ops:
-- Cuenta -> Instalacion -> Puestos/Slots -> Guardia -> Pauta/Asistencia/Rondas.
+- Cuenta -> Instalacion -> Puestos/Slots -> Guardia -> Pauta/Asistencia/Marcacion/Rondas/Tickets.
 
 ## Ops (Operaciones)
 
@@ -74,13 +80,17 @@ Relacion clave CRM -> Ops:
   - Sirve para: control y gestion operativa de TE.
 - **Marcaciones**
   - URL: `/ops/marcaciones`
-  - Sirve para: seguimiento de marcacion de asistencia.
+  - Sirve para: seguimiento de marcacion de asistencia (tabla admin).
 - **PPC**
   - URL: `/ops/ppc`
   - Sirve para: puestos por cubrir y brechas de cobertura.
-- **Rondas (dashboard)**
-  - URL: `/ops/rondas`
-  - Sirve para: control general de rondas.
+- **Tickets**
+  - URL: `/ops/tickets`
+  - Sirve para: bandeja de tickets con SLA, tipos y aprobaciones.
+  - Si creas ticket: se asigna SLA automatico segun tipo.
+- **Detalle ticket**
+  - URL: `/ops/tickets/[id]`
+  - Sirve para: timeline, comentarios, aprobaciones y estado del ticket.
 - **Control nocturno**
   - URL: `/ops/control-nocturno`
   - Sirve para: reporte operativo nocturno por instalacion.
@@ -92,10 +102,10 @@ Relacion clave CRM -> Ops:
   - Sirve para: estado general y cumplimiento.
 - **Monitoreo**
   - URL: `/ops/rondas/monitoreo`
-  - Sirve para: seguimiento en ejecucion.
+  - Sirve para: seguimiento en ejecucion en tiempo real.
 - **Alertas**
   - URL: `/ops/rondas/alertas`
-  - Sirve para: desvíos/incumplimientos.
+  - Sirve para: desvios/incumplimientos.
 - **Checkpoints**
   - URL: `/ops/rondas/checkpoints`
   - Sirve para: crear puntos de control.
@@ -116,8 +126,8 @@ Relacion clave CRM -> Ops:
 
 - **Guardias**
   - URL: `/personas/guardias`
-  - Sirve para: alta y gestion de guardias.
-  - Si actualizas estado de guardia: impacta asignaciones y cobertura.
+  - Sirve para: alta y gestion de guardias (ficha 360).
+  - Si actualizas estado de guardia: impacta asignaciones, cobertura y marcacion.
 - **Lista negra**
   - URL: `/personas/lista-negra`
   - Sirve para: restricciones de elegibilidad.
@@ -150,6 +160,32 @@ Impacto:
 Impacto:
 - Cambios de parametros alteran resultados de simulaciones y calculos asociados.
 
+## Finanzas
+
+- **Rendiciones**
+  - URL: `/finanzas/rendiciones`
+  - Sirve para: crear y gestionar rendiciones de gastos/kilometraje.
+  - Si envias rendicion: pasa a flujo de aprobacion.
+- **Aprobaciones**
+  - URL: `/finanzas/aprobaciones`
+  - Sirve para: revisar y aprobar/rechazar rendiciones pendientes.
+  - Si apruebas: avanza estado de rendicion (IN_APPROVAL/APPROVED).
+- **Pagos**
+  - URL: `/finanzas/pagos`
+  - Sirve para: cierre administrativo y pago de rendiciones aprobadas.
+  - Si pagas: cierra ciclo financiero de la rendicion. Exporta formato ABM Santander.
+- **Reportes**
+  - URL: `/finanzas/reportes`
+  - Sirve para: seguimiento historico y analitica de rendiciones.
+
+## Notificaciones
+
+- **Preferencias de notificacion**
+  - URL: `/opai/perfil/notificaciones`
+  - Sirve para: activar/desactivar bell y email por tipo de notificacion.
+  - 23 tipos en 4 modulos (CRM, CPQ, Documentos, Operaciones).
+  - Solo muestra tipos de modulos accesibles segun rol del usuario.
+
 ## Documentos y Presentaciones
 
 - **Presentaciones/Envios**
@@ -157,10 +193,10 @@ Impacto:
   - Sirve para: seguimiento comercial/documental.
 - **Gestion documental**
   - URL: `/opai/documentos`
-  - Sirve para: gestionar documentos y estados.
+  - Sirve para: gestionar documentos, firma digital y estados.
 - **Templates documentos**
   - URL: `/opai/documentos/templates`
-  - Sirve para: base de plantillas reutilizables.
+  - Sirve para: base de plantillas reutilizables con tokens.
 
 ## Configuracion
 
@@ -204,27 +240,10 @@ Impacto:
 Impacto:
 - Ajustes de CPQ impactan construccion y valorizacion de cotizaciones.
 
-## Finanzas (Rendiciones)
-
-- **Rendiciones**
-  - URL: `/finanzas/rendiciones`
-  - Sirve para: crear y gestionar rendiciones de gastos/kilometraje.
-  - Si envias rendicion: pasa a flujo de aprobacion.
-- **Aprobaciones**
-  - URL: `/finanzas/aprobaciones`
-  - Sirve para: revisar y aprobar/rechazar rendiciones pendientes.
-  - Si apruebas: avanza estado de rendicion (IN_APPROVAL/APPROVED).
-- **Pagos**
-  - URL: `/finanzas/pagos`
-  - Sirve para: cierre administrativo y pago de rendiciones aprobadas.
-  - Si pagas: cierra ciclo financiero de la rendicion.
-- **Reportes**
-  - URL: `/finanzas/reportes`
-  - Sirve para: seguimiento historico y analitica de rendiciones.
-
 ## FX (UF/UTM)
 
 - Fuente operativa: indicadores internos consumidos por la app.
+- Sync automatico 2x/dia desde SBIF/SII.
 - Uso: soporte de valorizacion/calculo en modulos que lo requieran.
 
 ## URLs operativas/publicas especiales
@@ -232,5 +251,7 @@ Impacto:
 - Marcacion externa por codigo: `/marcar/[code]`
 - Ronda externa por codigo: `/ronda/[code]`
 - Portal postulacion: `/postulacion/[token]`
+- Portal guardia tickets: `/portal/guardia/tickets`
+- Firma de documentos: `/api/docs/sign/[token]`
 
 Estas rutas se usan en flujos operativos/publicos especificos y no siempre en menu lateral.
