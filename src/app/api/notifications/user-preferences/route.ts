@@ -10,9 +10,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasModuleAccess } from "@/lib/permissions";
 import {
   NOTIFICATION_TYPES,
+  canSeeNotificationType,
   getDefaultUserPrefs,
   type UserNotifPrefsMap,
 } from "@/lib/notification-types";
@@ -38,7 +38,7 @@ export async function GET() {
     const merged = { ...defaults, ...saved };
 
     const accessibleTypes = NOTIFICATION_TYPES.filter((t) =>
-      hasModuleAccess(perms, t.module)
+      canSeeNotificationType(perms, t)
     );
 
     const filteredPrefs: UserNotifPrefsMap = {};
@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest) {
 
     const perms = await resolveApiPerms(ctx);
     const accessibleKeys = new Set(
-      NOTIFICATION_TYPES.filter((t) => hasModuleAccess(perms, t.module)).map(
+      NOTIFICATION_TYPES.filter((t) => canSeeNotificationType(perms, t)).map(
         (t) => t.key
       )
     );

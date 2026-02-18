@@ -9,8 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
-import { NOTIFICATION_TYPE_MAP, type UserNotifPrefsMap } from "@/lib/notification-types";
-import { hasModuleAccess } from "@/lib/permissions";
+import { NOTIFICATION_TYPE_MAP, canSeeNotificationType, type UserNotifPrefsMap } from "@/lib/notification-types";
 import { resolvePermissions } from "@/lib/permissions-server";
 
 interface CreateNotificationInput {
@@ -66,8 +65,8 @@ export async function sendNotification(input: CreateNotificationInput) {
   const emailRecipients: string[] = [];
 
   for (const user of users) {
-    const moduleOk = await userHasModuleAccess(user, typeDef?.module);
-    if (!moduleOk) continue;
+    const canSee = await userCanSeeType(user, typeDef);
+    if (!canSee) continue;
 
     const prefs = prefsMap.get(user.id);
     const pref = prefs?.[type];
@@ -179,17 +178,17 @@ export async function sendNotificationToUser(
   }
 }
 
-async function userHasModuleAccess(
+async function userCanSeeType(
   user: UserForNotification,
-  module?: string
+  typeDef?: import("@/lib/notification-types").NotificationTypeDef
 ): Promise<boolean> {
-  if (!module) return true;
+  if (!typeDef) return true;
   try {
     const perms = await resolvePermissions({
       role: user.role,
       roleTemplateId: user.roleTemplateId,
     });
-    return hasModuleAccess(perms, module as import("@/lib/permissions").ModuleKey);
+    return canSeeNotificationType(perms, typeDef);
   } catch {
     return false;
   }

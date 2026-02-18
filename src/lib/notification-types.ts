@@ -1,22 +1,24 @@
-import type { ModuleKey } from "@/lib/permissions";
+import { type ModuleKey, type RolePermissions, canView, hasModuleAccess } from "@/lib/permissions";
 
 export interface NotificationTypeDef {
   key: string;
   label: string;
   description: string;
   module: ModuleKey;
+  submodule?: string;
   category: string;
   defaultBell: boolean;
   defaultEmail: boolean;
 }
 
 export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
-  // ── CRM ──
+  // ── CRM - Leads (requiere crm.leads) ──
   {
     key: "new_lead",
     label: "Nuevo lead",
     description: "Cuando llega un nuevo lead desde formulario o email",
     module: "crm",
+    submodule: "leads",
     category: "CRM - Leads",
     defaultBell: true,
     defaultEmail: false,
@@ -26,6 +28,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Lead aprobado",
     description: "Cuando un lead es aprobado y pasa a prospecto",
     module: "crm",
+    submodule: "leads",
     category: "CRM - Leads",
     defaultBell: true,
     defaultEmail: false,
@@ -35,10 +38,13 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Nuevo prospecto",
     description: "Cuando se crea un nuevo prospecto",
     module: "crm",
+    submodule: "leads",
     category: "CRM - Leads",
     defaultBell: true,
     defaultEmail: false,
   },
+
+  // ── CRM - General (cualquier acceso CRM) ──
   {
     key: "mention",
     label: "Mención en nota",
@@ -48,11 +54,14 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: true,
   },
+
+  // ── CRM - Email / Follow-ups (requiere crm.deals) ──
   {
     key: "email_opened",
     label: "Email abierto",
     description: "Cuando un destinatario abre un email enviado",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Email",
     defaultBell: true,
     defaultEmail: false,
@@ -62,6 +71,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Clic en email",
     description: "Cuando un destinatario hace clic en un link del email",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Email",
     defaultBell: true,
     defaultEmail: false,
@@ -71,6 +81,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Email rebotado",
     description: "Cuando un email no se pudo entregar",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Email",
     defaultBell: true,
     defaultEmail: true,
@@ -80,6 +91,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Follow-up enviado",
     description: "Cuando se envía un email de seguimiento automático",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Follow-ups",
     defaultBell: true,
     defaultEmail: true,
@@ -89,6 +101,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Follow-up programado",
     description: "Cuando se programa un email de seguimiento",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Follow-ups",
     defaultBell: true,
     defaultEmail: false,
@@ -98,6 +111,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Follow-up fallido",
     description: "Cuando falla el envío de un follow-up",
     module: "crm",
+    submodule: "deals",
     category: "CRM - Follow-ups",
     defaultBell: true,
     defaultEmail: true,
@@ -161,12 +175,13 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: true,
   },
 
-  // ── Operaciones ──
+  // ── Operaciones - Guardias (requiere ops.guardias) ──
   {
     key: "guardia_doc_expiring",
     label: "Doc. guardia por vencer",
     description: "Cuando un documento de guardia está por vencer",
     module: "ops",
+    submodule: "guardias",
     category: "Operaciones - Guardias",
     defaultBell: true,
     defaultEmail: false,
@@ -176,6 +191,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Doc. guardia vencido",
     description: "Cuando un documento de guardia ha vencido",
     module: "ops",
+    submodule: "guardias",
     category: "Operaciones - Guardias",
     defaultBell: true,
     defaultEmail: true,
@@ -185,15 +201,19 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Nueva postulación",
     description: "Cuando un guardia envía una postulación",
     module: "ops",
+    submodule: "guardias",
     category: "Operaciones - Guardias",
     defaultBell: true,
     defaultEmail: false,
   },
+
+  // ── Operaciones - Tickets (requiere ops.tickets) ──
   {
     key: "ticket_created",
     label: "Ticket creado (P1/P2)",
     description: "Cuando se crea un ticket de prioridad alta",
     module: "ops",
+    submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: true,
     defaultEmail: true,
@@ -203,6 +223,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Ticket aprobado",
     description: "Cuando un ticket es aprobado en un paso de aprobación",
     module: "ops",
+    submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: true,
     defaultEmail: false,
@@ -212,6 +233,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "Ticket rechazado",
     description: "Cuando un ticket es rechazado en un paso de aprobación",
     module: "ops",
+    submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: true,
     defaultEmail: true,
@@ -221,6 +243,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "SLA incumplido",
     description: "Cuando un ticket excede su tiempo de SLA",
     module: "ops",
+    submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: true,
     defaultEmail: true,
@@ -230,6 +253,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     label: "SLA próximo a vencer",
     description: "Cuando un ticket está por exceder su SLA",
     module: "ops",
+    submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: true,
     defaultEmail: false,
@@ -247,6 +271,20 @@ export const NOTIFICATION_TYPE_MODULE: Record<string, ModuleKey> = Object.fromEn
 export const NOTIFICATION_CATEGORIES = [
   ...new Set(NOTIFICATION_TYPES.map((t) => t.category)),
 ];
+
+/**
+ * Verifica si un usuario con ciertos permisos puede ver un tipo de notificación.
+ * Usa submódulo si está definido, sino verifica acceso al módulo.
+ */
+export function canSeeNotificationType(
+  perms: RolePermissions,
+  typeDef: NotificationTypeDef
+): boolean {
+  if (typeDef.submodule) {
+    return canView(perms, typeDef.module, typeDef.submodule);
+  }
+  return hasModuleAccess(perms, typeDef.module);
+}
 
 export interface UserNotifPref {
   bell: boolean;

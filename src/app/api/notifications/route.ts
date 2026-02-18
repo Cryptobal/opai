@@ -10,8 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { addDays } from "date-fns";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
-import { hasModuleAccess } from "@/lib/permissions";
-import { NOTIFICATION_TYPE_MODULE, type UserNotifPrefsMap } from "@/lib/notification-types";
+import { NOTIFICATION_TYPES, canSeeNotificationType, type UserNotifPrefsMap } from "@/lib/notification-types";
 import type { AuthContext } from "@/lib/api-auth";
 import type { Prisma } from "@prisma/client";
 
@@ -19,9 +18,9 @@ const GUARDIA_DOC_ALERT_DAYS = 30;
 
 async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<string[]> {
   const perms = await resolveApiPerms(ctx);
-  return Object.entries(NOTIFICATION_TYPE_MODULE)
-    .filter(([, module]) => !hasModuleAccess(perms, module))
-    .map(([type]) => type);
+  return NOTIFICATION_TYPES
+    .filter((t) => !canSeeNotificationType(perms, t))
+    .map((t) => t.key);
 }
 
 async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
