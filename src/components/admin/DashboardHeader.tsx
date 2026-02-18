@@ -161,7 +161,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
 
       {/* Panel de Notificaciones */}
       {showNotifications && (
-        <div className="fixed top-20 right-4 z-50 w-80 sm:w-96 bg-card rounded-xl border border-white/10 shadow-2xl max-h-[70vh] overflow-y-auto">
+        <div className="fixed top-20 right-4 left-4 sm:left-auto z-50 sm:w-96 bg-card rounded-xl border border-white/10 shadow-2xl max-h-[70vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10 sticky top-0 bg-card">
             <div>

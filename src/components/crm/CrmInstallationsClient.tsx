@@ -225,7 +225,7 @@ export function CrmInstallationsClient({
               {inst.lat != null && inst.lng != null && MAPS_KEY && (
                 <Link
                   href={`/crm/installations/${inst.id}`}
-                  className="shrink-0 block rounded overflow-hidden border border-border hover:opacity-90 transition-opacity w-[140px] h-[90px]"
+                  className="shrink-0 block rounded overflow-hidden border border-border hover:opacity-90 transition-opacity w-[100px] h-[70px] sm:w-[140px] sm:h-[90px]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
