@@ -28,6 +28,7 @@ import {
   X,
   CalendarDays,
   Ban,
+  FileSpreadsheet,
 } from "lucide-react";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ interface SueldoRut {
   colacion: number;
   movilizacion: number;
   gratificationType: string;
+  gratificationCustomAmount: number;
   isActive: boolean;
   effectiveFrom: string | null;
   effectiveUntil: string | null;
@@ -58,9 +60,29 @@ interface BonoEntry { bonoCatalogId: string; overrideAmount?: number; overridePe
 interface GuardSearchResult { id: string; rut: string; name: string; hasSalaryOverride: boolean; }
 
 interface NetEstimate {
-  netSalary: number; grossSalary: number; totalDeductions: number;
-  deductions: { afp: number; health: number; afc: number; tax: number };
-  breakdown: { baseSalary: number; gratification: number; colacion: number; movilizacion: number };
+  netSalary: number;
+  grossSalary: number;
+  totalDeductions: number;
+  employerCost?: number;
+  deductions: {
+    afp: number;
+    afpRate?: number;
+    health: number;
+    healthRate?: number;
+    afc: number;
+    afcRate?: number;
+    tax: number;
+  };
+  breakdown: {
+    baseSalary: number;
+    gratification: number;
+    colacion: number;
+    movilizacion: number;
+    bonosImponibles?: number;
+    bonosNoImponibles?: number;
+    totalTaxable?: number;
+    totalNonTaxable?: number;
+  };
 }
 
 function formatCLP(val: number): string { return `$${val.toLocaleString("es-CL")}`; }
@@ -98,8 +120,21 @@ export function SueldosRutListClient() {
   const [saving, setSaving] = useState(false);
   const [netEstimate, setNetEstimate] = useState<NetEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
+  const [viewBreakdownFor, setViewBreakdownFor] = useState<SueldoRut | null>(null);
+  const [viewBreakdownData, setViewBreakdownData] = useState<NetEstimate | null>(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
   const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+
+  function DesgloseRow({ label, value, negative, bold }: { label: string; value: number; negative?: boolean; bold?: boolean }) {
+    const display = negative ? `-${formatCLP(value)}` : formatCLP(value);
+    return (
+      <div className={`flex justify-between text-xs ${bold ? "font-semibold" : ""}`}>
+        <span>{label}</span>
+        <span className={negative ? "text-destructive" : ""}>{display}</span>
+      </div>
+    );
+  }
 
   const loadSueldos = useCallback(async () => {
     setLoading(true);
@@ -146,6 +181,24 @@ export function SueldosRutListClient() {
 
   const confirmAndOpenForm = () => { setConfirmOpen(false); setCreateOpen(true); };
 
+  const fetchEstimateNet = async (params: {
+    baseSalary: number;
+    colacion: number;
+    movilizacion: number;
+    gratificationType: string;
+    gratificationCustomAmount: number;
+    bonosImponibles: number;
+    bonosNoImponibles: number;
+  }) => {
+    const res = await fetch("/api/payroll/estimate-net", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (res.ok) return (await res.json()).data as NetEstimate;
+    return null;
+  };
+
   const calculateNet = async () => {
     if (formBaseSalary <= 0) return;
     setEstimating(true);
@@ -159,15 +212,44 @@ export function SueldosRutListClient() {
           : (b.overrideAmount ?? Number(cat.defaultAmount) ?? 0);
         if (cat.isTaxable) bonosImp += amt; else bonosNoImp += amt;
       }
-      const res = await fetch("/api/payroll/estimate-net", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseSalary: formBaseSalary, colacion: formColacion, movilizacion: formMovilizacion,
-          gratificationType: formGratType, gratificationCustomAmount: formGratAmount,
-          bonosImponibles: bonosImp, bonosNoImponibles: bonosNoImp }),
+      const data = await fetchEstimateNet({
+        baseSalary: formBaseSalary,
+        colacion: formColacion,
+        movilizacion: formMovilizacion,
+        gratificationType: formGratType,
+        gratificationCustomAmount: formGratAmount,
+        bonosImponibles: bonosImp,
+        bonosNoImponibles: bonosNoImp,
       });
-      if (res.ok) setNetEstimate((await res.json()).data);
+      if (data) setNetEstimate(data);
     } catch (err) { console.error(err); }
     finally { setEstimating(false); }
+  };
+
+  const openBreakdownFor = async (s: SueldoRut) => {
+    setViewBreakdownFor(s);
+    setViewBreakdownData(null);
+    setLoadingBreakdown(true);
+    try {
+      let bonosImp = 0, bonosNoImp = 0;
+      for (const b of s.bonos) {
+        const amt = b.bonoType === "PORCENTUAL"
+          ? Math.round(s.baseSalary * (b.percentage ?? 0) / 100)
+          : (b.amount ?? 0);
+        if (b.isTaxable) bonosImp += amt; else bonosNoImp += amt;
+      }
+      const data = await fetchEstimateNet({
+        baseSalary: s.baseSalary,
+        colacion: s.colacion,
+        movilizacion: s.movilizacion,
+        gratificationType: s.gratificationType || "AUTO_25",
+        gratificationCustomAmount: s.gratificationCustomAmount ?? 0,
+        bonosImponibles: bonosImp,
+        bonosNoImponibles: bonosNoImp,
+      });
+      setViewBreakdownData(data ?? null);
+    } catch (err) { console.error(err); }
+    finally { setLoadingBreakdown(false); }
   };
 
   const handleSave = async () => {
@@ -276,6 +358,9 @@ export function SueldosRutListClient() {
                     <p className="text-sm font-semibold text-emerald-400">{formatCLP(totalHaberes)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver desglose" onClick={() => openBreakdownFor(s)}>
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                    </Button>
                     <Link href={`/personas/guardias/${s.guardiaId}`}>
                       <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver ficha"><Eye className="h-3.5 w-3.5" /></Button>
                     </Link>
@@ -349,6 +434,108 @@ export function SueldosRutListClient() {
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ver desglose modal */}
+      <Dialog open={!!viewBreakdownFor} onOpenChange={(o) => !o && (setViewBreakdownFor(null), setViewBreakdownData(null))}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Desglose de sueldo por RUT</DialogTitle>
+            {viewBreakdownFor && (
+              <div className="flex items-center gap-3 pt-2">
+                <div>
+                  <p className="font-semibold">{viewBreakdownFor.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{viewBreakdownFor.rut}</p>
+                </div>
+                <Badge className="ml-auto bg-amber-500/15 text-amber-400 border-amber-500/30">Sueldo por RUT</Badge>
+              </div>
+            )}
+          </DialogHeader>
+          {loadingBreakdown ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : viewBreakdownData ? (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Total Haberes</p>
+                  <p className="font-semibold">{formatCLP(viewBreakdownData.grossSalary)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Total Descuentos</p>
+                  <p className="font-semibold text-destructive">-{formatCLP(viewBreakdownData.totalDeductions)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase">Sueldo Líquido</p>
+                  <p className="font-bold text-lg text-emerald-400">{formatCLP(viewBreakdownData.netSalary)}</p>
+                </div>
+                {viewBreakdownData.employerCost != null && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase">Costo Empleador</p>
+                    <p className="font-semibold text-amber-400">{formatCLP(viewBreakdownData.employerCost)}</p>
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-border pt-3 space-y-2 text-xs">
+                <p className="font-semibold text-[11px] text-muted-foreground uppercase">Haberes imponibles</p>
+                <div className="space-y-1">
+                  <DesgloseRow label="Sueldo base" value={viewBreakdownData.breakdown?.baseSalary ?? 0} />
+                  <DesgloseRow label="Gratificación legal" value={viewBreakdownData.breakdown?.gratification ?? 0} />
+                  {(viewBreakdownData.breakdown?.bonosImponibles ?? 0) > 0 && (
+                    <DesgloseRow label="Bonos imponibles" value={viewBreakdownData.breakdown?.bonosImponibles ?? 0} />
+                  )}
+                  <DesgloseRow label="Total imponible" value={viewBreakdownData.breakdown?.totalTaxable ?? 0} bold />
+                </div>
+              </div>
+              <div className="border-t border-border pt-3 space-y-2 text-xs">
+                <p className="font-semibold text-[11px] text-muted-foreground uppercase">Haberes no imponibles</p>
+                <div className="space-y-1">
+                  {(viewBreakdownData.breakdown?.colacion ?? 0) > 0 && (
+                    <DesgloseRow label="Colación" value={viewBreakdownData.breakdown?.colacion ?? 0} />
+                  )}
+                  {(viewBreakdownData.breakdown?.movilizacion ?? 0) > 0 && (
+                    <DesgloseRow label="Movilización" value={viewBreakdownData.breakdown?.movilizacion ?? 0} />
+                  )}
+                  {(viewBreakdownData.breakdown?.bonosNoImponibles ?? 0) > 0 && (
+                    <DesgloseRow label="Bonos no imponibles" value={viewBreakdownData.breakdown?.bonosNoImponibles ?? 0} />
+                  )}
+                  <DesgloseRow label="Total no imponible" value={viewBreakdownData.breakdown?.totalNonTaxable ?? 0} bold />
+                </div>
+              </div>
+              <div className="border-t border-border pt-3 space-y-2 text-xs">
+                <p className="font-semibold text-[11px] text-muted-foreground uppercase">Descuentos legales</p>
+                <div className="space-y-1">
+                  {viewBreakdownData.deductions.afp > 0 && (
+                    <DesgloseRow
+                      label={`AFP (${((viewBreakdownData.deductions.afpRate ?? 0) * 100).toFixed(2)}%)`}
+                      value={viewBreakdownData.deductions.afp}
+                      negative
+                    />
+                  )}
+                  {viewBreakdownData.deductions.health > 0 && (
+                    <DesgloseRow
+                      label={`Salud (${((viewBreakdownData.deductions.healthRate ?? 7) * 100).toFixed(1)}%)`}
+                      value={viewBreakdownData.deductions.health}
+                      negative
+                    />
+                  )}
+                  {viewBreakdownData.deductions.afc > 0 && (
+                    <DesgloseRow
+                      label={`AFC (${((viewBreakdownData.deductions.afcRate ?? 0) * 100).toFixed(2)}%)`}
+                      value={viewBreakdownData.deductions.afc}
+                      negative
+                    />
+                  )}
+                  {viewBreakdownData.deductions.tax > 0 && (
+                    <DesgloseRow label="Impuesto único" value={viewBreakdownData.deductions.tax} negative />
+                  )}
+                  <DesgloseRow label="Total descuentos" value={viewBreakdownData.totalDeductions} negative bold />
+                </div>
+              </div>
+            </div>
+          ) : viewBreakdownFor && !loadingBreakdown ? (
+            <p className="text-sm text-muted-foreground py-4">No se pudo calcular el desglose.</p>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -488,32 +675,82 @@ export function SueldosRutListClient() {
                 </Button>
 
                 {netEstimate && (
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Bruto</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">Bruto</p>
                         <p className="text-sm font-bold">{formatCLP(netEstimate.grossSalary)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Descuentos</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">Descuentos</p>
                         <p className="text-sm font-bold text-destructive">-{formatCLP(netEstimate.totalDeductions)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Líquido</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">Líquido</p>
                         <p className="text-sm font-bold text-emerald-400">{formatCLP(netEstimate.netSalary)}</p>
                       </div>
+                      {netEstimate.employerCost != null && (
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase">Costo empleador</p>
+                          <p className="text-sm font-bold text-amber-400">{formatCLP(netEstimate.employerCost)}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="border-t border-border/50 pt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-                      <span>Sueldo Base: {formatCLP(netEstimate.breakdown?.baseSalary || formBaseSalary)}</span>
-                      <span>Gratificación: {formatCLP(netEstimate.breakdown?.gratification || 0)}</span>
-                      {formColacion > 0 && <span>Colación: {formatCLP(formColacion)}</span>}
-                      {formMovilizacion > 0 && <span>Movilización: {formatCLP(formMovilizacion)}</span>}
+                    <div className="border-t border-border/50 pt-3 space-y-2 text-xs">
+                      <p className="font-semibold text-[11px] text-muted-foreground uppercase">Haberes imponibles</p>
+                      <div className="space-y-1">
+                        <DesgloseRow label="Sueldo base" value={netEstimate.breakdown?.baseSalary ?? formBaseSalary} />
+                        <DesgloseRow label="Gratificación legal" value={netEstimate.breakdown?.gratification ?? 0} />
+                        {(netEstimate.breakdown?.bonosImponibles ?? 0) > 0 && (
+                          <DesgloseRow label="Bonos imponibles" value={netEstimate.breakdown?.bonosImponibles ?? 0} />
+                        )}
+                        <DesgloseRow label="Total imponible" value={netEstimate.breakdown?.totalTaxable ?? netEstimate.grossSalary} bold />
+                      </div>
                     </div>
-                    <div className="border-t border-border/50 pt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-                      <span>AFP: <strong className="text-destructive">-{formatCLP(netEstimate.deductions.afp)}</strong></span>
-                      <span>Salud: <strong className="text-destructive">-{formatCLP(netEstimate.deductions.health)}</strong></span>
-                      <span>AFC: <strong className="text-destructive">-{formatCLP(netEstimate.deductions.afc)}</strong></span>
-                      <span>Imp. Único: <strong className="text-destructive">-{formatCLP(netEstimate.deductions.tax)}</strong></span>
+                    <div className="border-t border-border/50 pt-3 space-y-2 text-xs">
+                      <p className="font-semibold text-[11px] text-muted-foreground uppercase">Haberes no imponibles</p>
+                      <div className="space-y-1">
+                        {(netEstimate.breakdown?.colacion ?? formColacion) > 0 && (
+                          <DesgloseRow label="Colación" value={netEstimate.breakdown?.colacion ?? formColacion} />
+                        )}
+                        {(netEstimate.breakdown?.movilizacion ?? formMovilizacion) > 0 && (
+                          <DesgloseRow label="Movilización" value={netEstimate.breakdown?.movilizacion ?? formMovilizacion} />
+                        )}
+                        {(netEstimate.breakdown?.bonosNoImponibles ?? 0) > 0 && (
+                          <DesgloseRow label="Bonos no imponibles" value={netEstimate.breakdown?.bonosNoImponibles ?? 0} />
+                        )}
+                        <DesgloseRow label="Total no imponible" value={netEstimate.breakdown?.totalNonTaxable ?? 0} bold />
+                      </div>
+                    </div>
+                    <div className="border-t border-border/50 pt-3 space-y-2 text-xs">
+                      <p className="font-semibold text-[11px] text-muted-foreground uppercase">Descuentos legales</p>
+                      <div className="space-y-1">
+                        {netEstimate.deductions.afp > 0 && (
+                          <DesgloseRow
+                            label={`AFP (${((netEstimate.deductions.afpRate ?? 0) * 100).toFixed(2)}%)`}
+                            value={netEstimate.deductions.afp}
+                            negative
+                          />
+                        )}
+                        {netEstimate.deductions.health > 0 && (
+                          <DesgloseRow
+                            label={`Salud (${((netEstimate.deductions.healthRate ?? 7) * 100).toFixed(1)}%)`}
+                            value={netEstimate.deductions.health}
+                            negative
+                          />
+                        )}
+                        {netEstimate.deductions.afc > 0 && (
+                          <DesgloseRow
+                            label={`AFC (${((netEstimate.deductions.afcRate ?? 0) * 100).toFixed(2)}%)`}
+                            value={netEstimate.deductions.afc}
+                            negative
+                          />
+                        )}
+                        {netEstimate.deductions.tax > 0 && (
+                          <DesgloseRow label="Impuesto único" value={netEstimate.deductions.tax} negative />
+                        )}
+                        <DesgloseRow label="Total descuentos" value={netEstimate.totalDeductions} negative bold />
+                      </div>
                     </div>
                   </div>
                 )}
