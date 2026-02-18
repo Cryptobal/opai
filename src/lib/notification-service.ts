@@ -6,7 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
 import { NOTIFICATION_TYPE_MAP, canSeeNotificationType, type UserNotifPrefsMap } from "@/lib/notification-types";
@@ -90,6 +90,7 @@ export async function sendNotification(input: CreateNotificationInput) {
 
   if (emailRecipients.length > 0) {
     try {
+      const emailConfig = await getTenantEmailConfig(tenantId);
       const category = typeDef?.category;
       const actionLabel = link ? "Ver en OPAI" : undefined;
 
@@ -107,7 +108,8 @@ export async function sendNotification(input: CreateNotificationInput) {
       for (let i = 0; i < emailRecipients.length; i += batchSize) {
         const batch = emailRecipients.slice(i, i + batchSize);
         await resend.emails.send({
-          from: EMAIL_CONFIG.from,
+          from: emailConfig.from,
+          replyTo: emailConfig.replyTo,
           to: batch,
           subject: title,
           html,
@@ -157,6 +159,7 @@ export async function sendNotificationToUser(
 
   if (emailEnabled && user.email) {
     try {
+      const emailConfig = await getTenantEmailConfig(tenantId);
       const html = await render(
         NotificationEmail({
           title,
@@ -167,7 +170,8 @@ export async function sendNotificationToUser(
       );
 
       await resend.emails.send({
-        from: EMAIL_CONFIG.from,
+        from: emailConfig.from,
+        replyTo: emailConfig.replyTo,
         to: user.email,
         subject: title,
         html,

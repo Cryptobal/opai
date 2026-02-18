@@ -6,6 +6,7 @@ import {
   Heading,
   Html,
   Img,
+  Link,
   Preview,
   Section,
   Text,
@@ -73,8 +74,13 @@ export default function NotificationEmail({
           <Hr style={hr} />
 
           <Text style={footnote}>
-            Esta notificación fue enviada desde OPAI. Puedes configurar qué
-            notificaciones recibes desde tu perfil en la plataforma.
+            Esta notificación fue enviada desde OPAI.{" "}
+            <Link
+              href={`${SITE_URL}/opai/perfil/notificaciones`}
+              style={footnoteLink}
+            >
+              Editar tus notificaciones
+            </Link>
           </Text>
         </Container>
       </Body>
@@ -150,4 +156,8 @@ const footnote = {
   lineHeight: "1.5",
   padding: "16px 28px",
   margin: "0",
+};
+const footnoteLink = {
+  color: "#00d4aa",
+  textDecoration: "underline",
 };

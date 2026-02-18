@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, Check, Loader2, Save } from "lucide-react";
+import { Building, Loader2, Mail, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,12 @@ const FIELDS = [
   { key: "empresa.telefono", label: "Teléfono", placeholder: "Ej: +56 2 1234 5678" },
   { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Jorge Andrés Montenegro Fuenzalida" },
   { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 13.051.246-1" },
+];
+
+const EMAIL_FIELDS = [
+  { key: "empresa.emailFromName", label: "Nombre del remitente", placeholder: "Ej: OPAI", help: "El nombre que aparece en el email (ej: 'OPAI')" },
+  { key: "empresa.emailFrom", label: "Correo de envío (From)", placeholder: "Ej: opai@gard.cl", help: "Dirección desde la cual se envían los correos. Debe estar verificada en Resend." },
+  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@gard.cl", help: "Cuando alguien responde un email, la respuesta llega a esta dirección." },
 ];
 
 export default function EmpresaConfigPage() {
@@ -101,6 +107,41 @@ export default function EmpresaConfigPage() {
                 )}
                 Guardar configuración
               </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Correo electrónico</h3>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Configura desde qué dirección se envían los correos de OPAI (notificaciones, invitaciones, alertas) y a qué dirección llegan las respuestas.
+            </p>
+
+            <div className="grid gap-4">
+              {EMAIL_FIELDS.map((field) => (
+                <div key={field.key}>
+                  <Label className="text-xs">{field.label}</Label>
+                  <Input
+                    value={form[field.key] ?? ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="mt-1 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Ejemplo de cómo se ve:</p>
+              <p>
+                De: <span className="text-foreground font-mono">{form["empresa.emailFromName"] || "OPAI"} &lt;{form["empresa.emailFrom"] || "opai@gard.cl"}&gt;</span>
+              </p>
+              <p>
+                Responder a: <span className="text-foreground font-mono">{form["empresa.emailReplyTo"] || "comercial@gard.cl"}</span>
+              </p>
             </div>
           </div>
 
