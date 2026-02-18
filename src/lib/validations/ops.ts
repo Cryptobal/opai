@@ -352,10 +352,8 @@ export const createGuardiaTeSchema = z
     accountType: z.enum(BANK_ACCOUNT_TYPES),
     accountNumber: z.string().trim().min(4, "Número de cuenta requerido").max(100),
     holderName: z.string().trim().min(3).max(150).optional(),
-    os10: z.boolean({ required_error: "Indica si tiene credencial OS-10" }),
-    estadoUniforme: z.enum(["completo", "incompleto"], {
-      required_error: "Indica estado del uniforme",
-    }),
+    os10: z.boolean(),
+    estadoUniforme: z.enum(["completo", "incompleto"]),
     prendasFaltantes: z.string().trim().max(500).optional().nullable(),
     validadoAntecedentes: z.boolean().optional().nullable(),
     notaEvaluacion: z.enum(["bueno", "regular", "malo"]).optional().nullable(),
