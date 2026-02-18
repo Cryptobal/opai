@@ -135,7 +135,6 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     contratado: "Contratado",
     te: "Turno Extra",
     inactivo: "Inactivo",
-    desvinculado: "Desvinculado",
   };
 
   const LIFECYCLE_COLORS: Record<string, string> = {
@@ -144,8 +143,10 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     contratado: "bg-cyan-500/15 text-cyan-400",
     te: "bg-violet-500/15 text-violet-400",
     inactivo: "bg-muted text-muted-foreground",
-    desvinculado: "bg-red-500/15 text-red-400",
   };
+
+  const [contractDateModal, setContractDateModal] = useState<{ item: GuardiaItem; nextStatus: string } | null>(null);
+  const [contractDate, setContractDate] = useState("");
 
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
     cuenta_corriente: "Cuenta corriente",
@@ -303,12 +304,23 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   const handleLifecycleChange = async (item: GuardiaItem, lifecycleStatus: string) => {
+    if (lifecycleStatus === "contratado") {
+      setContractDateModal({ item, nextStatus: lifecycleStatus });
+      setContractDate(new Date().toISOString().slice(0, 10));
+      return;
+    }
+    await doLifecycleChange(item, lifecycleStatus, undefined);
+  };
+
+  const doLifecycleChange = async (item: GuardiaItem, lifecycleStatus: string, effectiveAt?: string) => {
     setUpdatingId(item.id);
     try {
+      const body: { lifecycleStatus: string; effectiveAt?: string } = { lifecycleStatus };
+      if (effectiveAt) body.effectiveAt = effectiveAt;
       const response = await fetch(`/api/personas/guardias/${item.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycleStatus }),
+        body: JSON.stringify(body),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -326,12 +338,21 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
         )
       );
       toast.success("Estado laboral actualizado");
+      setContractDateModal(null);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo actualizar estado laboral");
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleConfirmContractDate = () => {
+    if (!contractDateModal || !contractDate) {
+      toast.error("Selecciona la fecha de inicio de contrato");
+      return;
+    }
+    void doLifecycleChange(contractDateModal.item, contractDateModal.nextStatus, contractDate);
   };
 
   const handleOpenPublicPostulacion = async () => {
@@ -626,6 +647,36 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   {saving ? "Guardando..." : "Agregar guardia"}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!contractDateModal} onOpenChange={(open) => !open && setContractDateModal(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Fecha de inicio de contrato</DialogTitle>
+              <DialogDescription>
+                Indica la fecha en que inicia el contrato de este guardia.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fecha de inicio</label>
+                <Input
+                  type="date"
+                  value={contractDate}
+                  onChange={(e) => setContractDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setContractDateModal(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmContractDate} disabled={updatingId === contractDateModal?.item.id}>
+                {updatingId === contractDateModal?.item.id ? "Guardando..." : "Confirmar"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

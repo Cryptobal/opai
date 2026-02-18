@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         data: {
           terminatedAt: new Date(body.finiquitoDate),
           terminationReason: body.causalDtLabel ?? "Finiquito",
-          lifecycleStatus: "desvinculado",
+          lifecycleStatus: "inactivo",
         },
       });
     }

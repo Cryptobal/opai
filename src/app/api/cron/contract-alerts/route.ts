@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const guardias = await prisma.opsGuardia.findMany({
       where: {
         contractType: "plazo_fijo",
-        lifecycleStatus: { notIn: ["desvinculado"] },
+        lifecycleStatus: { notIn: ["inactivo"] },
       },
       select: {
         id: true,

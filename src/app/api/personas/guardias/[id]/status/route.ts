@@ -29,23 +29,36 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
+    // Contratado requiere effectiveAt: nuevo contrato (!hiredAt) o recontratación (inactivo con finiquito)
+    const needsContractDate =
+      body.lifecycleStatus === "contratado" &&
+      (!existing.hiredAt || (existing.lifecycleStatus === "inactivo" && existing.terminatedAt));
+    if (needsContractDate && !body.effectiveAt) {
+      return NextResponse.json(
+        { success: false, error: "Fecha de inicio de contrato (effectiveAt) es requerida" },
+        { status: 400 }
+      );
+    }
+
     const effectiveAt = body.effectiveAt ? parseDateOnly(body.effectiveAt) : new Date();
     const terminationReason = normalizeNullable(body.reason);
 
     const updated = await prisma.$transaction(async (tx) => {
+      const isRecontratar = body.lifecycleStatus === "contratado" && existing.lifecycleStatus === "inactivo" && existing.terminatedAt;
+
       const guardia = await tx.opsGuardia.update({
         where: { id },
         data: {
           lifecycleStatus: body.lifecycleStatus,
           status: lifecycleToLegacyStatus(body.lifecycleStatus),
           hiredAt:
-            body.lifecycleStatus === "contratado" && !existing.hiredAt
+            body.lifecycleStatus === "contratado" && (!existing.hiredAt || isRecontratar)
               ? effectiveAt
               : body.lifecycleStatus === "contratado"
                 ? existing.hiredAt
                 : undefined,
-          terminatedAt: body.lifecycleStatus === "desvinculado" ? effectiveAt : undefined,
-          terminationReason: body.lifecycleStatus === "desvinculado" ? terminationReason : undefined,
+          terminatedAt: body.lifecycleStatus === "contratado" && isRecontratar ? null : undefined,
+          terminationReason: body.lifecycleStatus === "contratado" && isRecontratar ? null : undefined,
         },
         include: {
           persona: { select: { firstName: true, lastName: true, rut: true } },

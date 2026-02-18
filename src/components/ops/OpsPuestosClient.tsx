@@ -40,7 +40,6 @@ const LIFECYCLE_COLORS: Record<string, string> = {
   contratado: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   te: "bg-violet-500/15 text-violet-300 border-violet-500/30",
   inactivo: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  desvinculado: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
 const LIFECYCLE_LABELS: Record<string, string> = {
@@ -49,7 +48,6 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   contratado: "Contratado",
   te: "Turno Extra",
   inactivo: "Inactivo",
-  desvinculado: "Desvinculado",
 };
 
 const MESES_SHORT = [

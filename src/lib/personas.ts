@@ -4,7 +4,6 @@ export const GUARDIA_LIFECYCLE_STATUSES = [
   "contratado",
   "te", // Turno Extra — ingreso rápido para cubrir ausencias
   "inactivo",
-  "desvinculado",
 ] as const;
 
 export type GuardiaLifecycleStatus = (typeof GUARDIA_LIFECYCLE_STATUSES)[number];
@@ -13,11 +12,10 @@ export type GuardiaLifecycleStatus = (typeof GUARDIA_LIFECYCLE_STATUSES)[number]
 export function getLifecycleTransitions(currentStatus: string): GuardiaLifecycleStatus[] {
   const s = currentStatus.toLowerCase();
   if (s === "postulante") return ["seleccionado", "te", "inactivo", "contratado"];
-  if (s === "seleccionado") return ["contratado", "inactivo", "desvinculado"];
-  if (s === "te") return ["contratado", "inactivo", "desvinculado"];
-  if (s === "contratado") return ["inactivo", "desvinculado"];
+  if (s === "seleccionado") return ["contratado", "inactivo", "te"];
+  if (s === "te") return ["contratado", "inactivo"];
+  if (s === "contratado") return []; // Solo vía finiquito → inactivo
   if (s === "inactivo") return ["contratado", "te"];
-  if (s === "desvinculado") return [];
   return [];
 }
 

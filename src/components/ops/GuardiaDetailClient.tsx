@@ -26,6 +26,7 @@ import {
   Send,
   Trash2,
   Upload,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -225,7 +227,6 @@ function lifecycleBadgeVariant(
   const normalized = value.toLowerCase();
   if (normalized.includes("activo") || normalized === "contratado") return "success";
   if (normalized.includes("inactivo")) return "warning";
-  if (normalized.includes("desvinculado")) return "destructive";
   return "secondary";
 }
 
@@ -235,7 +236,6 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   contratado: "Contratado",
   te: "Turno Extra",
   inactivo: "Inactivo",
-  desvinculado: "Desvinculado",
 };
 
 export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId }: GuardiaDetailClientProps) {
@@ -339,8 +339,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [loadingDocLinks, setLoadingDocLinks] = useState(false);
   const [linkingDoc, setLinkingDoc] = useState(false);
   const [unlinkingDocId, setUnlinkingDocId] = useState<string | null>(null);
-  const [desvinculando, setDesvinculando] = useState(false);
   const [lifecycleChanging, setLifecycleChanging] = useState(false);
+  const [contractDateModalOpen, setContractDateModalOpen] = useState(false);
+  const [contractDate, setContractDate] = useState("");
+  const [pendingLifecycleStatus, setPendingLifecycleStatus] = useState<string | null>(null);
+  const [recontratarModalOpen, setRecontratarModalOpen] = useState(false);
+  const [recontratarDate, setRecontratarDate] = useState("");
   const [linkForm, setLinkForm] = useState({
     documentId: "",
     role: "related",
@@ -733,12 +737,25 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
   const handleLifecycleChange = async (nextStatus: string) => {
     if (lifecycleChanging) return;
+    if (nextStatus === "contratado") {
+      setContractDate(new Date().toISOString().slice(0, 10));
+      setPendingLifecycleStatus(nextStatus);
+      setContractDateModalOpen(true);
+      return;
+    }
+    await doLifecycleChange(nextStatus, undefined);
+  };
+
+  const doLifecycleChange = async (nextStatus: string, effectiveAt?: string) => {
+    if (lifecycleChanging) return;
     setLifecycleChanging(true);
     try {
+      const body: { lifecycleStatus: string; effectiveAt?: string } = { lifecycleStatus: nextStatus };
+      if (effectiveAt) body.effectiveAt = effectiveAt;
       const response = await fetch(`/api/personas/guardias/${guardia.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycleStatus: nextStatus }),
+        body: JSON.stringify(body),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -752,6 +769,9 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         terminatedAt: payload.data.terminatedAt ?? prev.terminatedAt,
       }));
       toast.success("Estado actualizado");
+      setContractDateModalOpen(false);
+      setPendingLifecycleStatus(null);
+      setRecontratarModalOpen(false);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo actualizar el estado");
@@ -760,38 +780,20 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     }
   };
 
-  const handleDesvincular = async () => {
-    if (desvinculando) return;
-    if (
-      !window.confirm(
-        "¿Desvincular a este guardia? Se registrará como desvinculado y ya no podrá ser asignado a puestos."
-      )
-    )
+  const handleConfirmContractDate = () => {
+    if (!pendingLifecycleStatus || !contractDate) {
+      toast.error("Selecciona la fecha de inicio de contrato");
       return;
-    setDesvinculando(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardia.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycleStatus: "desvinculado" }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo desvincular");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        lifecycleStatus: "desvinculado",
-        status: "desvinculado",
-      }));
-      toast.success("Guardia desvinculado");
-      router.push("/personas/guardias");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo desvincular al guardia");
-    } finally {
-      setDesvinculando(false);
     }
+    void doLifecycleChange(pendingLifecycleStatus, contractDate);
+  };
+
+  const handleConfirmRecontratar = () => {
+    if (!recontratarDate) {
+      toast.error("Selecciona la fecha de recontratación");
+      return;
+    }
+    void doLifecycleChange("contratado", recontratarDate);
   };
 
   const handleEliminar = async () => {
@@ -2094,16 +2096,20 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   ];
 
   const recordActions: RecordAction[] = [];
-  const puedeDesvincular =
+  const puedeRecontratar =
     canManageGuardias &&
-    guardia.lifecycleStatus !== "desvinculado";
+    guardia.lifecycleStatus === "inactivo" &&
+    guardia.terminatedAt;
 
-  if (puedeDesvincular) {
+  if (puedeRecontratar) {
     recordActions.push({
-      label: "Desvincular guardia",
-      icon: Trash2,
-      variant: "destructive",
-      onClick: () => void handleDesvincular(),
+      label: "Recontratar guardia",
+      icon: UserPlus,
+      variant: "default",
+      onClick: () => {
+        setRecontratarDate(new Date().toISOString().slice(0, 10));
+        setRecontratarModalOpen(true);
+      },
     });
   }
 
@@ -2168,6 +2174,68 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         }
         sections={sections}
       />
+
+      {/* ── Modal fecha de contrato (al pasar a Contratado) ── */}
+      <Dialog open={contractDateModalOpen} onOpenChange={setContractDateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fecha de inicio de contrato</DialogTitle>
+            <DialogDescription>
+              Indica la fecha en que inicia el contrato de este guardia.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Fecha de inicio</Label>
+              <Input
+                type="date"
+                value={contractDate}
+                onChange={(e) => setContractDate(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContractDateModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmContractDate} disabled={lifecycleChanging}>
+              {lifecycleChanging ? "Guardando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal recontratar (inactivo con finiquito) ── */}
+      <Dialog open={recontratarModalOpen} onOpenChange={setRecontratarModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recontratar guardia</DialogTitle>
+            <DialogDescription>
+              ¿Desea recontratar a este guardia? Indique la fecha de inicio del nuevo contrato.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Fecha de recontratación</Label>
+              <Input
+                type="date"
+                value={recontratarDate}
+                onChange={(e) => setRecontratarDate(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecontratarModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmRecontratar} disabled={lifecycleChanging}>
+              {lifecycleChanging ? "Guardando..." : "Recontratar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Personal Data Modal ── */}
       <Dialog open={editPersonalOpen} onOpenChange={setEditPersonalOpen}>

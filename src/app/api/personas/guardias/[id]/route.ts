@@ -168,15 +168,11 @@ export async function PATCH(
           terminatedAt:
             body.terminatedAt !== undefined
               ? toNullableDate(body.terminatedAt)
-              : nextLifecycle === "desvinculado" && !existing.terminatedAt
-                ? new Date()
-                : undefined,
+              : undefined,
           terminationReason:
             body.terminationReason !== undefined
               ? normalizeNullable(body.terminationReason)
-              : nextLifecycle === "desvinculado" && existing.lifecycleStatus !== "desvinculado"
-                ? "Desvinculación registrada"
-                : undefined,
+              : undefined,
           availableExtraShifts:
             body.availableExtraShifts ?? undefined,
         },
