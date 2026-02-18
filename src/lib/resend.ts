@@ -27,6 +27,10 @@ export interface TenantEmailConfig {
 const tenantEmailCache = new Map<string, { config: TenantEmailConfig; ts: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
+export function clearTenantEmailConfigCache(tenantId: string): void {
+  tenantEmailCache.delete(tenantId);
+}
+
 /**
  * Resuelve la configuración de email para un tenant.
  * Lee de Settings (empresa.emailFrom, etc.) con cache de 5min.
@@ -38,14 +42,26 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
 
   try {
     const { prisma } = await import("@/lib/prisma");
-    const settings = await prisma.setting.findMany({
-      where: {
-        tenantId,
-        key: { in: ["empresa.emailFrom", "empresa.emailFromName", "empresa.emailReplyTo"] },
-      },
+    const newKeys = [
+      `empresa:${tenantId}:empresa.emailFrom`,
+      `empresa:${tenantId}:empresa.emailFromName`,
+      `empresa:${tenantId}:empresa.emailReplyTo`,
+    ];
+    let settings = await prisma.setting.findMany({
+      where: { tenantId, key: { in: newKeys } },
     });
+    if (settings.length === 0) {
+      settings = await prisma.setting.findMany({
+        where: { tenantId, key: { in: ["empresa.emailFrom", "empresa.emailFromName", "empresa.emailReplyTo"] } },
+      });
+    }
 
-    const map = new Map(settings.map((s) => [s.key, s.value]));
+    const map = new Map(
+      settings.map((s) => [
+        s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
+        s.value,
+      ])
+    );
     const emailAddr = map.get("empresa.emailFrom");
     const emailName = map.get("empresa.emailFromName");
     const replyTo = map.get("empresa.emailReplyTo");

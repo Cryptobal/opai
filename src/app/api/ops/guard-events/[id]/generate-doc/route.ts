@@ -83,10 +83,19 @@ export async function POST(
       );
     }
 
-    // 4. Load empresa settings
-    const empresaSettings = await prisma.setting.findMany({
-      where: { tenantId: ctx.tenantId, key: { startsWith: "empresa." } },
+    // 4. Load empresa settings (nuevo formato empresa:tenantId:empresa.xxx o antiguo empresa.xxx)
+    let rawEmpresa = await prisma.setting.findMany({
+      where: { tenantId: ctx.tenantId, key: { startsWith: `empresa:${ctx.tenantId}:` } },
     });
+    if (rawEmpresa.length === 0) {
+      rawEmpresa = await prisma.setting.findMany({
+        where: { tenantId: ctx.tenantId, key: { startsWith: "empresa." } },
+      });
+    }
+    const empresaSettings = rawEmpresa.map((s) => ({
+      key: s.key.includes(":") ? s.key.replace(`empresa:${ctx.tenantId}:`, "") : s.key,
+      value: s.value,
+    }));
     const empresaData = buildEmpresaEntityData(empresaSettings);
 
     // 5. Build guard data with cargo from assignment

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { clearTenantEmailConfigCache } from "@/lib/resend";
 
 const EMPRESA_KEYS = [
   "empresa.razonSocial",
@@ -16,24 +17,34 @@ const EMPRESA_KEYS = [
   "empresa.emailReplyTo",
 ];
 
+function settingKey(tenantId: string, key: string): string {
+  return `empresa:${tenantId}:${key}`;
+}
+
 /**
- * GET /api/configuracion/empresa — Get company settings
+ * GET /api/configuracion/empresa — Get company settings (por tenant)
+ * Soporta keys nuevas (empresa:tenantId:empresa.xxx) y antiguas (empresa.xxx) para migración.
  */
 export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    const settings = await prisma.setting.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        key: { in: EMPRESA_KEYS },
-      },
+    const newKeys = EMPRESA_KEYS.map((k) => settingKey(ctx.tenantId, k));
+    let settings = await prisma.setting.findMany({
+      where: { tenantId: ctx.tenantId, key: { in: newKeys } },
     });
+
+    if (settings.length === 0) {
+      settings = await prisma.setting.findMany({
+        where: { tenantId: ctx.tenantId, key: { in: EMPRESA_KEYS } },
+      });
+    }
 
     const data: Record<string, string> = {};
     for (const s of settings) {
-      data[s.key] = s.value;
+      const shortKey = s.key.includes(":") ? s.key.replace(`empresa:${ctx.tenantId}:`, "") : s.key;
+      data[shortKey] = s.value;
     }
 
     return NextResponse.json({ success: true, data });
@@ -47,15 +58,14 @@ export async function GET() {
 }
 
 /**
- * PATCH /api/configuracion/empresa — Update company settings
- * Body: { "empresa.razonSocial": "...", "empresa.rut": "...", ... }
+ * PATCH /api/configuracion/empresa — Update company settings (por tenant)
+ * Body: { "empresa.razonSocial": "...", "empresa.emailFrom": "...", ... }
  */
 export async function PATCH(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    // Only owner/admin can update
     if (!["owner", "admin"].includes(ctx.userRole ?? "")) {
       return NextResponse.json(
         { success: false, error: "Solo administradores pueden modificar esta configuración" },
@@ -65,23 +75,26 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
 
-    for (const key of EMPRESA_KEYS) {
-      if (body[key] !== undefined) {
+    for (const shortKey of EMPRESA_KEYS) {
+      if (body[shortKey] !== undefined) {
+        const key = settingKey(ctx.tenantId, shortKey);
         await prisma.setting.upsert({
           where: { key },
           create: {
             key,
-            value: String(body[key]),
+            value: String(body[shortKey]),
             type: "string",
             category: "empresa",
             tenantId: ctx.tenantId,
           },
           update: {
-            value: String(body[key]),
+            value: String(body[shortKey]),
           },
         });
       }
     }
+
+    clearTenantEmailConfigCache(ctx.tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

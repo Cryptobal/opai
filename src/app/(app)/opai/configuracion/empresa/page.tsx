@@ -143,6 +143,17 @@ export default function EmpresaConfigPage() {
                 Responder a: <span className="text-foreground font-mono">{form["empresa.emailReplyTo"] || "comercial@gard.cl"}</span>
               </p>
             </div>
+
+            <div className="pt-2">
+              <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Guardar correo de envío y respuesta
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
