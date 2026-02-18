@@ -476,11 +476,15 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     // Build installations from lead data
     const leadLat = meta?.lat as number | undefined;
     const leadLng = meta?.lng as number | undefined;
+    const leadAddress = ((lead as any).address || "").trim();
+    const leadCommune = ((lead as any).commune || "").trim();
+    const leadCity = ((lead as any).city || "").trim();
+    const instAddress = leadAddress || [leadCommune, leadCity].filter(Boolean).join(", ");
     const firstInst = createEmptyInstallation(
       lead.companyName || "",
-      (lead as any).address || "",
-      (lead as any).city || "",
-      (lead as any).commune || "",
+      instAddress,
+      leadCity,
+      leadCommune,
     );
     if (leadLat != null) firstInst.lat = leadLat;
     if (leadLng != null) firstInst.lng = leadLng;
@@ -600,7 +604,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.success("Información de la empresa completada desde la web.");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo traer datos de la empresa.");
+      const detail = error instanceof Error ? error.message : "";
+      toast.error(detail || "No se pudo traer datos de la empresa. Verifica que la URL sea correcta e intenta de nuevo.");
     } finally {
       setEnrichingCompanyInfo(false);
     }
@@ -962,6 +967,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           <DetailField label="Teléfono" value={lead.phone} mono copyable />
           <DetailField label="Fuente" value={getSourceLabel(lead.source)} />
           <DetailField label="Industria" value={lead.industry} />
+          {((lead as any).address || (lead as any).commune || (lead as any).city) && (
+            <DetailField label="Dirección" value={[(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ")} />
+          )}
         </DetailFieldGrid>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">

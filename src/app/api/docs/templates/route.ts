@@ -40,7 +40,7 @@ const WA_SEEDS: {
     name: "WhatsApp — Nuevo lead (cliente a Gard)",
     category: "lead_client",
     description: "Mensaje prellenado que el cliente ve al hacer clic en WhatsApp del email de confirmación.",
-    body: `Hola, soy {nombre} {apellido} de la empresa {empresa}.`,
+    body: `Hola, soy {nombre} {apellido} de la empresa {empresa}, les solicité una cotización por la página.\n\n{maps_link}`,
   },
   {
     slug: "proposal_sent",

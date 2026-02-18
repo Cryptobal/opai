@@ -286,49 +286,86 @@ async function downloadLogoToPublic(logoUrl: string): Promise<string | null> {
   return `/uploads/company-logos/${fileName}`;
 }
 
-async function scrapeWebsite(websiteNormalized: string, companyName: string): Promise<ExtractedWebData> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
-  try {
-    const response = await fetch(websiteNormalized, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      throw new Error(`No se pudo leer el sitio (${response.status}).`);
-    }
-    const html = await response.text();
-    const title = stripHtml(firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i));
-    const metaDescription = stripHtml(
-      firstMatch(
-        html,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i
-      )
-    );
-    const headings = collectRegexMatches(html, /<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, 6);
-    const paragraphs = collectRegexMatches(html, /<p[^>]*>([\s\S]*?)<\/p>/gi, 10).filter(
-      (p) => p.length > 40
-    );
-    const logoCandidates = detectLogoCandidates(html, websiteNormalized, companyName);
-    const logoUrl = pickBestLogoCandidate(logoCandidates);
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-    return {
-      websiteNormalized,
-      title,
-      metaDescription,
-      headings,
-      paragraphs,
-      logoUrl,
-    };
-  } finally {
-    clearTimeout(timeout);
+async function fetchWithRetry(
+  url: string,
+  maxAttempts = 2,
+  timeoutMs = 20000,
+): Promise<string> {
+  const userAgents = [
+    "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
+    BROWSER_UA,
+  ];
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "User-Agent": userAgents[attempt % userAgents.length],
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-CL,es;q=0.9,en;q=0.5",
+        },
+        cache: "no-store",
+        redirect: "follow",
+      });
+      if (!res.ok) {
+        const hint =
+          res.status === 403 ? "El sitio bloqueó la solicitud"
+          : res.status === 503 ? "El sitio no está disponible temporalmente"
+          : res.status >= 500 ? "Error del servidor remoto"
+          : `HTTP ${res.status}`;
+        throw new Error(`${hint} (${res.status}).`);
+      }
+      return await res.text();
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (lastError.name === "AbortError") {
+        lastError = new Error(
+          "El sitio web demoró demasiado en responder. Intenta nuevamente o verifica que la URL sea correcta.",
+        );
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  throw lastError ?? new Error("No se pudo leer el sitio web.");
+}
+
+async function scrapeWebsite(websiteNormalized: string, companyName: string): Promise<ExtractedWebData> {
+  const html = await fetchWithRetry(websiteNormalized);
+
+  const title = stripHtml(firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i));
+  const metaDescription = stripHtml(
+    firstMatch(
+      html,
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    )
+  );
+  const headings = collectRegexMatches(html, /<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, 6);
+  const paragraphs = collectRegexMatches(html, /<p[^>]*>([\s\S]*?)<\/p>/gi, 10).filter(
+    (p) => p.length > 40
+  );
+  const logoCandidates = detectLogoCandidates(html, websiteNormalized, companyName);
+  const logoUrl = pickBestLogoCandidate(logoCandidates);
+
+  return {
+    websiteNormalized,
+    title,
+    metaDescription,
+    headings,
+    paragraphs,
+    logoUrl,
+  };
 }
 
 function normalizeWhitespace(value: string): string {

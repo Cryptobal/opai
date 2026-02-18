@@ -334,7 +334,8 @@ export function CrmAccountDetailClient({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo traer datos de la empresa.");
+      const detail = error instanceof Error ? error.message : "";
+      toast.error(detail || "No se pudo traer datos de la empresa. Verifica que la URL sea correcta e intenta de nuevo.");
     } finally {
       setEnrichingCompanyInfo(false);
     }

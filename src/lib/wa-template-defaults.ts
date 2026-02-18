@@ -36,8 +36,10 @@ http://gard.cl`,
   },
   lead_client: {
     name: "Nuevo lead — Cliente a Gard",
-    body: `Hola, soy {nombre} {apellido} de la empresa {empresa}.`,
-    tokens: ["{nombre}", "{apellido}", "{empresa}"],
+    body: `Hola, soy {nombre} {apellido} de la empresa {empresa}, les solicité una cotización por la página.
+
+{maps_link}`,
+    tokens: ["{nombre}", "{apellido}", "{empresa}", "{direccion}", "{maps_link}"],
   },
   proposal_sent: {
     name: "Propuesta enviada",

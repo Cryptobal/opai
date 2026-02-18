@@ -165,6 +165,13 @@ export async function POST(request: NextRequest) {
         ? data.dotacion.map((d) => `${d.puesto}: ${d.cantidad} guardia(s)`).join("; ")
         : "";
 
+    const mapsLink =
+      data.lat != null && data.lng != null
+        ? `https://www.google.com/maps/@${data.lat},${data.lng},17z`
+        : data.direccion
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.direccion)}`
+          : "";
+
     // Token values for lead WhatsApp templates
     const leadTokenValues: Record<string, string> = {
       nombre: data.nombre,
@@ -180,6 +187,7 @@ export async function POST(request: NextRequest) {
       pagina_web: data.pagina_web || "",
       industria: data.industria || "",
       detalle: data.detalle || "",
+      maps_link: mapsLink,
     };
 
     // Resolver templates desde la BD (o DocTemplate whatsapp, o defaults)
