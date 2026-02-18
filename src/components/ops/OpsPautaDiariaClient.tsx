@@ -28,6 +28,7 @@ type ClientOption = {
 type GuardiaOption = {
   id: string;
   code?: string | null;
+  lifecycleStatus?: string;
   persona: { firstName: string; lastName: string; rut?: string | null };
 };
 
@@ -67,16 +68,19 @@ type AsistenciaItem = {
   plannedGuardia?: {
     id: string;
     code?: string | null;
+    lifecycleStatus?: string;
     persona: { firstName: string; lastName: string };
   } | null;
   actualGuardia?: {
     id: string;
     code?: string | null;
+    lifecycleStatus?: string;
     persona: { firstName: string; lastName: string };
   } | null;
   replacementGuardia?: {
     id: string;
     code?: string | null;
+    lifecycleStatus?: string;
     persona: { firstName: string; lastName: string };
   } | null;
   turnosExtra?: Array<{
@@ -476,10 +480,15 @@ export function OpsPautaDiariaClient({
                       <div className="flex items-center gap-2 text-sm min-w-0">
                         <span className="text-xs text-muted-foreground shrink-0 md:hidden">Planificado</span>
                         {item.plannedGuardia ? (
-                          <span className="truncate">
+                          <span className="truncate flex items-center gap-2">
                             {item.plannedGuardia.persona.firstName} {item.plannedGuardia.persona.lastName}
                             {item.plannedGuardia.code && (
-                              <span className="text-xs text-muted-foreground ml-1">({item.plannedGuardia.code})</span>
+                              <span className="text-xs text-muted-foreground">({item.plannedGuardia.code})</span>
+                            )}
+                            {item.plannedGuardia.lifecycleStatus === "te" && (
+                              <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400 shrink-0">
+                                TE
+                              </span>
                             )}
                           </span>
                         ) : (
@@ -492,10 +501,15 @@ export function OpsPautaDiariaClient({
                         <span className="text-xs text-muted-foreground md:hidden">Reemplazo</span>
                         <div className="mt-1 md:mt-0 md:min-w-0 md:w-full">
                           {item.attendanceStatus === "reemplazo" && item.replacementGuardia ? (
-                            <div>
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-rose-300">
                                 {item.replacementGuardia.persona.firstName} {item.replacementGuardia.persona.lastName}
                               </span>
+                              {item.replacementGuardia.lifecycleStatus === "te" && (
+                                <span className="inline-flex items-center rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-400">
+                                  TE
+                                </span>
+                              )}
                               {te && (
                                 <span className="text-xs text-amber-400 ml-2">
                                   TE {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
@@ -556,8 +570,15 @@ export function OpsPautaDiariaClient({
                                               setReplacementSearch("");
                                             }}
                                           >
-                                            {g.persona.firstName} {g.persona.lastName}
-                                            {g.code ? ` (${g.code})` : ""}
+                                            <span className="flex items-center gap-2">
+                                              {g.persona.firstName} {g.persona.lastName}
+                                              {g.code ? ` (${g.code})` : ""}
+                                              {g.lifecycleStatus === "te" && (
+                                                <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                                                  TE
+                                                </span>
+                                              )}
+                                            </span>
                                           </button>
                                         </li>
                                       ))}
@@ -892,8 +913,15 @@ export function OpsPautaDiariaClient({
                         setReplacementSearch("");
                       }}
                     >
-                      {g.persona.firstName} {g.persona.lastName}
-                      {g.code ? ` (${g.code})` : ""}
+                      <span className="flex items-center gap-2">
+                        {g.persona.firstName} {g.persona.lastName}
+                        {g.code ? ` (${g.code})` : ""}
+                        {g.lifecycleStatus === "te" && (
+                          <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                            TE
+                          </span>
+                        )}
+                      </span>
                     </button>
                   </li>
                 ))}

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2 } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2, UserPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +126,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     postulante: "Postulante",
     seleccionado: "Seleccionado",
     contratado_activo: "Contratado activo",
+    te: "Turno Extra",
     inactivo: "Inactivo",
     desvinculado: "Desvinculado",
   };
@@ -134,6 +135,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     postulante: "bg-blue-500/15 text-blue-400",
     seleccionado: "bg-amber-500/15 text-amber-400",
     contratado_activo: "bg-cyan-500/15 text-cyan-400",
+    te: "bg-violet-500/15 text-violet-400",
     inactivo: "bg-muted text-muted-foreground",
     desvinculado: "bg-red-500/15 text-red-400",
   };
@@ -144,6 +146,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     cuenta_rut: "Cuenta RUT",
   };
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canIngresoTe =
+    hasOpsCapability(userRole, "guardias_manage") ||
+    hasOpsCapability(userRole, "guardias_te_ingreso");
   
 
   const filtered = useMemo(() => {
@@ -342,7 +347,20 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 flex-wrap">
+        {canIngresoTe && (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            asChild
+          >
+            <Link href="/personas/guardias/ingreso-te">
+              <UserPlus className="h-3.5 w-3.5 mr-1" />
+              Ingreso rápido TE
+            </Link>
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"

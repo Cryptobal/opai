@@ -192,6 +192,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            lifecycleStatus: true,
             persona: { select: { firstName: true, lastName: true, rut: true } },
           },
         },
@@ -199,6 +200,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            lifecycleStatus: true,
             persona: { select: { firstName: true, lastName: true, rut: true } },
           },
         },
@@ -206,6 +208,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            lifecycleStatus: true,
             persona: { select: { firstName: true, lastName: true, rut: true } },
           },
         },

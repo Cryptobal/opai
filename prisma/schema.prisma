@@ -1797,6 +1797,15 @@ model OpsGuardia {
   contractBecameIndefinidoAt DateTime? @map("contract_became_indefinido_at") @db.Date
   contractAlertDaysBefore   Int?      @default(5) @map("contract_alert_days_before") // Días hábiles antes para alertar
 
+  // ── TE (Turno Extra) quick-entry fields ──
+  os10                    Boolean?   @map("os10") // Credencial OS-10: Sí/No
+  estadoUniforme          String?    @map("estado_uniforme") // "completo" | "incompleto"
+  prendasFaltantes        String?    @map("prendas_faltantes") @db.Text
+  validadoAntecedentes    Boolean?   @map("validado_antecedentes") // Solo Admin/RRHH pueden editar
+  notaEvaluacion          String?    @map("nota_evaluacion") // "bueno" | "regular" | "malo"
+  comentarioEvaluacion    String?    @map("comentario_evaluacion") @db.Text
+  teRegistradoPor         String?    @map("te_registrado_por") // Admin ID del supervisor que ingresó
+
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

@@ -315,6 +315,62 @@ export const createGuardiaDocumentSchema = z.object({
 
 export const updateGuardiaDocumentSchema = createGuardiaDocumentSchema.partial();
 
+/** Schema para ingreso rápido de guardia Turno Extra (TE) */
+export const createGuardiaTeSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "Nombre es requerido").max(100),
+    lastName: z.string().trim().min(1, "Apellido es requerido").max(100),
+    rut: z
+      .string()
+      .trim()
+      .refine((v) => isChileanRutFormat(v), "RUT debe ir sin puntos y con guión (ej: 12345678-5)")
+      .refine((v) => isValidChileanRut(v), "RUT chileno inválido (dígito verificador incorrecto)")
+      .transform((v) => normalizeRut(v)),
+    addressFormatted: z.string().trim().min(5, "Dirección es requerida").max(300),
+    googlePlaceId: z.string().trim().min(10).max(200).optional().nullable(),
+    commune: z.string().trim().max(120).optional().nullable(),
+    city: z.string().trim().max(120).optional().nullable(),
+    region: z.string().trim().max(120).optional().nullable(),
+    lat: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+    lng: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+    birthDate: z
+      .string()
+      .regex(dateRegex, "Fecha de nacimiento inválida (YYYY-MM-DD)")
+      .refine((v) => {
+        const d = new Date(v);
+        const today = new Date();
+        const age = Math.floor((today.getTime() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        return age >= 18 && age <= 70;
+      }, "Edad debe estar entre 18 y 70 años"),
+    phoneMobile: z
+      .string()
+      .trim()
+      .refine((v) => isValidMobileNineDigits(v), "Celular debe tener 9 dígitos (ej: 912345678)")
+      .transform((v) => normalizeMobileNineDigits(v)),
+    bankCode: z.string().trim().refine((v) => CHILE_BANK_CODES.includes(v), "Banco inválido"),
+    bankName: z.string().trim().min(2).max(120),
+    accountType: z.enum(BANK_ACCOUNT_TYPES),
+    accountNumber: z.string().trim().min(4, "Número de cuenta requerido").max(100),
+    holderName: z.string().trim().min(3).max(150).optional(),
+    os10: z.boolean(),
+    estadoUniforme: z.enum(["completo", "incompleto"]),
+    prendasFaltantes: z.string().trim().max(500).optional().nullable(),
+    validadoAntecedentes: z.boolean().optional().nullable(),
+    notaEvaluacion: z.enum(["bueno", "regular", "malo"]).optional().nullable(),
+    comentarioEvaluacion: z.string().trim().max(2000).optional().nullable(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.estadoUniforme === "incompleto" && !val.prendasFaltantes?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["prendasFaltantes"],
+        message: "Indica las prendas faltantes cuando el uniforme está incompleto",
+      });
+    }
+  });
+
+export type CreateGuardiaTeInput = z.infer<typeof createGuardiaTeSchema>;
+
 export const updateGuardiaLifecycleSchema = z.object({
   lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES),
   reason: z.string().trim().max(500).optional().nullable(),

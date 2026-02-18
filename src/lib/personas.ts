@@ -2,6 +2,7 @@ export const GUARDIA_LIFECYCLE_STATUSES = [
   "postulante",
   "seleccionado",
   "contratado_activo",
+  "te", // Turno Extra — ingreso rápido para cubrir ausencias
   "supervisor",
   "administrativo",
   "inactivo",
@@ -204,7 +205,7 @@ export function renderGuardiaTemplate(
 }
 
 export function lifecycleToLegacyStatus(status: GuardiaLifecycleStatus): "active" | "inactive" {
-  if (status === "contratado_activo") return "active";
+  if (status === "contratado_activo" || status === "te") return "active";
   return "inactive";
 }
 

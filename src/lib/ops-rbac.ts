@@ -13,6 +13,7 @@ const ROLE_OPS_CAPABILITIES: Record<string, OpsCapability[]> = {
   solo_crm: ROLE_POLICIES.solo_crm.opsCapabilities,
   solo_documentos: ROLE_POLICIES.solo_documentos.opsCapabilities,
   solo_payroll: ROLE_POLICIES.solo_payroll.opsCapabilities,
+  supervisor: ROLE_POLICIES.supervisor.opsCapabilities,
   viewer: ROLE_POLICIES.viewer.opsCapabilities,
 };
 
