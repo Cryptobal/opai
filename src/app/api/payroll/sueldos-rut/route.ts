@@ -18,12 +18,13 @@ export async function GET(req: NextRequest) {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    // Get all guards with salary structure (sourceType = GUARDIA_RUT)
+    const showInactive = req.nextUrl.searchParams.get("inactive") === "true";
+
     const structures = await prisma.payrollSalaryStructure.findMany({
       where: {
         tenantId: ctx.tenantId,
         sourceType: "GUARDIA_RUT",
-        isActive: true,
+        ...(showInactive ? {} : { isActive: true }),
       },
       include: {
         bonos: {
@@ -68,7 +69,9 @@ export async function GET(req: NextRequest) {
           gratificationType: s.gratificationType,
           gratificationCustomAmount: s.gratificationCustomAmount ? Number(s.gratificationCustomAmount) : 0,
           netSalaryEstimate: s.netSalaryEstimate ? Number(s.netSalaryEstimate) : null,
+          isActive: s.isActive,
           effectiveFrom: s.effectiveFrom,
+          effectiveUntil: s.effectiveUntil,
           bonos: s.bonos.map((b) => ({
             name: b.bonoCatalog.name,
             bonoType: b.bonoCatalog.bonoType,

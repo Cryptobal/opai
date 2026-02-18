@@ -60,9 +60,20 @@ export async function POST(req: NextRequest) {
         totalDeductions: result.total_deductions,
         deductions: {
           afp: result.deductions.afp.amount,
+          afpRate: result.deductions.afp.total_rate,
           health: result.deductions.health.amount,
+          healthRate: result.deductions.health.rate,
           afc: result.deductions.afc.amount,
+          afcRate: result.deductions.afc.total_rate,
           tax: result.deductions.tax.amount,
+        },
+        breakdown: {
+          baseSalary: result.haberes.base_salary,
+          gratification: result.haberes.gratification,
+          colacion: result.haberes.meal,
+          movilizacion: result.haberes.transport,
+          totalTaxable: result.haberes.total_taxable,
+          totalNonTaxable: result.haberes.total_non_taxable,
         },
         employerCost: result.total_employer_cost,
         breakdown: {

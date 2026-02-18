@@ -58,6 +58,8 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
           gratificationType: true,
           gratificationCustomAmount: true,
           isActive: true,
+          effectiveFrom: true,
+          effectiveUntil: true,
           bonos: {
             where: { isActive: true },
             select: {
@@ -113,9 +115,15 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
 
   if (!guardia) return noSalary;
 
-  // Priority 1: RUT override
-  if (guardia.salaryStructure?.isActive) {
-    const ss = guardia.salaryStructure;
+  // Priority 1: RUT override (check dates)
+  const now = new Date();
+  const rutStructure = guardia.salaryStructure;
+  const rutIsValid = rutStructure?.isActive &&
+    (!rutStructure.effectiveFrom || new Date(rutStructure.effectiveFrom) <= now) &&
+    (!rutStructure.effectiveUntil || new Date(rutStructure.effectiveUntil) >= now);
+
+  if (rutIsValid && rutStructure) {
+    const ss = rutStructure;
     const assignment = guardia.asignaciones[0];
     return {
       source: "RUT",

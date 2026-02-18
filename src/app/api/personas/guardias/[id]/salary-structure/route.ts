@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
     }
 
-    const { baseSalary, colacion, movilizacion, gratificationType, gratificationCustomAmount, bonos } = body;
+    const { baseSalary, colacion, movilizacion, gratificationType, gratificationCustomAmount, bonos, effectiveFrom, effectiveUntil } = body;
 
     if (!baseSalary || baseSalary <= 0) {
       return NextResponse.json({ error: "baseSalary es requerido" }, { status: 400 });
@@ -91,7 +91,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         gratificationType: gratificationType ?? "AUTO_25",
         gratificationCustomAmount: gratificationCustomAmount ?? null,
         isActive: true,
-        effectiveFrom: new Date(),
+        effectiveFrom: effectiveFrom ? new Date(`${effectiveFrom}T00:00:00.000Z`) : new Date(),
+        effectiveUntil: effectiveUntil ? new Date(`${effectiveUntil}T00:00:00.000Z`) : null,
         createdBy: ctx.userId,
       },
     });
@@ -152,6 +153,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (body.movilizacion !== undefined) updateData.movilizacion = body.movilizacion;
     if (body.gratificationType !== undefined) updateData.gratificationType = body.gratificationType;
     if (body.gratificationCustomAmount !== undefined) updateData.gratificationCustomAmount = body.gratificationCustomAmount;
+    if (body.effectiveFrom !== undefined) updateData.effectiveFrom = body.effectiveFrom ? new Date(`${body.effectiveFrom}T00:00:00.000Z`) : null;
+    if (body.effectiveUntil !== undefined) {
+      updateData.effectiveUntil = body.effectiveUntil ? new Date(`${body.effectiveUntil}T00:00:00.000Z`) : null;
+      // If setting effectiveUntil in the past or today, mark as inactive
+      if (body.effectiveUntil) {
+        const until = new Date(`${body.effectiveUntil}T23:59:59.000Z`);
+        if (until <= new Date()) updateData.isActive = false;
+      }
+    }
+    if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
     await prisma.payrollSalaryStructure.update({
       where: { id: guardia.salaryStructureId },
