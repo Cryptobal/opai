@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     let guardias = await prisma.opsGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
-        lifecycleStatus: { in: ["contratado_activo", "seleccionado"] },
+        lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
         OR: [
           { code: { contains: q, mode: "insensitive" } },
           { persona: { firstName: { contains: q, mode: "insensitive" } } },
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       const allActive = await prisma.opsGuardia.findMany({
         where: {
           tenantId: ctx.tenantId,
-          lifecycleStatus: { in: ["contratado_activo", "seleccionado"] },
+          lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
         },
         take: 100,
         select: {

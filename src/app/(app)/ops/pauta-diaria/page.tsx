@@ -44,10 +44,12 @@ export default async function OpsAsistenciaDiariaPage() {
         tenantId,
         status: "active",
         isBlacklisted: false,
+        lifecycleStatus: { in: ["contratado_activo", "seleccionado", "te"] },
       },
       select: {
         id: true,
         code: true,
+        lifecycleStatus: true,
         persona: {
           select: { firstName: true, lastName: true, rut: true },
         },

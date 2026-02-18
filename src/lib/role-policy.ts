@@ -66,6 +66,7 @@ export type DocsSubmoduleKey =
 export type OpsCapability =
   | "guardias_manage"
   | "guardias_documents"
+  | "guardias_te_ingreso" // Ingreso rápido guardia Turno Extra (Supervisor, Admin, RRHH)
   | "ops_execution"
   | "te_execution"
   | "rrhh_events"
@@ -116,6 +117,7 @@ const ALL_DOCS_SUBMODULES: DocsSubmoduleKey[] = [
 const ALL_OPS_CAPABILITIES: OpsCapability[] = [
   "guardias_manage",
   "guardias_documents",
+  "guardias_te_ingreso",
   "ops_execution",
   "te_execution",
   "rrhh_events",
@@ -198,6 +200,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     opsCapabilities: [
       "guardias_manage",
       "guardias_documents",
+      "guardias_te_ingreso",
       "rrhh_events",
       "rondas_monitor",
     ],
@@ -297,6 +300,6 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["installations"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["ops_execution", "rondas_monitor"],
+    opsCapabilities: ["guardias_te_ingreso", "ops_execution", "rondas_monitor"],
   },
 };
