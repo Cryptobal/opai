@@ -859,7 +859,7 @@ export function RendicionForm({
 
           {/* Previews */}
           {attachments.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
               {attachments.map((a) => (
                 <div key={a.id} className="relative group">
                   {a.file.type.startsWith("image/") ? (

@@ -375,7 +375,7 @@ export function GuardContractsTab({
                 </div>
                 <div className="sm:col-span-2 mt-2">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Períodos del contrato</p>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                     <div className={`rounded-md border p-2 ${currentPeriod === 1 ? "border-primary bg-primary/5" : "border-border"}`}>
                       <p className="text-muted-foreground">Período 1</p>
                       <p className="font-medium">{period1End ? formatDateUTC(period1End) : "—"}</p>

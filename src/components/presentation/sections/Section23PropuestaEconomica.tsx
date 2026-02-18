@@ -69,8 +69,8 @@ export function Section23PropuestaEconomica({
 
   const pricingTable = (
     <div className={cn("max-w-6xl mx-auto", pdfMode ? "mb-8" : "mb-12")}>
-      <div className="glass-card rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl">
-        <table className="w-full table-fixed">
+      <div className="glass-card rounded-2xl overflow-hidden overflow-x-auto border-2 border-white/10 shadow-2xl">
+        <table className="w-full table-fixed min-w-[480px]">
           <colgroup>
             <col className="w-[50%]" />
             <col className="w-[12%]" />

@@ -568,7 +568,7 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
                   <p className="text-sm font-medium mb-2">
                     {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
                   </p>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                     <div>
                       <span className="text-muted-foreground">Último</span>
                       <p className="font-mono">{f.lastFolio || "—"}</p>
@@ -943,7 +943,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Monto neto</Label>
                 <Input

@@ -429,7 +429,7 @@ function ListView({
                         <p className="text-xs text-muted-foreground">
                           {r.bankAccount.bankName} - {r.bankAccount.accountNumber}
                         </p>
-                        <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-xs">
                           <div>
                             <span className="text-muted-foreground">Banco</span>
                             <p className="font-mono">

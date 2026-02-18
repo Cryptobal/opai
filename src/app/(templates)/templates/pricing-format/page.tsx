@@ -55,7 +55,7 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
         </div>
         
         {/* Tabla de items */}
-        <div className="p-8">
+        <div className="p-4 sm:p-8 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-100 border-b-2 border-teal-500">
