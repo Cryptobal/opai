@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const holderName = body.holderName?.trim() || normalizedRut ?? "";
+    const holderName = (body.holderName?.trim() || normalizedRut) ?? "";
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
               bankName: body.bankName,
               accountType: body.accountType,
               accountNumber: body.accountNumber,
-              holderName: holderName || normalizedRut ?? "N/D",
+              holderName: (holderName || normalizedRut) ?? "N/D",
               holderRut: normalizedRut,
               isDefault: true,
             },
