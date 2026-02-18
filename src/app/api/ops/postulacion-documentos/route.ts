@@ -28,7 +28,7 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasPermission(ctx.role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const documents = await getPostulacionDocumentTypes(ctx.tenantId);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasPermission(ctx.role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const raw = await request.json();
