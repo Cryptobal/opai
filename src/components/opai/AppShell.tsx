@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Menu, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BottomNav } from './BottomNav';
 import { CommandPalette } from './CommandPalette';
 import { NotificationBell } from './NotificationBell';
 import { TopbarActions } from './TopbarActions';
@@ -178,14 +177,11 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
         <main className="flex-1">
-          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-20 lg:pb-6 animate-in-page" role="region">
+          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-6 animate-in-page" role="region">
             {children}
           </div>
         </main>
       </div>
-
-      {/* ── Mobile bottom nav ── */}
-      <BottomNav userRole={userRole} />
 
       {/* ── Command Palette ── */}
       <CommandPalette userRole={userRole} />

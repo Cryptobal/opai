@@ -21,7 +21,7 @@ interface SubNavProps {
  * SubNav - Navegación secundaria horizontal reutilizable.
  *
  * Pills scrollables horizontalmente con iconos opcionales.
- * Mobile: oculto (el BottomNav contextual maneja la navegación).
+ * Mobile: oculto (el sidebar drawer maneja la navegación, igual que desktop).
  * Desktop (sm+): visible como pills con icono + label.
  */
 export function SubNav({ items, className }: SubNavProps) {
