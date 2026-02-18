@@ -236,10 +236,10 @@ export async function getPermissionsFromAuth(auth: {
 
 // ── Page guard helpers ──
 
-import { canView, canEdit, hasModuleAccess, hasCapability } from "./permissions";
+import { canView, canEdit, canDelete, hasModuleAccess, hasCapability } from "./permissions";
 import type { ModuleKey, CapabilityKey } from "./permissions";
 
-export { canView, canEdit, hasModuleAccess, hasCapability };
+export { canView, canEdit, canDelete, hasModuleAccess, hasCapability };
 export type { ModuleKey, CapabilityKey };
 
 interface SessionUser {

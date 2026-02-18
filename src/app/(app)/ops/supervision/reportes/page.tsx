@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -5,8 +6,22 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { SupervisionReportesClient } from "@/components/supervision/SupervisionReportesClient";
+import { getPeriodBounds, PERIOD_OPTIONS } from "@/lib/supervision-periods";
 
-export default async function SupervisionReportesPage() {
+const INSTALLATION_STATE_LABELS: Record<string, string> = {
+  normal: "Normal",
+  incidencia: "Con observaciones",
+  critico: "Crítico",
+  sin_estado: "Sin estado",
+};
+
+export default async function SupervisionReportesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) {
     redirect("/opai/login?callbackUrl=/ops/supervision/reportes");
@@ -17,15 +32,20 @@ export default async function SupervisionReportesPage() {
     redirect("/hub");
   }
 
+  const params = await searchParams;
+  const periodKey = params.period ?? "30d";
+  const { dateFrom, dateTo, label: periodLabel } = getPeriodBounds(periodKey);
+
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canViewAll = hasCapability(perms, "supervision_view_all");
 
   const where = {
     tenantId,
+    checkInAt: { gte: dateFrom, lte: dateTo },
     ...(canViewAll ? {} : { supervisorId: session.user.id }),
   };
 
-  const [byState, bySupervisor] = await Promise.all([
+  const [byState, bySupervisor, totalVisitas, completedVisitas] = await Promise.all([
     prisma.opsVisitaSupervision.groupBy({
       by: ["installationState"],
       where,
@@ -38,6 +58,8 @@ export default async function SupervisionReportesPage() {
       _count: { _all: true },
       orderBy: { _count: { id: "desc" } },
     }),
+    prisma.opsVisitaSupervision.count({ where }),
+    prisma.opsVisitaSupervision.count({ where: { ...where, status: "completed" } }),
   ]);
 
   const supervisors = canViewAll
@@ -53,45 +75,28 @@ export default async function SupervisionReportesPage() {
       <PageHeader
         title="Reportes de supervisión"
         description="Resumen consolidado por estado de instalación y supervisor."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/ops/supervision">Dashboard</Link>
+          </Button>
+        }
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Estado de instalaciones</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {byState.length === 0 ? (
-              <p className="text-muted-foreground">Sin datos de estado.</p>
-            ) : (
-              byState.map((row) => (
-                <div key={row.installationState ?? "sin_estado"} className="flex items-center justify-between rounded-md border p-2">
-                  <span>{row.installationState ?? "sin_estado"}</span>
-                  <span className="font-medium">{row._count._all}</span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Visitas por supervisor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {bySupervisor.length === 0 ? (
-              <p className="text-muted-foreground">Sin datos de supervisores.</p>
-            ) : (
-              bySupervisor.map((row) => (
-                <div key={row.supervisorId} className="flex items-center justify-between rounded-md border p-2">
-                  <span>{supervisorMap.get(row.supervisorId) ?? row.supervisorId}</span>
-                  <span className="font-medium">{row._count._all}</span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <SupervisionReportesClient
+        byState={byState.map((r) => ({
+          key: r.installationState ?? "sin_estado",
+          label: INSTALLATION_STATE_LABELS[r.installationState ?? "sin_estado"] ?? r.installationState ?? "Sin estado",
+          count: r._count._all,
+        }))}
+        bySupervisor={bySupervisor.map((r) => ({
+          supervisorId: r.supervisorId,
+          name: supervisorMap.get(r.supervisorId) ?? r.supervisorId,
+          count: r._count._all,
+        }))}
+        periodLabel={periodLabel}
+        periodOptions={PERIOD_OPTIONS}
+        totals={{ total: totalVisitas, completed: completedVisitas }}
+      />
     </div>
   );
 }

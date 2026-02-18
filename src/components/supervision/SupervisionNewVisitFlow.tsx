@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Camera, CheckCircle2 } from "lucide-react";
+import { MapPin, Camera, CheckCircle2, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,8 @@ type Visit = {
   installationId: string;
   status: string;
 };
+
+type DocumentType = { code: string; label: string; required: boolean };
 
 type DotacionRow = {
   id: string;
@@ -62,6 +64,8 @@ export function SupervisionNewVisitFlow() {
   const [ratingProtocolo, setRatingProtocolo] = useState<string>("5");
   const [images, setImages] = useState<File[]>([]);
   const [dotacion, setDotacion] = useState<DotacionRow[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [documentChecklist, setDocumentChecklist] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -93,6 +97,27 @@ export function SupervisionNewVisitFlow() {
       }
     }
     void fetchAssigned();
+  }, []);
+
+  useEffect(() => {
+    async function fetchDocumentTypes() {
+      try {
+        const res = await fetch("/api/ops/supervision/document-types");
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          setDocumentTypes(json.data);
+          setDocumentChecklist(
+            (json.data as DocumentType[]).reduce<Record<string, boolean>>(
+              (acc, d) => ({ ...acc, [d.code]: false }),
+              {}
+            )
+          );
+        }
+      } catch {
+        setDocumentTypes([]);
+      }
+    }
+    void fetchDocumentTypes();
   }, []);
 
   useEffect(() => {
@@ -223,6 +248,7 @@ export function SupervisionNewVisitFlow() {
             orden: Number(ratingOrden),
             protocolo: Number(ratingProtocolo),
           },
+          documentChecklist: Object.keys(documentChecklist).length > 0 ? documentChecklist : null,
         }),
       });
       const patchJson = await patchRes.json();
@@ -388,6 +414,41 @@ export function SupervisionNewVisitFlow() {
             </Select>
           </div>
 
+          {documentTypes.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FileCheck className="h-4 w-4" /> Documentos en instalación
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Marca si cada documento está presente y al día en la instalación.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {documentTypes.map((doc) => (
+                  <label
+                    key={doc.code}
+                    className="flex cursor-pointer items-center gap-2 rounded-md border p-3 transition hover:bg-muted/40"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={documentChecklist[doc.code] ?? false}
+                      onChange={(e) =>
+                        setDocumentChecklist((prev) => ({
+                          ...prev,
+                          [doc.code]: e.target.checked,
+                        }))
+                      }
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm">{doc.label}</span>
+                    {doc.required && (
+                      <span className="text-[10px] text-amber-600">(obligatorio)</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Guardias presentes contados</Label>
             <Input
@@ -399,18 +460,57 @@ export function SupervisionNewVisitFlow() {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2 min-w-0">
-            <div className="space-y-1">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
               <Label className="text-xs">Presentación</Label>
-              <Input type="number" min={1} max={5} value={ratingPresentacion} onChange={(e) => setRatingPresentacion(e.target.value)} />
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    variant={Number(ratingPresentacion) === n ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setRatingPresentacion(String(n))}
+                  >
+                    {n}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label className="text-xs">Orden</Label>
-              <Input type="number" min={1} max={5} value={ratingOrden} onChange={(e) => setRatingOrden(e.target.value)} />
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    variant={Number(ratingOrden) === n ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setRatingOrden(String(n))}
+                  >
+                    {n}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label className="text-xs">Protocolo</Label>
-              <Input type="number" min={1} max={5} value={ratingProtocolo} onChange={(e) => setRatingProtocolo(e.target.value)} />
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    variant={Number(ratingProtocolo) === n ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setRatingProtocolo(String(n))}
+                  >
+                    {n}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
 

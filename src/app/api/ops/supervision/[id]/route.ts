@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit, canView, hasCapability } from "@/lib/permissions";
+import { canDelete, canEdit, canView, hasCapability } from "@/lib/permissions";
 
 const updateVisitSchema = z.object({
   status: z.enum(["in_progress", "completed", "cancelled"]).optional(),
@@ -18,6 +18,7 @@ const updateVisitSchema = z.object({
     })
     .optional()
     .nullable(),
+  documentChecklist: z.record(z.string(), z.boolean()).optional().nullable(),
 });
 
 type Params = { id: string };
@@ -134,6 +135,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ? Prisma.JsonNull
           : (body.ratings as Prisma.InputJsonValue);
 
+    const documentChecklistJson =
+      body.documentChecklist === undefined
+        ? undefined
+        : body.documentChecklist === null
+          ? Prisma.JsonNull
+          : (body.documentChecklist as Prisma.InputJsonValue);
+
     const updated = await prisma.opsVisitaSupervision.update({
       where: { id },
       data: {
@@ -146,6 +154,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ? { installationState: body.installationState }
           : {}),
         ...(ratingsJson !== undefined ? { ratings: ratingsJson } : {}),
+        ...(documentChecklistJson !== undefined
+          ? { documentChecklist: documentChecklistJson }
+          : {}),
       },
     });
 
@@ -154,6 +165,44 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     console.error("[OPS][SUPERVISION] Error updating visit:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo actualizar la visita" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<Params> }) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const perms = await resolveApiPerms(ctx);
+
+    if (!canDelete(perms, "ops", "supervision") && !hasCapability(perms, "supervision_view_all")) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos para eliminar visitas de supervisión" },
+        { status: 403 },
+      );
+    }
+
+    const { id } = await params;
+    const canViewAll = hasCapability(perms, "supervision_view_all");
+    const existing = await canAccessVisit(ctx.userId, ctx.tenantId, id, canViewAll);
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Visita no encontrada" },
+        { status: 404 },
+      );
+    }
+
+    await prisma.opsVisitaSupervision.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[OPS][SUPERVISION] Error deleting visit:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar la visita" },
       { status: 500 },
     );
   }

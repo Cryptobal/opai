@@ -2089,6 +2089,7 @@ model OpsVisitaSupervision {
   guardsCounted     Int?      @map("guards_counted")
   installationState String?   @map("installation_state")
   ratings           Json?     @db.JsonB
+  documentChecklist Json?     @map("document_checklist") @db.JsonB
   startedVia        String?   @map("started_via")
   completedVia      String?   @map("completed_via")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
