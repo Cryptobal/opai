@@ -122,14 +122,16 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
 
   // Extract mentions from content
   const extractMentions = (content: string): string[] => {
-    const mentionedNames = content.match(/@([\w\s]+?)(?=\s@|\s*$)/g) || [];
-    const ids: string[] = [];
-    for (const m of mentionedNames) {
-      const name = m.slice(1).trim();
-      const user = users.find((u) => u.name.toLowerCase() === name.toLowerCase());
-      if (user) ids.push(user.id);
+    const normalized = content.replace(/\u00A0/g, " ");
+    const ids = new Set<string>();
+    for (const user of users) {
+      const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const mentionPattern = new RegExp(`(^|\\s)[@＠]${escapedName}(?=\\s|$|[.,;:!?])`, "iu");
+      if (mentionPattern.test(normalized)) {
+        ids.add(user.id);
+      }
     }
-    return ids;
+    return [...ids];
   };
 
   // Handle @ detection in textarea
@@ -140,12 +142,13 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     const ref = target === "new" ? textareaRef.current : editTextareaRef.current;
     if (!ref) return;
 
-    const cursorPos = ref.selectionStart;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+    const cursorPos = ref.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursorPos).replace(/\u00A0/g, " ");
+    // Mobile keyboards can emit full-width @ (＠) and names with accents.
+    const atMatch = textBeforeCursor.match(/(?:^|\s)[@＠]([\p{L}\p{N}._-]*)$/u);
 
     if (atMatch) {
-      setMentionQuery(atMatch[1].toLowerCase());
+      setMentionQuery((atMatch[1] || "").toLowerCase());
       setShowMentions(true);
       setMentionTarget(target);
       setSelectedMentionIdx(0);
@@ -269,7 +272,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
   const MentionDropdown = () => {
     if (!showMentions || filteredUsers.length === 0) return null;
     return (
-      <div className="absolute z-50 bottom-full mb-1 left-0 w-64 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+      <div className="absolute z-[100] top-full mt-1 left-0 w-64 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
         {filteredUsers.slice(0, 8).map((user, i) => (
           <button
             key={user.id}
@@ -278,6 +281,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
               i === selectedMentionIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
             }`}
             onMouseDown={(e) => { e.preventDefault(); insertMention(user); }}
+            onClick={() => insertMention(user)}
           >
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary shrink-0">
               {getInitials(user.name)}
