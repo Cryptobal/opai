@@ -30,6 +30,7 @@ import {
   DollarSign,
   // Ops
   CalendarDays,
+  Clock3,
   UserRoundCheck,
   ShieldAlert,
   Fingerprint,
