@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   LabelList,
+  Cell,
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -92,12 +93,26 @@ function ChartTooltip({
 export function ControlNocturnoKpisCharts({
   installations,
   weeklyTrend,
+  mode,
 }: {
   installations: InstallationKpi[];
   weeklyTrend: WeeklyTrend[];
+  mode: "risk" | "best" | "all";
 }) {
-  // For bar chart: sort by cumplimiento ascending (worst first), take top 20
-  const barData = installations.slice(0, 20).map((i) => ({
+  const sorted = [...installations].sort((a, b) => a.cumplimiento - b.cumplimiento);
+  const riskInstallations = sorted.filter((i) => i.cumplimiento < 80);
+  const bestInstallations = [...installations]
+    .filter((i) => i.cumplimiento >= 80)
+    .sort((a, b) => b.cumplimiento - a.cumplimiento);
+
+  const source =
+    mode === "risk"
+      ? riskInstallations.slice(0, 20)
+      : mode === "best"
+        ? bestInstallations.slice(0, 20)
+        : sorted;
+
+  const barData = source.map((i) => ({
     name:
       i.installationName.length > 18
         ? i.installationName.slice(0, 16) + "…"
@@ -106,91 +121,107 @@ export function ControlNocturnoKpisCharts({
     omitidas: i.omitidas,
   }));
 
+  const chartTitle =
+    mode === "risk"
+      ? "Cumplimiento por instalación (riesgo)"
+      : mode === "best"
+        ? "Cumplimiento por instalación (desempeño)"
+        : "Cumplimiento por instalación (todas)";
+  const chartSubtitle =
+    mode === "risk"
+      ? "Top 20 bajo la meta de 80%"
+      : mode === "best"
+        ? "Top 20 sobre la meta de 80%"
+        : "Listado completo de instalaciones del período";
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* ── Cumplimiento por instalación ── */}
       <Card>
         <CardContent className="p-4">
-          <h3 className="text-sm font-semibold mb-3">Cumplimiento por instalación</h3>
+          <h3 className="text-sm font-semibold">{chartTitle}</h3>
+          <p className="mb-3 text-[11px] text-muted-foreground">{chartSubtitle}</p>
           {barData.length === 0 ? (
             <EmptyChart message="Sin datos en el período" />
           ) : (
-            <div
-              style={{ height: Math.max(250, barData.length * 32) }}
-              className="w-full"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={barData}
-                  layout="vertical"
-                  margin={{ top: 4, right: 40, left: 4, bottom: 4 }}
-                >
-                  <CartesianGrid
-                    stroke={PALETTE.grid}
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    tick={{ fontSize: 10, fill: PALETTE.axis }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${v}%`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: PALETTE.axis }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={130}
-                  />
-                  <Tooltip
-                    content={<ChartTooltip />}
-                    cursor={{ fill: "rgba(255,255,255,0.03)" }}
-                  />
-                  <ReferenceLine
-                    x={80}
-                    stroke={PALETTE.threshold}
-                    strokeDasharray="4 4"
-                    label={{
-                      value: "80%",
-                      position: "top",
-                      fill: PALETTE.threshold,
-                      fontSize: 10,
-                    }}
-                  />
-                  <Bar
-                    dataKey="cumplimiento"
-                    name="Cumplimiento"
-                    radius={[0, 4, 4, 0]}
-                    maxBarSize={20}
+            <div className="max-h-[560px] overflow-auto pr-1">
+              <div
+                style={{ height: Math.max(250, barData.length * 32) }}
+                className="w-full"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={barData}
+                    layout="vertical"
+                    margin={{ top: 4, right: 40, left: 4, bottom: 4 }}
                   >
-                    <LabelList
-                      dataKey="cumplimiento"
-                      position="right"
-                      formatter={(v) => `${v ?? 0}%`}
-                      style={{
+                    <CartesianGrid
+                      stroke={PALETTE.grid}
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tick={{ fontSize: 10, fill: PALETTE.axis }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: PALETTE.axis }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={130}
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                    />
+                    <ReferenceLine
+                      x={80}
+                      stroke={PALETTE.threshold}
+                      strokeDasharray="4 4"
+                      label={{
+                        value: "80%",
+                        position: "top",
+                        fill: PALETTE.threshold,
                         fontSize: 10,
-                        fill: "rgba(255,255,255,0.5)",
-                        fontWeight: 500,
                       }}
                     />
-                    {barData.map((entry, index) => (
-                      <rect
-                        key={index}
-                        fill={
-                          entry.cumplimiento >= 80
-                            ? PALETTE.teal
-                            : entry.cumplimiento >= 50
-                              ? PALETTE.amber
-                              : PALETTE.red
-                        }
+                    <Bar
+                      dataKey="cumplimiento"
+                      name="Cumplimiento"
+                      radius={[0, 4, 4, 0]}
+                      maxBarSize={20}
+                    >
+                      <LabelList
+                        dataKey="cumplimiento"
+                        position="right"
+                        formatter={(v) => `${v ?? 0}%`}
+                        style={{
+                          fontSize: 10,
+                          fill: "rgba(255,255,255,0.5)",
+                          fontWeight: 500,
+                        }}
                       />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                      {barData.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={
+                            entry.cumplimiento >= 80
+                              ? PALETTE.teal
+                              : entry.cumplimiento >= 50
+                                ? PALETTE.amber
+                                : PALETTE.red
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </CardContent>

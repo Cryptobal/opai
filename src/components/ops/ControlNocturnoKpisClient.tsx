@@ -16,6 +16,7 @@ import {
   CalendarDays,
   ShieldAlert,
   Timer,
+  ExternalLink,
 } from "lucide-react";
 import { ControlNocturnoKpisCharts } from "./ControlNocturnoKpisCharts";
 
@@ -92,6 +93,7 @@ function toDateInput(d: Date): string {
 /* ── Component ── */
 
 export function ControlNocturnoKpisClient() {
+  const KPI_TARGET = 80;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<KpiData | null>(null);
 
@@ -104,6 +106,7 @@ export function ControlNocturnoKpisClient() {
   const [dateTo, setDateTo] = useState(() => toDateInput(new Date()));
   const [searchInstallation, setSearchInstallation] = useState("");
   const [tablePage, setTablePage] = useState(1);
+  const [chartMode, setChartMode] = useState<"risk" | "best" | "all">("risk");
 
   const fetchKpis = useCallback(async () => {
     setLoading(true);
@@ -171,7 +174,7 @@ export function ControlNocturnoKpisClient() {
   }
 
   const g = data.global;
-  const alerts = topRisks.filter((i) => i.alert || i.criticos > 0).slice(0, 10);
+  const alerts = topRisks.slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -231,6 +234,7 @@ export function ControlNocturnoKpisClient() {
           label="Semana"
           value={`${data.snapshot.week.current.cumplimiento}%`}
           delta={data.snapshot.week.deltaCumplimiento}
+          deltaContext="vs semana equivalente anterior"
           sub={`Omitidas: ${data.snapshot.week.current.omitidas} · Alertas: ${data.snapshot.week.current.alertCount}`}
           icon={<CalendarDays className="h-4 w-4 text-sky-400" />}
         />
@@ -238,6 +242,7 @@ export function ControlNocturnoKpisClient() {
           label="MTD (mes a la fecha)"
           value={`${data.snapshot.mtd.current.cumplimiento}%`}
           delta={data.snapshot.mtd.deltaCumplimiento}
+          deltaContext="vs mismo tramo del mes anterior"
           sub={`Omitidas: ${data.snapshot.mtd.current.omitidas} · Alertas: ${data.snapshot.mtd.current.alertCount}`}
           icon={<ShieldAlert className="h-4 w-4 text-indigo-400" />}
         />
@@ -245,6 +250,7 @@ export function ControlNocturnoKpisClient() {
           label="YTD (año a la fecha)"
           value={`${data.snapshot.ytd.current.cumplimiento}%`}
           delta={data.snapshot.ytd.deltaCumplimiento}
+          deltaContext="vs mismo tramo del año anterior"
           sub={`Omitidas: ${data.snapshot.ytd.current.omitidas} · Alertas: ${data.snapshot.ytd.current.alertCount}`}
           icon={<Timer className="h-4 w-4 text-violet-400" />}
         />
@@ -262,7 +268,7 @@ export function ControlNocturnoKpisClient() {
               <TrendingDown className="h-4 w-4 text-red-400" />
             )
           }
-          accent={g.cumplimiento >= 80 ? "emerald" : "red"}
+          accent={g.cumplimiento >= KPI_TARGET ? "emerald" : "red"}
         />
         <KpiCard
           label="Rondas completadas"
@@ -279,7 +285,7 @@ export function ControlNocturnoKpisClient() {
         <KpiCard
           label="Alertas"
           value={String(g.alertCount)}
-          sub={`inst. bajo 80%`}
+          sub={`inst. bajo ${KPI_TARGET}%`}
           icon={<AlertTriangle className="h-4 w-4 text-amber-400" />}
           accent={g.alertCount > 0 ? "amber" : undefined}
         />
@@ -302,9 +308,37 @@ export function ControlNocturnoKpisClient() {
       </p>
 
       {/* ── Charts ── */}
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">Vista de gráfico:</p>
+        <Button
+          size="sm"
+          variant={chartMode === "risk" ? "default" : "outline"}
+          className="h-7 text-xs"
+          onClick={() => setChartMode("risk")}
+        >
+          Riesgo
+        </Button>
+        <Button
+          size="sm"
+          variant={chartMode === "best" ? "default" : "outline"}
+          className="h-7 text-xs"
+          onClick={() => setChartMode("best")}
+        >
+          Desempeño
+        </Button>
+        <Button
+          size="sm"
+          variant={chartMode === "all" ? "default" : "outline"}
+          className="h-7 text-xs"
+          onClick={() => setChartMode("all")}
+        >
+          Todas
+        </Button>
+      </div>
       <ControlNocturnoKpisCharts
         installations={data.installations}
         weeklyTrend={data.weeklyTrend}
+        mode={chartMode}
       />
 
       {/* ── Top risks + top performers ── */}
@@ -315,6 +349,9 @@ export function ControlNocturnoKpisClient() {
               <AlertTriangle className="h-4 w-4 text-amber-400" />
               Top 10 riesgos operativos
             </h3>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Instalaciones con mayor riesgo operativo: prioridad por críticas y luego por cumplimiento bajo meta ({KPI_TARGET}%).
+            </p>
             <div className="space-y-2">
               {alerts.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Sin riesgos relevantes en el período.</p>
@@ -325,11 +362,19 @@ export function ControlNocturnoKpisClient() {
                     className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {inst.installationName}
-                      </p>
+                      {inst.installationId ? (
+                        <Link
+                          href={`/crm/installations/${inst.installationId}`}
+                          className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
+                        >
+                          <span className="truncate">{inst.installationName}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-medium truncate">{inst.installationName}</p>
+                      )}
                       <p className="text-[11px] text-muted-foreground">
-                        Omitidas: {inst.omitidas} · Críticas: {inst.criticos} · Alertas: {inst.alert ? "Sí" : "No"}
+                        Cumplimiento: {inst.cumplimiento}% · Omitidas: {inst.omitidas} · Críticas: {inst.criticos}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -352,23 +397,42 @@ export function ControlNocturnoKpisClient() {
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
               <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              Top 10 desempeño
+              Top desempeño (sobre meta)
             </h3>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Solo considera instalaciones con cumplimiento mayor o igual a {KPI_TARGET}%.
+            </p>
             <div className="space-y-2">
-              {data.topBest.slice(0, 10).map((inst) => (
-                <div
-                  key={inst.installationId || inst.installationName}
-                  className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{inst.installationName}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Completadas: {inst.completadas}/{inst.totalRondas} · Omitidas: {inst.omitidas}
-                    </p>
+              {data.topBest.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No hay instalaciones sobre la meta en el período seleccionado.
+                </p>
+              ) : (
+                data.topBest.slice(0, 10).map((inst) => (
+                  <div
+                    key={inst.installationId || inst.installationName}
+                    className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      {inst.installationId ? (
+                        <Link
+                          href={`/crm/installations/${inst.installationId}`}
+                          className="inline-flex max-w-full items-center gap-1 text-sm font-medium hover:underline"
+                        >
+                          <span className="truncate">{inst.installationName}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-medium truncate">{inst.installationName}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Completadas: {inst.completadas}/{inst.totalRondas} · Omitidas: {inst.omitidas}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-emerald-400 shrink-0">{inst.cumplimiento}%</p>
                   </div>
-                  <p className="text-lg font-bold text-emerald-400 shrink-0">{inst.cumplimiento}%</p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -413,7 +477,17 @@ export function ControlNocturnoKpisClient() {
                       {(currentPage - 1) * pageSize + idx + 1}
                     </td>
                     <td className="py-2 pr-4 font-medium max-w-[200px] truncate">
-                      {inst.installationName}
+                      {inst.installationId ? (
+                        <Link
+                          href={`/crm/installations/${inst.installationId}`}
+                          className="inline-flex max-w-full items-center gap-1 hover:underline"
+                        >
+                          <span className="truncate">{inst.installationName}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+                        </Link>
+                      ) : (
+                        inst.installationName
+                      )}
                       {inst.criticos > 0 && (
                         <span className="ml-1.5 inline-flex items-center rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-400">
                           {inst.criticos} crít.
@@ -532,16 +606,25 @@ function PeriodCard({
   label,
   value,
   delta,
+  deltaContext,
   sub,
   icon,
 }: {
   label: string;
   value: string;
   delta: number;
+  deltaContext: string;
   sub: string;
   icon: React.ReactNode;
 }) {
   const positive = delta >= 0;
+  const absDelta = Math.abs(delta);
+  const deltaClass =
+    absDelta === 0 ? "text-muted-foreground" : positive ? "text-emerald-400" : "text-red-400";
+  const deltaLabel =
+    absDelta === 0
+      ? "Sin cambio"
+      : `${positive ? "Mejora" : "Baja"} ${absDelta} punto${absDelta === 1 ? "" : "s"}`;
   return (
     <Card>
       <CardContent className="p-3">
@@ -552,14 +635,12 @@ function PeriodCard({
         <div className="flex items-end gap-2">
           <p className="text-xl font-bold">{value}</p>
           <span
-            className={`text-[11px] font-semibold ${
-              positive ? "text-emerald-400" : "text-red-400"
-            }`}
+            className={`text-[11px] font-semibold ${deltaClass}`}
           >
-            {positive ? "+" : ""}
-            {delta} pp
+            {deltaLabel}
           </span>
         </div>
+        <p className="mt-0.5 text-[10px] text-muted-foreground">{deltaContext}</p>
         <p className="mt-0.5 text-[10px] text-muted-foreground">{sub}</p>
       </CardContent>
     </Card>

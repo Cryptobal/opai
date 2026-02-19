@@ -318,14 +318,18 @@ function aggregateReports(
       : 0;
 
   const topRisks = [...installations]
+    .filter((i) => i.cumplimiento < ALERT_THRESHOLD || i.criticos > 0 || i.omitidas > 0)
     .sort((a, b) => {
-      const bRisk = (b.criticos > 0 ? 3 : 0) + (b.alert ? 2 : 0) + (b.omitidas > 0 ? 1 : 0);
-      const aRisk = (a.criticos > 0 ? 3 : 0) + (a.alert ? 2 : 0) + (a.omitidas > 0 ? 1 : 0);
-      return bRisk - aRisk || a.cumplimiento - b.cumplimiento;
+      const aCriticalScore = a.criticos > 0 ? 1000 : 0;
+      const bCriticalScore = b.criticos > 0 ? 1000 : 0;
+      const aRiskScore = aCriticalScore + (100 - a.cumplimiento) * 10 + a.omitidas;
+      const bRiskScore = bCriticalScore + (100 - b.cumplimiento) * 10 + b.omitidas;
+      return bRiskScore - aRiskScore || a.cumplimiento - b.cumplimiento;
     })
     .slice(0, 10);
 
   const topBest = [...installations]
+    .filter((i) => i.cumplimiento >= ALERT_THRESHOLD)
     .sort((a, b) => b.cumplimiento - a.cumplimiento || a.omitidas - b.omitidas)
     .slice(0, 10);
 
