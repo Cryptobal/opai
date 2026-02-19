@@ -48,7 +48,10 @@ export async function GET(
       const c = finalContent as { type?: string; content?: unknown[] };
       if (!(c.type === "doc" && Array.isArray(c.content))) {
         const inner = (c as Record<string, unknown>).content as { type?: string; content?: unknown[] } | undefined;
-        finalContent = inner?.type === "doc" && Array.isArray(inner.content) ? inner : { type: "doc", content: [] };
+        finalContent =
+          inner?.type === "doc" && Array.isArray(inner.content)
+            ? { type: "doc" as const, content: inner.content }
+            : { type: "doc" as const, content: [] };
       }
     }
 

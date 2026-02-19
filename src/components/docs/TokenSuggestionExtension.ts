@@ -122,15 +122,16 @@ export const TokenSuggestionExtension = Extension.create<TokenSuggestionOptions>
             clientRect: (() => DOMRect | null) | null,
             onSelect: (item: TokenSuggestionItem) => void
           ) => {
-            if (!listEl) return;
-            listEl.innerHTML = "";
-            listEl.className =
+            const el = listEl;
+            if (!el) return;
+            el.innerHTML = "";
+            el.className =
               "token-suggestion-list fixed z-[100] min-w-[280px] max-h-[320px] overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1";
             if (items.length === 0) {
               const empty = document.createElement("div");
               empty.className = "px-3 py-6 text-center text-sm text-muted-foreground";
               empty.textContent = "No hay tokens";
-              listEl.appendChild(empty);
+              el.appendChild(empty);
               return;
             }
             items.forEach((item, i) => {
@@ -150,12 +151,12 @@ export const TokenSuggestionExtension = Extension.create<TokenSuggestionOptions>
                 e.preventDefault();
                 onSelect(item);
               });
-              listEl.appendChild(btn);
+              el.appendChild(btn);
             });
             const rect = clientRect?.();
             if (rect) {
-              listEl.style.left = `${rect.left}px`;
-              listEl.style.top = `${rect.bottom + 4}px`;
+              el.style.left = `${rect.left}px`;
+              el.style.top = `${rect.bottom + 4}px`;
             }
           };
 

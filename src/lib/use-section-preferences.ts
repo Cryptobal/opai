@@ -47,7 +47,7 @@ function unique(items: string[]): string[] {
 function getDefaultOrder(
   fixedSectionKey: string | null | undefined,
   sectionKeys: string[],
-  defaultCollapsedSectionKeys?: string[]
+  _defaultCollapsedSectionKeys?: string[] | true
 ): string[] {
   const valid = unique(sectionKeys);
   if (fixedSectionKey) {
@@ -79,7 +79,7 @@ function sanitizePrefs(
   raw: SectionPrefs,
   fixedSectionKey: string | null | undefined,
   sectionKeys: string[],
-  defaultCollapsedSectionKeys?: string[]
+  defaultCollapsedSectionKeys?: string[] | true
 ): SectionPrefs {
   const valid = new Set(sectionKeys);
   const defaultOrder = getDefaultOrder(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys);
@@ -111,7 +111,7 @@ function readCache(
   pageType: SectionPageType,
   fixedSectionKey: string | null | undefined,
   sectionKeys: string[],
-  defaultCollapsedSectionKeys?: string[]
+  defaultCollapsedSectionKeys?: string[] | true
 ): SectionPrefs {
   const fallback: SectionPrefs = {
     order: getDefaultOrder(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys),

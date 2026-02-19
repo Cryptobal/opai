@@ -9,7 +9,7 @@ export interface TokenDefinition {
   key: string;
   label: string;
   path: string;
-  type?: "text" | "number" | "date" | "currency" | "table";
+  type?: "text" | "number" | "date" | "currency" | "table" | "signature";
   format?: string;
 }
 
