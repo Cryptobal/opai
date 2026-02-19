@@ -2,7 +2,6 @@ import Link from 'next/link';
 import {
   CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
   Clock3,
   AlertTriangle,
   UserRoundCheck,
@@ -22,7 +21,6 @@ interface ActionItem {
 export function HubAccionesPrioritarias({
   perms,
   opsMetrics,
-  crmMetrics,
   financeMetrics,
 }: HubAccionesPrioritariasProps) {
   const actions: ActionItem[] = [
@@ -69,17 +67,6 @@ export function HubAccionesPrioritarias({
         perms.canApproveRendicion &&
         financeMetrics != null &&
         financeMetrics.pendingApprovalCount > 0,
-    },
-    {
-      id: 'followup-overdue',
-      label: `Atender ${crmMetrics?.followUpsOverdueCount ?? 0} seguimiento(s) vencido(s)`,
-      href: '/crm/deals?focus=followup-overdue',
-      icon: ClipboardCheck,
-      color: 'text-rose-400 bg-rose-400/10',
-      show:
-        perms.hasCrm &&
-        crmMetrics != null &&
-        crmMetrics.followUpsOverdueCount > 0,
     },
   ];
 

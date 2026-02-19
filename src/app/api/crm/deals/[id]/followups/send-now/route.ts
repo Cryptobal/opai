@@ -9,6 +9,35 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { processFollowUpLog } from "@/lib/process-followup-log";
 
+function scheduleAtChileHour(baseDate: Date, daysToAdd: number, hour: number): Date {
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(baseDate);
+  const [year, month, day] = dateParts.split("-").map(Number);
+
+  const targetDay = new Date(Date.UTC(year, month - 1, day + daysToAdd));
+  const tY = targetDay.getUTCFullYear();
+  const tM = targetDay.getUTCMonth() + 1;
+  const tD = targetDay.getUTCDate();
+
+  const asUTC = new Date(
+    `${tY}-${String(tM).padStart(2, "0")}-${String(tD).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00Z`,
+  );
+
+  const chileHourStr = asUTC.toLocaleString("en-US", {
+    timeZone: "America/Santiago",
+    hour: "numeric",
+    hour12: false,
+  });
+  const chileHourAtUTC = parseInt(chileHourStr, 10);
+  const offsetHours = chileHourAtUTC - hour;
+
+  return new Date(asUTC.getTime() - offsetHours * 60 * 60 * 1000);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -64,6 +93,57 @@ export async function POST(
         { success: false, error: result.error },
         { status: 400 }
       );
+    }
+
+    // Si se envía manualmente un seguimiento, reprogramar los siguientes pendientes
+    // respetando días configurados para no "comprimir" la secuencia.
+    const config = await prisma.crmFollowUpConfig.findUnique({
+      where: { tenantId: ctx.tenantId },
+    });
+
+    const now = new Date();
+    if (config) {
+      if (log.sequence === 1) {
+        const newSecondAt = scheduleAtChileHour(now, config.secondFollowUpDays, config.sendHour);
+        const newThirdAt = scheduleAtChileHour(newSecondAt, config.thirdFollowUpDays, config.sendHour);
+
+        await prisma.crmFollowUpLog.updateMany({
+          where: {
+            tenantId: ctx.tenantId,
+            dealId,
+            sequence: 2,
+            status: { in: ["pending", "paused"] },
+          },
+          data: {
+            scheduledAt: newSecondAt,
+          },
+        });
+
+        await prisma.crmFollowUpLog.updateMany({
+          where: {
+            tenantId: ctx.tenantId,
+            dealId,
+            sequence: 3,
+            status: { in: ["pending", "paused"] },
+          },
+          data: {
+            scheduledAt: newThirdAt,
+          },
+        });
+      } else if (log.sequence === 2) {
+        const newThirdAt = scheduleAtChileHour(now, config.thirdFollowUpDays, config.sendHour);
+        await prisma.crmFollowUpLog.updateMany({
+          where: {
+            tenantId: ctx.tenantId,
+            dealId,
+            sequence: 3,
+            status: { in: ["pending", "paused"] },
+          },
+          data: {
+            scheduledAt: newThirdAt,
+          },
+        });
+      }
     }
 
     const updatedLogs = await prisma.crmFollowUpLog.findMany({

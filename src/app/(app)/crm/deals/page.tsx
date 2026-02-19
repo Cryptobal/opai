@@ -138,7 +138,7 @@ export default async function CrmDealsPage({
     });
   }
 
-  const [accounts, stages, quotes] = await Promise.all([
+  const [accounts, stages] = await Promise.all([
     prisma.crmAccount.findMany({
       where: { tenantId },
       select: {
@@ -153,11 +153,6 @@ export default async function CrmDealsPage({
       where: { tenantId, isActive: true },
       orderBy: { order: "asc" },
     }),
-    prisma.cpqQuote.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, code: true, clientName: true, status: true },
-    }),
   ]);
 
   const accountById = new Map(
@@ -171,7 +166,6 @@ export default async function CrmDealsPage({
   const initialDeals = JSON.parse(JSON.stringify(dealsWithAccount));
   const initialAccounts = JSON.parse(JSON.stringify(accounts));
   const initialStages = JSON.parse(JSON.stringify(stages));
-  const initialQuotes = JSON.parse(JSON.stringify(quotes));
 
   return (
     <>
@@ -184,7 +178,6 @@ export default async function CrmDealsPage({
         initialDeals={initialDeals}
         accounts={initialAccounts}
         stages={initialStages}
-        quotes={initialQuotes}
         initialFocus={focus}
       />
     </>

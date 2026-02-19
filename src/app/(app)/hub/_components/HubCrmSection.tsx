@@ -204,7 +204,7 @@ export function HubCrmSection({
                   href="/opai/configuracion/crm#seguimientos-automaticos"
                   className="text-xs font-medium text-primary hover:underline"
                 >
-                  Configurar 1er y 2do seguimiento
+                  Configurar seguimientos automáticos (1, 2 y 3)
                 </Link>
               )}
             </div>
