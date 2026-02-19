@@ -1345,7 +1345,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         </Button>
       ),
       children: (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-40 lg:pb-32">
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
