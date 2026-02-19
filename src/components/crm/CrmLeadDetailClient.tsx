@@ -531,7 +531,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           puesto: dot.puesto || defaultPuesto.name,
           cargoId: dot.cargoId || defaultCargoId,
           rolId: dot.rolId || defaultRolId,
-          baseSalary: dot.baseSalary || 550000,
+          baseSalary: dot.baseSalary ?? 550000,
           shiftType: dot.shiftType || inferShiftType(dot.horaInicio, dot.horaFin),
         })),
       }))
@@ -1437,8 +1437,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">Sueldo base</Label>
-                          <Input type="text" inputMode="numeric" value={formatNumber(dot.baseSalary || 550000, { minDecimals: 0, maxDecimals: 0 })}
-                            onChange={(e) => updateDotacionField(inst._key, dotIdx, "baseSalary", Math.max(0, parseLocalizedNumber(e.target.value) || 0))} className={`h-8 text-sm ${inputClassName}`} />
+                          <Input type="text" inputMode="numeric"
+                            value={dot.baseSalary != null ? formatNumber(dot.baseSalary, { minDecimals: 0, maxDecimals: 0 }) : ""}
+                            onChange={(e) => { const raw = e.target.value.replace(/\D/g, ""); updateDotacionField(inst._key, dotIdx, "baseSalary", raw === "" ? undefined : Math.max(0, parseLocalizedNumber(e.target.value))); }}
+                            onBlur={() => { if (dot.baseSalary == null) updateDotacionField(inst._key, dotIdx, "baseSalary", 550000); }}
+                            placeholder="550.000"
+                            className={`h-8 text-sm ${inputClassName}`} />
                         </div>
                       </div>
                       <div className="space-y-1">

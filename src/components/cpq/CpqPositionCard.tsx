@@ -40,8 +40,8 @@ export function CpqPositionCard({
   position,
   onUpdated,
   readOnly = false,
-  salePriceMonthlyForPosition = 0,
-  clientHourlyRate = 0,
+  salePriceMonthlyForPosition: _salePriceMonthlyForPosition = 0,
+  clientHourlyRate: _clientHourlyRate = 0,
 }: CpqPositionCardProps) {
   const [openEdit, setOpenEdit] = useState(false);
   const [openBreakdown, setOpenBreakdown] = useState(false);
@@ -164,8 +164,8 @@ export function CpqPositionCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
         <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Base c/u</p>
-          <p className="text-sm sm:text-xs font-semibold">{formatCurrency(Number(position.baseSalary))}</p>
+          <p className="text-xs uppercase text-muted-foreground">Costo empresa c/u</p>
+          <p className="text-sm sm:text-xs font-semibold">{formatCurrency(Number(position.employerCost))}</p>
         </div>
         <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
           <p className="text-xs uppercase text-muted-foreground">Líquido c/u</p>
@@ -174,9 +174,9 @@ export function CpqPositionCard({
           </p>
         </div>
         <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Valor hora cliente</p>
+          <p className="text-xs uppercase text-muted-foreground">Base c/u</p>
           <p className="text-sm sm:text-xs font-semibold">
-            {formatCurrency(clientHourlyRate)}
+            {formatCurrency(Number(position.baseSalary))}
           </p>
         </div>
       </div>
@@ -184,15 +184,9 @@ export function CpqPositionCard({
       <div className="flex items-center justify-between border-t bg-muted/10 px-3 py-2">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
           <p className="text-xs sm:text-xs text-muted-foreground">
-            Venta mensual puesto ({position.numGuards}):{" "}
+            Costo mensual puesto ({position.numGuards}):{" "}
             <span className="font-mono text-foreground">
-              {formatCurrency(salePriceMonthlyForPosition)}
-            </span>
-          </p>
-          <p className="text-xs sm:text-xs text-emerald-400">
-            Valor hora:{" "}
-            <span className="font-mono font-semibold">
-              {formatCurrency(clientHourlyRate)}
+              {formatCurrency(Number(position.monthlyPositionCost))}
             </span>
           </p>
         </div>
