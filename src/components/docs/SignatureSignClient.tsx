@@ -244,7 +244,24 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
               Descargar PDF
             </a>
           </div>
-          <ContractEditor content={normalizeTiptapContent(data.document.content)} editable={false} />
+          {(() => {
+            const normalized = normalizeTiptapContent(data.document.content);
+            const isEmpty = !normalized.content || normalized.content.length === 0;
+            if (isEmpty) {
+              return (
+                <div className="min-h-[300px] flex items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 text-muted-foreground text-sm">
+                  El contenido del documento no está disponible. Puedes descargar el PDF para ver el documento completo.
+                </div>
+              );
+            }
+            return (
+              <ContractEditor
+                key={data.document.id}
+                content={normalized}
+                editable={false}
+              />
+            );
+          })()}
         </div>
 
         <div className="rounded-xl border bg-card p-5 space-y-4">

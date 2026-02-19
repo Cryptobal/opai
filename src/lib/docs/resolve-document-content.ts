@@ -126,8 +126,10 @@ export async function resolveDocumentContentForDisplay(
     const template = await prisma.docTemplate.findFirst({
       where: { id: document.templateId, tenantId },
     });
-    if (template?.content && typeof template.content === "object" && "content" in (template.content as object)) {
-      docForResolve = template.content as { type: string; content: unknown[] };
+    const tplContent = template?.content as { type?: string; content?: unknown[] } | null;
+    const tplHasContent = tplContent && typeof tplContent === "object" && Array.isArray(tplContent.content) && tplContent.content.length > 0;
+    if (tplHasContent) {
+      docForResolve = tplContent as { type: string; content: unknown[] };
     } else {
       docForResolve = normalizeContent(document.content);
     }
@@ -193,6 +195,15 @@ export async function resolveDocumentContentForDisplay(
       }
     );
     docForResolve = resolved as { type: string; content: unknown[] };
+  }
+
+  // Fallback final: si el contenido quedó vacío pero document.content tiene datos, usarlo
+  const hasContent = docForResolve?.content && Array.isArray(docForResolve.content) && docForResolve.content.length > 0;
+  if (!hasContent && opts.document.content) {
+    const stored = normalizeContent(opts.document.content);
+    if (stored.content.length > 0) {
+      docForResolve = stored;
+    }
   }
 
   return docForResolve as { type: "doc"; content: unknown[] };

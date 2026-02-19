@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { resolvePermissionsById } from "@/lib/permissions-server";
 
 type SearchResult = {
   id: string;
@@ -35,8 +36,10 @@ export async function GET(request: NextRequest) {
 
     const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
-    const perms = await resolveApiPerms(ctx);
-    const isSupervisorHub = perms.hubLayout === "supervisor";
+    const perms = await resolvePermissionsById(ctx.userId);
+    const isSupervisorHub =
+      perms.hubLayout === "supervisor" ||
+      ctx.userRole?.toLowerCase() === "supervisor";
 
     const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
       // Leads

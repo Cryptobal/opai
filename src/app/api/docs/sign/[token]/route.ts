@@ -123,7 +123,7 @@ export async function GET(
         signedAt: r.signedAt,
       }));
 
-    const resolvedContent = doc
+    let resolvedContent = doc
       ? await resolveDocumentContentForDisplay({
           tenantId: doc.tenantId,
           documentId: doc.id,
@@ -140,6 +140,15 @@ export async function GET(
           },
         })
       : { type: "doc" as const, content: [] };
+
+    // Fallback: si el contenido resuelto está vacío, usar document.content almacenado
+    const hasContent = resolvedContent?.content && Array.isArray(resolvedContent.content) && resolvedContent.content.length > 0;
+    if (doc && !hasContent && doc.content) {
+      const stored = doc.content as { type?: string; content?: unknown[] };
+      if (stored?.content && Array.isArray(stored.content) && stored.content.length > 0) {
+        resolvedContent = { type: "doc", content: stored.content } as { type: "doc"; content: unknown[] };
+      }
+    }
 
     const documentForSign = doc
       ? { ...doc, content: resolvedContent }
