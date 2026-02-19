@@ -137,6 +137,23 @@ export function ControlNocturnoKpisClient() {
     setDateTo(toDateInput(to));
   };
 
+  const installations = data?.installations ?? [];
+  const topRisks = data?.topRisks ?? [];
+  const filteredInstallations = useMemo(() => {
+    const q = searchInstallation.trim().toLowerCase();
+    if (!q) return installations;
+    return installations.filter((i) =>
+      i.installationName.toLowerCase().includes(q),
+    );
+  }, [installations, searchInstallation]);
+  const pageSize = 25;
+  const totalPages = Math.max(1, Math.ceil(filteredInstallations.length / pageSize));
+  const currentPage = Math.min(tablePage, totalPages);
+  const pageRows = filteredInstallations.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -154,21 +171,7 @@ export function ControlNocturnoKpisClient() {
   }
 
   const g = data.global;
-  const alerts = data.topRisks.filter((i) => i.alert || i.criticos > 0).slice(0, 10);
-  const filteredInstallations = useMemo(() => {
-    const q = searchInstallation.trim().toLowerCase();
-    if (!q) return data.installations;
-    return data.installations.filter((i) =>
-      i.installationName.toLowerCase().includes(q),
-    );
-  }, [data.installations, searchInstallation]);
-  const pageSize = 25;
-  const totalPages = Math.max(1, Math.ceil(filteredInstallations.length / pageSize));
-  const currentPage = Math.min(tablePage, totalPages);
-  const pageRows = filteredInstallations.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+  const alerts = topRisks.filter((i) => i.alert || i.criticos > 0).slice(0, 10);
 
   return (
     <div className="space-y-6">
