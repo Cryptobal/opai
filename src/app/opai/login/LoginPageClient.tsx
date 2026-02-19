@@ -25,7 +25,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <Image
-            src="/icons/icon-96x96.png"
+            src="/iconos_azul/icon-96x96.png"
             alt="OPAI"
             width={64}
             height={64}
