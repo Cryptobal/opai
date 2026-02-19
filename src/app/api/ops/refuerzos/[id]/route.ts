@@ -14,6 +14,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
+    const prismaAny = prisma as unknown as { opsRefuerzoSolicitud?: unknown };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
+
     const { id } = await params;
     const parsed = await parseBody(request, updateRefuerzoSchema);
     if (parsed.error) return parsed.error;

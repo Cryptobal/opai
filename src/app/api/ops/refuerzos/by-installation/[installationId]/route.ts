@@ -5,6 +5,13 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
 type Params = { installationId: string };
+type RefuerzoInstallationRow = {
+  status: "solicitado" | "en_curso" | "realizado" | "facturado";
+  endAt: Date;
+  guardPaymentClp: unknown;
+  estimatedTotalClp: unknown;
+  turnoExtra?: { id: string; status: string; amountClp: unknown; paidAt?: Date | null } | null;
+};
 
 export async function GET(_: Request, { params }: { params: Promise<Params> }) {
   try {
@@ -13,8 +20,20 @@ export async function GET(_: Request, { params }: { params: Promise<Params> }) {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
+    const prismaAny = prisma as unknown as {
+      opsRefuerzoSolicitud?: {
+        findMany: (args: unknown) => Promise<RefuerzoInstallationRow[]>;
+      };
+    };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
+
     const { installationId } = await params;
-    const rows = await prisma.opsRefuerzoSolicitud.findMany({
+    const rows = await prismaAny.opsRefuerzoSolicitud.findMany({
       where: {
         tenantId: ctx.tenantId,
         installationId,

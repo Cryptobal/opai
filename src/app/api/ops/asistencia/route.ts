@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, parseDateOnly, toISODate } from "@/lib/ops";
+import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +37,12 @@ export async function GET(request: NextRequest) {
         slotNumber: true,
         plannedGuardiaId: true,
         installationId: true,
+        puesto: {
+          select: {
+            shiftStart: true,
+            shiftEnd: true,
+          },
+        },
       },
     });
 
@@ -92,6 +99,20 @@ export async function GET(request: NextRequest) {
     if (pauta.length > 0) {
       await prisma.opsAsistenciaDiaria.createMany({
         data: pauta.map((item) => ({
+          ...(() => {
+            const metrics = computeAttendanceMetrics({
+              plannedShiftStart: item.puesto.shiftStart,
+              plannedShiftEnd: item.puesto.shiftEnd,
+            });
+            return {
+              plannedShiftStart: item.puesto.shiftStart,
+              plannedShiftEnd: item.puesto.shiftEnd,
+              plannedMinutes: metrics.plannedMinutes,
+              workedMinutes: 0,
+              overtimeMinutes: 0,
+              lateMinutes: 0,
+            };
+          })(),
           tenantId: ctx.tenantId,
           installationId: item.installationId,
           puestoId: item.puestoId,
@@ -117,6 +138,12 @@ export async function GET(request: NextRequest) {
           },
           data: {
             plannedGuardiaId: item.plannedGuardiaId,
+            plannedShiftStart: item.puesto.shiftStart,
+            plannedShiftEnd: item.puesto.shiftEnd,
+            plannedMinutes: computeAttendanceMetrics({
+              plannedShiftStart: item.puesto.shiftStart,
+              plannedShiftEnd: item.puesto.shiftEnd,
+            }).plannedMinutes,
           },
         });
         if (item.plannedGuardiaId != null) {

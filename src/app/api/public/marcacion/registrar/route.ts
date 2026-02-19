@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
+import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -293,19 +294,41 @@ export async function POST(req: NextRequest) {
               { actualGuardiaId: guardia.id },
             ],
           },
+          include: {
+            puesto: {
+              select: {
+                shiftStart: true,
+                shiftEnd: true,
+              },
+            },
+          },
         });
 
         if (asistencia) {
           const updateData: Record<string, unknown> = {};
           if (tipo === "entrada") {
             updateData.checkInAt = serverTimestamp;
+            updateData.checkInSource = "digital";
             if (asistencia.attendanceStatus === "pendiente") {
               updateData.attendanceStatus = "asistio";
               updateData.actualGuardiaId = guardia.id;
             }
           } else {
             updateData.checkOutAt = serverTimestamp;
+            updateData.checkOutSource = "digital";
           }
+
+          const metrics = computeAttendanceMetrics({
+            plannedShiftStart: asistencia.plannedShiftStart ?? asistencia.puesto.shiftStart,
+            plannedShiftEnd: asistencia.plannedShiftEnd ?? asistencia.puesto.shiftEnd,
+            checkInAt: tipo === "entrada" ? serverTimestamp : asistencia.checkInAt,
+            checkOutAt: tipo === "salida" ? serverTimestamp : asistencia.checkOutAt,
+          });
+          updateData.plannedMinutes = metrics.plannedMinutes;
+          updateData.workedMinutes = metrics.workedMinutes;
+          updateData.overtimeMinutes = metrics.overtimeMinutes;
+          updateData.lateMinutes = metrics.lateMinutes;
+          updateData.hoursCalculatedAt = new Date();
 
           await tx.opsAsistenciaDiaria.update({
             where: { id: asistencia.id },

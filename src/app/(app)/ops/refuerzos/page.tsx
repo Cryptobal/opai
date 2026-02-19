@@ -24,24 +24,41 @@ export default async function OpsRefuerzosPage() {
   }
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const rows = await prisma.opsRefuerzoSolicitud.findMany({
-    where: { tenantId },
-    include: {
-      installation: { select: { id: true, name: true } },
-      account: { select: { id: true, name: true } },
-      puesto: { select: { id: true, name: true } },
-      guardia: {
-        select: {
-          id: true,
-          code: true,
-          persona: { select: { firstName: true, lastName: true, rut: true } },
+  const prismaAny = prisma as unknown as {
+    opsRefuerzoSolicitud?: {
+      findMany: (args: unknown) => Promise<
+        Array<{
+          status: "solicitado" | "en_curso" | "realizado" | "facturado";
+          endAt: Date;
+          guardPaymentClp: unknown;
+          estimatedTotalClp: unknown;
+          turnoExtra: { amountClp: unknown } | null;
+        }>
+      >;
+    };
+  };
+  const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
+
+  const rows = hasRefuerzosModel
+    ? await prismaAny.opsRefuerzoSolicitud!.findMany({
+        where: { tenantId },
+        include: {
+          installation: { select: { id: true, name: true } },
+          account: { select: { id: true, name: true } },
+          puesto: { select: { id: true, name: true } },
+          guardia: {
+            select: {
+              id: true,
+              code: true,
+              persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          },
+          turnoExtra: { select: { id: true, status: true, amountClp: true, paidAt: true } },
         },
-      },
-      turnoExtra: { select: { id: true, status: true, amountClp: true, paidAt: true } },
-    },
-    orderBy: [{ startAt: "desc" }, { createdAt: "desc" }],
-    take: 300,
-  });
+        orderBy: [{ startAt: "desc" }, { createdAt: "desc" }],
+        take: 300,
+      })
+    : [];
 
   const now = new Date();
   const data = rows.map((row) => ({

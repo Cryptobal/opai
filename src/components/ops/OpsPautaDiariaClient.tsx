@@ -55,6 +55,12 @@ type AsistenciaItem = {
   replacementGuardiaId?: string | null;
   checkInAt?: string | null;
   checkOutAt?: string | null;
+  checkInSource?: string | null;
+  checkOutSource?: string | null;
+  plannedMinutes?: number;
+  workedMinutes?: number;
+  overtimeMinutes?: number;
+  lateMinutes?: number;
   lockedAt?: string | null;
   installation: { id: string; name: string };
   puesto: {
@@ -141,6 +147,7 @@ export function OpsPautaDiariaClient({
   const [replacementAnchor, setReplacementAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [marcacionDetalleOpen, setMarcacionDetalleOpen] = useState<MarcacionItem[] | null>(null);
+  const [timeEdits, setTimeEdits] = useState<Record<string, { checkIn: string; checkOut: string }>>({});
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     setIsDesktop(m.matches);
@@ -280,6 +287,45 @@ export function OpsPautaDiariaClient({
     }
   };
 
+  const timeFromISO = (iso?: string | null): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  };
+
+  const dateFromISO = (isoDate: string): string => {
+    const d = new Date(isoDate);
+    if (Number.isNaN(d.getTime())) return isoDate.slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const buildIsoFromDateAndTime = (isoDate: string, hhmm: string): string => {
+    const day = dateFromISO(isoDate);
+    return `${day}T${hhmm}:00.000Z`;
+  };
+
+  const timeOptions = useMemo(() => {
+    const options: string[] = [];
+    for (let h = 0; h < 24; h++) {
+      for (const m of [0, 30]) {
+        options.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      }
+    }
+    return options;
+  }, []);
+
+  const shiftTime = (hhmm: string, deltaMinutes: number): string => {
+    const [hh, mm] = hhmm.split(":").map((v) => Number(v));
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return hhmm;
+    let total = hh * 60 + mm + deltaMinutes;
+    while (total < 0) total += 24 * 60;
+    total = total % (24 * 60);
+    const outH = Math.floor(total / 60);
+    const outM = total % 60;
+    return `${String(outH).padStart(2, "0")}:${String(outM).padStart(2, "0")}`;
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -322,6 +368,21 @@ export function OpsPautaDiariaClient({
               </Button>
             </div>
             <div className="flex items-center gap-2 ml-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    from: date,
+                    to: date,
+                  });
+                  if (installationId !== "all") params.set("installationId", installationId);
+                  window.open(`/api/ops/asistencia/export-horas-extra?${params.toString()}`, "_blank");
+                }}
+              >
+                Exportar HE día
+              </Button>
               {loading ? (
                 <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -422,7 +483,7 @@ export function OpsPautaDiariaClient({
               </h3>
 
               {/* Desktop: encabezados de columna para filas angostas */}
-              <div className="hidden md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,100px)_auto] md:gap-x-4 md:pb-1 md:border-b md:border-border/60">
+              <div className="hidden md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,180px)_auto] md:gap-x-4 md:pb-1 md:border-b md:border-border/60">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Puesto</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Planificado</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Reemplazo</span>
@@ -457,7 +518,7 @@ export function OpsPautaDiariaClient({
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-lg border border-border/60 p-3 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,100px)_auto] md:gap-x-4 md:gap-y-0 gap-y-2.5 md:items-center`}
+                      className={`rounded-lg border border-border/60 p-3 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,180px)_auto] md:gap-x-4 md:gap-y-0 gap-y-2.5 md:items-start`}
                     >
                       {/* Col 1: Puesto + Slot (en desktop va a la izquierda) */}
                       <div className="flex items-start md:items-center justify-between gap-2 min-w-0">
@@ -658,6 +719,7 @@ export function OpsPautaDiariaClient({
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
+
                         </div>
                       </div>
 
@@ -810,6 +872,127 @@ export function OpsPautaDiariaClient({
                         )}
                       </div>
                       </div>
+
+                      {item.plannedGuardiaId && (
+                        <div className="md:col-span-5 mt-2 rounded-md border border-border/60 bg-muted/20 p-2.5 space-y-2">
+                          <div className="flex flex-wrap items-end gap-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Entrada real</Label>
+                              <select
+                                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
+                                disabled={savingId === item.id || isLocked}
+                                onChange={(e) =>
+                                  setTimeEdits((prev) => ({
+                                    ...prev,
+                                    [item.id]: {
+                                      checkIn: e.target.value,
+                                      checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                    },
+                                  }))
+                                }
+                              >
+                                {timeOptions.map((t) => (
+                                  <option key={`in-${item.id}-${t}`} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Salida real</Label>
+                              <select
+                                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
+                                disabled={savingId === item.id || isLocked}
+                                onChange={(e) =>
+                                  setTimeEdits((prev) => ({
+                                    ...prev,
+                                    [item.id]: {
+                                      checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                      checkOut: e.target.value,
+                                    },
+                                  }))
+                                }
+                              >
+                                {timeOptions.map((t) => (
+                                  <option key={`out-${item.id}-${t}`} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              disabled={savingId === item.id || isLocked}
+                              onClick={() =>
+                                setTimeEdits((prev) => ({
+                                  ...prev,
+                                  [item.id]: {
+                                    checkIn: item.puesto.shiftStart,
+                                    checkOut: item.puesto.shiftEnd,
+                                  },
+                                }))
+                              }
+                            >
+                              Usar plan
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              disabled={savingId === item.id || isLocked}
+                              onClick={() => {
+                                const out = timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd;
+                                setTimeEdits((prev) => ({
+                                  ...prev,
+                                  [item.id]: {
+                                    checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                    checkOut: shiftTime(out, 60),
+                                  },
+                                }));
+                              }}
+                            >
+                              +1h salida
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs"
+                              disabled={savingId === item.id || isLocked}
+                              onClick={() => {
+                                const edit = timeEdits[item.id] ?? {
+                                  checkIn: timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                  checkOut: timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                };
+                                void patchAsistencia(
+                                  item.id,
+                                  {
+                                    checkInAt: edit.checkIn ? buildIsoFromDateAndTime(item.date, edit.checkIn) : null,
+                                    checkOutAt: edit.checkOut ? buildIsoFromDateAndTime(item.date, edit.checkOut) : null,
+                                  },
+                                  "Horas guardadas"
+                                );
+                              }}
+                            >
+                              Guardar horas
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
+                              Plan: {item.puesto.shiftStart}-{item.puesto.shiftEnd}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
+                              Trabajadas: {((item.workedMinutes ?? 0) / 60).toFixed(2)}h
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
+                              Jornada: {((item.plannedMinutes ?? 0) / 60).toFixed(2)}h
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              (item.overtimeMinutes ?? 0) > 0 ? "bg-amber-500/20 text-amber-300" : "bg-muted text-muted-foreground"
+                            }`}>
+                              HE: {((item.overtimeMinutes ?? 0) / 60).toFixed(2)}h
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

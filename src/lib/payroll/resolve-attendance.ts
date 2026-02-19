@@ -72,6 +72,9 @@ export async function resolveMonthlyAttendance(
       attendanceStatus: true,
       checkInAt: true,
       checkOutAt: true,
+      plannedMinutes: true,
+      workedMinutes: true,
+      overtimeMinutes: true,
       plannedGuardiaId: true,
       actualGuardiaId: true,
       replacementGuardiaId: true,
@@ -104,6 +107,7 @@ export async function resolveMonthlyAttendance(
   let sundaysWorked = 0;
   let sundaysScheduled = 0;
   let normalHours = 0;
+  let overtimeHours50 = 0;
   let lateHours = 0;
 
   // Create a map of pauta entries by date
@@ -143,10 +147,21 @@ export async function resolveMonthlyAttendance(
             daysWorked++;
             if (isSunday) sundaysWorked++;
 
-            // Calculate hours from check-in/out
-            if (asist.checkInAt && asist.checkOutAt) {
+            // Horas para planificados: normal hasta jornada del puesto, exceso = HE 50%.
+            if (asist.plannedGuardiaId === guardiaId) {
+              const workedMinutes = Math.max(0, asist.workedMinutes ?? 0);
+              const plannedMinutes = Math.max(0, asist.plannedMinutes ?? 0);
+              const normalMinutes = Math.min(workedMinutes, plannedMinutes);
+              const overtimeMinutes = Math.max(
+                0,
+                asist.overtimeMinutes ?? workedMinutes - plannedMinutes
+              );
+              normalHours += normalMinutes / 60;
+              overtimeHours50 += overtimeMinutes / 60;
+            } else if (asist.checkInAt && asist.checkOutAt) {
+              // Fallback de compatibilidad para registros antiguos sin minutos persistidos.
               const diff = (asist.checkOutAt.getTime() - asist.checkInAt.getTime()) / (1000 * 60 * 60);
-              normalHours += Math.max(0, diff - 1); // subtract 1h for colación
+              normalHours += Math.max(0, diff - 1);
             }
           } else if (asist.attendanceStatus === "no_asistio") {
             code = "F";
@@ -221,7 +236,7 @@ export async function resolveMonthlyAttendance(
     sundaysWorked,
     sundaysScheduled,
     normalHours: Math.round(normalHours * 100) / 100,
-    overtimeHours50: 0,
+    overtimeHours50: Math.round(overtimeHours50 * 100) / 100,
     overtimeHours100,
     lateHours: Math.round(lateHours * 100) / 100,
     dailyDetail,

@@ -2288,6 +2288,15 @@ model OpsAsistenciaDiaria {
   attendanceStatus     String    @default("pendiente") @map("attendance_status")
   checkInAt            DateTime? @map("check_in_at") @db.Timestamptz(6)
   checkOutAt           DateTime? @map("check_out_at") @db.Timestamptz(6)
+  checkInSource        String?   @default("none") @map("check_in_source")
+  checkOutSource       String?   @default("none") @map("check_out_source")
+  plannedShiftStart    String?   @map("planned_shift_start")
+  plannedShiftEnd      String?   @map("planned_shift_end")
+  plannedMinutes       Int       @default(0) @map("planned_minutes")
+  workedMinutes        Int       @default(0) @map("worked_minutes")
+  overtimeMinutes      Int       @default(0) @map("overtime_minutes")
+  lateMinutes          Int       @default(0) @map("late_minutes")
+  hoursCalculatedAt    DateTime? @map("hours_calculated_at") @db.Timestamptz(6)
   notes                String?
   teGenerated          Boolean   @default(false) @map("te_generated")
   lockedAt             DateTime? @map("locked_at") @db.Timestamptz(6)
@@ -2308,6 +2317,7 @@ model OpsAsistenciaDiaria {
   @@index([tenantId], map: "idx_ops_asistencia_tenant")
   @@index([installationId, date], map: "idx_ops_asistencia_installation_date")
   @@index([attendanceStatus], map: "idx_ops_asistencia_status")
+  @@index([date, overtimeMinutes], map: "idx_ops_asistencia_date_overtime")
   @@map("asistencia_diaria")
   @@schema("ops")
 }

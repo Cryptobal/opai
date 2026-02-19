@@ -189,15 +189,22 @@ export async function issueDte(
     )
   );
   if (refuerzoIds.length > 0) {
-    await prisma.opsRefuerzoSolicitud.updateMany({
-      where: { tenantId, id: { in: refuerzoIds } },
-      data: {
-        status: "facturado",
-        invoiceNumber: String(nextFolio),
-        invoiceRef: code,
-        invoicedAt: new Date(),
-      },
-    });
+    const prismaAny = prisma as unknown as {
+      opsRefuerzoSolicitud?: {
+        updateMany: (args: unknown) => Promise<unknown>;
+      };
+    };
+    if (prismaAny.opsRefuerzoSolicitud) {
+      await prismaAny.opsRefuerzoSolicitud.updateMany({
+        where: { tenantId, id: { in: refuerzoIds } },
+        data: {
+          status: "facturado",
+          invoiceNumber: String(nextFolio),
+          invoiceRef: code,
+          invoicedAt: new Date(),
+        },
+      });
+    }
   }
 
   // 10. Auto-generate journal entry for facturas (not boletas)

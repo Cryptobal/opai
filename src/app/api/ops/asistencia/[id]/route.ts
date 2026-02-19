@@ -8,6 +8,7 @@ import {
   ensureOpsAccess,
   parseDateOnly,
 } from "@/lib/ops";
+import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { computeMarcacionHash } from "@/lib/marcacion";
 import { sendAvisoMarcaManual } from "@/lib/marcacion-email";
 
@@ -37,6 +38,8 @@ export async function PATCH(
             id: true,
             installationId: true,
             teMontoClp: true,
+            shiftStart: true,
+            shiftEnd: true,
           },
         },
         installation: {
@@ -133,6 +136,38 @@ export async function PATCH(
 
     const checkInAt = body.checkInAt ? new Date(body.checkInAt) : undefined;
     const checkOutAt = body.checkOutAt ? new Date(body.checkOutAt) : undefined;
+    const nextPlannedGuardiaId =
+      body.plannedGuardiaId !== undefined ? body.plannedGuardiaId : asistencia.plannedGuardiaId;
+    const nextCheckInAt =
+      body.checkInAt !== undefined ? (checkInAt ?? null) : asistencia.checkInAt;
+    const nextCheckOutAt =
+      body.checkOutAt !== undefined ? (checkOutAt ?? null) : asistencia.checkOutAt;
+    const nextCheckInSource =
+      body.checkInAt !== undefined
+        ? body.checkInAt
+          ? "manual"
+          : "none"
+        : asistencia.checkInSource ?? "none";
+    const nextCheckOutSource =
+      body.checkOutAt !== undefined
+        ? body.checkOutAt
+          ? "manual"
+          : "none"
+        : asistencia.checkOutSource ?? "none";
+
+    const metrics = nextPlannedGuardiaId
+      ? computeAttendanceMetrics({
+          plannedShiftStart: asistencia.plannedShiftStart ?? asistencia.puesto.shiftStart,
+          plannedShiftEnd: asistencia.plannedShiftEnd ?? asistencia.puesto.shiftEnd,
+          checkInAt: nextCheckInAt,
+          checkOutAt: nextCheckOutAt,
+        })
+      : {
+          plannedMinutes: 0,
+          workedMinutes: 0,
+          overtimeMinutes: 0,
+          lateMinutes: 0,
+        };
 
     if (isResetToInitial && existingTe?.status === "paid") {
       if (!isAdminRole) {
@@ -165,9 +200,6 @@ export async function PATCH(
         );
       }
     }
-
-    const nextPlannedGuardiaId =
-      body.plannedGuardiaId !== undefined ? body.plannedGuardiaId : asistencia.plannedGuardiaId;
 
     // ── Si es reset, eliminar marcaciones manuales huérfanas + emails pendientes ──
     if (isResetToInitial) {
@@ -205,8 +237,15 @@ export async function PATCH(
         replacementGuardiaId: nextReplacementGuardiaId,
         plannedGuardiaId: nextPlannedGuardiaId,
         notes: body.notes !== undefined ? body.notes : asistencia.notes,
-        checkInAt: body.checkInAt !== undefined ? checkInAt : asistencia.checkInAt,
-        checkOutAt: body.checkOutAt !== undefined ? checkOutAt : asistencia.checkOutAt,
+        checkInAt: nextCheckInAt,
+        checkOutAt: nextCheckOutAt,
+        checkInSource: nextCheckInSource,
+        checkOutSource: nextCheckOutSource,
+        plannedMinutes: metrics.plannedMinutes,
+        workedMinutes: metrics.workedMinutes,
+        overtimeMinutes: metrics.overtimeMinutes,
+        lateMinutes: metrics.lateMinutes,
+        hoursCalculatedAt: new Date(),
       },
     });
 

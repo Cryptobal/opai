@@ -5,6 +5,23 @@ import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { createRefuerzoSchema, listRefuerzoQuerySchema } from "@/lib/validations/ops";
 import { createRefuerzoSolicitud, resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
+type RefuerzoListRow = {
+  status: "solicitado" | "en_curso" | "realizado" | "facturado";
+  endAt: Date;
+  rateClp: unknown;
+  estimatedTotalClp: unknown;
+  guardPaymentClp: unknown;
+  requestedByName?: string | null;
+  installation?: { id: string; name: string } | null;
+  account?: { id: string; name: string } | null;
+  guardia: {
+    id: string;
+    code?: string | null;
+    persona: { firstName: string; lastName: string; rut?: string | null };
+  };
+  turnoExtra?: { id: string; status: string; amountClp: unknown; paidAt?: Date | null } | null;
+};
+
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -35,7 +52,19 @@ export async function GET(request: NextRequest) {
     }
     const query = parsedQuery.data;
 
-    const rows = await prisma.opsRefuerzoSolicitud.findMany({
+    const prismaAny = prisma as unknown as {
+      opsRefuerzoSolicitud?: {
+        findMany: (args: unknown) => Promise<RefuerzoListRow[]>;
+      };
+    };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
+
+    const rows = await prismaAny.opsRefuerzoSolicitud.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...(query.installationId ? { installationId: query.installationId } : {}),
@@ -101,6 +130,14 @@ export async function POST(request: NextRequest) {
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
+
+    const prismaAny = prisma as unknown as { opsRefuerzoSolicitud?: unknown };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
 
     const parsed = await parseBody(request, createRefuerzoSchema);
     if (parsed.error) return parsed.error;

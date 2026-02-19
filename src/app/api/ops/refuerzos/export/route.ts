@@ -5,6 +5,21 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { listRefuerzoQuerySchema } from "@/lib/validations/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
+type RefuerzoExportRow = {
+  status: "solicitado" | "en_curso" | "realizado" | "facturado";
+  endAt: Date;
+  installation: { name: string };
+  account?: { name: string } | null;
+  guardia: { persona: { firstName: string; lastName: string; rut?: string | null } };
+  requestedByName?: string | null;
+  requestChannel?: string | null;
+  startAt: Date;
+  guardPaymentClp: unknown;
+  estimatedTotalClp: unknown;
+  paymentCondition?: string | null;
+  invoiceNumber?: string | null;
+};
+
 function escapeCsv(value: unknown): string {
   const raw = String(value ?? "");
   if (/[",\n]/.test(raw)) return `"${raw.replace(/"/g, '""')}"`;
@@ -28,7 +43,19 @@ export async function GET(request: NextRequest) {
     }
     const query = parsedQuery.data;
 
-    const rows = await prisma.opsRefuerzoSolicitud.findMany({
+    const prismaAny = prisma as unknown as {
+      opsRefuerzoSolicitud?: {
+        findMany: (args: unknown) => Promise<RefuerzoExportRow[]>;
+      };
+    };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
+
+    const rows = await prismaAny.opsRefuerzoSolicitud.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...(query.installationId ? { installationId: query.installationId } : {}),
