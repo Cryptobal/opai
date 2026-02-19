@@ -156,6 +156,12 @@ export default async function PublicPresentationPage({ params, searchParams }: P
 
 export async function generateMetadata({ params }: PublicPresentationPageProps) {
   const { uniqueId } = await params;
+  const headersList = await headers();
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'opai.gard.cl';
+  const protocol = headersList.get('x-forwarded-proto') ?? 'https';
+  const baseUrl = `${protocol}://${host}`;
+  const publicUrl = `${baseUrl}/p/${uniqueId}`;
+  const ogImageUrl = `${publicUrl}/opengraph-image`;
 
   const presentation = await prisma.presentation.findUnique({
     where: { uniqueId },
@@ -175,9 +181,32 @@ export async function generateMetadata({ params }: PublicPresentationPageProps) 
   const subject = isCpq
     ? (clientData?.quote?.subject || 'Propuesta')
     : (clientData?.quote?.Subject || 'Propuesta');
+  const title = `${subject} - ${companyName} | Gard Security`;
+  const description = `Propuesta comercial personalizada para ${companyName}`;
 
   return {
-    title: `${subject} - ${companyName} | Gard Security`,
-    description: `Propuesta comercial personalizada para ${companyName}`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: publicUrl,
+      siteName: 'Gard Security',
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `Propuesta de Gard Security para ${companyName}`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImageUrl],
+    },
   };
 }
