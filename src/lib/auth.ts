@@ -1,12 +1,14 @@
 /**
  * Auth.js v5 (NextAuth v5) - Gard Docs
  * Credentials con tabla Admin (bcrypt) + tenantId en sesión
+ *
+ * Prisma se carga solo en Node (authorize, jwt refresh). En Edge (middleware)
+ * no se usa Prisma para evitar "Prisma Client on edge runtime".
  */
 
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import * as bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
 
 declare module 'next-auth' {
   interface User {
@@ -56,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const email = String(credentials.email).trim().toLowerCase();
         const password = String(credentials.password);
 
+        const { prisma } = await import('@/lib/prisma');
         const admin = await prisma.admin.findUnique({
           where: { email },
           include: { tenant: true },
@@ -96,20 +99,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return token;
       }
 
-      // Refrescar rol desde BD periódicamente
+      // Refrescar rol desde BD periódicamente (solo en Node; en Edge no hay Prisma)
       const now = Date.now();
+      const isEdge = typeof (globalThis as unknown as { EdgeRuntime?: string }).EdgeRuntime === 'string';
       if (!token.roleRefreshedAt || now - token.roleRefreshedAt > ROLE_REFRESH_INTERVAL) {
-        try {
-          const admin = await prisma.admin.findUnique({
-            where: { id: token.id },
-            select: { role: true, roleTemplateId: true, status: true },
-          });
-          if (admin && admin.status === 'active') {
-            token.role = admin.role;
-            token.roleTemplateId = admin.roleTemplateId ?? null;
+        if (!isEdge) {
+          const DB_TIMEOUT_MS = 5000;
+          try {
+            const { prisma } = await import('@/lib/prisma');
+            const admin = await Promise.race([
+              prisma.admin.findUnique({
+                where: { id: token.id },
+                select: { role: true, roleTemplateId: true, status: true },
+              }),
+              new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('DB timeout')), DB_TIMEOUT_MS)
+              ),
+            ]);
+            if (admin && admin.status === 'active') {
+              token.role = admin.role;
+              token.roleTemplateId = admin.roleTemplateId ?? null;
+            }
+          } catch {
+            // Si falla la BD o timeout, mantener el token actual
           }
-        } catch {
-          // Si falla la BD, mantener el token actual
         }
         token.roleRefreshedAt = now;
       }
@@ -141,6 +154,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  * Helper para actualizar último login
  */
 export async function updateLastLogin(userId: string) {
+  const { prisma } = await import('@/lib/prisma');
   await prisma.admin.update({
     where: { id: userId },
     data: { lastLoginAt: new Date() },

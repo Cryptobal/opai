@@ -24,8 +24,6 @@ import {
   hasModuleAccess,
   hasCapability,
 } from '@/lib/permissions-server';
-import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import {
   getCommercialMetrics,
@@ -37,16 +35,7 @@ import {
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
 
-import { HubGreeting } from './_components/HubGreeting';
-import { HubQuickActions } from './_components/HubQuickActions';
-import { HubExecutiveSnapshot } from './_components/HubExecutiveSnapshot';
-import { HubAlertasCriticas } from './_components/HubAlertasCriticas';
-import { HubAccionesPrioritarias } from './_components/HubAccionesPrioritarias';
-import { HubEstadoOperacional } from './_components/HubEstadoOperacional';
-import { HubCrmSection } from './_components/HubCrmSection';
-import { HubFinanceSection } from './_components/HubFinanceSection';
-import { HubDocsSection } from './_components/HubDocsSection';
-import { HubActividadReciente } from './_components/HubActividadReciente';
+import { HubClientWrapper } from './_components/HubClientWrapper';
 import { SupervisorHub } from './_components/SupervisorHub';
 
 export const dynamic = 'force-dynamic';
@@ -108,94 +97,15 @@ export default async function HubPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Greeting */}
-      <HubGreeting
-        firstName={firstName}
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
-      />
-
-      {/* Quick actions */}
-      <HubQuickActions perms={hubPerms} />
-
-      {/* CRM search (when user has CRM) */}
-      {hubPerms.hasCrm && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Buscador CRM</CardTitle>
-            <CardDescription>
-              Busca contactos, cuentas, negocios, cotizaciones e instalaciones
-              sin salir de Inicio.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CrmGlobalSearch />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Executive KPI snapshot (role-adaptive, only for ops/mixed roles) */}
-      <HubExecutiveSnapshot
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
-        docsSignals={docsSignals}
-      />
-
-      {/* Critical alerts */}
-      <HubAlertasCriticas alerts={alerts} />
-
-      {/* Priority actions */}
-      <HubAccionesPrioritarias
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
-      />
-
-      {/* Operational state today (ops module only) */}
-      {opsMetrics && hubPerms.hasOps && (
-        <HubEstadoOperacional opsMetrics={opsMetrics} />
-      )}
-
-      {/* CRM section (full CRM with its own KPIs, funnel, leads, follow-ups) */}
-      {crmMetrics && hubPerms.hasCrm && (
-        <HubCrmSection
-          perms={hubPerms}
-          crmMetrics={crmMetrics}
-          docsSignals={docsSignals}
-          financeMetrics={financeMetrics}
-        />
-      )}
-
-      {/* Finance section (always shown when user has finance access) */}
-      {financeMetrics && hubPerms.hasFinance && (
-        <HubFinanceSection financeMetrics={financeMetrics} />
-      )}
-
-      {/* Docs-only section (when no CRM — docs engagement is in CRM section otherwise) */}
-      {docsSignals && hubPerms.hasDocs && !hubPerms.hasCrm && (
-        <HubDocsSection docsSignals={docsSignals} />
-      )}
-
-      {/* No data fallback */}
-      {!crmMetrics && !docsSignals && !opsMetrics && !financeMetrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Sin datos disponibles</CardTitle>
-            <CardDescription>
-              No hay acceso a módulos de Inicio para este rol.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      {/* Recent activity */}
-      <HubActividadReciente activities={activities} />
-    </div>
+    <HubClientWrapper
+      firstName={firstName}
+      hubPerms={hubPerms}
+      opsMetrics={opsMetrics}
+      crmMetrics={crmMetrics}
+      financeMetrics={financeMetrics}
+      docsSignals={docsSignals}
+      alerts={alerts}
+      activities={activities}
+    />
   );
 }
