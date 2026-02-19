@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Loader2, Save, Mail, Clock, MessageSquare, ArrowRightLeft, Pause, Bell } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Save, Mail, Clock, MessageSquare, ArrowRightLeft, Pause, Bell, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 type DocTemplate = {
@@ -28,6 +28,8 @@ type FollowUpConfig = {
   pauseOnReply: boolean;
   sendHour: number;
   isActive: boolean;
+  bccEnabled: boolean;
+  bccEmail: string | null;
 };
 
 const selectCn =
@@ -305,6 +307,32 @@ export function FollowUpConfigSection() {
                       <p className="text-[10px] text-muted-foreground">
                         Incluir botón de WhatsApp en la notificación del 2do seguimiento
                       </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-accent/30 transition-colors sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={config.bccEnabled ?? false}
+                      onChange={(e) => update("bccEnabled", e.target.checked)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium">Copia oculta (BCC)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mb-2">
+                        Enviar una copia oculta de cada correo de seguimiento a un correo de supervisión
+                      </p>
+                      {config.bccEnabled && (
+                        <Input
+                          type="email"
+                          placeholder="ej: carlos.irigoyen@gmail.com"
+                          value={config.bccEmail ?? ""}
+                          onChange={(e) => update("bccEmail", e.target.value || null)}
+                          className={`${inputCn} max-w-xs`}
+                        />
+                      )}
                     </div>
                   </label>
                 </div>

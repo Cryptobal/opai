@@ -32,6 +32,8 @@ export async function GET() {
         pauseOnReply: true,
         sendHour: 9,
         isActive: true,
+        bccEnabled: false,
+        bccEmail: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -81,6 +83,8 @@ export async function POST(request: NextRequest) {
       pauseOnReply,
       sendHour,
       isActive,
+      bccEnabled,
+      bccEmail,
     } = body;
 
     const config = await prisma.crmFollowUpConfig.upsert({
@@ -100,6 +104,8 @@ export async function POST(request: NextRequest) {
         ...(pauseOnReply !== undefined ? { pauseOnReply } : {}),
         ...(sendHour !== undefined ? { sendHour } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
+        ...(bccEnabled !== undefined ? { bccEnabled } : {}),
+        ...(bccEmail !== undefined ? { bccEmail: bccEmail || null } : {}),
       },
       create: {
         tenantId: ctx.tenantId,
@@ -113,6 +119,8 @@ export async function POST(request: NextRequest) {
         pauseOnReply: pauseOnReply ?? true,
         sendHour: sendHour ?? 9,
         isActive: isActive ?? true,
+        bccEnabled: bccEnabled ?? false,
+        bccEmail: bccEmail || null,
       },
     });
 

@@ -1654,6 +1654,8 @@ model CrmFollowUpConfig {
   pauseOnReply          Boolean  @default(true) @map("pause_on_reply")
   sendHour              Int      @default(9) @map("send_hour") // 0-23, hora local de envío
   isActive              Boolean  @default(true) @map("is_active")
+  bccEnabled            Boolean  @default(false) @map("bcc_enabled")
+  bccEmail              String?  @map("bcc_email") // Copia oculta a este correo
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

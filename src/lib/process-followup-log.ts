@@ -233,12 +233,18 @@ export async function processFollowUpLog(
     emailHtml += signature.htmlContent;
   }
 
+  const bcc =
+    config?.bccEnabled && config?.bccEmail?.trim()
+      ? [config.bccEmail.trim()]
+      : undefined;
+
   const emailResult = await resend.emails.send({
     from: EMAIL_CONFIG.from,
     to: contact.email,
     subject: emailSubject,
     html: emailHtml,
     replyTo: EMAIL_CONFIG.replyTo,
+    ...(bcc ? { bcc } : {}),
   });
 
   const resendId =
