@@ -66,7 +66,7 @@ export async function GET(
     ] = await Promise.all([
       prisma.cpqPosition.findMany({
         where: { quoteId: id },
-        select: { numGuards: true, monthlyPositionCost: true },
+        select: { numGuards: true, numPuestos: true, monthlyPositionCost: true },
       }),
         prisma.cpqQuoteParameters.findUnique({ where: { quoteId: id } }),
         prisma.cpqQuoteUniformItem.findMany({
@@ -182,7 +182,10 @@ export async function GET(
     const mergedCostItems = [...costItems, ...defaultCostItems];
     const mergedMeals = [...meals, ...defaultMeals];
 
-    const totalGuards = positions.reduce((sum, p) => sum + p.numGuards, 0);
+    const totalGuards = positions.reduce(
+      (sum, p) => sum + Number(p.numGuards || 0) * Number(p.numPuestos || 1),
+      0
+    );
     const monthlyPositions = positions.reduce(
       (sum, p) => sum + safeNumber(p.monthlyPositionCost),
       0

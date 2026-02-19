@@ -173,6 +173,11 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
               <CalendarDays className="mr-2 h-4 w-4 text-white" /> Pauta mensual
             </Link>
           </Button>
+          <Button asChild variant="outline" className="justify-start">
+            <Link href="/ops/refuerzos">
+              <Clock3 className="mr-2 h-4 w-4" /> Turnos de refuerzo
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 

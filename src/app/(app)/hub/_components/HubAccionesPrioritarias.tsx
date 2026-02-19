@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   UserRoundCheck,
   Receipt,
+  Wallet,
 } from 'lucide-react';
 import type { HubAccionesPrioritariasProps } from '../_lib/hub-types';
 
@@ -56,6 +57,17 @@ export function HubAccionesPrioritarias({
         perms.canMarkAttendance &&
         opsMetrics != null &&
         opsMetrics.attendance.pending > 0,
+    },
+    {
+      id: 'refuerzos-pendientes-facturar',
+      label: `Facturar ${opsMetrics?.refuerzosPendientesFacturarCount ?? 0} refuerzo(s)`,
+      href: '/ops/refuerzos',
+      icon: Wallet,
+      color: 'text-fuchsia-400 bg-fuchsia-400/10',
+      show:
+        perms.canManageRefuerzos &&
+        opsMetrics != null &&
+        opsMetrics.refuerzosPendientesFacturarCount > 0,
     },
     {
       id: 'review-rendiciones',

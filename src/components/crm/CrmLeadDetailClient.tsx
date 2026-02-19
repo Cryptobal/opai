@@ -64,6 +64,7 @@ type DotacionItem = {
   baseSalary?: number;
   shiftType?: "day" | "night";
   cantidad: number;
+  numPuestos?: number;
   horaInicio: string;
   horaFin: string;
   dias: string[];
@@ -189,6 +190,7 @@ function createEmptyDotacion(
     baseSalary: 550000,
     shiftType: "day",
     cantidad: 1,
+    numPuestos: 1,
     horaInicio: "08:00",
     horaFin: "20:00",
     dias: [...WEEKDAYS],
@@ -511,6 +513,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         baseSalary: typeof d.baseSalary === "number" && d.baseSalary > 0 ? d.baseSalary : 550000,
         shiftType,
         cantidad: d.cantidad || 1,
+        numPuestos:
+          typeof d.numPuestos === "number" && Number.isFinite(d.numPuestos) && d.numPuestos > 0
+            ? Math.floor(d.numPuestos)
+            : 1,
         horaInicio: useLeadSchedule ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
         horaFin: useLeadSchedule ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
         dias: useLeadSchedule ? normalizeLeadDias(d.dias) : [...WEEKDAYS],
@@ -536,6 +542,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           rolId: dot.rolId || defaultRolId,
           baseSalary: dot.baseSalary ?? 550000,
           shiftType: dot.shiftType || inferShiftType(dot.horaInicio, dot.horaFin),
+          numPuestos:
+            typeof dot.numPuestos === "number" && Number.isFinite(dot.numPuestos) && dot.numPuestos > 0
+              ? Math.floor(dot.numPuestos)
+              : 1,
         })),
       }))
     );
@@ -653,7 +663,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         if (inst._key !== instKey) return inst;
         const original = inst.dotacion[dotIdx];
         if (!original) return inst;
-        const clone: DotacionItem = { ...original, dias: [...original.dias], cantidad: original.cantidad || 1 };
+        const clone: DotacionItem = {
+          ...original,
+          dias: [...original.dias],
+          cantidad: original.cantidad || 1,
+          numPuestos: original.numPuestos || 1,
+        };
         const nextDotacion = [...inst.dotacion];
         nextDotacion.splice(dotIdx + 1, 0, clone);
         return { ...inst, dotacion: nextDotacion };
@@ -939,7 +954,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
   // ─── Metadata helpers ───
   const meta = lead.metadata as Record<string, unknown> | undefined;
-  const dotacion = (meta?.dotacion as { puesto: string; cantidad: number; dias?: string[]; horaInicio?: string; horaFin?: string }[] | undefined);
+  const dotacion = (meta?.dotacion as { puesto: string; cantidad: number; numPuestos?: number; dias?: string[]; horaInicio?: string; horaFin?: string }[] | undefined);
   const totalGuards = (meta?.totalGuards as number) || 0;
   const rejectionInfo = getLeadRejectionInfo(lead.metadata);
   const statusBadge = getStatusBadge(lead.status);
@@ -1040,7 +1055,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <span className="text-sm font-medium text-foreground truncate">{d.puesto}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pl-5 sm:pl-0">
-                    <span className="inline-flex items-center gap-1"><Users className="h-3 w-3 shrink-0" />{d.cantidad} guardia{d.cantidad > 1 ? "s" : ""}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="h-3 w-3 shrink-0" />
+                      {d.cantidad} guardia{d.cantidad > 1 ? "s" : ""} x {d.numPuestos || 1} puesto{(d.numPuestos || 1) > 1 ? "s" : ""}
+                    </span>
                     {d.horaInicio && d.horaFin && (
                       <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 shrink-0" />{d.horaInicio} – {d.horaFin}</span>
                     )}
@@ -1377,7 +1395,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       <Users className="h-3 w-3" /> Dotación
                       {inst.dotacion.length > 0 && (
                         <span className="ml-1 text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                          {inst.dotacion.reduce((s, d) => s + d.cantidad, 0)} guardia{inst.dotacion.reduce((s, d) => s + d.cantidad, 0) !== 1 ? "s" : ""}
+                          {inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0)} guardia{inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0) !== 1 ? "s" : ""}
                         </span>
                       )}
                     </span>
@@ -1417,7 +1435,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                           <Input value={dot.customName || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "customName", e.target.value)} placeholder={dot.puesto || "Ej: CCTV acceso principal"} className={`h-8 text-sm ${inputClassName}`} />
                         </div>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-4">
+                      <div className="grid gap-2 sm:grid-cols-5">
                         <div className="space-y-1">
                           <Label className="text-[10px]">Cargo *</Label>
                           <select className={selectCompactClassName} value={dot.cargoId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cargoId", e.target.value)}>
@@ -1436,6 +1454,20 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                           <Label className="text-[10px]">Guardias</Label>
                           <select className={selectCompactClassName} value={Math.min(10, Math.max(1, dot.cantidad ?? 1))} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cantidad", Number(e.target.value))}>
                             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (<option key={n} value={n}>{n}</option>))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">N° puestos</Label>
+                          <select
+                            className={selectCompactClassName}
+                            value={Math.min(20, Math.max(1, dot.numPuestos ?? 1))}
+                            onChange={(e) => updateDotacionField(inst._key, dotIdx, "numPuestos", Number(e.target.value))}
+                          >
+                            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="space-y-1">

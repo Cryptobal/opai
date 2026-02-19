@@ -4,6 +4,7 @@ export * from "./OpsPautaMensualClient";
 export * from "./OpsPautaDiariaClient";
 export * from "./OpsPpcClient";
 export * from "./TeTurnosClient";
+export * from "./OpsRefuerzosClient";
 export * from "./TeLotesClient";
 export * from "./GuardiasClient";
 export * from "./GuardiaDetailClient";

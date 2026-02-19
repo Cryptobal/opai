@@ -99,6 +99,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
+  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
   { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },

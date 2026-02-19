@@ -140,7 +140,9 @@ export async function POST(
         ? (policyContractMonthsVal * (policyContractPctVal / 100)) / contractMonthsVal
         : 0;
 
-    const totalGuards = summary?.totalGuards ?? quote.positions.reduce((s, p) => s + p.numGuards, 0);
+    const totalGuards =
+      summary?.totalGuards ??
+      quote.positions.reduce((s, p) => s + p.numGuards * (p.numPuestos || 1), 0);
     const baseAdditionalCostsTotal = summary
       ? Math.max(0, (summary.monthlyExtras ?? 0) - (summary.monthlyFinancial ?? 0) - (summary.monthlyPolicy ?? 0))
       : 0;
@@ -148,7 +150,8 @@ export async function POST(
     // Per-position sale prices
     const positionSalePrices = new Map<string, number>();
     for (const pos of quote.positions) {
-      const proportion = totalGuards > 0 ? pos.numGuards / totalGuards : 0;
+      const guardsInPosition = pos.numGuards * (pos.numPuestos || 1);
+      const proportion = totalGuards > 0 ? guardsInPosition / totalGuards : 0;
       const additionalForPos = baseAdditionalCostsTotal * proportion;
       const totalCostPos = Number(pos.monthlyPositionCost) + additionalForPos;
       const bwm = margin < 1 ? totalCostPos / (1 - margin) : totalCostPos;

@@ -57,6 +57,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
     startTime: "08:00",
     endTime: "20:00",
     numGuards: 1,
+    numPuestos: 1,
     cargoId: "",
     rolId: "",
     baseSalary: 550000,
@@ -248,6 +249,13 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               </div>
 
               <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">N° puestos</Label>
+                <select className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
+                  {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sueldo base</Label>
                 <Input type="text" inputMode="numeric" value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })} onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))} className="h-10 bg-background text-sm" />
               </div>
@@ -261,7 +269,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
                 <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
                   <div className="flex justify-between"><span className="text-emerald-400">Costo empresa / guardia</span><span className="font-mono text-emerald-400">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
                   <div className="flex justify-between"><span className="text-blue-400">Líquido / guardia</span><span className="font-mono text-blue-400">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
-                  <div className="flex justify-between border-t pt-1"><span>Total puesto</span><span className="font-mono">{formatCurrency(preview.monthly_employer_cost_clp * form.numGuards)}</span></div>
+                  <div className="flex justify-between border-t pt-1"><span>Total puesto</span><span className="font-mono">{formatCurrency(preview.monthly_employer_cost_clp * form.numGuards * form.numPuestos)}</span></div>
                 </div>
               )}
             </div>

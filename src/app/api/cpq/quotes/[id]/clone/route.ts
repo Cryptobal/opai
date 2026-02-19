@@ -89,6 +89,7 @@ export async function POST(
             startTime: position.startTime,
             endTime: position.endTime,
             numGuards: position.numGuards,
+            numPuestos: position.numPuestos,
             cargoId: position.cargoId,
             rolId: position.rolId,
             baseSalary: position.baseSalary,

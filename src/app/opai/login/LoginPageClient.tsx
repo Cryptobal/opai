@@ -2,18 +2,23 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { authenticate } from './actions';
 import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 
 interface LoginPageClientProps {
-  callbackUrl: string;
+  callbackUrl?: string;
   error?: string;
   success?: string;
 }
 
-export function LoginPageClient({ callbackUrl, error, success }: LoginPageClientProps) {
+export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp, success: successProp }: LoginPageClientProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const searchParams = useSearchParams();
+  const callbackUrl = callbackUrlProp ?? searchParams.get('callbackUrl') ?? '/hub';
+  const error = errorProp ?? searchParams.get('error') ?? undefined;
+  const success = successProp ?? searchParams.get('success') ?? undefined;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

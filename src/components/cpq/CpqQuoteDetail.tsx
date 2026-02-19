@@ -674,7 +674,9 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   };
 
   const stats = useMemo(() => {
-    const totalGuards = quote?.totalGuards ?? positions.reduce((sum, p) => sum + p.numGuards, 0);
+    const totalGuards =
+      quote?.totalGuards ??
+      positions.reduce((sum, p) => sum + p.numGuards * (p.numPuestos || 1), 0);
     const monthly = quote?.monthlyCost ?? positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0);
     return { totalGuards, monthly };
   }, [positions, quote]);

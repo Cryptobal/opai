@@ -77,7 +77,13 @@ export async function POST(
       ? (policyContractMonthsVal * (policyContractPctVal / 100)) / contractMonthsVal
       : 0;
 
-    const totalGuards = summary?.totalGuards ?? quote.positions.reduce((s: number, p: { numGuards: number }) => s + p.numGuards, 0);
+    const totalGuards =
+      summary?.totalGuards ??
+      quote.positions.reduce(
+        (s: number, p: { numGuards: number; numPuestos?: number }) =>
+          s + p.numGuards * (p.numPuestos || 1),
+        0
+      );
     const currency = (quote.currency || 'CLP') as 'CLP' | 'UF';
     const ufVal = currency === 'UF' ? await getUfValue() : 0;
 
@@ -92,15 +98,17 @@ export async function POST(
     // Compute sale price per position
     const positionsRows = quote.positions
       .map(
-        (pos: { id: string; customName?: string | null; puestoTrabajo?: { name: string } | null; numGuards: number; startTime?: string | null; endTime?: string | null; weekdays?: string[] | null; monthlyPositionCost: unknown }) => {
-          const proportion = totalGuards > 0 ? pos.numGuards / totalGuards : 0;
+        (pos: { id: string; customName?: string | null; puestoTrabajo?: { name: string } | null; numGuards: number; numPuestos?: number; startTime?: string | null; endTime?: string | null; weekdays?: string[] | null; monthlyPositionCost: unknown }) => {
+          const guardsInPosition = pos.numGuards * (pos.numPuestos || 1);
+          const proportion = totalGuards > 0 ? guardsInPosition / totalGuards : 0;
           const additionalForPos = baseAdditionalCostsTotal * proportion;
           const totalCostPos = Number(pos.monthlyPositionCost) + additionalForPos;
           const bwm = margin < 1 ? totalCostPos / (1 - margin) : totalCostPos;
           const fc = bwm * (financialRatePctVal / 100);
           const pc = bwm * (policyRatePctVal / 100) * policyFactor;
           const salePrice = bwm + fc + pc;
-          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
+          const numPuestos = pos.numPuestos || 1;
+          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards} x ${numPuestos}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
         }
       )
       .join('');

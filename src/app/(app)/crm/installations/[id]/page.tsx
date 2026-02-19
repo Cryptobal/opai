@@ -22,7 +22,7 @@ export default async function CrmInstallationDetailPage({
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "installations")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, dealsOfAccount] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       select: {
@@ -144,6 +144,22 @@ export default async function CrmInstallationDetailPage({
       },
       orderBy: [{ persona: { lastName: "asc" } }],
     }),
+    prisma.opsRefuerzoSolicitud.findMany({
+      where: { tenantId, installationId: id },
+      include: {
+        guardia: {
+          select: {
+            id: true,
+            code: true,
+            persona: { select: { firstName: true, lastName: true, rut: true } },
+          },
+        },
+        puesto: { select: { id: true, name: true } },
+        turnoExtra: { select: { id: true, status: true, amountClp: true, paidAt: true } },
+      },
+      orderBy: [{ startAt: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    }),
     // Negocios de la cuenta (para mostrar en sección Negocios)
     prisma.crmInstallation.findFirst({ where: { id, tenantId }, select: { accountId: true } }).then((inst) =>
       inst?.accountId
@@ -175,6 +191,7 @@ export default async function CrmInstallationDetailPage({
       quotesInstalacion,
       asignacionGuardias,
       guardiasActuales,
+      refuerzos,
       dealsOfAccount: dealsOfAccount ?? [],
     })
   );

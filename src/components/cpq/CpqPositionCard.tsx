@@ -134,7 +134,7 @@ export function CpqPositionCard({
                 "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
               )}
             >
-              {position.numGuards} {position.numGuards === 1 ? "guardia" : "guardias"}
+              {position.numGuards} x {position.numPuestos || 1} {(position.numGuards * (position.numPuestos || 1)) === 1 ? "guardia" : "guardias"}
             </Badge>
             <Badge
               variant="outline"
@@ -184,7 +184,7 @@ export function CpqPositionCard({
       <div className="flex items-center justify-between border-t bg-muted/10 px-3 py-2">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
           <p className="text-xs sm:text-xs text-muted-foreground">
-            Costo mensual puesto ({position.numGuards}):{" "}
+            Costo mensual puesto ({position.numGuards} guardia(s) x {position.numPuestos || 1} puesto(s)):{' '}
             <span className="font-mono text-foreground">
               {formatCurrency(Number(position.monthlyPositionCost))}
             </span>

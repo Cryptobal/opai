@@ -497,6 +497,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     },
     submodules: {
       "ops.pauta_mensual": "view",
+      "ops.turnos_extra": "edit",
       "ops.supervision": "full",
       "ops.tickets": "edit",
       "crm.leads": "none",
@@ -741,6 +742,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/pauta-mensual")) return { module: "ops", submodule: "pauta_mensual" };
   if (pathname.startsWith("/ops/pauta-diaria")) return { module: "ops", submodule: "pauta_diaria" };
   if (pathname.startsWith("/ops/turnos-extra")) return { module: "ops", submodule: "turnos_extra" };
+  if (pathname.startsWith("/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/ops/marcaciones")) return { module: "ops", submodule: "marcaciones" };
   if (pathname.startsWith("/ops/ppc")) return { module: "ops", submodule: "ppc" };
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
@@ -839,6 +841,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
+  if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };
   // CRM
   if (pathname.startsWith("/api/crm/leads")) return { module: "crm", submodule: "leads" };

@@ -37,6 +37,14 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           </Button>
         </Link>
       )}
+      {perms.canManageRefuerzos && (
+        <Link href="/ops/refuerzos">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Clock3 className="h-4 w-4" />
+            Turnos Refuerzo
+          </Button>
+        </Link>
+      )}
       {perms.canOpenDeals && (
         <Link href="/crm/deals">
           <Button variant="outline" size="sm" className="gap-2">

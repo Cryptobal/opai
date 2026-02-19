@@ -29,6 +29,7 @@ interface CpqMapperInput {
     customName?: string | null;
     puestoTrabajo?: { name: string } | null;
     numGuards: number;
+    numPuestos?: number;
     startTime?: string | null;
     endTime?: string | null;
     weekdays?: string[];
@@ -118,7 +119,10 @@ export function mapCpqDataToPresentation(
     day: "numeric",
   });
 
-  const totalGuards = positions.reduce((sum, p) => sum + p.numGuards, 0);
+  const totalGuards = positions.reduce(
+    (sum, p) => sum + p.numGuards * (p.numPuestos || 1),
+    0
+  );
   const currency = (quote.currency || "CLP") as "CLP" | "UF" | "USD";
   const shouldConvertToUf = currency === "UF" && ufValue != null && ufValue > 0;
 
@@ -177,7 +181,7 @@ export function mapCpqDataToPresentation(
         title: pos.customName || pos.puestoTrabajo?.name || "Puesto",
         schedule: `${pos.startTime || "-"} - ${pos.endTime || "-"}`,
         shift_type: (pos.weekdays?.length ?? 7) >= 6 ? "6x1" : "5x2",
-        quantity: pos.numGuards,
+        quantity: pos.numGuards * (pos.numPuestos || 1),
       })),
     },
 
@@ -228,7 +232,7 @@ export function mapCpqDataToPresentation(
             const displayPrice = toDisplayValue(salePriceClp);
             return {
               name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
-              description: `${pos.numGuards} guardia(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
+              description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
               quantity: 1,
               unit_price: displayPrice,
               subtotal: displayPrice,

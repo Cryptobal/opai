@@ -85,6 +85,13 @@ function normalizeWeekdays(dias: unknown): string[] {
   return unique.length > 0 ? unique : [...CPQ_WEEKDAYS];
 }
 
+function normalizePositiveInt(value: unknown, fallback = 1): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const normalized = Math.floor(parsed);
+  return normalized > 0 ? normalized : fallback;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -225,6 +232,15 @@ export async function POST(
     const accountSegment = normalizeOptionalText(body?.segment);
     const accountWebsite = normalizeOptionalText(body?.website);
 
+    const totalDealPuestos = installationsPayload.reduce((totalInst: number, inst: any) => {
+      const dotacion = Array.isArray(inst?.dotacion) ? inst.dotacion : [];
+      const puestosInstalacion = dotacion.reduce(
+        (sum: number, d: { numPuestos?: number }) => sum + normalizePositiveInt(d?.numPuestos, 1),
+        0
+      );
+      return totalInst + puestosInstalacion;
+    }, 0);
+
     const result = await prisma.$transaction(async (tx) => {
       let account: { id: string; name: string };
       if (useExistingAccountId) {
@@ -344,6 +360,7 @@ export async function POST(
             : null,
           status: "open",
           notes: dealNotes,
+          totalPuestos: totalDealPuestos,
         },
       });
 
@@ -530,6 +547,19 @@ export async function POST(
         // Crear cotización CPQ si la instalación tiene dotación
         const dotacion = Array.isArray(inst?.dotacion) ? inst.dotacion : [];
         if (dotacion.length > 0) {
+          const dotacionTotals = dotacion.reduce(
+            (
+              acc: { totalPositions: number; totalGuards: number },
+              d: { cantidad?: number; numPuestos?: number }
+            ) => {
+              const puestos = normalizePositiveInt(d?.numPuestos, 1);
+              const guardsPerPuesto = normalizePositiveInt(d?.cantidad, 1);
+              acc.totalPositions += puestos;
+              acc.totalGuards += guardsPerPuesto * puestos;
+              return acc;
+            },
+            { totalPositions: 0, totalGuards: 0 }
+          );
           quoteCodeCounter++;
           const baseCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
           const quoteCode = `${baseCode}-${randomBytes(2).toString("hex")}`;
@@ -545,8 +575,8 @@ export async function POST(
                 contactId: contact.id,
                 dealId: deal.id,
                 installationId,
-                totalPositions: dotacion.length,
-                totalGuards: dotacion.reduce((sum: number, d: { cantidad?: number }) => sum + (d.cantidad || 1), 0),
+                totalPositions: dotacionTotals.totalPositions,
+                totalGuards: dotacionTotals.totalGuards,
                 notes: dealNotes,
               },
             });
@@ -650,6 +680,7 @@ export async function POST(
                   : 550000;
               const startTime = typeof d.horaInicio === "string" && d.horaInicio ? d.horaInicio : "08:00";
               const endTime = typeof d.horaFin === "string" && d.horaFin ? d.horaFin : "20:00";
+              const numPuestos = normalizePositiveInt(d.numPuestos, 1);
 
               await tx.cpqPosition.create({
                 data: {
@@ -659,7 +690,8 @@ export async function POST(
                   weekdays,
                   startTime,
                   endTime,
-                  numGuards: d.cantidad || 1,
+                  numGuards: normalizePositiveInt(d.cantidad, 1),
+                  numPuestos,
                   cargoId: cargoIdToUse,
                   rolId: rolIdToUse,
                   baseSalary: baseSalaryValue,

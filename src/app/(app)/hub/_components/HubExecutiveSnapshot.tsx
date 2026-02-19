@@ -100,6 +100,14 @@ export function HubExecutiveSnapshot({
       {/* More Ops KPIs if space */}
       {hasOpsKpis && (
         <>
+          <HubKpiLinkCard
+            href="/ops/refuerzos"
+            title="Refuerzos Hoy"
+            value={opsMetrics.refuerzosActivosHoy}
+            icon={<Clock3 className="h-4 w-4" />}
+            description={`${opsMetrics.refuerzosProximos} próximo(s)`}
+            variant="purple"
+          />
           {opsMetrics.pendingTE > 0 && (
             <HubKpiLinkCard
               href="/ops/turnos-extra"
@@ -109,6 +117,14 @@ export function HubExecutiveSnapshot({
               variant="purple"
             />
           )}
+          <HubKpiLinkCard
+            href="/ops/refuerzos"
+            title="Pend. Facturar Refuerzo"
+            value={`$${Math.round(opsMetrics.refuerzosPendientesFacturarAmount).toLocaleString("es-CL")}`}
+            icon={<Wallet className="h-4 w-4" />}
+            description={`${opsMetrics.refuerzosPendientesFacturarCount} solicitud(es)`}
+            variant="amber"
+          />
           {opsMetrics.unresolvedAlerts > 0 ? (
             <HubKpiLinkCard
               href="/ops/rondas/alertas"

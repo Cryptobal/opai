@@ -417,3 +417,66 @@ export const createTeManualSchema = z.object({
   horasExtra: z.number().min(0).max(24).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
+
+const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+export const createRefuerzoSchema = z.object({
+  installationId: z.string().uuid("installationId inválido"),
+  puestoId: z.string().uuid("puestoId inválido").optional().nullable(),
+  guardiaId: z.string().uuid("guardiaId inválido"),
+  requestedAt: z.string().regex(dateTimeRegex, "requestedAt debe ser ISO datetime").optional(),
+  requestedByName: z.string().trim().max(160).optional().nullable(),
+  requestChannel: z.enum(["telefono", "email", "whatsapp", "presencial", "otro"]).optional().nullable(),
+  startAt: z.string().regex(dateTimeRegex, "startAt debe ser ISO datetime"),
+  endAt: z.string().regex(dateTimeRegex, "endAt debe ser ISO datetime"),
+  guardsCount: z.number().int().min(1).max(50).default(1),
+  shiftType: z.string().trim().max(80).optional().nullable(),
+  locationText: z.string().trim().max(300).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  rateMode: z.enum(["hora", "turno"]).default("turno"),
+  rateClp: z.number().min(0).optional().nullable(),
+  estimatedTotalClp: z.number().min(0).optional().nullable(),
+  paymentCondition: z.string().trim().max(160).optional().nullable(),
+  guardPaymentClp: z.number().min(0, "guardPaymentClp debe ser >= 0"),
+}).superRefine((val, ctx) => {
+  const start = new Date(val.startAt);
+  const end = new Date(val.endAt);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startAt"], message: "Fechas inválidas" });
+    return;
+  }
+  if (end <= start) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt debe ser mayor a startAt" });
+  }
+});
+
+export const updateRefuerzoSchema = z.object({
+  status: z.enum(["solicitado", "en_curso", "realizado", "facturado"]).optional(),
+  guardiaId: z.string().uuid("guardiaId inválido").optional(),
+  puestoId: z.string().uuid("puestoId inválido").optional().nullable(),
+  startAt: z.string().regex(dateTimeRegex, "startAt debe ser ISO datetime").optional(),
+  endAt: z.string().regex(dateTimeRegex, "endAt debe ser ISO datetime").optional(),
+  guardsCount: z.number().int().min(1).max(50).optional(),
+  shiftType: z.string().trim().max(80).optional().nullable(),
+  locationText: z.string().trim().max(300).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  rateMode: z.enum(["hora", "turno"]).optional(),
+  rateClp: z.number().min(0).optional().nullable(),
+  estimatedTotalClp: z.number().min(0).optional().nullable(),
+  paymentCondition: z.string().trim().max(160).optional().nullable(),
+  guardPaymentClp: z.number().min(0).optional(),
+  invoiceNumber: z.string().trim().max(120).optional().nullable(),
+  invoiceRef: z.string().trim().max(120).optional().nullable(),
+  invoicedAt: z.string().regex(dateTimeRegex, "invoicedAt debe ser ISO datetime").optional().nullable(),
+});
+
+export const listRefuerzoQuerySchema = z.object({
+  from: z.string().regex(dateRegexYmd).optional(),
+  to: z.string().regex(dateRegexYmd).optional(),
+  installationId: z.string().uuid().optional(),
+  accountId: z.string().uuid().optional(),
+  guardiaId: z.string().uuid().optional(),
+  status: z.enum(["solicitado", "en_curso", "realizado", "facturado"]).optional(),
+  pendingBilling: z.coerce.boolean().optional(),
+  q: z.string().trim().max(120).optional(),
+});

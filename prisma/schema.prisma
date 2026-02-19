@@ -826,6 +826,7 @@ model CpqPosition {
   startTime           String   @map("start_time")
   endTime             String   @map("end_time")
   numGuards           Int      @default(1) @map("num_guards")
+  numPuestos          Int      @default(1) @map("num_puestos")
   cargoId             String   @map("cargo_id") @db.Uuid
   rolId               String   @map("rol_id") @db.Uuid
   baseSalary          Decimal  @map("base_salary") @db.Decimal(12, 2)
@@ -1192,6 +1193,7 @@ model CrmAccount {
   contacts      CrmContact[]
   deals         CrmDeal[]
   installations CrmInstallation[]
+  opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
 
   @@index([tenantId], map: "idx_crm_accounts_tenant")
   @@index([status], map: "idx_crm_accounts_status")
@@ -1232,6 +1234,7 @@ model CrmInstallation {
   opsPautas     OpsPautaMensual[]
   opsAsistencias OpsAsistenciaDiaria[]
   opsTurnosExtra       OpsTurnoExtra[]
+  opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
   opsAsignacionGuardias OpsAsignacionGuardia[] @relation("ops_asignacion_installation")
   opsMarcaciones       OpsMarcacion[]
   opsCheckpoints       OpsCheckpoint[]
@@ -1346,6 +1349,7 @@ model CrmDeal {
   lat                 Float?
   lng                 Float?
   installationWebsite String?   @map("installation_website")
+  totalPuestos        Int       @default(0) @map("total_puestos")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1849,6 +1853,7 @@ model OpsGuardia {
   seriesAsignadas       OpsSerieAsignacion[]   @relation("ops_serie_guardia")
   eventosRrhh           OpsEventoRrhh[]
   pagoItems             OpsPagoTeItem[]        @relation("ops_pago_item_guardia")
+  refuerzoSolicitudes   OpsRefuerzoSolicitud[]
   marcaciones           OpsMarcacion[]
   rondaEjecuciones      OpsRondaEjecucion[]
   rondaMarcaciones      OpsMarcacionCheckpoint[]
@@ -2000,6 +2005,7 @@ model OpsPuestoOperativo {
   pautas             OpsPautaMensual[]
   asistencias        OpsAsistenciaDiaria[]
   turnosExtra        OpsTurnoExtra[]
+  refuerzoSolicitudes OpsRefuerzoSolicitud[]
   series             OpsSerieAsignacion[]
   marcaciones        OpsMarcacion[]
 
@@ -2334,6 +2340,7 @@ model OpsTurnoExtra {
   puesto       OpsPuestoOperativo?  @relation(fields: [puestoId], references: [id], onDelete: SetNull)
   guardia      OpsGuardia           @relation("ops_turno_extra_guardia", fields: [guardiaId], references: [id], onDelete: Restrict)
   paymentItems OpsPagoTeItem[]
+  refuerzoSolicitud OpsRefuerzoSolicitud? @relation("ops_refuerzo_turno_extra")
 
   @@index([tenantId], map: "idx_ops_turnos_extra_tenant")
   @@index([status], map: "idx_ops_turnos_extra_status")
@@ -2341,6 +2348,58 @@ model OpsTurnoExtra {
   @@index([guardiaId], map: "idx_ops_turnos_extra_guardia")
   @@index([installationId], map: "idx_ops_turnos_extra_installation")
   @@map("turnos_extra")
+  @@schema("ops")
+}
+
+model OpsRefuerzoSolicitud {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  installationId   String    @map("installation_id") @db.Uuid
+  accountId        String?   @map("account_id") @db.Uuid
+  puestoId         String?   @map("puesto_id") @db.Uuid
+  guardiaId        String    @map("guardia_id") @db.Uuid
+  turnoExtraId     String?   @unique @map("turno_extra_id") @db.Uuid
+
+  requestedAt      DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  requestedByName  String?   @map("requested_by_name")
+  requestChannel   String?   @map("request_channel")
+
+  startAt          DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt            DateTime  @map("end_at") @db.Timestamptz(6)
+  guardsCount      Int       @default(1) @map("guards_count")
+  shiftType        String?   @map("shift_type")
+  locationText     String?   @map("location_text")
+  notes            String?
+
+  rateMode         String    @default("turno") @map("rate_mode")
+  rateClp          Decimal?  @map("rate_clp") @db.Decimal(12, 2)
+  estimatedTotalClp Decimal  @default(0) @map("estimated_total_clp") @db.Decimal(14, 2)
+  paymentCondition String?   @map("payment_condition")
+  guardPaymentClp  Decimal   @default(0) @map("guard_payment_clp") @db.Decimal(12, 2)
+
+  status           String    @default("solicitado")
+  invoiceNumber    String?   @map("invoice_number")
+  invoiceRef       String?   @map("invoice_ref")
+  invoicedAt       DateTime? @map("invoiced_at") @db.Timestamptz(6)
+
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation     CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  account          CrmAccount?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  puesto           OpsPuestoOperativo? @relation(fields: [puestoId], references: [id], onDelete: SetNull)
+  guardia          OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+  turnoExtra       OpsTurnoExtra?    @relation("ops_refuerzo_turno_extra", fields: [turnoExtraId], references: [id], onDelete: SetNull)
+  financeDteLines  FinanceDteLine[]
+
+  @@index([tenantId], map: "idx_ops_refuerzo_tenant")
+  @@index([tenantId, startAt], map: "idx_ops_refuerzo_tenant_start")
+  @@index([tenantId, installationId, startAt], map: "idx_ops_refuerzo_installation_start")
+  @@index([tenantId, status], map: "idx_ops_refuerzo_status")
+  @@index([tenantId, invoiceNumber], map: "idx_ops_refuerzo_invoice_number")
+  @@index([guardiaId], map: "idx_ops_refuerzo_guardia")
+  @@map("refuerzo_solicitudes")
   @@schema("ops")
 }
 
@@ -3755,10 +3814,13 @@ model FinanceDteLine {
   accountId       String?  @map("account_id") @db.Uuid
   account         FinanceAccountPlan? @relation(fields: [accountId], references: [id])
   costCenterId    String?  @map("cost_center_id") @db.Uuid
+  refuerzoSolicitudId String? @map("refuerzo_solicitud_id") @db.Uuid
+  refuerzoSolicitud OpsRefuerzoSolicitud? @relation(fields: [refuerzoSolicitudId], references: [id], onDelete: SetNull)
 
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([dteId], map: "idx_finance_dte_line_dte")
+  @@index([refuerzoSolicitudId], map: "idx_finance_dte_line_refuerzo")
   @@map("finance_dte_lines")
   @@schema("finance")
 }

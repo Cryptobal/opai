@@ -108,6 +108,7 @@ export function AppLayoutClient({
         canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
         canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
         canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
+        canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Turnos Refuerzo', icon: Clock3 },
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
         canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
         canView(permissions, 'ops', 'rondas') && {

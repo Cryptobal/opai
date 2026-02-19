@@ -43,6 +43,7 @@ export interface CpqPosition {
   startTime: string;
   endTime: string;
   numGuards: number;
+  numPuestos: number;
   cargoId: string;
   rolId: string;
   baseSalary: number;
@@ -234,6 +235,7 @@ export interface CreatePositionInput {
   startTime: string;
   endTime: string;
   numGuards: number;
+  numPuestos: number;
   cargoId: string;
   rolId: string;
   baseSalary: number;

@@ -11,6 +11,7 @@ import {
   Route,
   CalendarDays,
   Clock3,
+  Zap,
   Fingerprint,
   ShieldAlert,
   UserRoundCheck,
@@ -56,6 +57,14 @@ export default async function OpsDashboardPage() {
   const vacantes = slotsTotal - guardsAssigned;
 
   const modules = [
+    {
+      href: "/ops/refuerzos",
+      title: "Turnos de refuerzo",
+      description: "Solicitudes de refuerzo y control de facturación.",
+      icon: Zap,
+      count: null,
+      color: "text-fuchsia-400 bg-fuchsia-400/10",
+    },
     {
       href: "/ops/pauta-mensual",
       title: "Pauta mensual",

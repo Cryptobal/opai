@@ -12,9 +12,9 @@ import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs"
 async function refreshQuoteTotals(quoteId: string) {
   const positions = await prisma.cpqPosition.findMany({
     where: { quoteId },
-    select: { id: true },
+    select: { numPuestos: true },
   });
-  const totalPositions = positions.length;
+  const totalPositions = positions.reduce((sum, pos) => sum + Number(pos.numPuestos || 1), 0);
   const costSummary = await computeCpqQuoteCosts(quoteId);
 
   return prisma.cpqQuote.update({
@@ -55,6 +55,7 @@ export async function PATCH(
       "startTime",
       "endTime",
       "numGuards",
+      "numPuestos",
       "cargoId",
       "rolId",
       "baseSalary",
@@ -116,7 +117,8 @@ export async function PATCH(
     }
 
     const nextNumGuards = Number(updateData.numGuards ?? current.numGuards);
-    const monthlyPositionCost = employerCost * nextNumGuards;
+    const nextNumPuestos = Math.max(1, Number(updateData.numPuestos ?? current.numPuestos ?? 1));
+    const monthlyPositionCost = employerCost * nextNumGuards * nextNumPuestos;
 
     const position = await prisma.cpqPosition.update({
       where: { id: positionId },
@@ -131,6 +133,7 @@ export async function PATCH(
         payrollSnapshot,
         payrollVersionId,
         calculatedAt,
+        numPuestos: nextNumPuestos,
         monthlyPositionCost,
       },
     });

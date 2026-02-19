@@ -335,6 +335,7 @@ export async function getOpsMetrics(
 ): Promise<OpsMetrics> {
   const todayStr = getTodayChile();
   const todayDate = new Date(todayStr);
+  const tomorrowDate = new Date(todayDate.getTime() + 24 * 60 * 60 * 1000);
 
   const [
     activePuestos,
@@ -351,6 +352,9 @@ export async function getOpsMetrics(
     roundsMissed,
     unresolvedAlerts,
     criticalAlerts,
+    refuerzosActivosHoy,
+    refuerzosProximos,
+    refuerzosPendientesFacturar,
   ] = await Promise.all([
     prisma.opsPuestoOperativo.count({
       where: { tenantId, active: true },
@@ -434,6 +438,28 @@ export async function getOpsMetrics(
     prisma.opsAlertaRonda.count({
       where: { tenantId, resuelta: false, severidad: 'critical' },
     }),
+    prisma.opsRefuerzoSolicitud.count({
+      where: {
+        tenantId,
+        status: { not: "facturado" },
+        startAt: { lte: tomorrowDate },
+        endAt: { gte: todayDate },
+      },
+    }),
+    prisma.opsRefuerzoSolicitud.count({
+      where: {
+        tenantId,
+        status: { not: "facturado" },
+        startAt: { gt: tomorrowDate },
+      },
+    }),
+    prisma.opsRefuerzoSolicitud.findMany({
+      where: {
+        tenantId,
+        status: { not: "facturado" },
+      },
+      select: { estimatedTotalClp: true },
+    }),
   ]);
 
   const attTotal = attPresent + attAbsent + attPending + attReplacement;
@@ -442,6 +468,13 @@ export async function getOpsMetrics(
     activePuestos,
     activeGuardias,
     pendingTE,
+    refuerzosActivosHoy,
+    refuerzosProximos,
+    refuerzosPendientesFacturarCount: refuerzosPendientesFacturar.length,
+    refuerzosPendientesFacturarAmount: refuerzosPendientesFacturar.reduce(
+      (acc, item) => acc + Number(item.estimatedTotalClp),
+      0
+    ),
     ppcGaps,
     attendance: {
       present: attPresent,

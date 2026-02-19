@@ -206,6 +206,16 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: false,
   },
+  {
+    key: "refuerzo_solicitud_created",
+    label: "Nuevo turno de refuerzo",
+    description: "Cuando se registra una nueva solicitud de turno de refuerzo",
+    module: "ops",
+    submodule: "turnos_extra",
+    category: "Operaciones - Turnos",
+    defaultBell: true,
+    defaultEmail: false,
+  },
 
   // ── Operaciones - Tickets (requiere ops.tickets) ──
   {

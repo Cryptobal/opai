@@ -20,6 +20,7 @@ export interface HubPerms {
   canCreateProposal: boolean;
   canConfigureCrm: boolean;
   canApproveTE: boolean;
+  canManageRefuerzos: boolean;
   canApproveRendicion: boolean;
   canMarkAttendance: boolean;
 }
@@ -131,6 +132,10 @@ export interface OpsMetrics {
   activePuestos: number;
   activeGuardias: number;
   pendingTE: number;
+  refuerzosActivosHoy: number;
+  refuerzosProximos: number;
+  refuerzosPendientesFacturarCount: number;
+  refuerzosPendientesFacturarAmount: number;
   ppcGaps: number;
   attendance: OpsAttendance;
   rounds: OpsRounds;

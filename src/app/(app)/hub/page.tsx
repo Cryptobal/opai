@@ -65,6 +65,7 @@ export default async function HubPage() {
     canCreateProposal: canView(perms, 'docs', 'gestion'),
     canConfigureCrm: canView(perms, 'config', 'crm'),
     canApproveTE: hasCapability(perms, 'te_approve'),
+    canManageRefuerzos: canEdit(perms, 'ops', 'turnos_extra'),
     canApproveRendicion: hasCapability(perms, 'rendicion_approve'),
     canMarkAttendance: canEdit(perms, 'ops', 'pauta_diaria'),
   };
