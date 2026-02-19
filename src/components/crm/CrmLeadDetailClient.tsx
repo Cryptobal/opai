@@ -97,6 +97,9 @@ const COST_GROUPS_INDIRECTOS = [
   { id: "infrastructure", label: "Infraestructura" },
   { id: "system", label: "Sistemas" },
 ] as const;
+
+/** Cost groups preseleccionados por defecto al aprobar una lead */
+const DEFAULT_SELECTED_COST_GROUPS = ["uniform", "system", "equipment"];
 const DAY_START_OPTIONS = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30"] as const;
 
 type CpqCatalogOption = { id: string; name: string };
@@ -335,7 +338,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     dealTitle: "", rut: "", industry: "", segment: "", roleTitle: "",
     website: "", companyInfo: "", notes: "",
   });
-  const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>([]);
+  const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>(DEFAULT_SELECTED_COST_GROUPS);
   const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
@@ -471,7 +474,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     setSelectedCostGroups(
       Array.isArray(draftCostGroups) && draftCostGroups.every((x) => typeof x === "string")
         ? (draftCostGroups as string[])
-        : []
+        : DEFAULT_SELECTED_COST_GROUPS
     );
 
     // Build installations from lead data
