@@ -160,6 +160,14 @@ function resolveMustacheInText(text: string, entities: EntityData): string {
   return out;
 }
 
+function collectTokenKeysFromText(text: string): string[] {
+  if (!text || typeof text !== "string") return [];
+  const matches = text.match(/\{\{([^}#]+)\}\}/g) || [];
+  return matches
+    .map((m) => m.replace(/\{\{|\}\}/g, "").trim())
+    .filter(Boolean);
+}
+
 /** Evalúa expresiones tipo guardia.bono_X>0, guardia.colacion>0, guardia.isJubilado=="SI", guardia.healthSystem=="isapre" */
 function evaluateCondition(expr: string, entities: EntityData): boolean {
   const t = expr.trim();
@@ -283,6 +291,34 @@ export function resolveDocument(
 ): { resolvedContent: any; tokenValues: Record<string, string> } {
   const tokenValues: Record<string, string> = {};
 
+  const registerTokensFromText = (text: string) => {
+    const keys = collectTokenKeysFromText(text);
+    keys.forEach((key) => {
+      if (!tokenValues[key]) {
+        tokenValues[key] = resolveTokenValue(key, entities);
+      }
+    });
+  };
+
+  const resolveAttrs = (attrs: Record<string, any> | undefined) => {
+    if (!attrs) return attrs;
+    let changed = false;
+    const nextAttrs: Record<string, any> = { ...attrs };
+
+    for (const [key, value] of Object.entries(attrs)) {
+      if (typeof value === "string") {
+        const resolvedValue = resolveMustacheInText(value, entities);
+        if (resolvedValue !== value) {
+          changed = true;
+          nextAttrs[key] = resolvedValue;
+        }
+        registerTokensFromText(value);
+      }
+    }
+
+    return changed ? nextAttrs : attrs;
+  };
+
   function walkNode(node: any): any {
     if (!node) return node;
 
@@ -306,20 +342,30 @@ export function resolveDocument(
     if (node.type === "text" && node.text != null) {
       const resolved = resolveMustacheInText(node.text, entities);
       if (resolved !== node.text) {
-        const keys = node.text.match(/\{\{([^}#]+)\}\}/g) || [];
-        keys.forEach((k: string) => {
-          const key = k.replace(/\{\{|\}\}/g, "").trim();
-          if (key && !tokenValues[key]) tokenValues[key] = resolveTokenValue(key, entities);
-        });
+        registerTokensFromText(node.text);
       }
-      return { ...node, text: resolved };
+      const resolvedMarks = Array.isArray(node.marks)
+        ? node.marks.map((mark: any) => {
+            if (!mark || typeof mark !== "object") return mark;
+            if (!mark.attrs || typeof mark.attrs !== "object") return mark;
+            const attrs = resolveAttrs(mark.attrs as Record<string, any>);
+            return attrs === mark.attrs ? mark : { ...mark, attrs };
+          })
+        : node.marks;
+      return {
+        ...node,
+        text: resolved,
+        ...(resolvedMarks ? { marks: resolvedMarks } : {}),
+      };
     }
+
+    const resolvedNodeAttrs = resolveAttrs(node.attrs as Record<string, any> | undefined);
 
     if (node.content && Array.isArray(node.content)) {
       const isDoc = node.type === "doc";
       if (isDoc) {
         const newContent = processConditionalBlocks(node.content, entities, walkNode);
-        return { ...node, content: newContent };
+        return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
       }
       // Párrafos y headings: si el contenido inline tiene {{#if}} repartido en varios nodos,
       // unificar en un solo string antes de resolver
@@ -338,7 +384,11 @@ export function resolveDocument(
         }
       }
       const newContent = node.content.map((n: any) => walkNode(n));
-      return { ...node, content: newContent };
+      return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
+    }
+
+    if (resolvedNodeAttrs && resolvedNodeAttrs !== node.attrs) {
+      return { ...node, attrs: resolvedNodeAttrs };
     }
 
     return node;
@@ -354,11 +404,32 @@ export function resolveDocument(
 export function extractTokenKeys(content: any): string[] {
   const keys: Set<string> = new Set();
 
+  const extractFromValue = (value: unknown) => {
+    if (typeof value !== "string") return;
+    const textKeys = collectTokenKeysFromText(value);
+    textKeys.forEach((k) => keys.add(k));
+  };
+
   function walkNode(node: any): void {
     if (!node) return;
 
     if (node.type === "contractToken" && node.attrs?.tokenKey) {
       keys.add(node.attrs.tokenKey);
+    }
+
+    if (node.type === "text" && typeof node.text === "string") {
+      extractFromValue(node.text);
+    }
+
+    if (node.attrs && typeof node.attrs === "object") {
+      Object.values(node.attrs).forEach(extractFromValue);
+    }
+
+    if (Array.isArray(node.marks)) {
+      node.marks.forEach((mark: any) => {
+        if (!mark || typeof mark !== "object" || !mark.attrs) return;
+        Object.values(mark.attrs).forEach(extractFromValue);
+      });
     }
 
     if (node.content && Array.isArray(node.content)) {

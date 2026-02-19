@@ -113,7 +113,10 @@ export function EditorToolbar({
 
   const setLink = () => {
     const previousUrl = (editor.getAttributes("link").href as string | undefined) ?? "";
-    const userInput = window.prompt("Ingresa la URL del hipervínculo", previousUrl || "https://");
+    const userInput = window.prompt(
+      "Ingresa la URL del hipervínculo (acepta tokens: {{modulo.campo}})",
+      previousUrl || "https://"
+    );
     if (userInput === null) return;
 
     const trimmed = userInput.trim();
@@ -122,7 +125,8 @@ export function EditorToolbar({
       return;
     }
 
-    const normalizedUrl = /^https?:\/\//i.test(trimmed)
+    const hasToken = /\{\{[^}]+\}\}/.test(trimmed);
+    const normalizedUrl = hasToken || /^(https?:\/\/|mailto:|tel:)/i.test(trimmed)
       ? trimmed
       : `https://${trimmed}`;
 
