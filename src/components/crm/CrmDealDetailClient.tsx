@@ -82,6 +82,7 @@ type FollowUpConfigState = {
   isActive: boolean;
   firstFollowUpDays: number;
   secondFollowUpDays: number;
+  thirdFollowUpDays: number;
   sendHour: number;
   autoAdvanceStage: boolean;
   pauseOnReply: boolean;
@@ -195,9 +196,9 @@ export function CrmDealDetailClient({
     [localFollowUpLogs]
   );
   const latestFollowUpBySequence = useMemo(() => {
-    const bySequence: Record<number, FollowUpLog | null> = { 1: null, 2: null };
+    const bySequence: Record<number, FollowUpLog | null> = { 1: null, 2: null, 3: null };
     for (const log of followUpLogsDesc) {
-      if ((log.sequence === 1 || log.sequence === 2) && !bySequence[log.sequence]) {
+      if ((log.sequence === 1 || log.sequence === 2 || log.sequence === 3) && !bySequence[log.sequence]) {
         bySequence[log.sequence] = log;
       }
     }
@@ -527,6 +528,12 @@ export function CrmDealDetailClient({
 
   const localPendingCount = localFollowUpLogs.filter((l) => l.status === "pending").length;
   const localPausedCount = localFollowUpLogs.filter((l) => l.status === "paused").length;
+  const pendingLogsBySequence = useMemo(
+    () => [...localFollowUpLogs]
+      .filter((l) => l.status === "pending" || l.status === "paused")
+      .sort((a, b) => a.sequence - b.sequence || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [localFollowUpLogs]
+  );
 
   const handleFollowUpAction = async (action: "pause" | "resume" | "restart" | "cancel") => {
     setFollowUpActioning(true);
@@ -605,6 +612,22 @@ export function CrmDealDetailClient({
             <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
           </Button>
         )}
+        {pendingLogsBySequence.map((log) => (
+          <Button
+            key={`quick-send-${log.id}`}
+            size="sm"
+            variant="default"
+            className="h-7 text-xs"
+            disabled={sendingLogId === log.id}
+            onClick={() => handleSendFollowUpNow(log.id)}
+          >
+            {sendingLogId === log.id ? (
+              <>Enviando...</>
+            ) : (
+              <>Enviar S{log.sequence} ahora</>
+            )}
+          </Button>
+        ))}
       </div>
     ),
     children: (
@@ -623,7 +646,7 @@ export function CrmDealDetailClient({
                 value={followUpConfig?.isActive === false ? "Pausada" : "Activa"}
                 description={
                   followUpConfig
-                    ? `Día ${followUpConfig.firstFollowUpDays} y ${followUpConfig.secondFollowUpDays} · ${String(followUpConfig.sendHour).padStart(2, "0")}:00`
+                    ? `Día ${followUpConfig.firstFollowUpDays}, ${followUpConfig.secondFollowUpDays} + ${followUpConfig.thirdFollowUpDays} días · ${String(followUpConfig.sendHour).padStart(2, "0")}:00`
                     : "Configuración por defecto"
                 }
                 tone={followUpConfig?.isActive === false ? "warning" : "success"}
@@ -648,8 +671,12 @@ export function CrmDealDetailClient({
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[1, 2].map((sequence) => {
+            <p className="text-xs text-muted-foreground">
+              Al enviar seguimiento manual, el sistema envía correo inmediatamente y aplica cambio de etapa automático según configuración.
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[1, 2, 3].map((sequence) => {
                 const log = latestFollowUpBySequence[sequence];
                 const statusMeta = getFollowUpStatusMeta(log?.status || "pending");
                 const timingMeta = log?.status === "pending" ? getPendingTimingMeta(log.scheduledAt) : null;

@@ -23,6 +23,7 @@ interface ScheduleFollowUpsResult {
   scheduled: boolean;
   firstAt: Date | null;
   secondAt: Date | null;
+  thirdAt: Date | null;
   reason?: string;
 }
 
@@ -71,7 +72,7 @@ function scheduleAtChileHour(
  *
  * - Upserts CrmFollowUpConfig (ensures config exists with defaults)
  * - Cancels any pending follow-ups for the same deal
- * - Creates sequence 1 and sequence 2 follow-up log entries
+ * - Creates sequence 1, 2 y 3 follow-up log entries
  * - Idempotent: safe to call multiple times (cancels previous, creates new)
  */
 export async function scheduleFollowUps(
@@ -86,7 +87,13 @@ export async function scheduleFollowUps(
   });
 
   if (!config.isActive) {
-    return { scheduled: false, firstAt: null, secondAt: null, reason: "Sistema de seguimientos desactivado" };
+    return {
+      scheduled: false,
+      firstAt: null,
+      secondAt: null,
+      thirdAt: null,
+      reason: "Sistema de seguimientos desactivado",
+    };
   }
 
   // Cancel previous pending follow-ups for this deal
@@ -131,11 +138,29 @@ export async function scheduleFollowUps(
     },
   });
 
-  console.log(
-    `📅 Follow-ups programados: deal ${dealId} → 1er: ${firstDate.toISOString()}, 2do: ${secondDate.toISOString()}`
+  // Schedule 3rd follow-up (days after 2nd follow-up)
+  const thirdDate = scheduleAtChileHour(
+    secondDate,
+    config.thirdFollowUpDays,
+    config.sendHour,
   );
 
-  return { scheduled: true, firstAt: firstDate, secondAt: secondDate };
+  await prisma.crmFollowUpLog.create({
+    data: {
+      tenantId,
+      dealId,
+      sequence: 3,
+      status: "pending",
+      scheduledAt: thirdDate,
+      templateId: config.thirdEmailTemplateId,
+    },
+  });
+
+  console.log(
+    `📅 Follow-ups programados: deal ${dealId} → 1er: ${firstDate.toISOString()}, 2do: ${secondDate.toISOString()}, 3ro: ${thirdDate.toISOString()}`
+  );
+
+  return { scheduled: true, firstAt: firstDate, secondAt: secondDate, thirdAt: thirdDate };
 }
 
 /**

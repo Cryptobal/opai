@@ -128,6 +128,7 @@ export default async function CrmDealDetailPage({
         isActive: true,
         firstFollowUpDays: true,
         secondFollowUpDays: true,
+        thirdFollowUpDays: true,
         sendHour: true,
         autoAdvanceStage: true,
         pauseOnReply: true,

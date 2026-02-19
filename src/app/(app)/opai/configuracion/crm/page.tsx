@@ -38,8 +38,11 @@ export default async function CrmConfigPage() {
         title="Configuración CRM"
         description="Pipeline, campos y automatizaciones"
       />
-      <CrmConfigClient initialStages={stages} initialFields={fields} />
-      <FollowUpConfigSection />
+      <CrmConfigClient
+        initialStages={stages}
+        initialFields={fields}
+        extraSections={<FollowUpConfigSection className="lg:col-span-2" />}
+      />
     </>
   );
 }

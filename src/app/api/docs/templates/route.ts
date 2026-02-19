@@ -63,6 +63,13 @@ const WA_SEEDS: {
     description: "Mensaje de WhatsApp en la notificación del 2do seguimiento automático.",
     body: `Hola {contactName}, ¿cómo estás?\n\nTe escribo nuevamente respecto a la propuesta de {dealTitle} que te enviamos el {proposalSentDate}.\n\n¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible.\n\n{proposalLink}\n\nSaludos!`,
   },
+  {
+    slug: "followup_third",
+    name: "WhatsApp — 3er seguimiento",
+    category: "followup_third",
+    description: "Mensaje de WhatsApp en la notificación del 3er seguimiento automático.",
+    body: `Hola {contactName}, ¿cómo estás?\n\nEste es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}.\n\n{proposalLink}\n\nSi te interesa continuar, te leo y avanzamos de inmediato.`,
+  },
 ];
 
 /** Seeds de email de seguimiento automático */
@@ -109,6 +116,24 @@ Si lo prefiere, podemos coordinar una breve llamada o reunión para revisar los 
 
 Saludos cordiales`,
   },
+  {
+    slug: "email_followup_3",
+    name: "3er Seguimiento automático",
+    category: "followup",
+    description: "Email del tercer seguimiento automático. Tras enviarse, el negocio se cierra como perdido automáticamente.",
+    body: `Hola {contact.firstName},
+
+Este es nuestro último seguimiento respecto a la propuesta enviada el {deal.proposalSentDate} para {deal.title} de {account.name}.
+
+Si te interesa continuar, podemos retomar de inmediato con los ajustes que necesites para avanzar.
+
+Te dejo nuevamente el enlace:
+{deal.proposalLink}
+
+Si no recibimos respuesta, cerraremos esta oportunidad por ahora.
+
+Saludos cordiales`,
+  },
 ];
 
 /** Crea los templates de email de seguimiento si no existen para este tenant */
@@ -141,12 +166,12 @@ async function ensureFollowUpMailSeeds(tenantId: string, userId: string) {
 
 /** Crea los templates WA del sistema si no existen para este tenant */
 async function ensureWhatsAppSeeds(tenantId: string, userId: string) {
-  const existing = await prisma.docTemplate.count({
-    where: { tenantId, module: "whatsapp" },
-  });
-  if (existing > 0) return;
-
   for (const seed of WA_SEEDS) {
+    const existing = await prisma.docTemplate.findFirst({
+      where: { tenantId, module: "whatsapp", usageSlug: seed.slug },
+    });
+    if (existing) continue;
+
     const content = plainTextToTiptap(seed.body);
     await prisma.docTemplate.create({
       data: {

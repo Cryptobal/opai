@@ -84,4 +84,21 @@ Saludos!`,
       "{proposalSentDate}",
     ],
   },
+  followup_third: {
+    name: "3er seguimiento",
+    body: `Hola {contactName}, ¿cómo estás?
+
+Este es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}.
+
+{proposalLink}
+
+Si te interesa continuar, te leo y avanzamos de inmediato.`,
+    tokens: [
+      "{contactName}",
+      "{dealTitle}",
+      "{accountName}",
+      "{proposalLink}",
+      "{proposalSentDate}",
+    ],
+  },
 };

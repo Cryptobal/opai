@@ -24,11 +24,16 @@ export async function GET() {
         tenantId: ctx.tenantId,
         firstFollowUpDays: 3,
         secondFollowUpDays: 7,
+        thirdFollowUpDays: 3,
         firstEmailTemplateId: null,
         secondEmailTemplateId: null,
+        thirdEmailTemplateId: null,
         whatsappFirstEnabled: true,
         whatsappSecondEnabled: true,
+        whatsappThirdEnabled: true,
         autoAdvanceStage: true,
+        firstFollowUpStageId: null,
+        secondFollowUpStageId: null,
         pauseOnReply: true,
         sendHour: 9,
         isActive: true,
@@ -50,11 +55,26 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
+    const stages = await prisma.crmPipelineStage.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        isClosedWon: true,
+        isClosedLost: true,
+      },
+      orderBy: { order: "asc" },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
         config,
         docTemplates,
+        stages,
       },
     });
   } catch (error) {
@@ -75,11 +95,16 @@ export async function POST(request: NextRequest) {
     const {
       firstFollowUpDays,
       secondFollowUpDays,
+      thirdFollowUpDays,
       firstEmailTemplateId,
       secondEmailTemplateId,
+      thirdEmailTemplateId,
       whatsappFirstEnabled,
       whatsappSecondEnabled,
+      whatsappThirdEnabled,
       autoAdvanceStage,
+      firstFollowUpStageId,
+      secondFollowUpStageId,
       pauseOnReply,
       sendHour,
       isActive,
@@ -87,20 +112,41 @@ export async function POST(request: NextRequest) {
       bccEmail,
     } = body;
 
+    if (
+      thirdFollowUpDays !== undefined &&
+      (!Number.isInteger(thirdFollowUpDays) || thirdFollowUpDays < 1 || thirdFollowUpDays > 90)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "thirdFollowUpDays debe ser un número entre 1 y 90" },
+        { status: 400 }
+      );
+    }
+
     const config = await prisma.crmFollowUpConfig.upsert({
       where: { tenantId: ctx.tenantId },
       update: {
         ...(firstFollowUpDays !== undefined ? { firstFollowUpDays } : {}),
         ...(secondFollowUpDays !== undefined ? { secondFollowUpDays } : {}),
+        ...(thirdFollowUpDays !== undefined ? { thirdFollowUpDays } : {}),
         ...(firstEmailTemplateId !== undefined
           ? { firstEmailTemplateId: firstEmailTemplateId || null }
           : {}),
         ...(secondEmailTemplateId !== undefined
           ? { secondEmailTemplateId: secondEmailTemplateId || null }
           : {}),
+        ...(thirdEmailTemplateId !== undefined
+          ? { thirdEmailTemplateId: thirdEmailTemplateId || null }
+          : {}),
         ...(whatsappFirstEnabled !== undefined ? { whatsappFirstEnabled } : {}),
         ...(whatsappSecondEnabled !== undefined ? { whatsappSecondEnabled } : {}),
+        ...(whatsappThirdEnabled !== undefined ? { whatsappThirdEnabled } : {}),
         ...(autoAdvanceStage !== undefined ? { autoAdvanceStage } : {}),
+        ...(firstFollowUpStageId !== undefined
+          ? { firstFollowUpStageId: firstFollowUpStageId || null }
+          : {}),
+        ...(secondFollowUpStageId !== undefined
+          ? { secondFollowUpStageId: secondFollowUpStageId || null }
+          : {}),
         ...(pauseOnReply !== undefined ? { pauseOnReply } : {}),
         ...(sendHour !== undefined ? { sendHour } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
@@ -111,11 +157,16 @@ export async function POST(request: NextRequest) {
         tenantId: ctx.tenantId,
         firstFollowUpDays: firstFollowUpDays ?? 3,
         secondFollowUpDays: secondFollowUpDays ?? 7,
+        thirdFollowUpDays: thirdFollowUpDays ?? 3,
         firstEmailTemplateId: firstEmailTemplateId || null,
         secondEmailTemplateId: secondEmailTemplateId || null,
+        thirdEmailTemplateId: thirdEmailTemplateId || null,
         whatsappFirstEnabled: whatsappFirstEnabled ?? true,
         whatsappSecondEnabled: whatsappSecondEnabled ?? true,
+        whatsappThirdEnabled: whatsappThirdEnabled ?? true,
         autoAdvanceStage: autoAdvanceStage ?? true,
+        firstFollowUpStageId: firstFollowUpStageId || null,
+        secondFollowUpStageId: secondFollowUpStageId || null,
         pauseOnReply: pauseOnReply ?? true,
         sendHour: sendHour ?? 9,
         isActive: isActive ?? true,

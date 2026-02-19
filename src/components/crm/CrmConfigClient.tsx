@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Pencil, Trash2, X, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,15 +90,17 @@ const FIELD_TYPES = [
 export function CrmConfigClient({
   initialStages,
   initialFields,
+  extraSections,
 }: {
   initialStages: PipelineStage[];
   initialFields: CustomField[];
+  extraSections?: ReactNode;
 }) {
   const [stages, setStages] = useState<PipelineStage[]>(initialStages);
   const [fields, setFields] = useState<CustomField[]>(initialFields);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [pipelineOpen, setPipelineOpen] = useState(false);
-  const [camposOpen, setCamposOpen] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(true);
+  const [camposOpen, setCamposOpen] = useState(true);
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
 
@@ -126,7 +128,7 @@ export function CrmConfigClient({
   });
 
   const [activeEntityTab, setActiveEntityTab] = useState<string>("lead");
-  const [industriasOpen, setIndustriasOpen] = useState(false);
+  const [industriasOpen, setIndustriasOpen] = useState(true);
   const [industries, setIndustries] = useState<{ id: string; name: string; order: number; active: boolean }[]>([]);
   const [newIndustryName, setNewIndustryName] = useState("");
   const [newField, setNewField] = useState({
@@ -1013,6 +1015,8 @@ export function CrmConfigClient({
           </CardContent>
         )}
       </Card>
+
+      {extraSections}
 
       <ConfirmDialog
         open={deleteConfirm.open}

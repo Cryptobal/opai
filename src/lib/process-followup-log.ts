@@ -81,13 +81,26 @@ function getDefaultFollowUpHtml(
     `;
   }
 
+  if (sequence === 2) {
+    return `
+      <div style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+        <p>Hola ${contactName},</p>
+        <p>Le escribo nuevamente respecto a la propuesta que le compartimos el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
+        <p>Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos.</p>
+        ${proposalLink ? `<p>Le comparto nuevamente el enlace para su comodidad:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
+        <p>Si lo prefiere, podemos coordinar una breve llamada para revisar los puntos clave juntos.</p>
+        <p>Saludos cordiales</p>
+      </div>
+    `;
+  }
+
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
       <p>Hola ${contactName},</p>
-      <p>Le escribo nuevamente respecto a la propuesta que le compartimos el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
-      <p>Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos.</p>
-      ${proposalLink ? `<p>Le comparto nuevamente el enlace para su comodidad:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
-      <p>Si lo prefiere, podemos coordinar una breve llamada para revisar los puntos clave juntos.</p>
+      <p>Este es nuestro último seguimiento respecto a la propuesta enviada el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
+      <p>Si te interesa continuar, podemos retomar de inmediato con los ajustes necesarios para avanzar.</p>
+      ${proposalLink ? `<p>Te comparto nuevamente el enlace:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
+      <p>Si no recibimos respuesta, cerraremos este proceso por ahora.</p>
       <p>Saludos cordiales</p>
     </div>
   `;
@@ -175,7 +188,9 @@ export async function processFollowUpLog(
   const templateId =
     followUp.sequence === 1
       ? config?.firstEmailTemplateId
-      : config?.secondEmailTemplateId;
+      : followUp.sequence === 2
+        ? config?.secondEmailTemplateId
+        : config?.thirdEmailTemplateId;
 
   let emailHtml: string;
   let emailSubject: string;
@@ -205,7 +220,9 @@ export async function processFollowUpLog(
       emailSubject =
         followUp.sequence === 1
           ? `Seguimiento: ${deal.title} - ${deal.account.name}`
-          : `Re: Propuesta ${deal.title} - ${deal.account.name}`;
+          : followUp.sequence === 2
+            ? `Re: Propuesta ${deal.title} - ${deal.account.name}`
+            : `Último seguimiento: ${deal.title} - ${deal.account.name}`;
     }
   } else {
     emailHtml = getDefaultFollowUpHtml(
@@ -218,7 +235,9 @@ export async function processFollowUpLog(
     emailSubject =
       followUp.sequence === 1
         ? `Seguimiento: ${deal.title} - ${deal.account.name}`
-        : `Re: Propuesta ${deal.title} - ${deal.account.name}`;
+        : followUp.sequence === 2
+          ? `Re: Propuesta ${deal.title} - ${deal.account.name}`
+          : `Último seguimiento: ${deal.title} - ${deal.account.name}`;
   }
 
   const signature = await prisma.crmEmailSignature.findFirst({
@@ -293,10 +312,17 @@ export async function processFollowUpLog(
   const whatsappEnabled =
     followUp.sequence === 1
       ? config?.whatsappFirstEnabled ?? true
-      : config?.whatsappSecondEnabled ?? true;
+      : followUp.sequence === 2
+        ? config?.whatsappSecondEnabled ?? true
+        : config?.whatsappThirdEnabled ?? true;
 
   const contactPhone = contact.phone?.replace(/\s/g, "").replace(/^\+/, "");
-  const waSlug = followUp.sequence === 1 ? "followup_first" : "followup_second";
+  const waSlug =
+    followUp.sequence === 1
+      ? "followup_first"
+      : followUp.sequence === 2
+        ? "followup_second"
+        : "followup_third";
   const entities = {
     account: deal.account,
     contact: contact as Record<string, unknown>,
@@ -318,8 +344,8 @@ export async function processFollowUpLog(
     await sendNotification({
       tenantId: followUp.tenantId,
       type: "followup_sent",
-      title: `${followUp.sequence === 1 ? "1er" : "2do"} seguimiento enviado: ${deal.account.name}`,
-      message: `Se envió el ${followUp.sequence === 1 ? "primer" : "segundo"} seguimiento a ${contact.firstName} ${contact.lastName} por "${deal.title}".`,
+      title: `${followUp.sequence === 1 ? "1er" : followUp.sequence === 2 ? "2do" : "3er"} seguimiento enviado: ${deal.account.name}`,
+      message: `Se envió el ${followUp.sequence === 1 ? "primer" : followUp.sequence === 2 ? "segundo" : "tercer"} seguimiento a ${contact.firstName} ${contact.lastName} por "${deal.title}".`,
       data: {
         dealId: deal.id,
         contactId: contact.id,
@@ -339,20 +365,90 @@ export async function processFollowUpLog(
   }
 
   if (config?.autoAdvanceStage) {
-    const targetStageName =
-      followUp.sequence === 1 ? "Primer seguimiento" : "Segundo seguimiento";
+    if (followUp.sequence === 3) {
+      const lostStage = await prisma.crmPipelineStage.findFirst({
+        where: {
+          tenantId: followUp.tenantId,
+          isActive: true,
+          isClosedLost: true,
+        },
+        orderBy: { order: "asc" },
+      });
 
-    const targetStage = await prisma.crmPipelineStage.findFirst({
-      where: {
-        tenantId: followUp.tenantId,
-        name: targetStageName,
-        isActive: true,
-      },
-    });
+      if (lostStage && deal.stageId !== lostStage.id) {
+        await prisma.crmDeal.update({
+          where: { id: deal.id },
+          data: {
+            stageId: lostStage.id,
+            status: "lost",
+          },
+        });
 
-    if (targetStage && deal.stageId !== targetStage.id) {
-      const currentStage = deal.stage;
-      if (currentStage && currentStage.order < targetStage.order) {
+        await prisma.crmDealStageHistory.create({
+          data: {
+            tenantId: followUp.tenantId,
+            dealId: deal.id,
+            fromStageId: deal.stageId,
+            toStageId: lostStage.id,
+            changedBy: "system",
+          },
+        });
+
+        await prisma.crmHistoryLog.create({
+          data: {
+            tenantId: followUp.tenantId,
+            entityType: "deal",
+            entityId: deal.id,
+            action: "deal_stage_changed",
+            details: {
+              fromStageId: deal.stageId,
+              toStageId: lostStage.id,
+              automated: true,
+              reason: "3er seguimiento enviado: cierre automático como perdido",
+            },
+            createdBy: "system",
+          },
+        });
+      }
+
+      await prisma.crmFollowUpLog.updateMany({
+        where: {
+          dealId: deal.id,
+          tenantId: followUp.tenantId,
+          status: { in: ["pending", "paused"] },
+          id: { not: followUp.id },
+        },
+        data: {
+          status: "cancelled",
+          error: "Cierre automático tras 3er seguimiento",
+        },
+      });
+    } else {
+      const configuredStageId =
+        followUp.sequence === 1
+          ? config?.firstFollowUpStageId
+          : config?.secondFollowUpStageId;
+
+      const fallbackStageName =
+        followUp.sequence === 1 ? "Primer seguimiento" : "Segundo seguimiento";
+
+      const targetStage = configuredStageId
+        ? await prisma.crmPipelineStage.findFirst({
+            where: {
+              id: configuredStageId,
+              tenantId: followUp.tenantId,
+              isActive: true,
+            },
+          })
+        : await prisma.crmPipelineStage.findFirst({
+            where: {
+              tenantId: followUp.tenantId,
+              name: fallbackStageName,
+              isActive: true,
+            },
+          });
+
+      if (targetStage && deal.stageId !== targetStage.id) {
         await prisma.crmDeal.update({
           where: { id: deal.id },
           data: { stageId: targetStage.id },

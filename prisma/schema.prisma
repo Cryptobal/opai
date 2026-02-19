@@ -1305,6 +1305,8 @@ model CrmPipelineStage {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deals        CrmDeal[]
+  followUpConfigFirstStage  CrmFollowUpConfig[] @relation("crm_followup_first_stage")
+  followUpConfigSecondStage CrmFollowUpConfig[] @relation("crm_followup_second_stage")
   historyFrom  CrmDealStageHistory[] @relation("crm_history_from_stage")
   historyTo    CrmDealStageHistory[] @relation("crm_history_to_stage")
 
@@ -1646,11 +1648,16 @@ model CrmFollowUpConfig {
   tenantId              String   @unique @map("tenant_id")
   firstFollowUpDays     Int      @default(3) @map("first_followup_days")
   secondFollowUpDays    Int      @default(7) @map("second_followup_days")
+  thirdFollowUpDays     Int      @default(3) @map("third_followup_days") // días después del 2do seguimiento
   firstEmailTemplateId  String?  @map("first_email_template_id") @db.Uuid
   secondEmailTemplateId String?  @map("second_email_template_id") @db.Uuid
+  thirdEmailTemplateId  String?  @map("third_email_template_id") @db.Uuid
   whatsappFirstEnabled  Boolean  @default(true) @map("whatsapp_first_enabled")
   whatsappSecondEnabled Boolean  @default(true) @map("whatsapp_second_enabled")
+  whatsappThirdEnabled  Boolean  @default(true) @map("whatsapp_third_enabled")
   autoAdvanceStage      Boolean  @default(true) @map("auto_advance_stage")
+  firstFollowUpStageId  String?  @map("first_followup_stage_id") @db.Uuid
+  secondFollowUpStageId String?  @map("second_followup_stage_id") @db.Uuid
   pauseOnReply          Boolean  @default(true) @map("pause_on_reply")
   sendHour              Int      @default(9) @map("send_hour") // 0-23, hora local de envío
   isActive              Boolean  @default(true) @map("is_active")
@@ -1659,7 +1666,12 @@ model CrmFollowUpConfig {
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  firstFollowUpStage  CrmPipelineStage? @relation("crm_followup_first_stage", fields: [firstFollowUpStageId], references: [id], onDelete: SetNull)
+  secondFollowUpStage CrmPipelineStage? @relation("crm_followup_second_stage", fields: [secondFollowUpStageId], references: [id], onDelete: SetNull)
+
   @@index([tenantId], map: "idx_crm_followup_config_tenant")
+  @@index([firstFollowUpStageId], map: "idx_crm_followup_config_first_stage")
+  @@index([secondFollowUpStageId], map: "idx_crm_followup_config_second_stage")
   @@map("crm_followup_config")
   @@schema("crm")
 }

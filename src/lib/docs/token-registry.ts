@@ -273,6 +273,7 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: "proposal_sent", label: "Propuesta enviada" },
     { key: "followup_first", label: "1er seguimiento" },
     { key: "followup_second", label: "2do seguimiento" },
+    { key: "followup_third", label: "3er seguimiento" },
     { key: "general", label: "Uso general (elegir desde CRM)" },
   ],
 };
@@ -301,6 +302,8 @@ export const WA_USAGE_SLUGS: Record<
     { label: "1er seguimiento", usedIn: "Notificación interna del 1er seguimiento automático (botón Enviar WhatsApp)." },
   followup_second:
     { label: "2do seguimiento", usedIn: "Notificación interna del 2do seguimiento automático (botón Enviar WhatsApp)." },
+  followup_third:
+    { label: "3er seguimiento", usedIn: "Notificación interna del 3er seguimiento automático (botón Enviar WhatsApp)." },
 };
 
 /** Status labels for documents */
