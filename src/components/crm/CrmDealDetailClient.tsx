@@ -320,9 +320,20 @@ export function CrmDealDetailClient({
     if (!emailTo || !emailSubject) { toast.error("Completa destinatario y asunto."); return; }
     setSending(true);
     try {
+      const entities = {
+        contact: (deal.primaryContact || undefined) as Record<string, unknown> | undefined,
+        account: (deal.account || undefined) as Record<string, unknown> | undefined,
+        deal: {
+          ...deal,
+          proposalLink: dealProposalLink || deal.proposalLink || "",
+        } as Record<string, unknown>,
+      };
+      const htmlForSend = emailTiptapContent
+        ? tiptapToEmailHtml(resolveDocument(emailTiptapContent, entities).resolvedContent)
+        : emailBody;
       const cc = emailCc.split(",").map((s) => s.trim()).filter(Boolean);
       const bcc = emailBcc.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/crm/gmail/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo, cc, bcc, subject: emailSubject, html: emailBody, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId }) });
+      const res = await fetch("/api/crm/gmail/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo, cc, bcc, subject: emailSubject, html: htmlForSend, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId }) });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error);
       setEmailOpen(false); setEmailBody(""); setEmailTiptapContent(null); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false);

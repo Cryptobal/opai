@@ -260,12 +260,19 @@ export function CrmContactDetailClient({
     if (!emailSubject) { toast.error("Escribe un asunto."); return; }
     setSending(true);
     try {
+      const entities = {
+        contact: contact as Record<string, unknown>,
+        account: (contact.account || undefined) as Record<string, unknown> | undefined,
+      };
+      const htmlForSend = emailTiptapContent
+        ? tiptapToEmailHtml(resolveDocument(emailTiptapContent, entities).resolvedContent)
+        : emailBody;
       const cc = emailCc.split(",").map((s) => s.trim()).filter(Boolean);
       const bcc = emailBcc.split(",").map((s) => s.trim()).filter(Boolean);
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: emailBody, contactId: contact.id, accountId: contact.account?.id || undefined }),
+        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error enviando email");
