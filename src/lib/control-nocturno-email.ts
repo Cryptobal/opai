@@ -19,6 +19,11 @@ interface ControlNocturnoEmailData {
   criticos: number;
   generalNotes: string | null;
   aiSummary?: string | null;
+  snapshot?: {
+    week: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
+    mtd: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
+    ytd: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
+  };
   /** Base URL del sistema (ej: https://opai.gard.cl) */
   baseUrl: string;
 }
@@ -42,6 +47,9 @@ function escapeHtml(str: string): string {
 }
 
 function buildHtml(data: ControlNocturnoEmailData): string {
+  const baseUrl = data.baseUrl.replace(/\/+$/, "");
+  const reportUrl = `${baseUrl}/ops/control-nocturno/${data.reporteId}`;
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/></head>
@@ -99,10 +107,58 @@ function buildHtml(data: ControlNocturnoEmailData): string {
             </div>
           </td>
         </tr>` : ""}
+        ${data.snapshot ? `
+        <!-- KPI Snapshot -->
+        <tr>
+          <td style="padding:0 32px 16px">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 8px;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase">KPI ejecutivo</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:6px 8px 6px 0;font-size:12px;color:#334155;font-weight:600">Semana</td>
+                  <td style="padding:6px 8px;font-size:12px;color:#334155">${data.snapshot.week.current.cumplimiento}%</td>
+                  <td style="padding:6px 8px;font-size:12px;color:${data.snapshot.week.deltaCumplimiento >= 0 ? "#15803d" : "#b91c1c"};font-weight:600">
+                    ${data.snapshot.week.deltaCumplimiento >= 0 ? "+" : ""}${data.snapshot.week.deltaCumplimiento} pp
+                  </td>
+                  <td style="padding:6px 0 6px 8px;font-size:12px;color:#64748b;text-align:right">Omitidas: ${data.snapshot.week.current.omitidas}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 8px 6px 0;font-size:12px;color:#334155;font-weight:600">MTD</td>
+                  <td style="padding:6px 8px;font-size:12px;color:#334155">${data.snapshot.mtd.current.cumplimiento}%</td>
+                  <td style="padding:6px 8px;font-size:12px;color:${data.snapshot.mtd.deltaCumplimiento >= 0 ? "#15803d" : "#b91c1c"};font-weight:600">
+                    ${data.snapshot.mtd.deltaCumplimiento >= 0 ? "+" : ""}${data.snapshot.mtd.deltaCumplimiento} pp
+                  </td>
+                  <td style="padding:6px 0 6px 8px;font-size:12px;color:#64748b;text-align:right">Alertas: ${data.snapshot.mtd.current.alertCount}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 8px 0 0;font-size:12px;color:#334155;font-weight:600">YTD</td>
+                  <td style="padding:6px 8px 0;font-size:12px;color:#334155">${data.snapshot.ytd.current.cumplimiento}%</td>
+                  <td style="padding:6px 8px 0;font-size:12px;color:${data.snapshot.ytd.deltaCumplimiento >= 0 ? "#15803d" : "#b91c1c"};font-weight:600">
+                    ${data.snapshot.ytd.deltaCumplimiento >= 0 ? "+" : ""}${data.snapshot.ytd.deltaCumplimiento} pp
+                  </td>
+                  <td style="padding:6px 0 0 8px;font-size:12px;color:#64748b;text-align:right">Omitidas: ${data.snapshot.ytd.current.omitidas}</td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>` : ""}
         <!-- PDF note -->
         <tr>
           <td style="padding:8px 32px 24px" align="center">
             <p style="margin:0;font-size:12px;color:#64748b">El reporte completo se encuentra adjunto en formato PDF.</p>
+          </td>
+        </tr>
+        <!-- CTA -->
+        <tr>
+          <td style="padding:0 32px 24px" align="center">
+            <a
+              href="${reportUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 18px;border-radius:6px"
+            >
+              Ver en OPAI
+            </a>
           </td>
         </tr>
         <!-- Footer -->

@@ -6,6 +6,7 @@ import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
 import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
 import { generateControlNocturnoPdfBuffer } from "@/lib/control-nocturno-pdf";
+import { getControlNocturnoSnapshot } from "@/lib/control-nocturno-kpis";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -412,8 +413,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         console.warn("[OPS] Could not generate PDF for email attachment:", pdfErr);
       }
 
-      // Wait for AI summary (runs in parallel with PDF)
-      const aiSummary = await aiSummaryPromise;
+      // Snapshot ejecutivo para email (semana / MTD / YTD)
+      const snapshotPromise = getControlNocturnoSnapshot(ctx.tenantId, updated.date).catch(
+        () => null,
+      );
+
+      // Wait for background tasks (run in parallel with PDF)
+      const [aiSummary, snapshot] = await Promise.all([aiSummaryPromise, snapshotPromise]);
 
       const emailData = {
         reporteId: id,
@@ -429,6 +435,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ).length,
         generalNotes: updated.generalNotes,
         aiSummary,
+        ...(snapshot ? { snapshot } : {}),
         baseUrl,
       };
 

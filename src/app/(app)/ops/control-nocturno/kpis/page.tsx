@@ -19,7 +19,7 @@ export default async function ControlNocturnoKpisPage() {
     <div className="space-y-6">
       <PageHeader
         title="KPIs Control Nocturno"
-        description="Cumplimiento de rondas, tendencias y alertas por instalación."
+        description="Panel ejecutivo con tendencias, riesgos, comparativos semanales/MTD/YTD y ranking por instalación."
       />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <ControlNocturnoKpisClient />
