@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const [documents, counts] = await Promise.all([
+    const [documentsRaw, counts] = await Promise.all([
       prisma.document.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -51,6 +51,41 @@ export async function GET(request: NextRequest) {
         _count: { id: true },
       }),
     ]);
+
+    // Enriquecer con nombre y RUT del guardia cuando hay asociación ops_guardia
+    const guardiaIds = documentsRaw.flatMap((d) =>
+      d.associations.filter((a) => a.entityType === "ops_guardia").map((a) => a.entityId)
+    );
+    const uniqueGuardiaIds = [...new Set(guardiaIds)];
+    const guardias =
+      uniqueGuardiaIds.length > 0
+        ? await prisma.opsGuardia.findMany({
+            where: { id: { in: uniqueGuardiaIds }, tenantId: ctx.tenantId },
+            select: {
+              id: true,
+              persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          })
+        : [];
+    const guardiaMap = Object.fromEntries(
+      guardias.map((g) => [
+        g.id,
+        {
+          fullName: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
+          rut: g.persona.rut,
+        },
+      ])
+    );
+
+    const documents = documentsRaw.map((d) => {
+      const guardiaAssoc = d.associations.find((a) => a.entityType === "ops_guardia");
+      const guardiaInfo = guardiaAssoc ? guardiaMap[guardiaAssoc.entityId] : null;
+      return {
+        ...d,
+        guardiaName: guardiaInfo?.fullName ?? null,
+        guardiaRut: guardiaInfo?.rut ?? null,
+      };
+    });
 
     // Build status counts
     const statusCounts: Record<string, number> = {};

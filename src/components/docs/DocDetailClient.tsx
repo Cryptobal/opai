@@ -66,6 +66,8 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [signatureLoading, setSignatureLoading] = useState(false);
   const [activeSignatureRequest, setActiveSignatureRequest] = useState<any | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [contentHtml, setContentHtml] = useState<string | null>(null);
+  const [contentHtmlLoading, setContentHtmlLoading] = useState(false);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -104,6 +106,31 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     fetchDocument();
     fetchSignatureRequest();
   }, [fetchDocument, fetchSignatureRequest]);
+
+  // Cuando el doc está firmado y es solo lectura, cargar contenido resuelto (con firmas reales, no [Token])
+  useEffect(() => {
+    if (!doc || !documentId) return;
+    const isSigned = !!(doc.signedAt || doc.signatureStatus === "completed");
+    const isReadOnly = !["draft", "review"].includes(doc.status);
+    if (!isSigned || !isReadOnly) {
+      setContentHtml(null);
+      return;
+    }
+    let cancelled = false;
+    setContentHtmlLoading(true);
+    fetch(`/api/docs/documents/${documentId}/content-html`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.text() : Promise.reject()))
+      .then((html) => {
+        if (!cancelled) setContentHtml(html);
+      })
+      .catch(() => {
+        if (!cancelled) setContentHtml(null);
+      })
+      .finally(() => {
+        if (!cancelled) setContentHtmlLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [doc, documentId]);
 
   const handleSave = async () => {
     if (!doc) return;
@@ -251,15 +278,17 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
           )}
           Descargar PDF
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => setSignatureModalOpen(true)}
-        >
-          <FileSignature className="h-3.5 w-3.5" />
-          Enviar a firma
-        </Button>
+        {!(doc.signedAt || doc.signatureStatus === "completed") && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setSignatureModalOpen(true)}
+          >
+            <FileSignature className="h-3.5 w-3.5" />
+            Enviar a firma
+          </Button>
+        )}
       </div>
 
       {/* Document info panel */}
@@ -337,6 +366,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
           documentId={documentId}
           activeRequest={activeSignatureRequest}
           onRefresh={fetchSignatureRequest}
+          isSigned={!!(doc?.signedAt || doc?.signatureStatus === "completed")}
         />
       )}
 
@@ -411,8 +441,25 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
-      {/* Editor */}
-      <ContractEditor content={content} onChange={setContent} editable={isEditable} />
+      {/* Editor o contenido resuelto (firmado) */}
+      {doc && (doc.signedAt || doc.signatureStatus === "completed") && !isEditable ? (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {contentHtmlLoading ? (
+            <div className="min-h-[300px] flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : contentHtml ? (
+            <div
+              className="prose prose-invert prose-sm max-w-none p-6 text-foreground [&_p]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground [&_td]:text-foreground [&_th]:text-foreground"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
+            />
+          ) : (
+            <ContractEditor content={content} onChange={setContent} editable={false} />
+          )}
+        </div>
+      ) : (
+        <ContractEditor content={content} onChange={setContent} editable={isEditable} />
+      )}
 
       <SignatureRequestModal
         open={signatureModalOpen}

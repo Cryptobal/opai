@@ -106,7 +106,9 @@ export function DocsClient() {
       (d) =>
         d.title.toLowerCase().includes(q) ||
         d.category.toLowerCase().includes(q) ||
-        d.module.toLowerCase().includes(q)
+        d.module.toLowerCase().includes(q) ||
+        (d as any).guardiaName?.toLowerCase().includes(q) ||
+        (d as any).guardiaRut?.replace(/[.\s-]/g, "").includes(q.replace(/[.\s-]/g, ""))
     );
   }, [documents, search]);
 
@@ -270,11 +272,17 @@ export function DocsClient() {
                   </p>
                   <StatusBadge status={doc.status} />
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                   <span className="inline-flex items-center gap-1">
                     <Building2 className="h-3 w-3" />
                     {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
                   </span>
+                  {(doc as any).guardiaName && (
+                    <span>
+                      {(doc as any).guardiaName}
+                      {(doc as any).guardiaRut ? ` · RUT ${(doc as any).guardiaRut}` : ""}
+                    </span>
+                  )}
                   {doc.expirationDate && (
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="h-3 w-3 text-white" />

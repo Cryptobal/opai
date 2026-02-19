@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Download, ShieldCheck, AlertCircle, QrCode } from "lucide-react";
+import { FileText, Download, ShieldCheck, AlertCircle, QrCode, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ContractEditor } from "./ContractEditor";
 
 type Signer = {
   name: string;
@@ -66,6 +65,8 @@ export function SignedViewClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Data | null>(null);
+  const [contentHtml, setContentHtml] = useState<string | null>(null);
+  const [contentLoading, setContentLoading] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,7 +81,6 @@ export function SignedViewClient({
           return;
         }
         setData(json.data);
-        // Generate QR client-side
         const QRCode = (await import("qrcode")).default;
         const url = json.data.verificationUrl || window.location.href;
         const qr = await QRCode.toDataURL(url, { width: 180, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
@@ -93,6 +93,28 @@ export function SignedViewClient({
     }
     void load();
   }, [documentId, viewToken]);
+
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    setContentLoading(true);
+    setContentHtml(null);
+    fetch(`/api/docs/signed-view/${documentId}/${viewToken}/content-html`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Error al cargar contenido");
+        return res.text();
+      })
+      .then((html) => {
+        if (!cancelled) setContentHtml(html);
+      })
+      .catch(() => {
+        if (!cancelled) setContentHtml("");
+      })
+      .finally(() => {
+        if (!cancelled) setContentLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [documentId, viewToken, data]);
 
   // Load Google Fonts for typed signatures
   useEffect(() => {
@@ -158,9 +180,22 @@ export function SignedViewClient({
           </Button>
         </div>
 
-        {/* Document content (tokens resolved) */}
+        {/* Document content (HTML, mismo flujo que PDF) */}
         <div className="rounded-lg border border-border bg-card overflow-hidden mb-8">
-          <ContractEditor content={data.document.content} editable={false} />
+          {contentLoading ? (
+            <div className="min-h-[300px] flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : contentHtml ? (
+            <div
+              className="prose prose-invert prose-sm max-w-none p-6 text-foreground [&_p]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground [&_td]:text-foreground [&_th]:text-foreground"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
+            />
+          ) : (
+            <div className="min-h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+              No se pudo cargar el contenido. Usa el botón Descargar PDF.
+            </div>
+          )}
         </div>
 
         {/* Signature blocks */}

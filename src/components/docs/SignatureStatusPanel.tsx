@@ -27,6 +27,8 @@ interface SignatureStatusPanelProps {
   documentId: string;
   activeRequest: SignatureRequest | null;
   onRefresh: () => void;
+  /** Si el documento ya está firmado (completed), mostrar mensaje distinto */
+  isSigned?: boolean;
 }
 
 function statusBadge(status: string) {
@@ -48,6 +50,7 @@ export function SignatureStatusPanel({
   documentId,
   activeRequest,
   onRefresh,
+  isSigned = false,
 }: SignatureStatusPanelProps) {
   const summary = useMemo(() => {
     if (!activeRequest) return null;
@@ -105,7 +108,9 @@ export function SignatureStatusPanel({
 
       {!activeRequest ? (
         <p className="text-sm text-muted-foreground">
-          Aún no se ha enviado este documento a firma.
+          {isSigned
+            ? "Este documento ya fue firmado. Ver el registro de firma electrónica más abajo."
+            : "Aún no se ha enviado este documento a firma."}
         </p>
       ) : (
         <>

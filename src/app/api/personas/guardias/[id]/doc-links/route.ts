@@ -201,17 +201,34 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "documentId es requerido" }, { status: 400 });
     }
 
-    const deleted = await prisma.docAssociation.deleteMany({
+    const doc = await prisma.document.findFirst({
+      where: { id: documentId, tenantId: ctx.tenantId },
+      select: { id: true, status: true },
+    });
+    if (!doc) {
+      return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
+    }
+
+    const assocDeleted = await prisma.docAssociation.deleteMany({
       where: {
         documentId,
         entityType: "ops_guardia",
         entityId: id,
-        document: { tenantId: ctx.tenantId },
       },
     });
 
-    if (deleted.count === 0) {
+    if (assocDeleted.count === 0) {
       return NextResponse.json({ success: false, error: "Vínculo no encontrado" }, { status: 404 });
+    }
+
+    // Si es borrador y no tiene otras asociaciones, eliminar el documento para no acumular borradores
+    if (doc.status === "draft") {
+      const otherAssocs = await prisma.docAssociation.count({
+        where: { documentId },
+      });
+      if (otherAssocs === 0) {
+        await prisma.document.delete({ where: { id: documentId } });
+      }
     }
 
     await prisma.opsGuardiaHistory.create({
