@@ -107,6 +107,7 @@ const dteLineSchema = z.object({
   isExempt: z.boolean().optional(),
   accountId: optNull(z.string().uuid()),
   costCenterId: optNull(z.string().uuid()),
+  refuerzoSolicitudId: optNull(z.string().uuid()),
 });
 
 export const issueDteSchema = z.object({

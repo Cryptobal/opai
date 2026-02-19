@@ -28,6 +28,7 @@ import { CRM_MODULES } from "./CrmModuleIcons";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
+import { OpsRefuerzosClient } from "@/components/ops";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -104,6 +105,33 @@ export type InstallationDetail = {
     code?: string | null;
     lifecycleStatus: string;
     persona: { firstName: string; lastName: string; rut?: string | null };
+  }>;
+  refuerzos?: Array<{
+    id: string;
+    installationId: string;
+    accountId?: string | null;
+    guardiaId: string;
+    puestoId?: string | null;
+    requestedByName?: string | null;
+    requestChannel?: string | null;
+    startAt: string;
+    endAt: string;
+    guardsCount: number;
+    shiftType?: string | null;
+    paymentCondition?: string | null;
+    guardPaymentClp: number;
+    estimatedTotalClp: number;
+    status: "solicitado" | "en_curso" | "realizado" | "facturado";
+    invoiceNumber?: string | null;
+    installation: { id: string; name: string };
+    account?: { id: string; name: string } | null;
+    puesto?: { id: string; name: string } | null;
+    guardia: {
+      id: string;
+      code?: string | null;
+      persona: { firstName: string; lastName: string; rut?: string | null };
+    };
+    turnoExtra?: { id: string; status: string; amountClp: number; paidAt?: string | null } | null;
   }>;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
   /** Negocios de la cuenta asociada (solo cuando hay accountId) */
@@ -1662,6 +1690,17 @@ export function CrmInstallationDetailClient({
           sourceQuoteId={sourceQuoteId}
           sourceQuoteCode={sourceQuoteCode}
           sourceUpdatedAt={sourceUpdatedAt}
+        />
+      ),
+    },
+    {
+      key: "refuerzos",
+      label: "Turnos refuerzo",
+      count: installation.refuerzos?.length ?? 0,
+      children: (
+        <OpsRefuerzosClient
+          initialItems={(installation.refuerzos ?? []) as any}
+          defaultInstallationId={installation.id}
         />
       ),
     },

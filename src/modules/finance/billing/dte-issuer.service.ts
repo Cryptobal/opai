@@ -27,6 +27,7 @@ export type IssueDteInput = {
     isExempt?: boolean;
     accountId?: string;
     costCenterId?: string;
+    refuerzoSolicitudId?: string;
   }[];
   currency?: string;
   notes?: string;
@@ -173,11 +174,31 @@ export async function issueDte(
           isExempt: l.isExempt ?? false,
           accountId: l.accountId ?? null,
           costCenterId: l.costCenterId ?? null,
+          refuerzoSolicitudId: l.refuerzoSolicitudId ?? null,
         })),
       },
     },
     include: { lines: true },
   });
+
+  const refuerzoIds = Array.from(
+    new Set(
+      input.lines
+        .map((line) => line.refuerzoSolicitudId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  if (refuerzoIds.length > 0) {
+    await prisma.opsRefuerzoSolicitud.updateMany({
+      where: { tenantId, id: { in: refuerzoIds } },
+      data: {
+        status: "facturado",
+        invoiceNumber: String(nextFolio),
+        invoiceRef: code,
+        invoicedAt: new Date(),
+      },
+    });
+  }
 
   // 10. Auto-generate journal entry for facturas (not boletas)
   if (input.dteType === 33 || input.dteType === 34) {

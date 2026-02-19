@@ -55,6 +55,11 @@ interface OpsRefuerzosClientProps {
   defaultInstallationId?: string;
 }
 
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function toDateTimeInputValue(date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -115,8 +120,8 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
     const pending = filtered.filter((x) => x.status !== "facturado");
     return {
       count: filtered.length,
-      amount: filtered.reduce((acc, row) => acc + row.estimatedTotalClp, 0),
-      pendingAmount: pending.reduce((acc, row) => acc + row.estimatedTotalClp, 0),
+      amount: filtered.reduce((acc, row) => acc + toNumber(row.estimatedTotalClp), 0),
+      pendingAmount: pending.reduce((acc, row) => acc + toNumber(row.estimatedTotalClp), 0),
     };
   }, [filtered]);
 
@@ -312,7 +317,7 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
                       {item.account?.name ?? "Sin cliente"} · {formatDateTime(item.startAt)} - {formatDateTime(item.endAt)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Pago guardia: {formatMoney(item.guardPaymentClp)} · Estimado facturable: {formatMoney(item.estimatedTotalClp)}
+                      Pago guardia: {formatMoney(toNumber(item.guardPaymentClp))} · Estimado facturable: {formatMoney(toNumber(item.estimatedTotalClp))}
                     </p>
                     {item.invoiceNumber && (
                       <p className="text-xs text-muted-foreground">Factura: {item.invoiceNumber}</p>
