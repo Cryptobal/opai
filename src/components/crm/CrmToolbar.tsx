@@ -70,8 +70,8 @@ export function CrmToolbar({
         />
       </div>
 
-      {/* Controls group */}
-      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-hide">
+      {/* Controls group: en móvil permite wrap para mejor distribución */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0 min-w-0">
         {/* Select all */}
         {selectAll?.show && (
           <Button
