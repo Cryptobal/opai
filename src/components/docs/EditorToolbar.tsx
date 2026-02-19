@@ -115,7 +115,7 @@ export function EditorToolbar({
     const previousUrl = (editor.getAttributes("link").href as string | undefined) ?? "";
     const userInput = window.prompt(
       "Ingresa la URL del hipervínculo (acepta tokens: {{modulo.campo}})",
-      previousUrl || "https://"
+      previousUrl || "{{deal.proposalLink}}"
     );
     if (userInput === null) return;
 
@@ -126,8 +126,9 @@ export function EditorToolbar({
     }
 
     const hasToken = /\{\{[^}]+\}\}/.test(trimmed);
+    const tokenOnly = trimmed.replace(/^https?:\/\/(?=\{\{[^}]+\}\}$)/i, "");
     const normalizedUrl = hasToken || /^(https?:\/\/|mailto:|tel:)/i.test(trimmed)
-      ? trimmed
+      ? tokenOnly
       : `https://${trimmed}`;
 
     focusNoScroll()

@@ -90,6 +90,21 @@ export function resolveTokenValue(
     return causal ? `${causal.article} ${causal.number}` : `{{${tokenKey}}}`;
   }
 
+  // Compatibilidad/fallback entre módulos deal e installation para el nombre
+  // de instalación, porque en algunos flujos solo viene uno de los dos.
+  if (module === "deal" && field === "installationName") {
+    const fromDeal = entity.installationName;
+    if (fromDeal) return String(fromDeal);
+    const fromInstallation = entities.installation?.name;
+    if (fromInstallation) return String(fromInstallation);
+  }
+  if (module === "installation" && field === "name") {
+    const fromInstallation = entity.name;
+    if (fromInstallation) return String(fromInstallation);
+    const fromDeal = entities.deal?.installationName;
+    if (fromDeal) return String(fromDeal);
+  }
+
   const value = entity[field];
   if (value === null || value === undefined) return "";
 
@@ -307,7 +322,11 @@ export function resolveDocument(
 
     for (const [key, value] of Object.entries(attrs)) {
       if (typeof value === "string") {
-        const resolvedValue = resolveMustacheInText(value, entities);
+        let resolvedValue = resolveMustacheInText(value, entities);
+        if (key === "href" || key === "src") {
+          // Evita URL inválida al resolver tokens cuando quedó "https://https://..."
+          resolvedValue = resolvedValue.replace(/^(https?:\/\/)(https?:\/\/)/i, "$2");
+        }
         if (resolvedValue !== value) {
           changed = true;
           nextAttrs[key] = resolvedValue;

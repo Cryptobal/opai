@@ -272,6 +272,10 @@ export function CrmDealDetailClient({
       const entities = {
         contact: (deal.primaryContact || undefined) as Record<string, unknown> | undefined,
         account: (deal.account || undefined) as Record<string, unknown> | undefined,
+        deal: {
+          ...deal,
+          proposalLink: deal.proposalLink || "",
+        } as Record<string, unknown>,
       };
       const { resolvedContent } = resolveDocument(tpl.content, entities);
       setEmailSubject(tpl.name);
