@@ -9,7 +9,6 @@ import { SignatureMethodSelector, type SignatureMethodOption } from "./Signature
 import { SignatureTyped } from "./SignatureTyped";
 import { SignatureCanvas } from "./SignatureCanvas";
 import { SignatureUpload } from "./SignatureUpload";
-import { ContractEditor } from "./ContractEditor";
 
 interface SignatureSignClientProps {
   token: string;
@@ -49,29 +48,14 @@ type SignApiResponse = {
   };
 };
 
-/** Normaliza contenido para TipTap: siempre { type: "doc", content: [...] } */
-function normalizeTiptapContent(raw: unknown): { type: "doc"; content: unknown[] } {
-  if (!raw) return { type: "doc", content: [] };
-  if (typeof raw === "string") {
-    try {
-      raw = JSON.parse(raw) as unknown;
-    } catch {
-      return { type: "doc", content: [] };
-    }
-  }
-  const obj = raw as Record<string, unknown>;
-  if (obj.type === "doc" && Array.isArray(obj.content)) return obj as { type: "doc"; content: unknown[] };
-  if (Array.isArray(obj.content)) return { type: "doc", content: obj.content };
-  if (Array.isArray(obj)) return { type: "doc", content: obj };
-  return { type: "doc", content: [] };
-}
-
 export function SignatureSignClient({ token }: SignatureSignClientProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [data, setData] = useState<SignApiResponse["data"] | null>(null);
+  const [contentHtml, setContentHtml] = useState<string | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   const [signerName, setSignerName] = useState("");
   const [signerRut, setSignerRut] = useState("");
@@ -104,6 +88,26 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
     }
     void load();
   }, [token]);
+
+  // Cargar contenido como HTML (mismo flujo que el PDF, garantiza que se vea)
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    setContentHtml(null);
+    setContentError(null);
+    fetch(`/api/docs/sign/${token}/content-html`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Error al cargar contenido");
+        return res.text();
+      })
+      .then((html) => {
+        if (!cancelled) setContentHtml(html);
+      })
+      .catch((err) => {
+        if (!cancelled) setContentError(err?.message || "No se pudo cargar el contenido");
+      });
+    return () => { cancelled = true; };
+  }, [token, data]);
 
   const signatureImageUrl = useMemo(() => {
     if (method === "drawn") return drawnDataUrl;
@@ -244,24 +248,22 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
               Descargar PDF
             </a>
           </div>
-          {(() => {
-            const normalized = normalizeTiptapContent(data.document.content);
-            const isEmpty = !normalized.content || normalized.content.length === 0;
-            if (isEmpty) {
-              return (
-                <div className="min-h-[300px] flex items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 text-muted-foreground text-sm">
-                  El contenido del documento no está disponible. Puedes descargar el PDF para ver el documento completo.
-                </div>
-              );
-            }
-            return (
-              <ContractEditor
-                key={data.document.id}
-                content={normalized}
-                editable={false}
+          <div className="min-h-[300px] rounded-lg border border-border bg-background overflow-y-auto">
+            {contentError ? (
+              <div className="min-h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+                {contentError}. Puedes descargar el PDF para ver el documento.
+              </div>
+            ) : contentHtml ? (
+              <div
+                className="prose prose-invert prose-sm max-w-none px-6 py-6 text-foreground [&_p]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground [&_td]:text-foreground [&_th]:text-foreground"
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
               />
-            );
-          })()}
+            ) : (
+              <div className="min-h-[300px] flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="rounded-xl border bg-card p-5 space-y-4">
