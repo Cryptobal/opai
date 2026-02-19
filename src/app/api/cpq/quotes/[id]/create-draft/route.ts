@@ -130,7 +130,7 @@ export async function POST(
 
     const marginPct = Number(quote.parameters?.marginPct ?? 13);
     const margin = marginPct / 100;
-    const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 0);
+    const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 2.5);
     const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);
     const policyContractMonthsVal = Number(quote.parameters?.policyContractMonths ?? 12);
     const policyContractPctVal = Number(quote.parameters?.policyContractPct ?? 100);

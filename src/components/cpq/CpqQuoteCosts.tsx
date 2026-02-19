@@ -41,7 +41,7 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   uniformChangesPerYear: 3,
   holidayAnnualCount: 12,
   holidayCommercialBufferPct: 10,
-  financialRatePct: 0,
+  financialRatePct: 2.5,
   salePriceMonthly: 0,
   policyRatePct: 0,
   policyAdminRatePct: 0,

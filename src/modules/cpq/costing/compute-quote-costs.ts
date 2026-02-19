@@ -292,7 +292,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
   const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
 
-  const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 0);
+  const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 2.5);
   const financialRatePct = normalizePct(financialRatePctRaw);
   const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 0);
   const policyRatePct = normalizePct(policyRatePctRaw);

@@ -686,7 +686,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         additionalCostsTotal - costSummary.monthlyFinancial - costSummary.monthlyPolicy
       )
     : 0;
-  const financialRatePct = costSummary?.financialRatePct ?? 0;
+  const financialRatePct = costSummary?.financialRatePct ?? 2.5;
   const policyRatePct = costSummary?.policyRatePct ?? 0;
   const monthlyHours = costParams?.monthlyHoursStandard ?? 180;
   const policyContractMonths = costParams?.policyContractMonths ?? 12;

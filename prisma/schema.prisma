@@ -938,7 +938,7 @@ model CpqQuoteParameters {
   avgStayMonths          Int      @default(4) @map("avg_stay_months")
   uniformChangesPerYear  Int      @default(3) @map("uniform_changes_per_year")
   financialEnabled      Boolean  @default(false) @map("financial_enabled")
-  financialRatePct       Decimal  @default(0) @map("financial_rate_pct") @db.Decimal(6, 4)
+  financialRatePct       Decimal  @default(2.5) @map("financial_rate_pct") @db.Decimal(6, 4)
   salePriceBase          Decimal  @default(0) @map("sale_price_base") @db.Decimal(14, 2)
   salePriceMonthly       Decimal  @default(0) @map("sale_price_monthly") @db.Decimal(12, 2)
   policyEnabled          Boolean  @default(false) @map("policy_enabled")

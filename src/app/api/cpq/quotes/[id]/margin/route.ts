@@ -24,7 +24,7 @@ export async function PUT(
         monthlyHoursStandard: 180,
         avgStayMonths: 4,
         uniformChangesPerYear: 3,
-        financialRatePct: 0,
+        financialRatePct: 2.5,
         salePriceMonthly: 0,
         policyRatePct: 0,
         policyAdminRatePct: 0,
