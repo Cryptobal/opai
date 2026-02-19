@@ -336,6 +336,13 @@ export async function getOpsMetrics(
   const todayStr = getTodayChile();
   const todayDate = new Date(todayStr);
   const tomorrowDate = new Date(todayDate.getTime() + 24 * 60 * 60 * 1000);
+  const prismaAny = prisma as unknown as {
+    opsRefuerzoSolicitud?: {
+      count: (args: unknown) => Promise<number>;
+      findMany: (args: unknown) => Promise<Array<{ estimatedTotalClp: unknown }>>;
+    };
+  };
+  const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
 
   const [
     activePuestos,
@@ -438,28 +445,34 @@ export async function getOpsMetrics(
     prisma.opsAlertaRonda.count({
       where: { tenantId, resuelta: false, severidad: 'critical' },
     }),
-    prisma.opsRefuerzoSolicitud.count({
-      where: {
-        tenantId,
-        status: { not: "facturado" },
-        startAt: { lte: tomorrowDate },
-        endAt: { gte: todayDate },
-      },
-    }),
-    prisma.opsRefuerzoSolicitud.count({
-      where: {
-        tenantId,
-        status: { not: "facturado" },
-        startAt: { gt: tomorrowDate },
-      },
-    }),
-    prisma.opsRefuerzoSolicitud.findMany({
-      where: {
-        tenantId,
-        status: { not: "facturado" },
-      },
-      select: { estimatedTotalClp: true },
-    }),
+    hasRefuerzosModel
+      ? prismaAny.opsRefuerzoSolicitud!.count({
+          where: {
+            tenantId,
+            status: { not: "facturado" },
+            startAt: { lte: tomorrowDate },
+            endAt: { gte: todayDate },
+          },
+        })
+      : Promise.resolve(0),
+    hasRefuerzosModel
+      ? prismaAny.opsRefuerzoSolicitud!.count({
+          where: {
+            tenantId,
+            status: { not: "facturado" },
+            startAt: { gt: tomorrowDate },
+          },
+        })
+      : Promise.resolve(0),
+    hasRefuerzosModel
+      ? prismaAny.opsRefuerzoSolicitud!.findMany({
+          where: {
+            tenantId,
+            status: { not: "facturado" },
+          },
+          select: { estimatedTotalClp: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const attTotal = attPresent + attAbsent + attPending + attReplacement;
