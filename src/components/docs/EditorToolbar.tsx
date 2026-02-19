@@ -27,6 +27,8 @@ import {
   Braces,
   FileOutput,
   Eye,
+  Link2,
+  Unlink2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +110,27 @@ export function EditorToolbar({
   const Separator = () => (
     <div className="w-px h-6 bg-border mx-0.5" />
   );
+
+  const setLink = () => {
+    const previousUrl = (editor.getAttributes("link").href as string | undefined) ?? "";
+    const userInput = window.prompt("Ingresa la URL del hipervínculo", previousUrl || "https://");
+    if (userInput === null) return;
+
+    const trimmed = userInput.trim();
+    if (!trimmed) {
+      focusNoScroll().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    const normalizedUrl = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+
+    focusNoScroll()
+      .extendMarkRange("link")
+      .setLink({ href: normalizedUrl })
+      .run();
+  };
 
   return (
     <div className="flex items-center gap-0.5 flex-wrap px-2 py-1.5 bg-muted/30">
@@ -214,6 +237,20 @@ export function EditorToolbar({
         title="Resaltar"
       >
         <Highlighter className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={setLink}
+        active={editor.isActive("link")}
+        title="Agregar/editar enlace"
+      >
+        <Link2 className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => focusNoScroll().extendMarkRange("link").unsetLink().run()}
+        disabled={!editor.isActive("link")}
+        title="Quitar enlace"
+      >
+        <Unlink2 className="h-4 w-4" />
       </ToolbarButton>
 
       <Separator />
