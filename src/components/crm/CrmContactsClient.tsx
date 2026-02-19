@@ -455,11 +455,11 @@ export function CrmContactsClient({
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="rounded-lg border p-4 transition-colors hover:border-primary/30 group space-y-2.5 hover:bg-accent/30"
+                  className="rounded-lg border p-4 transition-colors hover:border-primary/30 group space-y-2.5 hover:bg-accent/30 min-w-0 overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/crm/contacts/${contact.id}`} className="flex-1 min-w-0">

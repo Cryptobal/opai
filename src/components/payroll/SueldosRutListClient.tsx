@@ -297,7 +297,7 @@ export function SueldosRutListClient() {
     : sueldos;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -321,7 +321,7 @@ export function SueldosRutListClient() {
           {searchTerm ? "No se encontraron resultados." : "No hay sueldos por RUT configurados."}
         </CardContent></Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           {filtered.map((s) => {
             const totalBonos = s.bonos.reduce((sum, b) => sum + (b.amount || 0), 0);
             const totalHaberes = s.baseSalary + s.colacion + s.movilizacion + totalBonos;

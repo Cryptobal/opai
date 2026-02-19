@@ -412,14 +412,14 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               })}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredAccounts.map((account) => {
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Cliente inactivo";
                 return (
                   <div
                     key={account.id}
-                    className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30"
+                    className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 min-w-0 overflow-hidden"
                   >
                     <div className="flex items-start justify-between gap-2 p-4">
                       <Link href={`/crm/accounts/${account.id}`} className="flex flex-1 min-w-0">

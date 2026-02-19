@@ -50,7 +50,7 @@ export default async function GuardiasPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 overflow-x-hidden">
       <PageHeader
         title="Personas"
         description="Alta de personas y control de elegibilidad operativa."

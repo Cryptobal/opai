@@ -167,17 +167,17 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
       {/* ── Main content ── */}
       <div
         className={cn(
-          'transition-[padding] duration-200 ease-out',
+          'transition-[padding] duration-200 ease-out min-w-0 overflow-x-hidden',
           isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
           className
         )}
       >
         {/* Topbar actions desktop — campana + avatar */}
-        <div className="hidden lg:flex sticky top-0 z-20 items-center justify-end gap-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-2">
+        <div className="hidden lg:flex sticky top-0 z-20 items-center justify-end gap-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-2 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
-        <main className="flex-1">
-          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-6 animate-in-page" role="region">
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-6 animate-in-page min-w-0 overflow-x-hidden" role="region">
             {children}
           </div>
         </main>

@@ -474,7 +474,7 @@ function AccountsTab({
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2 min-w-0">
             {filtered.map((a) => {
               const typeCfg = ACCOUNT_TYPE_LABELS[a.accountType] ?? {
                 label: a.accountType,
@@ -864,7 +864,7 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2 min-w-0">
             {transactions.map((tx) => {
               const rcCfg = RECONC_STATUS_CONFIG[tx.reconciliationStatus] ?? {
                 label: tx.reconciliationStatus,

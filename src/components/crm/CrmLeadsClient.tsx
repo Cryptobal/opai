@@ -330,7 +330,7 @@ export function CrmLeadsClient({
               compact
             />
           ) : view === "cards" ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
                 const totalGuards = (meta?.totalGuards as number) || 0;
@@ -339,7 +339,7 @@ export function CrmLeadsClient({
                   <Link
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="block rounded-lg border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2"
+                    className="block rounded-lg border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2 min-w-0 overflow-hidden"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
@@ -390,7 +390,7 @@ export function CrmLeadsClient({
               })}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
                 const dotacion = (meta?.dotacion as { puesto: string; cantidad: number; dias?: string[]; horaInicio?: string; horaFin?: string }[] | undefined);
@@ -401,7 +401,7 @@ export function CrmLeadsClient({
                   <Link
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="block rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
+                    className="block rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1 min-w-0">

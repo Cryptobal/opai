@@ -289,10 +289,6 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
         <p className="text-sm text-muted-foreground">
           No hay estructura de sueldo definida. El guardia no tiene asignación activa o el puesto no tiene sueldo configurado.
         </p>
-        <Button size="sm" onClick={openCreateModal}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Crear sueldo por RUT
-        </Button>
       </div>
     );
   }
@@ -368,26 +364,19 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
         </CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2">
-        {salary.hasRutOverride ? (
-          <>
-            <Button size="sm" variant="outline" onClick={openEditModal}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Editar sueldo por RUT
-            </Button>
-            <Button size="sm" variant="outline" className="text-destructive" onClick={handleDeleteOverride} disabled={deleting}>
-              {deleting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
-              Eliminar override
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" onClick={openCreateModal}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Crear sueldo por RUT
+      {/* Actions: solo mostrar editar/eliminar cuando ya tiene sueldo por RUT */}
+      {salary.hasRutOverride && (
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={openEditModal}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Editar sueldo por RUT
           </Button>
-        )}
-      </div>
+          <Button size="sm" variant="outline" className="text-destructive" onClick={handleDeleteOverride} disabled={deleting}>
+            {deleting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+            Eliminar override
+          </Button>
+        </div>
+      )}
 
       {/* Confirmation dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

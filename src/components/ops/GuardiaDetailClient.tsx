@@ -1181,7 +1181,76 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 );
               })()}
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Banco</Label>
+              <Input
+                value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName ?? "Sin banco") : "Sin datos"}
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Tipo cuenta</Label>
+              <Input
+                value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : "Sin datos"}
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Número de cuenta</Label>
+              <Input
+                value={existingAccount?.accountNumber ?? "Sin datos"}
+                readOnly
+                className="h-9"
+              />
+            </div>
           </div>
+
+          {canManageGuardias && (
+            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {existingAccount ? "Edite los datos bancarios y guarde los cambios." : "Complete para registrar la cuenta bancaria."}
+              </p>
+              <div className="grid gap-3 md:grid-cols-4">
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={accountForm.bankCode}
+                  onChange={(e) => setAccountForm((prev) => ({ ...prev, bankCode: e.target.value }))}
+                >
+                  <option value="">Banco chileno</option>
+                  {CHILE_BANKS.map((bank) => (
+                    <option key={bank.code} value={bank.code}>
+                      {bank.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={accountForm.accountType}
+                  onChange={(e) => setAccountForm((prev) => ({ ...prev, accountType: e.target.value }))}
+                >
+                  <option value="">Tipo de cuenta</option>
+                  {BANK_ACCOUNT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {ACCOUNT_TYPE_LABEL[type]}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  placeholder="Número de cuenta"
+                  value={accountForm.accountNumber}
+                  onChange={(e) => setAccountForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                />
+                <Button
+                  onClick={existingAccount ? handleUpdateBankAccount : handleCreateBankAccount}
+                  disabled={creatingAccount}
+                >
+                  {creatingAccount ? "..." : existingAccount ? "Guardar" : "Agregar"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-3 md:grid-cols-[1fr_200px] md:items-start">
             <div className="space-y-1.5">
@@ -1774,58 +1843,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               ))}
             </div>
           )}
-        </div>
-      ),
-    },
-    /* cuentas */
-    {
-      key: "cuentas" as const,
-      label: "Cuenta bancaria",
-      children: (
-        <div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Un solo banco por trabajador. {existingAccount ? "Edite los datos y guarde los cambios." : "Complete para registrar la cuenta."}
-          </p>
-          <div className="grid gap-3 md:grid-cols-4">
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={accountForm.bankCode}
-              onChange={(e) => setAccountForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-              disabled={!canManageGuardias}
-            >
-              <option value="">Banco chileno</option>
-              {CHILE_BANKS.map((bank) => (
-                <option key={bank.code} value={bank.code}>
-                  {bank.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={accountForm.accountType}
-              onChange={(e) => setAccountForm((prev) => ({ ...prev, accountType: e.target.value }))}
-              disabled={!canManageGuardias}
-            >
-              <option value="">Tipo de cuenta</option>
-              {BANK_ACCOUNT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {ACCOUNT_TYPE_LABEL[type]}
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="Número de cuenta"
-              value={accountForm.accountNumber}
-              onChange={(e) => setAccountForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
-              disabled={!canManageGuardias}
-            />
-            <Button
-              onClick={existingAccount ? handleUpdateBankAccount : handleCreateBankAccount}
-              disabled={creatingAccount || !canManageGuardias}
-            >
-              {creatingAccount ? "..." : existingAccount ? "Guardar" : "Agregar"}
-            </Button>
-          </div>
         </div>
       ),
     },

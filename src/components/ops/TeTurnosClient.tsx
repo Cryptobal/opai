@@ -488,11 +488,11 @@ export function TeTurnosClient({
               compact
             />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  className="rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between min-w-0 overflow-hidden"
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     {canAddToLote(item) ? (

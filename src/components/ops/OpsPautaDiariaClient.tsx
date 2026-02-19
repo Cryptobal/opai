@@ -457,7 +457,7 @@ export function OpsPautaDiariaClient({
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-lg border border-border/60 p-3 ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,100px)_auto] md:gap-x-4 md:gap-y-0 gap-y-2.5 md:items-center`}
+                      className={`rounded-lg border border-border/60 p-3 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,100px)_auto] md:gap-x-4 md:gap-y-0 gap-y-2.5 md:items-center`}
                     >
                       {/* Col 1: Puesto + Slot (en desktop va a la izquierda) */}
                       <div className="flex items-start md:items-center justify-between gap-2 min-w-0">

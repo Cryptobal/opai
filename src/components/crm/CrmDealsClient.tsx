@@ -153,7 +153,7 @@ function DealColumn({ stage, deals, children }: DealColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "w-full rounded-lg border bg-muted/30 p-3 md:min-w-[260px] md:max-w-[260px] transition-colors",
+        "w-full rounded-lg border bg-muted/30 p-3 md:min-w-[260px] md:max-w-[260px] transition-colors min-w-0 overflow-hidden",
         isOver ? "border-primary/60" : "border-border"
       )}
     >
@@ -211,7 +211,7 @@ function DealCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-lg border border-border bg-card p-3",
+        "rounded-lg border border-border bg-card p-3 min-w-0 overflow-hidden",
         isDragging && "opacity-60"
       )}
     >

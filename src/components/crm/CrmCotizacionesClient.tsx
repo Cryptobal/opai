@@ -180,13 +180,13 @@ export function CrmCotizacionesClient({
               compact
             />
           ) : viewMode === "list" ? (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               {filteredQuotes.map((quote) => (
                 <QuoteListRow key={quote.id} quote={quote} />
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredQuotes.map((quote) => (
                 <QuoteCardItem key={quote.id} quote={quote} />
               ))}
@@ -204,7 +204,7 @@ function QuoteListRow({ quote }: { quote: QuoteRow }) {
   return (
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
-      className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
+      className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ function QuoteCardItem({ quote }: { quote: QuoteRow }) {
   return (
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
-      className="block rounded-lg border p-4 transition-colors hover:bg-accent/30 group"
+      className="block rounded-lg border p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="font-mono text-sm font-medium truncate">{quote.code}</span>

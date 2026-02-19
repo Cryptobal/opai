@@ -176,7 +176,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
                   return (
                     <div
                       key={item.id}
-                      className="rounded-lg border border-border p-3 flex items-center justify-between gap-3"
+                      className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 min-w-0 overflow-hidden"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{item.puesto.name} <span className="text-muted-foreground text-xs">(Slot {item.slotNumber})</span></p>

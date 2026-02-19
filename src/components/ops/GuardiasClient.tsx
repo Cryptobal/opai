@@ -377,7 +377,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-end gap-2 flex-wrap">
         {canIngresoTe && (
           <Button
@@ -683,8 +683,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       </div>
 
       <Card>
-        <CardContent className="pt-4 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <CardContent className="pt-4 space-y-2.5 min-w-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <Input
               placeholder="Buscar..."
               value={search}
@@ -749,7 +749,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               compact
             />
           ) : (
-            <div className={viewMode === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
+            <div className={`min-w-0 ${viewMode === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}`}>
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
                 const lat = item.persona.lat;
@@ -770,8 +770,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     }}
                     className={
                       viewMode === "grid"
-                        ? "rounded-lg border border-border p-3 flex gap-3 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                        : "rounded-lg border border-border p-3 flex flex-col gap-1.5 md:flex-row md:items-center md:gap-6 hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        ? "rounded-lg border border-border p-3 flex gap-3 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        : "rounded-lg border border-border p-3 flex flex-col gap-1.5 md:flex-row md:items-center md:gap-6 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                     }
                   >
                     {/* Nombre y contacto */}
@@ -853,34 +853,34 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     {/* Instalación, ubicación y mapa — a la derecha en grid */}
                     <div className={
                       viewMode === "grid"
-                        ? "shrink-0 flex flex-col items-end gap-1 text-right"
-                        : "flex items-center gap-6 shrink-0"
+                        ? "shrink-0 flex flex-col items-end gap-1 text-right min-w-0"
+                        : "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-6 min-w-0 shrink"
                     }>
-                      <div className={viewMode === "list" ? "min-w-[180px]" : ""}>
+                      <div className={viewMode === "list" ? "min-w-0 md:min-w-[180px]" : "min-w-0"}>
                         {item.currentInstallation ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-                            <span className="text-xs font-medium truncate max-w-[160px]">{item.currentInstallation.name}</span>
+                            <span className="text-xs font-medium truncate min-w-0">{item.currentInstallation.name}</span>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
                         )}
                       </div>
                       {(item.persona.city || item.persona.commune) && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground truncate min-w-0">
                             {[item.persona.commune, item.persona.city].filter(Boolean).join(", ")}
                           </span>
                         </div>
                       )}
                       {lat && lng && mapsKey ? (
-                        <div>
+                        <div className="shrink-0">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=120x80&scale=2&maptype=roadmap&markers=size:small%7Ccolor:red%7C${lat},${lng}&key=${mapsKey}`}
                             alt="Mapa"
-                            className="rounded border border-border w-[90px] h-[58px] object-cover"
+                            className="rounded border border-border w-[90px] h-[58px] object-cover max-w-full"
                             loading="lazy"
                           />
                         </div>

@@ -366,7 +366,7 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2 min-w-0">
             {filtered.map((s) => (
               <Card key={s.id}>
                 <CardContent className="p-4">

@@ -332,12 +332,12 @@ export function CrmInstallationsListClient({
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredInstallations.map((inst) => (
                 <Link
                   key={inst.id}
                   href={`/crm/installations/${inst.id}`}
-                  className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 block"
+                  className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 block min-w-0 overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-2 p-4">
                     <div className="flex-1 min-w-0">
