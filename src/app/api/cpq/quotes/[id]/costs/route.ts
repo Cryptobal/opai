@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 const safeNumber = (value: unknown) => Number(value || 0);
@@ -104,8 +105,9 @@ export async function GET(
       ]);
 
     const defaultCatalog = catalogItems.filter((item) => item.isDefault);
+    const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
     const uniformDefaultIds = new Set(
-      defaultCatalog.filter((item) => item.type === "uniform").map((item) => item.id)
+      uniformCatalog.filter((item) => isDefaultUniform(item.name)).map((item) => item.id)
     );
     const examDefaultIds = new Set(
       defaultCatalog.filter((item) => item.type === "exam").map((item) => item.id)
@@ -126,7 +128,7 @@ export async function GET(
     const existingCostIds = new Set(costItems.map((item) => item.catalogItemId));
     const existingMealTypes = new Set(meals.map((meal) => meal.mealType.toLowerCase()));
 
-    const defaultUniforms = defaultCatalog
+    const defaultUniforms = uniformCatalog
       .filter((item) => uniformDefaultIds.has(item.id))
       .filter((item) => !existingUniformIds.has(item.id))
       .map((item) => ({
@@ -498,7 +500,14 @@ export async function PUT(
       const existingCostItems = await tx.cpqQuoteCostItem.findMany({ where: { quoteId: id } });
       const existingMeals = await tx.cpqQuoteMeal.findMany({ where: { quoteId: id } });
 
-      const uniformDefaults = defaultCatalog.filter((item) => item.type === "uniform");
+      const uniformCatalogForPut = await tx.cpqCatalogItem.findMany({
+        where: {
+          OR: [{ tenantId }, { tenantId: null }],
+          active: true,
+          type: "uniform",
+        },
+      });
+      const uniformDefaults = uniformCatalogForPut.filter((item) => isDefaultUniform(item.name));
       const examDefaults = defaultCatalog.filter((item) => item.type === "exam");
       const mealDefaults = defaultCatalog.filter((item) => item.type === "meal");
     const costDefaults = defaultCatalog.filter((item) =>

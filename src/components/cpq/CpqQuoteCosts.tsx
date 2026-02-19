@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/opai";
 import { formatCurrency } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { isDefaultUniform } from "@/lib/cpq-constants";
 import type {
   CpqCatalogItem,
   CpqQuoteCostItem,
@@ -339,7 +340,9 @@ export function CpqQuoteCosts({
   const applyDefaults = () => {
     if (defaultsApplied.current) return;
 
-    const uniformDefaults = (catalogByType.uniform || []).filter((item) => item.isDefault);
+    const uniformDefaults = (catalogByType.uniform || []).filter((item) =>
+      typeof item.name === "string" && isDefaultUniform(item.name)
+    );
     if (uniformDefaults.length) {
       setUniforms((prev) => {
         const map = new Map(prev.map((u) => [u.catalogItemId, u]));

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isDefaultUniform } from "@/lib/cpq-constants";
 
 interface QuoteCostSummary {
   totalGuards: number;
@@ -122,8 +123,9 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     holidayCommercialFactor;
 
   const defaultCatalog = catalogItems.filter((item) => item.isDefault);
+  const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
   const uniformDefaultIds = new Set(
-    defaultCatalog.filter((item) => item.type === "uniform").map((item) => item.id)
+    uniformCatalog.filter((item) => isDefaultUniform(item.name)).map((item) => item.id)
   );
   const examDefaultIds = new Set(
     defaultCatalog.filter((item) => item.type === "exam").map((item) => item.id)
@@ -144,7 +146,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const existingCostIds = new Set(costItems.map((item) => item.catalogItemId));
   const existingMealTypes = new Set(meals.map((meal) => meal.mealType.toLowerCase()));
 
-  const defaultUniforms = defaultCatalog
+  const defaultUniforms = uniformCatalog
     .filter((item) => uniformDefaultIds.has(item.id))
     .filter((item) => !existingUniformIds.has(item.id))
     .map((item) => ({

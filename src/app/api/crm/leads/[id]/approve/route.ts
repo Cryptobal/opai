@@ -12,6 +12,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { toSentenceCase } from "@/lib/text-format";
+import { isDefaultUniform } from "@/lib/cpq-constants";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -698,6 +699,7 @@ export async function POST(
                 });
                 for (const item of catalogItems) {
                   if (item.type === "uniform") {
+                    if (!isDefaultUniform(item.name)) continue;
                     await tx.cpqQuoteUniformItem.create({
                       data: {
                         quoteId: quote.id,
@@ -828,6 +830,7 @@ export async function POST(
               });
               for (const item of catalogItems) {
                 if (item.type === "uniform") {
+                  if (!isDefaultUniform(item.name)) continue;
                   await tx.cpqQuoteUniformItem.create({
                     data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, active: true },
                   });
