@@ -179,12 +179,12 @@ export default async function CRMPage() {
   const totalQuotes24m = quotesByMonthData.reduce((s, r) => s + r.count, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
       {/* ─── Resumen ejecutivo ─── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Link href="/crm/leads" className="group">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03]">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 min-w-0">
+        <Link href="/crm/leads" className="group min-w-0">
+          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads este mes</p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums tracking-tight">{leadsThisMonth}</span>
@@ -199,7 +199,7 @@ export default async function CRMPage() {
           </div>
         </Link>
 
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-border/60 bg-card p-4 min-w-0 overflow-hidden">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Estado leads</p>
           <div className="mt-2 flex items-baseline gap-4">
             <div>
@@ -217,8 +217,8 @@ export default async function CRMPage() {
           </div>
         </div>
 
-        <Link href="/crm/accounts" className="group">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03]">
+        <Link href="/crm/accounts" className="group min-w-0">
+          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Portafolio activo</p>
             <div className="mt-2 flex items-baseline gap-4">
               <div>
@@ -233,8 +233,8 @@ export default async function CRMPage() {
           </div>
         </Link>
 
-        <Link href="/crm/deals" className="group">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03]">
+        <Link href="/crm/deals" className="group min-w-0">
+          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pipeline abierto</p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums tracking-tight">{openDealsCount}</span>
@@ -246,10 +246,10 @@ export default async function CRMPage() {
       </div>
 
       {/* ─── Gráficos históricos ─── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-border/60">
+      <div className="grid gap-4 lg:grid-cols-2 min-w-0">
+        <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader className="pb-2">
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Leads recibidos</CardTitle>
                 <CardDescription className="text-xs">Últimos 12 meses por estado</CardDescription>
@@ -262,9 +262,9 @@ export default async function CRMPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60">
+        <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader className="pb-2">
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Cotizaciones enviadas</CardTitle>
                 <CardDescription className="text-xs">Últimos 24 meses</CardDescription>
@@ -279,8 +279,8 @@ export default async function CRMPage() {
       </div>
 
       {/* ─── Fuente + Embudo ─── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-border/60">
+      <div className="grid gap-4 lg:grid-cols-2 min-w-0">
+        <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Origen de leads</CardTitle>
             <CardDescription className="text-xs">Distribución últimos 12 meses</CardDescription>
@@ -290,7 +290,7 @@ export default async function CRMPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60">
+        <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Embudo comercial</CardTitle>
             <CardDescription className="text-xs">Conversión últimos 30 días</CardDescription>

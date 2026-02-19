@@ -20,7 +20,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, description, icon, bellKey, emailKey, prefs, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-start gap-4 py-3 border-b border-border last:border-0">
+    <div className="flex flex-col sm:flex-row sm:items-start gap-4 py-3 border-b border-border last:border-0 min-w-0">
       <div className="mt-0.5 text-muted-foreground">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium">{label}</div>

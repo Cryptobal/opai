@@ -105,15 +105,15 @@ export default async function FinanzasDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Finanzas"
         description="Rendiciones de gastos, aprobaciones, pagos y reportes."
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.filter((m) => m.show).map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Card className="h-full transition-colors hover:bg-accent/40">
+          <Link key={item.href} href={item.href} className="min-w-0">
+            <Card className="h-full transition-colors hover:bg-accent/40 min-w-0 overflow-hidden">
               <CardContent className="pt-5 flex items-start gap-3">
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.color}`}

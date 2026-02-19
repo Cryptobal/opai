@@ -34,7 +34,7 @@ export default async function IntegracionesPage() {
         title="Integraciones"
         description="Configura conexiones globales para el CRM"
       />
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
       </div>
     </>

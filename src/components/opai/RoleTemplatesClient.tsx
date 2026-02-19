@@ -370,9 +370,9 @@ function RoleTemplateCard({
   const canRemove = !template.isSystem && template.usersCount === 0;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-sm min-w-0 overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
@@ -397,13 +397,13 @@ function RoleTemplateCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 break-words">
               {template.description || `Slug: ${template.slug}`}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 flex-shrink-0">
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground mr-2">
             <Users className="h-3 w-3" />
             {template.usersCount}
@@ -434,8 +434,8 @@ function RoleTemplateCard({
         </div>
       </div>
 
-      {/* Quick permission summary */}
-      <div className="flex flex-wrap gap-1.5 mt-3">
+      {/* Quick permission summary - flex-wrap para móvil */}
+      <div className="flex flex-wrap gap-1.5 mt-3 min-w-0 w-full">
         {MODULE_META.filter((m) => m.key !== "hub").map((mod) => {
           const perms = template.permissions as RolePermissions;
           const level = perms.modules?.[mod.key] ?? "none";
@@ -444,7 +444,7 @@ function RoleTemplateCard({
             <span
               key={mod.key}
               className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0",
                 LEVEL_COLORS[level],
               )}
             >
@@ -719,9 +719,9 @@ export function RoleTemplatesClient({ isOwner }: { isOwner: boolean }) {
   const customTemplates = templates.filter((t) => !t.isSystem);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {templates.length} rol{templates.length !== 1 ? "es" : ""} configurado
           {templates.length !== 1 ? "s" : ""}

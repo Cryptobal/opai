@@ -15,7 +15,7 @@ export default async function GruposConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <ConfigBackLink />
       <PageHeader
         title="Grupos de Usuarios"

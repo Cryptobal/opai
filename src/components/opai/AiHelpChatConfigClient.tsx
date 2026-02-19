@@ -109,8 +109,8 @@ export function AiHelpChatConfigClient() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <section className="rounded-xl border border-border bg-card p-5 space-y-4">
+    <div className="space-y-6 max-w-3xl min-w-0">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-4 min-w-0 overflow-hidden">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-primary/10 p-2 text-primary">
             <Bot className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function AiHelpChatConfigClient() {
         </label>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5 space-y-3">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-3 min-w-0 overflow-hidden">
         <h3 className="text-sm font-semibold">Roles con acceso al chat</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {ALL_ROLES.map((role) => (

@@ -54,7 +54,7 @@ export default async function UsuariosConfigPage() {
         }
       />
 
-      <div className="space-y-8">
+      <div className="space-y-8 min-w-0">
         <Card>
           <CardHeader>
             <CardTitle>Usuarios Activos</CardTitle>

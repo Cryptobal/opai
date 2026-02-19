@@ -49,7 +49,7 @@ export function HubClientWrapper({
   activities,
 }: HubClientWrapperProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <HubGreeting
         firstName={firstName}
         perms={hubPerms}
@@ -61,7 +61,7 @@ export function HubClientWrapper({
       <HubQuickActions perms={hubPerms} />
 
       {hubPerms.hasCrm && (
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Buscador CRM</CardTitle>
             <CardDescription>
@@ -114,7 +114,7 @@ export function HubClientWrapper({
       )}
 
       {!crmMetrics && !docsSignals && !opsMetrics && !financeMetrics && (
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Sin datos disponibles</CardTitle>
             <CardDescription>

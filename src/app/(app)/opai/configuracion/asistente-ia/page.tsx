@@ -14,7 +14,7 @@ export default async function AsistenteIaConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Asistente IA"
         description="Configura acceso por roles y alcance del chat conversacional en la aplicación"

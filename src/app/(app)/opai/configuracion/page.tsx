@@ -210,7 +210,7 @@ export default async function ConfiguracionPage() {
         description="Administración global y por módulo"
       />
 
-      <div className="space-y-5">
+      <div className="space-y-5 min-w-0">
         <div className="rounded-xl border border-border bg-card/70 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2">
             {visibleSections.map((section) => (
