@@ -329,7 +329,7 @@ export function OpsPautaDiariaClient({
                 </div>
               ) : items.length > 0 ? (
                 <div className="flex items-center gap-1.5 text-sm text-emerald-400">
-                  <CalendarCheck2 className="h-4 w-4" />
+                  <CalendarCheck2 className="h-4 w-4 text-white" />
                 </div>
               ) : null}
               <Button
@@ -406,7 +406,7 @@ export function OpsPautaDiariaClient({
         <Card>
           <CardContent className="pt-5">
             <EmptyState
-              icon={<CalendarCheck2 className="h-8 w-8" />}
+              icon={<CalendarCheck2 className="h-8 w-8 text-white" />}
               title="Sin asistencia"
               description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual."
               compact

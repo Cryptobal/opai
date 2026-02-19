@@ -277,7 +277,7 @@ export function DocsClient() {
                   </span>
                   {doc.expirationDate && (
                     <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
+                      <Calendar className="h-3 w-3 text-white" />
                       Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
                     </span>
                   )}

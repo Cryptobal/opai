@@ -386,7 +386,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                 onClick={() => (document.getElementById("postulacion-birthdate") as HTMLInputElement | null)?.showPicker?.()}
                 title="Abrir calendario"
               >
-                <CalendarDays className="h-4 w-4" />
+                <CalendarDays className="h-4 w-4 text-white" />
               </Button>
               <span className="shrink-0 text-muted-foreground">Fecha de nacimiento</span>
             </div>

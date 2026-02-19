@@ -263,7 +263,7 @@ export function PresentationsList({ presentations: initialPresentations, initial
 
         {/* Filtro por fecha */}
         <div className="relative">
-          <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+          <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white" />
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
@@ -340,7 +340,7 @@ export function PresentationsList({ presentations: initialPresentations, initial
                       )}
                       {presentation.emailSentAt && (
                         <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <Calendar className="w-3 h-3 flex-shrink-0 text-white" />
                           {new Date(presentation.emailSentAt).toLocaleDateString('es-CL', {
                             day: '2-digit',
                             month: '2-digit',

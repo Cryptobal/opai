@@ -1042,7 +1042,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 shrink-0" />{d.horaInicio} – {d.horaFin}</span>
                     )}
                     {d.dias && d.dias.length > 0 && (
-                      <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0" />{d.dias.length === 7 ? "Todos los días" : d.dias.join(", ")}</span>
+                      <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0 text-white" />{d.dias.length === 7 ? "Todos los días" : d.dias.join(", ")}</span>
                     )}
                   </div>
                 </div>

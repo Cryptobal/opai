@@ -83,7 +83,7 @@ export default function PayrollParameters() {
       <div className="flex items-center justify-between">
         <PageHeader title="Parámetros Legales Chile" />
         <Badge variant="default" className="gap-1.5 text-xs">
-          <Calendar className="h-3 w-3" />
+          <Calendar className="h-3 w-3 text-white" />
           {parameters.effective_from}
         </Badge>
       </div>

@@ -705,7 +705,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
             {/* Fecha de inicio */}
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
+                <CalendarDays className="h-3.5 w-3.5 text-white" />
                 Fecha de inicio
               </Label>
               <input

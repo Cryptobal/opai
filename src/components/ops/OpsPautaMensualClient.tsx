@@ -1047,7 +1047,7 @@ export function OpsPautaMensualClient({
                 </div>
               ) : items.length > 0 ? (
                 <div className="flex items-center gap-1 text-xs text-emerald-400">
-                  <CalendarDays className="h-3.5 w-3.5" />
+                  <CalendarDays className="h-3.5 w-3.5 text-white" />
                   {items.length} registros
                 </div>
               ) : null}
@@ -1115,7 +1115,7 @@ export function OpsPautaMensualClient({
           <CardContent className="pt-4 pb-3">
             {emptyReason === "no_puestos" ? (
               <EmptyState
-                icon={<CalendarDays className="h-8 w-8" />}
+                icon={<CalendarDays className="h-8 w-8 text-white" />}
                 title="Sin puestos configurados"
                 description={`${installations.find((i) => i.id === installationId)?.name ?? "Esta instalación"} no tiene puestos activos. Configura puestos desde el CRM o desde Puestos operativos.`}
                 action={
@@ -1139,7 +1139,7 @@ export function OpsPautaMensualClient({
               />
             ) : (
               <EmptyState
-                icon={<CalendarDays className="h-8 w-8" />}
+                icon={<CalendarDays className="h-8 w-8 text-white" />}
                 title="Sin pauta"
                 description={
                   installationId
@@ -1817,7 +1817,7 @@ export function OpsPautaMensualClient({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
+              <CalendarDays className="h-4 w-4 text-white" />
               Pintar en pauta
             </DialogTitle>
             <DialogDescription>

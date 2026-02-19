@@ -405,7 +405,7 @@ export function OpsPuestosClient({
                   href={`/ops/pauta-mensual?installationId=${selectedInstallation.id}`}
                   className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
-                  <CalendarDays className="h-3 w-3" />
+                  <CalendarDays className="h-3 w-3 text-white" />
                   Pauta
                 </Link>
                 <Link

@@ -21,7 +21,7 @@ export default function PayrollDashboard() {
         <Link href="/payroll/periodos">
           <div className="group flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-all hover:border-border/80 hover:bg-accent/40 hover:shadow-md cursor-pointer">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <CalendarDays className="h-4 w-4" />
+              <CalendarDays className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Períodos de Pago</p>

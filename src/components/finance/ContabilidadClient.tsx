@@ -1021,7 +1021,7 @@ function PeriodsTab({
 
       {periods.length === 0 ? (
         <EmptyState
-          icon={<Calendar className="h-10 w-10" />}
+          icon={<Calendar className="h-10 w-10 text-white" />}
           title="Sin períodos"
           description="No hay períodos contables abiertos."
           action={

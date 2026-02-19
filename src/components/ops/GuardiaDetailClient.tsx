@@ -1600,7 +1600,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                     onClick={() => issuedAtRef.current?.showPicker?.()}
                     aria-label="Abrir calendario de emisión"
                   >
-                    <CalendarDays className="h-4 w-4" />
+                    <CalendarDays className="h-4 w-4 text-white" />
                   </Button>
                 </div>
               </div>
@@ -1621,7 +1621,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                     onClick={() => expiresAtRef.current?.showPicker?.()}
                     aria-label="Abrir calendario de vencimiento"
                   >
-                    <CalendarDays className="h-4 w-4" />
+                    <CalendarDays className="h-4 w-4 text-white" />
                   </Button>
                 </div>
               </div>

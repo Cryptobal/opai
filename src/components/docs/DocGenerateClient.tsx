@@ -313,7 +313,7 @@ export function DocGenerateClient() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
+                <Calendar className="h-3 w-3 text-white" />
                 Fecha Inicio
               </label>
               <input
@@ -325,7 +325,7 @@ export function DocGenerateClient() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
+                <Calendar className="h-3 w-3 text-white" />
                 Fecha Vencimiento
               </label>
               <input

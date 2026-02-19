@@ -156,6 +156,18 @@
     transform: translateX(100%);
   }
 
+  /* Icono calendario visible en inputs tipo date (tema oscuro) */
+  input[type="date"],
+  input[type="datetime-local"] {
+    color-scheme: dark; /* Firefox: calendario con icono visible */
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.9;
+    cursor: pointer;
+  }
+
   /* Scrollbar hide utility */
   .scrollbar-hide {
     -ms-overflow-style: none;

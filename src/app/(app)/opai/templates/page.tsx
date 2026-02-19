@@ -84,7 +84,7 @@ export default async function TemplatesPage() {
                   <span>{template.usageCount} usos</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="h-4 w-4 text-white" />
                   <span>{template.lastEdited}</span>
                 </div>
               </div>

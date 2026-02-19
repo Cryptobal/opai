@@ -343,7 +343,7 @@ export function SueldosRutListClient() {
                         <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{s.installationName}</span>
                       )}
                       <span className="flex items-center gap-0.5">
-                        <CalendarDays className="h-2.5 w-2.5" />
+                        <CalendarDays className="h-2.5 w-2.5 text-white" />
                         Desde {fmtDate(s.effectiveFrom)}
                         {s.effectiveUntil && <> hasta {fmtDate(s.effectiveUntil)}</>}
                       </span>

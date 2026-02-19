@@ -157,7 +157,7 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
           </Button>
           <Button asChild variant="outline" className="justify-start">
             <Link href="/ops/pauta-mensual">
-              <CalendarDays className="mr-2 h-4 w-4" /> Pauta mensual
+              <CalendarDays className="mr-2 h-4 w-4 text-white" /> Pauta mensual
             </Link>
           </Button>
         </CardContent>
