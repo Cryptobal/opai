@@ -72,6 +72,9 @@ export interface DocDocument {
   template?: DocTemplate | null;
   associations?: DocAssociation[];
   signatureRequests?: DocSignatureRequest[];
+  /** Rellenado por API cuando el documento está asociado a ops_guardia */
+  guardiaName?: string | null;
+  guardiaRut?: string | null;
 }
 
 export interface DocAssociation {

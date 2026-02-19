@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const entityType = searchParams.get("entityType");
     const entityId = searchParams.get("entityId");
+    const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim() || "";
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
 
     // Base filter
@@ -33,6 +34,29 @@ export async function GET(request: NextRequest) {
       where.associations = {
         some: { entityType, entityId },
       };
+    }
+
+    // Búsqueda por texto: título o nombre/RUT del guardia asociado
+    if (search.length >= 2) {
+      const searchNorm = search.replace(/[.\s-]/g, "");
+      const guardiasByPersona = await prisma.opsGuardia.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          OR: [
+            { persona: { rut: { contains: searchNorm, mode: "insensitive" } } },
+            { persona: { firstName: { contains: search, mode: "insensitive" } } },
+            { persona: { lastName: { contains: search, mode: "insensitive" } } },
+          ],
+        },
+        select: { id: true },
+      });
+      const guardiaIds = guardiasByPersona.map((g) => g.id);
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        ...(guardiaIds.length > 0
+          ? [{ associations: { some: { entityType: "ops_guardia", entityId: { in: guardiaIds } } } }]
+          : []),
+      ];
     }
 
     const [documentsRaw, counts] = await Promise.all([

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
+import { parseBody, requireAuth, unauthorized, ensureCanDelete } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { ensureOpsAccess, ensureOpsCapability } from "@/lib/ops";
 import { z } from "zod";
@@ -221,13 +221,16 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Vínculo no encontrado" }, { status: 404 });
     }
 
-    // Si es borrador y no tiene otras asociaciones, eliminar el documento para no acumular borradores
+    // Si es borrador y no tiene otras asociaciones, eliminar el documento (solo si tiene permiso)
     if (doc.status === "draft") {
       const otherAssocs = await prisma.docAssociation.count({
         where: { documentId },
       });
       if (otherAssocs === 0) {
-        await prisma.document.delete({ where: { id: documentId } });
+        const forbiddenDelete = await ensureCanDelete(ctx, "docs", "gestion");
+        if (!forbiddenDelete) {
+          await prisma.document.delete({ where: { id: documentId } });
+        }
       }
     }
 

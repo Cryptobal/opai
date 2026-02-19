@@ -80,6 +80,7 @@ export function DocsClient() {
       const params = new URLSearchParams();
       if (filterModule) params.set("module", filterModule);
       if (filterStatus) params.set("status", filterStatus);
+      if (search.trim()) params.set("search", search.trim());
       const res = await fetch(`/api/docs/documents?${params}`, {
         cache: "no-store",
       });
@@ -93,24 +94,16 @@ export function DocsClient() {
     } finally {
       setLoading(false);
     }
-  }, [filterModule, filterStatus]);
+  }, [filterModule, filterStatus, search]);
 
   useEffect(() => {
-    fetchDocuments();
+    const t = setTimeout(() => {
+      fetchDocuments();
+    }, search ? 300 : 0);
+    return () => clearTimeout(t);
   }, [fetchDocuments]);
 
-  const filtered = useMemo(() => {
-    if (!search) return documents;
-    const q = search.toLowerCase();
-    return documents.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        d.category.toLowerCase().includes(q) ||
-        d.module.toLowerCase().includes(q) ||
-        (d as any).guardiaName?.toLowerCase().includes(q) ||
-        (d as any).guardiaRut?.replace(/[.\s-]/g, "").includes(q.replace(/[.\s-]/g, ""))
-    );
-  }, [documents, search]);
+  const filtered = documents;
 
   const totalCount = Object.values(statusCounts).reduce((a, b) => a + b, 0);
   const activeCount = statusCounts["active"] || 0;
@@ -166,7 +159,7 @@ export function DocsClient() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Buscar documentos..."
+            placeholder="Buscar por título, nombre o RUT del guardia..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -277,10 +270,10 @@ export function DocsClient() {
                     <Building2 className="h-3 w-3" />
                     {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
                   </span>
-                  {(doc as any).guardiaName && (
+                  {doc.guardiaName && (
                     <span>
-                      {(doc as any).guardiaName}
-                      {(doc as any).guardiaRut ? ` · RUT ${(doc as any).guardiaRut}` : ""}
+                      {doc.guardiaName}
+                      {doc.guardiaRut ? ` · RUT ${doc.guardiaRut}` : ""}
                     </span>
                   )}
                   {doc.expirationDate && (
