@@ -184,6 +184,7 @@ export function CrmDealDetailClient({
   const [dealProposalLink, setDealProposalLink] = useState<string | null>(deal.proposalLink || null);
   const [dealProposalSentAt, setDealProposalSentAt] = useState<string | null>(deal.proposalSentAt || null);
   const [followUpActioning, setFollowUpActioning] = useState(false);
+  const [sendingLogId, setSendingLogId] = useState<string | null>(null);
   const [localFollowUpLogs, setLocalFollowUpLogs] = useState(followUpLogs);
 
   const followUpLogsDesc = useMemo(
@@ -546,6 +547,25 @@ export function CrmDealDetailClient({
     }
   };
 
+  const handleSendFollowUpNow = async (logId: string) => {
+    setSendingLogId(logId);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}/followups/send-now`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Error");
+      toast.success(data.message);
+      if (data.data) setLocalFollowUpLogs(data.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al enviar seguimiento");
+    } finally {
+      setSendingLogId(null);
+    }
+  };
+
   const followUpSection: DetailSection = {
     key: "followup",
     count: localFollowUpLogs.length,
@@ -653,25 +673,42 @@ export function CrmDealDetailClient({
                         Sin registro aún para esta etapa.
                       </p>
                     ) : (
-                      <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-                        <p>
-                          Programado: <span className="text-foreground">{formatDealDateTime(log.scheduledAt)}</span>
-                        </p>
-                        {timingMeta && (
-                          <p className={timingMeta.className}>{timingMeta.label}</p>
-                        )}
-                        {log.sentAt && (
+                      <div className="mt-2 space-y-1.5">
+                        <div className="text-xs text-muted-foreground space-y-1.5">
                           <p>
-                            Enviado: <span className="text-foreground">{formatDealDateTime(log.sentAt)}</span>
+                            Programado: <span className="text-foreground">{formatDealDateTime(log.scheduledAt)}</span>
                           </p>
-                        )}
-                        {log.error && (
-                          <p className="text-red-500">Error: {log.error}</p>
-                        )}
-                        {log.emailMessage && (
-                          <p className="text-muted-foreground/80">
-                            {log.emailMessage.openCount} aperturas · {log.emailMessage.clickCount} clics
-                          </p>
+                          {timingMeta && (
+                            <p className={timingMeta.className}>{timingMeta.label}</p>
+                          )}
+                          {log.sentAt && (
+                            <p>
+                              Enviado: <span className="text-foreground">{formatDealDateTime(log.sentAt)}</span>
+                            </p>
+                          )}
+                          {log.error && (
+                            <p className="text-red-500">Error: {log.error}</p>
+                          )}
+                          {log.emailMessage && (
+                            <p className="text-muted-foreground/80">
+                              {log.emailMessage.openCount} aperturas · {log.emailMessage.clickCount} clics
+                            </p>
+                          )}
+                        </div>
+                        {(log.status === "pending" || log.status === "paused") && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-7 text-xs mt-2"
+                            disabled={sendingLogId === log.id}
+                            onClick={() => handleSendFollowUpNow(log.id)}
+                          >
+                            {sendingLogId === log.id ? (
+                              <>Enviando...</>
+                            ) : (
+                              <><Send className="h-3 w-3 mr-1" /> Enviar ahora</>
+                            )}
+                          </Button>
                         )}
                       </div>
                     )}
@@ -713,6 +750,21 @@ export function CrmDealDetailClient({
                             )}
                             {log.error && (
                               <p className="text-xs text-red-500">Error: {log.error}</p>
+                            )}
+                            {(log.status === "pending" || log.status === "paused") && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-7 text-xs mt-2"
+                                disabled={sendingLogId === log.id}
+                                onClick={() => handleSendFollowUpNow(log.id)}
+                              >
+                                {sendingLogId === log.id ? (
+                                  <>Enviando...</>
+                                ) : (
+                                  <><Send className="h-3 w-3 mr-1" /> Enviar ahora</>
+                                )}
+                              </Button>
                             )}
                           </div>
                           <Badge variant="outline" className={statusMeta.className}>
