@@ -52,6 +52,7 @@ export type CrmSectionKey =
   | "communication"
   | "notes"
   | "staffing"
+  | "refuerzos"
   | "dotacion"
   | "marcacion"
   | "marcacion_asistencia"
@@ -222,6 +223,11 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: Shield,
     label: "Puestos operativos",
   },
+  refuerzos: {
+    key: "refuerzos",
+    icon: CalendarPlus,
+    label: "Turnos de refuerzo",
+  },
   dotacion: {
     key: "dotacion",
     icon: Users,
@@ -375,6 +381,6 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   accounts: ["general", "contacts", "installations", "deals", "quotes", "rendiciones", "communication", "notes"],
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
-  installations: ["general", "account", "deals", "quotes", "staffing", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
+  installations: ["general", "account", "deals", "quotes", "staffing", "refuerzos", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
   guardias: ["datos", "contratos", "eventos-laborales", "estructura-sueldo", "liquidaciones", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
 };
