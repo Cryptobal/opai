@@ -108,7 +108,7 @@ export async function POST(
           const pc = bwm * (policyRatePctVal / 100) * policyFactor;
           const salePrice = bwm + fc + pc;
           const numPuestos = pos.numPuestos || 1;
-          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards} x ${numPuestos}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
+          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards}</td><td>${numPuestos}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
         }
       )
       .join('');
@@ -179,8 +179,8 @@ export async function POST(
 
   <h2>Puestos de trabajo · ${totalGuards} guardia(s)</h2>
   <table>
-    <thead><tr><th>Puesto</th><th>Guardias</th><th>Horario</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
-    <tbody>${positionsRows}<tr class="total"><td colspan="4" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
+    <thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Horario</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
+    <tbody>${positionsRows}<tr class="total"><td colspan="5" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
   </table>
 
   ${serviceDetailEscaped ? `<div style="margin-top:10px"><h2>Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${serviceDetailEscaped}</p></div>` : ''}

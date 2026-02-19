@@ -94,7 +94,7 @@ export async function POST(
     const positionsRows = quote.positions
       .map(
         (pos) =>
-          `<tr><td>${pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td><td>${pos.numGuards}</td><td>${weekdaysStr(pos)}</td><td>${pos.startTime || "-"} - ${pos.endTime || "-"}</td><td class="num">${formatCurrency(Number(pos.monthlyPositionCost), "CLP")}</td></tr>`
+          `<tr><td>${pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td><td>${pos.numGuards}</td><td>${pos.numPuestos || 1}</td><td>${weekdaysStr(pos)}</td><td>${pos.startTime || "-"} - ${pos.endTime || "-"}</td><td class="num">${formatCurrency(Number(pos.monthlyPositionCost), "CLP")}</td></tr>`
       )
       .join("");
 
@@ -107,7 +107,7 @@ export async function POST(
 <body><div class="header"><div class="brand">GARD SECURITY</div><div class="meta"><strong>${quote.code}</strong>${accountName}<br>${validUntilStr ? `Válida hasta: ${validUntilStr}` : ""}<br>Propuesta económica</div></div>
 ${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;background:#f9f9f9;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>` : ""}
 <h2>Puestos de trabajo · ${quote.totalGuards} guardia(s)</h2>
-<table><thead><tr><th>Puesto</th><th>Guardias</th><th>Días</th><th>Horario</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}<tr class="total"><td colspan="4" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal, "CLP")}</td></tr></tbody></table>
+<table><thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Días</th><th>Horario</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}<tr class="total"><td colspan="5" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal, "CLP")}</td></tr></tbody></table>
 ${serviceDetailHtml}
 <div class="footer">Generado el ${new Date().toLocaleDateString("es-CL")} · www.gard.cl · contacto@gard.cl</div>
 </body></html>`;

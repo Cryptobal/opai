@@ -229,12 +229,15 @@ export function mapCpqDataToPresentation(
             const salePriceClp =
               input.positionSalePrices.get(pos.id) ??
               Number(pos.monthlyPositionCost);
+            const numPuestos = Math.max(1, Number(pos.numPuestos || 1));
+            const unitPriceClp = salePriceClp / numPuestos;
             const displayPrice = toDisplayValue(salePriceClp);
+            const displayUnitPrice = toDisplayValue(unitPriceClp);
             return {
               name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
               description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
-              quantity: 1,
-              unit_price: displayPrice,
+              quantity: numPuestos,
+              unit_price: displayUnitPrice,
               subtotal: displayPrice,
               currency,
             };

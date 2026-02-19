@@ -50,10 +50,18 @@ export async function POST(request: NextRequest) {
     const includedItems: string[] = [];
 
     // Positions summary
+    const totalGuardiasEfectivos = quote.positions.reduce(
+      (sum, p) => sum + Math.max(1, Number(p.numPuestos || 1)) * Math.max(1, Number(p.numGuards || 1)),
+      0
+    );
+    const totalPuestos = quote.positions.reduce(
+      (sum, p) => sum + Math.max(1, Number(p.numPuestos || 1)),
+      0
+    );
     const positionsSummary = quote.positions
       .map(
         (p) =>
-          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${p.numGuards} guardia(s), horario ${p.startTime}-${p.endTime}, días: ${(p.weekdays || []).join(", ")}`
+          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${Math.max(1, Number(p.numPuestos || 1))} puesto(s), ${p.numGuards} guardia(s) por puesto, horario ${p.startTime}-${p.endTime}, días: ${(p.weekdays || []).join(", ")}`
       )
       .join("\n  ");
 
@@ -161,7 +169,8 @@ DATOS DEL SERVICIO:
 ${installationName ? `- Instalación: ${installationName}` : ""}
 - Puestos de trabajo:
   ${positionsSummary}
-- Total guardias: ${quote.totalGuards}
+- Total puestos: ${totalPuestos}
+- Total guardias efectivos: ${totalGuardiasEfectivos}
 
 ÍTEMS INCLUIDOS EN EL SERVICIO:
 ${itemsList}
@@ -177,7 +186,8 @@ INSTRUCCIONES:
 8. Si hay exámenes, mencionar los tipos (preocupacionales, drogas, etc.)
 9. Si hay equipos operativos con celular, mencionar "celular con plan de datos"
 10. Si hay alimentación, detallar los tipos de comida
-11. OBLIGATORIO: En el primer ítem (dotación de guardias) debes describir explícitamente los DÍAS de trabajo de cada tipo de puesto, usando lenguaje claro para el cliente. Por ejemplo: "todos los días (24x7)", "de lunes a viernes", "fines de semana (sábado y domingo)", "viernes a domingo", "entre semana" + "fines de semana" si hay puestos con distintos días. No uses solo "Lun, Mar..."; traduce a cómo lo entiende el cliente (ej: 2 guardias día entre semana + 2 guardias noche entre semana + 1 guardia noche fin de semana).
+11. OBLIGATORIO: En el primer ítem (dotación de guardias) debes describir explícitamente los DÍAS de trabajo de cada tipo de puesto, usando lenguaje claro para el cliente. Por ejemplo: "todos los días (24x7)", "de lunes a viernes", "fines de semana (sábado y domingo)", "viernes a domingo", "entre semana" + "fines de semana" si hay puestos con distintos días. No uses solo "Lun, Mar..."; traduce a cómo lo entiende el cliente (ej: 2 guardias por puesto en 9 puestos nocturnos entre semana).
+12. OBLIGATORIO: Considera explícitamente la relación "número de puestos" x "guardias por puesto" en la redacción, no la simplifiques a solo guardias totales.
 
 Formato esperado (ejemplo):
 El servicio contempla:

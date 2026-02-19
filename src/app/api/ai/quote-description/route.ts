@@ -95,10 +95,18 @@ export async function POST(request: NextRequest) {
         : "Sin datos web (lead manual/correo genérico)";
 
     // Build positions summary
+    const totalGuardiasEfectivos = quote.positions.reduce(
+      (sum, p) => sum + Math.max(1, Number(p.numPuestos || 1)) * Math.max(1, Number(p.numGuards || 1)),
+      0
+    );
+    const totalPuestos = quote.positions.reduce(
+      (sum, p) => sum + Math.max(1, Number(p.numPuestos || 1)),
+      0
+    );
     const positionsSummary = quote.positions
       .map(
         (p) =>
-          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${p.numGuards} guardia(s), ${p.startTime}-${p.endTime}, días: ${(p.weekdays || []).join(", ")}`
+          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${Math.max(1, Number(p.numPuestos || 1))} puesto(s), ${p.numGuards} guardia(s) por puesto, ${p.startTime}-${p.endTime}, días: ${(p.weekdays || []).join(", ")}`
       )
       .join("\n");
 
@@ -120,7 +128,8 @@ ${city ? `- Ciudad: ${city}` : ""}
 PASO 2: Crear texto personalizado
 - Servicio propuesto:
 ${positionsSummary}
-- Total guardias: ${quote.totalGuards}
+- Total puestos: ${totalPuestos}
+- Total guardias efectivos: ${totalGuardiasEfectivos}
 - Precio mensual ofertado: ${displaySalePrice}
 
 El texto debe:
