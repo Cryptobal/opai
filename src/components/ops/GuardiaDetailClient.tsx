@@ -55,9 +55,13 @@ import {
   DOCUMENT_STATUS,
   DOCUMENT_TYPES,
   getLifecycleTransitions,
+  getRegimenPrevisionalLabel,
   GUARDIA_COMM_TEMPLATES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
+  PAISES_AMERICA,
+  REGIMEN_PREVISIONAL,
+  TIPO_PENSION,
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
@@ -106,12 +110,19 @@ type GuardiaDetail = {
     lat?: string | null;
     lng?: string | null;
     birthDate?: string | null;
+    nacionalidad?: string | null;
     afp?: string | null;
     healthSystem?: string | null;
     isapreName?: string | null;
     isapreHasExtraPercent?: boolean | null;
     isapreExtraPercent?: string | null;
     hasMobilization?: boolean | null;
+    regimenPrevisional?: string | null;
+    tipoPension?: string | null;
+    isJubilado?: boolean | null;
+    cotizaAFP?: boolean | null;
+    cotizaAFC?: boolean | null;
+    cotizaSalud?: boolean | null;
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
@@ -294,6 +305,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     email: "",
     phoneMobile: "",
     sex: "",
+    nacionalidad: "",
     birthDate: "",
     afp: "",
     healthSystem: "",
@@ -308,6 +320,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     region: "",
     lat: "",
     lng: "",
+    regimenPrevisional: "",
+    tipoPension: "",
+    isJubilado: false,
+    cotizaAFP: false,
+    cotizaAFC: false,
+    cotizaSalud: true,
   });
   const [availableDocs, setAvailableDocs] = useState<
     Array<{
@@ -331,6 +349,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         module: string;
         category: string;
         status: string;
+        signatureStatus?: string | null;
         createdAt: string;
         expirationDate?: string | null;
       };
@@ -409,6 +428,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       email: guardia.persona.email || "",
       phoneMobile: guardia.persona.phoneMobile || "",
       sex: guardia.persona.sex || "",
+      nacionalidad: guardia.persona.nacionalidad || "",
       birthDate: toDateInput(guardia.persona.birthDate),
       afp: guardia.persona.afp || "",
       healthSystem: guardia.persona.healthSystem || "",
@@ -423,6 +443,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       region: guardia.persona.region || "",
       lat: guardia.persona.lat || "",
       lng: guardia.persona.lng || "",
+      regimenPrevisional: guardia.persona.regimenPrevisional || "",
+      tipoPension: guardia.persona.tipoPension || "",
+      isJubilado: guardia.persona.isJubilado || false,
+      cotizaAFP: guardia.persona.cotizaAFP ?? false,
+      cotizaAFC: guardia.persona.cotizaAFC ?? false,
+      cotizaSalud: guardia.persona.cotizaSalud ?? true,
     });
     setEditPersonalOpen(true);
   };
@@ -452,6 +478,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           email: editPersonalForm.email.trim() || undefined,
           phoneMobile: editPersonalForm.phoneMobile.trim() || undefined,
           sex: editPersonalForm.sex || undefined,
+          nacionalidad: editPersonalForm.nacionalidad || undefined,
           birthDate: editPersonalForm.birthDate || undefined,
           afp: editPersonalForm.afp || undefined,
           healthSystem: editPersonalForm.healthSystem || undefined,
@@ -459,6 +486,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreHasExtraPercent: editPersonalForm.healthSystem === "isapre" ? editPersonalForm.isapreHasExtraPercent : undefined,
           isapreExtraPercent: editPersonalForm.healthSystem === "isapre" && editPersonalForm.isapreHasExtraPercent ? editPersonalForm.isapreExtraPercent || undefined : undefined,
           hasMobilization: editPersonalForm.hasMobilization,
+          regimenPrevisional: editPersonalForm.regimenPrevisional || undefined,
+          tipoPension: editPersonalForm.tipoPension || undefined,
+          isJubilado: editPersonalForm.isJubilado,
+          cotizaAFP: editPersonalForm.cotizaAFP,
+          cotizaAFC: editPersonalForm.cotizaAFC,
+          cotizaSalud: editPersonalForm.cotizaSalud,
           availableExtraShifts: editPersonalForm.availableExtraShifts,
           addressFormatted: editPersonalForm.addressFormatted.trim() || undefined,
           commune: editPersonalForm.commune.trim() || undefined,
@@ -485,6 +518,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           email: editPersonalForm.email.trim() || prev.persona.email,
           phoneMobile: editPersonalForm.phoneMobile.trim() || prev.persona.phoneMobile,
           sex: editPersonalForm.sex || prev.persona.sex,
+          nacionalidad: editPersonalForm.nacionalidad || prev.persona.nacionalidad,
           birthDate: editPersonalForm.birthDate || prev.persona.birthDate,
           afp: editPersonalForm.afp || prev.persona.afp,
           healthSystem: editPersonalForm.healthSystem || prev.persona.healthSystem,
@@ -492,6 +526,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreHasExtraPercent: editPersonalForm.isapreHasExtraPercent,
           isapreExtraPercent: editPersonalForm.isapreExtraPercent || prev.persona.isapreExtraPercent,
           hasMobilization: editPersonalForm.hasMobilization,
+          regimenPrevisional: editPersonalForm.regimenPrevisional || prev.persona.regimenPrevisional,
+          tipoPension: editPersonalForm.tipoPension || prev.persona.tipoPension,
+          isJubilado: editPersonalForm.isJubilado,
+          cotizaAFP: editPersonalForm.cotizaAFP,
+          cotizaAFC: editPersonalForm.cotizaAFC,
+          cotizaSalud: editPersonalForm.cotizaSalud,
           addressFormatted: editPersonalForm.addressFormatted.trim() || prev.persona.addressFormatted,
           commune: editPersonalForm.commune.trim() || prev.persona.commune,
           city: editPersonalForm.city.trim() || prev.persona.city,
@@ -1077,92 +1117,144 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </Button>
       ) : undefined,
       children: (
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Nombre completo</Label>
-              <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly className="h-9" />
+        <div className="space-y-6">
+          {/* Identificación */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Identificación</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nombre completo</Label>
+                <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">RUT</Label>
+                <Input value={guardia.persona.rut || "Sin RUT"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Fecha de nacimiento</Label>
+                <Input value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Sexo</Label>
+                <Input
+                  value={
+                    guardia.persona.sex
+                      ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1)
+                      : "Sin sexo"
+                  }
+                  readOnly
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nacionalidad</Label>
+                <Input value={guardia.persona.nacionalidad || "Sin nacionalidad"} readOnly className="h-9" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">RUT</Label>
-              <Input value={guardia.persona.rut || "Sin RUT"} readOnly className="h-9" />
+          </div>
+
+          {/* Contacto */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Contacto</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <Input value={guardia.persona.email || "Sin email"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Celular</Label>
+                <Input value={guardia.persona.phoneMobile || "Sin celular"} readOnly className="h-9" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Email</Label>
-              <Input value={guardia.persona.email || "Sin email"} readOnly className="h-9" />
+          </div>
+
+          {/* Datos previsionales */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Datos previsionales</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Régimen previsional</Label>
+                <Input value={getRegimenPrevisionalLabel(guardia.persona.regimenPrevisional) || "Sin especificar"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">¿Jubilado?</Label>
+                <Input value={guardia.persona.isJubilado ? "Sí" : "No"} readOnly className="h-9" />
+              </div>
+              {guardia.persona.isJubilado && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Cotiza AFP</Label>
+                    <Input value={guardia.persona.cotizaAFP ? "Sí" : "No"} readOnly className="h-9" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Cotiza AFC</Label>
+                    <Input value={guardia.persona.cotizaAFC ? "Sí" : "No"} readOnly className="h-9" />
+                  </div>
+                </>
+              )}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Cotiza salud</Label>
+                <Input value={guardia.persona.cotizaSalud !== false ? "Sí" : "No"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">AFP</Label>
+                <Input value={guardia.persona.afp || "Sin AFP"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Sistema de salud</Label>
+                <Input
+                  value={
+                    guardia.persona.healthSystem === "isapre"
+                      ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
+                      : guardia.persona.healthSystem
+                        ? guardia.persona.healthSystem.toUpperCase()
+                        : "Sin sistema de salud"
+                  }
+                  readOnly
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Cotización</Label>
+                <Input
+                  value={
+                    guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
+                      ? `Cotización ${guardia.persona.isapreExtraPercent || "N/D"}%`
+                      : "Cotización legal"
+                  }
+                  readOnly
+                  className="h-9"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Celular</Label>
-              <Input value={guardia.persona.phoneMobile || "Sin celular"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Fecha de nacimiento</Label>
-              <Input value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Sexo</Label>
-              <Input
-                value={
-                  guardia.persona.sex
-                    ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1)
-                    : "Sin sexo"
-                }
-                readOnly
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">AFP</Label>
-              <Input value={guardia.persona.afp || "Sin AFP"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Sistema de salud</Label>
-              <Input
-                value={
-                  guardia.persona.healthSystem === "isapre"
-                    ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
-                    : guardia.persona.healthSystem
-                      ? guardia.persona.healthSystem.toUpperCase()
-                      : "Sin sistema de salud"
-                }
-                readOnly
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Cotización</Label>
-              <Input
-                value={
-                  guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
-                    ? `Cotización ${guardia.persona.isapreExtraPercent || "N/D"}%`
-                    : "Cotización legal"
-                }
-                readOnly
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Movilización</Label>
-              <Input value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Turnos extra</Label>
-              <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Fecha de ingreso</Label>
-              <Input value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : "Sin fecha de ingreso"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Recibe anticipo</Label>
-              <Input value={guardia.recibeAnticipo ? "Sí" : "No"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Monto anticipo</Label>
-              <Input value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Cargo / Instalación</Label>
+          </div>
+
+          {/* Otros */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Otros</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Movilización</Label>
+                <Input value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Turnos extra</Label>
+                <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Fecha de ingreso</Label>
+                <Input value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : "Sin fecha de ingreso"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Recibe anticipo</Label>
+                <Input value={guardia.recibeAnticipo ? "Sí" : "No"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Monto anticipo</Label>
+                <Input value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Cargo / Instalación</Label>
               {(() => {
                 const current = asignaciones.find((a) => a.isActive);
                 if (!current) {
@@ -1180,30 +1272,69 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   </Link>
                 );
               })()}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Banco</Label>
-              <Input
-                value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName ?? "Sin banco") : "Sin datos"}
-                readOnly
-                className="h-9"
-              />
+          </div>
+
+          {/* Datos bancarios */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Datos bancarios</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Banco</Label>
+                <Input
+                  value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName ?? "Sin banco") : "Sin datos"}
+                  readOnly
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo cuenta</Label>
+                <Input
+                  value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : "Sin datos"}
+                  readOnly
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Número de cuenta</Label>
+                <Input
+                  value={existingAccount?.accountNumber ?? "Sin datos"}
+                  readOnly
+                  className="h-9"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Tipo cuenta</Label>
-              <Input
-                value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : "Sin datos"}
-                readOnly
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Número de cuenta</Label>
-              <Input
-                value={existingAccount?.accountNumber ?? "Sin datos"}
-                readOnly
-                className="h-9"
-              />
+          </div>
+
+          {/* Domicilio */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Domicilio</p>
+            <div className="grid gap-3 md:grid-cols-[1fr_200px] md:items-start">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Dirección</Label>
+                <Input value={guardia.persona.addressFormatted || "Sin dirección"} readOnly className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Ubicación</Label>
+                {mapUrl ? (
+                  <a
+                    href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg overflow-hidden border border-border block h-[120px] w-full min-w-[160px]"
+                    title="Abrir en Google Maps"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
+                  </a>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border h-[120px] w-full min-w-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    Sin mapa
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1251,33 +1382,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               </div>
             </div>
           )}
-
-          <div className="grid gap-3 md:grid-cols-[1fr_200px] md:items-start">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Dirección</Label>
-              <Input value={guardia.persona.addressFormatted || "Sin dirección"} readOnly className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Ubicación</Label>
-              {mapUrl ? (
-                <a
-                  href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg overflow-hidden border border-border block h-[120px] w-full min-w-[160px]"
-                  title="Abrir en Google Maps"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
-                </a>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border h-[120px] w-full min-w-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  Sin mapa
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       ),
     },
@@ -1488,6 +1592,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         <GuardContractsTab
           guardiaId={guardia.id}
           guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
+          guardiaEmail={guardia.persona.email}
+          guardiaRut={guardia.persona.rut}
           hiredAt={guardia.hiredAt ?? null}
           contract={guardia.contractType ? {
             contractType: guardia.contractType as "plazo_fijo" | "indefinido",
@@ -1498,6 +1604,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
             contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
           } : null}
+          linkedDocuments={linkedDocs
+            .filter((item) => item.document.category === "contrato_laboral" || item.document.category === "anexo_contrato")
+            .map((item) => ({
+              id: item.document.id,
+              title: item.document.title,
+              category: item.document.category,
+              status: item.document.status,
+              signatureStatus: item.document.signatureStatus,
+              createdAt: item.document.createdAt,
+            }))}
+          onDocumentsGenerated={loadDocLinks}
+          canManageDocs={canManageDocs}
         />
       ),
     },
@@ -2156,7 +2274,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       <CrmDetailLayout
         module="guardias"
         pageType="guardia"
-        fixedSectionKey="datos"
+        defaultCollapsedSectionKeys={true}
         title={guardiaTitle}
         subtitle={guardiaSubtitle}
         badge={{
@@ -2312,12 +2430,102 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               </select>
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs">Nacionalidad</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editPersonalForm.nacionalidad}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, nacionalidad: e.target.value }))}
+              >
+                <option value="">Sin especificar</option>
+                {PAISES_AMERICA.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Fecha de nacimiento</Label>
               <Input
                 type="date"
                 value={editPersonalForm.birthDate}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))}
               />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Datos previsionales</Label>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Régimen previsional</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editPersonalForm.regimenPrevisional}
+                onChange={(e) => setEditPersonalForm((p) => ({ ...p, regimenPrevisional: e.target.value }))}
+              >
+                <option value="">Sin especificar</option>
+                {REGIMEN_PREVISIONAL.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5 flex items-end">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editPersonalForm.isJubilado}
+                  onChange={(e) => setEditPersonalForm((p) => ({ ...p, isJubilado: e.target.checked }))}
+                  className="rounded border-input"
+                />
+                ¿Jubilado?
+              </label>
+            </div>
+            {editPersonalForm.isJubilado && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tipo de pensión</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={editPersonalForm.tipoPension}
+                    onChange={(e) => setEditPersonalForm((p) => ({ ...p, tipoPension: e.target.value }))}
+                  >
+                    <option value="">Sin especificar</option>
+                    {TIPO_PENSION.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5 flex items-end">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editPersonalForm.cotizaAFP}
+                      onChange={(e) => setEditPersonalForm((p) => ({ ...p, cotizaAFP: e.target.checked }))}
+                      className="rounded border-input"
+                    />
+                    Cotiza AFP (voluntario)
+                  </label>
+                </div>
+                <div className="space-y-1.5 flex items-end">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editPersonalForm.cotizaAFC}
+                      onChange={(e) => setEditPersonalForm((p) => ({ ...p, cotizaAFC: e.target.checked }))}
+                      className="rounded border-input"
+                    />
+                    Cotiza AFC
+                  </label>
+                </div>
+              </>
+            )}
+            <div className="space-y-1.5 flex items-end">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editPersonalForm.cotizaSalud}
+                  onChange={(e) => setEditPersonalForm((p) => ({ ...p, cotizaSalud: e.target.checked }))}
+                  className="rounded border-input"
+                />
+                Cotiza salud
+              </label>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">AFP</Label>

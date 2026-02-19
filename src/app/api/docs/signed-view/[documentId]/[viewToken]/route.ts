@@ -26,7 +26,8 @@ function resolveSignatureTokens(content: unknown, ctx: { sentAt: Date | null; si
       const last = ctx.signers.reduce((p, s) => (!p || (s.signedAt && (!p.signedAt || s.signedAt > p.signedAt)) ? s : p), null as SignerCtx | null);
       return { type: "text", text: formatSignDate(last?.signedAt ?? null) };
     }
-    const m = /^signature\.signer_(\d+)$/.exec(key === "signature.placeholder" ? "signature.signer_1" : key);
+    const effectiveKey = key === "signature.placeholder" || key === "signature.firmaGuardia" ? "signature.signer_1" : key;
+    const m = /^signature\.signer_(\d+)$/.exec(effectiveKey);
     if (m) {
       const order = parseInt(m[1], 10);
       const signer = ctx.signers.find((s) => s.signingOrder === order);

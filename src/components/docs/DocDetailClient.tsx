@@ -8,6 +8,7 @@ import {
   Loader2,
   FileText,
   Clock,
+  Download,
   FileSignature,
   Building2,
   User,
@@ -64,6 +65,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [signatureLoading, setSignatureLoading] = useState(false);
   const [activeSignatureRequest, setActiveSignatureRequest] = useState<any | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -126,6 +128,34 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       toast.error("Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/docs/documents/${documentId}/export-pdf`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al generar PDF");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?(.+)"?/);
+      const fileName = match?.[1]?.replace(/^"?|"?$/g, "") || `documento-${documentId}.pdf`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("PDF descargado");
+    } catch {
+      toast.error("Error al descargar PDF");
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -207,6 +237,20 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
             Guardar
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => void handleDownloadPdf()}
+          disabled={downloadingPdf}
+        >
+          {downloadingPdf ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          Descargar PDF
+        </Button>
         <Button
           size="sm"
           variant="outline"

@@ -35,6 +35,10 @@ Datos del sistema disponibles para consulta por herramientas:
 - Métricas agregadas de guardias.
 - UF y UTM almacenadas en base de datos del sistema.
 
+Plantillas de documentos:
+- Cuando el usuario pregunte por contratos, plantillas o documentos (ej: contrato de trabajo de guardia, cláusulas, anexos), el contexto puede incluir el contenido de las plantillas configuradas en el tenant.
+- Los placeholders aparecen como {{modulo.tokenKey}} (ej: {{guardia.nombre}}, {{empresa.razonSocial}}). Responde sobre el contenido real de las plantillas cuando esté disponible en el contexto.
+
 Rutas funcionales canónicas (sí puedes usarlas en respuestas):
 - CRM > Cuentas: crear prospectos/clientes.
 - CRM > Prospectos: crear y gestionar leads.

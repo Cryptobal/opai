@@ -13,9 +13,19 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { ContractToken } from "./ContractTokenExtension";
+import { PageBreak } from "./PageBreakExtension";
+import { Columns, Column, ColumnsCommands } from "./ColumnsExtension";
+import { TokenSuggestionExtension } from "./TokenSuggestionExtension";
 import { EditorToolbar } from "./EditorToolbar";
+import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const PAGE_WIDTHS: Record<PageType, string> = {
+  a4: "210mm",
+  carta: "216mm",
+  oficio: "216mm",
+};
 
 interface ContractEditorProps {
   content?: any;
@@ -24,16 +34,21 @@ interface ContractEditorProps {
   placeholder?: string;
   className?: string;
   filterModules?: string[];
+  showPagePreview?: boolean;
 }
 
 export function ContractEditor({
   content,
   onChange,
   editable = true,
-  placeholder = "Escribe tu documento aquí... Usa el botón de tokens o escribe / para insertar placeholders",
+  placeholder = "Escribe tu documento aquí... Usa # para buscar tokens o el botón Insertar Token",
   className = "",
   filterModules,
+  showPagePreview = true,
 }: ContractEditorProps) {
+  const [pageType, setPageType] = useState<PageType>("a4");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const isInternalUpdate = useRef(false);
   const editor = useEditor(
     {
       immediatelyRender: false,
@@ -63,6 +78,11 @@ export function ContractEditor({
       TableCell,
       TableHeader,
       ContractToken,
+      PageBreak,
+      Column,
+      Columns,
+      ColumnsCommands,
+      TokenSuggestionExtension.configure({ filterModules: filterModules ?? undefined }),
     ],
     content: content || {
       type: "doc",
@@ -81,20 +101,24 @@ export function ContractEditor({
       },
     },
     onUpdate: ({ editor }) => {
+      isInternalUpdate.current = true;
       onChange?.(editor.getJSON());
     },
   },
-  [editable, placeholder]
+  [editable, placeholder, filterModules]
   );
 
-  // Update content externally
+  // Sincronizar contenido externo solo cuando no está editando (evita pérdida de foco)
   useEffect(() => {
-    if (editor && content && !editor.isFocused) {
-      const currentJSON = JSON.stringify(editor.getJSON());
-      const newJSON = JSON.stringify(content);
-      if (currentJSON !== newJSON) {
-        editor.commands.setContent(content);
-      }
+    if (!editor || !content || editor.isFocused) return;
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      return;
+    }
+    const currentJSON = JSON.stringify(editor.getJSON());
+    const newJSON = JSON.stringify(content);
+    if (currentJSON !== newJSON) {
+      editor.commands.setContent(content);
     }
   }, [content, editor]);
 
@@ -121,19 +145,45 @@ export function ContractEditor({
   if (!editor) return null;
 
   return (
-    <div className={`border border-border rounded-lg bg-card overflow-hidden ${className}`}>
+    <div className={`border border-border rounded-lg bg-card flex flex-col max-h-[calc(100vh-160px)] min-h-[400px] overflow-hidden ${className}`}>
       {editable && (
-        <EditorToolbar
-          editor={editor}
-          onInsertToken={insertToken}
-          filterModules={filterModules}
-        />
+        <div className="shrink-0 border-b border-border bg-card z-10">
+          <EditorToolbar
+            editor={editor}
+            onInsertToken={insertToken}
+            filterModules={filterModules}
+            pageType={pageType}
+            onPageTypeChange={setPageType}
+            onPreview={() => {
+              setPreviewOpen(true);
+            }}
+            showPreview={showPagePreview}
+          />
+        </div>
       )}
 
-      {/* Editor Content */}
-      <div className="relative">
-        <EditorContent editor={editor} />
+      {/* Contenido scrolleable — la toolbar queda fija arriba */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div
+          className="relative"
+          style={
+            showPagePreview
+              ? { maxWidth: PAGE_WIDTHS[pageType], margin: "0 auto" }
+              : undefined
+          }
+        >
+          <EditorContent editor={editor} />
+        </div>
       </div>
+
+      {showPagePreview && (
+        <DocPreviewDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          content={editor.getJSON()}
+          pageType={pageType}
+        />
+      )}
 
       {/* Token Styles — alineados al tema oscuro */}
       <style jsx global>{`
@@ -203,6 +253,52 @@ export function ContractEditor({
         .ProseMirror th {
           background: hsl(var(--muted));
           font-weight: 600;
+        }
+        .ProseMirror hr[data-type="pagebreak"] {
+          border: none;
+          border-top: 2px dashed hsl(var(--muted-foreground) / 0.5);
+          margin: 1.5em 0;
+          padding: 0;
+          height: 0;
+        }
+        .ProseMirror hr[data-type="pagebreak"]::after {
+          content: "Salto de página";
+          display: block;
+          text-align: center;
+          font-size: 0.75rem;
+          color: hsl(var(--muted-foreground) / 0.7);
+          margin-top: 0.5em;
+        }
+        .ProseMirror .columns-block {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.5rem;
+          width: 100%;
+          margin: 1em 0;
+        }
+        .ProseMirror .columns-column {
+          overflow: hidden;
+          padding: 8px;
+          margin: -8px;
+          border-radius: 6px;
+          min-height: 60px;
+        }
+        .ProseMirror .columns-column:first-child::before {
+          content: "Firma Rep. Legal";
+          display: block;
+          font-size: 10px;
+          color: hsl(var(--muted-foreground) / 0.7);
+          margin-bottom: 4px;
+        }
+        .ProseMirror .columns-column:last-child::before {
+          content: "Firma Guardia";
+          display: block;
+          font-size: 10px;
+          color: hsl(var(--muted-foreground) / 0.7);
+          margin-bottom: 4px;
+        }
+        .ProseMirror-focused .columns-column {
+          border: 1px dashed hsl(var(--border));
         }
       `}</style>
     </div>

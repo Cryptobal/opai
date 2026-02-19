@@ -22,8 +22,11 @@ type PersistedSectionPrefs = {
 
 type UseSectionPreferencesParams = {
   pageType: SectionPageType;
-  fixedSectionKey: string;
+  /** Si no se pasa, todas las secciones son colapsables */
+  fixedSectionKey?: string | null;
   sectionKeys: string[];
+  /** Secciones que empiezan contraídas por defecto. Si true, todas empiezan cerradas */
+  defaultCollapsedSectionKeys?: string[] | true;
 };
 
 type UseSectionPreferencesResult = {
@@ -41,34 +44,62 @@ function unique(items: string[]): string[] {
   return Array.from(new Set(items));
 }
 
-function getDefaultOrder(fixedSectionKey: string, sectionKeys: string[]): string[] {
+function getDefaultOrder(
+  fixedSectionKey: string | null | undefined,
+  sectionKeys: string[],
+  defaultCollapsedSectionKeys?: string[]
+): string[] {
   const valid = unique(sectionKeys);
-  const rest = valid.filter((key) => key !== fixedSectionKey);
-  return [fixedSectionKey, ...rest];
+  if (fixedSectionKey) {
+    const rest = valid.filter((key) => key !== fixedSectionKey);
+    return [fixedSectionKey, ...rest];
+  }
+  return valid;
 }
 
-function getDefaultCollapsed(fixedSectionKey: string, sectionKeys: string[]): string[] {
-  return unique(sectionKeys).filter((key) => key !== fixedSectionKey);
+function getDefaultCollapsed(
+  fixedSectionKey: string | null | undefined,
+  sectionKeys: string[],
+  defaultCollapsedSectionKeys?: string[] | true
+): string[] {
+  const valid = unique(sectionKeys);
+  if (defaultCollapsedSectionKeys === true) {
+    return valid;
+  }
+  if (Array.isArray(defaultCollapsedSectionKeys) && defaultCollapsedSectionKeys.length) {
+    return defaultCollapsedSectionKeys.filter((key) => valid.includes(key));
+  }
+  if (fixedSectionKey) {
+    return valid.filter((key) => key !== fixedSectionKey);
+  }
+  return [];
 }
 
 function sanitizePrefs(
   raw: SectionPrefs,
-  fixedSectionKey: string,
-  sectionKeys: string[]
+  fixedSectionKey: string | null | undefined,
+  sectionKeys: string[],
+  defaultCollapsedSectionKeys?: string[]
 ): SectionPrefs {
   const valid = new Set(sectionKeys);
-  const defaultOrder = getDefaultOrder(fixedSectionKey, sectionKeys);
+  const defaultOrder = getDefaultOrder(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys);
 
-  const filteredOrder = unique(raw.order).filter((key) => valid.has(key) && key !== fixedSectionKey);
-  const missing = defaultOrder.filter(
-    (key) => key !== fixedSectionKey && !filteredOrder.includes(key)
-  );
-  const order = [fixedSectionKey, ...filteredOrder, ...missing];
+  if (fixedSectionKey) {
+    const filteredOrder = unique(raw.order).filter((key) => valid.has(key) && key !== fixedSectionKey);
+    const missing = defaultOrder.filter(
+      (key) => key !== fixedSectionKey && !filteredOrder.includes(key)
+    );
+    const order = [fixedSectionKey, ...filteredOrder, ...missing];
+    const collapsed = unique(raw.collapsed).filter(
+      (key) => valid.has(key) && key !== fixedSectionKey
+    );
+    return { order, collapsed };
+  }
 
-  const collapsed = unique(raw.collapsed).filter(
-    (key) => valid.has(key) && key !== fixedSectionKey
-  );
-
+  const filteredOrder = unique(raw.order).filter((key) => valid.has(key));
+  const missing = defaultOrder.filter((key) => !filteredOrder.includes(key));
+  const order = [...filteredOrder, ...missing];
+  const collapsed = unique(raw.collapsed).filter((key) => valid.has(key));
   return { order, collapsed };
 }
 
@@ -78,20 +109,16 @@ function cacheKey(pageType: SectionPageType): string {
 
 function readCache(
   pageType: SectionPageType,
-  fixedSectionKey: string,
-  sectionKeys: string[]
+  fixedSectionKey: string | null | undefined,
+  sectionKeys: string[],
+  defaultCollapsedSectionKeys?: string[]
 ): SectionPrefs {
-  if (typeof window === "undefined") {
-    return {
-      order: getDefaultOrder(fixedSectionKey, sectionKeys),
-      collapsed: getDefaultCollapsed(fixedSectionKey, sectionKeys),
-    };
-  }
-
   const fallback: SectionPrefs = {
-    order: getDefaultOrder(fixedSectionKey, sectionKeys),
-    collapsed: getDefaultCollapsed(fixedSectionKey, sectionKeys),
+    order: getDefaultOrder(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys),
+    collapsed: getDefaultCollapsed(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys),
   };
+
+  if (typeof window === "undefined") return fallback;
 
   try {
     const raw = window.localStorage.getItem(cacheKey(pageType));
@@ -100,11 +127,12 @@ function readCache(
     const order = Array.isArray(parsed.order) ? parsed.order : [];
     const collapsed = Array.isArray(parsed.collapsed)
       ? parsed.collapsed
-      : getDefaultCollapsed(fixedSectionKey, sectionKeys);
+      : getDefaultCollapsed(fixedSectionKey, sectionKeys, defaultCollapsedSectionKeys);
     return sanitizePrefs(
       { order, collapsed },
       fixedSectionKey,
-      sectionKeys
+      sectionKeys,
+      defaultCollapsedSectionKeys
     );
   } catch {
     return fallback;
@@ -115,21 +143,21 @@ export function useSectionPreferences({
   pageType,
   fixedSectionKey,
   sectionKeys,
+  defaultCollapsedSectionKeys,
 }: UseSectionPreferencesParams): UseSectionPreferencesResult {
   const stableKeys = useMemo(() => unique(sectionKeys), [sectionKeys]);
   const defaultPrefs = useMemo(
     () => ({
-      order: getDefaultOrder(fixedSectionKey, stableKeys),
-      collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys),
+      order: getDefaultOrder(fixedSectionKey, stableKeys, defaultCollapsedSectionKeys),
+      collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys, defaultCollapsedSectionKeys),
     }),
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   // Inicializar siempre con orden por defecto para que servidor y cliente coincidan (evitar hydration mismatch).
-  // El orden guardado en localStorage se aplica en useEffect después del montaje.
   const [prefs, setPrefs] = useState<SectionPrefs>(() => ({
-    order: getDefaultOrder(fixedSectionKey, stableKeys),
-    collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys),
+    order: getDefaultOrder(fixedSectionKey, stableKeys, defaultCollapsedSectionKeys),
+    collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys, defaultCollapsedSectionKeys),
   }));
   const [loading, setLoading] = useState(true);
 
@@ -138,24 +166,24 @@ export function useSectionPreferences({
 
   const safeSetPrefs = useCallback(
     (next: SectionPrefs) => {
-      const sanitized = sanitizePrefs(next, fixedSectionKey, stableKeys);
+      const sanitized = sanitizePrefs(next, fixedSectionKey, stableKeys, defaultCollapsedSectionKeys);
       setPrefs(sanitized);
     },
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   // Sincronizar orden desde cache al cambiar tipo de página o claves; preservar collapsed
-  // para que las secciones no se cierren en cada re-render del padre.
   useEffect(() => {
-    const cached = readCache(pageType, fixedSectionKey, stableKeys);
+    const cached = readCache(pageType, fixedSectionKey, stableKeys, defaultCollapsedSectionKeys);
     setPrefs((prev) =>
       sanitizePrefs(
         { order: cached.order, collapsed: prev.collapsed },
         fixedSectionKey,
-        stableKeys
+        stableKeys,
+        defaultCollapsedSectionKeys
       )
     );
-  }, [pageType, fixedSectionKey, stableKeys]);
+  }, [pageType, fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,7 +209,8 @@ export function useSectionPreferences({
                 collapsed: prev.collapsed,
               },
               fixedSectionKey,
-              stableKeys
+              stableKeys,
+              defaultCollapsedSectionKeys
             )
           );
         } else {
@@ -200,7 +229,7 @@ export function useSectionPreferences({
     return () => {
       cancelled = true;
     };
-  }, [pageType, defaultPrefs, safeSetPrefs]);
+  }, [pageType, defaultPrefs, safeSetPrefs, defaultCollapsedSectionKeys]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -241,7 +270,7 @@ export function useSectionPreferences({
 
   const toggleSection = useCallback(
     (key: string) => {
-      if (key === fixedSectionKey) return;
+      if (fixedSectionKey && key === fixedSectionKey) return;
       setPrefs((prev) => {
         const collapsed = new Set(prev.collapsed);
         if (collapsed.has(key)) collapsed.delete(key);
@@ -249,16 +278,17 @@ export function useSectionPreferences({
         return sanitizePrefs(
           { order: prev.order, collapsed: Array.from(collapsed) },
           fixedSectionKey,
-          stableKeys
+          stableKeys,
+          defaultCollapsedSectionKeys
         );
       });
     },
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   const openSection = useCallback(
     (key: string) => {
-      if (key === fixedSectionKey) return;
+      if (fixedSectionKey && key === fixedSectionKey) return;
       setPrefs((prev) =>
         sanitizePrefs(
           {
@@ -266,16 +296,17 @@ export function useSectionPreferences({
             collapsed: prev.collapsed.filter((it) => it !== key),
           },
           fixedSectionKey,
-          stableKeys
+          stableKeys,
+          defaultCollapsedSectionKeys
         )
       );
     },
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   const closeSection = useCallback(
     (key: string) => {
-      if (key === fixedSectionKey) return;
+      if (fixedSectionKey && key === fixedSectionKey) return;
       setPrefs((prev) =>
         sanitizePrefs(
           {
@@ -283,11 +314,12 @@ export function useSectionPreferences({
             collapsed: unique([...prev.collapsed, key]),
           },
           fixedSectionKey,
-          stableKeys
+          stableKeys,
+          defaultCollapsedSectionKeys
         )
       );
     },
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   const reorderSections = useCallback(
@@ -295,15 +327,18 @@ export function useSectionPreferences({
       setPrefs((prev) =>
         sanitizePrefs(
           {
-            order: [fixedSectionKey, ...nextKeys.filter((key) => key !== fixedSectionKey)],
+            order: fixedSectionKey
+              ? [fixedSectionKey, ...nextKeys.filter((key) => key !== fixedSectionKey)]
+              : nextKeys,
             collapsed: prev.collapsed,
           },
           fixedSectionKey,
-          stableKeys
+          stableKeys,
+          defaultCollapsedSectionKeys
         )
       );
     },
-    [fixedSectionKey, stableKeys]
+    [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
   const resetToDefault = useCallback(() => {

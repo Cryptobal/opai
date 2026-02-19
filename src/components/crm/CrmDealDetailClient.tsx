@@ -51,6 +51,7 @@ function tiptapToEmailHtml(doc: any): string {
       case "text": { let text = (node.text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); for (const mark of node.marks || []) { switch (mark.type) { case "bold": text = `<strong>${text}</strong>`; break; case "italic": text = `<em>${text}</em>`; break; case "underline": text = `<u>${text}</u>`; break; case "strike": text = `<s>${text}</s>`; break; case "link": text = `<a href="${mark.attrs?.href || "#"}" style="color:#0059A3;text-decoration:underline;">${text}</a>`; break; case "textStyle": if (mark.attrs?.color) text = `<span style="color:${mark.attrs.color}">${text}</span>`; break; } } return text; }
       case "hardBreak": return "<br/>";
       case "horizontalRule": return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0;"/>`;
+      case "pageBreak": return `<div style="page-break-before:always"></div>`;
       case "blockquote": return `<blockquote style="border-left:3px solid #e5e7eb;padding-left:12px;margin:8px 0;color:#666;">${(node.content || []).map(renderNode).join("")}</blockquote>`;
       case "contractToken": return `{{${node.attrs?.tokenKey || ""}}}`;
       default: return (node.content || []).map(renderNode).join("");

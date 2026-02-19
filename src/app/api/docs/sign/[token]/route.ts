@@ -7,6 +7,7 @@
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
 import { signDocumentSchema } from "@/lib/validations/docs";
 import {
   sendSignatureAllCompletedEmail,
@@ -19,72 +20,6 @@ function canSignNow(currentOrder: number, recipients: Array<{ role: string; sign
     (r) => r.role === "signer" && r.signingOrder < currentOrder
   );
   return previousSigners.every((r) => r.status === "signed");
-}
-
-/** Formatea fecha para mostrar en documento (ej. 10 feb 2026) */
-function formatSignDate(d: Date | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" });
-}
-
-type SignerForResolve = {
-  id: string;
-  name: string;
-  signingOrder: number;
-  status: string;
-  signedAt: Date | null;
-};
-
-/**
- * Recorre el JSON del documento (TipTap) y reemplaza nodos contractToken
- * de firma por texto resuelto:
- * - signature.sentDate / signature.signedDate: fechas
- * - signature.signer_N: "[Tu firma aquí]" para el firmante actual, "[Firmado por X el dd]" si ya firmó, "[Pendiente]" si no.
- */
-function resolveSignatureTokensInContent(
-  content: unknown,
-  ctx: {
-    sentAt: Date | null;
-    signedAt: Date | null;
-    currentRecipientId: string;
-    signers: SignerForResolve[];
-  }
-): unknown {
-  if (!content || typeof content !== "object") return content;
-  const node = content as { type?: string; attrs?: { tokenKey?: string }; content?: unknown[] };
-  if (Array.isArray(content)) {
-    return (content as unknown[]).map((child) => resolveSignatureTokensInContent(child, ctx));
-  }
-  if (node.type === "contractToken" && node.attrs?.tokenKey) {
-    const key = node.attrs.tokenKey as string;
-    if (key === "signature.sentDate")
-      return { type: "text", text: formatSignDate(ctx.sentAt) };
-    if (key === "signature.signedDate")
-      return { type: "text", text: formatSignDate(ctx.signedAt) };
-    // Compat: "Espacio para firma" (antiguo) = mismo criterio que firmante 1
-    const effectiveKey = key === "signature.placeholder" ? "signature.signer_1" : key;
-    const signerMatch = /^signature\.signer_(\d+)$/.exec(effectiveKey);
-    if (signerMatch) {
-      const order = parseInt(signerMatch[1], 10);
-      const signer = ctx.signers.find((s) => s.signingOrder === order);
-      if (!signer) return { type: "text", text: "[—]" };
-      if (signer.id === ctx.currentRecipientId)
-        return { type: "text", text: "[Tu firma aquí]" };
-      if (signer.status === "signed")
-        return {
-          type: "text",
-          text: `[Firmado por ${signer.name} el ${formatSignDate(signer.signedAt)}]`,
-        };
-      return { type: "text", text: "[Pendiente]" };
-    }
-  }
-  if (node.content && Array.isArray(node.content)) {
-    return {
-      ...node,
-      content: node.content.map((child) => resolveSignatureTokensInContent(child, ctx)),
-    };
-  }
-  return content;
 }
 
 function buildSummary(
@@ -132,6 +67,9 @@ export async function GET(
                 id: true,
                 title: true,
                 content: true,
+                templateId: true,
+                module: true,
+                tenantId: true,
                 status: true,
                 signatureStatus: true,
                 createdAt: true,
@@ -175,7 +113,7 @@ export async function GET(
     const sentAt = recipient.sentAt ?? recipient.request.createdAt;
     const signedAt = recipient.signedAt ?? null;
     const doc = recipient.request.document;
-    const signers: SignerForResolve[] = recipient.request.recipients
+    const signers = recipient.request.recipients
       .filter((r) => r.role === "signer")
       .map((r) => ({
         id: r.id,
@@ -184,21 +122,27 @@ export async function GET(
         status: r.status,
         signedAt: r.signedAt,
       }));
-    const resolvedContent =
-      doc?.content && typeof doc.content === "object"
-        ? resolveSignatureTokensInContent(
-            JSON.parse(JSON.stringify(doc.content)),
-            {
-              sentAt,
-              signedAt,
-              currentRecipientId: recipient.id,
-              signers,
-            }
-          )
-        : doc?.content;
+
+    const resolvedContent = doc
+      ? await resolveDocumentContentForDisplay({
+          tenantId: doc.tenantId,
+          documentId: doc.id,
+          document: {
+            content: doc.content,
+            templateId: doc.templateId,
+            module: doc.module,
+          },
+          signatureContext: {
+            recipientId: recipient.id,
+            signers,
+            sentAt,
+            signedAt,
+          },
+        })
+      : { type: "doc" as const, content: [] };
 
     const documentForSign = doc
-      ? { ...doc, content: resolvedContent ?? doc.content }
+      ? { ...doc, content: resolvedContent }
       : doc;
 
     return NextResponse.json({

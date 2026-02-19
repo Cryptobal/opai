@@ -21,9 +21,12 @@ import {
   Undo,
   Redo,
   TableIcon,
+  Columns2,
   Code,
   Highlighter,
   Braces,
+  FileOutput,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +34,15 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TokenPicker } from "./TokenPicker";
+import type { PageType } from "./DocPreviewDialog";
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -41,15 +52,28 @@ interface EditorToolbarProps {
     label: string;
   }) => void;
   filterModules?: string[];
+  pageType?: PageType;
+  onPageTypeChange?: (pageType: PageType) => void;
+  onPreview?: () => void;
+  showPreview?: boolean;
 }
 
 export function EditorToolbar({
   editor,
   onInsertToken,
   filterModules,
+  pageType = "a4",
+  onPageTypeChange,
+  onPreview,
+  showPreview = true,
 }: EditorToolbarProps) {
   const [tokenPickerOpen, setTokenPickerOpen] = useState(false);
 
+  // focus sin scroll (evita scroll al ejecutar comandos)
+  const focusNoScroll = () => editor.chain().focus(null, { scrollIntoView: false });
+
+  // Ejecutar en mousedown (no click) para preservar la selección del editor.
+  // Al hacer click, el botón roba el foco antes de que se ejecute el comando.
   const ToolbarButton = ({
     onClick,
     active,
@@ -65,7 +89,12 @@ export function EditorToolbar({
   }) => (
     <button
       type="button"
-      onClick={onClick}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        if (disabled) return;
+        onClick();
+        setTimeout(() => editor.commands.focus(null, { scrollIntoView: false }), 0);
+      }}
       disabled={disabled}
       title={title}
       className={`p-1.5 rounded hover:bg-accent transition-colors ${
@@ -81,17 +110,42 @@ export function EditorToolbar({
   );
 
   return (
-    <div className="flex items-center gap-0.5 flex-wrap border-b border-border px-2 py-1.5 bg-muted/30 sticky top-0 z-10">
+    <div className="flex items-center gap-0.5 flex-wrap px-2 py-1.5 bg-muted/30">
+      {/* Tipo de página + Vista previa */}
+      {onPageTypeChange && (
+        <Select value={pageType} onValueChange={(v) => onPageTypeChange(v as PageType)}>
+          <SelectTrigger className="h-7 w-[100px] text-xs border-border/80">
+            <SelectValue placeholder="Página" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="a4">A4</SelectItem>
+            <SelectItem value="carta">Carta</SelectItem>
+            <SelectItem value="oficio">Oficio</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+      {showPreview && onPreview && (
+        <button
+          type="button"
+          onClick={onPreview}
+          onMouseDown={(e) => e.preventDefault()}
+          title="Vista previa"
+          className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground"
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+      )}
+      <Separator />
       {/* Undo / Redo */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().undo().run()}
+        onClick={() => focusNoScroll().undo().run()}
         disabled={!editor.can().undo()}
         title="Deshacer"
       >
         <Undo className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().redo().run()}
+        onClick={() => focusNoScroll().redo().run()}
         disabled={!editor.can().redo()}
         title="Rehacer"
       >
@@ -102,21 +156,21 @@ export function EditorToolbar({
 
       {/* Headings */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        onClick={() => focusNoScroll().toggleHeading({ level: 1 }).run()}
         active={editor.isActive("heading", { level: 1 })}
         title="Título 1"
       >
         <Heading1 className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        onClick={() => focusNoScroll().toggleHeading({ level: 2 }).run()}
         active={editor.isActive("heading", { level: 2 })}
         title="Título 2"
       >
         <Heading2 className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        onClick={() => focusNoScroll().toggleHeading({ level: 3 }).run()}
         active={editor.isActive("heading", { level: 3 })}
         title="Título 3"
       >
@@ -127,35 +181,35 @@ export function EditorToolbar({
 
       {/* Text formatting */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleBold().run()}
+        onClick={() => focusNoScroll().toggleBold().run()}
         active={editor.isActive("bold")}
         title="Negrita"
       >
         <Bold className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleItalic().run()}
+        onClick={() => focusNoScroll().toggleItalic().run()}
         active={editor.isActive("italic")}
         title="Cursiva"
       >
         <Italic className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        onClick={() => focusNoScroll().toggleUnderline().run()}
         active={editor.isActive("underline")}
         title="Subrayado"
       >
         <Underline className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleStrike().run()}
+        onClick={() => focusNoScroll().toggleStrike().run()}
         active={editor.isActive("strike")}
         title="Tachado"
       >
         <Strikethrough className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        onClick={() => focusNoScroll().toggleHighlight().run()}
         active={editor.isActive("highlight")}
         title="Resaltar"
       >
@@ -166,28 +220,28 @@ export function EditorToolbar({
 
       {/* Alignment */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        onClick={() => focusNoScroll().setTextAlign("left").run()}
         active={editor.isActive({ textAlign: "left" })}
         title="Alinear izquierda"
       >
         <AlignLeft className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        onClick={() => focusNoScroll().setTextAlign("center").run()}
         active={editor.isActive({ textAlign: "center" })}
         title="Centrar"
       >
         <AlignCenter className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        onClick={() => focusNoScroll().setTextAlign("right").run()}
         active={editor.isActive({ textAlign: "right" })}
         title="Alinear derecha"
       >
         <AlignRight className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        onClick={() => focusNoScroll().setTextAlign("justify").run()}
         active={editor.isActive({ textAlign: "justify" })}
         title="Justificar"
       >
@@ -198,14 +252,14 @@ export function EditorToolbar({
 
       {/* Lists */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        onClick={() => focusNoScroll().toggleBulletList().run()}
         active={editor.isActive("bulletList")}
         title="Lista"
       >
         <List className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        onClick={() => focusNoScroll().toggleOrderedList().run()}
         active={editor.isActive("orderedList")}
         title="Lista numerada"
       >
@@ -216,23 +270,31 @@ export function EditorToolbar({
 
       {/* Blocks */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        onClick={() => focusNoScroll().toggleBlockquote().run()}
         active={editor.isActive("blockquote")}
         title="Cita"
       >
         <Quote className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        onClick={() => focusNoScroll().setHorizontalRule().run()}
         title="Línea horizontal"
       >
         <Minus className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() =>
-          editor
-            .chain()
-            .focus()
+          focusNoScroll()
+            .insertContent([{ type: "pageBreak" }, { type: "paragraph", content: [] }])
+            .run()
+        }
+        title="Salto de página"
+      >
+        <FileOutput className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() =>
+          focusNoScroll()
             .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
             .run()
         }
@@ -241,7 +303,17 @@ export function EditorToolbar({
         <TableIcon className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        onClick={() => {
+          editor.commands.focus(null, { scrollIntoView: false });
+          editor.commands.setColumns();
+        }}
+        active={editor.isActive("columns")}
+        title="2 columnas (izq: firma rep legal, der: firma guardia)"
+      >
+        <Columns2 className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => focusNoScroll().toggleCodeBlock().run()}
         active={editor.isActive("codeBlock")}
         title="Bloque de código"
       >

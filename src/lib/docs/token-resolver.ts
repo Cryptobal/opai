@@ -9,6 +9,18 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CAUSALES_DT } from "@/lib/guard-events";
 
+/** Formatea fechas tipo YYYY-MM-DD como dd/MM/yyyy sin desfase por zona horaria.
+ *  new Date("2026-02-01") = medianoche UTC → en Chile muestra 31/01. Esta función evita eso. */
+function formatDateOnly(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  const str = typeof value === "string" ? value : value.toISOString();
+  const m = str.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return format(new Date(value as string), "dd/MM/yyyy");
+  const [, y, mo, d] = m;
+  return format(new Date(Number(y), Number(mo) - 1, Number(d)), "dd/MM/yyyy");
+}
+import { getRegimenPrevisionalLabel } from "@/lib/personas";
+
 export interface EntityData {
   empresa?: Record<string, any> | null;
   account?: Record<string, any> | null;
@@ -79,7 +91,7 @@ export function resolveTokenValue(
   }
 
   const value = entity[field];
-  if (value === null || value === undefined) return `{{${tokenKey}}}`;
+  if (value === null || value === undefined) return "";
 
   // Format based on type
   if (value instanceof Date) {
@@ -105,12 +117,165 @@ export function resolveTokenValue(
     if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
   }
 
+  // Currency formatting for guardia salary (incl. bonos dinámicos guardia.bono_{code})
+  if (
+    module === "guardia" &&
+    (["baseSalary", "colacion", "movilizacion", "bonosTotal"].includes(field) ||
+      field.startsWith("bono_"))
+  ) {
+    const num = Number(value);
+    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
+  }
+
   return String(value);
+}
+
+/** Reemplaza {{key}}, @EMPL_TERMINO_CONTRATO y {{#if}}...{{/if}} en texto plano */
+function resolveMustacheInText(text: string, entities: EntityData): string {
+  if (!text || typeof text !== "string") return text;
+  let out = text;
+
+  // @EMPL_TERMINO_CONTRATO → guardia.contractEndDate
+  out = out.replace(/@EMPL_TERMINO_CONTRATO/g, () =>
+    resolveTokenValue("guardia.contractEndDate", entities)
+  );
+
+  // {{#if expr}}...{{else}}...{{/if}} (con else opcional)
+  out = out.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, expr, contentTrue, contentFalse) => {
+    const conditionMet = evaluateCondition(expr.trim(), entities);
+    return conditionMet ? resolveMustacheInText(contentTrue, entities) : resolveMustacheInText(contentFalse, entities);
+  });
+  // {{#if expr}}...{{/if}} (sin else)
+  out = out.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, expr, content) => {
+    const conditionMet = evaluateCondition(expr.trim(), entities);
+    return conditionMet ? resolveMustacheInText(content, entities) : "";
+  });
+
+  // {{key}} simple
+  out = out.replace(/\{\{([^}#]+)\}\}/g, (_, key) => {
+    const k = String(key).trim();
+    return resolveTokenValue(k, entities);
+  });
+
+  return out;
+}
+
+/** Evalúa expresiones tipo guardia.bono_X>0, guardia.colacion>0, guardia.isJubilado=="SI", guardia.healthSystem=="isapre" */
+function evaluateCondition(expr: string, entities: EntityData): boolean {
+  const t = expr.trim();
+  // guardia.field>0
+  const m1 = /^guardia\.(\w+)>0$/.exec(t);
+  if (m1) {
+    const entity = entities.guardia;
+    if (!entity) return false;
+    const val = entity[m1[1]];
+    const num = Number(val);
+    return !isNaN(num) && num > 0;
+  }
+  // guardia.field=="value" (ej: isJubilado=="SI", healthSystem=="isapre")
+  const m2 = /^guardia\.(\w+)=="([^"]*)"$/.exec(t);
+  if (m2) {
+    const entity = entities.guardia;
+    if (!entity) return false;
+    const val = String(entity[m2[1]] ?? "").toLowerCase();
+    const expected = m2[2].toLowerCase();
+    return val === expected;
+  }
+  // guardia.field (truthy: existe y no vacío)
+  const m3 = /^guardia\.(\w+)$/.exec(t);
+  if (m3) {
+    const entity = entities.guardia;
+    if (!entity) return false;
+    const val = entity[m3[1]];
+    return val != null && val !== "" && val !== false;
+  }
+  return false;
+}
+
+/** Extrae texto plano de un nodo (para detectar {{#if}} y {{/if}}) */
+function getNodeText(node: any): string {
+  if (!node) return "";
+  if (node.type === "text" && node.text != null) return String(node.text);
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map(getNodeText).join("");
+  }
+  return "";
+}
+
+/** Serializa contenido inline a string, resolviendo contractTokens (para unificar {{#if}} que cruzan nodos) */
+function serializeInlineToString(nodes: any[], entities: EntityData): string {
+  return (nodes || []).map((n: any) => {
+    if (n.type === "text" && n.text != null) return String(n.text);
+    if (n.type === "contractToken" && n.attrs?.tokenKey) {
+      return resolveTokenValue(n.attrs.tokenKey, entities);
+    }
+    if (n.type === "hardBreak") return "\n";
+    return "";
+  }).join("");
+}
+
+/** Procesa bloques {{#if expr}}...{{/if}} a nivel de hijos del doc */
+function processConditionalBlocks(
+  nodes: any[],
+  entities: EntityData,
+  walkNode: (n: any) => any
+): any[] {
+  const result: any[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i];
+    const text = getNodeText(node).trim();
+
+    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más) — evita tragar párrafos con {{#if}}...{{/if}} inline
+    const ifMatch = /^\{\{#if\s+([^}]+)\}\}$/.exec(text);
+    if (ifMatch) {
+      const condition = ifMatch[1].trim();
+      const conditionMet = evaluateCondition(condition, entities);
+      i++;
+      const block: any[] = [];
+      let depth = 1;
+      while (i < nodes.length) {
+        const n = nodes[i];
+        const t = getNodeText(n).trim();
+        if (/^\{\{#if\s+[^}]+\}\}$/.test(t)) {
+          depth++;
+          block.push(n);
+          i++;
+        } else if (/^\{\{\/if\}\}$/.test(t)) {
+          depth--;
+          if (depth === 0) {
+            i++;
+            break;
+          }
+          block.push(n);
+          i++;
+        } else {
+          block.push(n);
+          i++;
+        }
+      }
+      if (conditionMet) {
+        result.push(...processConditionalBlocks(block, entities, walkNode).map(walkNode));
+      }
+      continue;
+    }
+
+    if (/^\{\{\/if\}\}$/.test(text)) {
+      i++;
+      continue;
+    }
+
+    result.push(walkNode(node));
+    i++;
+  }
+  return result;
 }
 
 /**
  * Resolve all tokens in a Tiptap JSON document.
- * Returns the resolved document and a map of token → resolved value.
+ * - contractToken nodes → text
+ * - {{key}} en texto → valor
+ * - {{#if expr}}...{{/if}} → incluye/excluye según condición
  */
 export function resolveDocument(
   content: any,
@@ -121,13 +286,16 @@ export function resolveDocument(
   function walkNode(node: any): any {
     if (!node) return node;
 
-    // If this is a contractToken node, resolve it
     if (node.type === "contractToken" && node.attrs?.tokenKey) {
       const tokenKey = node.attrs.tokenKey;
+      // No resolver tokens de firma aquí: se resuelven en signed-pdf con datos reales del firmante
+      if (tokenKey.startsWith("signature.")) return node;
       const value = resolveTokenValue(tokenKey, entities);
       tokenValues[tokenKey] = value;
-
-      // Replace the token node with a text node containing the resolved value
+      // empresa.firmaRepLegal → imagen de firma
+      if (tokenKey === "empresa.firmaRepLegal" && value && (value.startsWith("data:image") || value.startsWith("http"))) {
+        return { type: "image", attrs: { src: value, alt: "Firma representante legal" } };
+      }
       return {
         type: "text",
         text: value,
@@ -135,12 +303,42 @@ export function resolveDocument(
       };
     }
 
-    // Recurse into content
+    if (node.type === "text" && node.text != null) {
+      const resolved = resolveMustacheInText(node.text, entities);
+      if (resolved !== node.text) {
+        const keys = node.text.match(/\{\{([^}#]+)\}\}/g) || [];
+        keys.forEach((k: string) => {
+          const key = k.replace(/\{\{|\}\}/g, "").trim();
+          if (key && !tokenValues[key]) tokenValues[key] = resolveTokenValue(key, entities);
+        });
+      }
+      return { ...node, text: resolved };
+    }
+
     if (node.content && Array.isArray(node.content)) {
-      return {
-        ...node,
-        content: node.content.map(walkNode),
-      };
+      const isDoc = node.type === "doc";
+      if (isDoc) {
+        const newContent = processConditionalBlocks(node.content, entities, walkNode);
+        return { ...node, content: newContent };
+      }
+      // Párrafos y headings: si el contenido inline tiene {{#if}} repartido en varios nodos,
+      // unificar en un solo string antes de resolver
+      if ((node.type === "paragraph" || node.type === "heading") && node.content.length > 0) {
+        const fullText = serializeInlineToString(node.content, entities);
+        if (/\{\{#if|\{\{else\}\}|\{\{\/if\}\}/.test(fullText)) {
+          const resolved = resolveMustacheInText(fullText, entities);
+          const keys = fullText.match(/\{\{([^}#]+)\}\}/g) || [];
+          keys.forEach((k: string) => {
+            const key = k.replace(/\{\{|\}\}/g, "").trim();
+            if (key && !tokenValues[key]) tokenValues[key] = resolveTokenValue(key, entities);
+          });
+          const firstText = node.content.find((n: any) => n.type === "text");
+          const marks = firstText?.marks || (node.type === "heading" ? [{ type: "bold" }] : undefined);
+          return { ...node, content: [{ type: "text", text: resolved, marks }] };
+        }
+      }
+      const newContent = node.content.map((n: any) => walkNode(n));
+      return { ...node, content: newContent };
     }
 
     return node;
@@ -195,17 +393,66 @@ export function tiptapToPlainText(doc: any): string {
 }
 
 /**
+ * Enrich guardia entity data with salary structure (baseSalary, colacion, movilizacion, bonos).
+ * Call this after buildGuardiaEntityData when resolving documents that use salary tokens.
+ * Añade un token por cada bono del catálogo: guardia.bono_{code} = monto (0 si no aplica).
+ */
+export async function enrichGuardiaWithSalary(
+  guardiaData: Record<string, any>,
+  guardiaId: string
+): Promise<Record<string, any>> {
+  const { resolveSalaryStructure } = await import("@/lib/payroll/resolve-salary");
+  const { prisma } = await import("@/lib/prisma");
+  const salary = await resolveSalaryStructure(guardiaId);
+
+  const bonosTotal = salary.bonos.reduce((sum, b) => sum + b.amount, 0);
+  const bonosText =
+    salary.bonos.length > 0
+      ? salary.bonos.map((b) => `${b.bonoName}: $${b.amount.toLocaleString("es-CL")}`).join("; ")
+      : null;
+
+  const salaryBonosByCode = Object.fromEntries(
+    salary.bonos.map((b) => [b.bonoCode, b.amount])
+  );
+
+  const guardia = await prisma.opsGuardia.findUnique({
+    where: { id: guardiaId },
+    select: { tenantId: true },
+  });
+  const catalogBonos = guardia
+    ? await prisma.payrollBonoCatalog.findMany({
+        where: { tenantId: guardia.tenantId, isActive: true },
+        select: { code: true },
+      })
+    : [];
+
+  const bonoFields: Record<string, number> = {};
+  for (const b of catalogBonos) {
+    bonoFields[`bono_${b.code}`] = salaryBonosByCode[b.code] ?? 0;
+  }
+
+  return {
+    ...guardiaData,
+    baseSalary: salary.baseSalary,
+    colacion: salary.colacion,
+    movilizacion: salary.movilizacion,
+    bonosTotal,
+    bonosText,
+    ...bonoFields,
+  };
+}
+
+/**
  * Build entity data for a guardia from raw DB records.
  */
 export function buildGuardiaEntityData(guardia: {
   persona: Record<string, any>;
-  currentInstallation?: { name: string } | null;
+  currentInstallation?: { name: string; address?: string | null; commune?: string | null; city?: string | null } | null;
   bankAccounts?: Array<Record<string, any>>;
   contractType?: string | null;
   contractStartDate?: string | Date | null;
   contractPeriod1End?: string | Date | null;
   contractPeriod2End?: string | Date | null;
-  contractPeriod3End?: string | Date | null;
   contractCurrentPeriod?: number | null;
   hiredAt?: string | Date | null;
   code?: string | null;
@@ -216,7 +463,6 @@ export function buildGuardiaEntityData(guardia: {
   const period = guardia.contractCurrentPeriod ?? 1;
   let contractEndDate = guardia.contractPeriod1End;
   if (period === 2) contractEndDate = guardia.contractPeriod2End;
-  if (period === 3) contractEndDate = guardia.contractPeriod3End;
 
   return {
     firstName: persona.firstName,
@@ -229,20 +475,32 @@ export function buildGuardiaEntityData(guardia: {
     commune: persona.commune,
     city: persona.city,
     region: persona.region,
-    birthDate: persona.birthDate ? format(new Date(persona.birthDate as string), "dd/MM/yyyy") : null,
+    birthDate: formatDateOnly(persona.birthDate),
+    nacionalidad: persona.nacionalidad ?? null,
     afp: persona.afp,
     healthSystem: persona.healthSystem,
     isapreName: persona.isapreName,
-    hiredAt: guardia.hiredAt ? format(new Date(guardia.hiredAt as string), "dd/MM/yyyy") : null,
+    // Datos previsionales (DL 3500, Ley 19.728)
+    isJubilado: persona.isJubilado ? "SI" : "NO",
+    cotizaAFP: persona.isJubilado ? (persona.cotizaAFP ? "SI" : "NO") : "SI",
+    cotizaAFC: persona.isJubilado ? (persona.cotizaAFC ? "SI" : "NO") : "SI",
+    cotizaAFCTexto: persona.isJubilado ? (persona.cotizaAFC ? "cotiza" : "no cotiza") : "cotiza",
+    cotizaAFPTexto: persona.isJubilado ? (persona.cotizaAFP ? "cotiza" : "opta por no cotizar") : "cotiza",
+    regimenPrevisional: persona.regimenPrevisional ?? null,
+    regimenPrevisionalLabel: getRegimenPrevisionalLabel(persona.regimenPrevisional),
+    hiredAt: formatDateOnly(guardia.hiredAt),
     code: guardia.code,
     cargo: guardia.cargo ?? null,
     currentInstallation: guardia.currentInstallation?.name ?? null,
+    installationAddress: guardia.currentInstallation?.address ?? null,
+    installationCommune: guardia.currentInstallation?.commune ?? null,
+    installationCity: guardia.currentInstallation?.city ?? null,
     contractType: guardia.contractType,
-    contractStartDate: guardia.contractStartDate ? format(new Date(guardia.contractStartDate as string), "dd/MM/yyyy") : null,
-    contractEndDate: contractEndDate ? format(new Date(contractEndDate as string), "dd/MM/yyyy") : null,
-    contractPeriod1End: guardia.contractPeriod1End ? format(new Date(guardia.contractPeriod1End as string), "dd/MM/yyyy") : null,
-    contractPeriod2End: guardia.contractPeriod2End ? format(new Date(guardia.contractPeriod2End as string), "dd/MM/yyyy") : null,
-    contractPeriod3End: guardia.contractPeriod3End ? format(new Date(guardia.contractPeriod3End as string), "dd/MM/yyyy") : null,
+    // Inicio contrato: prioridad a datos de contrato; fallback a hiredAt si no hay contrato guardado
+    contractStartDate: formatDateOnly(guardia.contractStartDate || guardia.hiredAt),
+    contractEndDate: formatDateOnly(contractEndDate),
+    contractPeriod1End: formatDateOnly(guardia.contractPeriod1End),
+    contractPeriod2End: formatDateOnly(guardia.contractPeriod2End),
     contractCurrentPeriod: period,
     bankName: bank?.bankName ?? null,
     bankAccountNumber: bank?.accountNumber ?? null,
@@ -265,6 +523,7 @@ export function buildEmpresaEntityData(settings: Array<{ key: string; value: str
     "empresa.telefono": "telefono",
     "empresa.repLegalNombre": "repLegalNombre",
     "empresa.repLegalRut": "repLegalRut",
+    "empresa.repLegalFirma": "firmaRepLegal",
   };
   for (const s of settings) {
     const field = EMPRESA_KEYS[s.key];
@@ -281,8 +540,8 @@ export function buildLaborEventEntityData(event: Record<string, any>): Record<st
   return {
     category: event.category,
     subtype: event.subtype,
-    finiquitoDate: event.finiquitoDate ? format(new Date(event.finiquitoDate), "dd/MM/yyyy") : null,
-    lastWorkDay: event.finiquitoDate ? format(new Date(event.finiquitoDate), "dd/MM/yyyy") : null,
+    finiquitoDate: formatDateOnly(event.finiquitoDate),
+    lastWorkDay: formatDateOnly(event.finiquitoDate),
     causalDtCode: event.causalDtCode,
     causalDtLabel: event.causalDtLabel,
     causalDtArticle: causal ? `${causal.article} ${causal.number}` : null,

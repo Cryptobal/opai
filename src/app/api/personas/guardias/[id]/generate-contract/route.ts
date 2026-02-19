@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsCapability } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildGuardiaEntityData, buildEmpresaEntityData } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, buildEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 
 type Params = { id: string };
 
@@ -32,7 +32,7 @@ export async function POST(
       where: { id, tenantId: ctx.tenantId },
       include: {
         persona: true,
-        currentInstallation: { select: { name: true } },
+        currentInstallation: { select: { name: true, address: true, commune: true, city: true } },
         bankAccounts: { where: { isDefault: true }, take: 1 },
       },
     });
@@ -104,8 +104,9 @@ export async function POST(
       orderBy: { startDate: "desc" },
     });
 
-    const guardiaData = buildGuardiaEntityData(guardia as any);
+    let guardiaData = buildGuardiaEntityData(guardia as any);
     guardiaData.cargo = activeAssignment?.puesto?.cargo?.name ?? "Guardia de Seguridad";
+    guardiaData = await enrichGuardiaWithSalary(guardiaData, guardia.id);
 
     const { resolvedContent, tokenValues } = resolveDocument(template.content, {
       empresa: empresaData,

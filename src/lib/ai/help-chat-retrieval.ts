@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { prisma } from "@/lib/prisma";
 import { openai } from "@/lib/openai";
+import { tiptapToPlainText } from "@/lib/docs/tiptap-to-html";
 
 type DocChunk = {
   id: string;
@@ -80,6 +81,9 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   seguridad: ["ronda", "rondas", "guardia", "guardias", "ops"],
   rendicion: ["rendiciones", "gasto", "finanzas", "aprobacion", "aprobar", "pendiente"],
   aprobar: ["aprobacion", "aprobaciones", "pendiente", "pendientes", "rendicion"],
+  contrato: ["contratos", "plantilla", "plantillas", "template", "templates", "documento", "documentos", "laboral", "trabajo"],
+  plantilla: ["plantillas", "template", "templates", "contrato", "contratos", "documento", "documentos"],
+  template: ["plantilla", "plantillas", "contrato", "documento"],
   app: ["aplicacion", "instalar", "descargar", "home", "homescreen", "pantalla", "inicio"],
   instalar: ["app", "aplicacion", "descargar", "acceso", "directo", "home", "homescreen"],
 };
@@ -322,4 +326,77 @@ export async function retrieveDocsContext(
     .filter((c) => c.score >= 2)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
+}
+
+/** Palabras que indican que el usuario pregunta por contratos o plantillas */
+const TEMPLATE_QUERY_TOKENS = new Set([
+  "contrato", "contratos", "plantilla", "plantillas", "template", "templates",
+  "documento", "documentos", "laboral", "trabajo", "clausula", "clausulas",
+]);
+
+function queryNeedsTemplates(query: string): boolean {
+  const tokens = tokenize(query, true);
+  const expanded = expandQueryTokens(tokens);
+  return [...expanded].some((t) => TEMPLATE_QUERY_TOKENS.has(t));
+}
+
+/**
+ * Recupera plantillas de documentos (DocTemplate) del tenant para contexto de IA.
+ * Se usa cuando el usuario pregunta por contratos, plantillas o documentos.
+ */
+export async function retrieveTemplatesContext(
+  tenantId: string,
+  query: string,
+  limit = 4,
+): Promise<RetrievalChunk[]> {
+  if (!queryNeedsTemplates(query)) return [];
+
+  try {
+    const templates = await prisma.docTemplate.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        module: { in: ["payroll", "crm", "legal"] },
+      },
+      select: { id: true, name: true, description: true, content: true, module: true, category: true },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      take: 8,
+    });
+
+    if (templates.length === 0) return [];
+
+    const chunks: RetrievalChunk[] = [];
+    const qTokens = expandQueryTokens(tokenize(query));
+    const hasGuardia = qTokens.has("guardia") || qTokens.has("guardias");
+
+    for (const t of templates) {
+      const content = t.content as unknown;
+      const plainText = tiptapToPlainText(content);
+      if (!plainText || plainText.length < 50) continue;
+
+      let score = 5;
+      const nameLower = t.name.toLowerCase();
+      const descLower = (t.description || "").toLowerCase();
+      const textLower = plainText.toLowerCase();
+
+      if (hasGuardia && (t.category === "contrato_laboral" || t.category === "anexo_contrato")) {
+        score += 4;
+      }
+      if (qTokens.has("contrato") && nameLower.includes("contrato")) score += 3;
+      if (qTokens.has("plantilla") || qTokens.has("template")) score += 2;
+      if (textLower.includes("clausula") && qTokens.has("clausula")) score += 2;
+
+      const title = `Plantilla: ${t.name}${t.description ? ` — ${t.description}` : ""} (${t.module}/${t.category})`;
+      const body = plainText.slice(0, 4000);
+
+      chunks.push({ title, body, score });
+    }
+
+    return chunks
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  } catch (error) {
+    console.warn("retrieveTemplatesContext error:", error);
+    return [];
+  }
 }

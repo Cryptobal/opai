@@ -12,6 +12,8 @@ const EMPRESA_KEYS = [
   "empresa.telefono",
   "empresa.repLegalNombre",
   "empresa.repLegalRut",
+  "empresa.repLegalFirma",
+  "empresa.autoFirmaRepLegalContratos",
   "empresa.emailFrom",
   "empresa.emailFromName",
   "empresa.emailReplyTo",

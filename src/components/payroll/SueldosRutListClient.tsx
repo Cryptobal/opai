@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +94,9 @@ function fmtDate(d: string | null): string {
 }
 
 export function SueldosRutListClient() {
+  const searchParams = useSearchParams();
+  const guardiaIdFromUrl = searchParams.get("guardiaId");
+
   const [sueldos, setSueldos] = useState<SueldoRut[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -292,9 +296,16 @@ export function SueldosRutListClient() {
     } catch (err) { console.error(err); }
   };
 
-  const filtered = searchTerm
-    ? sueldos.filter((s) => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.rut.includes(searchTerm))
-    : sueldos;
+  const filtered = (() => {
+    let list = sueldos;
+    if (guardiaIdFromUrl) {
+      list = list.filter((s) => s.guardiaId === guardiaIdFromUrl);
+    }
+    if (searchTerm) {
+      list = list.filter((s) => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.rut.includes(searchTerm));
+    }
+    return list;
+  })();
 
   return (
     <div className="space-y-4 min-w-0">
@@ -318,7 +329,11 @@ export function SueldosRutListClient() {
         <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
-          {searchTerm ? "No se encontraron resultados." : "No hay sueldos por RUT configurados."}
+          {guardiaIdFromUrl
+            ? "Este guardia no tiene sueldo por RUT. Usa «Nuevo sueldo por RUT» para crear uno."
+            : searchTerm
+              ? "No se encontraron resultados."
+              : "No hay sueldos por RUT configurados."}
         </CardContent></Card>
       ) : (
         <div className="space-y-2 min-w-0">

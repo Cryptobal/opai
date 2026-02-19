@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, LogOut, Settings, User } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
@@ -35,12 +36,27 @@ export function TopbarActions({
   userRole,
   className,
 }: TopbarActionsProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
       {/* Campana de notificaciones */}
       <NotificationBell />
 
-      {/* Avatar + User Menu */}
+      {/* Avatar + User Menu — renderizar solo tras montaje para evitar hydration mismatch (Radix IDs) */}
+      {!mounted ? (
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+          aria-label="Menú de usuario"
+        >
+          <Avatar name={userName} size="sm" />
+          <span className="hidden xl:inline text-sm font-medium truncate max-w-[120px]">
+            {userName}
+          </span>
+        </button>
+      ) : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -95,6 +111,7 @@ export function TopbarActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
     </div>
   );
 }

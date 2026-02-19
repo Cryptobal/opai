@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileSignature, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileSignature, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,23 @@ type SignApiResponse = {
     };
   };
 };
+
+/** Normaliza contenido para TipTap: siempre { type: "doc", content: [...] } */
+function normalizeTiptapContent(raw: unknown): { type: "doc"; content: unknown[] } {
+  if (!raw) return { type: "doc", content: [] };
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw) as unknown;
+    } catch {
+      return { type: "doc", content: [] };
+    }
+  }
+  const obj = raw as Record<string, unknown>;
+  if (obj.type === "doc" && Array.isArray(obj.content)) return obj as { type: "doc"; content: unknown[] };
+  if (Array.isArray(obj.content)) return { type: "doc", content: obj.content };
+  if (Array.isArray(obj)) return { type: "doc", content: obj };
+  return { type: "doc", content: [] };
+}
 
 export function SignatureSignClient({ token }: SignatureSignClientProps) {
   const [loading, setLoading] = useState(true);
@@ -215,8 +232,19 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
         </div>
 
         <div className="rounded-xl border bg-card p-4">
-          <h2 className="text-sm font-semibold mb-3">Contenido del documento</h2>
-          <ContractEditor content={data.document.content} editable={false} />
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold">Contenido del documento</h2>
+            <a
+              href={`/api/docs/sign/${token}/export-pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar PDF
+            </a>
+          </div>
+          <ContractEditor content={normalizeTiptapContent(data.document.content)} editable={false} />
         </div>
 
         <div className="rounded-xl border bg-card p-5 space-y-4">

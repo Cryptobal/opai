@@ -70,34 +70,52 @@ function timeAgo(dateStr: string): string {
  */
 export function NotificationBell({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const fetchNotifications = useCallback(async () => {
+  useEffect(() => setMounted(true), []);
+
+  const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/notifications?limit=20', { cache: 'no-store' });
-      const data = await res.json();
+      const res = await fetch('/api/notifications?limit=20', {
+        cache: 'no-store',
+        signal,
+      });
+      const text = await res.text();
+      if (!res.ok) return;
+      let data: { success?: boolean; data?: Notification[]; meta?: { unreadCount?: number } };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        return;
+      }
       if (data.success) {
         setNotifications(data.data || []);
         setUnreadCount(data.meta?.unreadCount || 0);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Error fetching notifications:', error);
     }
   }, []);
 
-  // Initial fetch + polling every 30s
+  // Initial fetch + polling every 30s; abort on unmount
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    const ac = new AbortController();
+    fetchNotifications(ac.signal);
+    const interval = setInterval(() => fetchNotifications(ac.signal), 30000);
+    return () => {
+      ac.abort();
+      clearInterval(interval);
+    };
   }, [fetchNotifications]);
 
-  // Refetch when dropdown opens
+  // Refetch when dropdown opens (no signal; one-off fetch)
   useEffect(() => {
-    if (open) fetchNotifications();
+    if (open) void fetchNotifications();
   }, [open, fetchNotifications]);
 
   const markAllRead = async () => {
@@ -174,6 +192,23 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
       router.push(notification.link);
     }
   };
+
+  // Evitar hydration mismatch: Radix genera IDs distintos en servidor vs cliente
+  if (!mounted) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className={cn(
+          'relative p-0',
+          compact ? 'h-8 w-8' : 'h-9 w-9'
+        )}
+        aria-label="Notificaciones"
+      >
+        <Bell className={cn(compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

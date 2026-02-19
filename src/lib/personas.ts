@@ -106,6 +106,60 @@ export const ISAPRES_CHILE = [
 ] as const;
 export const PERSON_SEX = ["masculino", "femenino"] as const;
 
+/** Régimen previsional (Control Roll / DL 3500) */
+export const REGIMEN_PREVISIONAL = [
+  { value: "general", label: "1 - Régimen General" },
+  { value: "menor_18", label: "2 - Colaboradores menores de 18 años" },
+  { value: "aprendizaje", label: "3 - Colaboradores con contrato de aprendizaje" },
+  { value: "extranjero", label: "4 - Colaboradores extranjeros" },
+  { value: "pensionado_invalidez", label: "5 - Colaboradores pensionados por invalidez" },
+  { value: "pensionado_vejez", label: "6 - Colaboradores en edad para pensionarse" },
+  { value: "pensionado_anticipada", label: "7 - Colaboradores pensionados en forma anticipada" },
+  { value: "pensionado_ffaa", label: "8 - Colaboradores pensionados FFAA (Capredena - Dipreca)" },
+  { value: "exento_edad", label: "9 - Colaboradores exentos de cotizar (Mujer ≥60 años u Hombre ≥65 años)" },
+] as const;
+
+export function getRegimenPrevisionalLabel(value?: string | null): string | null {
+  if (!value) return null;
+  const found = REGIMEN_PREVISIONAL.find((r) => r.value === value);
+  return found ? found.label : value;
+}
+
+/** Tipo de pensión (si está jubilado) */
+export const TIPO_PENSION = [
+  { value: "invalidez_total", label: "Pensión por Invalidez Total" },
+  { value: "invalidez_parcial", label: "Pensión por Invalidez Parcial" },
+  { value: "vejez", label: "Pensión por Vejez" },
+  { value: "anticipada", label: "Pensión Anticipada" },
+  { value: "ffaa", label: "Pensión por FFAA" },
+] as const;
+
+/** Países de América para selector de nacionalidad (Chile por defecto) */
+export const PAISES_AMERICA = [
+  "Chile",
+  "Argentina",
+  "Bolivia",
+  "Brasil",
+  "Canadá",
+  "Colombia",
+  "Costa Rica",
+  "Cuba",
+  "Ecuador",
+  "El Salvador",
+  "Estados Unidos",
+  "Guatemala",
+  "Haití",
+  "Honduras",
+  "México",
+  "Nicaragua",
+  "Panamá",
+  "Paraguay",
+  "Perú",
+  "República Dominicana",
+  "Uruguay",
+  "Venezuela",
+] as const;
+
 export function normalizeNullable(value?: string | null): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();

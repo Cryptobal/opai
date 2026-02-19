@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Building2,
   User,
@@ -36,6 +36,18 @@ interface TokenPickerProps {
 export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [bonosCatalog, setBonosCatalog] = useState<Array<{ id: string; code: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (filterModules?.includes("guardia")) {
+      fetch("/api/payroll/bonos?active=false")
+        .then((r) => r.json())
+        .then((json) => setBonosCatalog(json.data || []))
+        .catch(() => setBonosCatalog([]));
+    } else {
+      setBonosCatalog([]);
+    }
+  }, [filterModules]);
 
   const modules = useMemo(() => {
     if (filterModules && filterModules.length > 0) {
@@ -48,21 +60,43 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
     if (!selectedModule) return [];
     const mod = modules.find((m) => m.key === selectedModule);
     if (!mod) return [];
-    if (!search) return mod.tokens;
+    let tokens = mod.tokens;
+    if (selectedModule === "guardia" && bonosCatalog.length > 0) {
+      const bonoTokens = bonosCatalog.map((b) => ({
+        key: `guardia.bono_${b.code}`,
+        label: b.name,
+        path: `bono_${b.code}`,
+        type: "currency" as const,
+      }));
+      tokens = [...tokens, ...bonoTokens];
+    }
+    if (!search) return tokens;
     const q = search.toLowerCase();
-    return mod.tokens.filter(
+    return tokens.filter(
       (t) =>
         t.label.toLowerCase().includes(q) ||
         t.key.toLowerCase().includes(q)
     );
-  }, [selectedModule, search, modules]);
+  }, [selectedModule, search, modules, bonosCatalog]);
 
   const allFiltered = useMemo(() => {
     if (!search || selectedModule) return null;
     const q = search.toLowerCase();
     const results: (TokenDefinition & { moduleKey: string; moduleLabel: string })[] = [];
     for (const mod of modules) {
-      for (const token of mod.tokens) {
+      let tokens = mod.tokens;
+      if (mod.key === "guardia" && bonosCatalog.length > 0) {
+        tokens = [
+          ...tokens,
+          ...bonosCatalog.map((b) => ({
+            key: `guardia.bono_${b.code}`,
+            label: b.name,
+            path: `bono_${b.code}`,
+            type: "currency" as const,
+          })),
+        ];
+      }
+      for (const token of tokens) {
         if (
           token.label.toLowerCase().includes(q) ||
           token.key.toLowerCase().includes(q)
@@ -72,7 +106,7 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
       }
     }
     return results;
-  }, [search, selectedModule, modules]);
+  }, [search, selectedModule, modules, bonosCatalog]);
 
   return (
     <div className="w-80 max-h-96 overflow-hidden flex flex-col bg-card">
@@ -109,10 +143,13 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
                 className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2 text-foreground"
               >
                 <Plus className="h-3.5 w-3.5 text-primary shrink-0" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <span className="font-medium">{token.label}</span>
                   <span className="text-xs text-muted-foreground ml-1.5">
                     {token.moduleLabel}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground font-mono mt-0.5" title="Para condicionales: {{#if token.key>0}}">
+                    {token.key}
                   </span>
                 </div>
               </button>
@@ -157,21 +194,27 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
         {/* Module tokens */}
         {selectedModule && (
           <div>
-            <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  setSelectedModule(null);
-                  setSearch("");
-                }}
-              >
-                ← Volver
-              </Button>
-              <span className="text-xs font-medium text-muted-foreground">
-                {modules.find((m) => m.key === selectedModule)?.label}
-              </span>
+            <div className="px-3 py-2 border-b border-border space-y-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-xs"
+                  onClick={() => {
+                    setSelectedModule(null);
+                    setSearch("");
+                  }}
+                >
+                  ← Volver
+                </Button>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {modules.find((m) => m.key === selectedModule)?.label}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                El <span className="font-mono">key</span> debajo de cada token se usa en condicionales:{" "}
+                <span className="font-mono text-primary">{"{{#if key>0}}"}</span>
+              </p>
             </div>
             <div className="p-1">
               {filteredTokens.map((token) => (
@@ -185,10 +228,13 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
                       label: token.label,
                     })
                   }
-                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2 text-foreground"
+                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex flex-col gap-0.5 text-foreground"
                 >
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/15 text-primary text-xs font-mono border border-primary/30">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/15 text-primary text-xs font-mono border border-primary/30 w-fit">
                     {`{{${token.label}}}`}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-mono" title="Usa este key en condicionales: {{#if token.key>0}}">
+                    {token.key}
                   </span>
                 </button>
               ))}

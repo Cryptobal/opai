@@ -221,7 +221,7 @@ export async function POST(
           recipientName: recipient.name,
           documentTitle: document.title,
           signingUrl,
-          senderName: ctx.userEmail || "Equipo Gard",
+          senderName: "OPAI",
           expiresAt: created.expiresAt ? created.expiresAt.toISOString() : null,
           message: created.message,
         });

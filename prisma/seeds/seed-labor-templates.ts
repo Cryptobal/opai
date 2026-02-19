@@ -111,10 +111,23 @@ const contratoTrabajo = buildTiptapDoc([
     token("guardia.contractEndDate"),
     text(". Si no se da aviso de término con la anticipación legal, o si el trabajador continúa prestando servicios con conocimiento del Empleador después de expirado el plazo, el contrato se entenderá por tiempo indefinido."),
   ]),
-  heading(2, [text("SEXTO: Cotizaciones previsionales")]),
+  heading(2, [text("SEXTO: Estado previsional y cotizaciones")]),
   paragraph([
-    text("AFP: "), token("guardia.afp"), hardBreak(),
-    text("Sistema de salud: "), token("guardia.healthSystem"),
+    text('Estado de Jubilación: El trabajador declara que {{#if guardia.isJubilado=="SI"}}SÍ{{else}}NO{{/if}} se encuentra jubilado al momento de la celebración de este contrato. {{#if guardia.isJubilado=="SI"}}En caso de estar jubilado, el trabajador {{guardia.cotizaAFPTexto}} en AFP, conforme a lo dispuesto en el artículo 17 del Decreto Ley N° 3.500, que regula el Sistema de Pensiones en Chile.{{/if}}'),
+  ]),
+  paragraph([
+    text("Afiliación a AFP: En cumplimiento de la normativa vigente, el trabajador está afiliado a la Administradora de Fondos de Pensiones (AFP) "),
+    token("guardia.afp"),
+    text(". En caso de estar jubilado y optar por no cotizar, dicha decisión queda establecida en este contrato."),
+  ]),
+  paragraph([
+    text('Seguro de Cesantía (AFC): El trabajador se encuentra afiliado al Seguro de Cesantía a través de la Administradora de Fondos de Cesantía (AFC), según lo establece la Ley N° 19.728. {{#if guardia.isJubilado=="SI"}}En caso de estar jubilado, el trabajador {{guardia.cotizaAFCTexto}} en AFC, conforme a lo dispuesto en el artículo 17 del Decreto Ley N° 3.500, que regula el Sistema de Pensiones en Chile.{{/if}}'),
+  ]),
+  paragraph([
+    text('Afiliación a Sistema de Salud (Fonasa o Isapre): El trabajador está afiliado a {{#if guardia.healthSystem=="isapre"}}Isapre {{guardia.isapreName}}{{else}}Fonasa{{/if}} para efectos de la cotización en el sistema de salud, según lo dispuesto en el Decreto Ley N° 3.500. El trabajador declara su afiliación actual y acepta las condiciones de cotización correspondientes.'),
+  ]),
+  paragraph([
+    text('{{#if guardia.isJubilado=="SI"}}Exclusión de Cotizaciones (si aplica): En caso de no corresponder afiliación o cotización en alguno de los sistemas mencionados debido a su condición de jubilado, dicha situación queda registrada en este contrato.{{/if}}'),
   ]),
   heading(2, [text("SÉPTIMO: Ejemplares")]),
   paragraph([
@@ -337,7 +350,8 @@ const TEMPLATES = [
       "guardia.commune", "guardia.city", "guardia.currentInstallation",
       "guardia.contractStartDate", "guardia.contractEndDate",
       "guardia.bankName", "guardia.bankAccountNumber", "guardia.bankAccountType",
-      "guardia.afp", "guardia.healthSystem",
+      "guardia.afp", "guardia.healthSystem", "guardia.isJubilado",
+      "guardia.cotizaAFPTexto", "guardia.cotizaAFCTexto", "guardia.isapreName",
     ],
     isDefault: true,
   },

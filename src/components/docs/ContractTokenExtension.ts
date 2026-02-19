@@ -95,8 +95,12 @@ export const ContractToken = Node.create<ContractTokenOptions>({
     };
     let order = node.attrs.signerOrder;
     if (order == null && node.attrs.tokenKey) {
-      const m = /^signature\.signer_(\d+)$/.exec(String(node.attrs.tokenKey));
-      if (m) order = parseInt(m[1], 10);
+      const key = String(node.attrs.tokenKey);
+      if (key === "signature.firmaGuardia") order = 1;
+      else {
+        const m = /^signature\.signer_(\d+)$/.exec(key);
+        if (m) order = parseInt(m[1], 10);
+      }
     }
     if (order != null) attrs["data-signer-order"] = String(order);
     return ["span", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, attrs), `{{${node.attrs.label}}}`];

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { getSignerColor } from "@/lib/docs/signature-token-colors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface SignatureRequestModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   documentId: string;
+  initialRecipients?: Array<{ name: string; email: string; rut?: string }>;
   onCreated: () => void;
 }
 
@@ -47,13 +49,43 @@ export function SignatureRequestModal({
   open,
   onOpenChange,
   documentId,
+  initialRecipients,
   onCreated,
 }: SignatureRequestModalProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [rows, setRows] = useState<RecipientRow[]>([createRecipient()]);
+  const [rows, setRows] = useState<RecipientRow[]>(() =>
+    initialRecipients?.length
+      ? initialRecipients.map((r, i) =>
+          createRecipient({
+            name: r.name,
+            email: r.email,
+            rut: r.rut ?? "",
+            role: "signer",
+            signingOrder: i + 1,
+          })
+        )
+      : [createRecipient()]
+  );
   const [error, setError] = useState<string | null>(null);
+
+  // Actualizar filas cuando cambian initialRecipients (ej. al abrir con otro guardia)
+  useEffect(() => {
+    if (open && initialRecipients?.length) {
+      setRows(
+        initialRecipients.map((r, i) =>
+          createRecipient({
+            name: r.name,
+            email: r.email,
+            rut: r.rut ?? "",
+            role: "signer",
+            signingOrder: i + 1,
+          })
+        )
+      );
+    }
+  }, [open, initialRecipients]);
 
   const signerCount = useMemo(() => rows.filter((r) => r.role === "signer").length, [rows]);
 
@@ -108,6 +140,7 @@ export function SignatureRequestModal({
         setError(data.error || "No fue posible crear la solicitud");
         return;
       }
+      toast.success("Documento enviado a firma");
       onCreated();
       onOpenChange(false);
       setRows([createRecipient()]);

@@ -90,6 +90,9 @@ function tiptapToHtml(doc: any): string {
       case "horizontalRule":
         return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0;"/>`;
 
+      case "pageBreak":
+        return `<div style="page-break-before:always"></div>`;
+
       case "image":
         return `<img src="${node.attrs?.src || ""}" alt="${node.attrs?.alt || ""}" width="${node.attrs?.width || "auto"}" style="max-width:100%;"/>`;
 

@@ -121,7 +121,14 @@ export function AiHelpChatWidget() {
       setLoadingConfig(true);
       try {
         const res = await fetch("/api/ai/help-chat/config");
-        const json = await res.json();
+        const text = await res.text();
+        let json: { success?: boolean; data?: { canAccess?: boolean } };
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          setCanAccess(false);
+          return;
+        }
         if (json.success) {
           setCanAccess(Boolean(json.data?.canAccess));
         }
@@ -138,7 +145,13 @@ export function AiHelpChatWidget() {
     void (async () => {
       try {
         const res = await fetch("/api/ai/help-chat/conversations");
-        const json = await res.json();
+        const text = await res.text();
+        let json: { success?: boolean; data?: ConversationItem[]; persistenceEnabled?: boolean };
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          return;
+        }
         if (json.success && Array.isArray(json.data)) {
           setConversations(json.data);
           setPersistenceEnabled(json.persistenceEnabled !== false);
@@ -158,7 +171,14 @@ export function AiHelpChatWidget() {
       setLoadingMessages(true);
       try {
         const res = await fetch(`/api/ai/help-chat/conversations/${activeConversationId}`);
-        const json = await res.json();
+        const text = await res.text();
+        let json: { success?: boolean; data?: { messages?: ChatMessage[] } };
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          setMessages([]);
+          return;
+        }
         if (json.success && json.data?.messages) {
           setMessages((json.data.messages as ChatMessage[]).slice(-MAX_VISIBLE_MESSAGES));
         } else {
@@ -214,7 +234,13 @@ export function AiHelpChatWidget() {
       });
 
       if (!res.ok) {
-        const errorJson = await res.json().catch(() => ({ error: "Error de conexión" }));
+        const text = await res.text();
+        let errorJson: { error?: string };
+        try {
+          errorJson = text ? JSON.parse(text) : {};
+        } catch {
+          errorJson = { error: "Error de conexión" };
+        }
         throw new Error(errorJson.error || "No se pudo enviar el mensaje");
       }
 
@@ -296,10 +322,15 @@ export function AiHelpChatWidget() {
 
       // Refresh conversation list
       const listRes = await fetch("/api/ai/help-chat/conversations");
-      const listJson = await listRes.json();
-      if (listJson.success && Array.isArray(listJson.data)) {
-        setConversations(listJson.data);
-        setPersistenceEnabled(listJson.persistenceEnabled !== false);
+      const listText = await listRes.text();
+      try {
+        const listJson = listText ? JSON.parse(listText) : {};
+        if (listJson.success && Array.isArray(listJson.data)) {
+          setConversations(listJson.data);
+          setPersistenceEnabled(listJson.persistenceEnabled !== false);
+        }
+      } catch {
+        // ignore invalid response
       }
     } catch (error) {
       setMessages((prev) => {

@@ -29,8 +29,10 @@ interface CrmDetailLayoutProps extends CrmRecordHeaderProps {
   sections: DetailSection[];
   /** Tipo de ficha para persistir preferencias */
   pageType: SectionPageType;
-  /** Sección fija (siempre arriba y abierta). Default: primera sección */
-  fixedSectionKey?: CrmSectionKey;
+  /** Sección fija (siempre arriba y abierta). Si no se pasa, todas son colapsables */
+  fixedSectionKey?: CrmSectionKey | null;
+  /** Secciones que empiezan contraídas. true = todas cerradas por defecto */
+  defaultCollapsedSectionKeys?: string[] | true;
   /** Clases CSS adicionales al contenedor */
   className?: string;
 }
@@ -63,6 +65,7 @@ export function CrmDetailLayout({
   sections,
   pageType,
   fixedSectionKey,
+  defaultCollapsedSectionKeys,
   className: _className,
   // RecordHeader props
   module,
@@ -94,6 +97,7 @@ export function CrmDetailLayout({
     <DetailLayout
       pageType={pageType}
       fixedSectionKey={fixedSectionKey}
+      defaultCollapsedSectionKeys={defaultCollapsedSectionKeys}
       sections={mappedSections}
       header={
         <CrmRecordHeader

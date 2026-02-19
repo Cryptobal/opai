@@ -38,7 +38,9 @@ interface DetailLayoutProps {
   header: ReactNode;
   sections: DetailLayoutSection[];
   pageType: SectionPageType;
-  fixedSectionKey?: string;
+  fixedSectionKey?: string | null;
+  /** Secciones que empiezan contraídas. true = todas cerradas por defecto */
+  defaultCollapsedSectionKeys?: string[] | true;
   className?: string;
 }
 
@@ -116,6 +118,7 @@ export function DetailLayout({
   sections,
   pageType,
   fixedSectionKey,
+  defaultCollapsedSectionKeys,
   className,
 }: DetailLayoutProps) {
   const sectionByKey = useMemo(
@@ -123,13 +126,15 @@ export function DetailLayout({
     [sections]
   ) as Record<string, DetailLayoutSection>;
   const sectionKeys = useMemo(() => sections.map((section) => section.key), [sections]);
-  const firstSectionKey = fixedSectionKey ?? sections[0]?.key ?? "general";
+  const hasFixedSection = fixedSectionKey != null && fixedSectionKey !== "";
+  const firstSectionKey = hasFixedSection ? fixedSectionKey : "";
 
   const { orderedKeys, collapsedKeys, openSection, closeSection, reorderSections, resetToDefault } =
     useSectionPreferences({
       pageType,
-      fixedSectionKey: firstSectionKey,
+      fixedSectionKey: hasFixedSection ? fixedSectionKey : undefined,
       sectionKeys,
+      defaultCollapsedSectionKeys,
     });
 
   const orderedSections = useMemo(
@@ -147,9 +152,9 @@ export function DetailLayout({
     icon: s.icon,
   }));
 
-  const sortableKeys = orderedSections
-    .map((section) => section.key)
-    .filter((key) => key !== firstSectionKey);
+  const sortableKeys = hasFixedSection
+    ? orderedSections.map((s) => s.key).filter((key) => key !== firstSectionKey)
+    : orderedSections.map((s) => s.key);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -179,9 +184,7 @@ export function DetailLayout({
 
       <SectionNav
         sections={navItems}
-        onSectionClick={(key) => {
-          if (key !== firstSectionKey) openSection(key);
-        }}
+        onSectionClick={(key) => openSection(key)}
         extraAction={
           <Button
             type="button"
@@ -203,7 +206,7 @@ export function DetailLayout({
         >
           <div className="mt-6 space-y-4">
             {orderedSections.map((section) => {
-              const isFixed = section.key === firstSectionKey;
+              const isFixed = hasFixedSection && section.key === firstSectionKey;
               const isOpen = isFixed ? true : !collapsedKeys.has(section.key);
 
               return (

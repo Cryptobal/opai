@@ -256,10 +256,10 @@ export function formatCLP(amount: number | null | undefined): string {
 
 /**
  * Calcula la fecha efectiva de fin de contrato según el período actual.
+ * Solo hay período 1 y 2: tras la 2da renovación pasa a indefinido.
  */
 export function getContractEndDate(contract: GuardContract): string | null {
   switch (contract.contractCurrentPeriod) {
-    case 3: return contract.contractPeriod3End;
     case 2: return contract.contractPeriod2End;
     case 1: return contract.contractPeriod1End;
     default: return contract.contractPeriod1End;
@@ -333,17 +333,19 @@ export function shouldBecomeIndefinido(contract: GuardContract, today: string = 
 
 /**
  * Calcula cuántas renovaciones quedan disponibles.
+ * Solo hay 1 renovación: de período 1 a período 2.
  */
 export function renewalsRemaining(contract: GuardContract): number {
-  return Math.max(0, MAX_RENEWALS - (contract.contractCurrentPeriod - 1));
+  return Math.max(0, 2 - contract.contractCurrentPeriod);
 }
 
 /**
  * Verifica si un contrato puede ser renovado.
+ * Solo 1 renovación posible: período 1 → período 2. Tras período 2 pasa a indefinido.
  */
 export function canRenewContract(contract: GuardContract): boolean {
   if (contract.contractType !== "plazo_fijo") return false;
-  return contract.contractCurrentPeriod < MAX_RENEWALS + 1; // max 3 períodos (original + 2 renovaciones)
+  return contract.contractCurrentPeriod < 2; // solo período 1 y 2
 }
 
 /**

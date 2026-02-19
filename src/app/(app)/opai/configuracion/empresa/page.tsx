@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, Loader2, Mail, Save } from "lucide-react";
+import { Building, FileSignature, Loader2, Mail, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/opai";
+import { SignatureCanvas } from "@/components/docs/SignatureCanvas";
 
 const FIELDS = [
   { key: "empresa.razonSocial", label: "Razón Social", placeholder: "Ej: Gard Seguridad Ltda." },
@@ -156,12 +157,108 @@ export default function EmpresaConfigPage() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileSignature className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Firma del representante legal</h3>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              La firma se inserta automáticamente en contratos y anexos con el token <code className="bg-muted px-1 rounded">{"{{empresa.firmaRepLegal}}"}</code>.
+            </p>
+            <label className="flex items-center justify-between rounded-lg border border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+              <div>
+                <span className="text-sm font-medium">
+                  Firmar automáticamente contratos y anexos como representante legal
+                </span>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Si está activo, la firma del rep. legal se aplica en documentos. Si está desactivado, no se muestra.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={form["empresa.autoFirmaRepLegalContratos"] === "true"}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    "empresa.autoFirmaRepLegalContratos": e.target.checked ? "true" : "false",
+                  }))
+                }
+                className="h-4 w-4 rounded border-border"
+              />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Subir imagen</Label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="block w-full text-sm file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const fd = new FormData();
+                      fd.append("file", file);
+                      const res = await fetch("/api/docs/sign/upload", { method: "POST", body: fd });
+                      const data = await res.json();
+                      if (data.success && data.data?.url) {
+                        setForm((prev) => ({ ...prev, "empresa.repLegalFirma": data.data.url }));
+                        toast.success("Firma subida");
+                      } else throw new Error(data.error);
+                    } catch {
+                      toast.error("Error al subir firma");
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">O dibujar a mano</Label>
+                <SignatureCanvas
+                  value={form["empresa.repLegalFirma"] || null}
+                  onChange={(dataUrl) =>
+                    setForm((prev) => ({ ...prev, "empresa.repLegalFirma": dataUrl || "" }))
+                  }
+                />
+              </div>
+            </div>
+            {form["empresa.repLegalFirma"] ? (
+              <div className="flex items-center gap-2">
+                <img
+                  src={form["empresa.repLegalFirma"]}
+                  alt="Firma rep legal"
+                  className="h-16 rounded border bg-white"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setForm((prev) => ({ ...prev, "empresa.repLegalFirma": "" }))}
+                >
+                  Quitar firma
+                </Button>
+              </div>
+            ) : null}
+            <div className="pt-2">
+              <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Guardar firma
+              </Button>
+            </div>
+          </div>
+
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             <p className="font-medium mb-1">Tokens disponibles para documentos:</p>
             <div className="grid grid-cols-2 gap-1 text-xs font-mono">
               {FIELDS.map((f) => (
                 <span key={f.key} className="text-primary/70">{`{{${f.key}}}`}</span>
               ))}
+              <span key="firmaRepLegal" className="text-primary/70">{"{{empresa.firmaRepLegal}}"}</span>
+              <span key="firmaGuardia" className="text-primary/70">{"{{signature.firmaGuardia}}"}</span>
             </div>
           </div>
         </div>

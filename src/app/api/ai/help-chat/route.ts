@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
-import { retrieveDocsContext } from "@/lib/ai/help-chat-retrieval";
+import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import {
   getGuardiasMetrics,
   getPendingRendicionesForApproval,
@@ -397,17 +397,21 @@ export async function POST(request: NextRequest) {
         .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
     }
 
-    const docsChunks = await retrieveDocsContext(userMessage, 6);
-    const docsContext = docsChunks
+    const [docsChunks, templatesChunks] = await Promise.all([
+      retrieveDocsContext(userMessage, 6),
+      retrieveTemplatesContext(ctx.tenantId, userMessage, 4),
+    ]);
+    const allChunks = [...docsChunks, ...templatesChunks];
+    const docsContext = allChunks
       .map(
         (item, index) =>
           `Bloque ${index + 1} (${item.title}):\n${item.body}`,
       )
       .join("\n\n");
 
-    /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs si hay) ── */
-    const retrievalHasEvidence = docsChunks.length > 0;
-    const retrievalMaxScore = docsChunks.length > 0 ? Math.max(...docsChunks.map(c => c.score)) : 0;
+    /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs + plantillas si hay) ── */
+    const retrievalHasEvidence = allChunks.length > 0;
+    const retrievalMaxScore = allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0;
     const recentFallbackCount = conversationHistory
       .slice(-6)
       .filter(m => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
@@ -475,7 +479,7 @@ export async function POST(request: NextRequest) {
         userId: ctx.userId,
         model,
         toolCallsUsed: modelResult.toolCallsUsed,
-        retrievalChunks: docsChunks.length,
+        retrievalChunks: allChunks.length,
         retrievalTopScore: retrievalMaxScore,
         fallbackUsed: assistantUsedFallback,
         frustrated,

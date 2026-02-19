@@ -821,6 +821,7 @@ export function CrmAccountDetailClient({
       <CrmDetailLayout
         pageType="account"
         module="accounts"
+        defaultCollapsedSectionKeys={true}
         title={account.name}
         subtitle={lifecycleSubtitle}
         badge={lifecycleBadge}

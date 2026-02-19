@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 
 type SearchResult = {
   id: string;
@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
 
     const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
+    const perms = await resolveApiPerms(ctx);
+    const isSupervisorHub = perms.hubLayout === "supervisor";
 
     const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
       // Leads
@@ -61,10 +63,17 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Accounts
+      // Accounts — en hub supervisor solo cuentas con instalaciones activas
       prisma.crmAccount.findMany({
         where: {
           tenantId,
+          ...(isSupervisorHub
+            ? {
+                installations: {
+                  some: { isActive: true },
+                },
+              }
+            : {}),
           OR: [
             { name: contains },
             { rut: contains },
@@ -82,10 +91,19 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Contacts
+      // Contacts — en hub supervisor solo contactos de cuentas con instalaciones activas
       prisma.crmContact.findMany({
         where: {
           tenantId,
+          ...(isSupervisorHub
+            ? {
+                account: {
+                  installations: {
+                    some: { isActive: true },
+                  },
+                },
+              }
+            : {}),
           OR: [
             { firstName: contains },
             { lastName: contains },
@@ -137,10 +155,11 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Installations
+      // Installations — en hub supervisor solo instalaciones activas
       prisma.crmInstallation.findMany({
         where: {
           tenantId,
+          ...(isSupervisorHub ? { isActive: true } : {}),
           OR: [
             { name: contains },
             { address: contains },

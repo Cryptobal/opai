@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3, Ticket, UserPlus } from "lucide-react";
+import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,18 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
             Hub de supervisión para trabajo en terreno: check-in, visitas y rendiciones.
           </CardDescription>
         </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Buscador CRM</CardTitle>
+          <CardDescription>
+            Busca contactos e instalaciones de tus clientes (solo instalaciones activas).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CrmGlobalSearch />
+        </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

@@ -20,6 +20,7 @@ import {
   isValidChileanRut,
   normalizeMobileNineDigits,
   normalizeRut,
+  PAISES_AMERICA,
   PERSON_SEX,
 } from "@/lib/personas";
 
@@ -84,6 +85,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
     lng: "",
     birthDate: "",
     sex: "",
+    nacionalidad: "Chile",
     afp: "",
     isapreName: "",
     isapreExtraPercent: "",
@@ -221,6 +223,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
           lng: form.lng,
           birthDate: form.birthDate,
           sex: form.sex,
+          nacionalidad: form.nacionalidad || "Chile",
           afp: form.afp,
           healthSystem,
           isapreName: healthSystem === "isapre" ? form.isapreName : null,
@@ -261,6 +264,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
         lng: "",
         birthDate: "",
         sex: "",
+        nacionalidad: "Chile",
         afp: "",
         isapreName: "",
         isapreExtraPercent: "",
@@ -422,6 +426,17 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               {PERSON_SEX.map((sex) => (
                 <option key={sex} value={sex}>
                   {sex}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.nacionalidad}
+              onChange={(e) => setForm((prev) => ({ ...prev, nacionalidad: e.target.value }))}
+            >
+              {PAISES_AMERICA.map((pais) => (
+                <option key={pais} value={pais}>
+                  {pais}
                 </option>
               ))}
             </select>

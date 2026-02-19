@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,18 @@ export function DocTemplateEditorClient({
 
   const categories =
     categoriesFromApi.length > 0 ? categoriesFromApi : (DOC_CATEGORIES[module] || []);
+
+  const filterModules = useMemo(
+    () =>
+      module === "crm"
+        ? ["account", "contact", "installation", "deal", "quote", "system", "signature"]
+        : module === "payroll"
+        ? ["empresa", "guardia", "labor_event", "system", "signature"]
+        : module === "mail" || module === "whatsapp"
+        ? ["account", "contact", "deal", "system", "signature"]
+        : ["account", "contact", "system", "signature"],
+    [module]
+  );
 
   // Fetch template if editing
   const fetchTemplate = useCallback(async () => {
@@ -278,15 +290,7 @@ export function DocTemplateEditorClient({
       <ContractEditor
         content={content}
         onChange={setContent}
-        filterModules={
-          module === "crm"
-            ? ["account", "contact", "installation", "deal", "quote", "system", "signature"]
-            : module === "payroll"
-            ? ["system", "signature"]
-            : module === "mail" || module === "whatsapp"
-            ? ["account", "contact", "deal", "system", "signature"]
-            : ["account", "contact", "system", "signature"]
-        }
+        filterModules={filterModules}
         placeholder="Escribe el contenido del template aquí... Usa el botón 'Insertar Token' para agregar placeholders dinámicos"
       />
     </div>

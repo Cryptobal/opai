@@ -1747,12 +1747,20 @@ model OpsPersona {
   addressSource String? @default("google_places") @map("address_source")
   birthDate DateTime? @map("birth_date") @db.Date
   sex String?
+  nacionalidad String?
   afp String?
   healthSystem String? @map("health_system")
   isapreName String? @map("isapre_name")
   isapreHasExtraPercent Boolean? @default(false) @map("isapre_has_extra_percent")
   isapreExtraPercent Decimal? @map("isapre_extra_percent") @db.Decimal(5, 2)
   hasMobilization Boolean? @default(false) @map("has_mobilization")
+  // ── Datos previsionales (DL 3500, Ley 19.728) ──
+  regimenPrevisional String? @map("regimen_previsional") // general | menor_18 | aprendizaje | extranjero | pensionado_invalidez | pensionado_vejez | pensionado_anticipada | pensionado_ffaa | exento_edad
+  tipoPension       String? @map("tipo_pension") // invalidez_total | invalidez_parcial | vejez | anticipada | ffaa
+  isJubilado         Boolean? @map("is_jubilado")
+  cotizaAFP          Boolean? @map("cotiza_afp") // Si jubilado: opta por cotizar AFP voluntariamente
+  cotizaAFC          Boolean? @map("cotiza_afc") // Si jubilado: cotiza AFC (solo invalidez parcial o casa particular)
+  cotizaSalud        Boolean? @default(true) @map("cotiza_salud")
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

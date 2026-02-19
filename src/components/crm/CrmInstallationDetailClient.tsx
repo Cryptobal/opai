@@ -1704,6 +1704,7 @@ export function CrmInstallationDetailClient({
       <CrmDetailLayout
         pageType="installation"
         module="installations"
+        defaultCollapsedSectionKeys={true}
         title={installation.name}
         subtitle={subtitle}
         badge={isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" }}

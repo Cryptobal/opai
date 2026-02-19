@@ -138,6 +138,7 @@ export async function PATCH(
           city: body.city !== undefined ? normalizeNullable(body.city) : undefined,
           region: body.region !== undefined ? normalizeNullable(body.region) : undefined,
           sex: body.sex !== undefined ? normalizeNullable(body.sex) : undefined,
+          nacionalidad: body.nacionalidad !== undefined ? normalizeNullable(body.nacionalidad) : undefined,
           lat: body.lat !== undefined ? toNullableDecimal(body.lat) : undefined,
           lng: body.lng !== undefined ? toNullableDecimal(body.lng) : undefined,
           birthDate: body.birthDate !== undefined ? toNullableDate(body.birthDate) : undefined,
@@ -151,6 +152,12 @@ export async function PATCH(
               ? toNullablePercent(body.isapreExtraPercent)
               : undefined,
           hasMobilization: body.hasMobilization !== undefined ? body.hasMobilization : undefined,
+          regimenPrevisional: body.regimenPrevisional !== undefined ? normalizeNullable(body.regimenPrevisional) : undefined,
+          tipoPension: body.tipoPension !== undefined ? normalizeNullable(body.tipoPension) : undefined,
+          isJubilado: body.isJubilado !== undefined ? body.isJubilado : undefined,
+          cotizaAFP: body.cotizaAFP !== undefined ? body.cotizaAFP : undefined,
+          cotizaAFC: body.cotizaAFC !== undefined ? body.cotizaAFC : undefined,
+          cotizaSalud: body.cotizaSalud !== undefined ? body.cotizaSalud : undefined,
         },
       });
 

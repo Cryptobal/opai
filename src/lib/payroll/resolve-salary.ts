@@ -15,6 +15,7 @@ export interface ResolvedSalary {
   gratificationCustomAmount: number;
   bonos: Array<{
     bonoCatalogId: string;
+    bonoCode: string;
     bonoName: string;
     bonoType: string;
     isTaxable: boolean;
@@ -66,7 +67,7 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
               overrideAmount: true,
               overridePercentage: true,
               bonoCatalog: {
-                select: { id: true, name: true, bonoType: true, isTaxable: true, isTributable: true, defaultAmount: true, defaultPercentage: true },
+                select: { id: true, code: true, name: true, bonoType: true, isTaxable: true, isTributable: true, defaultAmount: true, defaultPercentage: true },
               },
             },
           },
@@ -100,7 +101,7 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
                       overrideAmount: true,
                       overridePercentage: true,
                       bonoCatalog: {
-                        select: { id: true, name: true, bonoType: true, isTaxable: true, isTributable: true, defaultAmount: true, defaultPercentage: true },
+                        select: { id: true, code: true, name: true, bonoType: true, isTaxable: true, isTributable: true, defaultAmount: true, defaultPercentage: true },
                       },
                     },
                   },
@@ -189,7 +190,7 @@ function mapBonos(
   bonos: Array<{
     overrideAmount: any;
     overridePercentage: any;
-    bonoCatalog: { id: string; name: string; bonoType: string; isTaxable: boolean; isTributable: boolean; defaultAmount: any; defaultPercentage: any };
+    bonoCatalog: { id: string; code: string; name: string; bonoType: string; isTaxable: boolean; isTributable: boolean; defaultAmount: any; defaultPercentage: any };
   }>,
   baseSalary: number
 ): ResolvedSalary["bonos"] {
@@ -209,6 +210,7 @@ function mapBonos(
 
     return {
       bonoCatalogId: cat.id,
+      bonoCode: cat.code,
       bonoName: cat.name,
       bonoType: cat.bonoType,
       isTaxable: cat.isTaxable,

@@ -10,6 +10,7 @@ import chromiumPkg from "@sparticuz/chromium";
 import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,9 +43,13 @@ function tiptapNodeToHtml(node: any): string {
         case "strike": text = `<s>${text}</s>`; break;
         case "code": text = `<code>${text}</code>`; break;
         case "link": text = `<a href="${esc(mark.attrs?.href || "#")}" style="color:#0059A3;text-decoration:underline">${text}</a>`; break;
-        case "textStyle":
-          if (mark.attrs?.color) text = `<span style="color:${mark.attrs.color}">${text}</span>`;
+        case "textStyle": {
+          const styles: string[] = [];
+          if (mark.attrs?.color) styles.push(`color:${mark.attrs.color}`);
+          if (mark.attrs?.fontFamily) styles.push(`font-family:'${esc(mark.attrs.fontFamily)}',cursive`);
+          if (styles.length) text = `<span style="${styles.join(";")}">${text}</span>`;
           break;
+        }
         case "highlight":
           text = `<mark style="background:${mark.attrs?.color || '#fef08a'};padding:1px 2px;border-radius:2px">${text}</mark>`;
           break;
@@ -58,10 +63,14 @@ function tiptapNodeToHtml(node: any): string {
     return ""; // We resolve these before calling tiptapNodeToHtml
   }
 
+  if (node.type === "image" && node.attrs?.src) {
+    return `<img src="${esc(node.attrs.src)}" alt="${esc(node.attrs.alt || "Firma")}" style="max-height:80px;max-width:240px;object-fit:contain;vertical-align:middle"/>`;
+  }
+
   const children = (node.content ?? []).map(tiptapNodeToHtml).join("");
 
   switch (node.type) {
-    case "doc": return children;
+    case "doc": return tiptapDocToHtmlWithPageBreaks(node);
     case "paragraph": {
       const align = node.attrs?.textAlign;
       const style = align && align !== "left" ? ` style="text-align:${align}"` : "";
@@ -79,13 +88,54 @@ function tiptapNodeToHtml(node: any): string {
     case "blockquote": return `<blockquote>${children}</blockquote>`;
     case "codeBlock": return `<pre><code>${children}</code></pre>`;
     case "horizontalRule": return `<hr/>`;
+    case "pageBreak": return ""; // handled in tiptapDocToHtmlWithPageBreaks
     case "hardBreak": return `<br/>`;
     case "table": return `<table>${children}</table>`;
     case "tableRow": return `<tr>${children}</tr>`;
     case "tableHeader": return `<th>${children}</th>`;
     case "tableCell": return `<td>${children}</td>`;
+    case "columns": return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1em 0">${children}</div>`;
+    case "column": return `<div style="overflow:hidden">${children}</div>`;
     default: return children;
   }
+}
+
+/** Procesa el doc dividiendo por pageBreak y envolviendo cada página en un div con page-break-before (Playwright requiere contenido en el elemento) */
+function tiptapDocToHtmlWithPageBreaks(doc: any): string {
+  const nodes = Array.isArray(doc) ? doc : (doc?.content ?? []);
+  const pages: string[] = [];
+  let currentPageNodes: any[] = [];
+
+  for (const node of nodes) {
+    if (node.type === "pageBreak") {
+      if (currentPageNodes.length > 0) {
+        pages.push(currentPageNodes.map((n) => tiptapNodeToHtml(n)).join(""));
+        currentPageNodes = [];
+      }
+      pages.push("__PAGE_BREAK__");
+    } else {
+      currentPageNodes.push(node);
+    }
+  }
+  if (currentPageNodes.length > 0) {
+    pages.push(currentPageNodes.map((n) => tiptapNodeToHtml(n)).join(""));
+  }
+
+  let html = "";
+  let needBreakBefore = false;
+  for (const p of pages) {
+    if (p === "__PAGE_BREAK__") {
+      needBreakBefore = true;
+      continue;
+    }
+    if (needBreakBefore) {
+      html += `<div style="page-break-before:always;break-before:page;display:block">${p}</div>`;
+      needBreakBefore = false;
+    } else {
+      html += p;
+    }
+  }
+  return html;
 }
 
 /* ── Resolve signature tokens in TipTap JSON ── */
@@ -104,7 +154,13 @@ type SignerData = {
   userAgent: string | null;
 };
 
-function resolveTokens(content: unknown, ctx: { sentAt: Date | null; signers: SignerData[] }): unknown {
+type ResolveTokensCtx = {
+  sentAt: Date | null;
+  signers: SignerData[];
+  repLegalFirma?: string | null;
+};
+
+function resolveTokens(content: unknown, ctx: ResolveTokensCtx): unknown {
   if (!content || typeof content !== "object") return content;
   if (Array.isArray(content)) return content.map((c) => resolveTokens(c, ctx));
   const node = content as { type?: string; attrs?: { tokenKey?: string }; content?: unknown[] };
@@ -115,17 +171,22 @@ function resolveTokens(content: unknown, ctx: { sentAt: Date | null; signers: Si
       const last = ctx.signers.reduce((p, s) => (!p || (s.signedAt && (!p.signedAt || s.signedAt > p.signedAt)) ? s : p), null as SignerData | null);
       return { type: "text", text: fmtDate(last?.signedAt ?? null) };
     }
-    const m = /^signature\.signer_(\d+)$/.exec(key === "signature.placeholder" ? "signature.signer_1" : key);
+    if (key === "empresa.firmaRepLegal" && ctx.repLegalFirma && (ctx.repLegalFirma.startsWith("data:image") || ctx.repLegalFirma.startsWith("http"))) {
+      return { type: "image", attrs: { src: ctx.repLegalFirma, alt: "Firma representante legal" } };
+    }
+    const effectiveKey = key === "signature.firmaGuardia" ? "signature.signer_1" : key === "signature.placeholder" ? "signature.signer_1" : key;
+    const m = /^signature\.signer_(\d+)$/.exec(effectiveKey);
     if (m) {
       const order = parseInt(m[1], 10);
       const signer = ctx.signers.find((s) => s.signingOrder === order);
       if (!signer) return { type: "text", text: "" };
-      // Inline signature render
+      // Firma escrita (nombre estilizado)
       if (signer.signatureMethod === "typed") {
         return { type: "text", text: `${signer.signatureTypedName || signer.name}`, marks: [{ type: "textStyle", attrs: { fontFamily: signer.signatureFontFamily || "cursive" } }] };
       }
-      if (signer.signatureImageUrl) {
-        return { type: "text", text: `[Firma de ${signer.name}]` };
+      // Firma dibujada o imagen subida: renderizar imagen
+      if (signer.signatureImageUrl && (signer.signatureImageUrl.startsWith("data:") || signer.signatureImageUrl.startsWith("http"))) {
+        return { type: "image", attrs: { src: signer.signatureImageUrl, alt: `Firma de ${signer.name}` } };
       }
       return { type: "text", text: `[Firmado por ${signer.name}]` };
     }
@@ -233,6 +294,10 @@ function buildPdfHtml(input: {
     .cert-info .hash { word-break:break-all; font-family:monospace; background:#f8fafc; padding:6px 8px; border-radius:6px; margin-top:6px; font-size:10px; color:#334155; border:1px solid #e2e8f0; }
     .cert-legal { margin-top:16px; font-size:10px; color:#94a3b8; line-height:1.5; border-top:1px solid #e2e8f0; padding-top:12px; }
     .foot { text-align:center; font-size:10px; color:#94a3b8; margin-top:20px; }
+    @media print {
+      div[style*="page-break-before:always"] { page-break-before: always !important; }
+      div[style*="break-before:page"] { break-before: page !important; }
+    }
   </style>
 </head>
 <body>
@@ -354,12 +419,50 @@ export async function GET(
     }));
 
     const sentAt = completedRequest.createdAt ?? null;
-    const resolvedContent = document.content && typeof document.content === "object"
-      ? resolveTokens(JSON.parse(JSON.stringify(document.content)), { sentAt, signers })
-      : document.content;
-    const documentHtml = tiptapNodeToHtml(resolvedContent);
+
+    // Cargar firma rep legal para token empresa.firmaRepLegal (solo si auto-firma está activa)
+    let repLegalFirma: string | null = null;
+    const tenantId = document.tenantId;
+    if (tenantId) {
+      const [firmaSetting, autoSetting] = await Promise.all([
+        prisma.setting.findFirst({
+          where: {
+            tenantId,
+            key: { in: [`empresa:${tenantId}:empresa.repLegalFirma`, "empresa.repLegalFirma"] },
+          },
+        }),
+        prisma.setting.findFirst({
+          where: {
+            tenantId,
+            key: { in: [`empresa:${tenantId}:empresa.autoFirmaRepLegalContratos`, "empresa.autoFirmaRepLegalContratos"] },
+          },
+        }),
+      ]);
+      const autoFirma = autoSetting?.value === "true";
+      repLegalFirma = autoFirma ? (firmaSetting?.value ?? null) : null;
+    }
+
+    // Usar plantilla + datos actuales del guardia (contractStartDate, etc.)
+    const baseContent = await resolveDocumentContentForDisplay({
+      tenantId: document.tenantId,
+      documentId: document.id,
+      document: {
+        content: document.content,
+        templateId: document.templateId,
+        module: document.module,
+      },
+    });
+    const resolvedContent = resolveTokens(JSON.parse(JSON.stringify(baseContent)), { sentAt, signers, repLegalFirma });
+    // Asegurar estructura doc: si es array, envolver en doc
+    const docForHtml =
+      resolvedContent && typeof resolvedContent === "object" && !Array.isArray(resolvedContent) && "content" in resolvedContent
+        ? resolvedContent
+        : Array.isArray(resolvedContent)
+          ? { type: "doc", content: resolvedContent }
+          : { type: "doc", content: [] };
+    const documentHtml = tiptapNodeToHtml(docForHtml);
     const signedAt = fmtDate(completedRequest.completedAt ?? document.signedAt ?? new Date());
-    const contentHash = createHash("sha256").update(JSON.stringify(document.content)).digest("hex");
+    const contentHash = createHash("sha256").update(JSON.stringify(resolvedContent)).digest("hex");
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
     const verificationUrl = document.signedViewToken

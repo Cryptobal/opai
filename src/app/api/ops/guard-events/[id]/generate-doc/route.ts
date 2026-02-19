@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, buildEmpresaEntityData } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, buildEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 
 /**
  * POST /api/ops/guard-events/[id]/generate-doc — Generate document from template
@@ -51,7 +51,7 @@ export async function POST(
       where: { id: event.guardiaId, tenantId: ctx.tenantId },
       include: {
         persona: true,
-        currentInstallation: { select: { name: true } },
+        currentInstallation: { select: { name: true, address: true, commune: true, city: true } },
         bankAccounts: { where: { isDefault: true }, take: 1 },
         asignaciones: {
           where: { isActive: true },
@@ -102,8 +102,9 @@ export async function POST(
     const activeAssignment = (guardia as any).asignaciones?.[0];
     const cargoName = activeAssignment?.puesto?.cargo?.name ?? "Guardia de Seguridad";
 
-    const guardiaData = buildGuardiaEntityData(guardia as any);
+    let guardiaData = buildGuardiaEntityData(guardia as any);
     guardiaData.cargo = cargoName;
+    guardiaData = await enrichGuardiaWithSalary(guardiaData, guardia.id);
 
     const laborEventData = buildLaborEventEntityData(event as any);
 

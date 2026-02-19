@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
-import { retrieveDocsContext } from "@/lib/ai/help-chat-retrieval";
+import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import {
   getGuardiasMetrics,
   getPendingRendicionesForApproval,
@@ -237,13 +237,17 @@ export async function POST(request: NextRequest) {
     conversationHistory = historyMessages.slice(0, -1).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
   }
 
-  /* retrieval */
-  const docsChunks = await retrieveDocsContext(userMessage, 6);
-  const docsContext = docsChunks
+  /* retrieval: docs + plantillas de documentos (contratos, etc.) */
+  const [docsChunks, templatesChunks] = await Promise.all([
+    retrieveDocsContext(userMessage, 6),
+    retrieveTemplatesContext(ctx.tenantId, userMessage, 4),
+  ]);
+  const allChunks = [...docsChunks, ...templatesChunks];
+  const docsContext = allChunks
     .map((item, index) => `Bloque ${index + 1} (${item.title}):\n${item.body}`)
     .join("\n\n");
-  const retrievalHasEvidence = docsChunks.length > 0;
-  const retrievalMaxScore = docsChunks.length > 0 ? Math.max(...docsChunks.map(c => c.score)) : 0;
+  const retrievalHasEvidence = allChunks.length > 0;
+  const retrievalMaxScore = allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0;
 
   /* model router */
   const recentFallbackCount = conversationHistory
@@ -452,7 +456,7 @@ export async function POST(request: NextRequest) {
           toolCallsUsed,
           latencyMs: Date.now() - t0,
           retrievalTopScore: retrievalMaxScore,
-          retrievalChunks: docsChunks.length,
+          retrievalChunks: allChunks.length,
         });
 
         /* observability log */
@@ -463,7 +467,7 @@ export async function POST(request: NextRequest) {
             userId: ctx.userId,
             model,
             toolCallsUsed,
-            retrievalChunks: docsChunks.length,
+            retrievalChunks: allChunks.length,
             retrievalTopScore: retrievalMaxScore,
             fallbackUsed: assistantUsedFallback,
             frustrated,

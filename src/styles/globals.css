@@ -163,8 +163,8 @@
   }
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    opacity: 0.9;
+    filter: brightness(0) invert(1); /* blanco visible sobre fondo oscuro */
+    opacity: 1;
     cursor: pointer;
   }
 

@@ -45,9 +45,15 @@ export function CrmGlobalSearch({ className }: { className?: string }) {
     setLoading(true);
     try {
       const res = await fetch(`/api/crm/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
+      const text = await res.text();
+      let data: { success?: boolean; data?: SearchResult[] };
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        return; // HTML o respuesta inválida — ignorar
+      }
       if (data.success) {
-        setResults(data.data);
+        setResults(data.data ?? []);
       }
     } catch {
       // silently fail
