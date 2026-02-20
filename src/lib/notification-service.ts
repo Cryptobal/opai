@@ -197,3 +197,42 @@ async function userCanSeeType(
     return false;
   }
 }
+
+/**
+ * Obtiene la lista de emails de usuarios que deben recibir notificaciones por email
+ * para un tipo dado (respetando acceso al módulo y preferencias por usuario).
+ */
+export async function getEmailRecipientsForType(
+  tenantId: string,
+  type: string
+): Promise<string[]> {
+  const typeDef = NOTIFICATION_TYPE_MAP.get(type);
+  const users = await prisma.admin.findMany({
+    where: { tenantId, status: "active" },
+    select: { id: true, email: true, role: true, roleTemplateId: true },
+  });
+  if (users.length === 0) return [];
+
+  const userPrefsRecords = await prisma.userNotificationPreference.findMany({
+    where: { tenantId, userId: { in: users.map((u) => u.id) } },
+    select: { userId: true, preferences: true },
+  });
+  const prefsMap = new Map<string, UserNotifPrefsMap>();
+  for (const rec of userPrefsRecords) {
+    prefsMap.set(rec.userId, rec.preferences as unknown as UserNotifPrefsMap);
+  }
+
+  const emails: string[] = [];
+  for (const user of users) {
+    const canSee = await userCanSeeType(user, typeDef);
+    if (!canSee) continue;
+    const prefs = prefsMap.get(user.id);
+    const pref = prefs?.[type];
+    const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+    if (emailEnabled && user.email) {
+      const email = user.email.trim().toLowerCase();
+      if (email.length > 3 && email.includes("@")) emails.push(email);
+    }
+  }
+  return Array.from(new Set(emails));
+}

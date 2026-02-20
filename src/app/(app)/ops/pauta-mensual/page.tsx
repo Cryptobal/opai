@@ -60,15 +60,17 @@ export default async function OpsPautaMensualPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="-mt-4 space-y-3">
       <PageHeader
         title="Pauta mensual"
         description="Genera el plan del mes y asigna guardias por puesto y día."
+        className="mb-1"
       />
-      <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
         guardias={JSON.parse(JSON.stringify(guardias))}
+        currentUserId={session.user.id}
+        globalSearchSlot={<OpsGlobalSearch className="w-full min-w-[180px] max-w-[200px] [&_input]:h-8" />}
       />
     </div>
   );

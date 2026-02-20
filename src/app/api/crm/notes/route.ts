@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTypes = ["account", "contact", "deal", "quote"];
+    const validTypes = ["account", "contact", "deal", "quote", "ops_guardia", "installation_pauta"];
     if (!validTypes.includes(entityType)) {
       return NextResponse.json(
         { success: false, error: "entityType inválido" },

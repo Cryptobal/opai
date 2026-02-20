@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Mail, Save, Loader2, AlertTriangle, FileText, FileSignature, Eye, UserPlus, ShieldUser } from "lucide-react";
+import { Bell, Mail, Save, Loader2, AlertTriangle, FileText, FileSignature, Eye, UserPlus, ShieldUser, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -203,6 +203,15 @@ export function NotificationConfigClient() {
           description="Cuando alguien envía el formulario de postulación de guardia"
           icon={<ShieldUser className="h-4 w-4" />}
           bellKey="postulacionBellEnabled"
+          prefs={prefs}
+          onChange={handleChange}
+        />
+        <ToggleRow
+          label="Nuevo turno de refuerzo"
+          description="Cuando se crea una solicitud de turno de refuerzo. Cada usuario puede activar o desactivar en Perfil → Mis notificaciones."
+          icon={<Clock3 className="h-4 w-4" />}
+          bellKey="refuerzoBellEnabled"
+          emailKey="refuerzoEmailEnabled"
           prefs={prefs}
           onChange={handleChange}
         />

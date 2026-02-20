@@ -29,6 +29,9 @@ const DEFAULTS: Record<string, unknown> = {
   guardiaDocExpiryBellEnabled: true,
   // Ops - Nueva postulación
   postulacionBellEnabled: true,
+  // Ops - Turnos de refuerzo
+  refuerzoBellEnabled: true,
+  refuerzoEmailEnabled: true,
   docExpiryDaysDefault: 30,
   // Firma electrónica
   signatureCompleteBellEnabled: true,

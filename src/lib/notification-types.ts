@@ -214,7 +214,7 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     submodule: "turnos_extra",
     category: "Operaciones - Turnos",
     defaultBell: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // ── Operaciones - Tickets (requiere ops.tickets) ──

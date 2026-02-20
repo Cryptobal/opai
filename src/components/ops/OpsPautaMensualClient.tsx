@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/opai";
+import { NotesSection } from "@/components/crm/NotesSection";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock, Search } from "lucide-react";
+import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock, Search, ChevronDown, ChevronRight, Sun, Moon } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -148,11 +149,14 @@ type SlotAsignacion = {
 
 type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
+type ShiftType = "day" | "night";
 
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
   guardias: GuardiaOption[];
   shiftPatterns?: ShiftPatternOption[];
+  currentUserId?: string;
+  globalSearchSlot?: React.ReactNode;
 }
 
 /* ── helper ────────────────────────────────────── */
@@ -162,6 +166,13 @@ function toDateKey(date: Date | string): string {
     return date.slice(0, 10);
   }
   return date.toISOString().slice(0, 10);
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function daysInMonth(year: number, month: number): Date[] {
@@ -203,6 +214,8 @@ export function OpsPautaMensualClient({
   initialClients,
   guardias,
   shiftPatterns = [],
+  currentUserId,
+  globalSearchSlot,
 }: OpsPautaMensualClientProps) {
   const PATTERNS = useMemo(() => {
     if (shiftPatterns.length > 0) {
@@ -335,6 +348,9 @@ export function OpsPautaMensualClient({
 
   // Regenerar pauta (sobrescribir) — modal de confirmación
   const [regenerarConfirmOpen, setRegenerarConfirmOpen] = useState(false);
+
+  // Puestos contraíbles: Set de puestoIds colapsados
+  const [collapsedPuestos, setCollapsedPuestos] = useState<Set<string>>(new Set());
 
   // Long-press en móvil: emular clic derecho → eliminar (evitar que el tap abra pintar)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -503,23 +519,21 @@ export function OpsPautaMensualClient({
 
   // Build matrix: group by puestoId+slotNumber → map of dateKey → PautaItem
   type RowKey = string; // `${puestoId}|${slotNumber}`
+  type MatrixRow = {
+    puestoId: string;
+    puestoName: string;
+    shiftStart: string;
+    shiftEnd: string;
+    slotNumber: number;
+    requiredGuards: number;
+    cells: Map<string, PautaItem>;
+    guardiaId?: string;
+    guardiaName?: string;
+    patternCode?: string;
+    isRotativo?: boolean;
+  };
   const matrix = useMemo(() => {
-    const rows = new Map<
-      RowKey,
-      {
-        puestoId: string;
-        puestoName: string;
-        shiftStart: string;
-        shiftEnd: string;
-        slotNumber: number;
-        requiredGuards: number;
-        cells: Map<string, PautaItem>;
-        guardiaId?: string;
-        guardiaName?: string;
-        patternCode?: string;
-        isRotativo?: boolean;
-      }
-    >();
+    const rows = new Map<RowKey, MatrixRow>();
 
     for (const item of items) {
       const key: RowKey = `${item.puestoId}|${item.slotNumber}`;
@@ -564,6 +578,119 @@ export function OpsPautaMensualClient({
       return a.slotNumber - b.slotNumber;
     });
   }, [items, series, slotAsignaciones]);
+
+  /** Agrupar por tipo de turno (día/noche) y luego por puesto */
+  const groupedByShiftType = useMemo(() => {
+    type GroupedPuesto = {
+      puestoId: string;
+      puestoName: string;
+      shiftStart: string;
+      shiftEnd: string;
+      shiftType: ShiftType;
+      rows: MatrixRow[];
+    };
+
+    const byPuesto = new Map<string, GroupedPuesto>();
+    for (const row of matrix) {
+      const h = parseInt(row.shiftStart.split(":")[0], 10);
+      const shiftType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
+      if (!byPuesto.has(row.puestoId)) {
+        byPuesto.set(row.puestoId, {
+          puestoId: row.puestoId,
+          puestoName: row.puestoName,
+          shiftStart: row.shiftStart,
+          shiftEnd: row.shiftEnd,
+          shiftType,
+          rows: [],
+        });
+      }
+      byPuesto.get(row.puestoId)!.rows.push(row);
+    }
+
+    const sortedGroups = Array.from(byPuesto.values())
+      .map((g) => ({
+        ...g,
+        rows: [...g.rows].sort((a, b) => a.slotNumber - b.slotNumber),
+      }))
+      .sort((a, b) => {
+        const aMinutes = parseInt(a.shiftStart.split(":")[0], 10) * 60 + parseInt(a.shiftStart.split(":")[1], 10);
+        const bMinutes = parseInt(b.shiftStart.split(":")[0], 10) * 60 + parseInt(b.shiftStart.split(":")[1], 10);
+        if (aMinutes !== bMinutes) return aMinutes - bMinutes;
+        return a.puestoName.localeCompare(b.puestoName);
+      });
+
+    return {
+      day: sortedGroups.filter((g) => g.shiftType === "day"),
+      night: sortedGroups.filter((g) => g.shiftType === "night"),
+    };
+  }, [matrix]);
+
+  const shiftSummary = useMemo(() => {
+    const summarize = (groups: Array<{ rows: MatrixRow[] }>) => {
+      const puestos = groups.length;
+      const requiredSlots = groups.reduce((acc, g) => acc + g.rows.length, 0);
+      const assignedSlots = groups.reduce(
+        (acc, g) => acc + g.rows.filter((r) => Boolean(r.guardiaId)).length,
+        0
+      );
+      const vacantes = Math.max(0, requiredSlots - assignedSlots);
+      return { puestos, requiredSlots, assignedSlots, vacantes };
+    };
+
+    const day = summarize(groupedByShiftType.day);
+    const night = summarize(groupedByShiftType.night);
+
+    return {
+      day,
+      night,
+      totalRequiredSlots: day.requiredSlots + night.requiredSlots,
+      totalAssignedSlots: day.assignedSlots + night.assignedSlots,
+      totalVacantes: day.vacantes + night.vacantes,
+    };
+  }, [groupedByShiftType]);
+
+  const daySectionIds = useMemo(
+    () => groupedByShiftType.day.map((g) => g.puestoId),
+    [groupedByShiftType.day]
+  );
+  const nightSectionIds = useMemo(
+    () => groupedByShiftType.night.map((g) => g.puestoId),
+    [groupedByShiftType.night]
+  );
+
+  const collapseKeyRef = useRef<string>("");
+  useEffect(() => {
+    const key = `${installationId}|${month}|${year}`;
+    const allIds = [...daySectionIds, ...nightSectionIds];
+    if (allIds.length === 0) return;
+    if (collapseKeyRef.current !== key) {
+      setCollapsedPuestos(new Set(allIds));
+      collapseKeyRef.current = key;
+    }
+  }, [installationId, month, year, daySectionIds, nightSectionIds]);
+
+  const toggleSectionCollapsed = useCallback((section: ShiftType) => {
+    const targetIds = section === "day" ? daySectionIds : nightSectionIds;
+    setCollapsedPuestos((prev) => {
+      const next = new Set(prev);
+      const allCollapsed = targetIds.every((id) => next.has(id));
+      if (allCollapsed) {
+        targetIds.forEach((id) => next.delete(id));
+      } else {
+        targetIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [daySectionIds, nightSectionIds]);
+
+  const togglePuestoCollapsed = useCallback((puestoId: string) => {
+    setCollapsedPuestos((prev) => {
+      const next = new Set(prev);
+      if (next.has(puestoId)) next.delete(puestoId);
+      else next.add(puestoId);
+      return next;
+    });
+  }, []);
 
   // Generate pauta (forceOverwrite: true para regenerar/sobrescribir)
   const handleGenerate = async (forceOverwrite?: boolean) => {
@@ -825,10 +952,10 @@ export function OpsPautaMensualClient({
     };
 
     return (
-      <div className="space-y-4">
-        {/* Month/Year selector + búsqueda por instalación/cliente */}
+      <div className="space-y-3">
+        {/* Month/Year selector + búsquedas (instalación/cliente + guardia) */}
         <Card>
-          <CardContent className="pt-4 pb-3">
+          <CardContent className="pt-3 pb-2.5">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
               <div className="flex gap-2 flex-wrap">
                 <div className="space-y-1">
@@ -867,6 +994,12 @@ export function OpsPautaMensualClient({
                     />
                   </div>
                 </div>
+                {globalSearchSlot && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Buscar guardia</Label>
+                    {globalSearchSlot}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
@@ -1011,10 +1144,10 @@ export function OpsPautaMensualClient({
     <div className="space-y-3">
       {/* Controls — filtros siempre visibles, layout compacto */}
       <Card>
-        <CardContent className="pt-4 pb-3 space-y-3">
-          <div className="flex flex-col gap-3">
+        <CardContent className="pt-3 pb-2.5 space-y-2">
+          <div className="flex flex-col gap-2">
             {/* Back button + Filtros */}
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-0.5">
               <button
                 type="button"
                 onClick={() => setPageView("overview")}
@@ -1024,8 +1157,8 @@ export function OpsPautaMensualClient({
                 Volver al resumen
               </button>
             </div>
-            {/* Filtros: Cliente + Instalación (fila 1), Mes + Año (fila 2 en móvil) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            {/* Filtros: Cliente + Instalación + Mes + Año + Buscar guardia */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
@@ -1073,6 +1206,12 @@ export function OpsPautaMensualClient({
                   className="h-8 text-sm"
                 />
               </div>
+              {globalSearchSlot && (
+                <div className="space-y-1 col-span-2 sm:col-span-1">
+                  <Label className="text-xs">Buscar guardia</Label>
+                  {globalSearchSlot}
+                </div>
+              )}
             </div>
             {/* Status + Exportar + Regenerar */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1189,14 +1328,29 @@ export function OpsPautaMensualClient({
         </Card>
       ) : (
       <Card>
-        <CardContent className="pt-4 pb-3">
+        <CardContent className="pt-3 pb-2.5">
           {loading && matrix.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Cargando pauta…
             </div>
           ) : (
-            <div className="overflow-hidden sm:overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
+            <>
+              <div className="mb-3 rounded-md border border-border bg-muted/10 px-3 py-2 text-[11px] sm:text-[10px]">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="font-medium text-foreground">Total cobertura</span>
+                  <span className="text-muted-foreground">
+                    {shiftSummary.totalAssignedSlots}/{shiftSummary.totalRequiredSlots} guardias
+                  </span>
+                  <span className={`font-medium ${shiftSummary.totalVacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                    {shiftSummary.totalVacantes > 0
+                      ? `${shiftSummary.totalVacantes} vacante${shiftSummary.totalVacantes !== 1 ? "s" : ""}`
+                      : "Cobertura completa"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
               <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
                 <colgroup>
                   <col style={{ width: "22%" }} />
@@ -1204,9 +1358,9 @@ export function OpsPautaMensualClient({
                     <col key={`${d.getUTCDate()}-${i}`} />
                   ))}
                 </colgroup>
-                <thead>
+                <thead className="sticky top-0 z-20 bg-card shadow-[0_2px_4px_-1px_rgba(0,0,0,0.2)]">
                   <tr className="border-b border-border">
-                    <th className="sticky left-0 z-10 bg-card text-left pl-1 pr-2 py-2 w-[22%] sm:min-w-[200px] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                    <th className="sticky left-0 z-30 bg-card text-left pl-1 pr-2 py-2 w-[22%] sm:min-w-[200px] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                       <span className="hidden sm:inline">Puesto / Guardia</span>
                       <span className="sm:hidden text-xs">Puesto</span>
                     </th>
@@ -1214,14 +1368,14 @@ export function OpsPautaMensualClient({
                       const dayNum = d.getUTCDate();
                       const dayName = WEEKDAY_SHORT[d.getUTCDay()];
                       const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
-                      const isToday = toDateKey(d) === toDateKey(new Date());
+                      const isToday = toDateKey(d) === toLocalDateKey(new Date());
                       const dateKey = toDateKey(d);
                       const holidayName = holidayDates.get(dateKey);
                       const isHoliday = !!holidayName;
                       return (
                         <th
                           key={dayNum}
-                          className={`text-center px-0.5 py-1 ${
+                          className={`sticky top-0 z-20 bg-card text-center px-0.5 py-1 ${
                             isToday ? "text-primary" : isHoliday ? "text-rose-400" : isWeekend ? "text-amber-400" : "text-muted-foreground"
                           }`}
                           title={holidayName || undefined}
@@ -1242,219 +1396,345 @@ export function OpsPautaMensualClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {matrix.map((row, rowIdx) => {
-                    const isFirstSlot = rowIdx === 0 || matrix[rowIdx - 1]?.puestoId !== row.puestoId;
-                    return (
-                      <tr
-                        key={`${row.puestoId}-${row.slotNumber}`}
-                        className={`${isFirstSlot ? "border-t border-border" : ""} hover:bg-muted/10`}
-                      >
-                        {/* Row header: alineado a la izquierda, sombra para no ver días detrás; en móvil nombre clicable → Sheet */}
-                        <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 sm:py-1.5 align-top w-[22%] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                          {isFirstSlot && (
-                            <div className="font-medium text-foreground leading-tight flex items-center gap-1 text-xs sm:text-sm min-w-0">
-                              <span className="truncate min-w-0 flex-1 sm:flex-none sm:truncate sm:max-w-[calc(100%-2rem)]">
-                                <button
-                                  type="button"
-                                  onClick={() => setPuestoSheet({ puestoId: row.puestoId, puestoName: row.puestoName })}
-                                  className="sm:hidden text-left w-full truncate block hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                >
-                                  {row.puestoName}
-                                </button>
-                                <span className="hidden sm:inline truncate">{row.puestoName}</span>
-                              </span>
-                              {(() => {
-                                const h = parseInt(row.shiftStart.split(":")[0], 10);
-                                const night = h >= 18 || h < 6;
-                                return (
-                                  <span className={`shrink-0 rounded-full px-1 py-0 text-[9px] sm:text-[8px] font-semibold border ${
-                                    night
-                                      ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                  }`}>
-                                    {night ? "N" : "D"}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          {isFirstSlot && (
-                            <div className="text-[11px] sm:text-[10px] text-muted-foreground hidden sm:block">
-                              {row.shiftStart}-{row.shiftEnd}
-                            </div>
-                          )}
-                          <div className="text-[11px] sm:text-[10px] mt-0.5 flex items-center gap-1">
-                            <span className="text-muted-foreground font-mono">
-                              S{row.slotNumber}
+                  {([
+                    { key: "day" as const, label: "TURNOS DIURNOS", badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30", icon: Sun },
+                    { key: "night" as const, label: "TURNOS NOCTURNOS", badgeClass: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30", icon: Moon },
+                  ]).flatMap((section) => {
+                    const groups = groupedByShiftType[section.key];
+                    if (groups.length === 0) return [];
+                    const SectionIcon = section.icon;
+                    const sectionIds = section.key === "day" ? daySectionIds : nightSectionIds;
+                    const allSectionCollapsed = sectionIds.length > 0 && sectionIds.every((id) => collapsedPuestos.has(id));
+
+                    return [
+                      <tr key={`${section.key}-header`} className="sticky top-[42px] sm:top-[44px] z-10 border-y border-border">
+                        <td colSpan={1 + visibleDays.length} className="bg-card/95 backdrop-blur px-2 py-1">
+                          <div className="flex items-center gap-2 text-[11px] sm:text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => toggleSectionCollapsed(section.key)}
+                              className="shrink-0 p-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                              aria-label={allSectionCollapsed ? "Abrir todos" : "Contraer todos"}
+                            >
+                              {allSectionCollapsed
+                                ? <ChevronRight className="h-3.5 w-3.5" />
+                                : <ChevronDown className="h-3.5 w-3.5" />}
+                            </button>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${section.badgeClass}`}>
+                              <SectionIcon className="h-3 w-3" />
+                              {section.label}
                             </span>
-                            {row.guardiaName ? (
-                              row.guardiaId ? (
-                                <Link
-                                  href={`/personas/guardias/${row.guardiaId}`}
-                                  className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                >
-                                  {row.guardiaName}
-                                </Link>
-                              ) : (
-                                <span className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px]">
-                                  {row.guardiaName}
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
-                            )}
-                            {row.patternCode && (
-                              <span className="text-primary/50 text-[10px] hidden sm:inline">
-                                {row.patternCode}
-                                {row.isRotativo && (
-                                  <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                                    rot
-                                  </span>
-                                )}
-                              </span>
-                            )}
+                            <span className="text-muted-foreground">
+                              {groups.length} puesto{groups.length !== 1 ? "s" : ""}
+                            </span>
                           </div>
                         </td>
-
-                        {/* Day cells */}
-                        {visibleDays.map((d) => {
-                          const dateKey = toDateKey(d);
-                          const cell = row.cells.get(dateKey);
-                          const code = cell?.shiftCode ?? "";
-                          const isEmpty = !code;
-                          const colorClass = SHIFT_COLORS[code] ?? "";
-                          const execution = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
-                          const executionBadge =
-                            execution?.state === "te"
-                              ? "TE"
-                              : execution?.state === "asistio"
-                                ? "✓"
-                                : execution?.state === "sin_cobertura"
-                                  ? "✗"
-                                  : null;
-                          const executionBadgeClass =
-                            execution?.state === "te"
-                              ? "bg-rose-600 text-rose-50"
-                              : execution?.state === "asistio"
-                                ? "bg-emerald-600 text-emerald-50"
-                                : execution?.state === "sin_cobertura"
-                                  ? "bg-amber-500 text-amber-950"
-                                  : "";
-
-                          return (
-                            <td
-                              key={dateKey}
-                              className="text-center px-0.5 py-0.5"
+                      </tr>,
+                      ...groups.flatMap((group) => {
+                        const isCollapsed = collapsedPuestos.has(group.puestoId);
+                        if (isCollapsed) {
+                          return [
+                            <tr
+                              key={group.puestoId}
+                              onClick={() => togglePuestoCollapsed(group.puestoId)}
+                              className="cursor-pointer hover:bg-muted/20 border-t border-border"
                             >
-                              {cell ? (
-                                <div
-                                  className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-7 sm:h-6 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
-                                    isEmpty
-                                      ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
-                                      : colorClass
-                                  }`}
-                                  title={
-                                    cell.plannedGuardia
-                                      ? `${cell.plannedGuardia.persona.firstName} ${cell.plannedGuardia.persona.lastName}`
-                                      : "Sin asignar"
-                                  }
-                                  onPointerDown={() => {
-                                    longPressTargetRef.current = {
-                                      puestoId: row.puestoId,
-                                      slotNumber: row.slotNumber,
-                                      dateKey,
-                                    };
-                                    longPressTimerRef.current = setTimeout(() => {
-                                      longPressTimerRef.current = null;
-                                      openEliminarSerieModal({
-                                        puestoId: row.puestoId,
-                                        slotNumber: row.slotNumber,
-                                        dateKey,
-                                        puestoName: row.puestoName,
-                                      });
-                                    }, 450);
-                                  }}
-                                  onPointerUp={() => {
-                                    if (longPressTimerRef.current) {
-                                      clearTimeout(longPressTimerRef.current);
-                                      longPressTimerRef.current = null;
-                                      longPressTargetRef.current = null;
-                                    }
-                                  }}
-                                  onPointerLeave={() => {
-                                    if (longPressTimerRef.current) {
-                                      clearTimeout(longPressTimerRef.current);
-                                      longPressTimerRef.current = null;
-                                      longPressTargetRef.current = null;
-                                    }
-                                  }}
-                                  onClick={() => {
-                                    const wasLongPress =
-                                      longPressTargetRef.current &&
-                                      longPressTargetRef.current.puestoId === row.puestoId &&
-                                      longPressTargetRef.current.slotNumber === row.slotNumber &&
-                                      longPressTargetRef.current.dateKey === dateKey;
-                                    if (wasLongPress) {
-                                      longPressTargetRef.current = null;
-                                      return;
-                                    }
-                                    openPintarOpcionesModal({
-                                      puestoId: row.puestoId,
-                                      slotNumber: row.slotNumber,
-                                      dateKey,
-                                      puestoName: row.puestoName,
-                                      guardiaId: row.guardiaId,
-                                    });
-                                  }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    if (!cell) return;
-                                    openEliminarSerieModal({
-                                      puestoId: row.puestoId,
-                                      slotNumber: row.slotNumber,
-                                      dateKey,
-                                      puestoName: row.puestoName,
-                                    });
-                                  }}
-                                >
-                                  {code || "·"}
-                                  {executionBadge ? (
-                                    <span
-                                      className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[9px] sm:text-[8px] leading-none font-semibold ${executionBadgeClass}`}
+                              <td
+                                colSpan={1 + visibleDays.length}
+                                className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1.5 sm:py-2 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <span className="font-medium text-foreground text-xs sm:text-sm">{group.puestoName}</span>
+                                  <span className="text-muted-foreground text-[10px]">
+                                    ({group.rows.length} slot{group.rows.length > 1 ? "s" : ""})
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>,
+                          ];
+                        }
+
+                        return group.rows.map((row, slotIdx) => {
+                          const isFirstSlot = slotIdx === 0;
+                          return (
+                            <tr
+                              key={`${row.puestoId}-${row.slotNumber}`}
+                              className={`${isFirstSlot ? "border-t border-border" : ""} hover:bg-muted/10`}
+                            >
+                              {/* Row header: chevron + puesto/guardia */}
+                              <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 sm:py-1.5 align-top w-[22%] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                                {isFirstSlot && (
+                                  <div className="font-medium text-foreground leading-tight flex items-center gap-1 text-xs sm:text-sm min-w-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        togglePuestoCollapsed(group.puestoId);
+                                      }}
+                                      className="shrink-0 p-0.5 -ml-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                      aria-label="Contraer puesto"
                                     >
-                                      {executionBadge}
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </button>
+                                    <span className="truncate min-w-0 flex-1 sm:flex-none sm:truncate sm:max-w-[calc(100%-2rem)]">
+                                      <button
+                                        type="button"
+                                        onClick={() => setPuestoSheet({ puestoId: row.puestoId, puestoName: row.puestoName })}
+                                        className="sm:hidden text-left w-full truncate block hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                      >
+                                        {row.puestoName}
+                                      </button>
+                                      <span className="hidden sm:inline truncate">{row.puestoName}</span>
                                     </span>
-                                  ) : null}
+                                    <span className="shrink-0 text-[10px] text-muted-foreground hidden sm:inline">
+                                      {row.shiftStart}-{row.shiftEnd}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="text-[11px] sm:text-[10px] mt-0.5 flex items-center gap-1">
+                                  <span className="text-muted-foreground font-mono">
+                                    S{row.slotNumber}
+                                  </span>
+                                  {row.guardiaName ? (
+                                    row.guardiaId ? (
+                                      <Link
+                                        href={`/personas/guardias/${row.guardiaId}`}
+                                        className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                      >
+                                        {row.guardiaName}
+                                      </Link>
+                                    ) : (
+                                      <span className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px]">
+                                        {row.guardiaName}
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
+                                  )}
+                                  {row.patternCode && (
+                                    <span className="text-primary/50 text-[10px] hidden sm:inline">
+                                      {row.patternCode}
+                                      {row.isRotativo && (
+                                        <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                          rot
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
                                 </div>
+                              </td>
+
+                              {/* Day cells */}
+                              {visibleDays.map((d) => {
+                                const dateKey = toDateKey(d);
+                                const cell = row.cells.get(dateKey);
+                                const code = cell?.shiftCode ?? "";
+                                const isEmpty = !code;
+                                const isTrabajo = code === "T";
+                                const trabajoClass = group.shiftType === "night"
+                                  ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                                  : "bg-amber-500/20 text-amber-300 border-amber-500/30";
+                                const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? "");
+                                const execution = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
+                                const executionBadge =
+                                  execution?.state === "te"
+                                    ? "TE"
+                                    : execution?.state === "asistio"
+                                      ? "✓"
+                                      : execution?.state === "sin_cobertura"
+                                        ? "✗"
+                                        : null;
+                                const executionBadgeClass =
+                                  execution?.state === "te"
+                                    ? "bg-rose-600 text-rose-50"
+                                    : execution?.state === "asistio"
+                                      ? "bg-emerald-600 text-emerald-50"
+                                      : execution?.state === "sin_cobertura"
+                                        ? "bg-amber-500 text-amber-950"
+                                        : "";
+
+                                return (
+                                  <td
+                                    key={dateKey}
+                                    className="text-center px-0.5 py-0.5"
+                                  >
+                                    {cell ? (
+                                      <div
+                                        className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-7 sm:h-6 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
+                                          isEmpty
+                                            ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
+                                            : colorClass
+                                        }`}
+                                        title={
+                                          cell.plannedGuardia
+                                            ? `${cell.plannedGuardia.persona.firstName} ${cell.plannedGuardia.persona.lastName}`
+                                            : "Sin asignar"
+                                        }
+                                        onPointerDown={() => {
+                                          longPressTargetRef.current = {
+                                            puestoId: row.puestoId,
+                                            slotNumber: row.slotNumber,
+                                            dateKey,
+                                          };
+                                          longPressTimerRef.current = setTimeout(() => {
+                                            longPressTimerRef.current = null;
+                                            openEliminarSerieModal({
+                                              puestoId: row.puestoId,
+                                              slotNumber: row.slotNumber,
+                                              dateKey,
+                                              puestoName: row.puestoName,
+                                            });
+                                          }, 450);
+                                        }}
+                                        onPointerUp={() => {
+                                          if (longPressTimerRef.current) {
+                                            clearTimeout(longPressTimerRef.current);
+                                            longPressTimerRef.current = null;
+                                            longPressTargetRef.current = null;
+                                          }
+                                        }}
+                                        onPointerLeave={() => {
+                                          if (longPressTimerRef.current) {
+                                            clearTimeout(longPressTimerRef.current);
+                                            longPressTimerRef.current = null;
+                                            longPressTargetRef.current = null;
+                                          }
+                                        }}
+                                        onClick={() => {
+                                          const wasLongPress =
+                                            longPressTargetRef.current &&
+                                            longPressTargetRef.current.puestoId === row.puestoId &&
+                                            longPressTargetRef.current.slotNumber === row.slotNumber &&
+                                            longPressTargetRef.current.dateKey === dateKey;
+                                          if (wasLongPress) {
+                                            longPressTargetRef.current = null;
+                                            return;
+                                          }
+                                          openPintarOpcionesModal({
+                                            puestoId: row.puestoId,
+                                            slotNumber: row.slotNumber,
+                                            dateKey,
+                                            puestoName: row.puestoName,
+                                            guardiaId: row.guardiaId,
+                                          });
+                                        }}
+                                        onContextMenu={(e) => {
+                                          e.preventDefault();
+                                          if (!cell) return;
+                                          openEliminarSerieModal({
+                                            puestoId: row.puestoId,
+                                            slotNumber: row.slotNumber,
+                                            dateKey,
+                                            puestoName: row.puestoName,
+                                          });
+                                        }}
+                                      >
+                                        {isTrabajo ? "T" : (code || "·")}
+                                        {isTrabajo ? (
+                                          <span
+                                            className={`absolute -top-1 -right-1 rounded px-0.5 py-[1px] text-[8px] leading-none font-semibold ${
+                                              group.shiftType === "night"
+                                                ? "bg-indigo-700 text-indigo-100"
+                                                : "bg-amber-600 text-amber-50"
+                                            }`}
+                                          >
+                                            {group.shiftType === "night" ? "N" : "D"}
+                                          </span>
+                                        ) : null}
+                                        {executionBadge ? (
+                                          <span
+                                            className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[9px] sm:text-[8px] leading-none font-semibold ${executionBadgeClass}`}
+                                          >
+                                            {executionBadge}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    ) : (
+                                      <div
+                                        className="inline-flex items-center justify-center w-9 h-8 sm:w-7 sm:h-6 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
+                                        onClick={() =>
+                                          openPintarOpcionesModal({
+                                            puestoId: row.puestoId,
+                                            slotNumber: row.slotNumber,
+                                            dateKey,
+                                            puestoName: row.puestoName,
+                                            guardiaId: row.guardiaId,
+                                          })
+                                        }
+                                      >
+                                        ·
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        });
+                      }),
+                      <tr key={`${section.key}-summary`} className="border-t border-border bg-muted/5">
+                        <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] text-muted-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                          {section.key === "day" ? <Sun className="inline h-3 w-3 text-amber-400 mr-0.5" /> : <Moon className="inline h-3 w-3 text-indigo-400 mr-0.5" />}
+                          <span className="hidden sm:inline">Slots {section.key === "day" ? "día" : "noche"}</span>
+                          <span className="sm:hidden">#</span>
+                        </td>
+                        {visibleDays.map((d) => {
+                          const dk = toDateKey(d);
+                          let slots = 0;
+                          for (const g of groups) {
+                            for (const r of g.rows) {
+                              const c = r.cells.get(dk);
+                              if (c?.shiftCode === "T") slots += 1;
+                            }
+                          }
+                          return (
+                            <td key={dk} className="text-center px-0.5 py-0.5">
+                              {slots > 0 ? (
+                                <span className="text-[9px] font-medium text-muted-foreground">{slots}</span>
                               ) : (
-                                <div
-                                  className="inline-flex items-center justify-center w-9 h-8 sm:w-7 sm:h-6 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
-                                  onClick={() =>
-                                    openPintarOpcionesModal({
-                                      puestoId: row.puestoId,
-                                      slotNumber: row.slotNumber,
-                                      dateKey,
-                                      puestoName: row.puestoName,
-                                      guardiaId: row.guardiaId,
-                                    })
-                                  }
-                                >
-                                  ·
-                                </div>
+                                <span className="text-[9px] text-muted-foreground/30">-</span>
                               )}
                             </td>
                           );
                         })}
-                      </tr>
-                    );
+                      </tr>,
+                    ];
                   })}
+                  <tr className="border-t-2 border-border bg-muted/10">
+                    <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] font-semibold text-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                      <span className="hidden sm:inline">Total slots</span>
+                      <span className="sm:hidden">Tot</span>
+                    </td>
+                    {visibleDays.map((d) => {
+                      const dk = toDateKey(d);
+                      let slots = 0;
+                      const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.night];
+                      for (const g of allGroups) {
+                        for (const r of g.rows) {
+                          const c = r.cells.get(dk);
+                          if (c?.shiftCode === "T") slots += 1;
+                        }
+                      }
+                      return (
+                        <td key={dk} className="text-center px-0.5 py-0.5">
+                          {slots > 0 ? (
+                            <span className="text-[9px] font-semibold text-foreground">{slots}</span>
+                          ) : (
+                            <span className="text-[9px] text-muted-foreground/30">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                 </tbody>
               </table>
 
               {/* Legend — serie (T, -, V, L, P) + segunda capa (asistencia: ✓, TE, ✗) */}
               <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-[11px] sm:text-[10px] text-muted-foreground border-t border-border pt-3">
                 {[
-                  { code: "T", label: "Trabaja", cls: "bg-emerald-600/20 border-emerald-600/30" },
+                  { code: "TD", label: "Trabajo diurno", cls: "bg-amber-500/20 border-amber-500/30" },
+                  { code: "TN", label: "Trabajo nocturno", cls: "bg-indigo-500/20 border-indigo-500/30" },
                   { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
                   { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
                   { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
@@ -1477,10 +1757,24 @@ export function OpsPautaMensualClient({
                 <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
                 <span className="sm:hidden">Toca = pintar · Mantén presionado = eliminar</span>
               </div>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Notas de la pauta */}
+      {installationId && currentUserId && (
+        <Card>
+          <CardContent className="pt-3 pb-3">
+            <NotesSection
+              entityType="installation_pauta"
+              entityId={`${installationId}_${year}-${String(month).padStart(2, "0")}`}
+              currentUserId={currentUserId}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* Serie painting modal */}

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
-import { sendNotification } from "@/lib/notification-service";
+import { getEmailRecipientsForType, sendNotification } from "@/lib/notification-service";
+import { getNotificationPrefs } from "@/lib/notification-prefs";
 import type { AuthContext } from "@/lib/api-auth";
 import { createOpsAuditLog } from "@/lib/ops";
 
@@ -247,40 +248,44 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
   });
 
   const guardiaName = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
-  const tenantMailRecipientsRaw = await prisma.admin.findMany({
-    where: { tenantId: ctx.tenantId, status: "active" },
-    select: { email: true },
-  });
-  const tenantMailRecipients = Array.from(
-    new Set(
-      tenantMailRecipientsRaw
-        .map((user) => (user.email ?? "").trim().toLowerCase())
-        .filter((email) => email.length > 3 && email.includes("@"))
-    )
-  );
+  const tenantPrefs = await getNotificationPrefs(ctx.tenantId);
 
-  await Promise.allSettled([
-    sendNotification({
-      tenantId: ctx.tenantId,
-      type: "refuerzo_solicitud_created",
-      title: "Nueva solicitud de turno de refuerzo",
-      message: `${installation.name} · ${guardiaName}`,
-      link: `/ops/refuerzos`,
-      data: { refuerzoId: created.id, installationId: installation.id },
-    }),
-    sendRefuerzoCreatedEmail({
-      tenantId: ctx.tenantId,
-      installationName: installation.name,
-      guardiaName,
-      requestedByName: body.requestedByName ?? null,
-      requestChannel: body.requestChannel ?? null,
-      startAt,
-      endAt,
-      guardsCount: body.guardsCount,
-      guardPaymentClp: body.guardPaymentClp,
-      toEmail: tenantMailRecipients,
-    }),
-  ]);
+  const promises: Promise<unknown>[] = [];
+
+  if (tenantPrefs.refuerzoBellEnabled) {
+    promises.push(
+      sendNotification({
+        tenantId: ctx.tenantId,
+        type: "refuerzo_solicitud_created",
+        title: "Nueva solicitud de turno de refuerzo",
+        message: `${installation.name} · ${guardiaName}`,
+        link: `/ops/refuerzos`,
+        data: { refuerzoId: created.id, installationId: installation.id },
+      })
+    );
+  }
+
+  if (tenantPrefs.refuerzoEmailEnabled) {
+    const emailRecipients = await getEmailRecipientsForType(ctx.tenantId, "refuerzo_solicitud_created");
+    if (emailRecipients.length > 0) {
+      promises.push(
+        sendRefuerzoCreatedEmail({
+          tenantId: ctx.tenantId,
+          installationName: installation.name,
+          guardiaName,
+          requestedByName: body.requestedByName ?? null,
+          requestChannel: body.requestChannel ?? null,
+          startAt,
+          endAt,
+          guardsCount: body.guardsCount,
+          guardPaymentClp: body.guardPaymentClp,
+          toEmail: emailRecipients,
+        })
+      );
+    }
+  }
+
+  await Promise.allSettled(promises);
 
   return created;
 }

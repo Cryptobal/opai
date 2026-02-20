@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai";
-import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -148,6 +148,7 @@ export function OpsPautaDiariaClient({
   const [isDesktop, setIsDesktop] = useState(false);
   const [marcacionDetalleOpen, setMarcacionDetalleOpen] = useState<MarcacionItem[] | null>(null);
   const [timeEdits, setTimeEdits] = useState<Record<string, { checkIn: string; checkOut: string }>>({});
+  const [manualTimeEdit, setManualTimeEdit] = useState<Record<string, { checkIn?: boolean; checkOut?: boolean }>>({});
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     setIsDesktop(m.matches);
@@ -305,15 +306,35 @@ export function OpsPautaDiariaClient({
     return `${day}T${hhmm}:00.000Z`;
   };
 
-  const timeOptions = useMemo(() => {
+  const getTimeOptionsForRange = (
+    base: string,
+    beforeMinutes: number,
+    afterMinutes: number,
+    stepMinutes: number,
+    currentValue?: string
+  ): string[] => {
+    const [hh, mm] = base.split(":").map((v) => Number(v));
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return [];
+    const baseTotal = hh * 60 + mm;
+    const start = Math.max(0, baseTotal - beforeMinutes);
+    const end = Math.min(24 * 60 - 1, baseTotal + afterMinutes);
+    const seen = new Set<string>();
     const options: string[] = [];
-    for (let h = 0; h < 24; h++) {
-      for (const m of [0, 30]) {
-        options.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    for (let total = start; total <= end; total += stepMinutes) {
+      const h = Math.floor(total / 60);
+      const m = total % 60;
+      const t = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      if (!seen.has(t)) {
+        seen.add(t);
+        options.push(t);
       }
     }
+    if (currentValue && /^\d{2}:\d{2}$/.test(currentValue) && !seen.has(currentValue)) {
+      options.push(currentValue);
+      options.sort();
+    }
     return options;
-  }, []);
+  };
 
   const shiftTime = (hhmm: string, deltaMinutes: number): string => {
     const [hh, mm] = hhmm.split(":").map((v) => Number(v));
@@ -878,45 +899,127 @@ export function OpsPautaDiariaClient({
                           <div className="flex flex-wrap items-end gap-2">
                             <div>
                               <Label className="text-[10px] text-muted-foreground">Entrada real</Label>
-                              <select
-                                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                                value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
-                                disabled={savingId === item.id || isLocked}
-                                onChange={(e) =>
-                                  setTimeEdits((prev) => ({
-                                    ...prev,
-                                    [item.id]: {
-                                      checkIn: e.target.value,
-                                      checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
-                                    },
-                                  }))
-                                }
-                              >
-                                {timeOptions.map((t) => (
-                                  <option key={`in-${item.id}-${t}`} value={t}>{t}</option>
-                                ))}
-                              </select>
+                              <div className="flex items-center gap-1">
+                                {manualTimeEdit[item.id]?.checkIn ? (
+                                  <input
+                                    type="time"
+                                    step="300"
+                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs w-[7rem]"
+                                    value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
+                                    disabled={savingId === item.id || isLocked}
+                                    onChange={(e) =>
+                                      setTimeEdits((prev) => ({
+                                        ...prev,
+                                        [item.id]: {
+                                          checkIn: e.target.value,
+                                          checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                ) : (
+                                  <select
+                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                    value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
+                                    disabled={savingId === item.id || isLocked}
+                                    onChange={(e) =>
+                                      setTimeEdits((prev) => ({
+                                        ...prev,
+                                        [item.id]: {
+                                          checkIn: e.target.value,
+                                          checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    {getTimeOptionsForRange(
+                                      item.puesto.shiftStart,
+                                      120,
+                                      120,
+                                      5,
+                                      timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart
+                                    ).map((t) => (
+                                      <option key={`in-${item.id}-${t}`} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                )}
+                                <button
+                                  type="button"
+                                  className="h-8 w-8 rounded-md border border-input flex items-center justify-center text-muted-foreground hover:bg-muted"
+                                  title={manualTimeEdit[item.id]?.checkIn ? "Usar lista rápida" : "Editar a mano (5 min)"}
+                                  disabled={savingId === item.id || isLocked}
+                                  onClick={() =>
+                                    setManualTimeEdit((prev) => ({
+                                      ...prev,
+                                      [item.id]: { ...prev[item.id], checkIn: !prev[item.id]?.checkIn },
+                                    }))
+                                  }
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
                             <div>
                               <Label className="text-[10px] text-muted-foreground">Salida real</Label>
-                              <select
-                                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                                value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
-                                disabled={savingId === item.id || isLocked}
-                                onChange={(e) =>
-                                  setTimeEdits((prev) => ({
-                                    ...prev,
-                                    [item.id]: {
-                                      checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                      checkOut: e.target.value,
-                                    },
-                                  }))
-                                }
-                              >
-                                {timeOptions.map((t) => (
-                                  <option key={`out-${item.id}-${t}`} value={t}>{t}</option>
-                                ))}
-                              </select>
+                              <div className="flex items-center gap-1">
+                                {manualTimeEdit[item.id]?.checkOut ? (
+                                  <input
+                                    type="time"
+                                    step="300"
+                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs w-[7rem]"
+                                    value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
+                                    disabled={savingId === item.id || isLocked}
+                                    onChange={(e) =>
+                                      setTimeEdits((prev) => ({
+                                        ...prev,
+                                        [item.id]: {
+                                          checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                          checkOut: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                ) : (
+                                  <select
+                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                    value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
+                                    disabled={savingId === item.id || isLocked}
+                                    onChange={(e) =>
+                                      setTimeEdits((prev) => ({
+                                        ...prev,
+                                        [item.id]: {
+                                          checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                          checkOut: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    {getTimeOptionsForRange(
+                                      item.puesto.shiftEnd,
+                                      120,
+                                      240,
+                                      5,
+                                      timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd
+                                    ).map((t) => (
+                                      <option key={`out-${item.id}-${t}`} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                )}
+                                <button
+                                  type="button"
+                                  className="h-8 w-8 rounded-md border border-input flex items-center justify-center text-muted-foreground hover:bg-muted"
+                                  title={manualTimeEdit[item.id]?.checkOut ? "Usar lista rápida" : "Editar a mano (5 min)"}
+                                  disabled={savingId === item.id || isLocked}
+                                  onClick={() =>
+                                    setManualTimeEdit((prev) => ({
+                                      ...prev,
+                                      [item.id]: { ...prev[item.id], checkOut: !prev[item.id]?.checkOut },
+                                    }))
+                                  }
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
                             <Button
                               size="sm"
