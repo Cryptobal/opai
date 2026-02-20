@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -128,8 +127,6 @@ function SearchableSelect({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = useMemo(() => options.find((opt) => opt.id === value) ?? null, [options, value]);
 
@@ -147,28 +144,6 @@ function SearchableSelect({
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
-
-  const updatePosition = useCallback(() => {
-    if (!inputRef.current) return;
-    const rect = inputRef.current.getBoundingClientRect();
-    setPosition({
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: rect.width,
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    updatePosition();
-    const onScrollOrResize = () => updatePosition();
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [open, updatePosition]);
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
@@ -188,7 +163,6 @@ function SearchableSelect({
   return (
     <div ref={boxRef} className="relative">
       <Input
-        ref={inputRef}
         value={open ? query : (selected?.label ?? "")}
         placeholder={placeholder}
         disabled={disabled}
@@ -201,38 +175,32 @@ function SearchableSelect({
         }}
       />
 
-      {open && !disabled && position && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed z-[9999] max-h-56 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md"
-              style={{ top: position.top, left: position.left, width: position.width }}
-            >
-              {filtered.length === 0 ? (
-                <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
-              ) : (
-                filtered.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      onChange(opt.id);
-                      setQuery(opt.label);
-                      setOpen(false);
-                    }}
-                  >
-                    <div className="font-medium">{opt.label}</div>
-                    {opt.description ? (
-                      <div className="text-xs text-muted-foreground">{opt.description}</div>
-                    ) : null}
-                  </button>
-                ))
-              )}
-            </div>,
-            document.body
-          )
-        : null}
+      {open && !disabled && (
+        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          {filtered.length === 0 ? (
+            <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
+          ) : (
+            filtered.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(opt.id);
+                  setQuery(opt.label);
+                  setOpen(false);
+                }}
+              >
+                <div className="font-medium">{opt.label}</div>
+                {opt.description ? (
+                  <div className="text-xs text-muted-foreground">{opt.description}</div>
+                ) : null}
+              </button>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -604,7 +572,7 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
       </Card>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg overflow-visible">
           <DialogHeader>
             <DialogTitle>Nueva solicitud de turno de refuerzo</DialogTitle>
           </DialogHeader>
