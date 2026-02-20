@@ -39,7 +39,11 @@ const MESES = [
 
 function toDateKey(date: Date | string): string {
   if (typeof date === "string") return date.slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  const d = date as Date;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function daysInMonth(year: number, month: number): Date[] {
@@ -130,6 +134,8 @@ export async function GET(request: NextRequest) {
           slotNumber: true,
           date: true,
           attendanceStatus: true,
+          plannedGuardiaId: true,
+          actualGuardiaId: true,
           replacementGuardiaId: true,
         },
       }),
@@ -142,13 +148,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ASI = solo planificado que asistió. TE = reemplazo. Misma lógica que API pauta-mensual.
     const executionByCell: Record<string, ExecutionState> = {};
     for (const row of asistencia) {
       const key = `${row.puestoId}|${row.slotNumber}|${toDateKey(row.date)}`;
       if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
         executionByCell[key] = "te";
       } else if (row.attendanceStatus === "asistio") {
-        executionByCell[key] = "asistio";
+        const tieneReemplazo = Boolean(row.replacementGuardiaId);
+        const esOtroGuardia = row.plannedGuardiaId != null && row.actualGuardiaId != null && row.actualGuardiaId !== row.plannedGuardiaId;
+        const esPlanificadoQueAsistio =
+          !tieneReemplazo &&
+          !esOtroGuardia &&
+          (row.actualGuardiaId === row.plannedGuardiaId || (row.plannedGuardiaId == null && row.actualGuardiaId != null));
+        executionByCell[key] = esPlanificadoQueAsistio ? "asistio" : "te";
       } else if (row.attendanceStatus === "no_asistio") {
         executionByCell[key] = "sin_cobertura";
       } else if (row.attendanceStatus === "ppc") {

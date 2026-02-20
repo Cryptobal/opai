@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3, Ticket, UserPlus } from "lucide-react";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -89,15 +89,15 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
         </CardHeader>
       </Card>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Buscador CRM</CardTitle>
+          <CardTitle className="text-base">Buscador global</CardTitle>
           <CardDescription>
-            Busca contactos e instalaciones de tus clientes (solo instalaciones activas).
+            Busca en CRM (contactos, instalaciones), operaciones (guardias por nombre o RUT) y documentos.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CrmGlobalSearch />
+          <GlobalSearch />
         </CardContent>
       </Card>
 

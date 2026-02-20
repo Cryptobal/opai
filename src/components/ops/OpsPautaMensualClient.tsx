@@ -162,10 +162,12 @@ interface OpsPautaMensualClientProps {
 /* ── helper ────────────────────────────────────── */
 
 function toDateKey(date: Date | string): string {
-  if (typeof date === "string") {
-    return date.slice(0, 10);
-  }
-  return date.toISOString().slice(0, 10);
+  if (typeof date === "string") return date.slice(0, 10);
+  const d = date as Date;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function toLocalDateKey(date: Date): string {
@@ -379,11 +381,26 @@ export function OpsPautaMensualClient({
     setLoading(true);
     setEmptyReason(null);
     try {
-      const res = await fetch(
-        `/api/ops/pauta-mensual?installationId=${installationId}&month=${month}&year=${year}`,
-        { cache: "no-store" }
-      );
-      const payload = await res.json();
+      let res: Response;
+      try {
+        res = await fetch(
+          `/api/ops/pauta-mensual?installationId=${installationId}&month=${month}&year=${year}`,
+          { cache: "no-store" }
+        );
+      } catch (fetchErr) {
+        const msg = fetchErr instanceof TypeError && String(fetchErr).includes("fetch")
+          ? "Error de red. Verifica que el servidor esté corriendo y vuelve a intentar."
+          : "No se pudo conectar con el servidor.";
+        toast.error(msg);
+        throw fetchErr;
+      }
+      let payload: { success?: boolean; error?: string; data?: Record<string, unknown> };
+      try {
+        payload = await res.json();
+      } catch {
+        toast.error("Respuesta inválida del servidor");
+        throw new Error("Invalid JSON response");
+      }
       if (!res.ok || !payload.success)
         throw new Error(payload.error || "Error cargando pauta");
 
@@ -517,8 +534,10 @@ export function OpsPautaMensualClient({
     }
   };
 
-  // Build matrix: group by puestoId+slotNumber → map of dateKey → PautaItem
+  // Build matrix: group by puestoId+slotNumber → map of dateKey → { item, execution }
+  // executionByCell se integra aquí para que los badges de asistencia (ASI/TE/SC/PPC) siempre se muestren
   type RowKey = string; // `${puestoId}|${slotNumber}`
+  type CellData = { item: PautaItem; execution?: ExecutionCell };
   type MatrixRow = {
     puestoId: string;
     puestoName: string;
@@ -526,7 +545,7 @@ export function OpsPautaMensualClient({
     shiftEnd: string;
     slotNumber: number;
     requiredGuards: number;
-    cells: Map<string, PautaItem>;
+    cells: Map<string, CellData>;
     guardiaId?: string;
     guardiaName?: string;
     patternCode?: string;
@@ -549,7 +568,10 @@ export function OpsPautaMensualClient({
         });
       }
       const row = rows.get(key)!;
-      row.cells.set(toDateKey(item.date), item);
+      const dateKey = toDateKey(item.date);
+      const execKey = `${item.puestoId}|${item.slotNumber}|${dateKey}`;
+      const execution = executionByCell[execKey];
+      row.cells.set(dateKey, { item, execution });
     }
 
     // Enrich with serie info (pattern code + rotativo)
@@ -577,7 +599,7 @@ export function OpsPautaMensualClient({
       if (a.puestoName !== b.puestoName) return a.puestoName.localeCompare(b.puestoName);
       return a.slotNumber - b.slotNumber;
     });
-  }, [items, series, slotAsignaciones]);
+  }, [items, series, slotAsignaciones, executionByCell]);
 
   /** Agrupar por tipo de turno (día/noche) y luego por puesto */
   const groupedByShiftType = useMemo(() => {
@@ -958,7 +980,7 @@ export function OpsPautaMensualClient({
           <CardContent className="pt-3 pb-2.5">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
               <div className="flex gap-2 flex-wrap">
-                <div className="space-y-1">
+                <div key="overview-month" className="space-y-1">
                   <Label className="text-xs">Mes</Label>
                   <select
                     className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -970,7 +992,7 @@ export function OpsPautaMensualClient({
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
+                <div key="overview-year" className="space-y-1">
                   <Label className="text-xs">Año</Label>
                   <Input
                     type="number"
@@ -981,7 +1003,7 @@ export function OpsPautaMensualClient({
                     className="h-8 text-sm w-24"
                   />
                 </div>
-                <div className="space-y-1 flex-1 min-w-[200px]">
+                <div key="overview-search-inst" className="space-y-1 flex-1 min-w-[200px]">
                   <Label className="text-xs">Buscar instalación o cliente</Label>
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -995,13 +1017,13 @@ export function OpsPautaMensualClient({
                   </div>
                 </div>
                 {globalSearchSlot && (
-                  <div className="space-y-1">
+                  <div key="overview-guardia-search" className="space-y-1">
                     <Label className="text-xs">Buscar guardia</Label>
                     {globalSearchSlot}
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+              <div key="overview-status" className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                   <span key={key} className="flex items-center gap-1">
                     <cfg.icon className={`h-3 w-3 ${cfg.cls.split(" ")[0]}`} />
@@ -1159,7 +1181,7 @@ export function OpsPautaMensualClient({
             </div>
             {/* Filtros: Cliente + Instalación + Mes + Año + Buscar guardia */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-              <div className="space-y-1 col-span-2 sm:col-span-1">
+              <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -1171,7 +1193,7 @@ export function OpsPautaMensualClient({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1 col-span-2 sm:col-span-1">
+              <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Instalación</Label>
                 <select
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -1183,7 +1205,7 @@ export function OpsPautaMensualClient({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div key="filter-month" className="space-y-1">
                 <Label className="text-xs">Mes</Label>
                 <select
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -1195,7 +1217,7 @@ export function OpsPautaMensualClient({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div key="filter-year" className="space-y-1">
                 <Label className="text-xs">Año</Label>
                 <Input
                   type="number"
@@ -1207,7 +1229,7 @@ export function OpsPautaMensualClient({
                 />
               </div>
               {globalSearchSlot && (
-                <div className="space-y-1 col-span-2 sm:col-span-1">
+                <div key="filter-guardia-search" className="space-y-1 col-span-2 sm:col-span-1">
                   <Label className="text-xs">Buscar guardia</Label>
                   {globalSearchSlot}
                 </div>
@@ -1227,6 +1249,17 @@ export function OpsPautaMensualClient({
                 </div>
               ) : null}
               <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[10px] h-7 px-2"
+                  disabled={loading || !installationId}
+                  onClick={() => void fetchPauta()}
+                  title="Recargar pauta de esta instalación sin recargar la página"
+                >
+                  <RefreshCw className={`h-3 w-3 sm:mr-1 ${loading ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">Recargar</span>
+                </Button>
                 <Button variant="outline" onClick={handleExportPdf} disabled={loading || items.length === 0} size="sm" className="text-[10px] h-7 px-2">
                   <FileDown className="h-3 w-3 sm:mr-1" />
                   <span className="hidden sm:inline">PDF</span>
@@ -1528,7 +1561,9 @@ export function OpsPautaMensualClient({
                               {/* Day cells */}
                               {visibleDays.map((d) => {
                                 const dateKey = toDateKey(d);
-                                const cell = row.cells.get(dateKey);
+                                const cellData = row.cells.get(dateKey);
+                                const cell = cellData?.item;
+                                const execution = cellData?.execution;
                                 const code = cell?.shiftCode ?? "";
                                 const isEmpty = !code;
                                 const isTrabajo = code === "T";
@@ -1536,15 +1571,16 @@ export function OpsPautaMensualClient({
                                   ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
                                   : "bg-amber-500/20 text-amber-300 border-amber-500/30";
                                 const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? "");
-                                const execution = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
                                 const executionBadge =
                                   execution?.state === "te"
                                     ? "TE"
                                     : execution?.state === "asistio"
-                                      ? "✓"
+                                      ? "ASI"
                                       : execution?.state === "sin_cobertura"
-                                        ? "✗"
-                                        : null;
+                                        ? "SC"
+                                        : execution?.state === "ppc"
+                                          ? "PPC"
+                                          : null;
                                 const executionBadgeClass =
                                   execution?.state === "te"
                                     ? "bg-rose-600 text-rose-50"
@@ -1552,7 +1588,9 @@ export function OpsPautaMensualClient({
                                       ? "bg-emerald-600 text-emerald-50"
                                       : execution?.state === "sin_cobertura"
                                         ? "bg-amber-500 text-amber-950"
-                                        : "";
+                                        : execution?.state === "ppc"
+                                          ? "bg-zinc-600 text-zinc-100"
+                                          : "";
 
                                 return (
                                   <td
@@ -1644,7 +1682,16 @@ export function OpsPautaMensualClient({
                                         ) : null}
                                         {executionBadge ? (
                                           <span
-                                            className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[9px] sm:text-[8px] leading-none font-semibold ${executionBadgeClass}`}
+                                            className={`absolute -bottom-0.5 -right-0.5 rounded px-1 py-px text-[9px] leading-none font-bold shadow-sm ${executionBadgeClass}`}
+                                            title={
+                                              execution?.state === "asistio"
+                                                ? "Asistió"
+                                                : execution?.state === "te"
+                                                  ? "Turno extra / Reemplazo"
+                                                  : execution?.state === "sin_cobertura"
+                                                    ? "Sin cobertura"
+                                                    : "PPC"
+                                            }
                                           >
                                             {executionBadge}
                                           </span>
@@ -1684,7 +1731,7 @@ export function OpsPautaMensualClient({
                           let slots = 0;
                           for (const g of groups) {
                             for (const r of g.rows) {
-                              const c = r.cells.get(dk);
+                              const c = r.cells.get(dk)?.item;
                               if (c?.shiftCode === "T") slots += 1;
                             }
                           }
@@ -1701,7 +1748,7 @@ export function OpsPautaMensualClient({
                       </tr>,
                     ];
                   })}
-                  <tr className="border-t-2 border-border bg-muted/10">
+                  <tr key="total-slots" className="border-t-2 border-border bg-muted/10">
                     <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] font-semibold text-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                       <span className="hidden sm:inline">Total slots</span>
                       <span className="sm:hidden">Tot</span>
@@ -1712,7 +1759,7 @@ export function OpsPautaMensualClient({
                       const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.night];
                       for (const g of allGroups) {
                         for (const r of g.rows) {
-                          const c = r.cells.get(dk);
+                          const c = r.cells.get(dk)?.item;
                           if (c?.shiftCode === "T") slots += 1;
                         }
                       }
@@ -1749,9 +1796,10 @@ export function OpsPautaMensualClient({
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:text-[10px] text-muted-foreground">
                 <span>Segunda capa (asistencia):</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-emerald-600 text-emerald-50 text-[9px] font-semibold">✓</span> Asistió</span>
+                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-emerald-600 text-emerald-50 text-[9px] font-semibold">ASI</span> Asistió</span>
                 <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-rose-600 text-rose-50 text-[9px] font-semibold">TE</span> Turno extra</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-amber-500 text-amber-950 text-[9px] font-semibold">✗</span> Sin cobertura</span>
+                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-amber-500 text-amber-950 text-[9px] font-semibold">SC</span> Sin cobertura</span>
+                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-zinc-600 text-zinc-100 text-[9px] font-semibold">PPC</span> Slot PPC</span>
               </div>
               <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
                 <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>

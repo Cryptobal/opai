@@ -17,7 +17,7 @@ import { getDefaultTenantId } from '@/lib/tenant';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
-import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
+import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -114,16 +114,16 @@ export default async function DashboardPage() {
       {/* Sub-navegación */}
       <DocumentosSubnav />
 
-      {canUseCrmSearch && (
-        <Card>
+      {(canUseCrmSearch || hasModuleAccess(perms, 'ops') || hasModuleAccess(perms, 'docs')) && (
+        <Card className="overflow-visible">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Buscador CRM</CardTitle>
+            <CardTitle className="text-base">Buscador global</CardTitle>
             <CardDescription>
-              Busca contactos, cuentas, negocios, cotizaciones e instalaciones desde esta página.
+              Busca en CRM, operaciones (guardias por nombre o RUT) y documentos.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CrmGlobalSearch />
+            <GlobalSearch />
           </CardContent>
         </Card>
       )}

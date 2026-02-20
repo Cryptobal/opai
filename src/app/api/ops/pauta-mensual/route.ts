@@ -189,6 +189,8 @@ export async function GET(request: NextRequest) {
         slotNumber: true,
         date: true,
         attendanceStatus: true,
+        plannedGuardiaId: true,
+        actualGuardiaId: true,
         replacementGuardiaId: true,
         turnosExtra: {
           select: {
@@ -199,19 +201,38 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Normalizar fecha a YYYY-MM-DD en UTC para evitar desajustes por zona horaria
+    const toDateKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    // ASI = solo planificado que asistió. TE = reemplazo/turno extra. SC = sin cobertura. PPC = slot sin planificar.
     const executionByCell: Record<
       string,
       { state: "asistio" | "te" | "sin_cobertura" | "ppc"; teStatus?: string }
     > = {};
     for (const row of asistencia) {
-      const key = `${row.puestoId}|${row.slotNumber}|${row.date.toISOString().slice(0, 10)}`;
+      const key = `${row.puestoId}|${row.slotNumber}|${toDateKey(row.date)}`;
       if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
         executionByCell[key] = {
           state: "te",
           teStatus: row.turnosExtra[0]?.status,
         };
       } else if (row.attendanceStatus === "asistio") {
-        executionByCell[key] = { state: "asistio" };
+        // ASI solo si el planificado asistió. Reemplazo/TE no son asistencia.
+        const tieneReemplazo = Boolean(row.replacementGuardiaId);
+        const esOtroGuardia = row.plannedGuardiaId != null && row.actualGuardiaId != null && row.actualGuardiaId !== row.plannedGuardiaId;
+        const esPlanificadoQueAsistio =
+          !tieneReemplazo &&
+          !esOtroGuardia &&
+          (row.actualGuardiaId === row.plannedGuardiaId || (row.plannedGuardiaId == null && row.actualGuardiaId != null));
+        executionByCell[key] = esPlanificadoQueAsistio ? { state: "asistio" } : {
+          state: "te",
+          teStatus: row.turnosExtra[0]?.status,
+        };
       } else if (row.attendanceStatus === "no_asistio") {
         executionByCell[key] = { state: "sin_cobertura" };
       } else if (row.attendanceStatus === "ppc") {

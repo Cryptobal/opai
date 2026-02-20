@@ -70,7 +70,7 @@ function renderContent(content: string): React.ReactNode {
         </span>
       );
     }
-    return part;
+    return <span key={i}>{part}</span>;
   });
 }
 

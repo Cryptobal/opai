@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai";
-import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock, Pencil } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -135,6 +135,7 @@ export function OpsPautaDiariaClient({
   const [clientId, setClientId] = useState<string>("all");
   const [installationId, setInstallationId] = useState<string>("all");
   const [date, setDate] = useState<string>(toDateInput(new Date()));
+  const [shiftFilter, setShiftFilter] = useState<"todos" | "dia" | "noche">("todos");
   const [loading, setLoading] = useState<boolean>(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
@@ -147,8 +148,9 @@ export function OpsPautaDiariaClient({
   const [replacementAnchor, setReplacementAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [marcacionDetalleOpen, setMarcacionDetalleOpen] = useState<MarcacionItem[] | null>(null);
-  const [timeEdits, setTimeEdits] = useState<Record<string, { checkIn: string; checkOut: string }>>({});
-  const [manualTimeEdit, setManualTimeEdit] = useState<Record<string, { checkIn?: boolean; checkOut?: boolean }>>({});
+  // Modal para marcar Asistió: obliga a ingresar horas antes de guardar (no hay entrada inline)
+  const [asistioModalItem, setAsistioModalItem] = useState<AsistenciaItem | null>(null);
+  const [asistioModalHours, setAsistioModalHours] = useState<{ checkIn: string; checkOut: string }>({ checkIn: "", checkOut: "" });
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     setIsDesktop(m.matches);
@@ -232,25 +234,33 @@ export function OpsPautaDiariaClient({
       .slice(0, 20);
   }, [guardias, replacementSearch]);
 
-  // Group by installation
-  const grouped = useMemo(() => {
+  // Filter by shift (todos/día/noche) and group by installation
+  const { filteredItems, grouped } = useMemo(() => {
+    const filtered =
+      shiftFilter === "todos"
+        ? items
+        : items.filter((item) => {
+            const isDay = isDayShift(item.puesto.shiftStart);
+            return shiftFilter === "dia" ? isDay : !isDay;
+          });
     const map = new Map<string, { name: string; items: AsistenciaItem[] }>();
-    for (const item of items) {
+    for (const item of filtered) {
       const key = item.installation.id;
       if (!map.has(key)) {
         map.set(key, { name: item.installation.name, items: [] });
       }
       map.get(key)!.items.push(item);
     }
-    return Array.from(map.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name));
-  }, [items]);
+    const groupedResult = Array.from(map.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name));
+    return { filteredItems: filtered, grouped: groupedResult };
+  }, [items, shiftFilter]);
 
   const openReplacementItem = replacementOpenId ? items.find((i) => i.id === replacementOpenId) ?? null : null;
 
-  // Summary
+  // Summary (usa items filtrados por turno)
   const summary = useMemo(() => {
     let total = 0, cubiertos = 0, ppc = 0, te = 0;
-    for (const item of items) {
+    for (const item of filteredItems) {
       total++;
       if (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") cubiertos++;
       if (!item.plannedGuardiaId) ppc++;
@@ -258,7 +268,7 @@ export function OpsPautaDiariaClient({
     }
     const cobertura = total > 0 ? Math.round((cubiertos / total) * 100) : 0;
     return { total, cubiertos, ppc, te, cobertura };
-  }, [items]);
+  }, [filteredItems]);
 
   const patchAsistencia = async (
     id: string,
@@ -306,52 +316,32 @@ export function OpsPautaDiariaClient({
     return `${day}T${hhmm}:00.000Z`;
   };
 
-  const getTimeOptionsForRange = (
-    base: string,
-    beforeMinutes: number,
-    afterMinutes: number,
-    stepMinutes: number,
-    currentValue?: string
-  ): string[] => {
-    const [hh, mm] = base.split(":").map((v) => Number(v));
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return [];
-    const baseTotal = hh * 60 + mm;
-    const start = Math.max(0, baseTotal - beforeMinutes);
-    const end = Math.min(24 * 60 - 1, baseTotal + afterMinutes);
-    const seen = new Set<string>();
-    const options: string[] = [];
-    for (let total = start; total <= end; total += stepMinutes) {
-      const h = Math.floor(total / 60);
-      const m = total % 60;
-      const t = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      if (!seen.has(t)) {
-        seen.add(t);
-        options.push(t);
-      }
-    }
-    if (currentValue && /^\d{2}:\d{2}$/.test(currentValue) && !seen.has(currentValue)) {
-      options.push(currentValue);
-      options.sort();
-    }
-    return options;
-  };
-
-  const shiftTime = (hhmm: string, deltaMinutes: number): string => {
-    const [hh, mm] = hhmm.split(":").map((v) => Number(v));
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return hhmm;
-    let total = hh * 60 + mm + deltaMinutes;
-    while (total < 0) total += 24 * 60;
-    total = total % (24 * 60);
-    const outH = Math.floor(total / 60);
-    const outM = total % 60;
-    return `${String(outH).padStart(2, "0")}:${String(outM).padStart(2, "0")}`;
-  };
-
   return (
     <div className="space-y-4">
       {/* Filters */}
       <Card>
         <CardContent className="pt-4 pb-3 space-y-3">
+          {/* Filtro turno: todos / día / noche */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Turno:</span>
+            <div className="flex rounded-md border border-input overflow-hidden">
+              {(["todos", "dia", "noche"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    shiftFilter === opt
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setShiftFilter(opt)}
+                >
+                  {opt === "todos" ? "Todos" : opt === "dia" ? "Día" : "Noche"}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Date navigation — always visible */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 flex-1">
@@ -522,7 +512,9 @@ export function OpsPautaDiariaClient({
                     isPPC ||
                     item.attendanceStatus === "no_asistio" ||
                     (item.attendanceStatus === "reemplazo" && item.replacementGuardia);
-                  const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio";
+                  // Con reemplazo asignado: solo Resetear. Sin reemplazo: Asistió / No asistió
+                  const tieneReemplazoAsignado = item.attendanceStatus === "reemplazo" && item.replacementGuardiaId;
+                  const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio" && !tieneReemplazoAsignado;
                   const initialStatus: "pendiente" | "ppc" = item.plannedGuardiaId ? "pendiente" : "ppc";
                   const hasChanges =
                     item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
@@ -682,50 +674,50 @@ export function OpsPautaDiariaClient({
                         </div>
                       </div>
 
-                      {/* Col: Marcación asistencia */}
+                      {/* Col: Marcación asistencia — muestra horas reales (marcación digital o manual) */}
                       <div className="text-sm min-w-0 md:flex md:items-center">
                         <span className="text-xs text-muted-foreground md:hidden">Marcación</span>
                         <div className="mt-1 md:mt-0">
                           {(item.marcaciones && item.marcaciones.length > 0) ? (
                             <div className="flex flex-wrap items-center gap-1.5">
-                              {item.marcaciones.some((m) => m.tipo === "entrada") && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-emerald-500 text-xs"
-                                  title={(() => {
-                                    const e = item.marcaciones!.find((m) => m.tipo === "entrada");
-                                    return e
-                                      ? `Entrada ${e.timestamp} · Hash: ${e.hashIntegridad.slice(0, 16)}… · Geo: ${e.geoValidada ? `✓ ${e.geoDistanciaM}m` : "sin validar"}`
-                                      : "";
-                                  })()}
-                                >
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {item.checkInAt
-                                    ? new Date(item.checkInAt).toLocaleTimeString("es-CL", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : "E"}
-                                </span>
-                              )}
-                              {item.marcaciones.some((m) => m.tipo === "salida") && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-amber-500 text-xs"
-                                  title={(() => {
-                                    const s = item.marcaciones!.find((m) => m.tipo === "salida");
-                                    return s
-                                      ? `Salida ${s.timestamp} · Hash: ${s.hashIntegridad.slice(0, 16)}… · Geo: ${s.geoValidada ? `✓ ${s.geoDistanciaM}m` : "sin validar"}`
-                                      : "";
-                                  })()}
-                                >
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  {item.checkOutAt
-                                    ? new Date(item.checkOutAt).toLocaleTimeString("es-CL", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : "S"}
-                                </span>
-                              )}
+                              {(() => {
+                                const entradas = item.marcaciones!.filter((m) => m.tipo === "entrada").sort(
+                                  (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                                );
+                                const salidas = item.marcaciones!.filter((m) => m.tipo === "salida").sort(
+                                  (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                                );
+                                const primeraEntrada = entradas[0];
+                                const ultimaSalida = salidas[salidas.length - 1];
+                                return (
+                                  <>
+                                    {primeraEntrada && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-emerald-500 text-xs"
+                                        title={`Entrada ${primeraEntrada.timestamp} · Hash: ${primeraEntrada.hashIntegridad.slice(0, 16)}… · Geo: ${primeraEntrada.geoValidada ? `✓ ${primeraEntrada.geoDistanciaM}m` : "sin validar"}`}
+                                      >
+                                        <Clock className="h-3.5 w-3.5" />
+                                        {new Date(primeraEntrada.timestamp).toLocaleTimeString("es-CL", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </span>
+                                    )}
+                                    {ultimaSalida && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-amber-500 text-xs"
+                                        title={`Salida ${ultimaSalida.timestamp} · Hash: ${ultimaSalida.hashIntegridad.slice(0, 16)}… · Geo: ${ultimaSalida.geoValidada ? `✓ ${ultimaSalida.geoDistanciaM}m` : "sin validar"}`}
+                                      >
+                                        <MapPin className="h-3.5 w-3.5" />
+                                        {new Date(ultimaSalida.timestamp).toLocaleTimeString("es-CL", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                              })()}
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
                                 Marcación asistencia
                               </span>
@@ -737,10 +729,19 @@ export function OpsPautaDiariaClient({
                                 Ver detalle
                               </button>
                             </div>
+                          ) : (item.checkInAt || item.checkOutAt) && (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs">
+                              <span className="text-emerald-500">
+                                {timeFromISO(item.checkInAt)}
+                              </span>
+                              <span className="text-muted-foreground">–</span>
+                              <span className="text-amber-500">
+                                {timeFromISO(item.checkOutAt)}
+                              </span>
+                            </span>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
-
                         </div>
                       </div>
 
@@ -808,20 +809,13 @@ export function OpsPautaDiariaClient({
                                   : "border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                               }`}
                               disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
-                              onClick={() =>
-                                void patchAsistencia(
-                                  item.id,
-                                  {
-                                    attendanceStatus: "asistio",
-                                    actualGuardiaId:
-                                      item.replacementGuardiaId ??
-                                      item.actualGuardiaId ??
-                                      item.plannedGuardiaId ??
-                                      null,
-                                  },
-                                  "Asistencia marcada"
-                                )
-                              }
+                              onClick={() => {
+                                setAsistioModalItem(item);
+                                setAsistioModalHours({
+                                  checkIn: timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                  checkOut: timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                });
+                              }}
                             >
                               Asistió
                             </Button>
@@ -846,23 +840,7 @@ export function OpsPautaDiariaClient({
                             </Button>
                           </>
                         )}
-                        {item.attendanceStatus === "reemplazo" && item.replacementGuardia && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs px-3"
-                            disabled={savingId === item.id || isLocked}
-                            onClick={() =>
-                              void patchAsistencia(
-                                item.id,
-                                { attendanceStatus: "asistio", actualGuardiaId: item.replacementGuardiaId ?? null },
-                                "Asistencia del reemplazo marcada"
-                              )
-                            }
-                          >
-                            Asistió (reemplazo)
-                          </Button>
-                        )}
+                        {/* Con reemplazo asignado no se muestran Asistió/No asistió/Asistió(reemplazo), solo Resetear */}
                         {hasChanges && (
                           <Button
                             size="sm"
@@ -894,190 +872,9 @@ export function OpsPautaDiariaClient({
                       </div>
                       </div>
 
+                      {/* Resumen de horas + Editar horas (solo modal, sin entrada inline) */}
                       {item.plannedGuardiaId && (
-                        <div className="md:col-span-5 mt-2 rounded-md border border-border/60 bg-muted/20 p-2.5 space-y-2">
-                          <div className="flex flex-wrap items-end gap-2">
-                            <div>
-                              <Label className="text-[10px] text-muted-foreground">Entrada real</Label>
-                              <div className="flex items-center gap-1">
-                                {manualTimeEdit[item.id]?.checkIn ? (
-                                  <input
-                                    type="time"
-                                    step="300"
-                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs w-[7rem]"
-                                    value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
-                                    disabled={savingId === item.id || isLocked}
-                                    onChange={(e) =>
-                                      setTimeEdits((prev) => ({
-                                        ...prev,
-                                        [item.id]: {
-                                          checkIn: e.target.value,
-                                          checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                ) : (
-                                  <select
-                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                                    value={timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart}
-                                    disabled={savingId === item.id || isLocked}
-                                    onChange={(e) =>
-                                      setTimeEdits((prev) => ({
-                                        ...prev,
-                                        [item.id]: {
-                                          checkIn: e.target.value,
-                                          checkOut: prev[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    {getTimeOptionsForRange(
-                                      item.puesto.shiftStart,
-                                      120,
-                                      120,
-                                      5,
-                                      timeEdits[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart
-                                    ).map((t) => (
-                                      <option key={`in-${item.id}-${t}`} value={t}>{t}</option>
-                                    ))}
-                                  </select>
-                                )}
-                                <button
-                                  type="button"
-                                  className="h-8 w-8 rounded-md border border-input flex items-center justify-center text-muted-foreground hover:bg-muted"
-                                  title={manualTimeEdit[item.id]?.checkIn ? "Usar lista rápida" : "Editar a mano (5 min)"}
-                                  disabled={savingId === item.id || isLocked}
-                                  onClick={() =>
-                                    setManualTimeEdit((prev) => ({
-                                      ...prev,
-                                      [item.id]: { ...prev[item.id], checkIn: !prev[item.id]?.checkIn },
-                                    }))
-                                  }
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <Label className="text-[10px] text-muted-foreground">Salida real</Label>
-                              <div className="flex items-center gap-1">
-                                {manualTimeEdit[item.id]?.checkOut ? (
-                                  <input
-                                    type="time"
-                                    step="300"
-                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs w-[7rem]"
-                                    value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
-                                    disabled={savingId === item.id || isLocked}
-                                    onChange={(e) =>
-                                      setTimeEdits((prev) => ({
-                                        ...prev,
-                                        [item.id]: {
-                                          checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                          checkOut: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                ) : (
-                                  <select
-                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                                    value={timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd}
-                                    disabled={savingId === item.id || isLocked}
-                                    onChange={(e) =>
-                                      setTimeEdits((prev) => ({
-                                        ...prev,
-                                        [item.id]: {
-                                          checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                          checkOut: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    {getTimeOptionsForRange(
-                                      item.puesto.shiftEnd,
-                                      120,
-                                      240,
-                                      5,
-                                      timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd
-                                    ).map((t) => (
-                                      <option key={`out-${item.id}-${t}`} value={t}>{t}</option>
-                                    ))}
-                                  </select>
-                                )}
-                                <button
-                                  type="button"
-                                  className="h-8 w-8 rounded-md border border-input flex items-center justify-center text-muted-foreground hover:bg-muted"
-                                  title={manualTimeEdit[item.id]?.checkOut ? "Usar lista rápida" : "Editar a mano (5 min)"}
-                                  disabled={savingId === item.id || isLocked}
-                                  onClick={() =>
-                                    setManualTimeEdit((prev) => ({
-                                      ...prev,
-                                      [item.id]: { ...prev[item.id], checkOut: !prev[item.id]?.checkOut },
-                                    }))
-                                  }
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              disabled={savingId === item.id || isLocked}
-                              onClick={() =>
-                                setTimeEdits((prev) => ({
-                                  ...prev,
-                                  [item.id]: {
-                                    checkIn: item.puesto.shiftStart,
-                                    checkOut: item.puesto.shiftEnd,
-                                  },
-                                }))
-                              }
-                            >
-                              Usar plan
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              disabled={savingId === item.id || isLocked}
-                              onClick={() => {
-                                const out = timeEdits[item.id]?.checkOut || timeFromISO(item.checkOutAt) || item.puesto.shiftEnd;
-                                setTimeEdits((prev) => ({
-                                  ...prev,
-                                  [item.id]: {
-                                    checkIn: prev[item.id]?.checkIn || timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                    checkOut: shiftTime(out, 60),
-                                  },
-                                }));
-                              }}
-                            >
-                              +1h salida
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs"
-                              disabled={savingId === item.id || isLocked}
-                              onClick={() => {
-                                const edit = timeEdits[item.id] ?? {
-                                  checkIn: timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                  checkOut: timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
-                                };
-                                void patchAsistencia(
-                                  item.id,
-                                  {
-                                    checkInAt: edit.checkIn ? buildIsoFromDateAndTime(item.date, edit.checkIn) : null,
-                                    checkOutAt: edit.checkOut ? buildIsoFromDateAndTime(item.date, edit.checkOut) : null,
-                                  },
-                                  "Horas guardadas"
-                                );
-                              }}
-                            >
-                              Guardar horas
-                            </Button>
-                          </div>
+                        <div className="md:col-span-5 mt-2 rounded-md border border-border/60 bg-muted/20 p-2.5">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
                               Plan: {item.puesto.shiftStart}-{item.puesto.shiftEnd}
@@ -1146,6 +943,124 @@ export function OpsPautaDiariaClient({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Asistió: obliga a ingresar horas de entrada/salida antes de guardar */}
+      <Dialog
+        open={!!asistioModalItem}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAsistioModalItem(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Marcar asistencia</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Ingresa la hora de entrada y salida real. No se puede marcar asistencia sin registrar las horas.
+            </p>
+          </DialogHeader>
+          {asistioModalItem && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md border border-border/60 bg-muted/20 p-2.5 text-sm">
+                <span className="font-medium">{asistioModalItem.puesto.name}</span>
+                <span className="text-muted-foreground ml-2">
+                  S{asistioModalItem.slotNumber} · Plan: {asistioModalItem.puesto.shiftStart}-{asistioModalItem.puesto.shiftEnd}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Entrada real</Label>
+                  <Input
+                    type="time"
+                    step="300"
+                    value={asistioModalHours.checkIn}
+                    onChange={(e) =>
+                      setAsistioModalHours((p) => ({ ...p, checkIn: e.target.value }))
+                    }
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Salida real</Label>
+                  <Input
+                    type="time"
+                    step="300"
+                    value={asistioModalHours.checkOut}
+                    onChange={(e) =>
+                      setAsistioModalHours((p) => ({ ...p, checkOut: e.target.value }))
+                    }
+                    className="h-10"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setAsistioModalHours({
+                      checkIn: asistioModalItem.puesto.shiftStart,
+                      checkOut: asistioModalItem.puesto.shiftEnd,
+                    })
+                  }
+                >
+                  Usar plan
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setAsistioModalHours((p) => ({
+                      ...p,
+                      checkOut: (() => {
+                        const [hh, mm] = (p.checkOut || "19:00").split(":").map(Number);
+                        let total = (hh * 60 + mm + 60) % (24 * 60);
+                        if (total < 0) total += 24 * 60;
+                        return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+                      })(),
+                    }))
+                  }
+                >
+                  +1h salida
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={savingId === asistioModalItem.id}
+                  onClick={() => {
+                    // Reemplazo/TE NO es asistencia: mantener attendanceStatus "reemplazo"
+                    // Solo el planificado que asiste marca "asistio"
+                    const isReemplazo = asistioModalItem.attendanceStatus === "reemplazo";
+                    const payload: Record<string, unknown> = {
+                      checkInAt: buildIsoFromDateAndTime(asistioModalItem.date, asistioModalHours.checkIn),
+                      checkOutAt: buildIsoFromDateAndTime(asistioModalItem.date, asistioModalHours.checkOut),
+                    };
+                    if (!isReemplazo) {
+                      payload.attendanceStatus = "asistio";
+                      payload.actualGuardiaId =
+                        asistioModalItem.actualGuardiaId ??
+                        asistioModalItem.plannedGuardiaId ??
+                        null;
+                    }
+                    void patchAsistencia(
+                      asistioModalItem.id,
+                      payload,
+                      isReemplazo ? "Horas del reemplazo guardadas" : "Asistencia marcada con horas"
+                    );
+                    setAsistioModalItem(null);
+                  }}
+                >
+                  {savingId === asistioModalItem.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Guardar asistencia"
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

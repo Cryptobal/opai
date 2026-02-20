@@ -6,7 +6,7 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
+import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { HubGreeting } from './HubGreeting';
 import { HubQuickActions } from './HubQuickActions';
 import { HubExecutiveSnapshot } from './HubExecutiveSnapshot';
@@ -60,17 +60,17 @@ export function HubClientWrapper({
 
       <HubQuickActions perms={hubPerms} />
 
-      {hubPerms.hasCrm && (
-        <Card className="min-w-0 overflow-hidden">
+      {(hubPerms.hasCrm || hubPerms.hasOps || hubPerms.hasDocs) && (
+        <Card className="min-w-0 overflow-visible">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Buscador CRM</CardTitle>
+            <CardTitle className="text-base">Buscador global</CardTitle>
             <CardDescription>
-              Busca contactos, cuentas, negocios, cotizaciones e instalaciones
-              sin salir de Inicio.
+              Busca en CRM (contactos, cuentas, negocios, cotizaciones, instalaciones),
+              operaciones (guardias por nombre o RUT) y documentos.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CrmGlobalSearch />
+            <GlobalSearch />
           </CardContent>
         </Card>
       )}
