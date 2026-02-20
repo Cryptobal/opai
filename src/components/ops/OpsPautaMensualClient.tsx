@@ -404,8 +404,11 @@ export function OpsPautaMensualClient({
       if (!res.ok || !payload.success)
         throw new Error(payload.error || "Error cargando pauta");
 
-      const fetchedItems = payload.data.items as PautaItem[];
-      if (payload.data.allPuestos) setAllPuestos(payload.data.allPuestos as PuestoInfo[]);
+      const data = payload.data;
+      if (!data) throw new Error("Sin datos en la respuesta");
+
+      const fetchedItems = data.items as PautaItem[];
+      if (data.allPuestos) setAllPuestos(data.allPuestos as PuestoInfo[]);
 
       if (fetchedItems.length === 0) {
         // No hay pauta → intentar auto-generar silenciosamente
@@ -424,12 +427,13 @@ export function OpsPautaMensualClient({
               { cache: "no-store" }
             );
             const payload2 = await res2.json();
-            if (res2.ok && payload2.success) {
-              setItems(payload2.data.items as PautaItem[]);
-              setSeries(payload2.data.series as SerieInfo[]);
-              if (payload2.data.asignaciones) setSlotAsignaciones(payload2.data.asignaciones as SlotAsignacion[]);
-              setExecutionByCell((payload2.data.executionByCell || {}) as Record<string, ExecutionCell>);
-              if (payload2.data.allPuestos) setAllPuestos(payload2.data.allPuestos as PuestoInfo[]);
+            if (res2.ok && payload2.success && payload2.data) {
+              const d2 = payload2.data;
+              setItems((d2.items as PautaItem[]) ?? []);
+              setSeries((d2.series as SerieInfo[]) ?? []);
+              if (d2.asignaciones) setSlotAsignaciones(d2.asignaciones as SlotAsignacion[]);
+              setExecutionByCell((d2.executionByCell || {}) as Record<string, ExecutionCell>);
+              if (d2.allPuestos) setAllPuestos(d2.allPuestos as PuestoInfo[]);
               setLoading(false);
               return;
             }
@@ -453,11 +457,11 @@ export function OpsPautaMensualClient({
         setExecutionByCell({});
       } else {
         setItems(fetchedItems);
-        setSeries(payload.data.series as SerieInfo[]);
-        if (payload.data.asignaciones) {
-          setSlotAsignaciones(payload.data.asignaciones as SlotAsignacion[]);
+        setSeries(data.series as SerieInfo[]);
+        if (data.asignaciones) {
+          setSlotAsignaciones(data.asignaciones as SlotAsignacion[]);
         }
-        setExecutionByCell((payload.data.executionByCell || {}) as Record<string, ExecutionCell>);
+        setExecutionByCell((data.executionByCell || {}) as Record<string, ExecutionCell>);
       }
     } catch (error) {
       console.error(error);

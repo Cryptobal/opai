@@ -82,6 +82,8 @@ type InstallationDraft = {
 };
 
 const WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+const WEEKDAYS_LABORABLES = ["lunes", "martes", "miercoles", "jueves", "viernes"];
+const WEEKDAYS_FINDE = ["sabado", "domingo"];
 const WEEKDAYS_SHORT: Record<string, string> = {
   lunes: "Lu", martes: "Ma", miercoles: "Mi", jueves: "Ju", viernes: "Vi", sabado: "Sa", domingo: "Do",
 };
@@ -1511,6 +1513,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       <div className="space-y-1">
                         <Label className="text-[10px]">Días</Label>
                         <div className="flex flex-wrap gap-1">
+                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_LABORABLES])}
+                            className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+                            Lun-Vie
+                          </button>
+                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_FINDE])}
+                            className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+                            Sáb-Dom
+                          </button>
                           {WEEKDAYS.map((day) => {
                             const active = dot.dias.includes(day);
                             return (
