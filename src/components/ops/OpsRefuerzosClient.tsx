@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,6 +94,13 @@ function formatClpInput(value: string): string {
   return numeric.toLocaleString("es-CL");
 }
 
+function sanitizeUfInput(value: string): string {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const [intPart = "", ...decimals] = normalized.split(".");
+  if (decimals.length === 0) return intPart;
+  return `${intPart}.${decimals.join("").slice(0, 4)}`;
+}
+
 type SearchableOption = {
   id: string;
   label: string;
@@ -120,6 +128,8 @@ function SearchableSelect({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = useMemo(() => options.find((opt) => opt.id === value) ?? null, [options, value]);
 
@@ -137,6 +147,28 @@ function SearchableSelect({
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
+
+  const updatePosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const onScrollOrResize = () => updatePosition();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, updatePosition]);
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
@@ -156,6 +188,7 @@ function SearchableSelect({
   return (
     <div ref={boxRef} className="relative">
       <Input
+        ref={inputRef}
         value={open ? query : (selected?.label ?? "")}
         placeholder={placeholder}
         disabled={disabled}
@@ -168,32 +201,38 @@ function SearchableSelect({
         }}
       />
 
-      {open && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
-          {filtered.length === 0 ? (
-            <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
-          ) : (
-            filtered.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onChange(opt.id);
-                  setQuery(opt.label);
-                  setOpen(false);
-                }}
-              >
-                <div className="font-medium">{opt.label}</div>
-                {opt.description ? (
-                  <div className="text-xs text-muted-foreground">{opt.description}</div>
-                ) : null}
-              </button>
-            ))
-          )}
-        </div>
-      )}
+      {open && !disabled && position && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed z-[9999] max-h-56 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md"
+              style={{ top: position.top, left: position.left, width: position.width }}
+            >
+              {filtered.length === 0 ? (
+                <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
+              ) : (
+                filtered.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      onChange(opt.id);
+                      setQuery(opt.label);
+                      setOpen(false);
+                    }}
+                  >
+                    <div className="font-medium">{opt.label}</div>
+                    {opt.description ? (
+                      <div className="text-xs text-muted-foreground">{opt.description}</div>
+                    ) : null}
+                  </button>
+                ))
+              )}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
@@ -210,6 +249,7 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
   const [puestos, setPuestos] = useState<Array<{ id: string; name: string }>>([]);
   const [guardias, setGuardias] = useState<GuardiaOption[]>([]);
   const [puestosLoading, setPuestosLoading] = useState(false);
+  const [ufValue, setUfValue] = useState<number | null>(null);
 
   const [createForm, setCreateForm] = useState({
     installationId: defaultInstallationId ?? "",
@@ -224,7 +264,9 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
     paymentCondition: "incluido_factura_mensual",
     guardPaymentClp: "",
     rateMode: "turno" as "turno" | "hora",
+    rateCurrency: "clp" as "clp" | "uf",
     rateClp: "",
+    rateUf: "",
     notes: "",
   });
 
@@ -269,6 +311,15 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
               `${a.persona.firstName} ${a.persona.lastName}`.localeCompare(`${b.persona.firstName} ${b.persona.lastName}`, "es")
             )
         );
+      }
+      try {
+        const ufRes = await fetch("/api/fx/uf", { cache: "no-store" });
+        const ufPayload = await ufRes.json();
+        if (ufPayload?.success && Number.isFinite(Number(ufPayload.value))) {
+          setUfValue(Number(ufPayload.value));
+        }
+      } catch {
+        setUfValue(null);
       }
     } catch {
       toast.error("No se pudieron cargar instalaciones/guardias");
@@ -337,6 +388,39 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
     [guardias]
   );
 
+  const computedRateClp = useMemo(() => {
+    if (createForm.rateCurrency === "uf") {
+      const ufNumeric = Number(createForm.rateUf);
+      if (!ufValue || !Number.isFinite(ufNumeric)) return "";
+      return String(Math.round(ufNumeric * ufValue));
+    }
+    return createForm.rateClp;
+  }, [createForm.rateCurrency, createForm.rateClp, createForm.rateUf, ufValue]);
+
+  const displayedRateClp = useMemo(() => formatClpInput(computedRateClp), [computedRateClp]);
+
+  function applyShiftPreset(mode: "dia" | "noche") {
+    setCreateForm((prev) => {
+      const base = prev.startAt ? new Date(prev.startAt) : new Date();
+      const date = Number.isFinite(base.getTime()) ? base : new Date();
+      const start = new Date(date);
+      const end = new Date(date);
+      if (mode === "dia") {
+        start.setHours(8, 0, 0, 0);
+        end.setHours(20, 0, 0, 0);
+      } else {
+        start.setHours(20, 0, 0, 0);
+        end.setDate(end.getDate() + 1);
+        end.setHours(8, 0, 0, 0);
+      }
+      return {
+        ...prev,
+        startAt: toDateTimeInputValue(start),
+        endAt: toDateTimeInputValue(end),
+      };
+    });
+  }
+
   async function createRefuerzo() {
     if (!createForm.installationId || !createForm.guardiaId || !createForm.guardPaymentClp) {
       toast.error("Instalación, guardia y pago guardia son obligatorios");
@@ -357,7 +441,7 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
         paymentCondition: createForm.paymentCondition || null,
         guardPaymentClp: Number(createForm.guardPaymentClp),
         rateMode: createForm.rateMode,
-        rateClp: createForm.rateClp ? Number(createForm.rateClp) : null,
+        rateClp: computedRateClp ? Number(computedRateClp) : null,
         notes: createForm.notes || null,
       };
       const res = await fetch("/api/ops/refuerzos", {
@@ -567,6 +651,14 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
                 <Input type="datetime-local" value={createForm.endAt} onChange={(e) => setCreateForm((f) => ({ ...f, endAt: e.target.value }))} />
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => applyShiftPreset("dia")}>
+                Día 08:00 - 20:00
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => applyShiftPreset("noche")}>
+                Noche 20:00 - 08:00
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Solicitado por</Label>
@@ -597,14 +689,51 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
               </div>
               <div>
                 <Label>Valor ofertado (CLP)</Label>
-                <Input
-                  inputMode="numeric"
-                  value={formatClpInput(createForm.rateClp)}
-                  placeholder="0"
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, rateClp: sanitizeClpInput(e.target.value) }))
-                  }
-                />
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <select
+                      className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm"
+                      value={createForm.rateCurrency}
+                      onChange={(e) => {
+                        const nextCurrency = e.target.value as "clp" | "uf";
+                        setCreateForm((f) => {
+                          if (nextCurrency === f.rateCurrency) return f;
+                          if (nextCurrency === "uf") {
+                            const ufFromClp =
+                              ufValue && f.rateClp ? (Number(f.rateClp) / ufValue).toFixed(4) : f.rateUf;
+                            return { ...f, rateCurrency: "uf", rateUf: ufFromClp };
+                          }
+                          const clpFromUf =
+                            ufValue && f.rateUf ? String(Math.round(Number(f.rateUf) * ufValue)) : f.rateClp;
+                          return { ...f, rateCurrency: "clp", rateClp: clpFromUf };
+                        });
+                      }}
+                    >
+                      <option value="clp">CLP</option>
+                      <option value="uf">UF</option>
+                    </select>
+                    <Input
+                      inputMode="decimal"
+                      value={
+                        createForm.rateCurrency === "uf"
+                          ? createForm.rateUf
+                          : formatClpInput(createForm.rateClp)
+                      }
+                      placeholder={createForm.rateCurrency === "uf" ? "0.0000" : "0"}
+                      onChange={(e) =>
+                        setCreateForm((f) =>
+                          f.rateCurrency === "uf"
+                            ? { ...f, rateUf: sanitizeUfInput(e.target.value) }
+                            : { ...f, rateClp: sanitizeClpInput(e.target.value) }
+                        )
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    CLP calculado: {displayedRateClp ? `$${displayedRateClp}` : "$0"}
+                    {ufValue ? ` · UF hoy: ${ufValue.toLocaleString("es-CL", { maximumFractionDigits: 2 })}` : ""}
+                  </p>
+                </div>
               </div>
             </div>
             <div>
