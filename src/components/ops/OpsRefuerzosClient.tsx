@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, StatusBadge } from "@/components/opai";
-import { Clock3, FileDown, Plus, Search } from "lucide-react";
+import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 type RefuerzoItem = {
   id: string;
@@ -23,6 +23,8 @@ type RefuerzoItem = {
   guardsCount: number;
   shiftType?: string | null;
   paymentCondition?: string | null;
+  notes?: string | null;
+  rateClp?: number | null;
   guardPaymentClp: number;
   estimatedTotalClp: number;
   status: "solicitado" | "en_curso" | "realizado" | "facturado";
@@ -54,6 +56,8 @@ type GuardiaOption = {
 interface OpsRefuerzosClientProps {
   initialItems: RefuerzoItem[];
   defaultInstallationId?: string;
+  canManageRefuerzos?: boolean;
+  canDeleteRefuerzos?: boolean;
 }
 
 function toNumber(value: unknown): number {
@@ -205,13 +209,21 @@ function SearchableSelect({
   );
 }
 
-export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsRefuerzosClientProps) {
+export function OpsRefuerzosClient({
+  initialItems,
+  defaultInstallationId,
+  canManageRefuerzos = false,
+  canDeleteRefuerzos = false,
+}: OpsRefuerzosClientProps) {
   const [items, setItems] = useState<RefuerzoItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [pendingBillingOnly, setPendingBillingOnly] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [installations, setInstallations] = useState<InstallationOption[]>([]);
   const [puestos, setPuestos] = useState<Array<{ id: string; name: string }>>([]);
@@ -237,6 +249,19 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
     rateUf: "",
     notes: "",
   });
+  const [editForm, setEditForm] = useState({
+    guardiaId: "",
+    puestoId: "",
+    startAt: toDateTimeInputValue(),
+    endAt: toDateTimeInputValue(new Date(Date.now() + 8 * 3_600_000)),
+    requestedByName: "",
+    requestChannel: "whatsapp",
+    guardPaymentClp: "",
+    rateCurrency: "clp" as "clp" | "uf",
+    rateClp: "",
+    rateUf: "",
+    notes: "",
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -251,6 +276,11 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
       return true;
     });
   }, [items, pendingBillingOnly, search, statusFilter]);
+
+  const selectedItem = useMemo(
+    () => (selectedId ? items.find((item) => item.id === selectedId) ?? null : null),
+    [items, selectedId]
+  );
 
   const totals = useMemo(() => {
     const pending = filtered.filter((x) => x.status !== "facturado");
@@ -295,9 +325,9 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
   }
 
   useEffect(() => {
-    if (!createOpen) return;
+    if (!createOpen && !detailOpen) return;
     void loadAuxData();
-  }, [createOpen]);
+  }, [createOpen, detailOpen]);
 
   useEffect(() => {
     if (!createForm.installationId) {
@@ -374,6 +404,26 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
     [saleValueNumber, utilityAmount]
   );
 
+  const computedEditRateClp = useMemo(() => {
+    if (editForm.rateCurrency === "uf") {
+      const ufNumeric = Number(editForm.rateUf);
+      if (!ufValue || !Number.isFinite(ufNumeric)) return "";
+      return String(Math.round(ufNumeric * ufValue));
+    }
+    return editForm.rateClp;
+  }, [editForm.rateCurrency, editForm.rateClp, editForm.rateUf, ufValue]);
+
+  const editGuardPaymentNumber = useMemo(() => Number(editForm.guardPaymentClp || 0), [editForm.guardPaymentClp]);
+  const editSaleValueNumber = useMemo(() => Number(computedEditRateClp || 0), [computedEditRateClp]);
+  const editUtilityAmount = useMemo(
+    () => editSaleValueNumber - editGuardPaymentNumber,
+    [editSaleValueNumber, editGuardPaymentNumber]
+  );
+  const editUtilityMargin = useMemo(
+    () => (editSaleValueNumber > 0 ? (editUtilityAmount / editSaleValueNumber) * 100 : null),
+    [editSaleValueNumber, editUtilityAmount]
+  );
+
   function applyShiftPreset(mode: "dia" | "noche") {
     setCreateForm((prev) => {
       const base = prev.startAt ? new Date(prev.startAt) : new Date();
@@ -431,6 +481,79 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
       toast.success("Solicitud creada y enviada a Turnos Extra");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo crear");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openDetail(item: RefuerzoItem) {
+    setSelectedId(item.id);
+    setDetailEditMode(false);
+    setDetailOpen(true);
+  }
+
+  function startDetailEdit(item: RefuerzoItem) {
+    setEditForm({
+      guardiaId: item.guardiaId,
+      puestoId: item.puestoId ?? "",
+      startAt: toDateTimeInputValue(new Date(item.startAt)),
+      endAt: toDateTimeInputValue(new Date(item.endAt)),
+      requestedByName: item.requestedByName ?? "",
+      requestChannel: item.requestChannel ?? "whatsapp",
+      guardPaymentClp: String(Math.round(toNumber(item.guardPaymentClp))),
+      rateCurrency: "clp",
+      rateClp: String(Math.round(toNumber(item.rateClp ?? item.estimatedTotalClp))),
+      rateUf: "",
+      notes: item.notes ?? "",
+    });
+    setDetailEditMode(true);
+  }
+
+  async function saveDetailEdit() {
+    if (!selectedItem) return;
+    setLoading(true);
+    try {
+      const body = {
+        guardiaId: editForm.guardiaId || selectedItem.guardiaId,
+        startAt: new Date(editForm.startAt).toISOString(),
+        endAt: new Date(editForm.endAt).toISOString(),
+        requestedByName: editForm.requestedByName || null,
+        requestChannel: editForm.requestChannel,
+        guardPaymentClp: Number(editForm.guardPaymentClp || 0),
+        rateClp: computedEditRateClp ? Number(computedEditRateClp) : null,
+        notes: editForm.notes || null,
+      };
+      const res = await fetch(`/api/ops/refuerzos/${selectedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar");
+      setItems((prev) => prev.map((x) => (x.id === selectedItem.id ? payload.data : x)));
+      setDetailEditMode(false);
+      toast.success("Solicitud actualizada");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteRefuerzo(item: RefuerzoItem) {
+    const ok = window.confirm("¿Eliminar esta solicitud de refuerzo? Esta acción no se puede deshacer.");
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/ops/refuerzos/${item.id}`, { method: "DELETE" });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo eliminar");
+      setItems((prev) => prev.filter((x) => x.id !== item.id));
+      setDetailOpen(false);
+      setSelectedId(null);
+      toast.success("Solicitud eliminada");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar");
     } finally {
       setLoading(false);
     }
@@ -536,7 +659,11 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
           ) : (
             <div className="space-y-2">
               {filtered.map((item) => (
-                <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div
+                  key={item.id}
+                  className="rounded-lg border p-3 flex cursor-pointer flex-col gap-2 transition-colors hover:bg-accent/30 md:flex-row md:items-center md:justify-between"
+                  onClick={() => openDetail(item)}
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {item.installation.name} · {item.guardia.persona.firstName} {item.guardia.persona.lastName}
@@ -553,14 +680,43 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={item.status} />
-                    {item.status === "solicitado" && (
-                      <Button size="sm" variant="outline" disabled={loading} onClick={() => void patchStatus(item, "en_curso")}>
+                    {canManageRefuerzos && item.status === "solicitado" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={loading}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void patchStatus(item, "en_curso");
+                        }}
+                      >
                         Marcar en curso
                       </Button>
                     )}
-                    {item.status !== "facturado" && (
-                      <Button size="sm" disabled={loading} onClick={() => void patchStatus(item, "facturado")}>
+                    {canManageRefuerzos && item.status !== "facturado" && (
+                      <Button
+                        size="sm"
+                        disabled={loading}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void patchStatus(item, "facturado");
+                        }}
+                      >
                         Marcar facturado
+                      </Button>
+                    )}
+                    {canManageRefuerzos && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDetail(item);
+                          startDetailEdit(item);
+                        }}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        Editar
                       </Button>
                     )}
                   </div>
@@ -570,6 +726,153 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setDetailEditMode(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{detailEditMode ? "Editar solicitud de refuerzo" : "Detalle solicitud de refuerzo"}</DialogTitle>
+          </DialogHeader>
+          {selectedItem ? (
+            detailEditMode ? (
+              <div className="grid gap-3">
+                <div>
+                  <Label>Instalación</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">{selectedItem.installation.name}</p>
+                </div>
+                <div>
+                  <Label>Guardia asignado</Label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      value={editForm.guardiaId}
+                      options={guardiaOptions}
+                      placeholder="Buscar por nombre, RUT o código..."
+                      emptyText="No se encontraron guardias"
+                      onChange={(id) => setEditForm((f) => ({ ...f, guardiaId: id }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Inicio</Label>
+                    <Input type="datetime-local" value={editForm.startAt} onChange={(e) => setEditForm((f) => ({ ...f, startAt: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Fin</Label>
+                    <Input type="datetime-local" value={editForm.endAt} onChange={(e) => setEditForm((f) => ({ ...f, endAt: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Solicitado por</Label>
+                    <Input value={editForm.requestedByName} onChange={(e) => setEditForm((f) => ({ ...f, requestedByName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Canal</Label>
+                    <select className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={editForm.requestChannel} onChange={(e) => setEditForm((f) => ({ ...f, requestChannel: e.target.value }))}>
+                      <option value="telefono">Teléfono</option>
+                      <option value="email">Email</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="presencial">Presencial</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Pago guardia (CLP)</Label>
+                    <Input inputMode="numeric" value={formatClpInput(editForm.guardPaymentClp)} onChange={(e) => setEditForm((f) => ({ ...f, guardPaymentClp: sanitizeClpInput(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <Label>Valor ofertado</Label>
+                    <div className="flex gap-2">
+                      <select
+                        className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm"
+                        value={editForm.rateCurrency}
+                        onChange={(e) => setEditForm((f) => ({ ...f, rateCurrency: e.target.value as "clp" | "uf" }))}
+                      >
+                        <option value="clp">CLP</option>
+                        <option value="uf">UF</option>
+                      </select>
+                      <Input
+                        inputMode="decimal"
+                        value={editForm.rateCurrency === "uf" ? editForm.rateUf : formatClpInput(editForm.rateClp)}
+                        onChange={(e) =>
+                          setEditForm((f) =>
+                            f.rateCurrency === "uf"
+                              ? { ...f, rateUf: sanitizeUfInput(e.target.value) }
+                              : { ...f, rateClp: sanitizeClpInput(e.target.value) }
+                          )
+                        }
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      CLP calculado: {computedEditRateClp ? formatMoney(Number(computedEditRateClp)) : "$0"}
+                    </p>
+                    <p className={`text-xs ${editUtilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      Utilidad sobre venta: {formatMoney(editUtilityAmount)}
+                      {editUtilityMargin !== null
+                        ? ` (${editUtilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <Label>Observaciones</Label>
+                  <Input value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <p><strong>Instalación:</strong> {selectedItem.installation.name}</p>
+                <p><strong>Guardia:</strong> {selectedItem.guardia.persona.firstName} {selectedItem.guardia.persona.lastName}</p>
+                <p><strong>Puesto:</strong> {selectedItem.puesto?.name ?? "Sin puesto"}</p>
+                <p><strong>Inicio:</strong> {formatDateTime(selectedItem.startAt)}</p>
+                <p><strong>Fin:</strong> {formatDateTime(selectedItem.endAt)}</p>
+                <p><strong>Solicitado por:</strong> {selectedItem.requestedByName ?? "-"}</p>
+                <p><strong>Canal:</strong> {selectedItem.requestChannel ?? "-"}</p>
+                <p><strong>Pago guardia:</strong> {formatMoney(toNumber(selectedItem.guardPaymentClp))}</p>
+                <p><strong>Estimado facturable:</strong> {formatMoney(toNumber(selectedItem.estimatedTotalClp))}</p>
+                <p><strong>Estado:</strong> {selectedItem.status}</p>
+                <p><strong>Observaciones:</strong> {selectedItem.notes ?? "-"}</p>
+              </div>
+            )
+          ) : null}
+          <DialogFooter>
+            {selectedItem && canDeleteRefuerzos && (
+              <Button
+                variant="destructive"
+                disabled={loading}
+                onClick={() => void deleteRefuerzo(selectedItem)}
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Eliminar
+              </Button>
+            )}
+            {selectedItem && canManageRefuerzos && !detailEditMode && (
+              <Button variant="outline" onClick={() => startDetailEdit(selectedItem)}>
+                <Pencil className="mr-1 h-4 w-4" />
+                Editar
+              </Button>
+            )}
+            {detailEditMode ? (
+              <>
+                <Button variant="outline" onClick={() => setDetailEditMode(false)}>
+                  Cancelar edición
+                </Button>
+                <Button disabled={loading} onClick={() => void saveDetailEdit()}>
+                  Guardar cambios
+                </Button>
+              </>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-lg overflow-visible">

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canDelete, canEdit, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
@@ -22,6 +22,8 @@ export default async function OpsRefuerzosPage() {
   if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
+  const canManageRefuerzos = canEdit(perms, "ops", "turnos_extra");
+  const canDeleteRefuerzos = canDelete(perms, "ops", "turnos_extra");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const prismaAny = prisma as unknown as {
@@ -78,7 +80,11 @@ export default async function OpsRefuerzosPage() {
         description="Solicitudes de refuerzo por instalación y seguimiento para facturación."
       />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
-      <OpsRefuerzosClient initialItems={JSON.parse(JSON.stringify(data))} />
+      <OpsRefuerzosClient
+        initialItems={JSON.parse(JSON.stringify(data))}
+        canManageRefuerzos={canManageRefuerzos}
+        canDeleteRefuerzos={canDeleteRefuerzos}
+      />
     </div>
   );
 }

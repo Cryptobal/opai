@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
+import { parseBody, requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { updateRefuerzoSchema } from "@/lib/validations/ops";
 import { calculateEstimatedTotalClp } from "@/lib/ops-refuerzos";
+import { canDelete, canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
 
@@ -13,6 +14,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "ops", "turnos_extra")) {
+      return NextResponse.json(
+        { success: false, error: "Solo administrador o propietario puede editar solicitudes de refuerzo" },
+        { status: 403 }
+      );
+    }
 
     const prismaAny = prisma as unknown as { opsRefuerzoSolicitud?: unknown };
     if (!prismaAny.opsRefuerzoSolicitud) {
@@ -125,6 +133,58 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     console.error("[OPS] Error updating refuerzo:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo actualizar la solicitud" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<Params> }) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "ops", "turnos_extra")) {
+      return NextResponse.json(
+        { success: false, error: "Solo administrador o propietario puede eliminar solicitudes de refuerzo" },
+        { status: 403 }
+      );
+    }
+
+    const prismaAny = prisma as unknown as { opsRefuerzoSolicitud?: unknown };
+    if (!prismaAny.opsRefuerzoSolicitud) {
+      return NextResponse.json(
+        { success: false, error: "Funcionalidad no disponible: falta sincronizar migraciones de refuerzos" },
+        { status: 503 }
+      );
+    }
+
+    const { id } = await params;
+    const existing = await prisma.opsRefuerzoSolicitud.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { id: true, turnoExtraId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Solicitud no encontrada" }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.opsRefuerzoSolicitud.delete({ where: { id } });
+      if (existing.turnoExtraId) {
+        await tx.opsTurnoExtra.deleteMany({ where: { id: existing.turnoExtraId, tenantId: ctx.tenantId } });
+      }
+    });
+
+    await createOpsAuditLog(ctx, "ops.refuerzo.deleted", "ops_refuerzo_solicitud", id, {
+      turnoExtraId: existing.turnoExtraId,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[OPS] Error deleting refuerzo:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar la solicitud" },
       { status: 500 }
     );
   }
