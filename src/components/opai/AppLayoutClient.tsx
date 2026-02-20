@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   FileText,
   Building2,
@@ -57,12 +57,43 @@ export function AppLayoutClient({
   permissions,
 }: AppLayoutClientProps) {
   const isAdmin = userRole === 'owner' || userRole === 'admin';
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetch('/api/notifications?limit=1')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.success && typeof data?.meta?.unreadCount === 'number') {
+          setNotificationUnreadCount(data.meta.unreadCount);
+        }
+      })
+      .catch(() => {});
+    const interval = setInterval(() => {
+      fetch('/api/notifications?limit=1')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.success && typeof data?.meta?.unreadCount === 'number') {
+            setNotificationUnreadCount(data.meta.unreadCount);
+          }
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const navItems: NavItem[] = useMemo(() => [
     {
       href: '/hub',
       label: 'Inicio',
       icon: Grid3x3,
       show: hasModuleAccess(permissions, 'hub'),
+    },
+    {
+      href: '/opai/notificaciones',
+      label: 'Notificaciones',
+      icon: Bell,
+      show: true,
+      badge: notificationUnreadCount,
     },
     {
       href: '/opai/inicio',
@@ -259,7 +290,7 @@ export function AppLayoutClient({
         return configChildren;
       })(),
     },
-  ], [permissions, isAdmin]);
+  ], [permissions, isAdmin, notificationUnreadCount]);
 
   return (
     <AppShell

@@ -248,10 +248,11 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
               variant="ghost"
               size="sm"
               className="h-7 text-xs gap-1"
-              onClick={() => { setOpen(false); router.push('/opai/perfil/notificaciones'); }}
-              title="Configurar notificaciones"
+              onClick={() => { setOpen(false); router.push('/opai/notificaciones'); }}
+              title="Ver todas las notificaciones"
             >
               <Settings2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Ver todas</span>
             </Button>
             {unreadCount > 0 && (
               <Button

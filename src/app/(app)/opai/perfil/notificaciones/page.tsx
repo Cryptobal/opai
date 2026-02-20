@@ -5,7 +5,7 @@ import { UserNotificationPrefsClient } from "@/components/opai/UserNotificationP
 
 export const metadata = {
   title: "Mis Notificaciones - OPAI",
-  description: "Configura qué notificaciones recibes",
+  description: "Configura tus preferencias de notificaciones",
 };
 
 export default async function MisNotificacionesPage() {

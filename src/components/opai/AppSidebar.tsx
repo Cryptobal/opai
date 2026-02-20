@@ -20,6 +20,7 @@ export interface NavItem {
   icon: LucideIcon;
   show?: boolean;
   children?: NavSubItem[];
+  badge?: number;
 }
 
 export interface AppSidebarProps {
@@ -252,8 +253,22 @@ export function AppSidebar({
                   {isModuleActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
                   )}
-                  <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  <span className="relative shrink-0">
+                    <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    {item.badge != null && item.badge > 0 && (
+                      <span
+                        className={cn(
+                          "absolute rounded-full bg-destructive text-destructive-foreground",
+                          collapsed
+                            ? "top-0 right-0 h-2 w-2 -translate-y-0.5 translate-x-0.5"
+                            : "top-0 right-0 min-w-[18px] h-[18px] text-[10px] font-semibold flex items-center justify-center px-1 -translate-y-1/2 translate-x-1/2"
+                        )}
+                      >
+                        {!collapsed && (item.badge > 99 ? '99+' : item.badge)}
+                      </span>
+                    )}
+                  </span>
+                  {!collapsed && <span className="truncate flex-1">{item.label}</span>}
                 </Link>
               );
             }

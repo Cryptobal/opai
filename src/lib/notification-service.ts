@@ -145,7 +145,11 @@ export async function sendNotificationToUser(
   const pref = prefs?.[type];
 
   const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
-  const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+  // Menciones: siempre enviar email (bypass preferencias) — es una comunicación directa
+  const emailEnabled =
+    type === "mention"
+      ? true
+      : (pref?.email ?? typeDef?.defaultEmail ?? false);
 
   if (bellEnabled) {
     try {
@@ -160,11 +164,13 @@ export async function sendNotificationToUser(
   if (emailEnabled && user.email) {
     try {
       const emailConfig = await getTenantEmailConfig(tenantId);
+      const actionLabel = link ? "Ver en OPAI" : undefined;
       const html = await render(
         NotificationEmail({
           title,
           message: message ?? undefined,
           actionUrl: link ?? undefined,
+          actionLabel,
           category: typeDef?.category,
         })
       );

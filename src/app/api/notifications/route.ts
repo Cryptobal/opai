@@ -44,19 +44,20 @@ function visibleNotificationsWhere(
   const orConditions: Prisma.NotificationWhereInput[] = [
     {
       // Eventos generales del tenant, respetando exclusiones por módulo/rol.
+      // Excluimos "mention" aquí; las menciones se agregan en la segunda condición.
       type: {
-        notIn: baseExclusions.length > 0 ? [...baseExclusions, "mention"] : ["mention"],
+        notIn:
+          baseExclusions.length > 0 ? [...baseExclusions, "mention"] : ["mention"],
       },
     },
   ];
 
-  if (!roleExcludedTypes.includes("mention")) {
-    orConditions.push({
-      // Menciones: solo visibles para el usuario mencionado del tenant.
-      type: "mention",
-      data: { path: ["mentionUserId"], equals: ctx.userId },
-    });
-  }
+  // Menciones: SIEMPRE visibles para el usuario mencionado (sin filtrar por CRM).
+  // Es una comunicación directa; todos deben ver sus menciones aunque no tengan acceso CRM.
+  orConditions.push({
+    type: "mention",
+    data: { path: ["mentionUserId"], equals: ctx.userId },
+  });
 
   return {
     tenantId: ctx.tenantId,

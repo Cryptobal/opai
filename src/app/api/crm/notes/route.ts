@@ -8,12 +8,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
-const ENTITY_LINKS: Record<string, string> = {
-  account: "/crm/accounts",
-  contact: "/crm/contacts",
-  deal: "/crm/deals",
-  quote: "/crm/cotizaciones",
-};
+/** Construye el link para una entidad. Para installation_pauta, entityId es "installationId_year-month". */
+function getEntityLink(entityType: string, entityId: string): string | null {
+  const base: Record<string, string> = {
+    account: "/crm/accounts",
+    contact: "/crm/contacts",
+    deal: "/crm/deals",
+    quote: "/crm/cotizaciones",
+    ops_guardia: "/personas/guardias",
+    installation_pauta: "/ops/pauta-mensual",
+  };
+  const basePath = base[entityType];
+  if (!basePath) return null;
+  if (entityType === "installation_pauta") {
+    const [installationId] = entityId.split("_");
+    if (!installationId) return "/ops/pauta-mensual";
+    return `${basePath}?installationId=${installationId}`;
+  }
+  return `${basePath}/${entityId}`;
+}
 
 export async function GET(request: NextRequest) {
   const ctx = await requireAuth();
@@ -139,8 +152,7 @@ export async function POST(request: NextRequest) {
 
         if (mentionedUsers.length > 0) {
           const authorName = author?.name || ctx.userEmail || "Alguien";
-          const entityLinkBase = ENTITY_LINKS[entityType];
-          const entityLink = entityLinkBase ? `${entityLinkBase}/${String(entityId)}` : null;
+          const entityLink = getEntityLink(entityType, String(entityId));
 
           const { sendNotificationToUser } = await import("@/lib/notification-service");
           await Promise.allSettled(
