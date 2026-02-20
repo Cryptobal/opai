@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +47,7 @@ type InstallationOption = {
 type GuardiaOption = {
   id: string;
   code?: string | null;
+  lifecycleStatus?: string | null;
   persona: { firstName: string; lastName: string; rut?: string | null };
 };
 
@@ -73,6 +74,130 @@ function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function sanitizeClpInput(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function formatClpInput(value: string): string {
+  if (!value) return "";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "";
+  return numeric.toLocaleString("es-CL");
+}
+
+type SearchableOption = {
+  id: string;
+  label: string;
+  description?: string;
+  searchText?: string;
+};
+
+interface SearchableSelectProps {
+  value: string;
+  options: SearchableOption[];
+  placeholder: string;
+  emptyText?: string;
+  disabled?: boolean;
+  onChange: (id: string) => void;
+}
+
+function SearchableSelect({
+  value,
+  options,
+  placeholder,
+  emptyText = "Sin resultados",
+  disabled,
+  onChange,
+}: SearchableSelectProps) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  const selected = useMemo(() => options.find((opt) => opt.id === value) ?? null, [options, value]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery(selected?.label ?? "");
+    }
+  }, [open, selected]);
+
+  useEffect(() => {
+    function onPointerDown(event: MouseEvent) {
+      if (!boxRef.current) return;
+      if (!boxRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = normalizeText(query);
+    const ordered = [...options].sort((a, b) => a.label.localeCompare(b.label, "es"));
+    if (!q) return ordered.slice(0, 60);
+
+    const startsWith: SearchableOption[] = [];
+    const includes: SearchableOption[] = [];
+    for (const opt of ordered) {
+      const search = normalizeText(opt.searchText ?? `${opt.label} ${opt.description ?? ""}`);
+      if (search.startsWith(q)) startsWith.push(opt);
+      else if (search.includes(q)) includes.push(opt);
+    }
+    return [...startsWith, ...includes].slice(0, 60);
+  }, [options, query]);
+
+  return (
+    <div ref={boxRef} className="relative">
+      <Input
+        value={open ? query : (selected?.label ?? "")}
+        placeholder={placeholder}
+        disabled={disabled}
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          const next = event.target.value;
+          setQuery(next);
+          setOpen(true);
+          if (value) onChange("");
+        }}
+      />
+
+      {open && !disabled && (
+        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          {filtered.length === 0 ? (
+            <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
+          ) : (
+            filtered.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(opt.id);
+                  setQuery(opt.label);
+                  setOpen(false);
+                }}
+              >
+                <div className="font-medium">{opt.label}</div>
+                {opt.description ? (
+                  <div className="text-xs text-muted-foreground">{opt.description}</div>
+                ) : null}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsRefuerzosClientProps) {
   const [items, setItems] = useState<RefuerzoItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
@@ -84,6 +209,7 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
   const [installations, setInstallations] = useState<InstallationOption[]>([]);
   const [puestos, setPuestos] = useState<Array<{ id: string; name: string }>>([]);
   const [guardias, setGuardias] = useState<GuardiaOption[]>([]);
+  const [puestosLoading, setPuestosLoading] = useState(false);
 
   const [createForm, setCreateForm] = useState({
     installationId: defaultInstallationId ?? "",
@@ -139,6 +265,9 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
           guardsPayload.data
             .filter((g: { lifecycleStatus?: string; isBlacklisted?: boolean }) => !g.isBlacklisted)
             .map((g: GuardiaOption) => g)
+            .sort((a: GuardiaOption, b: GuardiaOption) =>
+              `${a.persona.firstName} ${a.persona.lastName}`.localeCompare(`${b.persona.firstName} ${b.persona.lastName}`, "es")
+            )
         );
       }
     } catch {
@@ -157,16 +286,56 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
       return;
     }
     const run = async () => {
-      const res = await fetch(`/api/ops/puestos?installationId=${createForm.installationId}`, { cache: "no-store" });
-      const payload = await res.json();
-      if (payload.success) {
-        setPuestos(payload.data.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
-      } else {
+      setPuestosLoading(true);
+      try {
+        const res = await fetch(`/api/ops/puestos?installationId=${encodeURIComponent(createForm.installationId)}`, { cache: "no-store" });
+        const payload = await res.json();
+        if (payload.success) {
+          setPuestos(payload.data.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
+        } else {
+          setPuestos([]);
+        }
+      } catch {
         setPuestos([]);
+      } finally {
+        setPuestosLoading(false);
       }
     };
     void run();
   }, [createForm.installationId]);
+
+  const installationOptions = useMemo<SearchableOption[]>(
+    () =>
+      installations.map((inst) => ({
+        id: inst.id,
+        label: inst.name,
+        description: inst.account?.name ?? "Sin cliente",
+        searchText: `${inst.name} ${inst.account?.name ?? ""}`,
+      })),
+    [installations]
+  );
+
+  const puestoOptions = useMemo<SearchableOption[]>(
+    () =>
+      puestos.map((p) => ({
+        id: p.id,
+        label: p.name,
+      })),
+    [puestos]
+  );
+
+  const guardiaOptions = useMemo<SearchableOption[]>(
+    () =>
+      guardias.map((g) => ({
+        id: g.id,
+        label: `${g.persona.firstName} ${g.persona.lastName}`,
+        description: [g.code ? `Cód. ${g.code}` : null, g.persona.rut ?? null, g.lifecycleStatus ?? null]
+          .filter(Boolean)
+          .join(" · "),
+        searchText: `${g.persona.firstName} ${g.persona.lastName} ${g.persona.rut ?? ""} ${g.code ?? ""}`,
+      })),
+    [guardias]
+  );
 
   async function createRefuerzo() {
     if (!createForm.installationId || !createForm.guardiaId || !createForm.guardPaymentClp) {
@@ -351,45 +520,42 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
           <div className="grid gap-3">
             <div>
               <Label>Instalación</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={createForm.installationId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, installationId: e.target.value, puestoId: "" }))}
-                disabled={Boolean(defaultInstallationId)}
-              >
-                <option value="">Seleccionar instalación...</option>
-                {installations.map((inst) => (
-                  <option key={inst.id} value={inst.id}>{inst.name}</option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={createForm.installationId}
+                  options={installationOptions}
+                  placeholder="Buscar instalación o cliente..."
+                  emptyText="No se encontraron instalaciones"
+                  disabled={Boolean(defaultInstallationId)}
+                  onChange={(id) => setCreateForm((f) => ({ ...f, installationId: id, puestoId: "" }))}
+                />
+              </div>
             </div>
             <div>
               <Label>Puesto (opcional)</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={createForm.puestoId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, puestoId: e.target.value }))}
-              >
-                <option value="">Sin puesto</option>
-                {puestos.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div className="mt-1 space-y-1">
+                <SearchableSelect
+                  value={createForm.puestoId}
+                  options={puestoOptions}
+                  placeholder={createForm.installationId ? "Buscar puesto..." : "Primero selecciona instalación"}
+                  emptyText={createForm.installationId ? "No hay puestos para esta instalación" : "Selecciona instalación"}
+                  disabled={!createForm.installationId || puestosLoading}
+                  onChange={(id) => setCreateForm((f) => ({ ...f, puestoId: id }))}
+                />
+                {puestosLoading ? <p className="text-xs text-muted-foreground">Cargando puestos...</p> : null}
+              </div>
             </div>
             <div>
               <Label>Guardia asignado</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={createForm.guardiaId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, guardiaId: e.target.value }))}
-              >
-                <option value="">Seleccionar guardia...</option>
-                {guardias.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.persona.firstName} {g.persona.lastName}{g.code ? ` (${g.code})` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={createForm.guardiaId}
+                  options={guardiaOptions}
+                  placeholder="Buscar por nombre, RUT o código..."
+                  emptyText="No se encontraron guardias"
+                  onChange={(id) => setCreateForm((f) => ({ ...f, guardiaId: id }))}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -422,16 +588,22 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
                 <Label>Pago guardia (CLP)</Label>
                 <Input
                   inputMode="numeric"
-                  value={createForm.guardPaymentClp}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, guardPaymentClp: e.target.value.replace(/\D/g, "") }))}
+                  value={formatClpInput(createForm.guardPaymentClp)}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, guardPaymentClp: sanitizeClpInput(e.target.value) }))
+                  }
                 />
               </div>
               <div>
                 <Label>Valor ofertado (CLP)</Label>
                 <Input
                   inputMode="numeric"
-                  value={createForm.rateClp}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, rateClp: e.target.value.replace(/\D/g, "") }))}
+                  value={formatClpInput(createForm.rateClp)}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, rateClp: sanitizeClpInput(e.target.value) }))
+                  }
                 />
               </div>
             </div>
