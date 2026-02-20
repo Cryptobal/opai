@@ -398,6 +398,13 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
   }, [createForm.rateCurrency, createForm.rateClp, createForm.rateUf, ufValue]);
 
   const displayedRateClp = useMemo(() => formatClpInput(computedRateClp), [computedRateClp]);
+  const guardPaymentNumber = useMemo(() => Number(createForm.guardPaymentClp || 0), [createForm.guardPaymentClp]);
+  const saleValueNumber = useMemo(() => Number(computedRateClp || 0), [computedRateClp]);
+  const utilityAmount = useMemo(() => saleValueNumber - guardPaymentNumber, [saleValueNumber, guardPaymentNumber]);
+  const utilityMargin = useMemo(
+    () => (saleValueNumber > 0 ? (utilityAmount / saleValueNumber) * 100 : null),
+    [saleValueNumber, utilityAmount]
+  );
 
   function applyShiftPreset(mode: "dia" | "noche") {
     setCreateForm((prev) => {
@@ -732,6 +739,12 @@ export function OpsRefuerzosClient({ initialItems, defaultInstallationId }: OpsR
                   <p className="text-xs text-muted-foreground">
                     CLP calculado: {displayedRateClp ? `$${displayedRateClp}` : "$0"}
                     {ufValue ? ` · UF hoy: ${ufValue.toLocaleString("es-CL", { maximumFractionDigits: 2 })}` : ""}
+                  </p>
+                  <p className={`text-xs ${utilityAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    Utilidad sobre venta: {formatMoney(utilityAmount)}
+                    {utilityMargin !== null
+                      ? ` (${utilityMargin.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`
+                      : ""}
                   </p>
                 </div>
               </div>
