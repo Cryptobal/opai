@@ -66,10 +66,13 @@ type RefuerzoEmailInput = {
   endAt: Date;
   guardsCount: number;
   guardPaymentClp: number;
-  toEmail: string;
+  toEmail: string | string[];
 };
 
 export async function sendRefuerzoCreatedEmail(input: RefuerzoEmailInput): Promise<void> {
+  const recipients = Array.isArray(input.toEmail) ? input.toEmail : [input.toEmail];
+  if (recipients.length === 0) return;
+
   const emailConfig = await getTenantEmailConfig(input.tenantId);
   const subject = `Nuevo turno de refuerzo · ${input.installationName}`;
   const start = new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(input.startAt);
@@ -79,7 +82,7 @@ export async function sendRefuerzoCreatedEmail(input: RefuerzoEmailInput): Promi
   await resend.emails.send({
     from: emailConfig.from,
     replyTo: emailConfig.replyTo,
-    to: input.toEmail,
+    to: recipients,
     subject,
     html: `
       <div style="font-family: Arial, sans-serif; font-size:14px; color:#0f172a">
@@ -244,6 +247,17 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
   });
 
   const guardiaName = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
+  const tenantMailRecipientsRaw = await prisma.admin.findMany({
+    where: { tenantId: ctx.tenantId, status: "active" },
+    select: { email: true },
+  });
+  const tenantMailRecipients = Array.from(
+    new Set(
+      tenantMailRecipientsRaw
+        .map((user) => (user.email ?? "").trim().toLowerCase())
+        .filter((email) => email.length > 3 && email.includes("@"))
+    )
+  );
 
   await Promise.allSettled([
     sendNotification({
@@ -264,7 +278,7 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
       endAt,
       guardsCount: body.guardsCount,
       guardPaymentClp: body.guardPaymentClp,
-      toEmail: "operaciones.roa@gard.cl",
+      toEmail: tenantMailRecipients,
     }),
   ]);
 
