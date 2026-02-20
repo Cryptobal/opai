@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock, Search } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -273,6 +273,7 @@ export function OpsPautaMensualClient({
   };
   const [overviewData, setOverviewData] = useState<InstallationSummary[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewSearch, setOverviewSearch] = useState("");
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
@@ -474,6 +475,17 @@ export function OpsPautaMensualClient({
   useEffect(() => {
     if (pageView === "overview") void fetchOverview();
   }, [fetchOverview, pageView]);
+
+  /** Filtrar instalaciones por búsqueda (instalación o cliente) */
+  const filteredOverviewData = useMemo(() => {
+    const q = overviewSearch.trim().toLowerCase();
+    if (!q) return overviewData;
+    return overviewData.filter(
+      (inst) =>
+        inst.name.toLowerCase().includes(q) ||
+        (inst.clientName && inst.clientName.toLowerCase().includes(q))
+    );
+  }, [overviewData, overviewSearch]);
 
   // Navigate to a specific installation from the overview
   const goToInstallation = (instId: string) => {
@@ -814,11 +826,11 @@ export function OpsPautaMensualClient({
 
     return (
       <div className="space-y-4">
-        {/* Month/Year selector for overview */}
+        {/* Month/Year selector + búsqueda por instalación/cliente */}
         <Card>
           <CardContent className="pt-4 pb-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <div className="space-y-1">
                   <Label className="text-xs">Mes</Label>
                   <select
@@ -841,6 +853,19 @@ export function OpsPautaMensualClient({
                     onChange={(e) => setYear(Number(e.target.value) || year)}
                     className="h-8 text-sm w-24"
                   />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[200px]">
+                  <Label className="text-xs">Buscar instalación o cliente</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Ej: BTX, Berlintexx, CIMS..."
+                      value={overviewSearch}
+                      onChange={(e) => setOverviewSearch(e.target.value)}
+                      className="h-8 pl-8 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
@@ -872,9 +897,20 @@ export function OpsPautaMensualClient({
               />
             </CardContent>
           </Card>
+        ) : filteredOverviewData.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 pb-6">
+              <EmptyState
+                icon={<Search className="h-8 w-8" />}
+                title="Sin resultados"
+                description={overviewSearch.trim() ? `No hay instalaciones ni clientes que coincidan con "${overviewSearch.trim()}".` : "No hay instalaciones activas configuradas."}
+                compact
+              />
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {overviewData.map((inst) => {
+            {filteredOverviewData.map((inst) => {
               const cfg = STATUS_CONFIG[inst.status];
               const StatusIcon = cfg.icon;
               return (
