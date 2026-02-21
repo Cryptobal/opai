@@ -39,23 +39,37 @@ function visibleNotificationsWhere(
 ): Prisma.NotificationWhereInput {
   const { unreadOnly = false, ids } = options || {};
   const baseExclusions = roleExcludedTypes.filter((type) => type !== "mention");
+  // Types that use targeted delivery (only visible to specific users via data.targetUserId)
+  const targetedTypes = ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "mention"];
+
   const orConditions: Prisma.NotificationWhereInput[] = [
     {
       // Eventos generales del tenant, respetando exclusiones por módulo/rol.
-      // Excluimos "mention" aquí; las menciones se agregan en la segunda condición.
+      // Excluimos targeted types aquí; se agregan con filtro de usuario abajo.
       type: {
         notIn:
-          baseExclusions.length > 0 ? [...baseExclusions, "mention"] : ["mention"],
+          baseExclusions.length > 0
+            ? [...baseExclusions, ...targetedTypes]
+            : targetedTypes,
       },
     },
   ];
 
   // Menciones: SIEMPRE visibles para el usuario mencionado (sin filtrar por CRM).
-  // Es una comunicación directa; todos deben ver sus menciones aunque no tengan acceso CRM.
   orConditions.push({
     type: "mention",
     data: { path: ["mentionUserId"], equals: ctx.userId },
   });
+
+  // Ticket approval/rejection/refuerzo notifications: solo visibles para el usuario destinatario.
+  // Si tienen data.targetUserId, solo ese usuario las ve. Si no lo tienen (legacy), se muestran a todos.
+  for (const targetedType of ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created"]) {
+    if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
+    orConditions.push({
+      type: targetedType,
+      data: { path: ["targetUserId"], equals: ctx.userId },
+    });
+  }
 
   return {
     tenantId: ctx.tenantId,

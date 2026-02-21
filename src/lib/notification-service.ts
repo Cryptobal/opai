@@ -188,6 +188,97 @@ export async function sendNotificationToUser(
   }
 }
 
+/**
+ * Envía notificación dirigida a una lista específica de usuarios (por ID).
+ * Crea una bell notification por usuario (con targetUserId en data para filtrado)
+ * y envía email a quienes lo tengan habilitado.
+ */
+export async function sendNotificationToUsers(
+  input: CreateNotificationInput & { targetUserIds: string[] }
+) {
+  const { tenantId, type, title, message, link, data, targetUserIds } = input;
+  if (targetUserIds.length === 0) return;
+
+  // Deduplicate
+  const uniqueIds = [...new Set(targetUserIds)];
+  const typeDef = NOTIFICATION_TYPE_MAP.get(type);
+
+  const users = await prisma.admin.findMany({
+    where: { id: { in: uniqueIds }, tenantId, status: "active" },
+    select: { id: true, email: true, role: true, roleTemplateId: true },
+  });
+
+  if (users.length === 0) return;
+
+  const userPrefsRecords = await prisma.userNotificationPreference.findMany({
+    where: { tenantId, userId: { in: users.map((u) => u.id) } },
+    select: { userId: true, preferences: true },
+  });
+
+  const prefsMap = new Map<string, UserNotifPrefsMap>();
+  for (const rec of userPrefsRecords) {
+    prefsMap.set(rec.userId, rec.preferences as unknown as UserNotifPrefsMap);
+  }
+
+  const emailRecipients: string[] = [];
+
+  for (const user of users) {
+    const prefs = prefsMap.get(user.id);
+    const pref = prefs?.[type];
+    const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
+    const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+
+    if (bellEnabled) {
+      try {
+        await prisma.notification.create({
+          data: {
+            tenantId,
+            type,
+            title,
+            message,
+            link,
+            data: { ...(data ?? {}), targetUserId: user.id } as any,
+          },
+        });
+      } catch (err) {
+        console.error(`[notification-service] Error creating bell for user ${user.id} (${type}):`, err);
+      }
+    }
+
+    if (emailEnabled && user.email) emailRecipients.push(user.email);
+  }
+
+  if (emailRecipients.length > 0) {
+    try {
+      const emailConfig = await getTenantEmailConfig(tenantId);
+      const actionLabel = link ? "Ver en OPAI" : undefined;
+      const html = await render(
+        NotificationEmail({
+          title,
+          message: message ?? undefined,
+          actionUrl: link ?? undefined,
+          actionLabel,
+          category: typeDef?.category,
+        })
+      );
+
+      const batchSize = 50;
+      for (let i = 0; i < emailRecipients.length; i += batchSize) {
+        const batch = emailRecipients.slice(i, i + batchSize);
+        await resend.emails.send({
+          from: emailConfig.from,
+          replyTo: emailConfig.replyTo,
+          to: batch,
+          subject: title,
+          html,
+        });
+      }
+    } catch (err) {
+      console.error(`[notification-service] Error sending emails (${type}):`, err);
+    }
+  }
+}
+
 async function userCanSeeType(
   user: UserForNotification,
   typeDef?: import("@/lib/notification-types").NotificationTypeDef

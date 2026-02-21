@@ -245,26 +245,49 @@ export async function POST(
       }
     }
 
+    // ── Targeted notifications: only to requester + relevant approvers ──
     try {
       const deciderName = await prisma.admin.findUnique({
         where: { id: ctx.userId },
         select: { name: true },
       });
+      const decider = deciderName?.name ?? "Un usuario";
+
+      // Collect target user IDs: requester always gets notified
+      const targetUserIds: string[] = [];
+      if (ticket.reportedBy) targetUserIds.push(ticket.reportedBy);
+
+      if (decision === "approved") {
+        // If there's a next approval step, notify the members of that group
+        const nextPendingApproval = await prisma.opsTicketApproval.findFirst({
+          where: { ticketId, decision: "pending" },
+          orderBy: { stepOrder: "asc" },
+        });
+        if (nextPendingApproval?.approverGroupId) {
+          const groupMembers = await prisma.adminGroupMembership.findMany({
+            where: { groupId: nextPendingApproval.approverGroupId },
+            select: { adminId: true },
+          });
+          for (const m of groupMembers) targetUserIds.push(m.adminId);
+        }
+      }
+
       const notifTitle = decision === "approved"
         ? `Ticket ${ticket.code} aprobado (paso ${ticket.currentApprovalStep})`
         : `Ticket ${ticket.code} rechazado`;
       const notifMessage = decision === "approved"
-        ? `${deciderName?.name ?? "Un usuario"} aprobó el paso "${currentApproval.stepLabel}"`
-        : `${deciderName?.name ?? "Un usuario"} rechazó el ticket: ${body.comment ?? "sin comentario"}`;
+        ? `${decider} aprobó el paso "${currentApproval.stepLabel}"`
+        : `${decider} rechazó el ticket: ${body.comment ?? "sin comentario"}`;
 
-      const { sendNotification } = await import("@/lib/notification-service");
-      await sendNotification({
+      const { sendNotificationToUsers } = await import("@/lib/notification-service");
+      await sendNotificationToUsers({
         tenantId: ctx.tenantId,
         type: decision === "approved" ? "ticket_approved" : "ticket_rejected",
         title: notifTitle,
         message: notifMessage,
         data: { ticketId, code: ticket.code, decision, step: currentApproval.stepLabel },
         link: `/ops/tickets/${ticketId}`,
+        targetUserIds,
       });
     } catch {}
 
