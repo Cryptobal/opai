@@ -716,9 +716,7 @@ export function CrmAccountDetailClient({
       key: "contacts",
       count: account.contacts.length,
       action: (
-        <CrmSectionCreateButton onClick={() => setNewContactOpen(true)}>
-          Agregar
-        </CrmSectionCreateButton>
+        <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
       ),
       children: account.contacts.length === 0 ? (
         <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
@@ -741,10 +739,9 @@ export function CrmAccountDetailClient({
     {
       key: "installations",
       count: account.installations.length,
+      keepMounted: true,
       action: (
-        <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()}>
-          Nueva
-        </CrmSectionCreateButton>
+        <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
       ),
       children: (
         <CrmInstallationsClient
@@ -759,11 +756,7 @@ export function CrmAccountDetailClient({
       key: "deals",
       count: account.deals.length,
       action: (
-        <CreateDealModal
-          accountId={account.id}
-          accountName={account.name}
-          buttonLabel="Nuevo"
-        />
+        <CreateDealModal accountId={account.id} accountName={account.name} />
       ),
       children: account.deals.length === 0 ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
@@ -794,12 +787,7 @@ export function CrmAccountDetailClient({
       label: "Cotizaciones",
       count: quotes.length,
       action: (
-        <CreateQuoteModal
-          defaultClientName={account.name}
-          accountId={account.id}
-          buttonLabel="Nueva"
-          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-        />
+        <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
       ),
       children: quotes.length === 0 ? (
         <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />

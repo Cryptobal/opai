@@ -20,14 +20,12 @@ interface CreateDealModalProps {
   accountId: string;
   accountName: string;
   onCreated?: (dealId: string) => void;
-  buttonLabel?: string;
 }
 
 export function CreateDealModal({
   accountId,
   accountName,
   onCreated,
-  buttonLabel = "Nuevo",
 }: CreateDealModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -67,7 +65,7 @@ export function CreateDealModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <CrmSectionCreateButton>{buttonLabel}</CrmSectionCreateButton>
+        <CrmSectionCreateButton />
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

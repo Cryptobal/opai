@@ -183,7 +183,7 @@ export function CrmInstallationsClient({
         <p className="text-xs text-muted-foreground">
           {installations.length} instalación(es)
         </p>
-        {!createRef && <CrmSectionCreateButton onClick={openCreate}>Nueva</CrmSectionCreateButton>}
+        {!createRef && <CrmSectionCreateButton onClick={openCreate} />}
       </div>
 
       {installations.length === 0 && (

@@ -855,8 +855,6 @@ export function CrmDealDetailClient({
           defaultDealName={deal.title}
           accountId={deal.account?.id}
           dealId={deal.id}
-          buttonLabel="Nueva"
-          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           onCreated={(_quoteId, dealQuote) => {
             if (dealQuote) {
               setLinkedQuotes((prev) => [...prev, dealQuote]);
@@ -911,10 +909,9 @@ export function CrmDealDetailClient({
     key: "installations",
     label: "Instalaciones de la cuenta",
     count: accountInstallations.length,
+    keepMounted: true,
     action: deal.account?.id ? (
-      <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()}>
-        Nueva
-      </CrmSectionCreateButton>
+      <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
     ) : undefined,
     children: deal.account?.id ? (
       <CrmInstallationsClient
@@ -940,7 +937,7 @@ export function CrmDealDetailClient({
     action: availableContacts.length > 0 ? (
       <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
         <DialogTrigger asChild>
-          <CrmSectionCreateButton>Agregar</CrmSectionCreateButton>
+          <CrmSectionCreateButton />
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>

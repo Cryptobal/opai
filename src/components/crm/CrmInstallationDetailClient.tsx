@@ -1619,7 +1619,6 @@ export function CrmInstallationDetailClient({
         <CreateDealModal
           accountId={installation.account.id}
           accountName={installation.account.name}
-          buttonLabel="Nuevo"
         />
       ) : undefined,
       children: !installation.account ? (
@@ -1666,8 +1665,6 @@ export function CrmInstallationDetailClient({
         <CreateQuoteModal
           defaultClientName={installation.account.name}
           accountId={installation.account.id}
-          buttonLabel="Nueva"
-          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
         />
       ) : undefined,
       children: !installation.quotesInstalacion?.length ? (

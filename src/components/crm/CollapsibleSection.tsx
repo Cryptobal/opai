@@ -15,6 +15,8 @@ interface CollapsibleSectionProps {
   action?: React.ReactNode;
   dragHandle?: React.ReactNode;
   locked?: boolean;
+  /** Mantener children montados cuando cerrado (para refs que deben estar disponibles) */
+  keepMounted?: boolean;
   children: React.ReactNode;
   className?: string;
 }
@@ -29,6 +31,7 @@ export function CollapsibleSection({
   action,
   dragHandle,
   locked = false,
+  keepMounted = false,
   children,
   className = "",
 }: CollapsibleSectionProps) {
@@ -72,7 +75,11 @@ export function CollapsibleSection({
               )}
             </CardTitle>
           </button>
-          {action && <div className="shrink-0 flex items-center">{action}</div>}
+          {action && (
+            <div className="shrink-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+              {action}
+            </div>
+          )}
         </div>
       </CardHeader>
       <AnimatePresence initial={false}>
@@ -88,6 +95,11 @@ export function CollapsibleSection({
           </motion.div>
         )}
       </AnimatePresence>
+      {keepMounted && !resolvedOpen && (
+        <div className="hidden" aria-hidden>
+          <CardContent className="pt-4">{children}</CardContent>
+        </div>
+      )}
     </Card>
   );
 }

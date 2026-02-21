@@ -22,6 +22,8 @@ export interface DetailSection {
   children: ReactNode;
   /** Si la sección empieza colapsada (default: abierta) */
   defaultCollapsed?: boolean;
+  /** Mantener children montados cuando cerrada (para refs en botones de acción) */
+  keepMounted?: boolean;
 }
 
 interface CrmDetailLayoutProps extends CrmRecordHeaderProps {
@@ -88,6 +90,7 @@ export function CrmDetailLayout({
           count: section.count,
           action: section.action,
           children: section.children,
+          keepMounted: section.keepMounted,
         };
       }),
     [sections]

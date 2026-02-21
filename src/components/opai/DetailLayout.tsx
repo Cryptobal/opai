@@ -32,6 +32,7 @@ export interface DetailLayoutSection {
   count?: number;
   action?: ReactNode;
   children: ReactNode;
+  keepMounted?: boolean;
 }
 
 interface DetailLayoutProps {
@@ -90,6 +91,7 @@ function SortableSectionItem({
         open={open}
         onToggle={onToggle}
         locked={locked}
+        keepMounted={section.keepMounted}
         dragHandle={
           locked ? null : (
             <span

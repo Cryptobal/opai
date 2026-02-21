@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import { CrmSectionCreateButton } from "@/components/crm/CrmSectionCreateButton";
 import { toast } from "sonner";
 
 interface CreateQuoteModalProps {
@@ -23,12 +24,9 @@ interface CreateQuoteModalProps {
   /** Cuenta para vincular la cotización (cuando se crea desde vista de cuenta). */
   accountId?: string;
   dealId?: string;
-  buttonLabel?: string;
-  /** Clases CSS para el botón trigger (ej. estilo verde) */
-  buttonClassName?: string;
 }
 
-export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, buttonLabel, buttonClassName }: CreateQuoteModalProps) {
+export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId }: CreateQuoteModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState(defaultClientName ?? "");
@@ -120,10 +118,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" className={buttonClassName ?? "gap-2"}>
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{buttonLabel ?? "Crear"}</span>
-        </Button>
+        <CrmSectionCreateButton />
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

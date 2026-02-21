@@ -481,7 +481,6 @@ export function CrmContactDetailClient({
         <CreateDealModal
           accountId={contact.account.id}
           accountName={contact.account.name}
-          buttonLabel="Nuevo"
         />
       ) : undefined,
       children: contactDeals.length === 0 ? (
