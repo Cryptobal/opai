@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
-import { sendNotification } from "@/lib/notification-service";
+import { sendNotificationToUsers } from "@/lib/notification-service";
 import type { AuthContext } from "@/lib/api-auth";
 import { createOpsAuditLog } from "@/lib/ops";
 
@@ -354,7 +354,20 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
     guardPaymentClp: Number(created.guardPaymentClp),
   });
 
-  await sendNotification({
+  // Notify only the requester + first approver group members
+  const notifTargetIds: string[] = [ctx.userId]; // requester
+  if (requiresApproval && ticketType) {
+    const firstStep = ticketType.approvalSteps.find((s) => s.stepOrder === 1);
+    if (firstStep?.approverGroupId) {
+      const members = await prisma.adminGroupMembership.findMany({
+        where: { groupId: firstStep.approverGroupId },
+        select: { adminId: true },
+      });
+      for (const m of members) notifTargetIds.push(m.adminId);
+    }
+  }
+
+  await sendNotificationToUsers({
     tenantId: ctx.tenantId,
     type: "refuerzo_solicitud_created",
     title: requiresApproval
@@ -363,6 +376,7 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
     message: `${installation.name} · ${guardiaName}`,
     link: created.ticketId ? `/ops/tickets/${created.ticketId}` : `/ops/refuerzos`,
     data: { refuerzoId: created.id, installationId: installation.id, ticketId: created.ticketId },
+    targetUserIds: notifTargetIds,
   });
 
   return created;
@@ -384,6 +398,7 @@ export async function executeRefuerzoApproval(
           persona: { select: { firstName: true, lastName: true } },
         },
       },
+      ticket: { select: { reportedBy: true } },
     },
   });
 
@@ -443,13 +458,18 @@ export async function executeRefuerzoApproval(
     }
   });
 
-  await sendNotification({
+  // Notify only the requester (solicitante)
+  const approvalTargetIds: string[] = [];
+  if (refuerzo.ticket?.reportedBy) approvalTargetIds.push(refuerzo.ticket.reportedBy);
+
+  await sendNotificationToUsers({
     tenantId: ctx.tenantId,
     type: "refuerzo_solicitud_created",
     title: "Turno de refuerzo aprobado",
     message: `${refuerzo.installation.name} · ${guardiaName} — Turno extra y item facturable creados`,
     link: `/ops/refuerzos`,
     data: { refuerzoId: refuerzo.id, ticketId },
+    targetUserIds: approvalTargetIds,
   });
 }
 
@@ -466,6 +486,7 @@ export async function executeRefuerzoRejection(
       guardia: {
         select: { persona: { select: { firstName: true, lastName: true } } },
       },
+      ticket: { select: { reportedBy: true } },
     },
   });
 
@@ -480,12 +501,17 @@ export async function executeRefuerzoRejection(
     ? `${refuerzo.guardia.persona.firstName} ${refuerzo.guardia.persona.lastName}`.trim()
     : "Guardia";
 
-  await sendNotification({
+  // Notify only the requester (solicitante)
+  const rejectionTargetIds: string[] = [];
+  if (refuerzo.ticket?.reportedBy) rejectionTargetIds.push(refuerzo.ticket.reportedBy);
+
+  await sendNotificationToUsers({
     tenantId: ctx.tenantId,
     type: "refuerzo_solicitud_created",
     title: "Turno de refuerzo rechazado",
     message: `${refuerzo.installation.name} · ${guardiaName}`,
     link: `/ops/refuerzos`,
     data: { refuerzoId: refuerzo.id, ticketId },
+    targetUserIds: rejectionTargetIds,
   });
 }
