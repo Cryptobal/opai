@@ -796,7 +796,7 @@ export function OpsPautaMensualClient({
       const puestos = groups.length;
       const requiredSlots = groups.reduce((acc, g) => acc + g.rows.length, 0);
       const assignedSlots = groups.reduce(
-        (acc, g) => acc + g.rows.filter((r: { guardiaId?: string }) => Boolean(r.guardiaId)).length,
+        (acc, g) => acc + g.rows.filter((r) => Boolean((r as { guardiaId?: string }).guardiaId)).length,
         0
       );
       const vacantes = Math.max(0, requiredSlots - assignedSlots);
