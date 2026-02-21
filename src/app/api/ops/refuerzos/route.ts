@@ -6,7 +6,7 @@ import { createRefuerzoSchema, listRefuerzoQuerySchema } from "@/lib/validations
 import { createRefuerzoSolicitud, resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
 type RefuerzoListRow = {
-  status: "solicitado" | "en_curso" | "realizado" | "facturado";
+  status: "pendiente_aprobacion" | "rechazado" | "solicitado" | "en_curso" | "realizado" | "facturado";
   endAt: Date;
   rateClp: unknown;
   estimatedTotalClp: unknown;
@@ -20,6 +20,7 @@ type RefuerzoListRow = {
     persona: { firstName: string; lastName: string; rut?: string | null };
   };
   turnoExtra?: { id: string; status: string; amountClp: unknown; paidAt?: Date | null } | null;
+  ticket?: { id: string; code: string; status: string; approvalStatus?: string | null } | null;
 };
 
 function toNumber(value: unknown): number {
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest) {
           },
         },
         turnoExtra: { select: { id: true, status: true, amountClp: true, paidAt: true } },
+        ticket: { select: { id: true, code: true, status: true, approvalStatus: true } },
       },
       orderBy: [{ startAt: "desc" }, { createdAt: "desc" }],
       take: 500,

@@ -2401,6 +2401,8 @@ model OpsRefuerzoSolicitud {
   account         CrmAccount?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
   puesto          OpsPuestoOperativo? @relation(fields: [puestoId], references: [id], onDelete: SetNull)
   guardia         OpsGuardia          @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+  ticketId        String?             @unique @map("ticket_id") @db.Uuid
+  ticket          OpsTicket?          @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   turnoExtra      OpsTurnoExtra?      @relation("ops_refuerzo_turno_extra", fields: [turnoExtraId], references: [id], onDelete: SetNull)
   financeDteLines FinanceDteLine[]
 
@@ -2835,11 +2837,12 @@ model OpsTicketType {
   assignedTeam     String   @map("assigned_team")
   defaultPriority  String   @default("p3") @map("default_priority")
   slaHours         Int      @default(72) @map("sla_hours")
-  icon             String?
-  isActive         Boolean  @default(true) @map("is_active")
-  sortOrder        Int      @default(0) @map("sort_order")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  icon              String?
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  onApprovalAction  String?  @map("on_approval_action")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   approvalSteps OpsTicketTypeApprovalStep[]
   tickets       OpsTicket[]
@@ -2893,13 +2896,15 @@ model OpsTicket {
   tags                String[]  @default([])
   currentApprovalStep Int?      @map("current_approval_step")
   approvalStatus      String?   @map("approval_status")
+  metadata            Json?     @db.JsonB
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  ticketType OpsTicketType?      @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
-  guardia    OpsGuardia?         @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
-  approvals  OpsTicketApproval[]
-  comments   OpsTicketComment[]
+  ticketType          OpsTicketType?          @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
+  guardia             OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  approvals           OpsTicketApproval[]
+  comments            OpsTicketComment[]
+  refuerzoSolicitud   OpsRefuerzoSolicitud?
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
@@ -3847,6 +3852,31 @@ model FinanceDteLine {
   @@index([dteId], map: "idx_finance_dte_line_dte")
   @@index([refuerzoSolicitudId], map: "idx_finance_dte_line_refuerzo")
   @@map("finance_dte_lines")
+  @@schema("finance")
+}
+
+// ── ERP: Items pendientes de facturar ──
+model FinancePendingBillableItem {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String    @map("tenant_id")
+  accountId     String    @map("account_id") @db.Uuid
+  sourceType    String    @map("source_type")
+  sourceId      String    @map("source_id") @db.Uuid
+  itemName      String    @map("item_name")
+  description   String?
+  quantity      Decimal   @db.Decimal(12, 4)
+  unit          String    @default("UN")
+  unitPrice     Decimal   @map("unit_price") @db.Decimal(14, 4)
+  netAmount     Decimal   @map("net_amount") @db.Decimal(14, 2)
+  status        String    @default("pending")
+  invoicedDteId String?   @map("invoiced_dte_id") @db.Uuid
+  invoicedAt    DateTime? @map("invoiced_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, accountId, status], map: "idx_finance_pending_billable_acct_status")
+  @@index([sourceType, sourceId], map: "idx_finance_pending_billable_source")
+  @@map("finance_pending_billable_items")
   @@schema("finance")
 }
 

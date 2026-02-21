@@ -4,7 +4,7 @@ import { sendNotification } from "@/lib/notification-service";
 import type { AuthContext } from "@/lib/api-auth";
 import { createOpsAuditLog } from "@/lib/ops";
 
-export type RefuerzoStatus = "solicitado" | "en_curso" | "realizado" | "facturado";
+export type RefuerzoStatus = "pendiente_aprobacion" | "rechazado" | "solicitado" | "en_curso" | "realizado" | "facturado";
 export type RefuerzoRateMode = "hora" | "turno";
 
 type CalculateEstimatedTotalInput = {
@@ -49,6 +49,8 @@ export function calculateEstimatedTotalClp(input: CalculateEstimatedTotalInput):
 }
 
 export function resolveRefuerzoStatus(status: string, endAt: Date, now = new Date()): RefuerzoStatus {
+  if (status === "pendiente_aprobacion") return "pendiente_aprobacion";
+  if (status === "rechazado") return "rechazado";
   if (status === "facturado") return "facturado";
   if (status === "realizado") return "realizado";
   if (endAt.getTime() < now.getTime()) return "realizado";
@@ -122,6 +124,8 @@ type CreateRefuerzoInput = {
 };
 
 export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefuerzoInput) {
+  const { generateTicketCode } = await import("@/lib/tickets");
+
   const [installation, guardia] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id: body.installationId, tenantId: ctx.tenantId },
@@ -179,35 +183,91 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
       rateClp: body.rateClp ?? 0,
     });
 
-  const dateOnly = new Date(Date.UTC(startAt.getUTCFullYear(), startAt.getUTCMonth(), startAt.getUTCDate()));
+  // Find the "turno_refuerzo" ticket type for automatic ticket creation
+  const ticketType = await prisma.opsTicketType.findFirst({
+    where: { tenantId: ctx.tenantId, slug: "turno_refuerzo", isActive: true },
+    include: { approvalSteps: { orderBy: { stepOrder: "asc" } } },
+  });
+
+  const requiresApproval = ticketType?.requiresApproval && (ticketType.approvalSteps.length ?? 0) > 0;
+  const guardiaName = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
 
   const created = await prisma.$transaction(async (tx) => {
-    const turnoExtra = await tx.opsTurnoExtra.create({
-      data: {
-        tenantId: ctx.tenantId,
-        installationId: body.installationId,
-        puestoId: body.puestoId ?? null,
-        guardiaId: body.guardiaId,
-        date: dateOnly,
-        status: "approved",
-        tipo: "turno_extra",
-        isManual: true,
-        amountClp: body.guardPaymentClp,
-        approvedBy: ctx.userId,
-        approvedAt: new Date(),
-        createdBy: ctx.userId,
-      },
-      select: { id: true },
-    });
+    // 1. Create approval ticket (if ticket type exists)
+    let ticketId: string | null = null;
 
-    return tx.opsRefuerzoSolicitud.create({
+    if (ticketType) {
+      const slaHours = ticketType.slaHours;
+      const slaDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
+
+      const lastTicket = await tx.opsTicket.findFirst({
+        where: { tenantId: ctx.tenantId },
+        orderBy: { createdAt: "desc" },
+        select: { code: true },
+      });
+      const lastSeq = lastTicket?.code
+        ? parseInt(lastTicket.code.split("-").pop() ?? "0", 10)
+        : 0;
+      const code = generateTicketCode(lastSeq + 1);
+
+      const approvalCreateData = requiresApproval
+        ? ticketType.approvalSteps.map((step) => ({
+            stepOrder: step.stepOrder,
+            stepLabel: step.label,
+            approverType: step.approverType,
+            approverGroupId: step.approverGroupId,
+            approverUserId: step.approverUserId,
+            decision: "pending",
+          }))
+        : [];
+
+      const ticket = await tx.opsTicket.create({
+        data: {
+          tenantId: ctx.tenantId,
+          code,
+          ticketTypeId: ticketType.id,
+          status: requiresApproval ? "pending_approval" : "open",
+          priority: ticketType.defaultPriority,
+          title: `Refuerzo · ${installation.name} · ${guardiaName}`,
+          description: body.notes ?? null,
+          assignedTeam: ticketType.assignedTeam,
+          installationId: body.installationId,
+          guardiaId: body.guardiaId,
+          source: "manual",
+          reportedBy: ctx.userId,
+          slaDueAt,
+          slaBreached: false,
+          tags: [],
+          currentApprovalStep: requiresApproval ? 1 : null,
+          approvalStatus: requiresApproval ? "pending" : null,
+          metadata: {
+            installationName: installation.name,
+            accountName: installation.account?.name ?? null,
+            guardiaName,
+            startAt: startAt.toISOString(),
+            endAt: endAt.toISOString(),
+            estimatedTotalClp,
+            guardPaymentClp: body.guardPaymentClp,
+          },
+          approvals: {
+            create: approvalCreateData,
+          },
+        },
+      });
+      ticketId = ticket.id;
+    }
+
+    // 2. Create the refuerzo (WITHOUT turnoExtra - that happens on approval)
+    const refuerzoStatus = requiresApproval ? "pendiente_aprobacion" : "solicitado";
+
+    const refuerzo = await tx.opsRefuerzoSolicitud.create({
       data: {
         tenantId: ctx.tenantId,
         installationId: body.installationId,
         accountId: installation.accountId ?? null,
         puestoId: body.puestoId ?? null,
         guardiaId: body.guardiaId,
-        turnoExtraId: turnoExtra.id,
+        ticketId,
         requestedAt,
         requestedByName: body.requestedByName ?? null,
         requestChannel: body.requestChannel ?? null,
@@ -222,7 +282,7 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
         estimatedTotalClp,
         paymentCondition: body.paymentCondition ?? null,
         guardPaymentClp: body.guardPaymentClp,
-        status: "solicitado",
+        status: refuerzoStatus,
         createdBy: ctx.userId,
       },
       include: {
@@ -237,24 +297,195 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
           },
         },
         turnoExtra: { select: { id: true, status: true, amountClp: true, paidAt: true } },
+        ticket: { select: { id: true, code: true, status: true, approvalStatus: true } },
       },
     });
+
+    // 3. If NO approval required and ticket type has onApprovalAction, execute immediately
+    if (!requiresApproval && ticketType?.onApprovalAction === "create_turno_extra") {
+      const dateOnly = new Date(Date.UTC(startAt.getUTCFullYear(), startAt.getUTCMonth(), startAt.getUTCDate()));
+      const turnoExtra = await tx.opsTurnoExtra.create({
+        data: {
+          tenantId: ctx.tenantId,
+          installationId: body.installationId,
+          puestoId: body.puestoId ?? null,
+          guardiaId: body.guardiaId,
+          date: dateOnly,
+          status: "approved",
+          tipo: "turno_extra",
+          isManual: true,
+          amountClp: body.guardPaymentClp,
+          approvedBy: ctx.userId,
+          approvedAt: new Date(),
+          createdBy: ctx.userId,
+        },
+        select: { id: true },
+      });
+
+      await tx.opsRefuerzoSolicitud.update({
+        where: { id: refuerzo.id },
+        data: { turnoExtraId: turnoExtra.id, status: "solicitado" },
+      });
+
+      if (installation.accountId) {
+        await tx.financePendingBillableItem.create({
+          data: {
+            tenantId: ctx.tenantId,
+            accountId: installation.accountId,
+            sourceType: "refuerzo",
+            sourceId: refuerzo.id,
+            itemName: `Turno de refuerzo · ${installation.name}`,
+            description: `${guardiaName} · ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(startAt)} - ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(endAt)}`,
+            quantity: body.guardsCount,
+            unit: body.rateMode === "hora" ? "HRS" : "TRN",
+            unitPrice: body.rateClp ?? 0,
+            netAmount: estimatedTotalClp,
+            status: "pending",
+          },
+        });
+      }
+    }
+
+    return refuerzo;
   });
 
   await createOpsAuditLog(ctx, "ops.refuerzo.created", "ops_refuerzo_solicitud", created.id, {
-    turnoExtraId: created.turnoExtraId,
+    ticketId: created.ticketId,
     guardPaymentClp: Number(created.guardPaymentClp),
   });
 
-  const guardiaName = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
   await sendNotification({
     tenantId: ctx.tenantId,
     type: "refuerzo_solicitud_created",
-    title: "Nueva solicitud de turno de refuerzo",
+    title: requiresApproval
+      ? "Solicitud de refuerzo pendiente de aprobación"
+      : "Nueva solicitud de turno de refuerzo",
     message: `${installation.name} · ${guardiaName}`,
-    link: `/ops/refuerzos`,
-    data: { refuerzoId: created.id, installationId: installation.id },
+    link: created.ticketId ? `/ops/tickets/${created.ticketId}` : `/ops/refuerzos`,
+    data: { refuerzoId: created.id, installationId: installation.id, ticketId: created.ticketId },
   });
 
   return created;
+}
+
+/* ── Post-approval: create turno extra + pending billable item ─────── */
+
+export async function executeRefuerzoApproval(
+  ctx: { tenantId: string; userId: string },
+  ticketId: string,
+) {
+  const refuerzo = await prisma.opsRefuerzoSolicitud.findFirst({
+    where: { ticketId, tenantId: ctx.tenantId },
+    include: {
+      installation: { select: { id: true, name: true } },
+      guardia: {
+        select: {
+          id: true,
+          persona: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  });
+
+  if (!refuerzo) throw new Error("Refuerzo no encontrado para este ticket");
+  if (refuerzo.turnoExtraId) return; // Already processed
+
+  const startAt = new Date(refuerzo.startAt);
+  const dateOnly = new Date(Date.UTC(startAt.getUTCFullYear(), startAt.getUTCMonth(), startAt.getUTCDate()));
+  const guardiaName = refuerzo.guardia
+    ? `${refuerzo.guardia.persona.firstName} ${refuerzo.guardia.persona.lastName}`.trim()
+    : "Guardia";
+  const endAt = new Date(refuerzo.endAt);
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Create OpsTurnoExtra
+    const turnoExtra = await tx.opsTurnoExtra.create({
+      data: {
+        tenantId: ctx.tenantId,
+        installationId: refuerzo.installationId,
+        puestoId: refuerzo.puestoId ?? null,
+        guardiaId: refuerzo.guardiaId,
+        date: dateOnly,
+        status: "approved",
+        tipo: "turno_extra",
+        isManual: true,
+        amountClp: refuerzo.guardPaymentClp,
+        approvedBy: ctx.userId,
+        approvedAt: new Date(),
+        createdBy: ctx.userId,
+      },
+      select: { id: true },
+    });
+
+    // 2. Update refuerzo with turnoExtraId and status
+    await tx.opsRefuerzoSolicitud.update({
+      where: { id: refuerzo.id },
+      data: { turnoExtraId: turnoExtra.id, status: "solicitado" },
+    });
+
+    // 3. Create pending billable item for finance
+    if (refuerzo.accountId) {
+      await tx.financePendingBillableItem.create({
+        data: {
+          tenantId: ctx.tenantId,
+          accountId: refuerzo.accountId,
+          sourceType: "refuerzo",
+          sourceId: refuerzo.id,
+          itemName: `Turno de refuerzo · ${refuerzo.installation.name}`,
+          description: `${guardiaName} · ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(startAt)} - ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(endAt)}`,
+          quantity: refuerzo.guardsCount,
+          unit: refuerzo.rateMode === "hora" ? "HRS" : "TRN",
+          unitPrice: refuerzo.rateClp ?? 0,
+          netAmount: refuerzo.estimatedTotalClp,
+          status: "pending",
+        },
+      });
+    }
+  });
+
+  await sendNotification({
+    tenantId: ctx.tenantId,
+    type: "refuerzo_solicitud_created",
+    title: "Turno de refuerzo aprobado",
+    message: `${refuerzo.installation.name} · ${guardiaName} — Turno extra y item facturable creados`,
+    link: `/ops/refuerzos`,
+    data: { refuerzoId: refuerzo.id, ticketId },
+  });
+}
+
+/* ── Post-rejection: mark refuerzo as rejected ─────────────────────── */
+
+export async function executeRefuerzoRejection(
+  ctx: { tenantId: string; userId: string },
+  ticketId: string,
+) {
+  const refuerzo = await prisma.opsRefuerzoSolicitud.findFirst({
+    where: { ticketId, tenantId: ctx.tenantId },
+    include: {
+      installation: { select: { name: true } },
+      guardia: {
+        select: { persona: { select: { firstName: true, lastName: true } } },
+      },
+    },
+  });
+
+  if (!refuerzo) return;
+
+  await prisma.opsRefuerzoSolicitud.update({
+    where: { id: refuerzo.id },
+    data: { status: "rechazado" },
+  });
+
+  const guardiaName = refuerzo.guardia
+    ? `${refuerzo.guardia.persona.firstName} ${refuerzo.guardia.persona.lastName}`.trim()
+    : "Guardia";
+
+  await sendNotification({
+    tenantId: ctx.tenantId,
+    type: "refuerzo_solicitud_created",
+    title: "Turno de refuerzo rechazado",
+    message: `${refuerzo.installation.name} · ${guardiaName}`,
+    link: `/ops/refuerzos`,
+    data: { refuerzoId: refuerzo.id, ticketId },
+  });
 }

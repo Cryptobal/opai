@@ -205,6 +205,25 @@ export async function issueDte(
         },
       });
     }
+
+    // Mark pending billable items as invoiced
+    try {
+      await prisma.financePendingBillableItem.updateMany({
+        where: {
+          tenantId,
+          sourceType: "refuerzo",
+          sourceId: { in: refuerzoIds },
+          status: "pending",
+        },
+        data: {
+          status: "invoiced",
+          invoicedDteId: dte.id,
+          invoicedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      console.error("[FINANCE] Error marking pending billable items as invoiced:", e);
+    }
   }
 
   // 10. Auto-generate journal entry for facturas (not boletas)

@@ -165,6 +165,14 @@ export async function POST(
       },
     });
 
+    // Load ticket type for post-approval action
+    const ticketType = ticket.ticketTypeId
+      ? await prisma.opsTicketType.findUnique({
+          where: { id: ticket.ticketTypeId },
+          select: { onApprovalAction: true },
+        })
+      : null;
+
     // Update ticket based on decision
     if (decision === "rejected") {
       // Rejected: ticket goes to "rejected" status
@@ -175,6 +183,16 @@ export async function POST(
           approvalStatus: "rejected",
         },
       });
+
+      // Execute post-rejection action
+      if (ticketType?.onApprovalAction === "create_turno_extra") {
+        try {
+          const { executeRefuerzoRejection } = await import("@/lib/ops-refuerzos");
+          await executeRefuerzoRejection({ tenantId: ctx.tenantId, userId: ctx.userId }, ticketId);
+        } catch (e) {
+          console.error("[OPS] Error executing refuerzo rejection:", e);
+        }
+      }
     } else {
       // Approved: check for next step
       const nextStep = await prisma.opsTicketApproval.findFirst({
@@ -204,6 +222,16 @@ export async function POST(
             currentApprovalStep: null,
           },
         });
+
+        // Execute post-approval action
+        if (ticketType?.onApprovalAction === "create_turno_extra") {
+          try {
+            const { executeRefuerzoApproval } = await import("@/lib/ops-refuerzos");
+            await executeRefuerzoApproval({ tenantId: ctx.tenantId, userId: ctx.userId }, ticketId);
+          } catch (e) {
+            console.error("[OPS] Error executing refuerzo approval:", e);
+          }
+        }
       }
     }
 
