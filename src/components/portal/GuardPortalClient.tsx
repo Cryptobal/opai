@@ -306,6 +306,25 @@ function InicioSection({
   onNavigate: (s: PortalSection) => void;
 }) {
   const greeting = getGreeting();
+  const [ticketCount, setTicketCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(
+          `/api/portal/guardia/tickets?guardiaId=${session.guardiaId}`
+        );
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const tickets = data.data ?? data.tickets ?? [];
+          setTicketCount(tickets.length);
+        }
+      } catch { /* ignore */ }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [session.guardiaId]);
 
   return (
     <div className="px-4 py-5 space-y-5">
@@ -354,7 +373,7 @@ function InicioSection({
           </p>
         </div>
         <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-          <p className="text-2xl font-bold text-amber-500">1</p>
+          <p className="text-2xl font-bold text-amber-500">{ticketCount ?? "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Solicitudes
           </p>
