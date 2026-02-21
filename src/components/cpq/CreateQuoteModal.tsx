@@ -17,16 +17,19 @@ import { toast } from "sonner";
 interface CreateQuoteModalProps {
   onCreated?: (quoteId: string, dealQuote?: { id: string; quoteId: string }) => void;
   variant?: "modal" | "quick";
-  /** Cliente pre-rellenado (cuenta). Cuando se pasa, el modal pide "Nombre del negocio" en lugar de Cliente. */
+  /** Cliente pre-rellenado (cuenta). */
   defaultClientName?: string;
   /** Nombre del negocio pre-rellenado (ej. desde deal). */
   defaultDealName?: string;
-  /** Cuenta para vincular la cotización (cuando se crea desde vista de cuenta). */
+  /** Cuenta para vincular la cotización. */
   accountId?: string;
+  /** Negocio para vincular la cotización. */
   dealId?: string;
+  /** Instalación para vincular la cotización. */
+  installationId?: string;
 }
 
-export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId }: CreateQuoteModalProps) {
+export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId }: CreateQuoteModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState(defaultClientName ?? "");
@@ -35,16 +38,19 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const hasContext = Boolean(defaultClientName);
+  const hasClientContext = Boolean(defaultClientName);
+  const hasDealContext = Boolean(dealId);
 
   useEffect(() => {
     if (open) {
       if (defaultClientName) setClientName(defaultClientName);
       setDealName(defaultDealName ?? "");
+      setNotes("");
+      setValidUntil("");
     }
   }, [open, defaultClientName, defaultDealName]);
 
-  const createQuote = async (payload: { clientName?: string; validUntil?: string; notes?: string; accountId?: string }) => {
+  const createQuote = async (payload: { clientName?: string; validUntil?: string; notes?: string; accountId?: string; installationId?: string }) => {
     setLoading(true);
     try {
       const res = await fetch("/api/cpq/quotes", {
@@ -76,7 +82,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       setNotes("");
       onCreated?.(quoteId, dealQuote);
       if (quoteId) {
-        router.push(`/cpq/${quoteId}`);
+        router.push(`/crm/cotizaciones/${quoteId}`);
       }
     } catch (err) {
       console.error("Error creating CPQ quote:", err);
@@ -88,17 +94,17 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalClient = hasContext ? defaultClientName : clientName;
-    const finalNotes = hasContext ? (dealName.trim() || notes) : notes;
-    if (hasContext && !dealName.trim()) {
-      toast.error("El nombre del negocio es obligatorio.");
-      return;
-    }
-    if (!hasContext && !clientName.trim()) {
+    const finalClient = hasClientContext ? defaultClientName : clientName;
+    if (!hasClientContext && !clientName.trim()) {
       toast.error("El cliente es obligatorio.");
       return;
     }
-    await createQuote({ clientName: finalClient, validUntil, notes: finalNotes, accountId });
+    if (hasDealContext && !dealName.trim()) {
+      toast.error("El nombre del negocio es obligatorio.");
+      return;
+    }
+    const finalNotes = hasDealContext ? (dealName.trim() || notes) : notes;
+    await createQuote({ clientName: finalClient, validUntil, notes: finalNotes, accountId, installationId });
   };
 
   if (variant === "quick") {
@@ -125,7 +131,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
           <DialogTitle>Nueva Cotización</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
-          {hasContext ? (
+          {hasClientContext ? (
             <div className="space-y-1.5">
               <Label className="text-sm">Cliente</Label>
               <Input
@@ -146,7 +152,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               />
             </div>
           )}
-          {hasContext && (
+          {hasDealContext && (
             <div className="space-y-1.5">
               <Label className="text-sm">Nombre del negocio *</Label>
               <Input
@@ -166,7 +172,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               className="h-10 bg-background text-sm"
             />
           </div>
-          {!hasContext && (
+          {!hasDealContext && (
             <div className="space-y-1.5">
               <Label className="text-sm">Notas</Label>
               <Input
