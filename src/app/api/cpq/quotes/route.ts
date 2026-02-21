@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess, ensureCanCreateQuote } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbiddenCreate = await ensureCanCreateQuote(ctx);
+    if (forbiddenCreate) return forbiddenCreate;
     const tenantId = ctx.tenantId;
     const body = await request.json();
 
@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
     const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
     const notes = body?.notes?.trim() || null;
     const accountId = body?.accountId?.trim() || null;
+    const dealId = body?.dealId?.trim() || null;
+    const installationId = body?.installationId?.trim() || null;
 
     // Generar código único con retry para evitar race condition
     const year = new Date().getFullYear();
@@ -66,6 +68,8 @@ export async function POST(request: NextRequest) {
             validUntil,
             notes,
             ...(accountId ? { accountId } : {}),
+            ...(dealId ? { dealId } : {}),
+            ...(installationId ? { installationId } : {}),
           },
         });
       } catch (err: any) {
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating CPQ quote:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create quote" },
+      { success: false, error: "No se pudo crear la cotización" },
       { status: 500 }
     );
   }
