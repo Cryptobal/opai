@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
     const notes = body?.notes?.trim() || null;
     const accountId = body?.accountId?.trim() || null;
+    const installationId = body?.installationId?.trim() || null;
 
     // Generar código único con retry para evitar race condition
     const year = new Date().getFullYear();
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
             validUntil,
             notes,
             ...(accountId ? { accountId } : {}),
+            ...(installationId ? { installationId } : {}),
           },
         });
       } catch (err: any) {
