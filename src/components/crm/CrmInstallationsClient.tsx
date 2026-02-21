@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { Plus, MapPin, Loader2 } from "lucide-react";
+import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -57,10 +59,13 @@ export function CrmInstallationsClient({
   accountId,
   accountIsActive,
   initialInstallations,
+  createRef,
 }: {
   accountId: string;
   accountIsActive: boolean;
   initialInstallations: InstallationRow[];
+  /** Ref para exponer openCreate al padre (ej. botón en header de sección) */
+  createRef?: React.MutableRefObject<{ open: () => void } | null>;
 }) {
   const [installations, setInstallations] = useState<InstallationRow[]>(initialInstallations);
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
@@ -89,10 +94,19 @@ export function CrmInstallationsClient({
     }));
   };
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     setForm(DEFAULT_FORM);
     setOpen(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (createRef) {
+      createRef.current = { open: openCreate };
+      return () => {
+        createRef.current = null;
+      };
+    }
+  }, [createRef, openCreate]);
 
   const save = async () => {
     if (!form.name.trim()) {
@@ -169,10 +183,7 @@ export function CrmInstallationsClient({
         <p className="text-xs text-muted-foreground">
           {installations.length} instalación(es)
         </p>
-        <Button size="sm" variant="secondary" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          Nueva
-        </Button>
+        <CrmSectionCreateButton onClick={openCreate}>Nueva</CrmSectionCreateButton>
       </div>
 
       {installations.length === 0 && (
@@ -282,6 +293,7 @@ export function CrmInstallationsClient({
                 placeholder="Buscar dirección en Google Maps..."
                 showMap={true}
               />
+              <MapsUrlPasteInput onResolve={handleAddressChange} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -315,7 +327,7 @@ export function CrmInstallationsClient({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={loading}>
+            <Button onClick={save} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear
             </Button>

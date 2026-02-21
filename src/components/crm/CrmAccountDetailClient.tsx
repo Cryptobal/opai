@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,8 @@ import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
+import { CreateDealModal } from "./CreateDealModal";
+import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -198,6 +200,9 @@ export function CrmAccountDetailClient({
 
   // ── Cambio de contacto principal (solo uno por cuenta) ──
   const [primaryChangeConfirm, setPrimaryChangeConfirm] = useState<{ type: "edit" | "new"; otherName: string } | null>(null);
+
+  // ── Ref para abrir modal de nueva instalación desde header de sección ──
+  const createInstallationRef = useRef<{ open: () => void } | null>(null);
 
   // ── Enrich / Regenerate company info ──
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
@@ -711,10 +716,9 @@ export function CrmAccountDetailClient({
       key: "contacts",
       count: account.contacts.length,
       action: (
-        <Button size="sm" variant="ghost" onClick={() => setNewContactOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1" />
+        <CrmSectionCreateButton onClick={() => setNewContactOpen(true)}>
           Agregar
-        </Button>
+        </CrmSectionCreateButton>
       ),
       children: account.contacts.length === 0 ? (
         <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
@@ -737,17 +741,30 @@ export function CrmAccountDetailClient({
     {
       key: "installations",
       count: account.installations.length,
+      action: (
+        <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()}>
+          Nueva
+        </CrmSectionCreateButton>
+      ),
       children: (
         <CrmInstallationsClient
           accountId={account.id}
           accountIsActive={account.isActive}
           initialInstallations={account.installations}
+          createRef={createInstallationRef}
         />
       ),
     },
     {
       key: "deals",
       count: account.deals.length,
+      action: (
+        <CreateDealModal
+          accountId={account.id}
+          accountName={account.name}
+          buttonLabel="Nuevo"
+        />
+      ),
       children: account.deals.length === 0 ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
       ) : (
@@ -781,6 +798,7 @@ export function CrmAccountDetailClient({
           defaultClientName={account.name}
           accountId={account.id}
           buttonLabel="Nueva"
+          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
         />
       ),
       children: quotes.length === 0 ? (

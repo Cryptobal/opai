@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
+import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -181,6 +182,7 @@ export function CrmDealDetailClient({
 
   const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const createInstallationRef = useRef<{ open: () => void } | null>(null);
 
   const selectCn = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -853,6 +855,8 @@ export function CrmDealDetailClient({
           defaultDealName={deal.title}
           accountId={deal.account?.id}
           dealId={deal.id}
+          buttonLabel="Nueva"
+          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           onCreated={(_quoteId, dealQuote) => {
             if (dealQuote) {
               setLinkedQuotes((prev) => [...prev, dealQuote]);
@@ -907,11 +911,17 @@ export function CrmDealDetailClient({
     key: "installations",
     label: "Instalaciones de la cuenta",
     count: accountInstallations.length,
+    action: deal.account?.id ? (
+      <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()}>
+        Nueva
+      </CrmSectionCreateButton>
+    ) : undefined,
     children: deal.account?.id ? (
       <CrmInstallationsClient
         accountId={deal.account.id}
         accountIsActive={deal.account.isActive ?? true}
         initialInstallations={accountInstallations}
+        createRef={createInstallationRef}
       />
     ) : (
       <EmptyState
@@ -930,7 +940,7 @@ export function CrmDealDetailClient({
     action: availableContacts.length > 0 ? (
       <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
         <DialogTrigger asChild>
-          <Button size="sm" variant="ghost"><Plus className="h-3.5 w-3.5 mr-1" /> Agregar</Button>
+          <CrmSectionCreateButton>Agregar</CrmSectionCreateButton>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>

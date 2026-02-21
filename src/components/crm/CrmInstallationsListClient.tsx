@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { MapPin, Search, ChevronRight, Plus, Loader2, Moon, ShieldAlert, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { ViewToggle, type ViewMode } from "./ViewToggle";
 import { toast } from "sonner";
@@ -47,6 +49,8 @@ type FormState = {
   address: string;
   city: string;
   commune: string;
+  lat: number | null;
+  lng: number | null;
   notes: string;
 };
 
@@ -56,6 +60,8 @@ const DEFAULT_FORM: FormState = {
   address: "",
   city: "",
   commune: "",
+  lat: null,
+  lng: null,
   notes: "",
 };
 
@@ -80,6 +86,10 @@ export function CrmInstallationsListClient({
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectCn = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
+  useEffect(() => {
+    if (open) setForm(DEFAULT_FORM);
+  }, [open]);
+
   const filteredInstallations = useMemo(() => {
     const q = search.trim().toLowerCase();
     return installations.filter((inst) => {
@@ -92,6 +102,17 @@ export function CrmInstallationsListClient({
       return true;
     });
   }, [installations, search, statusFilter]);
+
+  const handleAddressChange = (result: AddressResult) => {
+    setForm((prev) => ({
+      ...prev,
+      address: result.address,
+      city: result.city || prev.city,
+      commune: result.commune || prev.commune,
+      lat: result.lat,
+      lng: result.lng,
+    }));
+  };
 
   const createInstallation = async () => {
     if (!form.name.trim()) {
@@ -107,7 +128,11 @@ export function CrmInstallationsListClient({
       const res = await fetch("/api/crm/installations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          lat: form.lat ?? undefined,
+          lng: form.lng ?? undefined,
+        }),
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || "Error al crear instalación");
@@ -201,13 +226,13 @@ export function CrmInstallationsListClient({
                 </div>
                 <div className="space-y-2">
                   <Label>Dirección</Label>
-                  <Input
+                  <AddressAutocomplete
                     value={form.address}
-                    onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                    placeholder="Dirección completa"
-                    className={inputCn}
-                    disabled={loading}
+                    onChange={handleAddressChange}
+                    placeholder="Buscar dirección en Google Maps..."
+                    showMap={true}
                   />
+                  <MapsUrlPasteInput onResolve={handleAddressChange} disabled={loading} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -246,7 +271,7 @@ export function CrmInstallationsListClient({
                 <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                   Cancelar
                 </Button>
-                <Button onClick={createInstallation} disabled={loading}>
+                <Button onClick={createInstallation} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Crear
                 </Button>

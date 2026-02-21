@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
 
 interface CpqQuoteDetailProps {
@@ -1219,6 +1220,18 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                           placeholder="Buscar dirección en Google Maps..."
                           className="bg-background"
                           showMap={false}
+                        />
+                        <MapsUrlPasteInput
+                          onResolve={(result) =>
+                            setInlineForm((p) => ({
+                              ...p,
+                              address: result.address,
+                              city: result.city ?? p.city,
+                              commune: result.commune ?? p.commune,
+                              lat: result.lat,
+                              lng: result.lng,
+                            }))
+                          }
                         />
                       </div>
                     )}

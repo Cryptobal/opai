@@ -43,6 +43,7 @@ import {
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NotesSection } from "./NotesSection";
+import { CreateDealModal } from "./CreateDealModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -476,6 +477,13 @@ export function CrmContactDetailClient({
     {
       key: "deals",
       count: contactDeals.length,
+      action: contact.account?.id ? (
+        <CreateDealModal
+          accountId={contact.account.id}
+          accountName={contact.account.name}
+          buttonLabel="Nuevo"
+        />
+      ) : undefined,
       children: contactDeals.length === 0 ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
       ) : (

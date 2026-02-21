@@ -29,6 +29,8 @@ import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { OpsRefuerzosClient } from "@/components/ops";
+import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
+import { CreateDealModal } from "./CreateDealModal";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -1613,6 +1615,13 @@ export function CrmInstallationDetailClient({
       key: "deals",
       label: "Negocios",
       count: installation.dealsOfAccount?.length ?? 0,
+      action: installation.account?.id ? (
+        <CreateDealModal
+          accountId={installation.account.id}
+          accountName={installation.account.name}
+          buttonLabel="Nuevo"
+        />
+      ) : undefined,
       children: !installation.account ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
       ) : !installation.dealsOfAccount?.length ? (
@@ -1653,6 +1662,14 @@ export function CrmInstallationDetailClient({
       key: "quotes",
       label: "Cotizaciones",
       count: installation.quotesInstalacion?.length ?? 0,
+      action: installation.account?.id ? (
+        <CreateQuoteModal
+          defaultClientName={installation.account.name}
+          accountId={installation.account.id}
+          buttonLabel="Nueva"
+          buttonClassName="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+        />
+      ) : undefined,
       children: !installation.quotesInstalacion?.length ? (
         <EmptyState
           icon={<QuotesIcon className="h-8 w-8" />}
