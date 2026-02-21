@@ -52,9 +52,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const prefillSourceId = searchParams.get("sourceId");
   const prefillTitle = searchParams.get("title");
   const prefillGuardiaId = searchParams.get("guardiaId");
+  const viewParam = searchParams.get("view");
 
   const [viewState, setViewState] = useState<ViewState>(
-    prefillSource ? { view: "create" } : { view: "list" },
+    prefillSource || viewParam === "create" ? { view: "create" } : { view: "list" },
   );
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);

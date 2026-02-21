@@ -4,6 +4,7 @@ import {
   BriefcaseBusiness,
   Plus,
   Send,
+  Ticket,
   UserPlus,
   UserRoundCheck,
   Clock3,
@@ -58,6 +59,14 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           <Button variant="outline" size="sm" className="gap-2">
             <Send className="h-4 w-4" />
             Cotizaciones
+          </Button>
+        </Link>
+      )}
+      {perms.hasOps && (
+        <Link href="/ops/tickets?view=create">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Ticket className="h-4 w-4" />
+            Crear Ticket
           </Button>
         </Link>
       )}

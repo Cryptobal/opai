@@ -164,8 +164,8 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">
-            <Link href="/ops/tickets">
-              <Ticket className="mr-2 h-4 w-4" /> Enviar ticket
+            <Link href="/ops/tickets?view=create">
+              <Ticket className="mr-2 h-4 w-4" /> Crear ticket
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">
