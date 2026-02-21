@@ -55,9 +55,8 @@ interface GuardContractsTabProps {
     id: string;
     title: string;
     category: string;
-    status: string;
     signatureStatus?: string | null;
-    createdAt: string;
+    expirationDate?: string | null;
   }>;
   onDocumentsGenerated?: () => void;
   canManageDocs?: boolean;
@@ -439,23 +438,25 @@ export function GuardContractsTab({
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 md:grid-cols-3">
             {contractDocs.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
+                className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
               >
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{doc.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {doc.category === "contrato_laboral" ? "Contrato" : "Anexo"} · {new Date(doc.createdAt).toLocaleDateString("es-CL")}
+                    {doc.category === "contrato_laboral" ? "Contrato" : "Anexo"}
                   </p>
+                  {doc.expirationDate && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
+                    </p>
+                  )}
                 </div>
-                <Badge variant={doc.signatureStatus === "completed" ? "success" : doc.signatureStatus === "pending" ? "default" : "secondary"} className="shrink-0 text-[10px]">
-                  {doc.signatureStatus === "completed" ? "Firmado" : doc.signatureStatus === "pending" ? "Enviado a firma" : doc.status}
-                </Badge>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 mt-auto">
                   <Button
                     size="sm"
                     variant="outline"

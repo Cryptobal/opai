@@ -44,6 +44,19 @@ interface MarcacionConfig {
 
 type PostulacionDocItem = { code: string; label: string; required: boolean };
 type InstalacionDocItem = { code: string; label: string; required: boolean };
+type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
+
+const GUARDIA_DOC_LABELS: Record<string, string> = {
+  certificado_antecedentes: "Certificado de antecedentes",
+  certificado_os10: "Certificado OS-10",
+  cedula_identidad: "Cédula de identidad",
+  curriculum: "Currículum",
+  contrato: "Contrato",
+  anexo_contrato: "Anexo de contrato",
+  certificado_ensenanza_media: "Certificado enseñanza media",
+  certificado_afp: "Certificado AFP",
+  certificado_fonasa_isapre: "Certificado Fonasa / Isapre",
+};
 
 /* ── Catálogo de emails del módulo Operaciones ── */
 
@@ -104,6 +117,9 @@ export function OpsConfigClient() {
   const [instalacionDocsLoading, setInstalacionDocsLoading] = useState(true);
   const [instalacionDocsSaving, setInstalacionDocsSaving] = useState(false);
   const [newInstalacionDocLabel, setNewInstalacionDocLabel] = useState("");
+  const [guardiaDocConfig, setGuardiaDocConfig] = useState<GuardiaDocConfigItem[]>([]);
+  const [guardiaDocConfigLoading, setGuardiaDocConfigLoading] = useState(true);
+  const [guardiaDocConfigSaving, setGuardiaDocConfigSaving] = useState(false);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -152,6 +168,35 @@ export function OpsConfigClient() {
   useEffect(() => {
     void fetchInstalacionDocs();
   }, [fetchInstalacionDocs]);
+
+  const fetchGuardiaDocConfig = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ops/guardia-documentos-config");
+      const data = await res.json();
+      if (data.success) setGuardiaDocConfig(data.data);
+    } catch {
+      toast.error("No se pudo cargar configuración de documentos de guardia");
+    } finally {
+      setGuardiaDocConfigLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchGuardiaDocConfig();
+  }, [fetchGuardiaDocConfig]);
+
+  // Sincronizar guardiaDocConfig con postulacionDocs (para docs custom)
+  useEffect(() => {
+    if (postulacionDocs.length === 0 || guardiaDocConfig.length === 0) return;
+    const guardiaCodes = new Set(guardiaDocConfig.map((g) => g.code));
+    const missing = postulacionDocs.filter((p) => !guardiaCodes.has(p.code));
+    if (missing.length > 0) {
+      setGuardiaDocConfig((prev) => [
+        ...prev,
+        ...missing.map((m) => ({ code: m.code, hasExpiration: false, alertDaysBefore: 30 })),
+      ]);
+    }
+  }, [postulacionDocs, guardiaDocConfig]);
 
   const saveConfig = async () => {
     if (!config) return;
@@ -212,6 +257,32 @@ export function OpsConfigClient() {
 
   const removePostulacionDoc = (index: number) => {
     setPostulacionDocs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateGuardiaDocConfigItem = (index: number, patch: Partial<GuardiaDocConfigItem>) => {
+    setGuardiaDocConfig((prev) =>
+      prev.map((d, i) => (i === index ? { ...d, ...patch } : d))
+    );
+  };
+
+  const saveGuardiaDocConfig = async () => {
+    setGuardiaDocConfigSaving(true);
+    try {
+      const res = await fetch("/api/ops/guardia-documentos-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: guardiaDocConfig }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGuardiaDocConfig(data.data);
+        toast.success("Configuración de documentos de guardia guardada");
+      } else throw new Error(data.error);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
+    } finally {
+      setGuardiaDocConfigSaving(false);
+    }
   };
 
   const savePostulacionDocs = async () => {
@@ -435,54 +506,97 @@ export function OpsConfigClient() {
         </CardContent>
       </Card>
 
-      {/* ── Sección 1b: Documentos de postulación (guardias) ── */}
+      {/* ── Sección 1b: Documentos de guardias (postulación + ficha) ── */}
       <Card>
         <CardContent className="pt-5 space-y-5">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            Documentos de postulación (guardias)
+            Documentos de guardias
           </h3>
           <p className="text-xs text-muted-foreground">
-            Lista de documentos que aparecen en el formulario de postulación. Puedes agregar más y marcar si son obligatorios para enviar la postulación.
+            Lista de documentos para postulación y ficha de guardia. Obligatorio: si es requerido para enviar la postulación. Vencimiento: si aplica fecha de vencimiento y alertas en la ficha.
           </p>
 
-          {postulacionDocsLoading ? (
+          {(postulacionDocsLoading || guardiaDocConfigLoading) ? (
             <p className="text-sm text-muted-foreground py-4">Cargando...</p>
           ) : (
             <>
               <div className="space-y-2">
-                {postulacionDocs.map((doc, index) => (
-                  <div
-                    key={doc.code}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
-                  >
-                    <span className="text-sm font-medium min-w-[140px]">{doc.label}</span>
-                    <span className="text-[11px] text-muted-foreground font-mono">{doc.code}</span>
-                    <label className="flex items-center gap-2 cursor-pointer ml-auto">
-                      <input
-                        type="checkbox"
-                        checked={doc.required}
-                        onChange={(e) => updatePostulacionDoc(index, { required: e.target.checked })}
-                        className="rounded border-border"
-                      />
-                      <span className="text-xs">Obligatorio en postulación</span>
-                    </label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => removePostulacionDoc(index)}
-                      title="Quitar documento"
+                {postulacionDocs.map((doc, postIndex) => {
+                  const guardiaIndex = guardiaDocConfig.findIndex((g) => g.code === doc.code);
+                  const guardia = guardiaIndex >= 0 ? guardiaDocConfig[guardiaIndex] : { hasExpiration: false, alertDaysBefore: 30 };
+                  return (
+                    <div
+                      key={doc.code}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border p-3"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <span className="text-sm font-medium min-w-[140px]">{doc.label}</span>
+                      <span className="text-[11px] text-muted-foreground font-mono shrink-0">{doc.code}</span>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={doc.required}
+                          onChange={(e) => updatePostulacionDoc(postIndex, { required: e.target.checked })}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Obligatorio</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={guardia.hasExpiration}
+                          onChange={(e) => {
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, {
+                                hasExpiration: e.target.checked,
+                                alertDaysBefore: e.target.checked ? guardia.alertDaysBefore : 30,
+                              });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                { code: doc.code, hasExpiration: e.target.checked, alertDaysBefore: 30 },
+                              ]);
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Vence</span>
+                      </label>
+                      {guardia.hasExpiration && guardiaIndex >= 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground">Alerta:</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={guardia.alertDaysBefore}
+                            onChange={(e) =>
+                              updateGuardiaDocConfigItem(guardiaIndex, {
+                                alertDaysBefore: Math.max(1, Math.min(365, Number(e.target.value) || 30)),
+                              })
+                            }
+                            className="h-7 w-16 min-w-[4rem] text-xs"
+                          />
+                          <span className="text-[11px] text-muted-foreground">días</span>
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive ml-auto shrink-0"
+                        onClick={() => removePostulacionDoc(postIndex)}
+                        title="Quitar documento"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Input
-                  placeholder="Nombre del nuevo documento (ej: Certificado enseñanza media)"
+                  placeholder="Nombre del nuevo documento (ej: Certificado)"
                   value={newDocLabel}
                   onChange={(e) => setNewDocLabel(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPostulacionDoc())}
@@ -493,10 +607,17 @@ export function OpsConfigClient() {
                   Agregar documento
                 </Button>
               </div>
-              <div className="flex justify-end">
-                <Button onClick={() => void savePostulacionDocs()} disabled={postulacionDocsSaving} size="sm">
+              <div className="flex justify-end gap-2">
+                <Button
+                  onClick={async () => {
+                    await savePostulacionDocs();
+                    await saveGuardiaDocConfig();
+                  }}
+                  disabled={postulacionDocsSaving || guardiaDocConfigSaving}
+                  size="sm"
+                >
                   <Save className="h-4 w-4 mr-1" />
-                  {postulacionDocsSaving ? "Guardando..." : "Guardar documentos"}
+                  {postulacionDocsSaving || guardiaDocConfigSaving ? "Guardando..." : "Guardar"}
                 </Button>
               </div>
             </>

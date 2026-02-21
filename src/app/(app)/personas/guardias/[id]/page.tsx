@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
+import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { PageHeader } from "@/components/opai";
 import { GuardiaDetailClient } from "@/components/ops";
 
@@ -22,7 +23,7 @@ export default async function GuardiaDetailPage({
   }
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const [guardia, asignaciones, adminUsers] = await Promise.all([
+  const [guardia, asignaciones, adminUsers, guardiaDocConfig] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },
       include: {
@@ -54,6 +55,7 @@ export default async function GuardiaDetailPage({
       where: { tenantId },
       select: { id: true, name: true },
     }),
+    getGuardiaDocumentosConfig(tenantId),
   ]);
 
   if (!guardia) notFound();
@@ -94,6 +96,7 @@ export default async function GuardiaDetailPage({
         userRole={session.user.role}
         personaAdminId={personaAdminId}
         currentUserId={session.user.id}
+        guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
       />
     </div>
   );

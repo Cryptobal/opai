@@ -9,12 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { addDays } from "date-fns";
-import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { NOTIFICATION_TYPES, canSeeNotificationType, type UserNotifPrefsMap } from "@/lib/notification-types";
+import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import type { AuthContext } from "@/lib/api-auth";
 import type { Prisma } from "@prisma/client";
-
-const GUARDIA_DOC_ALERT_DAYS = 30;
 
 async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<string[]> {
   const perms = await resolveApiPerms(ctx);
@@ -71,7 +69,12 @@ async function ensureGuardiaDocExpiryNotifications(tenantId: string, enabled: bo
   if (!enabled) return;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const limitDate = addDays(today, GUARDIA_DOC_ALERT_DAYS);
+
+  const config = await getGuardiaDocumentosConfig(tenantId);
+  const byType = new Map(config.filter((c) => c.hasExpiration).map((c) => [c.code, c.alertDaysBefore]));
+
+  const maxDays = Math.max(30, ...Array.from(byType.values()));
+  const limitDate = addDays(today, maxDays);
 
   const docs = await prisma.opsDocumentoPersona.findMany({
     where: {
@@ -91,10 +94,13 @@ async function ensureGuardiaDocExpiryNotifications(tenantId: string, enabled: bo
 
   for (const doc of docs) {
     if (!doc.expiresAt) continue;
+    const alertDays = byType.get(doc.type);
+    if (alertDays === undefined) continue;
     const expiresAt = new Date(doc.expiresAt);
     const daysRemaining = Math.ceil(
       (expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
+    if (daysRemaining > alertDays) continue;
     const type = daysRemaining < 0 ? "guardia_doc_expired" : "guardia_doc_expiring";
     const personName = `${doc.guardia.persona.firstName} ${doc.guardia.persona.lastName}`.trim();
     const title =
@@ -143,25 +149,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unread") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
-    const prefs = await getNotificationPrefs(ctx.tenantId);
 
-    await ensureGuardiaDocExpiryNotifications(
-      ctx.tenantId,
-      prefs.guardiaDocExpiryBellEnabled
-    );
+    await ensureGuardiaDocExpiryNotifications(ctx.tenantId, true);
 
     const excludedTypes = new Set<string>(await getRoleExcludedNotificationTypes(ctx));
-
     const userDisabled = await getUserBellDisabledTypes(ctx);
     for (const t of userDisabled) excludedTypes.add(t);
-
-    if (!prefs.guardiaDocExpiryBellEnabled) {
-      excludedTypes.add("guardia_doc_expiring");
-      excludedTypes.add("guardia_doc_expired");
-    }
-    if (!prefs.postulacionBellEnabled) {
-      excludedTypes.add("new_postulacion");
-    }
     const excludedTypesList = Array.from(excludedTypes);
     const notificationsWhere = visibleNotificationsWhere(ctx, excludedTypesList, {
       unreadOnly,

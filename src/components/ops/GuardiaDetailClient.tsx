@@ -189,12 +189,15 @@ type AsignacionHistorial = {
   };
 };
 
+type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
+
 interface GuardiaDetailClientProps {
   initialGuardia: GuardiaDetail;
   asignaciones?: AsignacionHistorial[];
   userRole: string;
   personaAdminId?: string | null;
   currentUserId?: string;
+  guardiaDocConfig?: GuardiaDocConfigItem[];
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -204,6 +207,9 @@ const DOC_LABEL: Record<string, string> = {
   curriculum: "Currículum",
   contrato: "Contrato",
   anexo_contrato: "Anexo de contrato",
+  certificado_ensenanza_media: "Certificado enseñanza media",
+  certificado_afp: "Certificado AFP",
+  certificado_fonasa_isapre: "Certificado Fonasa / Isapre",
 };
 
 const ACCOUNT_TYPE_LABEL: Record<string, string> = {
@@ -249,7 +255,7 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   inactivo: "Inactivo",
 };
 
-export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId }: GuardiaDetailClientProps) {
+export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId, guardiaDocConfig = [] }: GuardiaDetailClientProps) {
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
@@ -395,6 +401,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [diasTrabajados, setDiasTrabajados] = useState<DiaTrabajadoRow[]>([]);
   const [diasTrabajadosSummary, setDiasTrabajadosSummary] = useState<Record<string, number>>({});
   const [diasTrabajadosLoading, setDiasTrabajadosLoading] = useState(false);
+
+  const hasExpirationByType = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const c of guardiaDocConfig) {
+      map.set(c.code, c.hasExpiration);
+    }
+    return map;
+  }, [guardiaDocConfig]);
 
   const docsByType = useMemo(() => {
     const map = new Map<string, GuardiaDetail["documents"][number]>();
@@ -683,7 +697,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           status: docForm.status,
           fileUrl: docForm.fileUrl,
           issuedAt: docForm.issuedAt || null,
-          expiresAt: docForm.expiresAt || null,
+          expiresAt: hasExpirationByType.get(docForm.type) ? (docForm.expiresAt || null) : null,
         }),
       });
       const payload = await response.json();
@@ -729,7 +743,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           body: JSON.stringify({
             status: edit.status,
             issuedAt: edit.issuedAt || null,
-            expiresAt: edit.expiresAt || null,
+            expiresAt: hasExpirationByType.get(doc.type) ? (edit.expiresAt || null) : null,
           }),
         }
       );
@@ -1014,14 +1028,16 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const expiringDocs = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const in30 = new Date(today);
-    in30.setDate(in30.getDate() + 30);
     return guardia.documents.filter((doc) => {
-      if (!doc.expiresAt) return false;
+      if (!doc.expiresAt || !hasExpirationByType.get(doc.type)) return false;
+      const cfg = guardiaDocConfig.find((c) => c.code === doc.type);
+      const daysBefore = cfg?.alertDaysBefore ?? 30;
+      const limit = new Date(today);
+      limit.setDate(limit.getDate() + daysBefore);
       const exp = new Date(doc.expiresAt);
-      return exp <= in30;
+      return exp <= limit;
     });
-  }, [guardia.documents]);
+  }, [guardia.documents, guardiaDocConfig, hasExpirationByType]);
 
   const handleSendCommunication = async () => {
     if (!commForm.templateId) {
@@ -1610,9 +1626,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               id: item.document.id,
               title: item.document.title,
               category: item.document.category,
-              status: item.document.status,
               signatureStatus: item.document.signatureStatus,
-              createdAt: item.document.createdAt,
+              expirationDate: item.document.expirationDate ?? null,
             }))}
           onDocumentsGenerated={loadDocLinks}
           canManageDocs={canManageDocs}
@@ -1667,7 +1682,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           </p>
           {expiringDocs.length > 0 ? (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-              Hay {expiringDocs.length} documento(s) vencido(s) o por vencer en los próximos 30 días.
+              Hay {expiringDocs.length} documento(s) vencido(s) o por vencer.
             </div>
           ) : null}
           <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
@@ -1678,7 +1693,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 <select
                   className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                   value={docForm.type}
-                  onChange={(e) => setDocForm((prev) => ({ ...prev, type: e.target.value }))}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    setDocForm((prev) => ({
+                      ...prev,
+                      type: nextType,
+                      expiresAt: hasExpirationByType.get(nextType) ? prev.expiresAt : "",
+                    }));
+                  }}
                 >
                   {DOCUMENT_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -1687,27 +1709,29 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-4">
-                <label className="text-xs text-muted-foreground block mb-1">Vencimiento (opc.)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    ref={expiresAtRef}
-                    type="date"
-                    value={docForm.expiresAt}
-                    onChange={(e) => setDocForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => expiresAtRef.current?.showPicker?.()}
-                    aria-label="Abrir calendario de vencimiento"
-                  >
-                    <CalendarDays className="h-4 w-4 text-white" />
-                  </Button>
+              {hasExpirationByType.get(docForm.type) && (
+                <div className="md:col-span-4">
+                  <label className="text-xs text-muted-foreground block mb-1">Vencimiento</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={expiresAtRef}
+                      type="date"
+                      value={docForm.expiresAt}
+                      onChange={(e) => setDocForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => expiresAtRef.current?.showPicker?.()}
+                      aria-label="Abrir calendario de vencimiento"
+                    >
+                      <CalendarDays className="h-4 w-4 text-white" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="md:col-span-4 flex flex-col justify-end gap-2">
                 <label className="text-xs text-muted-foreground">Archivo (PDF, imagen)</label>
                 <div className="flex items-center gap-2">
@@ -1758,24 +1782,28 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                     <div key={doc.id} className="rounded-md border border-border p-3 space-y-3">
                       <div className="flex flex-col gap-1">
                         <p className="text-sm font-medium">{DOC_LABEL[doc.type] || doc.type}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {doc.expiresAt ? `Vence: ${new Date(doc.expiresAt).toLocaleDateString("es-CL")}` : "Sin vencimiento"}
-                        </p>
+                        {hasExpirationByType.get(doc.type) && (
+                          <p className="text-xs text-muted-foreground">
+                            {doc.expiresAt ? `Vence: ${new Date(doc.expiresAt).toLocaleDateString("es-CL")}` : "Sin vencimiento"}
+                          </p>
+                        )}
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Vencimiento</label>
-                        <Input
-                          type="date"
-                          value={edit.expiresAt}
-                          disabled={!canManageDocs}
-                          onChange={(e) =>
-                            setDocEdits((prev) => ({
-                              ...prev,
-                              [doc.id]: { ...edit, expiresAt: e.target.value },
-                            }))
-                          }
-                        />
-                      </div>
+                      {hasExpirationByType.get(doc.type) && (
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">Vencimiento</label>
+                          <Input
+                            type="date"
+                            value={edit.expiresAt}
+                            disabled={!canManageDocs}
+                            onChange={(e) =>
+                              setDocEdits((prev) => ({
+                                ...prev,
+                                [doc.id]: { ...edit, expiresAt: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-2">
                         <Button asChild size="sm" variant="outline">
                           <a href={doc.fileUrl || "#"} target="_blank" rel="noreferrer">
@@ -1868,18 +1896,23 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           {linkedDocs.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin documentos vinculados.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-3 md:grid-cols-3">
               {linkedDocs.map((item) => (
-                <div key={item.id} className="rounded-md border border-border p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{item.document.title}</p>
+                <div key={item.id} className="rounded-md border border-border p-3 flex flex-col gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{item.document.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.document.category} · {item.document.status}
+                      {item.document.category}
                       {item.role === "primary" ? " · Principal" : item.role === "related" ? " · Relacionado" : " · Copia"}
                     </p>
+                    {item.document.expirationDate && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Vence: {new Date(item.document.expirationDate).toLocaleDateString("es-CL")}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button asChild size="sm" variant="outline">
+                  <div className="flex items-center gap-2 mt-auto">
+                    <Button asChild size="sm" variant="outline" className="flex-1">
                       <Link href={`/opai/documentos/${item.document.id}`}>Abrir</Link>
                     </Button>
                     <Button
@@ -1889,8 +1922,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                       onClick={() => void handleUnlinkDocument(item.document.id)}
                       disabled={!canManageDocs || unlinkingDocId === item.document.id}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Quitar
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

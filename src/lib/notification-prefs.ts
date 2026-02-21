@@ -1,42 +1,18 @@
 /**
  * Notification preferences helper.
  * Lee las preferencias de notificación del tenant desde Setting.
+ * Solo parámetros globales (ej: docExpiryDaysDefault).
+ * Las preferencias por usuario (bell/email) están en UserNotificationPreference.
  */
 
 import { prisma } from "@/lib/prisma";
 
 export interface NotificationPrefs {
-  newLeadBellEnabled: boolean;
-  newLeadEmailEnabled: boolean;
-  followupBellEnabled: boolean;
-  followupEmailEnabled: boolean;
-  docExpiryBellEnabled: boolean;
-  docExpiryEmailEnabled: boolean;
-  guardiaDocExpiryBellEnabled: boolean;
-  postulacionBellEnabled: boolean;
-  refuerzoBellEnabled: boolean;
-  refuerzoEmailEnabled: boolean;
   docExpiryDaysDefault: number;
-  signatureCompleteBellEnabled: boolean;
-  signatureCompleteEmailEnabled: boolean;
-  emailOpenedBellEnabled: boolean;
 }
 
 const DEFAULTS: NotificationPrefs = {
-  newLeadBellEnabled: true,
-  newLeadEmailEnabled: false,
-  followupBellEnabled: true,
-  followupEmailEnabled: true,
-  docExpiryBellEnabled: true,
-  docExpiryEmailEnabled: true,
-  guardiaDocExpiryBellEnabled: true,
-  postulacionBellEnabled: true,
-  refuerzoBellEnabled: true,
-  refuerzoEmailEnabled: true,
   docExpiryDaysDefault: 30,
-  signatureCompleteBellEnabled: true,
-  signatureCompleteEmailEnabled: true,
-  emailOpenedBellEnabled: true,
 };
 
 export async function getNotificationPrefs(tenantId: string): Promise<NotificationPrefs> {
@@ -46,7 +22,13 @@ export async function getNotificationPrefs(tenantId: string): Promise<Notificati
     });
     if (!setting?.value) return { ...DEFAULTS };
     const parsed = JSON.parse(setting.value);
-    return { ...DEFAULTS, ...parsed };
+    return {
+      ...DEFAULTS,
+      docExpiryDaysDefault:
+        typeof parsed.docExpiryDaysDefault === "number"
+          ? Math.max(1, Math.min(365, parsed.docExpiryDaysDefault))
+          : DEFAULTS.docExpiryDaysDefault,
+    };
   } catch {
     return { ...DEFAULTS };
   }

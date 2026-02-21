@@ -9,27 +9,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays, format } from "date-fns";
-import {
-  sendDocumentExpiringEmail,
-  sendDocumentExpiredEmail,
-} from "@/lib/docs-alert-email";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  "https://opai.gard.cl";
-
-import { getNotificationPrefs } from "@/lib/notification-prefs";
-
-/** Obtener emails de admins/owners del tenant */
-async function getAdminEmails(tenantId: string): Promise<string[]> {
-  const admins = await prisma.admin.findMany({
-    where: { tenantId, role: { in: ["owner", "admin"] }, status: "active" },
-    select: { email: true },
-  });
-  return admins.map((a) => a.email);
-}
-
 export async function GET(request: NextRequest) {
   try {
     // Validate cron secret
@@ -69,19 +48,6 @@ export async function GET(request: NextRequest) {
         alertDaysBefore: true,
       },
     });
-
-    // Cache per-tenant prefs and admin emails
-    const prefsCache = new Map<string, Awaited<ReturnType<typeof getNotificationPrefs>>>();
-    const adminCache = new Map<string, string[]>();
-
-    async function prefs(tid: string) {
-      if (!prefsCache.has(tid)) prefsCache.set(tid, await getNotificationPrefs(tid));
-      return prefsCache.get(tid)!;
-    }
-    async function admins(tid: string) {
-      if (!adminCache.has(tid)) adminCache.set(tid, await getAdminEmails(tid));
-      return adminCache.get(tid)!;
-    }
 
     for (const doc of activeDocuments) {
       if (!doc.expirationDate) continue;

@@ -371,26 +371,20 @@ export async function POST(
           });
 
           if (cotizacionStage && deal.stageId !== cotizacionStage.id) {
-            const currentStage = await prisma.crmPipelineStage.findFirst({
-              where: { id: deal.stageId },
+            await prisma.crmDeal.update({
+              where: { id: deal.id },
+              data: { stageId: cotizacionStage.id },
             });
 
-            if (currentStage && currentStage.order < cotizacionStage.order) {
-              await prisma.crmDeal.update({
-                where: { id: deal.id },
-                data: { stageId: cotizacionStage.id },
-              });
-
-              await prisma.crmDealStageHistory.create({
-                data: {
-                  tenantId: ctx.tenantId,
-                  dealId: deal.id,
-                  fromStageId: deal.stageId,
-                  toStageId: cotizacionStage.id,
-                  changedBy: ctx.userId,
-                },
-              });
-            }
+            await prisma.crmDealStageHistory.create({
+              data: {
+                tenantId: ctx.tenantId,
+                dealId: deal.id,
+                fromStageId: deal.stageId,
+                toStageId: cotizacionStage.id,
+                changedBy: ctx.userId,
+              },
+            });
           }
         } catch (stageError) {
           console.error("Error actualizando etapa del deal:", stageError);

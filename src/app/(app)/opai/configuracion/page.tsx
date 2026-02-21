@@ -86,7 +86,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         submodule: "notificaciones",
         href: "/opai/configuracion/notificaciones",
         title: "Notificaciones",
-        description: "Alertas, emails y campana por módulo",
+        description: "Parámetros globales. Preferencias por usuario en Perfil",
         icon: Bell,
       },
       {

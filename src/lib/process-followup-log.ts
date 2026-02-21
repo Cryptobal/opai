@@ -429,8 +429,8 @@ export async function processFollowUpLog(
           ? config?.firstFollowUpStageId
           : config?.secondFollowUpStageId;
 
-      const fallbackStageName =
-        followUp.sequence === 1 ? "Primer seguimiento" : "Segundo seguimiento";
+      const fallbackNames =
+        followUp.sequence === 1 ? ["Primer seguimiento"] : ["Segundo seguimiento", "2do seguimiento"];
 
       const targetStage = configuredStageId
         ? await prisma.crmPipelineStage.findFirst({
@@ -443,7 +443,7 @@ export async function processFollowUpLog(
         : await prisma.crmPipelineStage.findFirst({
             where: {
               tenantId: followUp.tenantId,
-              name: fallbackStageName,
+              name: { in: fallbackNames },
               isActive: true,
             },
           });

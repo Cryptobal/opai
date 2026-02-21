@@ -16,28 +16,7 @@ function settingKey(tenantId: string) {
 }
 
 const DEFAULTS: Record<string, unknown> = {
-  // Leads
-  newLeadBellEnabled: true,
-  newLeadEmailEnabled: false,
-  // Follow-ups
-  followupBellEnabled: true,
-  followupEmailEnabled: true,
-  // Documentos
-  docExpiryBellEnabled: true,
-  docExpiryEmailEnabled: true,
-  // Ops - Documentos de guardias
-  guardiaDocExpiryBellEnabled: true,
-  // Ops - Nueva postulación
-  postulacionBellEnabled: true,
-  // Ops - Turnos de refuerzo
-  refuerzoBellEnabled: true,
-  refuerzoEmailEnabled: true,
   docExpiryDaysDefault: 30,
-  // Firma electrónica
-  signatureCompleteBellEnabled: true,
-  signatureCompleteEmailEnabled: true,
-  // Email tracking
-  emailOpenedBellEnabled: true,
 };
 
 export async function GET() {
@@ -82,23 +61,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const docExpiryDays =
+      typeof body.docExpiryDaysDefault === "number"
+        ? Math.max(1, Math.min(365, body.docExpiryDaysDefault))
+        : 30;
 
-    // Merge con existente
+    const merged = { docExpiryDaysDefault: docExpiryDays };
+    const value = JSON.stringify(merged);
+
     const existing = await prisma.setting.findFirst({
       where: { key: settingKey(ctx.tenantId) },
     });
-
-    let currentPrefs = { ...DEFAULTS };
-    if (existing?.value) {
-      try {
-        currentPrefs = { ...DEFAULTS, ...JSON.parse(existing.value) };
-      } catch {
-        // corrupted — start fresh
-      }
-    }
-
-    const merged = { ...currentPrefs, ...body };
-    const value = JSON.stringify(merged);
 
     if (existing) {
       await prisma.setting.update({
