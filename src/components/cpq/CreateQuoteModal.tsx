@@ -23,10 +23,13 @@ interface CreateQuoteModalProps {
   defaultDealName?: string;
   /** Cuenta para vincular la cotización (cuando se crea desde vista de cuenta). */
   accountId?: string;
+  /** Negocio para vincular la cotización (cuando se crea desde vista de negocio). */
   dealId?: string;
+  /** Instalación para vincular la cotización (cuando se crea desde vista de instalación). */
+  installationId?: string;
 }
 
-export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId }: CreateQuoteModalProps) {
+export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId }: CreateQuoteModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState(defaultClientName ?? "");
@@ -44,7 +47,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
     }
   }, [open, defaultClientName, defaultDealName]);
 
-  const createQuote = async (payload: { clientName?: string; validUntil?: string; notes?: string; accountId?: string }) => {
+  const createQuote = async (payload: { clientName?: string; validUntil?: string; notes?: string; accountId?: string; dealId?: string; installationId?: string }) => {
     setLoading(true);
     try {
       const res = await fetch("/api/cpq/quotes", {
@@ -53,7 +56,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Error");
+      if (!data.success) throw new Error(data.error || "No se pudo crear la cotización.");
       const quoteId = data?.data?.id;
       let dealQuote: { id: string; quoteId: string } | undefined;
       if (quoteId && dealId) {
@@ -76,11 +79,13 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       setNotes("");
       onCreated?.(quoteId, dealQuote);
       if (quoteId) {
-        router.push(`/cpq/${quoteId}`);
+        // Redirigir a la cotización creada (ruta CRM para consistencia)
+        router.push(`/crm/cotizaciones/${quoteId}`);
       }
     } catch (err) {
       console.error("Error creating CPQ quote:", err);
-      toast.error("No se pudo crear la cotización.");
+      const msg = err instanceof Error ? err.message : "No se pudo crear la cotización.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -98,7 +103,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       toast.error("El cliente es obligatorio.");
       return;
     }
-    await createQuote({ clientName: finalClient, validUntil, notes: finalNotes, accountId });
+    await createQuote({ clientName: finalClient, validUntil, notes: finalNotes, accountId, dealId, installationId });
   };
 
   if (variant === "quick") {

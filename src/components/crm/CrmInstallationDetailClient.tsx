@@ -1665,6 +1665,7 @@ export function CrmInstallationDetailClient({
         <CreateQuoteModal
           defaultClientName={installation.account.name}
           accountId={installation.account.id}
+          installationId={installation.id}
         />
       ) : undefined,
       children: !installation.quotesInstalacion?.length ? (

@@ -134,6 +134,26 @@ export async function ensureModuleAccess(
 }
 
 /**
+ * Verificar que el usuario pueda crear cotizaciones.
+ * Acepta acceso a crm.quotes (edit/full) O cpq (edit/full).
+ * Útil cuando se crea desde cuenta/cliente/negocio/instalación en el CRM.
+ */
+export async function ensureCanCreateQuote(
+  ctx: AuthContext,
+): Promise<NextResponse | null> {
+  const perms = await resolveApiPerms(ctx);
+  const canViaCrm = canEdit(perms, "crm", "quotes");
+  const canViaCpq = canEdit(perms, "cpq");
+  if (!canViaCrm && !canViaCpq) {
+    return NextResponse.json(
+      { success: false, error: "Sin permisos para crear cotizaciones" },
+      { status: 403 },
+    );
+  }
+  return null;
+}
+
+/**
  * Verificar permiso de eliminación (nivel full) en módulo/submódulo.
  * Retorna 403 o null.
  */

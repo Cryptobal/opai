@@ -68,11 +68,12 @@ export function CrmCotizacionesClient({
         body: JSON.stringify({}),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload?.error || "Error al crear cotización");
+      if (!res.ok) throw new Error(payload?.error || "No se pudo crear la cotización.");
       toast.success(`Cotización ${payload.data.code} creada`);
       router.push(`/crm/cotizaciones/${payload.data.id}`);
     } catch (error: any) {
       toast.error(error?.message || "No se pudo crear la cotización.");
+    } finally {
       setCreating(false);
     }
   };
