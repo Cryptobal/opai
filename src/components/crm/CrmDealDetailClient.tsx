@@ -28,6 +28,8 @@ import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
+import { CrmInstallationsClient } from "./CrmInstallationsClient";
+import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
@@ -115,7 +117,7 @@ export type DealDetail = {
   amount: string;
   status?: string;
   stage?: { id: string; name: string } | null;
-  account?: { id: string; name: string } | null;
+  account?: { id: string; name: string; isActive?: boolean } | null;
   primaryContactId?: string | null;
   primaryContact?: { firstName: string; lastName: string; email?: string | null; phone?: string | null } | null;
   quotes?: DealQuote[];
@@ -842,12 +844,25 @@ export function CrmDealDetailClient({
 
   const quotesSection: DetailSection = {
     key: "quotes",
+    label: "Cotizaciones",
     count: linkedQuotes.length,
     action: (
-      <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm" variant="ghost">Vincular</Button>
-        </DialogTrigger>
+      <div className="flex items-center gap-1">
+        <CreateQuoteModal
+          defaultClientName={deal.account?.name ?? undefined}
+          defaultDealName={deal.title}
+          accountId={deal.account?.id}
+          dealId={deal.id}
+          onCreated={(_quoteId, dealQuote) => {
+            if (dealQuote) {
+              setLinkedQuotes((prev) => [...prev, dealQuote]);
+            }
+          }}
+        />
+        <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="ghost">Vincular</Button>
+          </DialogTrigger>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
           <div className="space-y-2">
@@ -862,6 +877,7 @@ export function CrmDealDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     ),
     children: linkedQuotes.length === 0 ? (
       <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
@@ -891,32 +907,19 @@ export function CrmDealDetailClient({
     key: "installations",
     label: "Instalaciones de la cuenta",
     count: accountInstallations.length,
-    children: accountInstallations.length === 0 ? (
-      <EmptyState
-        icon={<MapPin className="h-8 w-8" />}
-        title="Sin instalaciones"
-        description="La cuenta no tiene instalaciones registradas."
-        compact
+    children: deal.account?.id ? (
+      <CrmInstallationsClient
+        accountId={deal.account.id}
+        accountIsActive={deal.account.isActive ?? true}
+        initialInstallations={accountInstallations}
       />
     ) : (
-      <div className="space-y-2">
-        {accountInstallations.map((inst) => (
-          <CrmRelatedRecordCard
-            key={inst.id}
-            module="installations"
-            title={inst.name}
-            subtitle={
-              [inst.address, inst.commune, inst.city].filter(Boolean).join(", ") || "Sin dirección"
-            }
-            badge={
-              inst.isActive
-                ? { label: "Activa", variant: "success" as const }
-                : { label: "Inactiva", variant: "secondary" as const }
-            }
-            href={`/crm/installations/${inst.id}`}
-          />
-        ))}
-      </div>
+      <EmptyState
+        icon={<MapPin className="h-8 w-8" />}
+        title="Sin cuenta"
+        description="Vincula este negocio a una cuenta para crear instalaciones."
+        compact
+      />
     ),
   };
 

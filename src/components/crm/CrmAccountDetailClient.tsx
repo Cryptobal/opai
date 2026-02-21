@@ -35,6 +35,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
+import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -773,7 +774,15 @@ export function CrmAccountDetailClient({
     },
     {
       key: "quotes",
+      label: "Cotizaciones",
       count: quotes.length,
+      action: (
+        <CreateQuoteModal
+          defaultClientName={account.name}
+          accountId={account.id}
+          buttonLabel="Nueva"
+        />
+      ),
       children: quotes.length === 0 ? (
         <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
       ) : (

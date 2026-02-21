@@ -43,7 +43,7 @@ export async function GET(
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { tenantId: true },
+      select: { tenantId: true, createdFromLeadId: true },
     });
     if (!quote) {
       return NextResponse.json(
@@ -128,54 +128,64 @@ export async function GET(
     const existingCostIds = new Set(costItems.map((item) => item.catalogItemId));
     const existingMealTypes = new Set(meals.map((meal) => meal.mealType.toLowerCase()));
 
-    const defaultUniforms = uniformCatalog
-      .filter((item) => uniformDefaultIds.has(item.id))
-      .filter((item) => !existingUniformIds.has(item.id))
-      .map((item) => ({
-        quoteId: id,
-        catalogItemId: item.id,
-        unitPriceOverride: null,
-        active: true,
-        catalogItem: item,
-      }));
+    const skipDefaultCosts = Boolean(quote?.createdFromLeadId);
 
-    const defaultExams = defaultCatalog
-      .filter((item) => examDefaultIds.has(item.id))
-      .filter((item) => !existingExamIds.has(item.id))
-      .map((item) => ({
-        quoteId: id,
-        catalogItemId: item.id,
-        unitPriceOverride: null,
-        active: true,
-        catalogItem: item,
-      }));
+    const defaultUniforms = skipDefaultCosts
+      ? []
+      : uniformCatalog
+          .filter((item) => uniformDefaultIds.has(item.id))
+          .filter((item) => !existingUniformIds.has(item.id))
+          .map((item) => ({
+            quoteId: id,
+            catalogItemId: item.id,
+            unitPriceOverride: null,
+            active: true,
+            catalogItem: item,
+          }));
 
-    const defaultMeals = mealDefaults
-      .filter((item) => !existingMealTypes.has(item.name.toLowerCase()))
-      .map((item) => ({
-        quoteId: id,
-        mealType: item.name,
-        mealsPerDay: 0,
-        daysOfService: 0,
-        priceOverride: null,
-        isEnabled: true,
-        visibility: "visible",
-      }));
+    const defaultExams = skipDefaultCosts
+      ? []
+      : defaultCatalog
+          .filter((item) => examDefaultIds.has(item.id))
+          .filter((item) => !existingExamIds.has(item.id))
+          .map((item) => ({
+            quoteId: id,
+            catalogItemId: item.id,
+            unitPriceOverride: null,
+            active: true,
+            catalogItem: item,
+          }));
 
-    const defaultCostItems = defaultCatalog
-      .filter((item) => costDefaultIds.has(item.id))
-      .filter((item) => !existingCostIds.has(item.id))
-      .map((item) => ({
-        quoteId: id,
-        catalogItemId: item.id,
-        calcMode: "per_month",
-        quantity: 1,
-        unitPriceOverride: null,
-        isEnabled: true,
-        visibility: item.defaultVisibility || "visible",
-        notes: null,
-        catalogItem: item,
-      }));
+    const defaultMeals = skipDefaultCosts
+      ? []
+      : mealDefaults
+          .filter((item) => !existingMealTypes.has(item.name.toLowerCase()))
+          .map((item) => ({
+            quoteId: id,
+            mealType: item.name,
+            mealsPerDay: 0,
+            daysOfService: 0,
+            priceOverride: null,
+            isEnabled: true,
+            visibility: "visible",
+          }));
+
+    const defaultCostItems = skipDefaultCosts
+      ? []
+      : defaultCatalog
+          .filter((item) => costDefaultIds.has(item.id))
+          .filter((item) => !existingCostIds.has(item.id))
+          .map((item) => ({
+            quoteId: id,
+            catalogItemId: item.id,
+            calcMode: "per_month",
+            quantity: 1,
+            unitPriceOverride: null,
+            isEnabled: true,
+            visibility: item.defaultVisibility || "visible",
+            notes: null,
+            catalogItem: item,
+          }));
 
     const mergedUniforms = [...uniforms, ...defaultUniforms];
     const mergedExams = [...exams, ...defaultExams];
@@ -387,6 +397,7 @@ export async function GET(
         vehicles,
         infrastructure,
         summary,
+        skipDefaultCosts: skipDefaultCosts,
       },
     });
   } catch (error) {
@@ -411,7 +422,7 @@ export async function PUT(
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { tenantId: true },
+      select: { tenantId: true, createdFromLeadId: true },
     });
     if (!quote) {
       return NextResponse.json(

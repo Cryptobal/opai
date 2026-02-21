@@ -1673,7 +1673,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
             <p className="text-sm font-medium">Subir nuevo documento</p>
             <div className="grid gap-3 md:grid-cols-12">
-              <div className="md:col-span-3">
+              <div className="md:col-span-4">
                 <label className="text-xs text-muted-foreground block mb-1">Tipo de documento</label>
                 <select
                   className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -1687,42 +1687,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-2">
-                <label className="text-xs text-muted-foreground block mb-1">Estado</label>
-                <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                  value={docForm.status}
-                  onChange={(e) => setDocForm((prev) => ({ ...prev, status: e.target.value }))}
-                >
-                  {DOCUMENT_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs text-muted-foreground block mb-1">Emisión (opc.)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    ref={issuedAtRef}
-                    type="date"
-                    value={docForm.issuedAt}
-                    onChange={(e) => setDocForm((prev) => ({ ...prev, issuedAt: e.target.value }))}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => issuedAtRef.current?.showPicker?.()}
-                    aria-label="Abrir calendario de emisión"
-                  >
-                    <CalendarDays className="h-4 w-4 text-white" />
-                  </Button>
-                </div>
-              </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-4">
                 <label className="text-xs text-muted-foreground block mb-1">Vencimiento (opc.)</label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -1743,7 +1708,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   </Button>
                 </div>
               </div>
-              <div className="md:col-span-3 flex flex-col justify-end gap-2">
+              <div className="md:col-span-4 flex flex-col justify-end gap-2">
                 <label className="text-xs text-muted-foreground">Archivo (PDF, imagen)</label>
                 <div className="flex items-center gap-2">
                   <input
@@ -1786,91 +1751,62 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             {guardia.documents.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aún no hay documentos. Usa el bloque de arriba para subir el primero.</p>
             ) : (
-              guardia.documents.map((doc) => {
-                const edit = getDocEdit(doc);
-                return (
-                  <div key={doc.id} className="rounded-md border border-border p-3 space-y-3">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                      <div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {guardia.documents.map((doc) => {
+                  const edit = getDocEdit(doc);
+                  return (
+                    <div key={doc.id} className="rounded-md border border-border p-3 space-y-3">
+                      <div className="flex flex-col gap-1">
                         <p className="text-sm font-medium">{DOC_LABEL[doc.type] || doc.type}</p>
                         <p className="text-xs text-muted-foreground">
-                          Estado: {doc.status}
-                          {doc.expiresAt ? ` · Vence: ${new Date(doc.expiresAt).toLocaleDateString("es-CL")}` : ""}
+                          {doc.expiresAt ? `Vence: ${new Date(doc.expiresAt).toLocaleDateString("es-CL")}` : "Sin vencimiento"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Vencimiento</label>
+                        <Input
+                          type="date"
+                          value={edit.expiresAt}
+                          disabled={!canManageDocs}
+                          onChange={(e) =>
+                            setDocEdits((prev) => ({
+                              ...prev,
+                              [doc.id]: { ...edit, expiresAt: e.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
                         <Button asChild size="sm" variant="outline">
                           <a href={doc.fileUrl || "#"} target="_blank" rel="noreferrer">
                             Ver archivo
                           </a>
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void handleDeleteDocument(doc)}
-                          disabled={deletingDocId === doc.id || !canManageDocs}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Eliminar
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void handleSaveDocument(doc)}
+                            disabled={savingDocId === doc.id || !canManageDocs}
+                          >
+                            <Save className="h-4 w-4 mr-1" />
+                            {savingDocId === doc.id ? "..." : "Guardar"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleDeleteDocument(doc)}
+                            disabled={deletingDocId === doc.id || !canManageDocs}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <select
-                        className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                        value={edit.status}
-                        disabled={!canManageDocs}
-                        onChange={(e) =>
-                          setDocEdits((prev) => ({
-                            ...prev,
-                            [doc.id]: { ...edit, status: e.target.value },
-                          }))
-                        }
-                      >
-                        {DOCUMENT_STATUS.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        type="date"
-                        value={edit.issuedAt}
-                        disabled={!canManageDocs}
-                        onChange={(e) =>
-                          setDocEdits((prev) => ({
-                            ...prev,
-                            [doc.id]: { ...edit, issuedAt: e.target.value },
-                          }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        value={edit.expiresAt}
-                        disabled={!canManageDocs}
-                        onChange={(e) =>
-                          setDocEdits((prev) => ({
-                            ...prev,
-                            [doc.id]: { ...edit, expiresAt: e.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => void handleSaveDocument(doc)}
-                        disabled={savingDocId === doc.id || !canManageDocs}
-                      >
-                        <Save className="h-4 w-4 mr-1" />
-                        {savingDocId === doc.id ? "Guardando..." : "Guardar cambios"}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
 

@@ -2,12 +2,13 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Menu, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette } from './CommandPalette';
 import { NotificationBell } from './NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
+import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
 
@@ -93,16 +94,11 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           }}
         >
           <Link href="/hub" className="flex shrink-0 items-center gap-2 hover:opacity-80">
-            <Image
-              src="/logo%20escudo%20blanco.png"
-              alt="Gard Security"
-              width={28}
-              height={28}
-              className="h-7 w-7 object-contain"
-            />
+            <ThemeLogo width={28} height={28} className="h-7 w-7" />
             <span className="text-sm font-semibold tracking-tight">OPAI</span>
           </Link>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
+            <ThemeToggle compact />
             <NotificationBell compact />
             <button
               type="button"

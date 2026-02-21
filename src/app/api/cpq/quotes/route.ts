@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     const clientName = body?.clientName?.trim() || null;
     const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
     const notes = body?.notes?.trim() || null;
+    const accountId = body?.accountId?.trim() || null;
 
     // Generar código único con retry para evitar race condition
     const year = new Date().getFullYear();
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
             clientName,
             validUntil,
             notes,
+            ...(accountId ? { accountId } : {}),
           },
         });
       } catch (err: any) {

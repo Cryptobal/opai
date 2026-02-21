@@ -7,8 +7,66 @@
 @layer base {
   :root {
     /* ============================================
-       OPAI Design System v2 — Unified Dark Theme
+       OPAI Design System v2 — Light Theme
        Font: Inter Variable
+       ============================================ */
+
+    /* Background & Foreground */
+    --background: 0 0% 100%;              /* #ffffff */
+    --foreground: 220 20% 10%;            /* #151a23 */
+
+    /* Cards & Surfaces */
+    --card: 0 0% 100%;                    /* #ffffff */
+    --card-foreground: 220 20% 10%;       /* #151a23 */
+
+    /* Popovers & Dropdowns (elevated) */
+    --popover: 0 0% 100%;                /* #ffffff */
+    --popover-foreground: 220 20% 10%;   /* #151a23 */
+
+    /* Borders & Inputs */
+    --border: 220 13% 87%;               /* #d9dde4 */
+    --input: 220 13% 85%;               /* #d3d8e0 */
+
+    /* Muted (secondary text, disabled) */
+    --muted: 220 14% 96%;               /* #f2f4f7 */
+    --muted-foreground: 215 16% 43%;    /* #5c6b82 */
+
+    /* Accent (hover, active states) */
+    --accent: 220 14% 93%;              /* #ebeef3 */
+    --accent-foreground: 220 20% 10%;   /* #151a23 */
+
+    /* Primary — Teal (main CTA) */
+    --primary: 166 76% 40%;             /* #189a79 slightly darker for contrast on white */
+    --primary-foreground: 0 0% 100%;    /* white text on teal */
+
+    /* Secondary — Muted action */
+    --secondary: 220 14% 93%;           /* #ebeef3 */
+    --secondary-foreground: 220 20% 10%;/* #151a23 */
+
+    /* Destructive — Red */
+    --destructive: 0 72% 51%;            /* #dc2626 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Ring (focus indicators) */
+    --ring: 166 76% 40%;                 /* same as primary */
+
+    /* Border Radius */
+    --radius: 0.5rem;
+
+    /* Chart Colors */
+    --chart-1: 166 76% 40%;
+    --chart-2: 217 91% 50%;
+    --chart-3: 142 71% 38%;
+    --chart-4: 38 92% 45%;
+    --chart-5: 340 82% 45%;
+
+    /* Legacy glow */
+    --glow-color: 24, 154, 121;
+  }
+
+  .dark {
+    /* ============================================
+       OPAI Design System v2 — Dark Theme
        ============================================ */
 
     /* Background & Foreground */
@@ -49,9 +107,6 @@
 
     /* Ring (focus indicators) */
     --ring: 166 76% 47%;                  /* same as primary */
-
-    /* Border Radius */
-    --radius: 0.5rem;
 
     /* Chart Colors */
     --chart-1: 166 76% 47%;
@@ -156,16 +211,24 @@
     transform: translateX(100%);
   }
 
-  /* Icono calendario visible en inputs tipo date (tema oscuro) */
+  /* Icono calendario visible en inputs tipo date */
   input[type="date"],
   input[type="datetime-local"] {
-    color-scheme: dark; /* Firefox: calendario con icono visible */
+    color-scheme: light;
   }
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    filter: brightness(0) invert(1); /* blanco visible sobre fondo oscuro */
     opacity: 1;
     cursor: pointer;
+  }
+
+  .dark input[type="date"],
+  .dark input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
   }
 
   /* Scrollbar hide utility */

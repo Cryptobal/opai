@@ -575,6 +575,7 @@ export async function POST(
                 contactId: contact.id,
                 dealId: deal.id,
                 installationId,
+                createdFromLeadId: lead.id,
                 totalPositions: dotacionTotals.totalPositions,
                 totalGuards: dotacionTotals.totalGuards,
                 notes: dealNotes,

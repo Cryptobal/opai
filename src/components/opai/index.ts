@@ -33,6 +33,11 @@ export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbItem } from './Breadcrumb';
 export { StatusBadge } from './StatusBadge';
 
+// Theme
+export { ThemeProvider, useTheme } from './ThemeProvider';
+export { ThemeToggle } from './ThemeToggle';
+export { ThemeLogo } from './ThemeLogo';
+
 // Topbar Components
 export { TemplatesDropdown } from './TemplatesDropdown';
 export { NotificationBell } from './NotificationBell';

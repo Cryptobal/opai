@@ -36,7 +36,7 @@ const normalizePct = (value: number) => value / 100;
 export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSummary> {
   const quote = await prisma.cpqQuote.findUnique({
     where: { id: quoteId },
-    select: { tenantId: true },
+    select: { tenantId: true, createdFromLeadId: true },
   });
   const tenantId = quote?.tenantId ?? null;
 
@@ -149,44 +149,54 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const existingCostIds = new Set(costItems.map((item) => item.catalogItemId));
   const existingMealTypes = new Set(meals.map((meal) => meal.mealType.toLowerCase()));
 
-  const defaultUniforms = uniformCatalog
-    .filter((item) => uniformDefaultIds.has(item.id))
-    .filter((item) => !existingUniformIds.has(item.id))
-    .map((item) => ({
-      catalogItemId: item.id,
-      unitPriceOverride: null,
-      active: true,
-      catalogItem: item,
-    }));
-  const defaultExams = defaultCatalog
-    .filter((item) => examDefaultIds.has(item.id))
-    .filter((item) => !existingExamIds.has(item.id))
-    .map((item) => ({
-      catalogItemId: item.id,
-      unitPriceOverride: null,
-      active: true,
-      catalogItem: item,
-    }));
-  const defaultCostItems = defaultCatalog
-    .filter((item) => costDefaultIds.has(item.id))
-    .filter((item) => !existingCostIds.has(item.id))
-    .map((item) => ({
-      catalogItemId: item.id,
-      calcMode: "per_month",
-      quantity: 1,
-      unitPriceOverride: null,
-      isEnabled: true,
-      catalogItem: item,
-    }));
-  const defaultMeals = mealDefaults
-    .filter((item) => !existingMealTypes.has(item.name.toLowerCase()))
-    .map((item) => ({
-      mealType: item.name,
-      mealsPerDay: 0,
-      daysOfService: 0,
-      priceOverride: null,
-      isEnabled: true,
-    }));
+  const skipDefaultCosts = Boolean(quote?.createdFromLeadId);
+
+  const defaultUniforms = skipDefaultCosts
+    ? []
+    : uniformCatalog
+        .filter((item) => uniformDefaultIds.has(item.id))
+        .filter((item) => !existingUniformIds.has(item.id))
+        .map((item) => ({
+          catalogItemId: item.id,
+          unitPriceOverride: null,
+          active: true,
+          catalogItem: item,
+        }));
+  const defaultExams = skipDefaultCosts
+    ? []
+    : defaultCatalog
+        .filter((item) => examDefaultIds.has(item.id))
+        .filter((item) => !existingExamIds.has(item.id))
+        .map((item) => ({
+          catalogItemId: item.id,
+          unitPriceOverride: null,
+          active: true,
+          catalogItem: item,
+        }));
+  const defaultCostItems = skipDefaultCosts
+    ? []
+    : defaultCatalog
+        .filter((item) => costDefaultIds.has(item.id))
+        .filter((item) => !existingCostIds.has(item.id))
+        .map((item) => ({
+          catalogItemId: item.id,
+          calcMode: "per_month",
+          quantity: 1,
+          unitPriceOverride: null,
+          isEnabled: true,
+          catalogItem: item,
+        }));
+  const defaultMeals = skipDefaultCosts
+    ? []
+    : mealDefaults
+        .filter((item) => !existingMealTypes.has(item.name.toLowerCase()))
+        .map((item) => ({
+          mealType: item.name,
+          mealsPerDay: 0,
+          daysOfService: 0,
+          priceOverride: null,
+          isEnabled: true,
+        }));
 
   const mergedUniforms = [...uniformItems, ...defaultUniforms];
   const mergedExams = [...examItems, ...defaultExams];

@@ -789,6 +789,7 @@ model CpqQuote {
   contactId      String?   @map("contact_id") @db.Uuid
   dealId         String?   @map("deal_id") @db.Uuid
   installationId String?   @map("installation_id") @db.Uuid
+  createdFromLeadId String? @map("created_from_lead_id") @db.Uuid
   // Currency & AI
   currency       String    @default("CLP") // "CLP" | "UF"
   aiDescription  String?   @map("ai_description")

@@ -101,6 +101,7 @@ export function CpqQuoteCosts({
   const [meals, setMeals] = useState<CpqQuoteMeal[]>([]);
   const [vehicles, setVehicles] = useState<CpqQuoteVehicle[]>([]);
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
+  const [skipDefaultCosts, setSkipDefaultCosts] = useState(false);
   const defaultsApplied = useRef(false);
   const inputClass =
     "h-10 bg-card text-foreground border-border placeholder:text-muted-foreground";
@@ -149,6 +150,7 @@ export function CpqQuoteCosts({
       if (costsData?.success) {
         const payload = costsData.data || {};
         setSummary(payload.summary || null);
+        setSkipDefaultCosts(Boolean(payload.skipDefaultCosts));
         const globalDefaults = settingsData?.success ? settingsData.data : {};
         setParameters({
           ...DEFAULT_PARAMS,
@@ -338,7 +340,7 @@ export function CpqQuoteCosts({
   }, [catalog]);
 
   const applyDefaults = () => {
-    if (defaultsApplied.current) return;
+    if (defaultsApplied.current || skipDefaultCosts) return;
 
     const uniformDefaults = (catalogByType.uniform || []).filter((item) =>
       typeof item.name === "string" && isDefaultUniform(item.name)
@@ -565,7 +567,7 @@ export function CpqQuoteCosts({
   useEffect(() => {
     if ((!open && !isInline) || !catalog.length) return;
     applyDefaults();
-  }, [open, isInline, catalog, uniforms.length, exams.length, meals.length, costItems.length]);
+  }, [open, isInline, catalog, uniforms.length, exams.length, meals.length, costItems.length, skipDefaultCosts]);
 
   const extraItemsCatalog = useMemo(() => {
     return catalog.filter((item) => item.type === "system");

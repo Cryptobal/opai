@@ -3,9 +3,9 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { ChevronRight, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ThemeLogo } from './ThemeLogo';
 
 export interface NavSubItem {
   href: string;
@@ -176,13 +176,7 @@ export function AppSidebar({
             onClick={onNavigate}
             title={collapsed ? "OPAI" : undefined}
           >
-            <Image
-              src="/logo%20escudo%20blanco.png"
-              alt="Gard Security"
-              width={28}
-              height={28}
-              className="h-7 w-7 object-contain"
-            />
+            <ThemeLogo width={28} height={28} className="h-7 w-7" />
             {!collapsed && (
               <span
                 className={cn(

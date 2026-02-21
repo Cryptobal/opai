@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../styles/globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/opai/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Gard Docs - Presentaciones Comerciales",
@@ -30,10 +32,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" className="dark" suppressHydrationWarning>
+      <head>
+        <Script id="theme-init" strategy="beforeInteractive">{`
+          try {
+            var t = localStorage.getItem('opai-theme');
+            if (t === 'light') document.documentElement.classList.remove('dark');
+            else document.documentElement.classList.add('dark');
+          } catch(e) { document.documentElement.classList.add('dark'); }
+        `}</Script>
+      </head>
       <body>
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

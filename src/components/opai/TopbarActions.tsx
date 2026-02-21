@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, LogOut, Settings, User } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
 import {
   DropdownMenu,
@@ -41,6 +42,9 @@ export function TopbarActions({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
+      {/* Toggle tema claro/oscuro */}
+      <ThemeToggle />
+
       {/* Campana de notificaciones */}
       <NotificationBell />
 

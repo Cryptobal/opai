@@ -33,6 +33,7 @@ export default async function CrmDealDetailPage({
           name: true,
           type: true,
           status: true,
+          isActive: true,
         },
       },
       stage: true,
