@@ -109,9 +109,19 @@ export async function POST(
     const { id: ticketId } = await params;
     const body = await request.json();
 
-    if (!body.decision || !["approved", "rejected"].includes(body.decision)) {
+    // Accept both frontend format (action: "approve"/"reject") and canonical (decision: "approved"/"rejected")
+    let resolvedDecision: "approved" | "rejected" | null = null;
+    if (body.decision && ["approved", "rejected"].includes(body.decision)) {
+      resolvedDecision = body.decision;
+    } else if (body.action === "approve") {
+      resolvedDecision = "approved";
+    } else if (body.action === "reject") {
+      resolvedDecision = "rejected";
+    }
+
+    if (!resolvedDecision) {
       return NextResponse.json(
-        { success: false, error: "Campo requerido: decision ('approved' | 'rejected')" },
+        { success: false, error: "Campo requerido: decision ('approved' | 'rejected') o action ('approve' | 'reject')" },
         { status: 400 },
       );
     }
@@ -152,7 +162,7 @@ export async function POST(
     }
 
     const now = new Date();
-    const decision = body.decision as "approved" | "rejected";
+    const decision = resolvedDecision;
 
     // Update the approval record
     const updatedApproval = await prisma.opsTicketApproval.update({
