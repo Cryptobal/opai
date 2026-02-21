@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  Trash2,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -146,6 +147,33 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDelete =
+    userRole === "owner" || userRole === "admin" || (ticket && ticket.reportedBy === userId);
+
+  async function handleDeleteTicket() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Ticket eliminado");
+      router.push("/ops/tickets");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar ticket");
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -211,6 +239,25 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               <AlertTriangle className="h-2.5 w-2.5" />
               SLA vencido
             </Badge>
+          )}
+          {canDelete && (
+            <div className="ml-auto">
+              <Button
+                variant={confirmDelete ? "destructive" : "ghost"}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                disabled={deleting}
+                onClick={handleDeleteTicket}
+                onBlur={() => setConfirmDelete(false)}
+              >
+                {deleting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+                {confirmDelete ? "Confirmar eliminar" : "Eliminar"}
+              </Button>
+            </div>
           )}
         </div>
         <h2 className="mt-1 text-base font-semibold">{ticket.title}</h2>

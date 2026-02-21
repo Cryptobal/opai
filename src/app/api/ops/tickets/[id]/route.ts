@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { isAdminRole } from "@/lib/access";
 import type { Ticket, TicketApproval } from "@/lib/tickets";
 
 type Params = { id: string };
@@ -207,6 +208,71 @@ export async function PATCH(
     console.error("[OPS] Error updating ticket:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo actualizar el ticket" },
+      { status: 500 },
+    );
+  }
+}
+
+/* ── DELETE /api/ops/tickets/[id] ─────────────────────────────── */
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> },
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+
+    const ticket = await prisma.opsTicket.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { id: true, reportedBy: true },
+    });
+
+    if (!ticket) {
+      return NextResponse.json(
+        { success: false, error: "Ticket no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    // Only the ticket owner (reportedBy) or admin/owner roles can delete
+    const isOwner = ticket.reportedBy === ctx.userId;
+    const isAdmin = isAdminRole(ctx.userRole);
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { success: false, error: "Solo el creador del ticket o un administrador pueden eliminarlo" },
+        { status: 403 },
+      );
+    }
+
+    // Delete related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Unlink refuerzo if exists (set ticketId to null, revert status)
+      await tx.opsRefuerzoSolicitud.updateMany({
+        where: { ticketId: id },
+        data: { ticketId: null, status: "solicitado" },
+      });
+
+      // Delete approvals
+      await tx.opsTicketApproval.deleteMany({ where: { ticketId: id } });
+
+      // Delete comments
+      await tx.opsTicketComment.deleteMany({ where: { ticketId: id } });
+
+      // Delete the ticket
+      await tx.opsTicket.delete({ where: { id } });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[OPS] Error deleting ticket:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar el ticket" },
       { status: 500 },
     );
   }
