@@ -74,11 +74,11 @@ export async function seedCpqData() {
     { type: "uniform", name: "EPP", unit: "unidad", basePrice: 20000, isDefault: false },
     { type: "uniform", name: "Chaleco Antikorper", unit: "unidad", basePrice: 28000, isDefault: false },
 
-    { type: "exam", name: "Preocupacional", unit: "examen", basePrice: 25000, isDefault: true },
-    { type: "exam", name: "Fisico", unit: "examen", basePrice: 12000, isDefault: true },
-    { type: "exam", name: "Psicotecnico", unit: "examen", basePrice: 18000, isDefault: true },
-    { type: "exam", name: "Altura", unit: "examen", basePrice: 22000, isDefault: true },
-    { type: "exam", name: "Drogas", unit: "examen", basePrice: 20000, isDefault: true },
+    { type: "exam", name: "Preocupacional", unit: "examen", basePrice: 25000, isDefault: false },
+    { type: "exam", name: "Fisico", unit: "examen", basePrice: 12000, isDefault: false },
+    { type: "exam", name: "Psicotecnico", unit: "examen", basePrice: 18000, isDefault: false },
+    { type: "exam", name: "Altura", unit: "examen", basePrice: 22000, isDefault: false },
+    { type: "exam", name: "Drogas", unit: "examen", basePrice: 20000, isDefault: false },
 
     { type: "system", name: "Sistema", unit: "mes", basePrice: 3500, isDefault: false },
     { type: "phone", name: "Telefono", unit: "mes", basePrice: 12000, isDefault: false },
