@@ -1699,7 +1699,7 @@ export function OpsPautaMensualClient({
                                   {row.patternCode && (
                                     <span className="text-primary/50 text-[10px] hidden sm:inline">
                                       {row.patternCode}
-                                      {("kind" in row && row.kind === "rotativo") || row.isRotativo ? (
+                                      {("kind" in row && row.kind === "rotativo") || ("isRotativo" in row && (row as { isRotativo?: boolean }).isRotativo) ? (
                                         <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
                                           rot
                                         </span>
