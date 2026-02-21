@@ -27,7 +27,7 @@ type RefuerzoItem = {
   rateClp?: number | null;
   guardPaymentClp: number;
   estimatedTotalClp: number;
-  status: "solicitado" | "en_curso" | "realizado" | "facturado";
+  status: "pendiente_aprobacion" | "rechazado" | "solicitado" | "en_curso" | "realizado" | "facturado";
   invoiceNumber?: string | null;
   installation: { id: string; name: string };
   account?: { id: string; name: string } | null;
@@ -38,6 +38,7 @@ type RefuerzoItem = {
     persona: { firstName: string; lastName: string; rut?: string | null };
   };
   turnoExtra?: { id: string; status: string; amountClp: number; paidAt?: string | null } | null;
+  ticket?: { id: string; code: string; status: string; approvalStatus?: string | null } | null;
 };
 
 type InstallationOption = {
@@ -625,7 +626,9 @@ export function OpsRefuerzosClient({
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="all">Todos</option>
-              <option value="solicitado">Solicitado</option>
+              <option value="pendiente_aprobacion">Pendiente aprobación</option>
+              <option value="rechazado">Rechazado</option>
+              <option value="solicitado">Solicitado (aprobado)</option>
               <option value="en_curso">En curso</option>
               <option value="realizado">Realizado</option>
               <option value="facturado">Facturado</option>
@@ -680,6 +683,16 @@ export function OpsRefuerzosClient({
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={item.status} />
+                    {item.status === "pendiente_aprobacion" && item.ticket && (
+                      <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                        Pendiente aprobación
+                      </span>
+                    )}
+                    {item.status === "rechazado" && (
+                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                        Rechazado
+                      </span>
+                    )}
                     {canManageRefuerzos && item.status === "solicitado" && (
                       <Button
                         size="sm"
@@ -693,7 +706,7 @@ export function OpsRefuerzosClient({
                         Marcar en curso
                       </Button>
                     )}
-                    {canManageRefuerzos && item.status !== "facturado" && (
+                    {canManageRefuerzos && !["facturado", "pendiente_aprobacion", "rechazado"].includes(item.status) && (
                       <Button
                         size="sm"
                         disabled={loading}
@@ -705,7 +718,7 @@ export function OpsRefuerzosClient({
                         Marcar facturado
                       </Button>
                     )}
-                    {canManageRefuerzos && (
+                    {canManageRefuerzos && !["pendiente_aprobacion", "rechazado"].includes(item.status) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -718,6 +731,15 @@ export function OpsRefuerzosClient({
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
                       </Button>
+                    )}
+                    {item.ticket && (
+                      <a
+                        href={`/ops/tickets/${item.ticket.id}`}
+                        className="text-xs text-primary underline underline-offset-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {item.ticket.code}
+                      </a>
                     )}
                   </div>
                 </div>
@@ -840,6 +862,29 @@ export function OpsRefuerzosClient({
                 <p><strong>Estimado facturable:</strong> {formatMoney(toNumber(selectedItem.estimatedTotalClp))}</p>
                 <p><strong>Estado:</strong> {selectedItem.status}</p>
                 <p><strong>Observaciones:</strong> {selectedItem.notes ?? "-"}</p>
+                {selectedItem.ticket && (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-semibold mb-1">Ticket de aprobación</p>
+                    <p className="text-xs">
+                      <a href={`/ops/tickets/${selectedItem.ticket.id}`} className="text-primary underline underline-offset-2">
+                        {selectedItem.ticket.code}
+                      </a>
+                      {" · "}
+                      {selectedItem.ticket.approvalStatus === "approved" && (
+                        <span className="text-emerald-600 font-medium">Aprobado</span>
+                      )}
+                      {selectedItem.ticket.approvalStatus === "rejected" && (
+                        <span className="text-red-600 font-medium">Rechazado</span>
+                      )}
+                      {selectedItem.ticket.approvalStatus === "pending" && (
+                        <span className="text-yellow-600 font-medium">Pendiente de aprobación</span>
+                      )}
+                      {!selectedItem.ticket.approvalStatus && (
+                        <span className="text-muted-foreground">Estado: {selectedItem.ticket.status}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             )
           ) : null}

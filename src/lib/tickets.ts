@@ -267,6 +267,8 @@ export interface TicketTypeSeed {
   icon: string;
   /** Group slugs for default approval chain (in order) */
   approvalChainGroupSlugs: string[];
+  /** Action to execute when full approval chain completes */
+  onApprovalAction?: string;
 }
 
 export const TICKET_TYPE_SEEDS: TicketTypeSeed[] = [
@@ -463,6 +465,20 @@ export const TICKET_TYPE_SEEDS: TicketTypeSeed[] = [
     slaHours: 72,
     icon: "Monitor",
     approvalChainGroupSlugs: [],
+  },
+  // ── Turno de refuerzo (con aprobación + acción automática) ──
+  {
+    slug: "turno_refuerzo",
+    name: "Solicitud de turno de refuerzo",
+    description: "Solicitar turno de refuerzo con aprobación, pago guardia y facturación automática",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 24,
+    icon: "ShieldPlus",
+    approvalChainGroupSlugs: ["operaciones", "finanzas"],
+    onApprovalAction: "create_turno_extra",
   },
 ];
 

@@ -13,7 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, Send } from "lucide-react";
+import { Plus, Trash2, Loader2, Send, Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 /* ── Types ── */
@@ -38,6 +45,22 @@ interface DteLine {
   discountPct: string;
   isExempt: boolean;
   accountId: string;
+  refuerzoSolicitudId?: string;
+}
+
+interface PendingBillableItem {
+  id: string;
+  accountId: string;
+  sourceType: string;
+  sourceId: string;
+  itemName: string;
+  description: string | null;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  netAmount: string;
+  status: string;
+  createdAt: string;
 }
 
 const DTE_TYPE_LABELS: Record<number, string> = {
@@ -145,6 +168,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
           discountPct: parseFloat(l.discountPct) || 0,
           isExempt: isExenta || l.isExempt,
           accountId: l.accountId || null,
+          refuerzoSolicitudId: l.refuerzoSolicitudId || null,
         })),
       };
 
@@ -166,6 +190,78 @@ export function DteForm({ availableTypes, accounts }: Props) {
       setSaving(false);
     }
   };
+
+  /* ── Pending billable items import ── */
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importAccountId, setImportAccountId] = useState("");
+  const [pendingItems, setPendingItems] = useState<PendingBillableItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const fetchPendingItems = useCallback(async (accountId: string) => {
+    if (!accountId) return;
+    setLoadingItems(true);
+    try {
+      const res = await fetch(
+        `/api/finance/pending-billable-items?accountId=${accountId}&status=pending`,
+      );
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setPendingItems(json.data?.items ?? []);
+    } catch {
+      toast.error("Error al cargar items pendientes");
+      setPendingItems([]);
+    } finally {
+      setLoadingItems(false);
+    }
+  }, []);
+
+  const handleImportOpen = useCallback(() => {
+    setPendingItems([]);
+    setSelectedItemIds(new Set());
+    setImportAccountId("");
+    setImportOpen(true);
+  }, []);
+
+  const toggleItem = useCallback((id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleImportSelected = useCallback(() => {
+    const selected = pendingItems.filter((i) => selectedItemIds.has(i.id));
+    if (selected.length === 0) {
+      toast.error("Seleccione al menos un item");
+      return;
+    }
+    const newLines: DteLine[] = selected.map((item) => ({
+      itemName: item.itemName,
+      description: item.description ?? "",
+      quantity: String(parseFloat(item.quantity) || 1),
+      unit: item.unit || "UN",
+      unitPrice: String(parseFloat(item.unitPrice) || 0),
+      discountPct: "0",
+      isExempt: false,
+      accountId: item.accountId,
+      refuerzoSolicitudId: item.sourceType === "refuerzo" ? item.sourceId : undefined,
+    }));
+
+    setLines((prev) => {
+      // Replace the empty first line if it's the only one and blank
+      if (prev.length === 1 && !prev[0].itemName && !prev[0].unitPrice) {
+        return newLines;
+      }
+      return [...prev, ...newLines];
+    });
+
+    toast.success(`${selected.length} item(s) importados`);
+    setImportOpen(false);
+  }, [pendingItems, selectedItemIds]);
 
   return (
     <div className="space-y-6">
@@ -226,10 +322,16 @@ export function DteForm({ availableTypes, accounts }: Props) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Detalle</h3>
-          <Button variant="outline" size="sm" onClick={addLine}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Agregar línea
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleImportOpen}>
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Importar pendientes
+            </Button>
+            <Button variant="outline" size="sm" onClick={addLine}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Agregar línea
+            </Button>
+          </div>
         </div>
 
         {/* Desktop lines */}
@@ -438,6 +540,95 @@ export function DteForm({ availableTypes, accounts }: Props) {
           Emitir documento
         </Button>
       </div>
+
+      {/* Import pending billable items dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Importar items pendientes</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Cuenta / Cliente</Label>
+              <Select
+                value={importAccountId}
+                onValueChange={(v) => {
+                  setImportAccountId(v);
+                  fetchPendingItems(v);
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Seleccione una cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.code} - {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {loadingItems && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {!loadingItems && importAccountId && pendingItems.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay items pendientes para esta cuenta.
+              </p>
+            )}
+
+            {!loadingItems && pendingItems.length > 0 && (
+              <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+                {pendingItems.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedItemIds.has(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      className="mt-0.5 rounded border-border"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.itemName}</p>
+                      {item.description && (
+                        <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                      )}
+                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>{parseFloat(item.quantity)} {item.unit}</span>
+                        <span>x {fmtCLP.format(parseFloat(item.unitPrice))}</span>
+                        <span className="font-medium text-foreground">
+                          = {fmtCLP.format(parseFloat(item.netAmount))}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleImportSelected}
+              disabled={selectedItemIds.size === 0}
+            >
+              Importar {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -52,6 +52,7 @@ export async function seedGroupsAndTicketTypes(tenantId: string) {
         defaultPriority: seed.defaultPriority,
         slaHours: seed.slaHours,
         icon: seed.icon,
+        onApprovalAction: seed.onApprovalAction ?? null,
         isActive: true,
       },
       create: {
@@ -65,6 +66,7 @@ export async function seedGroupsAndTicketTypes(tenantId: string) {
         defaultPriority: seed.defaultPriority,
         slaHours: seed.slaHours,
         icon: seed.icon,
+        onApprovalAction: seed.onApprovalAction ?? null,
         isActive: true,
         sortOrder: TICKET_TYPE_SEEDS.indexOf(seed) + 1,
       },
