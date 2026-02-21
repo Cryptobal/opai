@@ -48,7 +48,7 @@ import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight } from "lucide-react";
+import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "./ViewToggle";
 import { toast } from "sonner";
@@ -124,9 +124,11 @@ type DealColumnProps = {
   stage: CrmPipelineStage;
   deals: CrmDeal[];
   children: ReactNode;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 };
 
-function DealColumn({ stage, deals, children }: DealColumnProps) {
+function DealColumn({ stage, deals, children, collapsed = false, onToggleCollapse }: DealColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `stage-${stage.id}`,
   });
@@ -137,25 +139,37 @@ function DealColumn({ stage, deals, children }: DealColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "w-full rounded-lg border bg-muted/30 p-3 md:min-w-[260px] md:max-w-[260px] transition-colors min-w-0 overflow-hidden",
+        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-3 min-w-[260px] max-w-[260px] transition-colors overflow-hidden snap-center",
         isOver ? "border-primary/60" : "border-border"
       )}
     >
       <div
-        className="mb-3 rounded-lg border px-3 py-2 flex items-center justify-between gap-2"
+        role={onToggleCollapse ? "button" : undefined}
+        tabIndex={onToggleCollapse ? 0 : undefined}
+        onClick={onToggleCollapse}
+        onKeyDown={onToggleCollapse ? (e) => e.key === "Enter" && onToggleCollapse() : undefined}
+        className={cn(
+          "w-full mb-3 rounded-lg border px-3 py-2 flex items-center justify-between gap-2 transition-colors",
+          onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80"
+        )}
         style={{
           borderColor: stageColor,
           backgroundColor: `${stageColor}18`,
         }}
       >
-        <span className="text-sm font-semibold truncate" style={{ color: stageColor }}>
+        <span className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }}>
           {stage.name}
         </span>
         <Badge variant="secondary" className="shrink-0 text-xs font-medium tabular-nums">
           {deals.length}
         </Badge>
+        {onToggleCollapse && (
+          <span className="shrink-0 text-muted-foreground md:hidden" aria-hidden>
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </span>
+        )}
       </div>
-      {children}
+      {!collapsed && children}
     </div>
   );
 }
@@ -280,6 +294,7 @@ export function CrmDealsClient({
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sort, setSort] = useState("newest");
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   // Mobile sheet for deal actions
   const [sheetDealId, setSheetDealId] = useState<string | null>(null);
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
@@ -363,13 +378,6 @@ export function CrmDealsClient({
     }
   };
 
-  const columns = useMemo(() => {
-    return stages.map((stage) => ({
-      stage,
-      deals: deals.filter((deal) => deal.stage?.id === stage.id),
-    }));
-  }, [deals, stages]);
-
   const filteredDeals = useMemo(() => {
     const q = search.trim().toLowerCase();
     let result = deals.filter((deal) => {
@@ -382,21 +390,30 @@ export function CrmDealsClient({
     });
 
     result = [...result].sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
       switch (sort) {
         case "oldest":
-          return (a.createdAt || "").localeCompare(b.createdAt || "");
+          return aTime - bTime;
         case "az":
           return (a.title || "").localeCompare(b.title || "");
         case "za":
           return (b.title || "").localeCompare(a.title || "");
         case "newest":
         default:
-          return (b.createdAt || "").localeCompare(a.createdAt || "");
+          return bTime - aTime;
       }
     });
 
     return result;
   }, [deals, stageFilter, search, sort]);
+
+  const columns = useMemo(() => {
+    return stages.map((stage) => ({
+      stage,
+      deals: filteredDeals.filter((deal) => deal.stage?.id === stage.id),
+    }));
+  }, [filteredDeals, stages]);
 
   const stageCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -452,6 +469,15 @@ export function CrmDealsClient({
 
   const handleDragCancel = () => {
     setActiveDealId(null);
+  };
+
+  const toggleStageCollapse = (stageId: string) => {
+    setCollapsedStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(stageId)) next.delete(stageId);
+      else next.add(stageId);
+      return next;
+    });
   };
 
   const dropAnimation = {
@@ -591,6 +617,13 @@ export function CrmDealsClient({
                 description="No hay negocios creados todavía."
                 compact
               />
+            ) : filteredDeals.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp className="h-8 w-8" />}
+                title="Sin resultados"
+                description="No hay negocios para los filtros o búsqueda seleccionados."
+                compact
+              />
             ) : (
               <DndContext
                 sensors={sensors}
@@ -599,12 +632,14 @@ export function CrmDealsClient({
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
               >
-                <div className="flex flex-col gap-4 md:flex-row md:gap-4 md:overflow-x-auto">
+                <div className="flex flex-row gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory md:snap-none">
                   {columns.map((column) => (
                     <DealColumn
                       key={column.stage.id}
                       stage={column.stage}
                       deals={column.deals}
+                      collapsed={collapsedStages.has(column.stage.id)}
+                      onToggleCollapse={() => toggleStageCollapse(column.stage.id)}
                     >
                       <SortableContext
                         items={column.deals.map((deal) => `deal-${deal.id}`)}
