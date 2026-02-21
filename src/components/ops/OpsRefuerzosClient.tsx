@@ -16,6 +16,7 @@ type RefuerzoItem = {
   accountId?: string | null;
   guardiaId: string;
   puestoId?: string | null;
+  name?: string | null;
   requestedByName?: string | null;
   requestChannel?: string | null;
   startAt: string;
@@ -233,6 +234,7 @@ export function OpsRefuerzosClient({
   const [ufValue, setUfValue] = useState<number | null>(null);
 
   const [createForm, setCreateForm] = useState({
+    name: "",
     installationId: defaultInstallationId ?? "",
     puestoId: "",
     guardiaId: "",
@@ -452,9 +454,26 @@ export function OpsRefuerzosClient({
       toast.error("Instalación, guardia y pago guardia son obligatorios");
       return;
     }
+    if (!createForm.startAt || !createForm.endAt) {
+      toast.error("Fecha inicio y fecha fin son obligatorios");
+      return;
+    }
+    if (!createForm.requestedByName.trim()) {
+      toast.error("Solicitado por es obligatorio");
+      return;
+    }
+    if (!createForm.requestChannel) {
+      toast.error("Canal es obligatorio");
+      return;
+    }
+    if (!computedRateClp || Number(computedRateClp) <= 0) {
+      toast.error("Valor ofertado (tarifa) es obligatorio");
+      return;
+    }
     setLoading(true);
     try {
       const body = {
+        name: createForm.name.trim() || null,
         installationId: createForm.installationId,
         puestoId: createForm.puestoId || null,
         guardiaId: createForm.guardiaId,
@@ -668,6 +687,9 @@ export function OpsRefuerzosClient({
                   onClick={() => openDetail(item)}
                 >
                   <div className="min-w-0">
+                    {item.name && (
+                      <p className="text-xs font-semibold text-primary">{item.name}</p>
+                    )}
                     <p className="text-sm font-medium">
                       {item.installation.name} · {item.guardia.persona.firstName} {item.guardia.persona.lastName}
                     </p>
@@ -926,7 +948,15 @@ export function OpsRefuerzosClient({
           </DialogHeader>
           <div className="grid gap-3">
             <div>
-              <Label>Instalación</Label>
+              <Label>Nombre del refuerzo</Label>
+              <Input
+                value={createForm.name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ej: Refuerzo evento fin de semana Quilicura"
+              />
+            </div>
+            <div>
+              <Label>Instalación *</Label>
               <div className="mt-1">
                 <SearchableSelect
                   value={createForm.installationId}
@@ -953,7 +983,7 @@ export function OpsRefuerzosClient({
               </div>
             </div>
             <div>
-              <Label>Guardia asignado</Label>
+              <Label>Guardia asignado *</Label>
               <div className="mt-1">
                 <SearchableSelect
                   value={createForm.guardiaId}
@@ -966,11 +996,11 @@ export function OpsRefuerzosClient({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Inicio</Label>
+                <Label>Inicio *</Label>
                 <Input type="datetime-local" value={createForm.startAt} onChange={(e) => setCreateForm((f) => ({ ...f, startAt: e.target.value }))} />
               </div>
               <div>
-                <Label>Fin</Label>
+                <Label>Fin *</Label>
                 <Input type="datetime-local" value={createForm.endAt} onChange={(e) => setCreateForm((f) => ({ ...f, endAt: e.target.value }))} />
               </div>
             </div>
@@ -984,11 +1014,11 @@ export function OpsRefuerzosClient({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Solicitado por</Label>
+                <Label>Solicitado por *</Label>
                 <Input value={createForm.requestedByName} onChange={(e) => setCreateForm((f) => ({ ...f, requestedByName: e.target.value }))} />
               </div>
               <div>
-                <Label>Canal</Label>
+                <Label>Canal *</Label>
                 <select className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={createForm.requestChannel} onChange={(e) => setCreateForm((f) => ({ ...f, requestChannel: e.target.value }))}>
                   <option value="telefono">Teléfono</option>
                   <option value="email">Email</option>
@@ -1000,7 +1030,7 @@ export function OpsRefuerzosClient({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Pago guardia (CLP)</Label>
+                <Label>Pago guardia (CLP) *</Label>
                 <Input
                   inputMode="numeric"
                   value={formatClpInput(createForm.guardPaymentClp)}
@@ -1011,7 +1041,7 @@ export function OpsRefuerzosClient({
                 />
               </div>
               <div>
-                <Label>Valor ofertado (CLP)</Label>
+                <Label>Valor ofertado (CLP) *</Label>
                 <div className="space-y-1">
                   <div className="flex gap-2">
                     <select

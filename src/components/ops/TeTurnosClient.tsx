@@ -38,6 +38,7 @@ type TeItem = {
       rut?: string | null;
     };
   };
+  refuerzoSolicitud?: { id: string; name: string | null } | null;
   paymentItems?: Array<{ id: string; loteId: string; amountClp: number | string; status: string }>;
 };
 
@@ -525,6 +526,11 @@ export function TeTurnosClient({
                         {item.isManual && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-medium">
                             Manual
+                          </span>
+                        )}
+                        {item.refuerzoSolicitud && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 font-medium">
+                            Refuerzo{item.refuerzoSolicitud.name ? `: ${item.refuerzoSolicitud.name}` : ""}
                           </span>
                         )}
                       </div>

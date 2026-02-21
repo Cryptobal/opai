@@ -438,6 +438,9 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
   const [selectedType, setSelectedType] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedTicket, setSelectedTicket] = useState<GuardTicket | null>(null);
+  const [appealComment, setAppealComment] = useState("");
+  const [appealLoading, setAppealLoading] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -501,6 +504,57 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
       return <Badge variant="secondary">{status}</Badge>;
     }
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  }
+
+  async function handleAppeal() {
+    if (!selectedTicket || !appealComment.trim()) return;
+    setAppealLoading(true);
+    try {
+      const res = await fetch(`/api/portal/guardia/tickets/${selectedTicket.id}/appeal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardiaId: session.guardiaId, comment: appealComment.trim() }),
+      });
+      if (res.ok) {
+        toast.success("Apelacion enviada");
+        setSelectedTicket(null);
+        setAppealComment("");
+        setLoading(true);
+        fetchTickets();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Error al apelar");
+      }
+    } catch {
+      toast.error("Error de conexion");
+    } finally {
+      setAppealLoading(false);
+    }
+  }
+
+  async function handleAcceptRejection() {
+    if (!selectedTicket) return;
+    setAppealLoading(true);
+    try {
+      const res = await fetch(`/api/portal/guardia/tickets/${selectedTicket.id}/accept-rejection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardiaId: session.guardiaId }),
+      });
+      if (res.ok) {
+        toast.success("Rechazo aceptado, ticket cerrado");
+        setSelectedTicket(null);
+        setLoading(true);
+        fetchTickets();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Error");
+      }
+    } catch {
+      toast.error("Error de conexion");
+    } finally {
+      setAppealLoading(false);
+    }
   }
 
   return (
@@ -590,8 +644,71 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
         </form>
       )}
 
-      {/* Ticket list */}
-      {loading ? (
+      {/* Ticket detail view or ticket list */}
+      {selectedTicket ? (
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedTicket(null); setAppealComment(""); }}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Volver
+          </Button>
+          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">{selectedTicket.title}</p>
+                <p className="text-xs text-muted-foreground">{selectedTicket.code} &middot; {selectedTicket.typeName}</p>
+              </div>
+              {getStatusBadge(selectedTicket.status)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Creado: {new Date(selectedTicket.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
+            </p>
+          </div>
+
+          {selectedTicket.status === "rejected" && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+              <p className="text-sm font-medium text-red-400">Este ticket fue rechazado</p>
+              <p className="text-xs text-muted-foreground">Puedes apelar el rechazo o aceptarlo y cerrar el ticket.</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="appeal-comment">Comentario de apelacion</Label>
+                <textarea
+                  id="appeal-comment"
+                  rows={3}
+                  placeholder="Explica por que deseas apelar..."
+                  value={appealComment}
+                  onChange={(e) => setAppealComment(e.target.value)}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAppeal}
+                  disabled={appealLoading || !appealComment.trim()}
+                  className="flex-1"
+                >
+                  {appealLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                  Apelar rechazo
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleAcceptRejection}
+                  disabled={appealLoading}
+                  className="flex-1"
+                >
+                  Aceptar rechazo
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {selectedTicket.status === "pending_approval" && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 shadow-sm">
+              <p className="text-sm text-amber-400">Tu solicitud esta pendiente de aprobacion</p>
+            </div>
+          )}
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -604,7 +721,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
             No tienes solicitudes
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Crea una nueva solicitud con el botón de arriba
+            Crea una nueva solicitud con el boton de arriba
           </p>
         </div>
       ) : (
@@ -612,7 +729,8 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
           {tickets.map((ticket) => (
             <div
               key={ticket.id}
-              className="rounded-xl border bg-card p-4 shadow-sm space-y-2"
+              onClick={() => setSelectedTicket(ticket)}
+              className="rounded-xl border bg-card p-4 shadow-sm space-y-2 cursor-pointer hover:bg-accent transition-colors"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -625,13 +743,16 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
                 </div>
                 {getStatusBadge(ticket.status)}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {new Date(ticket.createdAt).toLocaleDateString("es-CL", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {new Date(ticket.createdAt).toLocaleDateString("es-CL", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
             </div>
           ))}
         </div>

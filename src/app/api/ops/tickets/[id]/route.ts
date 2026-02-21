@@ -184,6 +184,11 @@ export async function PATCH(
 
     // Build updatable fields (only include those present in body)
     const updateData: Record<string, any> = {};
+    if (body.status !== undefined) {
+      updateData.status = body.status;
+      if (body.status === "resolved") updateData.resolvedAt = new Date();
+      if (body.status === "closed") updateData.closedAt = new Date();
+    }
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.priority !== undefined) updateData.priority = body.priority;

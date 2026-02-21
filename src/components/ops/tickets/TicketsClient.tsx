@@ -78,6 +78,16 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
   useEffect(() => {
     fetchTickets();
+    // Re-fetch when the user navigates back so stale status is updated
+    function handleVisibility() {
+      if (document.visibilityState === "visible") fetchTickets();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", fetchTickets);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", fetchTickets);
+    };
   }, [fetchTickets]);
 
   const filteredTickets = useMemo(() => {
@@ -349,6 +359,7 @@ function TicketCreateForm({
   const [saving, setSaving] = useState(false);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
+  const [ticketCategory, setTicketCategory] = useState<"" | "internal" | "guard">("");
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [title, setTitle] = useState(prefillTitle ?? "");
   const [description, setDescription] = useState("");
@@ -372,8 +383,18 @@ function TicketCreateForm({
 
   const selectedType = ticketTypes.find((t) => t.id === selectedTypeId);
 
-  const internalTypes = ticketTypes.filter((t) => t.origin === "internal" || t.origin === "both");
-  const guardTypes = ticketTypes.filter((t) => t.origin === "guard" || t.origin === "both");
+  // Filter ticket types based on selected category
+  const filteredTypes = ticketCategory
+    ? ticketTypes.filter((t) =>
+        t.origin === "both" || t.origin === ticketCategory
+      )
+    : [];
+
+  function handleCategoryChange(val: string) {
+    setTicketCategory(val as "" | "internal" | "guard");
+    // Reset selected type when category changes
+    setSelectedTypeId("");
+  }
 
   function handleTypeChange(val: string) {
     setSelectedTypeId(val);
@@ -430,6 +451,20 @@ function TicketCreateForm({
         </div>
       )}
 
+      {/* Category selector */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Categoría *</Label>
+        <Select value={ticketCategory} onValueChange={handleCategoryChange}>
+          <SelectTrigger className="text-sm">
+            <SelectValue placeholder="Seleccionar categoría..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="internal">Solicitud interna</SelectItem>
+            <SelectItem value="guard">Solicitud de guardia</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Ticket Type */}
       <div className="space-y-1.5">
         <Label className="text-xs">Tipo de solicitud *</Label>
@@ -438,52 +473,29 @@ function TicketCreateForm({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Cargando tipos...
           </div>
+        ) : !ticketCategory ? (
+          <p className="text-xs text-muted-foreground py-2">
+            Selecciona una categoría primero
+          </p>
         ) : (
           <Select value={selectedTypeId} onValueChange={handleTypeChange}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="Seleccionar tipo de solicitud..." />
             </SelectTrigger>
             <SelectContent>
-              {internalTypes.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Solicitudes internas
+              {filteredTypes.map((tt) => (
+                <SelectItem key={tt.id} value={tt.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{tt.name}</span>
+                    {tt.requiresApproval && (
+                      <ShieldCheck className="h-3 w-3 text-blue-500" />
+                    )}
+                    <span className="text-[10px] text-muted-foreground">
+                      {TICKET_TEAM_CONFIG[tt.assignedTeam]?.label}
+                    </span>
                   </div>
-                  {internalTypes.map((tt) => (
-                    <SelectItem key={tt.id} value={tt.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{tt.name}</span>
-                        {tt.requiresApproval && (
-                          <ShieldCheck className="h-3 w-3 text-blue-500" />
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {TICKET_TEAM_CONFIG[tt.assignedTeam]?.label}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-              {guardTypes.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
-                    Solicitudes de guardias
-                  </div>
-                  {guardTypes.map((tt) => (
-                    <SelectItem key={tt.id} value={tt.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{tt.name}</span>
-                        {tt.requiresApproval && (
-                          <ShieldCheck className="h-3 w-3 text-blue-500" />
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {TICKET_TEAM_CONFIG[tt.assignedTeam]?.label}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         )}

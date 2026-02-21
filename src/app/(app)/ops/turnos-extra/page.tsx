@@ -31,6 +31,7 @@ export default async function OpsTurnosExtraPage() {
           persona: { select: { firstName: true, lastName: true, rut: true } },
         },
       },
+      refuerzoSolicitud: { select: { id: true, name: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { sendNotificationToUsers } from "@/lib/notification-service";
 import type { TicketComment } from "@/lib/tickets";
 
 type Params = { id: string };
@@ -105,6 +106,56 @@ export async function POST(
         isInternal: body.isInternal ?? false,
       },
     });
+
+    // Parse @mentions and send notifications
+    try {
+      const mentionPattern = /@([A-Za-z\u00C0-\u024F]+(?:\s+[A-Za-z\u00C0-\u024F]+)*)/g;
+      const mentions: string[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = mentionPattern.exec(body.body)) !== null) {
+        mentions.push(match[1].trim());
+      }
+      if (mentions.length > 0) {
+        const allAdmins = await prisma.admin.findMany({
+          where: { tenantId: ctx.tenantId, status: "active" },
+          select: { id: true, name: true },
+        });
+        const mentionedUserIds: string[] = [];
+        for (const mention of mentions) {
+          const mentionLower = mention.toLowerCase();
+          for (const admin of allAdmins) {
+            if (
+              admin.name &&
+              admin.name.toLowerCase().includes(mentionLower) &&
+              admin.id !== ctx.userId
+            ) {
+              mentionedUserIds.push(admin.id);
+            }
+          }
+        }
+        const uniqueIds = [...new Set(mentionedUserIds)];
+        if (uniqueIds.length > 0) {
+          const ticketInfo = await prisma.opsTicket.findFirst({
+            where: { id: ticketId },
+            select: { code: true, title: true },
+          });
+          await sendNotificationToUsers({
+            tenantId: ctx.tenantId,
+            type: "ticket_mention",
+            title: `Te mencionaron en ticket ${ticketInfo?.code ?? ""}`,
+            message:
+              body.body.length > 100
+                ? body.body.slice(0, 100) + "..."
+                : body.body,
+            link: `/ops/tickets/${ticketId}`,
+            data: { ticketId, commentId: comment.id },
+            targetUserIds: uniqueIds,
+          });
+        }
+      }
+    } catch (mentionErr) {
+      console.error("[OPS] Error processing mentions:", mentionErr);
+    }
 
     return NextResponse.json(
       { success: true, data: mapComment(comment) },

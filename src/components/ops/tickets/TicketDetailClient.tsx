@@ -74,6 +74,23 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
+  // Fetch admins for @mention autocomplete
+  useEffect(() => {
+    fetch("/api/ops/admins")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          setAvailableUsers(
+            d.data.map((u: { id: string; name: string | null; email: string }) => ({
+              id: u.id,
+              name: u.name || u.email,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   async function handleTransition(newStatus: TicketStatus) {
     if (!ticket) return;
     setTransitioning(true);
@@ -85,7 +102,12 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setTicket((prev) => prev ? { ...prev, status: newStatus } : null);
+      // Use the full ticket returned by the API so all fields (resolvedAt, closedAt, etc.) are current
+      if (data.data) {
+        setTicket(data.data);
+      } else {
+        setTicket((prev) => prev ? { ...prev, status: newStatus } : null);
+      }
       toast.success(`Ticket actualizado a "${TICKET_STATUS_CONFIG[newStatus].label}"`);
     } catch {
       toast.error("Error al cambiar estado");
@@ -113,6 +135,32 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
     } finally {
       setSendingComment(false);
     }
+  }
+
+  function handleCommentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setNewComment(value);
+
+    // Detect @ trigger for mention autocomplete
+    const lastAtIndex = value.lastIndexOf("@");
+    if (lastAtIndex >= 0) {
+      const afterAt = value.slice(lastAtIndex + 1);
+      // Show dropdown if typing a name after @ (up to 2 words)
+      if (!afterAt.includes("  ") && afterAt.split(" ").length <= 2) {
+        setMentionFilter(afterAt.toLowerCase());
+        setShowMentionList(true);
+        return;
+      }
+    }
+    setShowMentionList(false);
+  }
+
+  function insertMention(userName: string) {
+    const lastAtIndex = newComment.lastIndexOf("@");
+    if (lastAtIndex >= 0) {
+      setNewComment(newComment.slice(0, lastAtIndex) + `@${userName} `);
+    }
+    setShowMentionList(false);
   }
 
   async function handleApproveTicket(approvalId: string, comment?: string) {
@@ -146,6 +194,11 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       toast.error("Error al rechazar");
     }
   }
+
+  // Mention autocomplete state
+  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -388,18 +441,48 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
         {/* New comment */}
         <div className="flex items-start gap-2">
-          <Input
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Agregar comentario..."
-            className="text-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleAddComment();
-              }
-            }}
-          />
+          <div className="relative flex-1">
+            <Input
+              value={newComment}
+              onChange={handleCommentChange}
+              placeholder="Agregar comentario... (usa @ para mencionar)"
+              className="text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !showMentionList) {
+                  e.preventDefault();
+                  handleAddComment();
+                }
+                if (e.key === "Escape") {
+                  setShowMentionList(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowMentionList(false), 200)}
+            />
+            {showMentionList && (
+              <div className="absolute bottom-full left-0 mb-1 w-full max-h-40 overflow-y-auto rounded-md border border-border bg-popover shadow-md z-50">
+                {availableUsers
+                  .filter((u) => u.name.toLowerCase().includes(mentionFilter))
+                  .slice(0, 8)
+                  .map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertMention(u.name);
+                      }}
+                    >
+                      <User className="h-3 w-3 text-muted-foreground" />
+                      {u.name}
+                    </button>
+                  ))}
+                {availableUsers.filter((u) => u.name.toLowerCase().includes(mentionFilter)).length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">No se encontraron usuarios</p>
+                )}
+              </div>
+            )}
+          </div>
           <Button
             size="icon"
             variant="outline"

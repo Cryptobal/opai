@@ -2371,6 +2371,7 @@ model OpsRefuerzoSolicitud {
   guardiaId      String  @map("guardia_id") @db.Uuid
   turnoExtraId   String? @unique @map("turno_extra_id") @db.Uuid
 
+  name            String?  @map("name")
   requestedAt     DateTime @default(now()) @map("requested_at") @db.Timestamptz(6)
   requestedByName String?  @map("requested_by_name")
   requestChannel  String?  @map("request_channel")

@@ -214,18 +214,42 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    if (["p1", "p2"].includes(ticket.priority)) {
-      try {
-        const { sendNotification } = await import("@/lib/notification-service");
-        await sendNotification({
+    // Send notification to approval group members + reporter
+    try {
+      const { sendNotificationToUsers } = await import("@/lib/notification-service");
+      const targetUserIds: string[] = [];
+
+      // Always notify the requester (if it's a user, not a guardia)
+      if (ctx.userId) targetUserIds.push(ctx.userId);
+
+      // If requires approval, notify the first approval group
+      if (requiresApproval && ticketType.approvalSteps.length > 0) {
+        const firstStep = ticketType.approvalSteps[0];
+        if (firstStep.approverGroupId) {
+          const groupMembers = await prisma.adminGroupMembership.findMany({
+            where: { groupId: firstStep.approverGroupId },
+            select: { adminId: true },
+          });
+          for (const m of groupMembers) targetUserIds.push(m.adminId);
+        }
+        if (firstStep.approverUserId) {
+          targetUserIds.push(firstStep.approverUserId);
+        }
+      }
+
+      if (targetUserIds.length > 0) {
+        await sendNotificationToUsers({
           tenantId: ctx.tenantId,
           type: "ticket_created",
-          title: `Nuevo ticket ${ticket.priority.toUpperCase()}: ${ticket.title}`,
-          message: `Ticket ${ticket.code} asignado a ${TICKET_TEAM_CONFIG[ticket.assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? ticket.assignedTeam}`,
+          title: `Nuevo ticket: ${ticket.code} - ${ticket.title}`,
+          message: `Tipo: ${ticketType.name} · Prioridad: ${ticket.priority.toUpperCase()}${requiresApproval ? " · Pendiente de aprobación" : ""}`,
           data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
           link: `/ops/tickets/${ticket.id}`,
+          targetUserIds: [...new Set(targetUserIds)],
         });
-      } catch {}
+      }
+    } catch (err) {
+      console.error("[OPS] Error sending ticket creation notification:", err);
     }
 
     return NextResponse.json(

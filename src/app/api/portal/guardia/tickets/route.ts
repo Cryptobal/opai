@@ -170,6 +170,75 @@ export async function POST(request: NextRequest) {
         ticket.updatedAt instanceof Date ? ticket.updatedAt.toISOString() : String(ticket.updatedAt),
     };
 
+    // Send notifications: approval group + email to guard
+    try {
+      const { sendNotificationToUsers } = await import("@/lib/notification-service");
+      const { resend, getTenantEmailConfig } = await import("@/lib/resend");
+      const { render } = await import("@react-email/render");
+      const NotificationEmail = (await import("@/emails/NotificationEmail")).default;
+
+      const targetUserIds: string[] = [];
+
+      // Notify first approval group
+      if (needsApproval && ticketType.approvalSteps.length > 0) {
+        const firstStep = ticketType.approvalSteps[0];
+        if (firstStep.approverGroupId) {
+          const groupMembers = await prisma.adminGroupMembership.findMany({
+            where: { groupId: firstStep.approverGroupId },
+            select: { adminId: true },
+          });
+          for (const m of groupMembers) targetUserIds.push(m.adminId);
+        }
+        if (firstStep.approverUserId) {
+          targetUserIds.push(firstStep.approverUserId);
+        }
+      }
+
+      if (targetUserIds.length > 0) {
+        await sendNotificationToUsers({
+          tenantId: effectiveTenantId,
+          type: "ticket_created",
+          title: `Nuevo ticket portal: ${ticket.code} - ${title}`,
+          message: `Tipo: ${ticketType.name} · Origen: Portal del guardia${needsApproval ? " · Pendiente de aprobación" : ""}`,
+          data: { ticketId: ticket.id, code: ticket.code, source: "portal" },
+          link: `/ops/tickets/${ticket.id}`,
+          targetUserIds: [...new Set(targetUserIds)],
+        });
+      }
+
+      // Send email to the guard that their ticket was submitted
+      const guardPersona = await prisma.opsGuardia.findFirst({
+        where: { id: guardiaId },
+        select: {
+          persona: { select: { firstName: true, lastName: true, email: true } },
+        },
+      });
+
+      if (guardPersona?.persona?.email) {
+        const emailConfig = await getTenantEmailConfig(effectiveTenantId);
+        const guardName = `${guardPersona.persona.firstName} ${guardPersona.persona.lastName}`;
+        const html = await render(
+          NotificationEmail({
+            title: `Tu solicitud ${ticket.code} fue recibida`,
+            message: `Hola ${guardName}, tu solicitud "${title}" (${ticketType.name}) ha sido recibida y está ${needsApproval ? "pendiente de aprobación" : "en proceso"}.`,
+            actionUrl: undefined,
+            actionLabel: undefined,
+            category: "Portal del Guardia",
+          })
+        );
+
+        await resend.emails.send({
+          from: emailConfig.from,
+          replyTo: emailConfig.replyTo,
+          to: guardPersona.persona.email,
+          subject: `Solicitud ${ticket.code} recibida`,
+          html,
+        });
+      }
+    } catch (err) {
+      console.error("[Portal Guardia] Error sending notifications:", err);
+    }
+
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     console.error("[Portal Guardia] Tickets POST error:", error);

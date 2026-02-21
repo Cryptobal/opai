@@ -268,6 +268,16 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: false,
   },
+  {
+    key: "ticket_mention",
+    label: "Mención en ticket",
+    description: "Cuando alguien te menciona en un comentario de ticket",
+    module: "ops",
+    submodule: "tickets",
+    category: "Operaciones - Tickets",
+    defaultBell: true,
+    defaultEmail: true,
+  },
 ];
 
 export const NOTIFICATION_TYPE_MAP = new Map(

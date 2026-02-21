@@ -104,6 +104,7 @@ export async function sendRefuerzoCreatedEmail(input: RefuerzoEmailInput): Promi
 }
 
 type CreateRefuerzoInput = {
+  name?: string | null;
   installationId: string;
   puestoId?: string | null;
   guardiaId: string;
@@ -263,6 +264,7 @@ export async function createRefuerzoSolicitud(ctx: AuthContext, body: CreateRefu
     const refuerzo = await tx.opsRefuerzoSolicitud.create({
       data: {
         tenantId: ctx.tenantId,
+        name: body.name ?? null,
         installationId: body.installationId,
         accountId: installation.accountId ?? null,
         puestoId: body.puestoId ?? null,

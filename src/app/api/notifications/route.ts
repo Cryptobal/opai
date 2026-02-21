@@ -40,7 +40,7 @@ function visibleNotificationsWhere(
   const { unreadOnly = false, ids } = options || {};
   const baseExclusions = roleExcludedTypes.filter((type) => type !== "mention");
   // Types that use targeted delivery (only visible to specific users via data.targetUserId)
-  const targetedTypes = ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "mention"];
+  const targetedTypes = ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "mention", "ticket_mention", "ticket_created"];
 
   const orConditions: Prisma.NotificationWhereInput[] = [
     {
@@ -61,9 +61,9 @@ function visibleNotificationsWhere(
     data: { path: ["mentionUserId"], equals: ctx.userId },
   });
 
-  // Ticket approval/rejection/refuerzo notifications: solo visibles para el usuario destinatario.
+  // Ticket approval/rejection/refuerzo/mention/created notifications: solo visibles para el usuario destinatario.
   // Si tienen data.targetUserId, solo ese usuario las ve. Si no lo tienen (legacy), se muestran a todos.
-  for (const targetedType of ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created"]) {
+  for (const targetedType of ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "ticket_mention", "ticket_created"]) {
     if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
     orConditions.push({
       type: targetedType,

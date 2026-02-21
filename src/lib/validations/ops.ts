@@ -421,6 +421,7 @@ export const createTeManualSchema = z.object({
 const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 export const createRefuerzoSchema = z.object({
+  name: z.string().trim().max(200).optional().nullable(),
   installationId: z.string().uuid("installationId inválido"),
   puestoId: z.string().uuid("puestoId inválido").optional().nullable(),
   guardiaId: z.string().uuid("guardiaId inválido"),
