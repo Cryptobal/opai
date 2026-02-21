@@ -2,7 +2,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -307,6 +306,25 @@ export function CrmContactDetailClient({
     [gmailConnected, contact.email]
   );
 
+  // ── Navigate to deal and ensure contact is linked ──
+  const [linkingDealId, setLinkingDealId] = useState<string | null>(null);
+
+  const navigateToDeal = async (dealId: string) => {
+    setLinkingDealId(dealId);
+    try {
+      // Ensure the contact is linked to the deal before navigating
+      await fetch(`/api/crm/deals/${dealId}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: contact.id, role: "participant" }),
+      });
+      // 201 = linked, 409 = already linked — both are fine
+    } catch {
+      // Network error — navigate anyway
+    }
+    router.push(`/crm/deals/${dealId}`);
+  };
+
   const updateDealStage = async (dealId: string, stageId: string) => {
     if (!stageId) return;
     const current = contactDeals.find((deal) => deal.id === dealId);
@@ -471,9 +489,9 @@ export function CrmContactDetailClient({
                 key={deal.id}
                 className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between"
               >
-                <Link href={`/crm/deals/${deal.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                <button type="button" onClick={() => navigateToDeal(deal.id)} disabled={linkingDealId === deal.id} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.deals.color}`}>
-                    <DealsIcon className="h-4 w-4" />
+                    {linkingDealId === deal.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <DealsIcon className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">{deal.title}</p>
@@ -483,7 +501,7 @@ export function CrmContactDetailClient({
                       {deal.status === "lost" && " · Perdido"}
                     </p>
                   </div>
-                </Link>
+                </button>
                 <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
                   <select
                     className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 sm:min-w-[130px] sm:w-auto"
@@ -500,9 +518,9 @@ export function CrmContactDetailClient({
                     ))}
                     {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
                   </select>
-                  <Link href={`/crm/deals/${deal.id}`} className="shrink-0">
+                  <button type="button" onClick={() => navigateToDeal(deal.id)} disabled={linkingDealId === deal.id} className="shrink-0">
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform" />
-                  </Link>
+                  </button>
                 </div>
               </div>
             );
