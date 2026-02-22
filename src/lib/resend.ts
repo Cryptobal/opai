@@ -15,7 +15,7 @@ export const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const EMAIL_CONFIG = {
   from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
-  replyTo: process.env.EMAIL_REPLY_TO || 'opai@gard.cl',
+  replyTo: process.env.EMAIL_REPLY_TO || 'comercial@gard.cl',
   companyName: 'Gard Security',
 };
 
@@ -45,14 +45,13 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
     const newKeys = [
       `empresa:${tenantId}:empresa.emailFrom`,
       `empresa:${tenantId}:empresa.emailFromName`,
-      `empresa:${tenantId}:empresa.emailReplyTo`,
     ];
     let settings = await prisma.setting.findMany({
       where: { tenantId, key: { in: newKeys } },
     });
     if (settings.length === 0) {
       settings = await prisma.setting.findMany({
-        where: { tenantId, key: { in: ["empresa.emailFrom", "empresa.emailFromName", "empresa.emailReplyTo"] } },
+        where: { tenantId, key: { in: ["empresa.emailFrom", "empresa.emailFromName"] } },
       });
     }
 
@@ -64,7 +63,6 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
     );
     const emailAddr = map.get("empresa.emailFrom");
     const emailName = map.get("empresa.emailFromName");
-    const replyTo = map.get("empresa.emailReplyTo");
 
     const from = emailAddr
       ? emailName
@@ -74,12 +72,12 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
 
     const config: TenantEmailConfig = {
       from,
-      replyTo: replyTo || EMAIL_CONFIG.replyTo,
+      replyTo: 'comercial@gard.cl', // Siempre responder a comercial@gard.cl
     };
 
     tenantEmailCache.set(tenantId, { config, ts: Date.now() });
     return config;
   } catch {
-    return { from: EMAIL_CONFIG.from, replyTo: EMAIL_CONFIG.replyTo };
+    return { from: EMAIL_CONFIG.from, replyTo: 'comercial@gard.cl' };
   }
 }
