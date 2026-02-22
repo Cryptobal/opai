@@ -3,9 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { resend, EMAIL_CONFIG } from '@/lib/resend';
 
 /**
  * Solicitar reset de contraseña
@@ -47,7 +45,8 @@ export async function requestPasswordReset(email: string) {
   
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: emailLower,
       subject: 'Restablecer contraseña - OPAI',
       html: `

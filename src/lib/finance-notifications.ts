@@ -7,6 +7,7 @@
  */
 
 import { Resend } from "resend";
+import { EMAIL_CONFIG } from "@/lib/resend";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -16,8 +17,6 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.SITE_URL ||
   "https://opai.gard.cl";
-
-const FROM = process.env.EMAIL_FROM || "OPAI <opai@gard.cl>";
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat("es-CL", {
@@ -42,7 +41,8 @@ export async function notifyRendicionSubmitted(data: {
   for (const email of data.approverEmails) {
     try {
       await resend.emails.send({
-        from: FROM,
+        from: EMAIL_CONFIG.from,
+        replyTo: EMAIL_CONFIG.replyTo,
         to: email,
         subject: `Rendición ${data.rendicionCode} pendiente de aprobación`,
         text: [
@@ -74,7 +74,8 @@ export async function notifyRendicionApproved(data: {
 
   try {
     await resend.emails.send({
-      from: FROM,
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue aprobada`,
       text: [
@@ -108,7 +109,8 @@ export async function notifyRendicionRejected(data: {
 
   try {
     await resend.emails.send({
-      from: FROM,
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue rechazada`,
       text: [
@@ -141,7 +143,8 @@ export async function notifyRendicionPaid(data: {
 
   try {
     await resend.emails.send({
-      from: FROM,
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue pagada`,
       text: [

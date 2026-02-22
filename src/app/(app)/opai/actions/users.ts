@@ -5,9 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { hasPermission, PERMISSIONS, type Role } from '@/lib/rbac';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { resend, EMAIL_CONFIG } from '@/lib/resend';
 
 /**
  * Invitar un nuevo usuario al tenant (usa RoleTemplate por slug)
@@ -72,7 +70,8 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
   
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: emailLower,
       subject: 'Invitación a Gard Docs',
       html: `
