@@ -6,7 +6,7 @@
     "dev": "npm run build && npm run start",
     "dev:watch": "node ./node_modules/next/dist/bin/next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && node ./node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && prisma migrate resolve --applied 20260220150000_add_created_from_lead_id_to_quote && prisma migrate deploy && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",

@@ -23,7 +23,7 @@ const FIELDS = [
 const EMAIL_FIELDS = [
   { key: "empresa.emailFromName", label: "Nombre del remitente", placeholder: "Ej: OPAI", help: "El nombre que aparece en el email (ej: 'OPAI')" },
   { key: "empresa.emailFrom", label: "Correo de envío (From)", placeholder: "Ej: opai@gard.cl", help: "Dirección desde la cual se envían los correos. Debe estar verificada en Resend." },
-  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@gard.cl", help: "Cuando alguien responde un email, la respuesta llega a esta dirección." },
+  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "comercial@gard.cl", help: "Las respuestas siempre llegan a comercial@gard.cl (valor fijo).", disabled: true },
 ];
 
 export default function EmpresaConfigPage() {
@@ -50,10 +50,12 @@ export default function EmpresaConfigPage() {
   async function handleSave() {
     setSaving(true);
     try {
+      const payload = { ...form };
+      payload["empresa.emailReplyTo"] = "comercial@gard.cl"; // Siempre fijo
       const res = await fetch("/api/configuracion/empresa", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -125,10 +127,11 @@ export default function EmpresaConfigPage() {
                 <div key={field.key}>
                   <Label className="text-xs">{field.label}</Label>
                   <Input
-                    value={form[field.key] ?? ""}
+                    value={field.key === "empresa.emailReplyTo" ? "comercial@gard.cl" : (form[field.key] ?? "")}
                     onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
                     className="mt-1 text-sm"
+                    disabled={"disabled" in field && field.disabled}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>
                 </div>
