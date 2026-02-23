@@ -70,6 +70,7 @@ import { GuardContractsTab } from "@/components/ops/guard-contracts";
 import { GuardiaSalaryTab } from "@/components/ops/GuardiaSalaryTab";
 import { GuardiaLiquidacionesTab } from "@/components/payroll/GuardiaLiquidacionesTab";
 import { NotesSection } from "@/components/crm/NotesSection";
+import { InventarioGuardiaAssignmentsSection } from "@/components/inventario/InventarioGuardiaAssignmentsSection";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -198,6 +199,7 @@ interface GuardiaDetailClientProps {
   personaAdminId?: string | null;
   currentUserId?: string;
   guardiaDocConfig?: GuardiaDocConfigItem[];
+  hasInventarioAccess?: boolean;
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -255,7 +257,7 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   inactivo: "Inactivo",
 };
 
-export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId, guardiaDocConfig = [] }: GuardiaDetailClientProps) {
+export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId, guardiaDocConfig = [], hasInventarioAccess = false }: GuardiaDetailClientProps) {
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
@@ -1470,6 +1472,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </div>
       ),
     },
+    /* uniformes asignados */
+    ...(hasInventarioAccess
+      ? [
+          {
+            key: "uniformes" as const,
+            label: "Uniformes asignados",
+            children: (
+              <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />
+            ),
+          },
+        ]
+      : []),
     /* marcacion */
     {
       key: "marcacion" as const,
