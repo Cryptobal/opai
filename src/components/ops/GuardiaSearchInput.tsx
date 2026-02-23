@@ -45,7 +45,6 @@ export function GuardiaSearchInput({
     if (!q || q.length < 2) {
       setResults([]);
       setOpen(false);
-      setPosition(null);
       return;
     }
     abortRef.current?.abort();
