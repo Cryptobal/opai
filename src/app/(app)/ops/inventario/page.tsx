@@ -4,12 +4,14 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { Card, CardContent } from "@/components/ui/card";
+import { InventarioKpisCard } from "@/components/inventario/InventarioKpisCard";
 import {
   Warehouse,
   ShoppingCart,
   Layers,
   Smartphone,
   Shirt,
+  UserRoundCheck,
 } from "lucide-react";
 
 export default async function InventarioPage() {
@@ -45,6 +47,13 @@ export default async function InventarioPage() {
       color: "text-emerald-400 bg-emerald-400/10",
     },
     {
+      href: "/ops/inventario/entregas",
+      title: "Entregas",
+      description: "Entregar uniformes a guardias. Trazabilidad por guardia e instalación.",
+      icon: UserRoundCheck,
+      color: "text-violet-400 bg-violet-400/10",
+    },
+    {
       href: "/ops/inventario/stock",
       title: "Stock",
       description: "Stock por bodega y variante.",
@@ -65,7 +74,11 @@ export default async function InventarioPage() {
       <PageHeader
         title="Inventario"
         description="Gestión de uniformes, activos y teléfonos por instalación."
+        backHref="/hub"
+        backLabel="Inicio"
       />
+
+      <InventarioKpisCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((m) => (

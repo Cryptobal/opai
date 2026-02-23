@@ -26,6 +26,7 @@ import {
   Shield,
   QrCode,
   Receipt,
+  Shirt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -72,7 +73,9 @@ export type CrmSectionKey =
   | "turnos-extra"
   | "rendiciones"
   | "historial"
-  | "files";
+  | "files"
+  | "uniformes"
+  | "uniformes-activos";
 
 export interface ModuleConfig {
   key: CrmModuleKey;
@@ -328,6 +331,16 @@ export const CRM_SECTIONS: Record<CrmSectionKey, SectionConfig> = {
     icon: FileText,
     label: "Archivos",
   },
+  uniformes: {
+    key: "uniformes",
+    icon: Shirt,
+    label: "Uniformes asignados",
+  },
+  "uniformes-activos": {
+    key: "uniformes-activos",
+    icon: Shirt,
+    label: "Uniformes y activos",
+  },
 };
 
 /* ── Helpers ── */
@@ -381,6 +394,6 @@ export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   accounts: ["general", "contacts", "installations", "deals", "quotes", "rendiciones", "communication", "notes"],
   contacts: ["general", "account", "deals", "communication", "notes"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
-  installations: ["general", "account", "deals", "quotes", "staffing", "refuerzos", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "communication", "notes"],
-  guardias: ["datos", "contratos", "eventos-laborales", "estructura-sueldo", "liquidaciones", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial"],
+  installations: ["general", "account", "deals", "quotes", "staffing", "refuerzos", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "uniformes-activos", "communication", "notes"],
+  guardias: ["datos", "contratos", "eventos-laborales", "estructura-sueldo", "liquidaciones", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial", "uniformes"],
 };
