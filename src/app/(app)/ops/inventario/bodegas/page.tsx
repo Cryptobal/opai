@@ -19,6 +19,8 @@ export default async function InventarioBodegasPage() {
       <PageHeader
         title="Bodegas"
         description="Bodegas virtuales: central, supervisores, instalaciones."
+        backHref="/ops/inventario"
+        backLabel="Inventario"
       />
       <InventarioBodegasClient />
     </div>

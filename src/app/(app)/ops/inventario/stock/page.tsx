@@ -19,6 +19,8 @@ export default async function InventarioStockPage() {
       <PageHeader
         title="Stock"
         description="Stock actual por bodega y variante."
+        backHref="/ops/inventario"
+        backLabel="Inventario"
       />
       <InventarioStockClient />
     </div>

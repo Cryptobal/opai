@@ -19,6 +19,8 @@ export default async function InventarioComprasPage() {
       <PageHeader
         title="Compras"
         description="Registrar ingresos de uniformes y activos. Asocia a factura más adelante."
+        backHref="/ops/inventario"
+        backLabel="Inventario"
       />
       <InventarioComprasClient />
     </div>

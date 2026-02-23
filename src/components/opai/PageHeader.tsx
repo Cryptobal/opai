@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import Link from 'next/link';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface PageHeaderProps {
@@ -6,6 +8,9 @@ export interface PageHeaderProps {
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  /** Link "Volver a X" cuando se proporciona */
+  backHref?: string;
+  backLabel?: string;
 }
 
 /**
@@ -23,7 +28,9 @@ export function PageHeader({
   title,
   description,
   actions,
-  className
+  className,
+  backHref,
+  backLabel,
 }: PageHeaderProps) {
   return (
     <div className={cn(
@@ -31,6 +38,15 @@ export function PageHeader({
       className
     )}>
       <div className="min-w-0">
+        {backHref && backLabel && (
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Volver a {backLabel}
+          </Link>
+        )}
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {description != null && (
           <div className="text-sm text-muted-foreground mt-0.5">{description}</div>

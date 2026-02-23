@@ -19,6 +19,8 @@ export default async function InventarioProductosPage() {
       <PageHeader
         title="Productos"
         description="Catálogo de uniformes y activos. Define tallas por producto."
+        backHref="/ops/inventario"
+        backLabel="Inventario"
       />
       <InventarioProductosClient />
     </div>

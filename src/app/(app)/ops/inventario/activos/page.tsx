@@ -19,6 +19,8 @@ export default async function InventarioActivosPage() {
       <PageHeader
         title="Activos"
         description="Celulares, radios y equipos. Asignación a instalaciones y estado."
+        backHref="/ops/inventario"
+        backLabel="Inventario"
       />
       <InventarioActivosClient />
     </div>
