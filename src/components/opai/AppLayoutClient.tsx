@@ -35,6 +35,7 @@ import {
   ClipboardCheck,
   Layers,
   Landmark,
+  Package,
   GitCompareArrows,
   BookText,
 } from 'lucide-react';
@@ -158,6 +159,19 @@ export function AppLayoutClient({
         },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket },
+        canView(permissions, 'ops', 'inventario') && {
+          href: '/ops/inventario',
+          label: 'Inventario',
+          icon: Package,
+          children: [
+            { href: '/ops/inventario', label: 'Inicio', icon: Package },
+            { href: '/ops/inventario/productos', label: 'Productos', icon: Package },
+            { href: '/ops/inventario/bodegas', label: 'Bodegas', icon: Package },
+            { href: '/ops/inventario/compras', label: 'Compras', icon: Package },
+            { href: '/ops/inventario/stock', label: 'Stock', icon: Package },
+            { href: '/ops/inventario/activos', label: 'Activos', icon: Package },
+          ],
+        },
         canView(permissions, 'ops', 'supervision') && {
           href: '/ops/supervision',
           label: 'Supervisión',
