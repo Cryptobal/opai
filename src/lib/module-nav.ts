@@ -102,6 +102,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 /* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, subKey: "pauta_mensual" },
   { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
@@ -122,10 +123,12 @@ const RONDAS_ITEMS: BottomNavItem[] = [
 ];
 
 const INVENTARIO_ITEMS: BottomNavItem[] = [
-  { key: "inv-dashboard", href: "/ops/inventario", label: "Inicio", icon: Package },
+  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3 },
+  { key: "inv-dashboard", href: "/ops/inventario", label: "Inventario", icon: Package },
   { key: "inv-productos", href: "/ops/inventario/productos", label: "Productos", icon: Shirt },
   { key: "inv-bodegas", href: "/ops/inventario/bodegas", label: "Bodegas", icon: Warehouse },
   { key: "inv-compras", href: "/ops/inventario/compras", label: "Compras", icon: Receipt },
+  { key: "inv-entregas", href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
   { key: "inv-stock", href: "/ops/inventario/stock", label: "Stock", icon: Layers },
   { key: "inv-activos", href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
 ];
