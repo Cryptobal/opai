@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,7 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, User } from "lucide-react";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
+import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
+import { Plus } from "lucide-react";
 
 type Variant = {
   id: string;
@@ -29,11 +31,6 @@ type Variant = {
 };
 
 type Warehouse = { id: string; name: string };
-
-type Guardia = {
-  id: string;
-  persona: { firstName: string; lastName: string };
-};
 
 type Movement = {
   id: string;
@@ -48,14 +45,16 @@ export function InventarioEntregasClient() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [guardias, setGuardias] = useState<Guardia[]>([]);
-  const [installations, setInstallations] = useState<{ id: string; name: string }[]>([]);
+  const [installations, setInstallations] = useState<
+    { id: string; name: string; accountName?: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     fromWarehouseId: "",
     guardiaId: "",
+    guardiaNombre: "",
     installationId: "",
     notes: "",
     lines: [{ variantId: "", quantity: 1 }],
@@ -64,12 +63,11 @@ export function InventarioEntregasClient() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [mRes, pRes, wRes, gRes, iRes] = await Promise.all([
+      const [mRes, pRes, wRes, iRes] = await Promise.all([
         fetch("/api/ops/inventario/movements?type=delivery"),
         fetch("/api/ops/inventario/products").then((r) => r.json()),
         fetch("/api/ops/inventario/warehouses"),
-        fetch("/api/ops/inventario/guardias").then((r) => r.json()),
-        fetch("/api/crm/installations?active=true").then((r) => r.json()),
+        fetch("/api/crm/installations").then((r) => r.json()),
       ]);
       const mData = await mRes.json();
       const wData = await wRes.json();
@@ -87,10 +85,16 @@ export function InventarioEntregasClient() {
       }
       setVariants(allVariants);
 
-      const guardiaList = Array.isArray(gRes) ? gRes : [];
-      setGuardias(guardiaList);
-
-      const instList = Array.isArray(iRes) ? iRes : (iRes?.data ?? []).map((i: { id: string; name: string }) => ({ id: i.id, name: i.name }));
+      const rawInst = iRes?.data ?? (Array.isArray(iRes) ? iRes : []);
+      const instList = rawInst
+        .filter((i: { isActive?: boolean }) => i.isActive !== false)
+        .map(
+          (i: { id: string; name: string; account?: { name: string } }) => ({
+            id: i.id,
+            name: i.name,
+            accountName: i.account?.name ?? "",
+          })
+        );
       setInstallations(instList);
     } catch (e) {
       console.error(e);
@@ -131,6 +135,7 @@ export function InventarioEntregasClient() {
           date: new Date().toISOString().slice(0, 10),
           fromWarehouseId: "",
           guardiaId: "",
+          guardiaNombre: "",
           installationId: "",
           notes: "",
           lines: [{ variantId: "", quantity: 1 }],
@@ -147,6 +152,19 @@ export function InventarioEntregasClient() {
 
   const variantLabel = (v: Variant) =>
     v.size ? `${v.product.name} ${v.size.sizeCode}` : v.product.name;
+
+  const installationOptions: SearchableOption[] = useMemo(() => {
+    const base: SearchableOption[] = [
+      { id: "", label: "Ninguna", searchText: "ninguna" },
+    ];
+    const instOpts = installations.map((i) => ({
+      id: i.id,
+      label: i.name,
+      description: i.accountName || undefined,
+      searchText: `${i.name} ${i.accountName ?? ""}`.trim(),
+    }));
+    return [...base, ...instOpts];
+  }, [installations]);
 
   const addLine = () => {
     setForm((f) => ({
@@ -209,34 +227,40 @@ export function InventarioEntregasClient() {
                 </div>
                 <div>
                   <Label>Guardia *</Label>
-                  <select
-                    className="w-full h-9 rounded-md border px-3 text-sm"
-                    value={form.guardiaId}
-                    onChange={(e) => setForm((f) => ({ ...f, guardiaId: e.target.value }))}
-                    required
-                  >
-                    <option value="">Seleccionar</option>
-                    {guardias.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.persona.firstName} {g.persona.lastName}
-                      </option>
-                    ))}
-                  </select>
+                  <GuardiaSearchInput
+                    value={form.guardiaNombre}
+                    onChange={({ guardiaNombre, guardiaId }) =>
+                      setForm((f) => ({
+                        ...f,
+                        guardiaNombre,
+                        guardiaId: guardiaId ?? "",
+                      }))
+                    }
+                    placeholder="Buscar por nombre, RUT o código..."
+                  />
                 </div>
                 <div>
                   <Label>Instalación (opcional)</Label>
-                  <select
-                    className="w-full h-9 rounded-md border px-3 text-sm"
+                  <SearchableSelect
                     value={form.installationId}
-                    onChange={(e) => setForm((f) => ({ ...f, installationId: e.target.value }))}
-                  >
-                    <option value="">Ninguna</option>
-                    {installations.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={installationOptions}
+                    placeholder="Buscar por instalación o cliente..."
+                    emptyText="Ninguna"
+                    onChange={(id) =>
+                      setForm((f) => ({ ...f, installationId: id }))
+                    }
+                  />
+                  {form.installationId && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({ ...f, installationId: "" }))
+                      }
+                      className="mt-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Limpiar
+                    </button>
+                  )}
                 </div>
                 <div>
                   <Label>Notas</Label>
