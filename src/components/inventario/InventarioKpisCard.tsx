@@ -44,9 +44,11 @@ export function InventarioKpisCard() {
     );
   }
 
-  if (!data || data.summary.totalGeneral === 0) {
+  if (!data) {
     return null;
   }
+
+  const hasCosts = data.summary.totalGeneral > 0;
 
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(n);
@@ -66,11 +68,13 @@ export function InventarioKpisCard() {
           </Link>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3">
+        <div className="rounded-lg bg-muted/40 p-3 min-h-[4rem]">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Costo total asignado
           </p>
-          <p className="text-xl font-bold">{formatCurrency(data.summary.totalGeneral)}</p>
+          <p className="text-xl font-bold">
+            {hasCosts ? formatCurrency(data.summary.totalGeneral) : "Sin costos asignados"}
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             Uniformes: {formatCurrency(data.summary.totalUniformesAsignados)}
             {data.summary.totalActivosAsignados > 0 &&
@@ -78,7 +82,7 @@ export function InventarioKpisCard() {
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 min-h-[2rem]">
           {data.byGuardia.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">

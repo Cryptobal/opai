@@ -72,10 +72,12 @@ export function SearchableSelect({
     return [...startsWith, ...includes].slice(0, 60);
   }, [options, query]);
 
+  const displayValue = open ? query : (value ? (selected?.label ?? "") : "");
+
   return (
     <div ref={boxRef} className="relative">
       <Input
-        value={open ? query : (selected?.label ?? "")}
+        value={displayValue}
         placeholder={placeholder}
         disabled={disabled}
         onFocus={() => setOpen(true)}

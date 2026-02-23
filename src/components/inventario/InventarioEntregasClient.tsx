@@ -211,7 +211,7 @@ export function InventarioEntregasClient() {
                   <div>
                     <Label>Bodega origen *</Label>
                     <select
-                      className="w-full h-9 rounded-md border px-3 text-sm"
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
                       value={form.fromWarehouseId}
                       onChange={(e) => setForm((f) => ({ ...f, fromWarehouseId: e.target.value }))}
                       required
@@ -283,7 +283,7 @@ export function InventarioEntregasClient() {
                         <div className="col-span-8">
                           <Label className="text-xs">Producto / Talla</Label>
                           <select
-                            className="w-full h-9 rounded-md border px-3 text-sm"
+                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
                             value={line.variantId}
                             onChange={(e) =>
                               setForm((f) => {
