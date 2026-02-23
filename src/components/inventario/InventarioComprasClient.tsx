@@ -55,8 +55,11 @@ export function InventarioComprasClient() {
     lines: [{ variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
   });
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [pRes, vRes, wRes] = await Promise.all([
         fetch("/api/ops/inventario/purchases"),
@@ -67,6 +70,7 @@ export function InventarioComprasClient() {
       const wData = await wRes.json();
 
       if (Array.isArray(pData)) setPurchases(pData);
+      else setError(pData?.error || "Error al cargar. Verifica la base de datos.");
       if (Array.isArray(wData)) setWarehouses(wData);
 
       const products = Array.isArray(vRes) ? vRes : [];
@@ -83,6 +87,7 @@ export function InventarioComprasClient() {
       setVariants(allVariants);
     } catch (e) {
       console.error(e);
+      setError("No se pudo conectar al servidor.");
     } finally {
       setLoading(false);
     }
@@ -290,6 +295,10 @@ export function InventarioComprasClient() {
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            {error}
+          </div>
         ) : purchases.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay compras registradas. Crea productos, bodegas y registra tu primera compra.

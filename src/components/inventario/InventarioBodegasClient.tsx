@@ -47,14 +47,19 @@ export function InventarioBodegasClient() {
     type: "central" as "central" | "supervisor" | "installation" | "other",
   });
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchWarehouses = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/ops/inventario/warehouses");
       const data = await res.json();
-      if (Array.isArray(data)) setWarehouses(data);
+      if (res.ok && Array.isArray(data)) setWarehouses(data);
+      else setError(data?.error || "Error al cargar bodegas.");
     } catch (e) {
       console.error(e);
+      setError("No se pudo conectar al servidor.");
     } finally {
       setLoading(false);
     }
@@ -161,6 +166,10 @@ export function InventarioBodegasClient() {
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            {error}
+          </div>
         ) : warehouses.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay bodegas. Crea una para poder registrar compras.

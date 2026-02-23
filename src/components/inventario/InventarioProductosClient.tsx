@@ -53,14 +53,22 @@ export function InventarioProductosClient() {
     notes: "",
   });
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchProducts = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/ops/inventario/products");
       const data = await res.json();
-      if (Array.isArray(data)) setProducts(data);
+      if (res.ok && Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        setError(data?.error || "Error al cargar productos. Verifica que la base de datos esté configurada.");
+      }
     } catch (e) {
       console.error(e);
+      setError("No se pudo conectar. Verifica que el servidor y la base de datos estén disponibles.");
     } finally {
       setLoading(false);
     }
@@ -191,6 +199,13 @@ export function InventarioProductosClient() {
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            {error}
+            <p className="mt-2 text-xs opacity-80">
+              Ejecuta <code className="rounded bg-black/10 px-1">npm run db:migrate</code> después de configurar DATABASE_URL en .env.local
+            </p>
+          </div>
         ) : products.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay productos. Crea uno para comenzar.

@@ -24,14 +24,21 @@ export function InventarioStockClient() {
   const [stock, setStock] = useState<StockRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetch("/api/ops/inventario/stock")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setStock(data.filter((s: StockRecord) => s.quantity > 0));
+        else setError(data?.error || "Error al cargar stock.");
       })
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        setError("No se pudo conectar al servidor.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -58,6 +65,10 @@ export function InventarioStockClient() {
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            {error}
+          </div>
         ) : stock.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay stock. Registra una compra para ver el inventario.

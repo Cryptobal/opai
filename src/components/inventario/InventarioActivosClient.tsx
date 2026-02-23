@@ -46,8 +46,11 @@ export function InventarioActivosClient() {
     notes: "",
   });
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [aRes, pRes] = await Promise.all([
         fetch("/api/ops/inventario/assets"),
@@ -55,6 +58,7 @@ export function InventarioActivosClient() {
       ]);
       const aData = await aRes.json();
       if (Array.isArray(aData)) setAssets(aData);
+      else setError(aData?.error || "Error al cargar activos.");
 
       const products = Array.isArray(pRes) ? pRes : [];
       const vars: { id: string; product: { name: string } }[] = [];
@@ -66,6 +70,7 @@ export function InventarioActivosClient() {
       setVariants(vars);
     } catch (e) {
       console.error(e);
+      setError("No se pudo conectar al servidor.");
     } finally {
       setLoading(false);
     }
@@ -203,6 +208,10 @@ export function InventarioActivosClient() {
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            {error}
+          </div>
         ) : assets.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No hay activos. Crea productos tipo &quot;activo&quot; (ej. Celular) y regístralos aquí.
