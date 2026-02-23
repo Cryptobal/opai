@@ -28,6 +28,7 @@ import { CRM_MODULES } from "./CrmModuleIcons";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
+import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
 import { OpsRefuerzosClient } from "@/components/ops";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
@@ -1292,9 +1293,11 @@ function StaffingSection({
 export function CrmInstallationDetailClient({
   installation,
   canEditDotacion = false,
+  hasInventarioAccess = false,
 }: {
   installation: InstallationDetail;
   canEditDotacion?: boolean;
+  hasInventarioAccess?: boolean;
 }) {
   const router = useRouter();
   const hasCoords = installation.lat != null && installation.lng != null;
@@ -1747,6 +1750,17 @@ export function CrmInstallationDetailClient({
         <InstallationExpensesSection installationId={installation.id} />
       ),
     },
+    ...(hasInventarioAccess
+      ? [
+          {
+            key: "uniformes-activos" as const,
+            label: "Uniformes y activos",
+            children: (
+              <InventarioInstallationSection installationId={installation.id} />
+            ),
+          },
+        ]
+      : []),
     {
       key: "files",
       children: <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />,

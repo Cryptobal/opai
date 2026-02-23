@@ -63,6 +63,7 @@ export const SUBMODULE_KEYS = {
     "control_nocturno",
     "tickets",
     "supervision",
+    "inventario",
   ] as const,
   crm: [
     "leads",
@@ -203,6 +204,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.control_nocturno", module: "ops", submodule: "control_nocturno", label: "Control nocturno", href: "/ops/control-nocturno" },
   { key: "ops.tickets", module: "ops", submodule: "tickets", label: "Tickets", href: "/ops/tickets" },
   { key: "ops.supervision", module: "ops", submodule: "supervision", label: "Supervisión", href: "/ops/supervision" },
+  { key: "ops.inventario", module: "ops", submodule: "inventario", label: "Inventario", href: "/ops/inventario" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -749,6 +751,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
+  if (pathname.startsWith("/ops/inventario")) return { module: "ops", submodule: "inventario" };
   if (pathname.startsWith("/personas/guardias"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
@@ -840,6 +843,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
+  if (pathname.startsWith("/api/ops/inventario")) return { module: "ops", submodule: "inventario" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };

@@ -21,6 +21,7 @@ export default async function GuardiaDetailPage({
   if (!canView(perms, "ops", "guardias")) {
     redirect("/hub");
   }
+  const hasInventarioAccess = canView(perms, "ops", "inventario");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const [guardia, asignaciones, adminUsers, guardiaDocConfig] = await Promise.all([
@@ -97,6 +98,7 @@ export default async function GuardiaDetailPage({
         personaAdminId={personaAdminId}
         currentUserId={session.user.id}
         guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
+        hasInventarioAccess={hasInventarioAccess}
       />
     </div>
   );

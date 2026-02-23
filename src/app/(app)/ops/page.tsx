@@ -19,6 +19,7 @@ import {
   Users,
   Building2,
   Ticket,
+  Package,
 } from "lucide-react";
 
 export default async function OpsDashboardPage() {
@@ -128,6 +129,14 @@ export default async function OpsDashboardPage() {
       icon: Ticket,
       count: null,
       color: "text-orange-400 bg-orange-400/10",
+    },
+    {
+      href: "/ops/inventario",
+      title: "Inventario",
+      description: "Uniformes, activos y teléfonos por instalación.",
+      icon: Package,
+      count: null,
+      color: "text-teal-400 bg-teal-400/10",
     },
   ];
 

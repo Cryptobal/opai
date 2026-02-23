@@ -205,10 +205,15 @@ export default async function CrmInstallationDetailPage({
   );
 
   const canEditDotacion = canEdit(perms, "crm", "dotacion");
+  const hasInventarioAccess = canView(perms, "ops", "inventario");
 
   return (
     <>
-      <CrmInstallationDetailClient installation={data} canEditDotacion={canEditDotacion} />
+      <CrmInstallationDetailClient
+        installation={data}
+        canEditDotacion={canEditDotacion}
+        hasInventarioAccess={hasInventarioAccess}
+      />
     </>
   );
 }

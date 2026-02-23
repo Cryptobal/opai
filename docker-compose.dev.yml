@@ -1,0 +1,17 @@
+# PostgreSQL para desarrollo local
+# Uso: docker compose -f docker-compose.dev.yml up -d
+# Luego: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gard npm run db:migrate
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gard
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_dev_data:

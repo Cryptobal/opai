@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 export type GuardiaSearchResult = {
@@ -33,7 +32,6 @@ export function GuardiaSearchInput({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
-  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,22 +41,10 @@ export function GuardiaSearchInput({
     setQuery(value);
   }, [value]);
 
-  const updatePosition = useCallback(() => {
-    if (inputRef.current && typeof document !== "undefined") {
-      const rect = inputRef.current.getBoundingClientRect();
-      setPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 200),
-      });
-    }
-  }, []);
-
   const fetchResults = useCallback(async (q: string) => {
     if (!q || q.length < 2) {
       setResults([]);
       setOpen(false);
-      setPosition(null);
       return;
     }
     abortRef.current?.abort();
@@ -75,30 +61,20 @@ export function GuardiaSearchInput({
         setHighlightIdx(-1);
         if (json.data.length > 0) {
           setOpen(true);
-          updatePosition();
         } else {
           setOpen(false);
-          setPosition(null);
         }
       } else {
         setResults([]);
         setOpen(false);
-        setPosition(null);
       }
     } catch {
       setResults([]);
       setOpen(false);
-      setPosition(null);
     } finally {
       setLoading(false);
     }
-  }, [updatePosition]);
-
-  useLayoutEffect(() => {
-    if (open && results.length > 0) {
-      updatePosition();
-    }
-  }, [open, results.length, updatePosition]);
+  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,7 +96,6 @@ export function GuardiaSearchInput({
       onChange({ guardiaNombre: g.nombreCompleto, guardiaId: g.id });
       setOpen(false);
       setResults([]);
-      setPosition(null);
       inputRef.current?.blur();
     },
     [onChange]
@@ -140,7 +115,6 @@ export function GuardiaSearchInput({
         handleSelect(results[highlightIdx]);
       } else if (e.key === "Escape") {
         setOpen(false);
-        setPosition(null);
       }
     },
     [open, results, highlightIdx, handleSelect]
@@ -152,7 +126,6 @@ export function GuardiaSearchInput({
       if (containerRef.current?.contains(target)) return;
       if (document.querySelector("[data-guardia-dropdown]")?.contains(target)) return;
       setOpen(false);
-      setPosition(null);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -167,20 +140,11 @@ export function GuardiaSearchInput({
 
   const dropdown =
     open &&
-    results.length > 0 &&
-    position &&
-    typeof document !== "undefined" &&
-    createPortal(
+    results.length > 0 && (
       <ul
         data-guardia-dropdown
         role="listbox"
-        className="fixed z-[9999] max-h-52 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl"
-        style={{
-          top: position.top,
-          left: position.left,
-          width: position.width,
-          minWidth: 220,
-        }}
+        className="absolute left-0 right-0 top-full z-[9999] mt-1 max-h-52 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl"
       >
         {results.map((g, idx) => (
           <li
@@ -198,8 +162,7 @@ export function GuardiaSearchInput({
             )}
           </li>
         ))}
-      </ul>,
-      document.body
+      </ul>
     );
 
   return (

@@ -38,9 +38,13 @@ import {
   Radio,
   Moon,
   Ticket,
+  Package,
+  Shirt,
+  Warehouse,
+  Layers,
+  Smartphone,
   // TE
   CheckCircle2,
-  Layers,
   Banknote,
   // Personas
   Shield,
@@ -98,6 +102,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 /* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, subKey: "pauta_mensual" },
   { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
@@ -106,6 +111,7 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
 const RONDAS_ITEMS: BottomNavItem[] = [
@@ -114,6 +120,17 @@ const RONDAS_ITEMS: BottomNavItem[] = [
   { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
   { key: "rondas-checkpoints", href: "/ops/rondas/checkpoints", label: "Puntos", icon: MapPin },
   { key: "rondas-config", href: "/ops/rondas/templates", label: "Config", icon: Settings },
+];
+
+const INVENTARIO_ITEMS: BottomNavItem[] = [
+  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3 },
+  { key: "inv-dashboard", href: "/ops/inventario", label: "Inventario", icon: Package },
+  { key: "inv-productos", href: "/ops/inventario/productos", label: "Productos", icon: Shirt },
+  { key: "inv-bodegas", href: "/ops/inventario/bodegas", label: "Bodegas", icon: Warehouse },
+  { key: "inv-compras", href: "/ops/inventario/compras", label: "Compras", icon: Receipt },
+  { key: "inv-entregas", href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
+  { key: "inv-stock", href: "/ops/inventario/stock", label: "Stock", icon: Layers },
+  { key: "inv-activos", href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
 ];
 
 /* ── TE sub-items ── */
@@ -185,6 +202,11 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) => p.startsWith("/ops/rondas"),
     getItems: () => RONDAS_ITEMS,
+  },
+  {
+    test: (p) => p.startsWith("/ops/inventario"),
+    getItems: (perms) =>
+      INVENTARIO_ITEMS.filter((item) => canView(perms, "ops", "inventario")),
   },
   {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),

@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance"]
+  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory"]
 }
 
 model Tenant {
@@ -31,6 +31,14 @@ model Tenant {
   opsSupervisorAssignments  OpsAsignacionSupervisor[]
   opsSupervisionVisits      OpsVisitaSupervision[]
   opsSupervisionVisitImages OpsVisitaImagen[]
+  inventoryProducts         InventoryProduct[]
+  inventoryWarehouses       InventoryWarehouse[]
+  inventoryPurchases        InventoryPurchase[]
+  inventoryMovements        InventoryMovement[]
+  inventoryStocks           InventoryStock[]
+  inventoryGuardiaAssignments InventoryGuardiaAssignment[]
+  inventoryAssets           InventoryAsset[]
+  inventoryAssetAssignments InventoryAssetAssignment[]
 
   @@index([slug])
   @@index([active])
@@ -170,6 +178,7 @@ model Admin {
   groupMemberships      AdminGroupMembership[]
   supervisorAssignments OpsAsignacionSupervisor[] @relation("ops_supervisor_assignment_admin")
   supervisionVisits     OpsVisitaSupervision[]    @relation("ops_supervision_visit_supervisor")
+  inventoryWarehouses  InventoryWarehouse[]      @relation("inventory_warehouse_supervisor")
 
   @@index([email])
   @@index([status])
@@ -1245,6 +1254,10 @@ model CrmInstallation {
   opsControlNocturnoInstalaciones OpsControlNocturnoInstalacion[]
   supervisorAssignments           OpsAsignacionSupervisor[]       @relation("ops_supervisor_assignment_installation")
   supervisionVisits               OpsVisitaSupervision[]          @relation("ops_supervision_visit_installation")
+  inventoryWarehouses             InventoryWarehouse[]            @relation("inventory_warehouse_installation")
+  inventoryAssetAssignments        InventoryAssetAssignment[]
+  inventoryMovements              InventoryMovement[]
+  inventoryGuardiaAssignments     InventoryGuardiaAssignment[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1861,6 +1874,8 @@ model OpsGuardia {
   rondaIncidentes         OpsRondaIncidente[]
   controlNocturnoGuardias OpsControlNocturnoGuardia[]
   tickets                 OpsTicket[]
+  inventoryGuardiaAssignments InventoryGuardiaAssignment[]
+  inventoryMovements       InventoryMovement[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -4103,4 +4118,296 @@ model FinanceFactoringOperation {
   @@index([tenantId, status], map: "idx_finance_factoring_status")
   @@map("finance_factoring_operations")
   @@schema("finance")
+}
+
+// ── INVENTARIO (Ops): Uniformes, activos, teléfonos ──
+
+model InventoryProduct {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  name      String
+  sku       String?
+  category  String   // "uniform" | "asset"
+  active    Boolean  @default(true)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sizes   InventoryProductSize[]
+  variants InventoryProductVariant[]
+
+  @@index([tenantId], map: "idx_inv_product_tenant")
+  @@index([category], map: "idx_inv_product_category")
+  @@index([tenantId, category], map: "idx_inv_product_tenant_category")
+  @@map("products")
+  @@schema("inventory")
+}
+
+model InventoryProductSize {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  sizeCode  String   @map("size_code")   // "S", "M", "L", "40", "41", etc.
+  sizeLabel String?  @map("size_label")  // "Small", "Mediano", etc.
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product  InventoryProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants InventoryProductVariant[]
+
+  @@unique([productId, sizeCode], map: "uq_inv_product_size_product_code")
+  @@index([productId], map: "idx_inv_product_size_product")
+  @@map("product_sizes")
+  @@schema("inventory")
+}
+
+model InventoryProductVariant {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  sizeId    String?  @map("size_id") @db.Uuid  // null si producto sin tallas (ej. celular)
+  sku       String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product  InventoryProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size     InventoryProductSize? @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+
+  purchaseLines    InventoryPurchaseLine[]
+  movementLines    InventoryMovementLine[]
+  stockRecords     InventoryStock[]
+  guardiaAssignments InventoryGuardiaAssignment[]
+  assets           InventoryAsset[]
+
+  @@unique([productId, sizeId], map: "uq_inv_variant_product_size")
+  @@index([productId], map: "idx_inv_variant_product")
+  @@map("product_variants")
+  @@schema("inventory")
+}
+
+model InventoryWarehouse {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  name           String
+  type           String   // "central" | "supervisor" | "installation" | "other"
+  supervisorId   String?  @map("supervisor_id")  // si type=supervisor
+  installationId String?  @map("installation_id") @db.Uuid  // si type=installation
+  active         Boolean  @default(true)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor   Admin?                 @relation("inventory_warehouse_supervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  installation CrmInstallation?      @relation("inventory_warehouse_installation", fields: [installationId], references: [id], onDelete: SetNull)
+
+  purchaseLines   InventoryPurchaseLine[]
+  movementsFrom   InventoryMovement[] @relation("inv_movement_from")
+  movementsTo     InventoryMovement[] @relation("inv_movement_to")
+  stockRecords    InventoryStock[]
+
+  @@index([tenantId], map: "idx_inv_warehouse_tenant")
+  @@index([type], map: "idx_inv_warehouse_type")
+  @@index([supervisorId], map: "idx_inv_warehouse_supervisor")
+  @@index([installationId], map: "idx_inv_warehouse_installation")
+  @@map("warehouses")
+  @@schema("inventory")
+}
+
+model InventoryPurchase {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  date      DateTime @db.Date
+  notes     String?  @db.Text
+  dteId     String?  @map("dte_id") @db.Uuid  // futuro: factura de compra
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines  InventoryPurchaseLine[]
+
+  @@index([tenantId], map: "idx_inv_purchase_tenant")
+  @@index([date], map: "idx_inv_purchase_date")
+  @@map("purchases")
+  @@schema("inventory")
+}
+
+model InventoryPurchaseLine {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  purchaseId  String   @map("purchase_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  quantity    Int
+  unitCost    Decimal  @map("unit_cost") @db.Decimal(12, 2)
+  warehouseId String   @map("warehouse_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  purchase  InventoryPurchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  variant   InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  warehouse InventoryWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId], map: "idx_inv_purchase_line_purchase")
+  @@index([variantId], map: "idx_inv_purchase_line_variant")
+  @@index([warehouseId], map: "idx_inv_purchase_line_warehouse")
+  @@map("purchase_lines")
+  @@schema("inventory")
+}
+
+model InventoryMovement {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  type           String   // "transfer" | "delivery" | "return" | "adjustment"
+  date           DateTime @db.Date
+  fromWarehouseId String?  @map("from_warehouse_id") @db.Uuid
+  toWarehouseId   String?  @map("to_warehouse_id") @db.Uuid
+  guardiaId       String?  @map("guardia_id") @db.Uuid  // si type=delivery
+  installationId  String?  @map("installation_id") @db.Uuid  // instalación donde se entrega
+  notes           String?  @db.Text
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromWarehouse  InventoryWarehouse?     @relation("inv_movement_from", fields: [fromWarehouseId], references: [id], onDelete: SetNull)
+  toWarehouse    InventoryWarehouse?     @relation("inv_movement_to", fields: [toWarehouseId], references: [id], onDelete: SetNull)
+  guardia        OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  installation   CrmInstallation?        @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  lines          InventoryMovementLine[]
+  guardiaAssignments InventoryGuardiaAssignment[]
+
+  @@index([tenantId], map: "idx_inv_movement_tenant")
+  @@index([type], map: "idx_inv_movement_type")
+  @@index([date], map: "idx_inv_movement_date")
+  @@index([fromWarehouseId], map: "idx_inv_movement_from")
+  @@index([toWarehouseId], map: "idx_inv_movement_to")
+  @@index([guardiaId], map: "idx_inv_movement_guardia")
+  @@map("movements")
+  @@schema("inventory")
+}
+
+model InventoryMovementLine {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  movementId  String   @map("movement_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  quantity    Int
+  unitCost    Decimal? @map("unit_cost") @db.Decimal(12, 2)  // costo al momento del movimiento
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  movement InventoryMovement       @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  variant  InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([movementId], map: "idx_inv_movement_line_movement")
+  @@index([variantId], map: "idx_inv_movement_line_variant")
+  @@map("movement_lines")
+  @@schema("inventory")
+}
+
+model InventoryStock {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  warehouseId String   @map("warehouse_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  quantity    Int      @default(0)
+  avgCost     Decimal? @map("avg_cost") @db.Decimal(12, 2)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse InventoryWarehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  variant   InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, variantId], map: "uq_inv_stock_warehouse_variant")
+  @@index([tenantId], map: "idx_inv_stock_tenant")
+  @@index([warehouseId], map: "idx_inv_stock_warehouse")
+  @@index([variantId], map: "idx_inv_stock_variant")
+  @@map("stock")
+  @@schema("inventory")
+}
+
+model InventoryGuardiaAssignment {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  guardiaId      String    @map("guardia_id") @db.Uuid
+  movementId     String    @map("movement_id") @db.Uuid
+  variantId      String    @map("variant_id") @db.Uuid
+  quantity       Int
+  installationId String?   @map("installation_id") @db.Uuid  // instalación donde se entregó
+  deliveredAt    DateTime  @map("delivered_at") @db.Timestamptz(6)
+  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6)  // null = vigente
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  guardia      OpsGuardia             @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  movement     InventoryMovement       @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  variant      InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  installation CrmInstallation?        @relation(fields: [installationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_inv_guardia_assignment_tenant")
+  @@index([guardiaId], map: "idx_inv_guardia_assignment_guardia")
+  @@index([variantId], map: "idx_inv_guardia_assignment_variant")
+  @@index([installationId], map: "idx_inv_guardia_assignment_installation")
+  @@map("guardia_assignments")
+  @@schema("inventory")
+}
+
+model InventoryAsset {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id")
+  variantId     String?  @map("variant_id") @db.Uuid  // producto (ej. Celular)
+  serialNumber  String?  @map("serial_number")  // IMEI, número de serie
+  status        String   @default("available")  // available | assigned | maintenance | broken | retired
+  phoneNumber   String?  @map("phone_number")  // si es celular
+  phoneCarrier  String?  @map("phone_carrier")  // entel, movistar, etc.
+  purchaseCost  Decimal? @map("purchase_cost") @db.Decimal(12, 2)
+  purchaseDate  DateTime? @map("purchase_date") @db.Date
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  InventoryProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  assignments InventoryAssetAssignment[]
+  statusHistory InventoryAssetStatusHistory[]
+
+  @@index([tenantId], map: "idx_inv_asset_tenant")
+  @@index([variantId], map: "idx_inv_asset_variant")
+  @@index([status], map: "idx_inv_asset_status")
+  @@index([phoneNumber], map: "idx_inv_asset_phone")
+  @@map("assets")
+  @@schema("inventory")
+}
+
+model InventoryAssetAssignment {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  assetId        String    @map("asset_id") @db.Uuid
+  installationId String   @map("installation_id") @db.Uuid
+  assignedAt     DateTime  @map("assigned_at") @db.Timestamptz(6)
+  assignedBy     String?   @map("assigned_by")
+  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6)  // null = vigente
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset        InventoryAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  installation CrmInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_inv_asset_assignment_tenant")
+  @@index([assetId], map: "idx_inv_asset_assignment_asset")
+  @@index([installationId], map: "idx_inv_asset_assignment_installation")
+  @@map("asset_assignments")
+  @@schema("inventory")
+}
+
+model InventoryAssetStatusHistory {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  status    String
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  changedBy String?  @map("changed_by")
+  notes     String?  @db.Text
+
+  asset InventoryAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId], map: "idx_inv_asset_status_history_asset")
+  @@map("asset_status_history")
+  @@schema("inventory")
 }
