@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditPositionModal } from "@/components/cpq/EditPositionModal";
 import { CostBreakdownModal } from "@/components/cpq/CostBreakdownModal";
-import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
+import { formatCurrency, formatWeekdaysShort, getShiftType, getShiftLabel } from "@/components/cpq/utils";
 import { cn } from "@/lib/utils";
 import type { CpqPosition } from "@/types/cpq";
-import { Copy, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Moon, Pencil, RefreshCw, Sun, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CpqPositionCardProps {
@@ -141,6 +141,22 @@ export function CpqPositionCard({
               className={cn(premiumBadgeClass, "border-amber-500/30 bg-amber-500/15 text-amber-300")}
             >
               {formatWeekdaysShort(position.weekdays)}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                premiumBadgeClass,
+                getShiftType(position.startTime) === "night"
+                  ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                  : "border-yellow-500/30 bg-yellow-500/15 text-yellow-300"
+              )}
+            >
+              {getShiftType(position.startTime) === "night" ? (
+                <Moon className="mr-1 h-3 w-3 inline" />
+              ) : (
+                <Sun className="mr-1 h-3 w-3 inline" />
+              )}
+              {getShiftLabel(position.startTime)} · {position.startTime} - {position.endTime}
             </Badge>
           </div>
         </div>
