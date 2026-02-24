@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2 } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
@@ -183,6 +184,55 @@ export function CrmDealDetailClient({
   const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const createInstallationRef = useRef<{ open: () => void } | null>(null);
+
+  // ── Deal edit state ──
+  const [editDealOpen, setEditDealOpen] = useState(false);
+  const [savingDeal, setSavingDeal] = useState(false);
+  const [dealTitle, setDealTitle] = useState(deal.title);
+  const [dealAmount, setDealAmount] = useState(deal.amount);
+  const [editDealForm, setEditDealForm] = useState({
+    title: deal.title,
+    amount: deal.amount,
+    proposalLink: deal.proposalLink || "",
+  });
+
+  const openDealEdit = () => {
+    setEditDealForm({
+      title: dealTitle,
+      amount: dealAmount,
+      proposalLink: dealProposalLink || "",
+    });
+    setEditDealOpen(true);
+  };
+
+  const saveDeal = async () => {
+    if (!editDealForm.title.trim()) { toast.error("El título es obligatorio."); return; }
+    setSavingDeal(true);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editDealForm.title,
+          amount: editDealForm.amount,
+          proposalLink: editDealForm.proposalLink || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
+      setDealTitle(editDealForm.title);
+      setDealAmount(editDealForm.amount);
+      if (typeof editDealForm.proposalLink === "string") {
+        setDealProposalLink(editDealForm.proposalLink || null);
+      }
+      setEditDealOpen(false);
+      toast.success("Negocio actualizado");
+    } catch {
+      toast.error("No se pudo actualizar el negocio.");
+    } finally {
+      setSavingDeal(false);
+    }
+  };
 
   const selectCn = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -476,7 +526,8 @@ export function CrmDealDetailClient({
   const subtitle = [
     deal.account?.name || "Sin cliente",
     currentStage?.name || "Sin etapa",
-  ].join(" · ");
+    dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : null,
+  ].filter(Boolean).join(" · ");
 
   const statusBadge = deal.status === "won"
     ? { label: "Ganado", variant: "success" as const }
@@ -520,6 +571,11 @@ export function CrmDealDetailClient({
               {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
           }
+        />
+        <DetailField
+          label="Monto"
+          value={dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : undefined}
+          mono
         />
         <DetailField
           label="Contacto"
@@ -986,11 +1042,12 @@ export function CrmDealDetailClient({
       <CrmDetailLayout
         pageType="deal"
         module="deals"
-        title={deal.title}
+        title={dealTitle}
         subtitle={subtitle}
         badge={statusBadge}
         backHref="/crm/deals"
         actions={[
+          { label: "Editar negocio", icon: Pencil, onClick: openDealEdit },
           { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
           { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
         ]}
@@ -1047,6 +1104,36 @@ export function CrmDealDetailClient({
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailOpen(false)}>Cancelar</Button>
             <Button onClick={sendEmail} disabled={sending}>{sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar correo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Deal Edit Modal ── */}
+      <Dialog open={editDealOpen} onOpenChange={setEditDealOpen}>
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Editar negocio</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Título *</Label>
+              <Input value={editDealForm.title} onChange={(e) => setEditDealForm((p) => ({ ...p, title: e.target.value }))} className={inputCn} placeholder="Nombre del negocio" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Monto</Label>
+              <Input value={editDealForm.amount} onChange={(e) => setEditDealForm((p) => ({ ...p, amount: e.target.value }))} className={inputCn} placeholder="0" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link propuesta</Label>
+              <Input value={editDealForm.proposalLink} onChange={(e) => setEditDealForm((p) => ({ ...p, proposalLink: e.target.value }))} className={inputCn} placeholder="https://..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDealOpen(false)}>Cancelar</Button>
+            <Button onClick={saveDeal} disabled={savingDeal}>
+              {savingDeal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

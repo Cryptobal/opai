@@ -418,12 +418,6 @@ export function CrmContactDetailClient({
     {
       key: "general",
       label: "Datos del contacto",
-      action: (
-        <Button size="sm" variant="ghost" onClick={openEdit}>
-          <Pencil className="h-3.5 w-3.5 mr-1" />
-          Editar
-        </Button>
-      ),
       children: (
         <DetailFieldGrid>
           <DetailField label="Nombre completo" value={fullName} />
@@ -586,7 +580,6 @@ export function CrmContactDetailClient({
       <CrmDetailLayout
         pageType="contact"
         module="contacts"
-        defaultCollapsedSectionKeys={true}
         title={fullName}
         subtitle={subtitle}
         badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
