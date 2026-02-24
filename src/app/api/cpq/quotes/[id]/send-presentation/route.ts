@@ -124,6 +124,16 @@ export async function POST(
     }
     const companyName = account?.name || quote.clientName || "Cliente";
 
+    // 3b. Load deal (negocio) name
+    let deal: { title: string } | null = null;
+    if (quote.dealId) {
+      const d = await prisma.crmDeal.findUnique({
+        where: { id: quote.dealId },
+        select: { title: true },
+      });
+      if (d) deal = { title: d.title };
+    }
+
     // 4. Compute costs & sale prices
     let summary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
     try {
@@ -218,6 +228,7 @@ export async function POST(
         },
         positions: quote.positions,
         account,
+        deal,
         contact,
         installation: quote.installation,
         salePriceMonthly,

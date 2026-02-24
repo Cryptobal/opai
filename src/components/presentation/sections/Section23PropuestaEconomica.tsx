@@ -23,16 +23,20 @@ interface Section23PropuestaEconomicaProps {
   quoteDate?: string;
   contactEmail?: string;
   contactPhone?: string;
+  dealName?: string;
+  installationName?: string;
 }
 
-export function Section23PropuestaEconomica({ 
-  data, 
+export function Section23PropuestaEconomica({
+  data,
   showTokens = false,
   clientName = 'Cliente',
   quoteNumber = 'COT-000',
   quoteDate = new Date().toLocaleDateString('es-CL'),
   contactEmail = 'comercial@gard.cl',
-  contactPhone = '+56 98 230 7771'
+  contactPhone = '+56 98 230 7771',
+  dealName = '',
+  installationName = '',
 }: Section23PropuestaEconomicaProps) {
   const theme = useThemeClasses();
   const pdfMode = usePdfMode();
@@ -43,6 +47,27 @@ export function Section23PropuestaEconomica({
     return formatCurrency(value, pricing.currency, { ufSuffix: true });
   };
   
+  /* ── Context box: Negocio + Instalación ── */
+  const contextBlock = !showTokens && (dealName || installationName) ? (
+    <div className={cn("max-w-4xl mx-auto", pdfMode ? "mb-8" : "mb-10")}>
+      <div className="glass-card rounded-xl px-6 py-4 border border-teal-400/20 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-sm">
+        {dealName && (
+          <span className="flex items-center gap-2">
+            <span className="text-white/50">Negocio:</span>
+            <span className="font-bold text-teal-400">{dealName}</span>
+          </span>
+        )}
+        {dealName && installationName && <span className="hidden sm:inline text-white/30">·</span>}
+        {installationName && (
+          <span className="flex items-center gap-2">
+            <span className="text-white/50">Instalacion:</span>
+            <span className="font-bold text-teal-400">{installationName}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   /* ── Pricing table (shared between PDF and web) ── */
   const pricingHeader = (
     <div className={cn("text-center", pdfMode ? "mb-10" : "mb-16")}>
@@ -192,6 +217,7 @@ export function Section23PropuestaEconomica({
         <SectionWrapper id="s23-propuesta-economica" className="animated-gradient">
           <ContainerWrapper size="xl">
             {pricingHeader}
+            {contextBlock}
             {pricingTable}
             {serviceDetailBlock}
           </ContainerWrapper>
@@ -224,7 +250,8 @@ export function Section23PropuestaEconomica({
     <SectionWrapper id="s23-propuesta-economica" className="animated-gradient">
       <ContainerWrapper size="xl">
         {pricingHeader}
-        
+        {contextBlock}
+
         {/* Desktop table */}
         <div className="hidden md:block">
           {pricingTable}

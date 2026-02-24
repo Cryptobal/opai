@@ -29,6 +29,10 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
   const microcopy = showTokens ? data.microcopy : replaceTokens(data.microcopy, payload);
   const personalization = showTokens ? data.personalization : replaceTokens(data.personalization, payload);
   const contactName = showTokens ? '[CONTACT_NAME]' : payload.client.contact_name;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payloadAny = payload as any;
+  const dealName: string = payloadAny._dealName || '';
+  const installationName: string = payloadAny._installationName || payload.service?.sites?.[0]?.name || '';
   
   // Componentes: en PDF mode usar divs planos, en web usar motion
   const H1 = pdfMode ? 'h1' : motion.h1;
@@ -72,6 +76,12 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
                   <div><span className="text-white/50">Contacto:</span> <span className="font-bold text-white">{contactName}</span></div>
                 )}
                 <div><span className="text-white/50">Propuesta:</span> <span className="font-bold text-teal-400">{payload.quote.subject || `COT ${payload.quote.number}`}</span></div>
+                {dealName && (
+                  <div><span className="text-white/50">Negocio:</span> <span className="font-bold text-white">{dealName}</span></div>
+                )}
+                {installationName && (
+                  <div><span className="text-white/50">Instalacion:</span> <span className="font-bold text-white">{installationName}</span></div>
+                )}
               </div>
             </div>
           )}

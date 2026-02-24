@@ -152,7 +152,11 @@ interface PresentationRendererProps {
 
 export function PresentationRenderer({ payload, showTokens = false, pdfMode = false }: PresentationRendererProps) {
   const { theme, sections, assets, cta, contact } = payload;
-  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payloadAny = payload as any;
+  const dealName: string = payloadAny._dealName || '';
+  const installationName: string = payloadAny._installationName || payload.service?.sites?.[0]?.name || '';
+
   return (
     <PdfModeProvider value={pdfMode}>
       <ThemeProvider variant={theme}>
@@ -160,14 +164,14 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
         {pdfMode && (
           <style dangerouslySetInnerHTML={{ __html: PDF_MODE_STYLES }} />
         )}
-        
+
         <div className={cn('presentation-container min-h-screen', pdfMode && 'pdf-mode')}>
         {/* Progress Bar Superior - oculto en PDF */}
         {!pdfMode && <ScrollProgress />}
-        
+
         {/* Header persistente - oculto en PDF */}
         {!pdfMode && (
-          <PresentationHeader 
+          <PresentationHeader
             logo={assets.logo}
             clientLogoUrl={payload.client.company_logo_url}
             cta={cta}
@@ -175,6 +179,8 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             companyName={payload.client.company_name}
             quoteName={payload.quote.subject || ''}
             quoteNumber={payload.quote.number}
+            dealName={dealName}
+            installationName={installationName}
             showTokens={showTokens}
           />
         )}
@@ -284,14 +290,16 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
           {/* S22 - TCO - ELIMINADA: Funcionalidad fusionada con S06 (Costo Real) */}
           
           {/* S23 - Propuesta Económica (incluido en PDF: detalle del servicio y precios) */}
-          <Section23PropuestaEconomica 
-            data={sections.s23_propuesta_economica} 
+          <Section23PropuestaEconomica
+            data={sections.s23_propuesta_economica}
             showTokens={showTokens}
             clientName={payload.client.company_name}
             quoteNumber={payload.quote.number}
             quoteDate={payload.quote.date}
             contactEmail="comercial@gard.cl"
             contactPhone="+56 9 8230 7771"
+            dealName={dealName}
+            installationName={installationName}
           />
           
           {/* S24 - Términos y Condiciones (incluido en PDF) */}

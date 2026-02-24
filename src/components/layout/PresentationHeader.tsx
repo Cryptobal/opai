@@ -16,11 +16,13 @@ interface PresentationHeaderProps {
   companyName?: string;
   quoteName?: string; // Asunto de la cotización (ej: "Apoyo nocturno Coronel")
   quoteNumber?: string;
+  dealName?: string;
+  installationName?: string;
   showTokens?: boolean;
   className?: string;
 }
 
-export function PresentationHeader({ 
+export function PresentationHeader({
   logo = '/Logo%20Gard%20Blanco.png',
   clientLogoUrl = null,
   cta,
@@ -28,8 +30,10 @@ export function PresentationHeader({
   companyName = 'tu empresa',
   quoteName = 'la cotización',
   quoteNumber = '',
+  dealName = '',
+  installationName = '',
   showTokens = false,
-  className 
+  className
 }: PresentationHeaderProps) {
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
@@ -63,6 +67,25 @@ export function PresentationHeader({
                 </div>
               ) : null}
               
+              {/* Centro-derecho: Negocio / Instalación */}
+              {!showTokens && (dealName || installationName) && (
+                <div className="flex items-center gap-2 text-white/60">
+                  {dealName && (
+                    <span className="flex items-center gap-1">
+                      <span className="text-white/40">Negocio:</span>
+                      <span className="font-semibold text-white/80">{dealName}</span>
+                    </span>
+                  )}
+                  {dealName && installationName && <span className="text-white/30">·</span>}
+                  {installationName && (
+                    <span className="flex items-center gap-1">
+                      <span className="text-white/40">Instalacion:</span>
+                      <span className="font-semibold text-white/80">{installationName}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Lado derecho: Número + Preparado para */}
               <div className="flex items-center gap-3 text-white/70">
                 {(quoteNumber || showTokens) && (

@@ -42,6 +42,9 @@ interface CpqMapperInput {
     industry?: string | null;
     segment?: string | null;
   } | null;
+  deal?: {
+    title: string;
+  } | null;
   siteUrl?: string;
   contact?: {
     firstName: string;
@@ -86,7 +89,7 @@ export function mapCpqDataToPresentation(
   sessionId: string,
   templateSlug: string = "commercial"
 ): PresentationPayload {
-  const { quote, positions, account, contact, installation, ufValue, siteUrl } = input;
+  const { quote, positions, account, deal, contact, installation, ufValue, siteUrl } = input;
 
   const companyName = account?.name || quote.clientName || "Cliente";
   const companyLogoUrl =
@@ -136,6 +139,10 @@ export function mapCpqDataToPresentation(
     theme: "executive",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+
+    // Contexto CRM (para mostrar en preview y header)
+    _dealName: deal?.title || "",
+    _installationName: installation?.name || "",
 
     // Datos del cliente - 100% del CPQ
     client: {

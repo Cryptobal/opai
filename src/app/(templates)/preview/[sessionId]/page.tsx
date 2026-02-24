@@ -107,28 +107,37 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
     presentationData = mapZohoDataToPresentation(zohoData, sessionId, template.slug);
   }
 
-  // 6. Extraer datos del contacto
+  // 6. Extraer datos del contacto y contexto CRM
   const contactName = `${zohoData.contact?.First_Name || ''} ${zohoData.contact?.Last_Name || ''}`.trim();
   const contactEmail = zohoData.contact?.Email || '';
+  const dealName = presentationData._dealName || '';
+  const installationName = presentationData._installationName || presentationData.service?.sites?.[0]?.name || '';
 
   // 7. Renderizar presentación
   return (
     <div className="relative">
       {/* Banner de preview */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-black py-3 px-4 text-center font-semibold text-sm shadow-lg">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1">
           <div className="flex items-center gap-3">
             <a
               href="/opai/inicio"
-              className="px-3 py-1.5 rounded-lg bg-black/10 hover:bg-black/20 transition-colors text-xs font-bold"
+              className="px-3 py-1.5 rounded-lg bg-black/10 hover:bg-black/20 transition-colors text-xs font-bold shrink-0"
             >
               ← Dashboard
             </a>
             <div>
-              📋 PREVIEW DE BORRADOR - Cliente: {presentationData.client.company_name}
+              PREVIEW DE BORRADOR - {presentationData.client.company_name}
             </div>
           </div>
-          <div className="text-xs">
+          {(dealName || installationName) && (
+            <div className="flex items-center gap-2 text-xs">
+              {dealName && <span><strong>Negocio:</strong> {dealName}</span>}
+              {dealName && installationName && <span className="opacity-50">·</span>}
+              {installationName && <span><strong>Instalacion:</strong> {installationName}</span>}
+            </div>
+          )}
+          <div className="text-xs hidden sm:block">
             Expira: {webhookSession.expiresAt.toLocaleString('es-CL')}
           </div>
         </div>
