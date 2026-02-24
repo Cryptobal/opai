@@ -31,6 +31,17 @@ Después de guardar, hace falta un **nuevo deploy** (o "Redeploy" del último) p
 
 ## Variables a configurar en Vercel
 
+### Base de datos (Neon) — REQUERIDO para migraciones
+
+Si el deploy falla con **P1002** (timeout en advisory lock), añade `DIRECT_URL`:
+
+| Variable | Dónde obtener el valor |
+|----------|------------------------|
+| `DATABASE_URL` | Neon → Connection Details → **Pooled connection** (host con `-pooler`) |
+| `DIRECT_URL` | Neon → Connection Details → **Direct connection** (host SIN `-pooler`) |
+
+Las migraciones (`prisma migrate deploy`) requieren conexión directa. La URL pooled no libera bien los advisory locks y provoca timeout.
+
 ### R2 (archivos CRM)
 
 | Variable | Dónde obtener el valor |
