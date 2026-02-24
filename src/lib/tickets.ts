@@ -494,14 +494,42 @@ export function generateTicketCode(sequence: number): string {
 }
 
 /** Check if SLA is breached */
-export function isSlaBreached(slaDueAt: string | null): boolean {
+export function isSlaBreached(
+  slaDueAt: string | null,
+  status?: TicketStatus,
+  resolvedAt?: string | null,
+): boolean {
   if (!slaDueAt) return false;
+  const terminalStatuses: TicketStatus[] = ["resolved", "closed", "rejected", "cancelled"];
+  if (status && terminalStatuses.includes(status)) {
+    // For resolved/closed tickets, compare resolvedAt against slaDueAt
+    if (resolvedAt) {
+      return new Date(resolvedAt) > new Date(slaDueAt);
+    }
+    // Cancelled/rejected without resolvedAt: SLA no longer applies
+    return false;
+  }
   return new Date() > new Date(slaDueAt);
 }
 
 /** Get time remaining for SLA (human readable) */
-export function getSlaRemaining(slaDueAt: string | null): string | null {
+export function getSlaRemaining(
+  slaDueAt: string | null,
+  status?: TicketStatus,
+  resolvedAt?: string | null,
+): string | null {
   if (!slaDueAt) return null;
+  const terminalStatuses: TicketStatus[] = ["resolved", "closed", "rejected", "cancelled"];
+  if (status && terminalStatuses.includes(status)) {
+    // For resolved tickets, show whether SLA was met or not
+    if (resolvedAt) {
+      const due = new Date(slaDueAt);
+      const resolved = new Date(resolvedAt);
+      if (resolved > due) return "Vencido";
+    }
+    // Resolved within SLA or cancelled/rejected: don't show SLA remaining
+    return null;
+  }
   const due = new Date(slaDueAt);
   const now = new Date();
   const diffMs = due.getTime() - now.getTime();

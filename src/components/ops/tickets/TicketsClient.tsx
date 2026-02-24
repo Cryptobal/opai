@@ -271,8 +271,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 function TicketListItem({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
   const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
-  const slaText = getSlaRemaining(ticket.slaDueAt);
-  const breached = isSlaBreached(ticket.slaDueAt);
+  const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const typeName = ticket.ticketType?.name ?? ticket.assignedTeam;
 
   return (

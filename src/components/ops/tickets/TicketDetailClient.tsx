@@ -259,8 +259,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
   const teamCfg = TICKET_TEAM_CONFIG[ticket.assignedTeam];
   const sourceCfg = TICKET_SOURCE_CONFIG[ticket.source];
-  const slaText = getSlaRemaining(ticket.slaDueAt);
-  const breached = isSlaBreached(ticket.slaDueAt);
+  const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
 
   // Available transitions
   const availableTransitions = (Object.keys(TICKET_STATUS_CONFIG) as TicketStatus[]).filter(
