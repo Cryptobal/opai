@@ -28,6 +28,8 @@ interface CpqQuoteEmailProps {
   validUntil?: string;
   aiDescription?: string;
   serviceDetail?: string;
+  businessName?: string;
+  installationName?: string;
 }
 
 export const CpqQuoteEmail = ({
@@ -41,6 +43,8 @@ export const CpqQuoteEmail = ({
   validUntil = "",
   aiDescription = "",
   serviceDetail = "",
+  businessName = "",
+  installationName = "",
 }: CpqQuoteEmailProps) => {
   const previewText = `Propuesta económica ${quoteCode} - Gard Security`;
 
@@ -78,6 +82,21 @@ export const CpqQuoteEmail = ({
                 <Text style={text}>{aiDescription}</Text>
                 <Hr style={divider} />
               </>
+            )}
+
+            {(businessName || installationName) && (
+              <Section style={contextBox}>
+                {businessName && (
+                  <Text style={contextItem}>
+                    <span style={contextLabel}>Negocio:</span> {businessName}
+                  </Text>
+                )}
+                {installationName && (
+                  <Text style={contextItem}>
+                    <span style={contextLabel}>Instalación:</span> {installationName}
+                  </Text>
+                )}
+              </Section>
             )}
 
             <Section style={infoBox}>
@@ -211,3 +230,21 @@ const footer = {
   borderTop: "1px solid #333333",
 };
 const footerText = { color: "#666666", fontSize: "11px", lineHeight: "1.4" };
+const contextBox = {
+  backgroundColor: "#1a1a1a",
+  borderRadius: "8px",
+  padding: "14px 20px",
+  margin: "16px 0",
+  border: "1px solid #333333",
+  borderLeft: "3px solid #14b8a6",
+};
+const contextItem = {
+  color: "#d4d4d4",
+  fontSize: "13px",
+  lineHeight: "1.5",
+  margin: "0 0 4px",
+};
+const contextLabel = {
+  color: "#14b8a6",
+  fontWeight: "bold" as const,
+};

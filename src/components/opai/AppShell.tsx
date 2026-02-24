@@ -3,8 +3,9 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, RefreshCw, X } from 'lucide-react';
+import { Menu, RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette } from './CommandPalette';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
@@ -37,6 +38,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const handleMobileRefresh = () => {
     if (isRefreshing) return;
@@ -102,6 +104,14 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             <NotificationBell compact />
             <button
               type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => setIsMobileSearchOpen(true)}
+              aria-label="Buscar"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleMobileRefresh}
               disabled={isRefreshing}
@@ -160,6 +170,23 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
         </div>
       )}
 
+      {/* ── Mobile search overlay ── */}
+      {isMobileSearchOpen && (
+        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
+          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+            <GlobalSearch compact className="flex-1" />
+            <button
+              type="button"
+              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => setIsMobileSearchOpen(false)}
+              aria-label="Cerrar búsqueda"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Main content ── */}
       <div
         className={cn(
@@ -168,7 +195,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           className
         )}
       >
-        {/* Topbar actions desktop — campana + avatar */}
+        {/* Topbar actions desktop — búsqueda + campana + avatar */}
         <div className="hidden lg:flex sticky top-0 z-20 items-center justify-end gap-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-2 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>

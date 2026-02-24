@@ -57,6 +57,16 @@ export async function POST(
 
     const installationName = quote.installation?.name || '';
 
+    // Load deal (negocio) name
+    let dealName = '';
+    if (quote.dealId) {
+      const deal = await prisma.crmDeal.findUnique({
+        where: { id: quote.dealId },
+        select: { title: true },
+      });
+      if (deal) dealName = deal.title;
+    }
+
     // Calcular costos en servidor
     let summary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
     try {
@@ -95,6 +105,14 @@ export async function POST(
       ? Math.max(0, (summary.monthlyExtras ?? 0) - (summary.monthlyFinancial ?? 0) - (summary.monthlyPolicy ?? 0))
       : 0;
 
+    // Shift type helper
+    const shiftLabel = (startTime: string | null | undefined) => {
+      if (!startTime) return 'Diurno';
+      const hour = parseInt(startTime.split(':')[0], 10);
+      if (isNaN(hour)) return 'Diurno';
+      return hour >= 18 || hour < 6 ? 'Nocturno' : 'Diurno';
+    };
+
     // Compute sale price per position
     const positionsRows = quote.positions
       .map(
@@ -108,7 +126,8 @@ export async function POST(
           const pc = bwm * (policyRatePctVal / 100) * policyFactor;
           const salePrice = bwm + fc + pc;
           const numPuestos = pos.numPuestos || 1;
-          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards}</td><td>${numPuestos}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
+          const shift = shiftLabel(pos.startTime);
+          return `<tr><td>${pos.customName || pos.puestoTrabajo?.name || 'Puesto'}</td><td>${pos.numGuards}</td><td>${numPuestos}</td><td>${pos.startTime || '-'} - ${pos.endTime || '-'}</td><td>${shift === 'Nocturno' ? '🌙' : '☀️'} ${shift}</td><td>${(pos.weekdays?.join(', ') || '-').replace(/,/g, ', ')}</td><td class="num">${formatPrice(salePrice)}</td></tr>`;
         }
       )
       .join('');
@@ -134,6 +153,9 @@ export async function POST(
 
     const contactLine = contactName ? `${contactName}<br>` : '';
     const installationLine = installationName ? `${installationName}<br>` : '';
+    const contextHtml = (dealName || installationName)
+      ? `<div style="margin-bottom:10px;padding:6px 10px;background:#f0fdf4;border-left:3px solid #2563eb;border-radius:4px;font-size:10px;color:#333">${dealName ? `<strong>Negocio:</strong> ${dealName}` : ''}${dealName && installationName ? ' &middot; ' : ''}${installationName ? `<strong>Instalación:</strong> ${installationName}` : ''}</div>`
+      : '';
 
     const html = `
 <!DOCTYPE html>
@@ -175,12 +197,13 @@ export async function POST(
     </div>
   </div>
 
+  ${contextHtml}
   ${quote.aiDescription ? `<p style="font-size:10px;color:#555;padding:6px;background:#f8fafc;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>` : ''}
 
   <h2>Puestos de trabajo · ${totalGuards} guardia(s)</h2>
   <table>
-    <thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Horario</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
-    <tbody>${positionsRows}<tr class="total"><td colspan="5" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
+    <thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Horario</th><th>Turno</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
+    <tbody>${positionsRows}<tr class="total"><td colspan="6" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
   </table>
 
   ${serviceDetailEscaped ? `<div style="margin-top:10px"><h2>Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${serviceDetailEscaped}</p></div>` : ''}

@@ -95,7 +95,22 @@ const TYPE_CONFIG: Record<
   },
 };
 
-export function GlobalSearch({ className }: { className?: string }) {
+interface GlobalSearchProps {
+  className?: string;
+  /** Listen to Cmd+K / Ctrl+K to focus the input */
+  listenToCommandK?: boolean;
+  /** Show the keyboard shortcut hint inside the input */
+  showShortcutHint?: boolean;
+  /** Compact placeholder for topbar usage */
+  compact?: boolean;
+}
+
+export function GlobalSearch({
+  className,
+  listenToCommandK = false,
+  showShortcutHint = false,
+  compact = false,
+}: GlobalSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -106,6 +121,19 @@ export function GlobalSearch({ className }: { className?: string }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Cmd+K / Ctrl+K keyboard shortcut to focus search
+  useEffect(() => {
+    if (!listenToCommandK) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [listenToCommandK]);
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -223,7 +251,7 @@ export function GlobalSearch({ className }: { className?: string }) {
         style={{
           top: dropdownRect.top,
           left: dropdownRect.left,
-          width: dropdownRect.width,
+          width: Math.max(dropdownRect.width, 360),
         }}
       >
         {results.length === 0 && !loading && (
@@ -307,11 +335,22 @@ export function GlobalSearch({ className }: { className?: string }) {
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => query.trim().length >= 2 && setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar en CRM, operaciones, documentos..."
-          className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder={compact ? "Buscar..." : "Buscar en CRM, operaciones, documentos..."}
+          className={cn(
+            "w-full rounded-lg border border-border bg-background pl-9 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+            compact ? "h-8 pr-14" : "h-9 pr-3"
+          )}
         />
+        {showShortcutHint && !loading && !query && (
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        )}
         {loading && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          <Loader2 className={cn(
+            "absolute top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground",
+            compact ? "right-2" : "right-3"
+          )} />
         )}
       </div>
 

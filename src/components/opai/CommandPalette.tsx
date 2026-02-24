@@ -107,17 +107,8 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
   const visiblePages = userRole ? pages.filter((page) => page.canShow(userRole)) : [];
   const visibleActions = userRole ? actions.filter((action) => action.canShow(userRole)) : [];
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    };
-
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, []);
+  // Cmd+K is now handled by GlobalSearch in the topbar.
+  // The palette can still be opened programmatically if needed.
 
   const runCommand = (href: string) => {
     setOpen(false);

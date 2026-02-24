@@ -18,7 +18,7 @@ import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
+import { formatCurrency, formatWeekdaysShort, getShiftLabel } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf";
 import type {
@@ -1738,6 +1738,21 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   </div>
                 </div>
 
+                {/* Contexto: Negocio e Instalación */}
+                {(crmContext.dealId || crmContext.installationId) && (
+                  <div className="text-[10px] rounded" style={{ padding: "6px 10px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
+                    {(() => {
+                      const deal = crmContext.dealId ? crmDeals.find((d) => d.id === crmContext.dealId) : null;
+                      return deal ? <span><strong>Negocio:</strong> {deal.title}</span> : null;
+                    })()}
+                    {crmContext.dealId && crmContext.installationId && " · "}
+                    {(() => {
+                      const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
+                      return inst ? <span><strong>Instalación:</strong> {inst.name}</span> : null;
+                    })()}
+                  </div>
+                )}
+
                 {quote.aiDescription && (
                   <p className="text-xs text-gray-600 bg-blue-50 rounded p-2 italic">
                     {quote.aiDescription}
@@ -1756,6 +1771,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         <th className="text-left p-1.5 font-semibold">Cantidad</th>
                         <th className="text-left p-1.5 font-semibold">Días</th>
                         <th className="text-left p-1.5 font-semibold">Horario</th>
+                        <th className="text-left p-1.5 font-semibold">Turno</th>
                         <th className="text-right p-1.5 font-semibold">Precio mensual</th>
                       </tr>
                     </thead>
@@ -1766,6 +1782,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                           crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(clp, ufValue))
                             : formatCLP(clp);
+                        const shiftLabel = getShiftLabel(pos.startTime);
                         return (
                           <tr key={pos.id} className="border-b border-gray-100">
                             <td className="p-1.5">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
@@ -1773,12 +1790,27 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                             <td className="p-1.5">{pos.numPuestos || 1}</td>
                             <td className="p-1.5">{formatWeekdaysShort(pos.weekdays)}</td>
                             <td className="p-1.5">{pos.startTime} - {pos.endTime}</td>
+                            <td className="p-1.5">
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  fontSize: "9px",
+                                  fontWeight: 600,
+                                  background: shiftLabel === "Nocturno" ? "#eef2ff" : "#fefce8",
+                                  color: shiftLabel === "Nocturno" ? "#4338ca" : "#a16207",
+                                }}
+                              >
+                                {shiftLabel === "Nocturno" ? "🌙" : "☀️"} {shiftLabel}
+                              </span>
+                            </td>
                             <td className="p-1.5 text-right">{formatted}</td>
                           </tr>
                         );
                       })}
                       <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
-                        <td colSpan={5} className="p-1.5 text-right">Total mensual</td>
+                        <td colSpan={6} className="p-1.5 text-right">Total mensual</td>
                         <td className="p-1.5 text-right">
                           {crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))

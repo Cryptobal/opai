@@ -235,9 +235,18 @@ export async function GET(request: NextRequest) {
     if (hasOps) {
       const opsForbidden = await ensureOpsAccess(ctx);
       if (!opsForbidden) {
+        const searchNormG = q.replace(/[.\s-]/g, "");
         const guardias = await prisma.opsGuardia.findMany({
-          where: { tenantId },
-          take: 50,
+          where: {
+            tenantId,
+            OR: [
+              { persona: { firstName: contains } },
+              { persona: { lastName: contains } },
+              { persona: { rut: { contains: searchNormG, mode: "insensitive" } } },
+              { code: contains },
+            ],
+          },
+          take: OPS_LIMIT,
           select: {
             id: true,
             code: true,
@@ -248,11 +257,7 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: "desc" },
         });
 
-        const searchable = (g: (typeof guardias)[0]) =>
-          `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
-        const filtered = guardias.filter((g) => searchable(g).includes(q.toLowerCase())).slice(0, OPS_LIMIT);
-
-        for (const g of filtered) {
+        for (const g of guardias) {
           results.push({
             id: g.id,
             type: "guardia",

@@ -5,8 +5,7 @@
  * Evita el error createClientModuleProxy al reducir a un solo boundary servidor→cliente.
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GlobalSearch } from '@/components/search/GlobalSearch';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HubGreeting } from './HubGreeting';
 import { HubQuickActions } from './HubQuickActions';
 import { HubExecutiveSnapshot } from './HubExecutiveSnapshot';
@@ -59,21 +58,6 @@ export function HubClientWrapper({
       />
 
       <HubQuickActions perms={hubPerms} />
-
-      {(hubPerms.hasCrm || hubPerms.hasOps || hubPerms.hasDocs) && (
-        <Card className="min-w-0 overflow-visible">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Buscador global</CardTitle>
-            <CardDescription>
-              Busca en CRM (contactos, cuentas, negocios, cotizaciones, instalaciones),
-              operaciones (guardias por nombre o RUT) y documentos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GlobalSearch />
-          </CardContent>
-        </Card>
-      )}
 
       <HubExecutiveSnapshot
         perms={hubPerms}
