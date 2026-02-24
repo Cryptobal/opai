@@ -86,8 +86,16 @@ function getDealsFocusLabel(focus: DealsFocus): string | null {
   return null;
 }
 
+function formatFollowUpDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  return `${day} ${months[d.getMonth()]}`;
+}
+
 function getDealFollowUpIndicator(deal: CrmDeal): {
   label: string;
+  dateLabel: string;
   className: string;
 } | null {
   const nextFollowUp = deal.followUpLogs?.[0];
@@ -95,21 +103,25 @@ function getDealFollowUpIndicator(deal: CrmDeal): {
 
   const dueTime = new Date(nextFollowUp.scheduledAt).getTime();
   const now = Date.now();
+  const dateLabel = formatFollowUpDate(nextFollowUp.scheduledAt);
 
   if (dueTime <= now) {
     return {
       label: `Seg. ${nextFollowUp.sequence} vencido`,
+      dateLabel,
       className: "border-red-500/30 text-red-500",
     };
   }
   if (dueTime - now <= 24 * 60 * 60 * 1000) {
     return {
       label: `Seg. ${nextFollowUp.sequence} hoy`,
+      dateLabel,
       className: "border-amber-500/30 text-amber-500",
     };
   }
   return {
     label: `Seg. ${nextFollowUp.sequence} programado`,
+    dateLabel,
     className: "border-emerald-500/30 text-emerald-500",
   };
 }
@@ -139,7 +151,7 @@ function DealColumn({ stage, deals, children, collapsed = false, onToggleCollaps
     <div
       ref={setNodeRef}
       className={cn(
-        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-3 min-w-[260px] max-w-[260px] transition-colors overflow-hidden snap-center",
+        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2.5 md:p-3 min-w-[220px] max-w-[220px] md:min-w-[260px] md:max-w-[260px] transition-colors overflow-hidden snap-center",
         isOver ? "border-primary/60" : "border-border"
       )}
     >
@@ -200,23 +212,23 @@ function DealCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-lg border border-border bg-card p-3 min-w-0 overflow-hidden",
+        "rounded-lg border border-border bg-card p-2.5 md:p-3 min-w-0 overflow-hidden",
         isDragging && "opacity-60"
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-1.5 md:gap-2">
         <div
-          className="flex-1 space-y-1 cursor-pointer md:cursor-auto"
+          className="flex-1 space-y-1 cursor-pointer md:cursor-auto min-w-0"
           onClick={() => !isOverlay && onOpenSheet?.()}
         >
           <Link
             href={`/crm/deals/${deal.id}`}
-            className="text-sm font-semibold text-foreground hover:underline"
+            className="text-sm font-semibold text-foreground hover:underline line-clamp-2"
             onClick={(e) => e.stopPropagation()}
           >
             {deal.title}
           </Link>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground truncate">
             {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
           </p>
           {deal.createdAt && (
@@ -226,7 +238,7 @@ function DealCard({
               className="mt-0.5"
             />
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
               ${Number(deal.amount).toLocaleString("es-CL")}
             </span>
@@ -240,7 +252,7 @@ function DealCard({
                 variant="outline"
                 className={`text-[10px] h-4 ${followUpIndicator.className}`}
               >
-                {followUpIndicator.label}
+                {followUpIndicator.label} · {followUpIndicator.dateLabel}
               </Badge>
             )}
             {deal.proposalLink && (
@@ -269,7 +281,6 @@ function DealCard({
           </button>
         )}
       </div>
-
     </div>
   );
 }
@@ -632,7 +643,7 @@ export function CrmDealsClient({
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
               >
-                <div className="flex flex-row gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory md:snap-none">
+                <div className="flex flex-row gap-2.5 md:gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory md:snap-proximity">
                   {columns.map((column) => (
                     <DealColumn
                       key={column.stage.id}
@@ -697,10 +708,10 @@ export function CrmDealsClient({
                   <Link
                     key={deal.id}
                     href={`/crm/deals/${deal.id}`}
-                    className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
+                    className="flex items-center justify-between rounded-lg border p-3 md:p-4 transition-colors hover:bg-accent/30 group gap-3"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
                         <p className="font-medium text-sm">{deal.title}</p>
                         <Badge variant="outline">{deal.stage?.name}</Badge>
                         {(deal.quotes || []).length > 0 && (
@@ -710,11 +721,11 @@ export function CrmDealsClient({
                         )}
                         {followUpIndicator && (
                           <Badge variant="outline" className={`text-[10px] h-4 ${followUpIndicator.className}`}>
-                            {followUpIndicator.label}
+                            {followUpIndicator.label} · {followUpIndicator.dateLabel}
                           </Badge>
                         )}
                       </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
                         {" · "}${Number(deal.amount).toLocaleString("es-CL")}
                       </p>
