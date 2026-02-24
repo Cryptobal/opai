@@ -31,7 +31,7 @@ export default async function RondasMonitoreoPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Monitoreo de rondas"
         description="Seguimiento casi en tiempo real (polling cada 30 segundos)."

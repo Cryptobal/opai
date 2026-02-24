@@ -151,13 +151,13 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="text-left py-2 font-medium">Código</th>
-                    <th className="text-left py-2 font-medium">Fecha</th>
-                    <th className="text-left py-2 font-medium">Tipo</th>
-                    <th className="text-right py-2 font-medium">Monto</th>
-                    <th className="text-left py-2 font-medium">Estado</th>
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,9 +169,9 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
                     return (
                       <tr
                         key={r.id}
-                        className="border-b border-border/50 hover:bg-accent/30"
+                        className="border-b border-border/60 last:border-0 hover:bg-accent/30"
                       >
-                        <td className="py-2">
+                        <td className="px-3 py-2">
                           <Link
                             href={`/finanzas/rendiciones/${r.id}`}
                             className="text-primary hover:underline"
@@ -179,18 +179,18 @@ export function PersonaRendicionesTab({ adminId }: PersonaRendicionesTabProps) {
                             {r.code}
                           </Link>
                         </td>
-                        <td className="py-2">
+                        <td className="px-3 py-2">
                           {format(new Date(r.date), "dd/MM/yyyy", {
                             locale: es,
                           })}
                         </td>
-                        <td className="py-2">
+                        <td className="px-3 py-2">
                           {TYPE_LABELS[r.type] || r.type}
                         </td>
-                        <td className="py-2 text-right font-mono">
+                        <td className="px-3 py-2 text-right font-mono">
                           {formatCLP(r.amount)}
                         </td>
-                        <td className="py-2">
+                        <td className="px-3 py-2">
                           <Badge className={cfg.className}>{cfg.label}</Badge>
                         </td>
                       </tr>

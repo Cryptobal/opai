@@ -15,7 +15,7 @@ export default async function InventarioProductosPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Productos"
         description="Catálogo de uniformes y activos. Define tallas por producto."

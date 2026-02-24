@@ -44,21 +44,21 @@ export function RondasReportesClient({ rows, totals }: { rows: any[]; totals: an
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/40">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30">
               <tr>
-                <th className="px-3 py-2 text-left">Fecha</th>
-                <th className="px-3 py-2 text-left">Instalación</th>
-                <th className="px-3 py-2 text-left">Ronda</th>
-                <th className="px-3 py-2 text-left">Guardia</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-right">Progreso</th>
-                <th className="px-3 py-2 text-right">Trust</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Ronda</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Progreso</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Trust</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((r, idx) => (
-                <tr key={`${r.scheduledAt}-${idx}`} className="border-t border-border">
+                <tr key={`${r.scheduledAt}-${idx}`} className="border-b border-border/60 last:border-0">
                   <td className="px-3 py-2">{new Date(r.scheduledAt).toLocaleString("es-CL")}</td>
                   <td className="px-3 py-2">{r.installation}</td>
                   <td className="px-3 py-2">{r.template}</td>

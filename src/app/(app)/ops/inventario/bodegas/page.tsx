@@ -15,7 +15,7 @@ export default async function InventarioBodegasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Bodegas"
         description="Bodegas virtuales: central, supervisores, instalaciones."

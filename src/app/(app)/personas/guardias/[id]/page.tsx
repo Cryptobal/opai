@@ -86,7 +86,7 @@ export default async function GuardiaDetailPage({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title={`Ficha persona · ${guardia.persona.firstName} ${guardia.persona.lastName}`}
         description="Datos personales, ficha de documentos (antecedentes, OS-10, cédula, currículum), cuentas bancarias, comunicaciones e historial."

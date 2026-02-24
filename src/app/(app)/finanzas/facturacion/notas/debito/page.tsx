@@ -58,7 +58,7 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Emitir Nota de Débito"
         description="Emitir nota de débito electrónica referenciando un DTE."

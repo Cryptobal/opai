@@ -88,7 +88,7 @@ export default async function FinanzasConfiguracionPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Configuración de Finanzas"
         description="Administra ítems de rendición, parámetros de kilometraje, aprobadores y reglas."

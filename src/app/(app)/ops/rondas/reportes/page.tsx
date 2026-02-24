@@ -49,7 +49,7 @@ export default async function RondasReportesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Reportes de rondas"
         description="Cumplimiento, cobertura y confiabilidad de rondas por instalación y guardia."

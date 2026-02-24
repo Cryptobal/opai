@@ -15,7 +15,7 @@ export default async function InventarioStockPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Stock"
         description="Stock actual por bodega y variante."

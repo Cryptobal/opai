@@ -9,7 +9,7 @@ export default async function PayrollAnticiposPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/payroll/anticipos");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Anticipos"
         description="Procesos de pago de anticipos mensuales"

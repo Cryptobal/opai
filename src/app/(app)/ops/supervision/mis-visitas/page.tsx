@@ -35,7 +35,7 @@ export default async function MisVisitasPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Mis visitas"
         description="Historial de visitas realizadas por el supervisor actual."

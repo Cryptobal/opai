@@ -20,7 +20,7 @@ export default async function GuardiaTeIngresoPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Ingreso rápido · Guardia Turno Extra"
         description="Registra un guardia TE para cubrir ausencias. Los datos se guardan en la misma base de guardias con estado Turno Extra."

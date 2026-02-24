@@ -15,7 +15,7 @@ export default async function InventarioEntregasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Entregas a guardias"
         description="Registrar entrega de uniformes a un guardia. Descuenta stock de la bodega."

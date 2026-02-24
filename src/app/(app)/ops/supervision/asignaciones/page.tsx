@@ -46,7 +46,7 @@ export default async function SupervisionAsignacionesPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Asignaciones de supervisores"
         description="Asigna instalaciones a supervisores para habilitar check-in y visitas de supervisión."

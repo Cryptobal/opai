@@ -20,7 +20,7 @@ export default async function OpsControlNocturnoDetailPage({ params }: Props) {
   const { id } = await params;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Reporte nocturno"
         description="Detalle del control de guardia nocturna."

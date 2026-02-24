@@ -369,41 +369,41 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
               </div>
               {period.attendanceRecords.length > 0 && (
                 <div className="overflow-x-auto rounded-md border border-border/50 max-h-[250px] overflow-y-auto">
-                  <table className="min-w-full text-[11px]">
+                  <table className="w-full text-sm">
                     <thead className="bg-muted/30 sticky top-0">
                       <tr>
-                        <th className="px-2 py-1.5 text-left font-medium">Guardia</th>
-                        <th className="px-2 py-1.5 text-center font-medium">Fuente</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Días trab.</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Faltas</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Licencia</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Vacación</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Hrs norm.</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Hrs extra</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
+                        <th className="px-3 py-2 text-center font-medium text-muted-foreground">Fuente</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Días trab.</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Faltas</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Licencia</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Vacación</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Hrs norm.</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Hrs extra</th>
                       </tr>
                     </thead>
                     <tbody>
                       {period.attendanceRecords.map((r) => (
-                        <tr key={r.id} className="border-t border-border/40 hover:bg-accent/20">
-                          <td className="px-2 py-1">
+                        <tr key={r.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30">
+                          <td className="px-3 py-2">
                             <Link href={`/personas/guardias/${r.guardiaId}`} className="hover:underline">
                               <div className="font-medium text-foreground">{r.guardiaName || "—"}</div>
                               <div className="text-[9px] text-muted-foreground font-mono">{r.guardiaRut || "—"}</div>
                             </Link>
                           </td>
-                          <td className="px-2 py-1 text-center">
+                          <td className="px-3 py-2 text-center">
                             <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium ${
                               r.source === "IMPORT" ? "bg-amber-500/15 text-amber-400" : "bg-blue-500/15 text-blue-400"
                             }`}>
                               {r.source}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-right font-medium">{r.daysWorked}</td>
-                          <td className="px-2 py-1 text-right text-destructive">{r.daysAbsent > 0 ? r.daysAbsent : "—"}</td>
-                          <td className="px-2 py-1 text-right">{r.daysMedicalLeave > 0 ? r.daysMedicalLeave : "—"}</td>
-                          <td className="px-2 py-1 text-right">{r.daysVacation > 0 ? r.daysVacation : "—"}</td>
-                          <td className="px-2 py-1 text-right">{Number(r.normalHours)}</td>
-                          <td className="px-2 py-1 text-right">{Number(r.overtimeHours50) > 0 ? Number(r.overtimeHours50) : "—"}</td>
+                          <td className="px-3 py-2 text-right font-medium">{r.daysWorked}</td>
+                          <td className="px-3 py-2 text-right text-destructive">{r.daysAbsent > 0 ? r.daysAbsent : "—"}</td>
+                          <td className="px-3 py-2 text-right">{r.daysMedicalLeave > 0 ? r.daysMedicalLeave : "—"}</td>
+                          <td className="px-3 py-2 text-right">{r.daysVacation > 0 ? r.daysVacation : "—"}</td>
+                          <td className="px-3 py-2 text-right">{Number(r.normalHours)}</td>
+                          <td className="px-3 py-2 text-right">{Number(r.overtimeHours50) > 0 ? Number(r.overtimeHours50) : "—"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -555,22 +555,22 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
           <CardContent>
             {activeTab === "liquidaciones" ? (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="min-w-full text-xs">
+                <table className="w-full text-sm">
                   <thead className="bg-muted/30">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Guardia</th>
-                      <th className="px-3 py-2 text-center font-medium">Fuente</th>
-                      <th className="px-3 py-2 text-right font-medium">Días</th>
-                      <th className="px-3 py-2 text-right font-medium">Bruto</th>
-                      <th className="px-3 py-2 text-right font-medium">Desc.</th>
-                      <th className="px-3 py-2 text-right font-medium">Líquido</th>
-                      <th className="px-3 py-2 text-center font-medium">Estado</th>
-                      <th className="px-3 py-2 text-center font-medium w-[60px]">Detalle</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Fuente</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Días</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Bruto</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Desc.</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Estado</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground w-[60px]">Detalle</th>
                     </tr>
                   </thead>
                   <tbody>
                     {period.liquidaciones.map((l) => (
-                      <tr key={l.id} className="border-t border-border/60 hover:bg-accent/20">
+                      <tr key={l.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30">
                         <td className="px-3 py-2">
                           <Link href={`/personas/guardias/${l.guardiaId}`} className="hover:underline">
                             <div className="font-medium text-foreground">{l.guardiaName || "—"}</div>
@@ -606,17 +606,17 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                   Estos guardias no fueron incluidos en la liquidación. Revisa el motivo y usa los enlaces para corregir.
                 </p>
                 <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="min-w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead className="bg-muted/30">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">Guardia</th>
-                        <th className="px-3 py-2 text-left font-medium">Motivo</th>
-                        <th className="px-3 py-2 text-center font-medium w-[120px]">Acción</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Motivo</th>
+                        <th className="px-3 py-2 text-center font-medium text-muted-foreground w-[120px]">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
                       {skippedGuards.map((sg, idx) => (
-                        <tr key={idx} className="border-t border-border/60 hover:bg-accent/20">
+                        <tr key={idx} className="border-b border-border/60 last:border-0 hover:bg-accent/30">
                           <td className="px-3 py-2">
                             <Link href={`/personas/guardias/${sg.guardiaId}`} className="hover:underline">
                               <div className="font-medium text-foreground">{sg.name || "—"}</div>

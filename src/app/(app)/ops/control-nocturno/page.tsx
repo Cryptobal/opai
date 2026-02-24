@@ -16,7 +16,7 @@ export default async function OpsControlNocturnoPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Control nocturno"
         description="Reportes de la central de operaciones nocturna."

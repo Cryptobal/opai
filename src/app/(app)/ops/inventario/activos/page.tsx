@@ -15,7 +15,7 @@ export default async function InventarioActivosPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Activos"
         description="Celulares, radios y equipos. Asignación a instalaciones y estado."

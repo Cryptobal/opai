@@ -377,17 +377,17 @@ function AccountsTab({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Banco</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">N. Cuenta</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Titular</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Moneda</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Saldo</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Estado</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Banco</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N. Cuenta</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Titular</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Moneda</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Saldo</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Estado</th>
                       {canManage && (
-                        <th className="px-4 py-3 font-medium text-muted-foreground" />
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground" />
                       )}
                     </tr>
                   </thead>
@@ -400,9 +400,9 @@ function AccountsTab({
                       return (
                         <tr
                           key={a.id}
-                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
                         >
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
                               {a.bankName}
                               {a.isDefault && (
@@ -410,23 +410,23 @@ function AccountsTab({
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
                               {typeCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{a.accountNumber}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 font-mono text-xs">{a.accountNumber}</td>
+                          <td className="px-3 py-2">
                             <div>{a.holderName}</div>
                             <div className="text-xs text-muted-foreground font-mono">
                               {a.holderRut}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-xs">{a.currency}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs font-medium">
+                          <td className="px-3 py-2 text-xs">{a.currency}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
                             {fmtCLP.format(a.currentBalance)}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-2 text-center">
                             <Badge
                               variant="outline"
                               className={cn(
@@ -440,7 +440,7 @@ function AccountsTab({
                             </Badge>
                           </td>
                           {canManage && (
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-2">
                               <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
@@ -801,18 +801,18 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Referencia</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Referencia</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Monto
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Saldo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -824,29 +824,29 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
                       return (
                         <tr
                           key={tx.id}
-                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
                         >
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
                             {format(new Date(tx.transactionDate), "dd MMM yyyy", {
                               locale: es,
                             })}
                           </td>
-                          <td className="px-4 py-3">{tx.description}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground font-mono">
+                          <td className="px-3 py-2">{tx.description}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
                             {tx.reference ?? "—"}
                           </td>
                           <td
                             className={cn(
-                              "px-4 py-3 text-right font-mono text-xs font-medium",
+                              "px-3 py-2 text-right font-mono text-xs font-medium",
                               tx.amount >= 0 ? "text-emerald-400" : "text-red-400"
                             )}
                           >
                             {fmtCLP.format(tx.amount)}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">
+                          <td className="px-3 py-2 text-right font-mono text-xs">
                             {tx.balance != null ? fmtCLP.format(tx.balance) : "—"}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn("text-xs", rcCfg.className)}

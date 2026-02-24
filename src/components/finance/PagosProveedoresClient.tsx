@@ -335,33 +335,33 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Codigo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Tipo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Fecha
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Monto
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Metodo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Proveedor
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Estado
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">
                         Asignaciones
                       </th>
-                      {canManage && <th className="px-4 py-3" />}
+                      {canManage && <th className="px-3 py-2" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -377,12 +377,12 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                       return (
                         <tr
                           key={p.id}
-                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
                         >
-                          <td className="px-4 py-3 font-mono text-xs">
+                          <td className="px-3 py-2 font-mono text-xs">
                             {p.code}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn("text-xs", typeCfg.className)}
@@ -390,21 +390,21 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                               {typeCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
                             {format(new Date(p.date), "dd MMM yyyy", {
                               locale: es,
                             })}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs font-medium">
+                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
                             {fmtCLP.format(p.amount)}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className="text-xs">
                               {PAYMENT_METHOD_LABELS[p.paymentMethod] ??
                                 p.paymentMethod}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             {p.supplier ? (
                               <div>
                                 <div className="text-sm">
@@ -418,7 +418,7 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                               <span className="text-muted-foreground">--</span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn("text-xs", stCfg.className)}
@@ -426,11 +426,11 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
                               {stCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-center font-mono text-xs">
+                          <td className="px-3 py-2 text-center font-mono text-xs">
                             {p._count?.allocations ?? 0}
                           </td>
                           {canManage && (
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-2">
                               {p.status === "PENDING" && (
                                 <div className="flex items-center gap-1">
                                   <Button
@@ -889,21 +889,21 @@ function NewPaymentTab({
                 <div className="hidden md:block">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-left">
-                          <th className="px-3 py-2 font-medium text-muted-foreground">
+                      <thead className="bg-muted/30">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                             Folio
                           </th>
-                          <th className="px-3 py-2 font-medium text-muted-foreground">
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                             Fecha
                           </th>
-                          <th className="px-3 py-2 font-medium text-muted-foreground text-right">
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                             Total
                           </th>
-                          <th className="px-3 py-2 font-medium text-muted-foreground text-right">
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                             Pendiente
                           </th>
-                          <th className="px-3 py-2 font-medium text-muted-foreground text-right">
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                             Asignar
                           </th>
                         </tr>
@@ -912,7 +912,7 @@ function NewPaymentTab({
                         {unpaidDtes.map((d) => (
                           <tr
                             key={d.id}
-                            className="border-b border-border last:border-0"
+                            className="border-b border-border/60 last:border-0"
                           >
                             <td className="px-3 py-2 font-mono text-xs">
                               #{d.folio}

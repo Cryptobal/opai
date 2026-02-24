@@ -13,7 +13,7 @@ export default async function MisNotificacionesPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/opai/perfil/notificaciones");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Mis Notificaciones"
         description="Configura qué notificaciones recibes por campana y por correo electrónico"

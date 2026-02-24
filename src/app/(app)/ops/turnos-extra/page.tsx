@@ -38,7 +38,7 @@ export default async function OpsTurnosExtraPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Turnos extra"
         description="Gestión de turnos extra generados desde asistencia diaria."

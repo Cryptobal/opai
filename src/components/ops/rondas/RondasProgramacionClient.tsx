@@ -49,20 +49,20 @@ export function RondasProgramacionClient({
 
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/40">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30">
               <tr>
-                <th className="px-3 py-2 text-left">Plantilla</th>
-                <th className="px-3 py-2 text-left">Días</th>
-                <th className="px-3 py-2 text-left">Horario</th>
-                <th className="px-3 py-2 text-left">Frecuencia</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-right">Acciones</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Plantilla</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Días</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Frecuencia</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-border">
+                <tr key={r.id} className="border-b border-border/60 last:border-0">
                   <td className="px-3 py-2">{r.rondaTemplate?.name ?? r.rondaTemplateId}</td>
                   <td className="px-3 py-2">{r.diasSemana.join(",")}</td>
                   <td className="px-3 py-2">{r.horaInicio} - {r.horaFin}</td>

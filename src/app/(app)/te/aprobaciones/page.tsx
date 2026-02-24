@@ -37,7 +37,7 @@ export default async function TeAprobacionesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="TE · Aprobaciones RRHH"
         description="Aprueba o rechaza turnos extra pendientes."

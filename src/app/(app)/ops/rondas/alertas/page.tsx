@@ -22,7 +22,7 @@ export default async function RondasAlertasPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Alertas de rondas"
         description="Alertas automáticas por geolocalización, secuencia y comportamiento anómalo."

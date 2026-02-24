@@ -291,30 +291,30 @@ export function RendicionesClient({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Código
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Fecha
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Tipo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Ítem
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Monto
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Estado
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Solicitante
                       </th>
-                      <th className="px-4 py-3" />
+                      <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
@@ -329,17 +329,17 @@ export function RendicionesClient({
                           onClick={() =>
                             router.push(`/finanzas/rendiciones/${r.id}`)
                           }
-                          className="border-b border-border last:border-0 hover:bg-accent/30 cursor-pointer transition-colors"
+                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 cursor-pointer transition-colors"
                         >
-                          <td className="px-4 py-3 font-mono text-xs">
+                          <td className="px-3 py-2 font-mono text-xs">
                             {r.code}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-2 text-muted-foreground">
                             {format(new Date(r.date), "dd MMM yyyy", {
                               locale: es,
                             })}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <span className="inline-flex items-center gap-1 text-xs">
                               {r.type === "MILEAGE" ? (
                                 <Car className="h-3 w-3" />
@@ -349,21 +349,21 @@ export function RendicionesClient({
                               {TYPE_LABELS[r.type] ?? r.type}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-2 text-muted-foreground">
                             {r.itemName ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-right font-medium tabular-nums">
+                          <td className="px-3 py-2 text-right font-medium tabular-nums">
                             {fmtCLP.format(r.amount)}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge className={statusCfg.className}>
                               {statusCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          <td className="px-3 py-2 text-muted-foreground text-xs">
                             {r.submitterName}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </td>
                         </tr>

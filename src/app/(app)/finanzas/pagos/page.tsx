@@ -92,7 +92,7 @@ export default async function PagosPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Pagos"
         description="Procesa pagos de rendiciones aprobadas."

@@ -59,7 +59,7 @@ export default async function OpsAsistenciaDiariaPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Asistencia diaria"
         description="Control diario de asistencia, reemplazos y generación de turnos extra."

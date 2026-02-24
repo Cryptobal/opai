@@ -58,7 +58,7 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Emitir Nota de Crédito"
         description="Emitir nota de crédito electrónica referenciando un DTE."

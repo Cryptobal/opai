@@ -41,7 +41,7 @@ export default async function NuevoAsientoPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Nuevo asiento contable"
         description="Registre un asiento contable manual."

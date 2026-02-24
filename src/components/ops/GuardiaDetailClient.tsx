@@ -2091,23 +2091,23 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               ) : (
                 <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="text-left p-2 font-medium">Fecha</th>
-                        <th className="text-left p-2 font-medium">Instalación</th>
-                        <th className="text-left p-2 font-medium">Puesto</th>
-                        <th className="text-center p-2 font-medium">Slot</th>
-                        <th className="text-left p-2 font-medium">Tipo</th>
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
+                        <th className="px-3 py-2 text-center font-medium text-muted-foreground">Slot</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
                       </tr>
                     </thead>
                     <tbody>
                       {diasTrabajados.map((d) => (
                         <tr key={d.id} className="border-b border-border/60 last:border-0">
-                          <td className="p-2">{formatDateUTC(d.date)}</td>
-                          <td className="p-2">{d.installationName || "—"}</td>
-                          <td className="p-2">{d.puestoName || "—"}</td>
-                          <td className="p-2 text-center">S{d.slotNumber}</td>
-                          <td className="p-2">
+                          <td className="px-3 py-2">{formatDateUTC(d.date)}</td>
+                          <td className="px-3 py-2">{d.installationName || "—"}</td>
+                          <td className="px-3 py-2">{d.puestoName || "—"}</td>
+                          <td className="px-3 py-2 text-center">S{d.slotNumber}</td>
+                          <td className="px-3 py-2">
                             {d.attendanceStatus === "asistio" ? "Asistió" : d.attendanceStatus === "reemplazo" ? "Reemplazo" : d.attendanceStatus}
                           </td>
                         </tr>
@@ -2139,24 +2139,24 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left p-2 font-medium">Fecha</th>
-                    <th className="text-left p-2 font-medium">Instalación</th>
-                    <th className="text-left p-2 font-medium">Puesto</th>
-                    <th className="text-right p-2 font-medium">Monto</th>
-                    <th className="text-left p-2 font-medium">Estado</th>
-                    <th className="text-left p-2 font-medium">Fecha de pago</th>
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha de pago</th>
                   </tr>
                 </thead>
                 <tbody>
                   {turnosExtra.map((te) => (
                     <tr key={te.id} className="border-b border-border/60 last:border-0">
-                      <td className="p-2">{formatDateUTC(te.date)}</td>
-                      <td className="p-2">{te.installationName || "—"}</td>
-                      <td className="p-2">{te.puestoName || "—"}</td>
-                      <td className="p-2 text-right">${te.amountClp.toLocaleString("es-CL")}</td>
-                      <td className="p-2">
+                      <td className="px-3 py-2">{formatDateUTC(te.date)}</td>
+                      <td className="px-3 py-2">{te.installationName || "—"}</td>
+                      <td className="px-3 py-2">{te.puestoName || "—"}</td>
+                      <td className="px-3 py-2 text-right">${te.amountClp.toLocaleString("es-CL")}</td>
+                      <td className="px-3 py-2">
                         {te.status === "pending"
                           ? "Pendiente"
                           : te.status === "approved"
@@ -2167,7 +2167,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                                 ? "Rechazado"
                                 : te.status}
                       </td>
-                      <td className="p-2">{te.paidAt ? formatDateUTC(te.paidAt) : "—"}</td>
+                      <td className="px-3 py-2">{te.paidAt ? formatDateUTC(te.paidAt) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

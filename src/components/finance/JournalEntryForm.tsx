@@ -214,18 +214,18 @@ export function JournalEntryForm({ accounts, periods }: Props) {
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-3 py-2 font-medium text-muted-foreground w-1/3">Cuenta</th>
-                    <th className="px-3 py-2 font-medium text-muted-foreground">Descripción</th>
-                    <th className="px-3 py-2 font-medium text-muted-foreground text-right w-32">Debe</th>
-                    <th className="px-3 py-2 font-medium text-muted-foreground text-right w-32">Haber</th>
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground w-1/3">Cuenta</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Debe</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Haber</th>
                     <th className="px-3 py-2 w-10" />
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((line, i) => (
-                    <tr key={i} className="border-b border-border last:border-0">
+                    <tr key={i} className="border-b border-border/60 last:border-0">
                       <td className="px-3 py-2">
                         <Select
                           value={line.accountId}

@@ -74,7 +74,7 @@ export default async function ReportesPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Reportes"
         description="Resumen y análisis de rendiciones."

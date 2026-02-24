@@ -53,7 +53,7 @@ export default async function BancosPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Bancos"
         description="Gestión de cuentas bancarias, movimientos e importación de cartolas."

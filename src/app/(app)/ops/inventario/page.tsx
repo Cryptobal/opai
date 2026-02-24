@@ -70,7 +70,7 @@ export default async function InventarioPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Inventario"
         description="Gestión de uniformes, activos y teléfonos por instalación."
@@ -80,19 +80,19 @@ export default async function InventarioPage() {
 
       <InventarioKpisCard />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.map((m) => (
           <Link key={m.href} href={m.href}>
             <Card className="transition-colors hover:bg-accent/40 h-full">
-              <CardContent className="pt-4 pb-3 flex items-start gap-3">
+              <CardContent className="pt-5 flex items-start gap-3">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${m.color}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${m.color}`}
                 >
-                  <m.icon className="h-4.5 w-4.5" />
+                  <m.icon className="h-5 w-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold">{m.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{m.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {m.description}
                   </p>
                 </div>

@@ -79,7 +79,7 @@ export default async function VisitaSupervisionDetailPage({
   const ratings = (visit.ratings as Record<string, number> | null) ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title={`Visita ${visit.installation.name}`}
         description={`Check-in: ${formatDateTime(visit.checkInAt)}`}

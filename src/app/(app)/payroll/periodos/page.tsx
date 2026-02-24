@@ -9,7 +9,7 @@ export default async function PayrollPeriodosPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/payroll/periodos");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Períodos de Pago"
         description="Gestión de liquidaciones mensuales"

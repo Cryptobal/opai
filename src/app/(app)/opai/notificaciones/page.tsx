@@ -13,7 +13,7 @@ export default async function NotificacionesPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/opai/notificaciones");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Notificaciones"
         description="Todas tus notificaciones con enlaces directos"

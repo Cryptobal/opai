@@ -148,7 +148,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title={`Rendición ${rendicion.code}`}
         description="Detalle de la rendición de gasto."

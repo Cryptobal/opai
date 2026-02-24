@@ -71,7 +71,7 @@ export default async function SupervisionReportesPage({
   const supervisorMap = new Map(supervisors.map((s) => [s.id, s.name]));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Reportes de supervisión"
         description="Resumen consolidado por estado de instalación y supervisor."
