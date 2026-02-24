@@ -349,6 +349,8 @@ export async function POST(
           data: {
             proposalLink: presentationUrl,
             proposalSentAt: new Date(),
+            amount: salePriceMonthly,
+            totalPuestos: totalGuards,
           },
         });
 
