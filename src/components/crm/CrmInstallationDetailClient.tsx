@@ -1294,10 +1294,12 @@ export function CrmInstallationDetailClient({
   installation,
   canEditDotacion = false,
   hasInventarioAccess = false,
+  currentUserId = "",
 }: {
   installation: InstallationDetail;
   canEditDotacion?: boolean;
   hasInventarioAccess?: boolean;
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const hasCoords = installation.lat != null && installation.lng != null;
@@ -1501,7 +1503,7 @@ export function CrmInstallationDetailClient({
       key: "general",
       children: (
         <div className="flex flex-col lg:flex-row lg:gap-6">
-          <DetailFieldGrid className="flex-1">
+          <DetailFieldGrid columns={3} className="flex-1">
             <DetailField
               label="Dirección"
               value={installation.address}
@@ -1762,6 +1764,10 @@ export function CrmInstallationDetailClient({
         ]
       : []),
     {
+      key: "notes",
+      children: <NotesSection entityType="installation" entityId={installation.id} currentUserId={currentUserId} />,
+    },
+    {
       key: "files",
       children: <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />,
     },
@@ -1772,7 +1778,6 @@ export function CrmInstallationDetailClient({
       <CrmDetailLayout
         pageType="installation"
         module="installations"
-        defaultCollapsedSectionKeys={true}
         title={installation.name}
         subtitle={subtitle}
         badge={isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" }}

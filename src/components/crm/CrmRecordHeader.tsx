@@ -66,10 +66,10 @@ export function CrmRecordHeader({
         className
       )}
     >
-      {/* Volver */}
+      {/* Volver — min 44px touch target */}
       <Link
         href={backHref}
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 -ml-2 rounded-md p-2 min-h-[44px] sm:min-h-0 sm:p-0 sm:ml-0"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         <span>Volver a {resolvedBackLabel}</span>

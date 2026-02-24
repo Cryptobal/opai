@@ -29,6 +29,7 @@ import {
   Loader2,
   Plus,
   Sparkles,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -608,8 +609,8 @@ export function CrmAccountDetailClient({
     {
       key: "general",
       children: (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <DetailFieldGrid>
+        <div className="space-y-5">
+          <DetailFieldGrid columns={3}>
             <DetailField
               label="Tipo"
               value={
@@ -626,11 +627,19 @@ export function CrmAccountDetailClient({
                 </Badge>
               }
             />
+            <DetailField
+              label="Página web"
+              value={account.website ? (
+                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
+                  {account.website}<ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              ) : undefined}
+            />
             <DetailField label="RUT" value={account.rut} mono copyable />
             <DetailField label="Razón social" value={account.legalName} />
+            <DetailField label="Industria" value={account.industry} />
             <DetailField label="Representante legal" value={account.legalRepresentativeName} />
             <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
-            <DetailField label="Industria" value={account.industry} />
             <DetailField label="Segmento" value={account.segment} />
             <DetailField
               label="Dirección"
@@ -647,14 +656,34 @@ export function CrmAccountDetailClient({
               value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
             />
           </DetailFieldGrid>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Página web</span>
+
+          {/* ── Información empresa (web + IA) ── */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {accountLogoUrl && (
+                  <img
+                    src={accountLogoUrl}
+                    alt={`Logo ${account.name}`}
+                    className="h-8 w-8 rounded-md border border-border bg-background object-contain shrink-0"
+                  />
+                )}
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {!account.website && (
+                  <Input
+                    value={enrichWebsiteInput}
+                    onChange={(e) => setEnrichWebsiteInput(e.target.value)}
+                    placeholder="https://www.empresa.cl"
+                    className={`h-7 text-xs w-44 ${inputCn}`}
+                  />
+                )}
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="h-7 text-xs"
                   onClick={enrichCompanyInfoFromWebsite}
                   disabled={enrichingCompanyInfo || !(account.website || enrichWebsiteInput)?.trim()}
                 >
@@ -662,51 +691,26 @@ export function CrmAccountDetailClient({
                   Traer datos
                 </Button>
               </div>
-              {account.website ? (
-                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block">
-                  {account.website}
-                </a>
-              ) : (
-                <Input
-                  value={enrichWebsiteInput}
-                  onChange={(e) => setEnrichWebsiteInput(e.target.value)}
-                  placeholder="https://www.empresa.cl"
-                  className={`h-8 text-xs ${inputCn}`}
-                />
-              )}
             </div>
-            {accountLogoUrl && (
-              <div className="rounded-lg border border-border bg-muted/20 p-3">
-                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Logo</p>
-                <img
-                  src={accountLogoUrl}
-                  alt={`Logo ${account.name}`}
-                  className="h-16 w-16 rounded-lg border border-border bg-background object-contain"
-                />
-              </div>
+            {stripAccountLogoMarker(account.notes) ? (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {stripAccountLogoMarker(account.notes)}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground/60 italic">Sin descripción. Usa &quot;Traer datos&quot; para obtener información automáticamente.</p>
             )}
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
-              {stripAccountLogoMarker(account.notes) ? (
-                <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground leading-relaxed">
-                  {stripAccountLogoMarker(account.notes)}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground/60 italic">Sin descripción</p>
-              )}
-              <div className="flex items-center gap-2 pt-1">
-                <Input
-                  value={regenerateInstruction}
-                  onChange={(e) => setRegenerateInstruction(e.target.value)}
-                  placeholder="Instrucción para IA (opcional)..."
-                  className={`h-8 text-xs flex-1 ${inputCn}`}
-                />
-                <Button type="button" size="sm" variant="outline" onClick={regenerateNotesWithAi} disabled={regenerating}>
-                  {regenerating && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-                  <Sparkles className="mr-1 h-3 w-3" />
-                  Regenerar
-                </Button>
-              </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={regenerateInstruction}
+                onChange={(e) => setRegenerateInstruction(e.target.value)}
+                placeholder="Instrucción para IA (opcional)..."
+                className={`h-7 text-xs flex-1 ${inputCn}`}
+              />
+              <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={regenerateNotesWithAi} disabled={regenerating}>
+                {regenerating && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                <Sparkles className="mr-1 h-3 w-3" />
+                Regenerar
+              </Button>
             </div>
           </div>
         </div>
@@ -836,7 +840,6 @@ export function CrmAccountDetailClient({
       <CrmDetailLayout
         pageType="account"
         module="accounts"
-        defaultCollapsedSectionKeys={true}
         title={account.name}
         subtitle={lifecycleSubtitle}
         badge={lifecycleBadge}
