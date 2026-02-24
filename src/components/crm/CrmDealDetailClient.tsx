@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, Send, MessageSquare, Plus, Star, X, Clock3, MapPin } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2 } from "lucide-react";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
@@ -592,63 +592,51 @@ export function CrmDealDetailClient({
     }
   };
 
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const followUpHasActions = localPendingCount > 0 || localPausedCount > 0 || !!dealProposalSentAt || canConfigureCrm;
+
   const followUpSection: DetailSection = {
     key: "followup",
     count: localFollowUpLogs.length,
-    action: (
-      <div className="flex items-center gap-1 flex-wrap">
-        {localPendingCount > 0 && (
-          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
-            onClick={() => handleFollowUpAction("pause")}>
-            Pausar
+    action: followUpHasActions ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={followUpActioning}>
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
-        )}
-        {localPausedCount > 0 && (
-          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
-            onClick={() => handleFollowUpAction("resume")}>
-            Reanudar
-          </Button>
-        )}
-        {dealProposalSentAt && (
-          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={followUpActioning}
-            onClick={() => handleFollowUpAction("restart")}>
-            Reprogramar
-          </Button>
-        )}
-        {localPendingCount > 0 && (
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" disabled={followUpActioning}
-            onClick={() => handleFollowUpAction("cancel")}>
-            Cancelar
-          </Button>
-        )}
-        {canConfigureCrm && (
-          <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-            <Link href="/opai/configuracion/crm#seguimientos-automaticos">Configurar</Link>
-          </Button>
-        )}
-        {gmailConnected && (
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEmailOpen(true)}>
-            <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
-          </Button>
-        )}
-        {pendingLogsBySequence.map((log) => (
-          <Button
-            key={`quick-send-${log.id}`}
-            size="sm"
-            variant="default"
-            className="h-7 text-xs"
-            disabled={sendingLogId === log.id}
-            onClick={() => handleSendFollowUpNow(log.id)}
-          >
-            {sendingLogId === log.id ? (
-              <>Enviando...</>
-            ) : (
-              <>Enviar S{log.sequence} ahora</>
-            )}
-          </Button>
-        ))}
-      </div>
-    ),
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          {localPendingCount > 0 && (
+            <DropdownMenuItem onClick={() => handleFollowUpAction("pause")}>
+              <Pause className="h-3.5 w-3.5 mr-2" /> Pausar
+            </DropdownMenuItem>
+          )}
+          {localPausedCount > 0 && (
+            <DropdownMenuItem onClick={() => handleFollowUpAction("resume")}>
+              <Play className="h-3.5 w-3.5 mr-2" /> Reanudar
+            </DropdownMenuItem>
+          )}
+          {dealProposalSentAt && (
+            <DropdownMenuItem onClick={() => handleFollowUpAction("restart")}>
+              <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reprogramar
+            </DropdownMenuItem>
+          )}
+          {localPendingCount > 0 && (
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleFollowUpAction("cancel")}>
+              <XCircle className="h-3.5 w-3.5 mr-2" /> Cancelar todo
+            </DropdownMenuItem>
+          )}
+          {canConfigureCrm && (
+            <DropdownMenuItem asChild>
+              <Link href="/opai/configuracion/crm#seguimientos-automaticos">
+                <Settings2 className="h-3.5 w-3.5 mr-2" /> Configurar
+              </Link>
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : undefined,
     children: (
         !deal.proposalSentAt && !deal.proposalLink && localFollowUpLogs.length === 0 ? (
           <EmptyState
@@ -659,186 +647,127 @@ export function CrmDealDetailClient({
           />
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <FollowUpMetric
-                label="Automatización"
-                value={followUpConfig?.isActive === false ? "Pausada" : "Activa"}
-                description={
-                  followUpConfig
-                    ? `Día ${followUpConfig.firstFollowUpDays}, ${followUpConfig.secondFollowUpDays} + ${followUpConfig.thirdFollowUpDays} días · ${String(followUpConfig.sendHour).padStart(2, "0")}:00`
-                    : "Configuración por defecto"
-                }
-                tone={followUpConfig?.isActive === false ? "warning" : "success"}
-              />
-              <FollowUpMetric
-                label="Seguimientos enviados"
-                value={sentFollowUpsCount}
-                description="Correos automáticos enviados"
-                tone="default"
-              />
-              <FollowUpMetric
-                label="Pendientes"
-                value={pendingFollowUps.length}
-                description={overdueFollowUpsCount > 0 ? `${overdueFollowUpsCount} vencidos` : "Sin vencidos"}
-                tone={overdueFollowUpsCount > 0 ? "warning" : "success"}
-              />
-              <FollowUpMetric
-                label="Fallidos"
-                value={failedFollowUpsCount}
-                description="Requieren revisión manual"
-                tone={failedFollowUpsCount > 0 ? "danger" : "success"}
-              />
+            {/* ── Inline summary ── */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="outline" className={followUpConfig?.isActive === false ? "text-[10px] border-amber-500/30 text-amber-500" : "text-[10px] border-emerald-500/30 text-emerald-500"}>
+                {followUpConfig?.isActive === false ? "Pausada" : "Activa"}
+              </Badge>
+              {sentFollowUpsCount > 0 && (
+                <span className="text-muted-foreground">{sentFollowUpsCount} enviado{sentFollowUpsCount !== 1 ? "s" : ""}</span>
+              )}
+              {pendingFollowUps.length > 0 && (
+                <span className={overdueFollowUpsCount > 0 ? "text-amber-500" : "text-muted-foreground"}>
+                  {pendingFollowUps.length} pendiente{pendingFollowUps.length !== 1 ? "s" : ""}
+                  {overdueFollowUpsCount > 0 && ` (${overdueFollowUpsCount} vencido${overdueFollowUpsCount !== 1 ? "s" : ""})`}
+                </span>
+              )}
+              {failedFollowUpsCount > 0 && (
+                <span className="text-red-500">{failedFollowUpsCount} fallido{failedFollowUpsCount !== 1 ? "s" : ""}</span>
+              )}
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Al enviar seguimiento manual, el sistema envía correo inmediatamente y aplica cambio de etapa automático según configuración.
-            </p>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[1, 2, 3].map((sequence) => {
+            {/* ── Timeline stepper S1 → S2 → S3 ── */}
+            <div className="flex items-start gap-0">
+              {[1, 2, 3].map((sequence, idx) => {
                 const log = latestFollowUpBySequence[sequence];
-                const statusMeta = getFollowUpStatusMeta(log?.status || "pending");
-                const timingMeta = log?.status === "pending" ? getPendingTimingMeta(log.scheduledAt) : null;
+                const status = log?.status || "none";
+                const isSent = status === "sent";
+                const isPending = status === "pending" || status === "paused";
+                const isFailed = status === "failed";
+
+                const dotColor = isSent
+                  ? "bg-emerald-500"
+                  : isFailed
+                    ? "bg-red-500"
+                    : isPending
+                      ? "bg-blue-500 animate-pulse"
+                      : "bg-muted-foreground/30";
+
+                const lineColor = isSent ? "bg-emerald-500/40" : "bg-border";
 
                 return (
-                  <div key={sequence} className="rounded-lg border border-border p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Seguimiento {sequence}
-                        </p>
-                        <p className="text-sm font-semibold mt-0.5">{statusMeta.label}</p>
-                      </div>
-                      <Badge variant="outline" className={statusMeta.className}>
-                        {statusMeta.badge}
-                      </Badge>
+                  <div key={sequence} className="flex-1 flex flex-col items-center relative">
+                    {/* Connector line */}
+                    {idx > 0 && (
+                      <div className={`absolute top-[9px] right-1/2 w-full h-px ${lineColor}`} />
+                    )}
+
+                    {/* Dot */}
+                    <div className={`relative z-10 h-[18px] w-[18px] rounded-full ${dotColor} flex items-center justify-center`}>
+                      {isSent && <Check className="h-2.5 w-2.5 text-white" />}
+                      {isFailed && <AlertCircle className="h-2.5 w-2.5 text-white" />}
                     </div>
 
-                    {!log ? (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Sin registro aún para esta etapa.
-                      </p>
-                    ) : (
-                      <div className="mt-2 space-y-1.5">
-                        <div className="text-xs text-muted-foreground space-y-1.5">
-                          <p>
-                            Programado: <span className="text-foreground">{formatDealDateTime(log.scheduledAt)}</span>
-                          </p>
-                          {timingMeta && (
-                            <p className={timingMeta.className}>{timingMeta.label}</p>
-                          )}
-                          {log.sentAt && (
-                            <p>
-                              Enviado: <span className="text-foreground">{formatDealDateTime(log.sentAt)}</span>
-                            </p>
-                          )}
-                          {log.error && (
-                            <p className="text-red-500">Error: {log.error}</p>
-                          )}
-                          {log.emailMessage && (
-                            <p className="text-muted-foreground/80">
-                              {log.emailMessage.openCount} aperturas · {log.emailMessage.clickCount} clics
-                            </p>
-                          )}
-                        </div>
-                        {(log.status === "pending" || log.status === "paused") && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="h-7 text-xs mt-2"
-                            disabled={sendingLogId === log.id}
-                            onClick={() => handleSendFollowUpNow(log.id)}
-                          >
-                            {sendingLogId === log.id ? (
-                              <>Enviando...</>
-                            ) : (
-                              <><Send className="h-3 w-3 mr-1" /> Enviar ahora</>
-                            )}
-                          </Button>
-                        )}
-                      </div>
+                    {/* Label */}
+                    <p className="mt-1.5 text-[11px] font-medium text-foreground">S{sequence}</p>
+
+                    {/* Date / status */}
+                    <p className="text-[10px] text-muted-foreground leading-tight text-center">
+                      {isSent && log?.sentAt
+                        ? formatDealDate(log.sentAt)
+                        : isPending && log
+                          ? formatDealDate(log.scheduledAt)
+                          : isFailed
+                            ? "Fallido"
+                            : "—"}
+                    </p>
+
+                    {/* Send now (only place) */}
+                    {isPending && log && (
+                      <button
+                        type="button"
+                        className="mt-1 text-[10px] text-primary hover:underline disabled:opacity-50"
+                        disabled={sendingLogId === log.id}
+                        onClick={() => handleSendFollowUpNow(log.id)}
+                      >
+                        {sendingLogId === log.id ? "Enviando…" : "Enviar ahora"}
+                      </button>
                     )}
                   </div>
                 );
               })}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Historial de seguimientos
-              </p>
-              {localFollowUpLogsDesc.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No hay eventos de seguimiento registrados.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {localFollowUpLogsDesc.map((log) => {
-                    const statusMeta = getFollowUpStatusMeta(log.status);
-                    const timingMeta = log.status === "pending" ? getPendingTimingMeta(log.scheduledAt) : null;
-                    return (
-                      <div key={log.id} className="rounded-lg border border-border p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">
-                              Seguimiento {log.sequence}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Programado: {formatDealDateTime(log.scheduledAt)}
-                            </p>
-                            {log.sentAt && (
-                              <p className="text-xs text-muted-foreground">
-                                Enviado: {formatDealDateTime(log.sentAt)}
-                              </p>
-                            )}
-                            {timingMeta && (
-                              <p className={`text-xs ${timingMeta.className}`}>{timingMeta.label}</p>
-                            )}
-                            {log.error && (
-                              <p className="text-xs text-red-500">Error: {log.error}</p>
-                            )}
-                            {(log.status === "pending" || log.status === "paused") && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-7 text-xs mt-2"
-                                disabled={sendingLogId === log.id}
-                                onClick={() => handleSendFollowUpNow(log.id)}
-                              >
-                                {sendingLogId === log.id ? (
-                                  <>Enviando...</>
-                                ) : (
-                                  <><Send className="h-3 w-3 mr-1" /> Enviar ahora</>
-                                )}
-                              </Button>
+            {/* ── Collapsible history ── */}
+            {localFollowUpLogsDesc.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {historyOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  Historial ({localFollowUpLogsDesc.length})
+                </button>
+
+                {historyOpen && (
+                  <div className="mt-2 space-y-1">
+                    {localFollowUpLogsDesc.map((log) => {
+                      const statusMeta = getFollowUpStatusMeta(log.status);
+                      return (
+                        <div key={log.id} className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-xs hover:bg-muted/40 transition-colors">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium shrink-0">S{log.sequence}</span>
+                            <span className="text-muted-foreground truncate">
+                              {log.sentAt ? formatDealDateTime(log.sentAt) : formatDealDateTime(log.scheduledAt)}
+                            </span>
+                            {log.emailMessage && (
+                              <span className="text-muted-foreground/60 truncate hidden sm:inline">
+                                {log.emailMessage.openCount > 0 && `${log.emailMessage.openCount} apert.`}
+                                {log.emailMessage.clickCount > 0 && ` · ${log.emailMessage.clickCount} clic${log.emailMessage.clickCount !== 1 ? "s" : ""}`}
+                              </span>
                             )}
                           </div>
                           <Badge variant="outline" className={statusMeta.className}>
                             {statusMeta.badge}
                           </Badge>
                         </div>
-
-                        {log.emailMessage && (
-                          <div className="mt-2 rounded-md border border-border/70 bg-muted/30 p-2.5 space-y-1.5">
-                            <p className="text-xs font-medium truncate">
-                              {log.emailMessage.subject || "Correo automático"}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              Para: {log.emailMessage.toEmails?.join(", ") || "Sin destinatario"}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                              <span>Estado mail: {formatEmailDeliveryStatus(log.emailMessage)}</span>
-                              <span>Aperturas: {log.emailMessage.openCount}</span>
-                              <span>Clics: {log.emailMessage.clickCount}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
     ),
@@ -1137,34 +1066,6 @@ function _InfoRowLegacy({ label, children }: { label: string; children: React.Re
   );
 }
 
-function FollowUpMetric({
-  label,
-  value,
-  description,
-  tone = "default",
-}: {
-  label: string;
-  value: string | number;
-  description?: string;
-  tone?: "default" | "success" | "warning" | "danger";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-emerald-500/30 bg-emerald-500/5"
-      : tone === "warning"
-        ? "border-amber-500/30 bg-amber-500/5"
-        : tone === "danger"
-          ? "border-red-500/30 bg-red-500/5"
-          : "border-border bg-card";
-
-  return (
-    <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold">{value}</p>
-      {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
-    </div>
-  );
-}
 
 function formatDealDateTime(value?: string | null): string {
   if (!value) return "—";
@@ -1174,6 +1075,14 @@ function formatDealDateTime(value?: string | null): string {
     year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatDealDate(value?: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "short",
   });
 }
 
