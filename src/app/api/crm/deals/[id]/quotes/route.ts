@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { linkDealQuoteSchema } from "@/lib/validations/crm";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function GET(
   _request: NextRequest,
@@ -65,6 +66,22 @@ export async function POST(
         createdBy: ctx.userId,
       },
     });
+
+    // Sync deal amount from linked quote
+    try {
+      const costs = await computeCpqQuoteCosts(body.quoteId);
+      if (costs.monthlyTotal > 0) {
+        await prisma.crmDeal.update({
+          where: { id },
+          data: {
+            amount: costs.monthlyTotal,
+            totalPuestos: costs.totalGuards,
+          },
+        });
+      }
+    } catch (amountError) {
+      console.error("Error syncing deal amount from quote:", amountError);
+    }
 
     return NextResponse.json({ success: true, data: link }, { status: 201 });
   } catch (error: any) {

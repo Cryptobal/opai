@@ -160,7 +160,14 @@ ${serviceDetailHtml}
       try {
         await prisma.crmDeal.update({
           where: { id: quote.dealId },
-          data: { proposalSentAt: new Date() },
+          data: {
+            proposalSentAt: new Date(),
+            amount: monthlyTotal,
+            totalPuestos: quote.positions.reduce(
+              (s, p) => s + p.numGuards * (p.numPuestos || 1),
+              0
+            ),
+          },
         });
 
         const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
