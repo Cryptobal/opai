@@ -8,7 +8,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
@@ -115,7 +114,6 @@ export default async function CrmCotizacionesPage() {
         description="Cotizaciones CPQ vinculadas al CRM"
         actions={<CpqIndicators />}
       />
-      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} />
     </>
   );

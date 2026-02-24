@@ -9,7 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmLeadsClient } from "@/components/crm";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -46,7 +45,6 @@ export default async function CrmLeadsPage({
         title="Prospectos"
         description="Solicitudes entrantes y aprobación manual"
       />
-      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmLeadsClient
         initialLeads={initialLeads}
         initialStatusFilter={initialStatusFilter}
