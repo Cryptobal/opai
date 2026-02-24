@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, LogOut, Settings, User } from "lucide-react";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
@@ -42,6 +43,9 @@ export function TopbarActions({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
+      {/* Buscador global */}
+      <GlobalSearch listenToCommandK showShortcutHint compact className="w-64" />
+
       {/* Toggle tema claro/oscuro */}
       <ThemeToggle />
 

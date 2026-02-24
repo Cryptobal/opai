@@ -14,13 +14,9 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
+import { resolvePagePerms, hasModuleAccess } from '@/lib/permissions-server';
 import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
-import { GlobalSearch } from '@/components/search/GlobalSearch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +29,6 @@ export default async function DashboardPage() {
   if (!hasModuleAccess(perms, 'docs')) {
     redirect('/hub');
   }
-  const canUseCrmSearch = canView(perms, 'crm');
   const tenantId = session.user.tenantId ?? await getDefaultTenantId();
 
   const presentations = await prisma.presentation.findMany({
@@ -113,20 +108,6 @@ export default async function DashboardPage() {
 
       {/* Sub-navegación */}
       <DocumentosSubnav />
-
-      {(canUseCrmSearch || hasModuleAccess(perms, 'ops') || hasModuleAccess(perms, 'docs')) && (
-        <Card className="overflow-visible">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Buscador global</CardTitle>
-            <CardDescription>
-              Busca en CRM, operaciones (guardias por nombre o RUT) y documentos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GlobalSearch />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Content con KPIs clickeables */}
       <DocumentosContent
