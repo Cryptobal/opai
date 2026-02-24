@@ -392,8 +392,8 @@ export const DETAIL_SECTION_ORDER: CrmSectionKey[] = [
 export const MODULE_DETAIL_SECTIONS: Record<string, CrmSectionKey[]> = {
   leads: ["general", "account", "contacts", "deals", "installations", "files"],
   accounts: ["general", "contacts", "installations", "deals", "quotes", "rendiciones", "communication", "notes"],
-  contacts: ["general", "account", "deals", "communication", "notes"],
+  contacts: ["general", "account", "deals", "communication", "notes", "files"],
   deals: ["general", "account", "contacts", "installations", "quotes", "followup", "communication", "notes"],
-  installations: ["general", "account", "deals", "quotes", "staffing", "refuerzos", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "uniformes-activos", "communication", "notes"],
+  installations: ["general", "account", "deals", "quotes", "staffing", "refuerzos", "dotacion", "marcacion_asistencia", "marcacion_rondas", "rendiciones", "uniformes-activos", "notes", "files"],
   guardias: ["datos", "contratos", "eventos-laborales", "estructura-sueldo", "liquidaciones", "asignacion", "marcacion", "rondas", "documentos", "docs-vinculados", "cuentas", "communication", "comentarios", "dias-trabajados", "turnos-extra", "rendiciones", "historial", "uniformes"],
 };

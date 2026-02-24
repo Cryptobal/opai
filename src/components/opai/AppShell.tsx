@@ -12,6 +12,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
+import { BottomNav } from './BottomNav';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -104,7 +105,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             <NotificationBell compact />
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => setIsMobileSearchOpen(true)}
               aria-label="Buscar"
             >
@@ -112,7 +113,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             </button>
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleMobileRefresh}
               disabled={isRefreshing}
               aria-label="Actualizar pantalla"
@@ -121,7 +122,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             </button>
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => setIsMobileOpen(true)}
               aria-label="Abrir menú"
             >
@@ -205,6 +206,9 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           </div>
         </main>
       </div>
+
+      {/* ── Bottom Nav (mobile) ── */}
+      <BottomNav userRole={userRole} />
 
       {/* ── Command Palette ── */}
       <CommandPalette userRole={userRole} />

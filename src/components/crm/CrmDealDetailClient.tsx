@@ -28,7 +28,7 @@ import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHisto
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
-import { CrmRelatedRecordCard } from "./CrmRelatedRecordCard";
+import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -540,7 +540,7 @@ export function CrmDealDetailClient({
     key: "general",
     label: "Resumen del negocio",
     children: (
-      <DetailFieldGrid>
+      <DetailFieldGrid columns={3}>
         <DetailField
           label="Cliente"
           value={deal.account ? (
@@ -869,7 +869,7 @@ export function CrmDealDetailClient({
     children: linkedQuotes.length === 0 ? (
       <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
     ) : (
-      <div className="space-y-2">
+      <CrmRelatedRecordGrid>
         {linkedQuotes.map((quote) => {
           const info = quotesById[quote.quoteId];
           const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
@@ -886,7 +886,7 @@ export function CrmDealDetailClient({
             />
           );
         })}
-      </div>
+      </CrmRelatedRecordGrid>
     ),
   };
 
@@ -944,37 +944,34 @@ export function CrmDealDetailClient({
     children: dealContacts.length === 0 ? (
       <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
     ) : (
-      <div className="space-y-2">
+      <CrmRelatedRecordGrid>
         {dealContacts.map((dc) => {
           const c = dc.contact;
           return (
-            <div key={dc.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3 group">
-              <Link href={`/crm/contacts/${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.contacts.color}`}>
-                  <ContactsIcon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{`${c.firstName} ${c.lastName}`.trim()}</p>
-                    {dc.role === "primary" && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>}
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground truncate">{c.roleTitle || "Sin cargo"} · {c.email || "Sin email"}</p>
-                </div>
-              </Link>
-              <div className="flex items-center gap-1 shrink-0">
-                {dc.role !== "primary" && (
-                  <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" onClick={() => markPrimary(c.id)}>
-                    <Star className="h-3.5 w-3.5" />
+            <CrmRelatedRecordCard
+              key={dc.id}
+              module="contacts"
+              title={`${c.firstName} ${c.lastName}`.trim()}
+              subtitle={c.roleTitle || "Sin cargo"}
+              meta={c.email || undefined}
+              badge={dc.role === "primary" ? { label: "Principal", variant: "default" } : undefined}
+              href={`/crm/contacts/${c.id}`}
+              actions={
+                <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
+                  {dc.role !== "primary" && (
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" onClick={() => markPrimary(c.id)}>
+                      <Star className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular" onClick={() => removeDealContact(c.id)}>
+                    <X className="h-3.5 w-3.5" />
                   </Button>
-                )}
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular" onClick={() => removeDealContact(c.id)}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
+                </div>
+              }
+            />
           );
         })}
-      </div>
+      </CrmRelatedRecordGrid>
     ),
   };
 

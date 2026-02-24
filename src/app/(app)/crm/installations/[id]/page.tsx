@@ -213,6 +213,7 @@ export default async function CrmInstallationDetailPage({
         installation={data}
         canEditDotacion={canEditDotacion}
         hasInventarioAccess={hasInventarioAccess}
+        currentUserId={session.user.id ?? ""}
       />
     </>
   );

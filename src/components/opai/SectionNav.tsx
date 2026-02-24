@@ -151,7 +151,6 @@ export function SectionNav({
   return (
     <div
       className={cn(
-        "hidden lg:block",
         "sticky top-[113px] z-[9] -mx-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
         "sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12",
         className
@@ -177,14 +176,14 @@ export function SectionNav({
                 aria-selected={isActive}
                 onClick={() => handleClick(section.key)}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
+                  "relative flex shrink-0 items-center gap-1 px-2 py-2.5 text-xs font-medium transition-colors whitespace-nowrap sm:gap-1.5 sm:px-3",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {section.label}
+                <span className="hidden sm:inline">{section.label}</span>
                 {section.count !== undefined && section.count > 0 && (
                   <span
                     className={cn(
@@ -198,7 +197,7 @@ export function SectionNav({
                   </span>
                 )}
                 {isActive && (
-                  <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-primary" />
+                  <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary sm:left-3 sm:right-3" />
                 )}
               </button>
             );
@@ -231,7 +230,7 @@ export function SectionNav({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {extraAction}
+          {extraAction && <div className="hidden lg:block">{extraAction}</div>}
         </div>
       </div>
     </div>
