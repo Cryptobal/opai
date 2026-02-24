@@ -22,9 +22,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [] });
     }
 
+    const contains = { contains: q, mode: "insensitive" as const };
+    const searchNorm = q.replace(/[.\s-]/g, "");
+
     const guardias = await prisma.opsGuardia.findMany({
-      where: { tenantId: ctx.tenantId },
-      take: 50,
+      where: {
+        tenantId: ctx.tenantId,
+        OR: [
+          { persona: { firstName: contains } },
+          { persona: { lastName: contains } },
+          { persona: { rut: { contains: searchNorm, mode: "insensitive" } } },
+          { code: contains },
+        ],
+      },
+      take: LIMIT,
       select: {
         id: true,
         code: true,
@@ -39,11 +50,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const searchable = (g: (typeof guardias)[0]) =>
-      `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
-    const filtered = guardias.filter((g) => searchable(g).includes(q)).slice(0, LIMIT);
-
-    const data = filtered.map((g) => ({
+    const data = guardias.map((g) => ({
       id: g.id,
       type: "guardia" as const,
       title: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
