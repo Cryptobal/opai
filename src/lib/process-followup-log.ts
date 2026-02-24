@@ -171,12 +171,34 @@ export async function processFollowUpLog(
 
   if (config?.pauseOnReply) {
     const stage = deal.stage;
-    if (stage && !stage.isClosedWon && !stage.isClosedLost && stage.order > 4) {
-      await prisma.crmFollowUpLog.update({
-        where: { id: followUp.id },
-        data: { status: "cancelled", error: "Deal avanzó manualmente" },
-      });
-      return { success: false, error: "Deal avanzó manualmente", skipped: true };
+    if (stage && !stage.isClosedWon && !stage.isClosedLost) {
+      // Dynamically determine the expected target stage for this follow-up sequence
+      // instead of using a hardcoded order threshold
+      const targetStageId =
+        followUp.sequence === 1
+          ? config?.firstFollowUpStageId
+          : config?.secondFollowUpStageId; // seq 2 & 3 compare against 2nd follow-up stage
+
+      const fallbackNames =
+        followUp.sequence === 1
+          ? ["Primer seguimiento"]
+          : ["Segundo seguimiento", "2do seguimiento"];
+
+      const targetStage = targetStageId
+        ? await prisma.crmPipelineStage.findFirst({
+            where: { id: targetStageId, tenantId: followUp.tenantId, isActive: true },
+          })
+        : await prisma.crmPipelineStage.findFirst({
+            where: { tenantId: followUp.tenantId, name: { in: fallbackNames }, isActive: true },
+          });
+
+      if (targetStage && stage.order > targetStage.order) {
+        await prisma.crmFollowUpLog.update({
+          where: { id: followUp.id },
+          data: { status: "cancelled", error: "Deal avanzó manualmente" },
+        });
+        return { success: false, error: "Deal avanzó manualmente", skipped: true };
+      }
     }
   }
 
@@ -265,6 +287,20 @@ export async function processFollowUpLog(
     replyTo: EMAIL_CONFIG.replyTo,
     ...(bcc ? { bcc } : {}),
   });
+
+  // Check for Resend API errors before proceeding
+  if (emailResult.error) {
+    const errMsg =
+      typeof emailResult.error === "object" && "message" in emailResult.error
+        ? (emailResult.error as { message: string }).message
+        : String(emailResult.error);
+    console.error(`❌ Resend error for follow-up ${followUp.id}:`, errMsg);
+    await prisma.crmFollowUpLog.update({
+      where: { id: followUp.id },
+      data: { status: "failed", error: `Email no enviado: ${errMsg}` },
+    });
+    return { success: false, error: `Email no enviado: ${errMsg}` };
+  }
 
   const resendId =
     emailResult.data && "id" in emailResult.data
