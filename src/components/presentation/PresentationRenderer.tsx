@@ -167,7 +167,7 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
         
         {/* Header persistente - oculto en PDF */}
         {!pdfMode && (
-          <PresentationHeader 
+          <PresentationHeader
             logo={assets.logo}
             clientLogoUrl={payload.client.company_logo_url}
             cta={cta}
@@ -175,6 +175,8 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             companyName={payload.client.company_name}
             quoteName={payload.quote.subject || ''}
             quoteNumber={payload.quote.number}
+            installationName={payload.service.sites?.[0]?.name}
+            dealName={payload.quote.deal_name}
             showTokens={showTokens}
           />
         )}

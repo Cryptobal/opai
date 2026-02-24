@@ -45,6 +45,7 @@ export interface QuoteData {
   tax?: number;
   total: number;
   currency: PricingCurrency;
+  deal_name?: string;
 }
 
 // ============================================

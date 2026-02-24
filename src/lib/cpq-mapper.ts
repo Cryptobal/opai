@@ -56,6 +56,7 @@ interface CpqMapperInput {
     city?: string | null;
     commune?: string | null;
   } | null;
+  dealName?: string | null;
   salePriceMonthly: number;
   positionSalePrices: Map<string, number>;
   templateId?: string;
@@ -86,7 +87,7 @@ export function mapCpqDataToPresentation(
   sessionId: string,
   templateSlug: string = "commercial"
 ): PresentationPayload {
-  const { quote, positions, account, contact, installation, ufValue, siteUrl } = input;
+  const { quote, positions, account, contact, installation, dealName, ufValue, siteUrl } = input;
 
   const companyName = account?.name || quote.clientName || "Cliente";
   const companyLogoUrl =
@@ -163,6 +164,7 @@ export function mapCpqDataToPresentation(
       subtotal: input.salePriceMonthly,
       tax: 0,
       currency,
+      deal_name: dealName || undefined,
     },
 
     // Servicio - datos reales del CPQ

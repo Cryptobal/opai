@@ -5,7 +5,7 @@
  */
 
 import { CTALinks } from '@/types';
-import { Calendar, MessageCircle, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Briefcase, MessageCircle, Sparkles } from 'lucide-react';
 import { ZohoToken } from '@/components/presentation/ZohoToken';
 
 interface PresentationHeaderProps {
@@ -16,11 +16,13 @@ interface PresentationHeaderProps {
   companyName?: string;
   quoteName?: string; // Asunto de la cotización (ej: "Apoyo nocturno Coronel")
   quoteNumber?: string;
+  installationName?: string; // Nombre de la instalación
+  dealName?: string; // Nombre del negocio (deal)
   showTokens?: boolean;
   className?: string;
 }
 
-export function PresentationHeader({ 
+export function PresentationHeader({
   logo = '/Logo%20Gard%20Blanco.png',
   clientLogoUrl = null,
   cta,
@@ -28,8 +30,10 @@ export function PresentationHeader({
   companyName = 'tu empresa',
   quoteName = 'la cotización',
   quoteNumber = '',
+  installationName,
+  dealName,
   showTokens = false,
-  className 
+  className
 }: PresentationHeaderProps) {
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
@@ -88,7 +92,32 @@ export function PresentationHeader({
             </div>
           </div>
         )}
-        
+
+        {/* Info instalación + negocio */}
+        {(installationName || dealName) && (
+          <div className="py-2 border-b border-white/5">
+            <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-x-4 gap-y-1 text-xs">
+              {installationName && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3 text-teal-400 flex-shrink-0" />
+                  <span className="text-white/50">Instalación:</span>
+                  <span className="font-semibold text-white/90">{installationName}</span>
+                </div>
+              )}
+              {installationName && dealName && (
+                <span className="hidden sm:inline text-white/20">·</span>
+              )}
+              {dealName && (
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3 text-teal-400 flex-shrink-0" />
+                  <span className="text-white/50">Negocio:</span>
+                  <span className="font-semibold text-white/90">{dealName}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main header - MINIMALISTA con Gard + logo cliente */}
         <div className="flex items-center justify-between h-14 sm:h-16 gap-4">
           {/* Logos: Gard siempre + cliente si existe */}

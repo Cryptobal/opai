@@ -78,6 +78,16 @@ export async function POST(
     const recipientName =
       customName || `${contact.firstName} ${contact.lastName}`.trim();
 
+    // 3a. Load deal (for deal title / "nombre del negocio")
+    let dealName: string | null = null;
+    if (quote.dealId) {
+      const deal = await prisma.crmDeal.findUnique({
+        where: { id: quote.dealId },
+        select: { title: true },
+      });
+      dealName = deal?.title || null;
+    }
+
     // 3. Load account (with notes for logo + company description)
     const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
     const ACCOUNT_LOGO_SUFFIX = "]]";
@@ -210,6 +220,7 @@ export async function POST(
         account,
         contact,
         installation: quote.installation,
+        dealName,
         salePriceMonthly,
         positionSalePrices,
         siteUrl,
