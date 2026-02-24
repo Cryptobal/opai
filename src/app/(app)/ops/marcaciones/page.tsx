@@ -39,7 +39,7 @@ export default async function OpsMarcacionesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Marcaciones"
         description="Registro de marcaciones de asistencia digital. Conforme a Res. Exenta N°38 — DT Chile."

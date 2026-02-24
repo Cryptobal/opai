@@ -71,7 +71,7 @@ export default async function RendicionesPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Rendiciones"
         description="Listado de rendiciones de gastos y kilometraje."

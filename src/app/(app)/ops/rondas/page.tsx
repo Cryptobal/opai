@@ -41,7 +41,7 @@ export default async function OpsRondasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Rondas de seguridad"
         description="Ejecución y control de rondas asociadas a instalaciones."

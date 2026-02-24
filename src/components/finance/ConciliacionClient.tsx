@@ -319,27 +319,27 @@ function ListView({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Período
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Cuenta bancaria
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Saldo banco
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Saldo libro
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Diferencia
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Estado
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">
                         Conciliaciones
                       </th>
                     </tr>
@@ -354,32 +354,32 @@ function ListView({
                         <tr
                           key={r.id}
                           onClick={() => onSelect(r.id)}
-                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
+                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
                         >
-                          <td className="px-4 py-3 font-medium">
+                          <td className="px-3 py-2 font-medium">
                             {MONTH_LABELS[r.periodMonth - 1]} {r.periodYear}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <div>{r.bankAccount.bankName}</div>
                             <div className="text-xs text-muted-foreground font-mono">
                               {r.bankAccount.accountNumber}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">
+                          <td className="px-3 py-2 text-right font-mono text-xs">
                             {fmtCLP.format(r.bankBalance)}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">
+                          <td className="px-3 py-2 text-right font-mono text-xs">
                             {fmtCLP.format(r.bookBalance)}
                           </td>
                           <td
                             className={cn(
-                              "px-4 py-3 text-right font-mono text-xs font-medium",
+                              "px-3 py-2 text-right font-mono text-xs font-medium",
                               r.difference !== 0 && "text-amber-400"
                             )}
                           >
                             {fmtCLP.format(r.difference)}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn("text-xs", stCfg.className)}
@@ -387,7 +387,7 @@ function ListView({
                               {stCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-center font-mono text-xs">
+                          <td className="px-3 py-2 text-center font-mono text-xs">
                             {r._count.matches}
                           </td>
                         </tr>
@@ -970,24 +970,24 @@ function DetailView({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Fecha
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Descripción
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                         Monto
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Referencia
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Tipo
                       </th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                         Registro asociado
                       </th>
                     </tr>
@@ -996,30 +996,30 @@ function DetailView({
                     {detail.matches.map((m) => (
                       <tr
                         key={m.id}
-                        className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                        className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
                       >
-                        <td className="px-4 py-3 text-xs">
+                        <td className="px-3 py-2 text-xs">
                           {format(
                             new Date(m.bankTransaction.transactionDate),
                             "dd MMM yyyy",
                             { locale: es }
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           {m.bankTransaction.description}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">
+                        <td className="px-3 py-2 text-right font-mono text-xs">
                           {fmtCLP.format(m.bankTransaction.amount)}
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono">
+                        <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
                           {m.bankTransaction.reference ?? "—"}
                         </td>
-                        <td className="px-4 py-3 text-xs">
+                        <td className="px-3 py-2 text-xs">
                           <Badge variant="outline" className="text-xs">
                             {m.matchType}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-xs">
+                        <td className="px-3 py-2 text-xs">
                           {m.paymentRecord && (
                             <span>
                               Pago {m.paymentRecord.code} -{" "}

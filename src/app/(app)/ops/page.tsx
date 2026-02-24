@@ -141,7 +141,7 @@ export default async function OpsDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Operaciones"
         description="Operación diaria: pauta, cobertura, asistencia y control."
@@ -149,7 +149,7 @@ export default async function OpsDashboardPage() {
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
 
       {/* ── KPI Dotación ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 min-w-0">
         <Link href="/crm/installations">
           <Card className="transition-colors hover:bg-accent/40">
             <CardContent className="pt-4 pb-3 flex items-center gap-3">

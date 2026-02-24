@@ -27,7 +27,7 @@ export default async function RondasProgramacionPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Programación de rondas"
         description="Define días, horarios y frecuencia de ejecución."

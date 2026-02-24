@@ -76,7 +76,7 @@ export default async function NuevaRendicionPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Nueva rendición"
         description="Crea una nueva rendición de gastos o kilometraje."

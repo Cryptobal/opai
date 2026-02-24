@@ -135,21 +135,21 @@ export function InstallationExpensesSection({
         <CardContent className="pt-4">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground text-xs">
-                  <th className="text-left py-2 font-medium">Código</th>
-                  <th className="text-left py-2 font-medium">Fecha</th>
-                  <th className="text-right py-2 font-medium">Monto</th>
-                  <th className="text-left py-2 font-medium">Estado</th>
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {data.rendiciones.slice(0, 20).map((r) => (
                   <tr
                     key={r.id}
-                    className="border-b border-border/50 hover:bg-accent/30"
+                    className="border-b border-border/60 last:border-0 hover:bg-accent/30"
                   >
-                    <td className="py-2">
+                    <td className="px-3 py-2">
                       <Link
                         href={`/finanzas/rendiciones/${r.id}`}
                         className="text-primary hover:underline text-xs"
@@ -157,15 +157,15 @@ export function InstallationExpensesSection({
                         {r.code}
                       </Link>
                     </td>
-                    <td className="py-2 text-xs">
+                    <td className="px-3 py-2 text-xs">
                       {r.date
                         ? format(new Date(r.date), "dd/MM/yy", { locale: es })
                         : "-"}
                     </td>
-                    <td className="py-2 text-right text-xs font-mono">
+                    <td className="px-3 py-2 text-right text-xs font-mono">
                       {fmtCLP(r.amount || 0)}
                     </td>
-                    <td className="py-2">
+                    <td className="px-3 py-2">
                       <Badge
                         variant="secondary"
                         className={`text-[10px] ${STATUS_COLORS[r.status] || ""}`}

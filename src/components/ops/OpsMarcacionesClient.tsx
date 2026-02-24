@@ -433,19 +433,19 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
       {/* ── Tabla ── */}
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-muted/50 text-muted-foreground">
-                <th className="px-3 py-2.5 text-left font-medium">Tipo</th>
-                <th className="px-3 py-2.5 text-left font-medium">Guardia</th>
-                <th className="px-3 py-2.5 text-left font-medium">Instalación</th>
-                <th className="px-3 py-2.5 text-left font-medium">Fecha / Hora</th>
-                <th className="px-3 py-2.5 text-center font-medium">Geo</th>
-                <th className="px-3 py-2.5 text-right font-medium">Distancia</th>
-                <th className="px-3 py-2.5 text-left font-medium">Hash</th>
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha / Hora</th>
+                <th className="px-3 py-2 text-center font-medium text-muted-foreground">Geo</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Distancia</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Hash</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody>
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
@@ -463,11 +463,11 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                 filtered.map((m) => (
                   <Fragment key={m.id}>
                     <tr
-                      className="hover:bg-muted/30 cursor-pointer transition-colors"
+                      className="border-b border-border/60 last:border-0 hover:bg-accent/30 cursor-pointer transition-colors"
                       onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
                     >
                       {/* Tipo */}
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             m.tipo === "entrada"
@@ -481,7 +481,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       </td>
 
                       {/* Guardia */}
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2">
                         <Link
                           href={`/personas/guardias/${m.guardia.id}`}
                           className="text-primary hover:underline font-medium"
@@ -493,7 +493,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       </td>
 
                       {/* Instalación */}
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2">
                         <span className="font-medium">{m.installation.nombre}</span>
                         {m.puesto && (
                           <p className="text-[10px] text-muted-foreground">
@@ -503,12 +503,12 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       </td>
 
                       {/* Fecha/Hora */}
-                      <td className="px-3 py-2.5 tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2 tabular-nums whitespace-nowrap">
                         {formatDateTime(m.timestamp)}
                       </td>
 
                       {/* Geo */}
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-3 py-2 text-center">
                         {m.geo.validada ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-400 mx-auto" />
                         ) : m.geo.distanciaM != null ? (
@@ -519,12 +519,12 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
                       </td>
 
                       {/* Distancia */}
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className="px-3 py-2 text-right tabular-nums">
                         {m.geo.distanciaM != null ? `${m.geo.distanciaM}m` : "—"}
                       </td>
 
                       {/* Hash */}
-                      <td className="px-3 py-2.5 font-mono text-[10px] text-muted-foreground">
+                      <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">
                         {m.hashIntegridad.slice(0, 12)}...
                       </td>
                     </tr>

@@ -56,7 +56,7 @@ export default async function ProveedoresPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Proveedores"
         description="Gestión de proveedores y sus datos bancarios."

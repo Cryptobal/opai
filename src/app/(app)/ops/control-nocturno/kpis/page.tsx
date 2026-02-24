@@ -16,7 +16,7 @@ export default async function ControlNocturnoKpisPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="KPIs Control Nocturno"
         description="Panel ejecutivo con tendencias, riesgos, comparativos semanales/MTD/YTD y ranking por instalación."

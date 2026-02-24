@@ -1093,16 +1093,16 @@ function StaffingSection({
       {/* Puestos table */}
       {hasPuestos ? (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="min-w-full text-xs sm:text-sm">
+          <table className="w-full text-sm">
             <thead className="bg-muted/30">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Puesto</th>
-                <th className="px-3 py-2 text-left font-medium">Cargo / Rol</th>
-                <th className="px-3 py-2 text-left font-medium">Horario</th>
-                <th className="px-3 py-2 text-right font-medium">Dotación</th>
-                <th className="px-3 py-2 text-right font-medium">Sueldo base</th>
-                <th className="px-3 py-2 text-right font-medium">Líquido est.</th>
-                <th className="px-3 py-2 text-right font-medium w-[160px]">Acciones</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1111,7 +1111,7 @@ function StaffingSection({
                 const rolName = item.rol?.name ?? "—";
                 const salary = Number(item.baseSalary ?? 0);
                 return (
-                  <tr key={item.id} className="border-t border-border/60">
+                  <tr key={item.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2">
                       <div className="font-medium">{item.name}</div>
                       {item.puestoTrabajo && (
@@ -1190,13 +1190,13 @@ function StaffingSection({
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Historial de puestos</p>
           <div className="overflow-x-auto rounded-lg border border-border/50">
-            <table className="min-w-full text-xs">
-              <thead className="bg-muted/20">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30">
                 <tr>
-                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Puesto</th>
-                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cargo / Rol</th>
-                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Horario</th>
-                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Período</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Período</th>
                 </tr>
               </thead>
               <tbody>
@@ -1204,11 +1204,11 @@ function StaffingSection({
                   const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
                   const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
                   return (
-                    <tr key={item.id} className="border-t border-border/30">
-                      <td className="px-3 py-1.5 text-muted-foreground">{item.name}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{item.shiftStart} - {item.shiftEnd}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{from} → {until}</td>
+                    <tr key={item.id} className="border-b border-border/60 last:border-0">
+                      <td className="px-3 py-2 text-muted-foreground">{item.name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.shiftStart} - {item.shiftEnd}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{from} → {until}</td>
                     </tr>
                   );
                 })}

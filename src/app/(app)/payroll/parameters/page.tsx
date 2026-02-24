@@ -38,7 +38,7 @@ export default function PayrollParameters() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded bg-muted animate-pulse" />
           <div className="flex-1 space-y-2">
@@ -78,7 +78,7 @@ export default function PayrollParameters() {
     formatNumber(v * 100, { minDecimals: decimals, maxDecimals: decimals });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <PageHeader title="Parámetros Legales Chile" />

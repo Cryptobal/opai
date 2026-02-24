@@ -28,7 +28,7 @@ export default async function TicketDetailPage({
   const userGroupIds = memberships.map((m) => m.groupId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Detalle de ticket"
         description="Seguimiento, comentarios y gestión del ticket."

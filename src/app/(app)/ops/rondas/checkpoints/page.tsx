@@ -26,7 +26,7 @@ export default async function RondasCheckpointsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Checkpoints QR"
         description="Configura puntos de marcación por instalación."

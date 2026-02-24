@@ -290,16 +290,16 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">RUT</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Razón Social</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Email</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Teléfono</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Días pago</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">RUT</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Razón Social</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Email</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Teléfono</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Días pago</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
                       {canManage && (
-                        <th className="px-4 py-3 font-medium text-muted-foreground" />
+                        <th className="px-3 py-2 font-medium text-muted-foreground" />
                       )}
                     </tr>
                   </thead>
@@ -307,19 +307,19 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
                     {filtered.map((s) => (
                       <tr
                         key={s.id}
-                        className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                        className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
                       >
-                        <td className="px-4 py-3 font-mono text-xs">{s.rut}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 font-mono text-xs">{s.rut}</td>
+                        <td className="px-3 py-2">
                           <div>{s.name}</div>
                           {s.tradeName && (
                             <div className="text-xs text-muted-foreground">{s.tradeName}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{s.email ?? "—"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{s.phone ?? "—"}</td>
-                        <td className="px-4 py-3 text-center">{s.paymentTermDays}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 text-muted-foreground">{s.email ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{s.phone ?? "—"}</td>
+                        <td className="px-3 py-2 text-center">{s.paymentTermDays}</td>
+                        <td className="px-3 py-2">
                           <Badge
                             variant="outline"
                             className={cn(
@@ -333,7 +333,7 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
                           </Badge>
                         </td>
                         {canManage && (
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"

@@ -378,40 +378,40 @@ function AccountsTab({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Código</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Nombre</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Nivel</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Movimientos</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
-                      {canManage && <th className="px-4 py-3" />}
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Nivel</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Movimientos</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
+                      {canManage && <th className="px-3 py-2" />}
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((a) => {
                       const typeCfg = ACCOUNT_TYPE_CONFIG[a.type] ?? { label: a.type, className: "bg-muted" };
                       return (
-                        <tr key={a.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs" style={{ paddingLeft: `${(a.level - 1) * 16 + 16}px` }}>
+                        <tr key={a.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-3 py-2 font-mono text-xs" style={{ paddingLeft: `${(a.level - 1) * 16 + 16}px` }}>
                             {a.code}
                           </td>
-                          <td className="px-4 py-3">{a.name}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">{a.name}</td>
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
                               {typeCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-center text-muted-foreground">{a.level}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-2 text-center text-muted-foreground">{a.level}</td>
+                          <td className="px-3 py-2 text-center">
                             {a.acceptsEntries ? (
                               <span className="text-emerald-400 text-xs">Sí</span>
                             ) : (
                               <span className="text-muted-foreground text-xs">No</span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn(
@@ -425,7 +425,7 @@ function AccountsTab({
                             </Badge>
                           </td>
                           {canManage && (
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-2">
                               <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -689,34 +689,34 @@ function JournalTab({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">N°</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Debe</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Haber</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N°</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Debe</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Haber</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((e) => {
                       const stCfg = JOURNAL_STATUS_CONFIG[e.status] ?? { label: e.status, className: "bg-muted" };
                       return (
-                        <tr key={e.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs">{e.number}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                        <tr key={e.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-3 py-2 font-mono text-xs">{e.number}</td>
+                          <td className="px-3 py-2 text-muted-foreground">
                             {format(new Date(e.date), "dd MMM yyyy", { locale: es })}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <div>{e.description}</div>
                             {e.reference && (
                               <div className="text-xs text-muted-foreground">Ref: {e.reference}</div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(e.totalDebit)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(e.totalCredit)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(e.totalDebit)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(e.totalCredit)}</td>
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                               {stCfg.label}
                             </Badge>
@@ -877,32 +877,32 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">N° Asiento</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Debe</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Haber</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Saldo</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N° Asiento</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Debe</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Haber</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Saldo</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ledgerData.map((entry, i) => (
-                      <tr key={i} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="px-4 py-3 text-muted-foreground">
+                      <tr key={i} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                        <td className="px-3 py-2 text-muted-foreground">
                           {format(new Date(entry.date), "dd MMM yyyy", { locale: es })}
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs">#{entry.journalEntryNumber}</td>
-                        <td className="px-4 py-3">{entry.description}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">
+                        <td className="px-3 py-2 font-mono text-xs">#{entry.journalEntryNumber}</td>
+                        <td className="px-3 py-2">{entry.description}</td>
+                        <td className="px-3 py-2 text-right font-mono text-xs">
                           {entry.debit > 0 ? fmtCLP.format(entry.debit) : ""}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">
+                        <td className="px-3 py-2 text-right font-mono text-xs">
                           {entry.credit > 0 ? fmtCLP.format(entry.credit) : ""}
                         </td>
                         <td className={cn(
-                          "px-4 py-3 text-right font-mono text-xs font-medium",
+                          "px-3 py-2 text-right font-mono text-xs font-medium",
                           entry.balance < 0 ? "text-red-400" : ""
                         )}>
                           {fmtCLP.format(entry.balance)}
@@ -1040,36 +1040,36 @@ function PeriodsTab({
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Período</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Inicio</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fin</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado</th>
-                      {canManage && <th className="px-4 py-3" />}
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Período</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Inicio</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fin</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
+                      {canManage && <th className="px-3 py-2" />}
                     </tr>
                   </thead>
                   <tbody>
                     {periods.map((p) => {
                       const stCfg = PERIOD_STATUS_CONFIG[p.status] ?? { label: p.status, className: "bg-muted" };
                       return (
-                        <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-4 py-3 font-medium">
+                        <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-3 py-2 font-medium">
                             {MONTH_NAMES[p.month - 1]} {p.year}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-2 text-muted-foreground">
                             {format(new Date(p.startDate), "dd/MM/yyyy")}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-2 text-muted-foreground">
                             {format(new Date(p.endDate), "dd/MM/yyyy")}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                               {stCfg.label}
                             </Badge>
                           </td>
                           {canManage && (
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-2">
                               {p.status === "OPEN" && (
                                 <Button
                                   variant="ghost"

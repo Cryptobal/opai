@@ -328,44 +328,44 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Folio</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Receptor</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Neto</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">IVA</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Total</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Estado SII</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-4 py-3" />
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Folio</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Receptor</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Neto</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">IVA</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Total</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado SII</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((d) => {
                       const stCfg = SII_STATUS_CONFIG[d.siiStatus] ?? { label: d.siiStatus, className: "bg-muted" };
                       return (
-                        <tr key={d.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-4 py-3 text-xs">
+                        <tr key={d.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-3 py-2 text-xs">
                             {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{d.folio}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 font-mono text-xs">{d.folio}</td>
+                          <td className="px-3 py-2">
                             <div>{d.receiverName}</div>
                             <div className="text-xs text-muted-foreground font-mono">{d.receiverRut}</div>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
                               {stCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          <td className="px-3 py-2 text-muted-foreground text-xs">
                             {format(new Date(d.createdAt), "dd MMM yyyy", { locale: es })}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -535,23 +535,23 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo DTE</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Último folio</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Siguiente folio</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-center">Total emitidos</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo DTE</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Último folio</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Siguiente folio</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Total emitidos</th>
                     </tr>
                   </thead>
                   <tbody>
                     {folios.map((f) => (
-                      <tr key={f.dteType} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="px-4 py-3">
+                      <tr key={f.dteType} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                        <td className="px-3 py-2">
                           {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
                         </td>
-                        <td className="px-4 py-3 text-center font-mono text-xs">{f.lastFolio || "—"}</td>
-                        <td className="px-4 py-3 text-center font-mono text-xs">{f.nextFolio}</td>
-                        <td className="px-4 py-3 text-center font-mono text-xs">{f.totalIssued}</td>
+                        <td className="px-3 py-2 text-center font-mono text-xs">{f.lastFolio || "—"}</td>
+                        <td className="px-3 py-2 text-center font-mono text-xs">{f.nextFolio}</td>
+                        <td className="px-3 py-2 text-center font-mono text-xs">{f.totalIssued}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -778,17 +778,17 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Folio</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Emisor</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Neto</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">IVA</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground text-right">Total</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Recepción</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground">Pago</th>
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Folio</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Emisor</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Neto</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">IVA</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Total</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Recepción</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Pago</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -796,27 +796,27 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                       const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
                       const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
                       return (
-                        <tr key={d.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-4 py-3 text-xs">
+                        <tr key={d.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="px-3 py-2 text-xs">
                             {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{d.folio}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 font-mono text-xs">{d.folio}</td>
+                          <td className="px-3 py-2">
                             <div>{d.issuerName}</div>
                             <div className="text-xs text-muted-foreground font-mono">{d.issuerRut}</div>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          <td className="px-3 py-2 text-muted-foreground text-xs">
                             {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
                               {recCfg.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
                               {payCfg.label}
                             </Badge>

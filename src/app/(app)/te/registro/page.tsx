@@ -34,7 +34,7 @@ export default async function TeRegistroPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="TE · Registro"
         description="Listado de turnos extra con estado y monto."

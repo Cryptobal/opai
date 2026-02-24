@@ -30,7 +30,7 @@ export default async function ConciliacionPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Conciliación Bancaria"
         description="Conciliación de movimientos bancarios con registros contables."

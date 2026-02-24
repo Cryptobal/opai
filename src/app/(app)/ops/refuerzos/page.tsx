@@ -74,7 +74,7 @@ export default async function OpsRefuerzosPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Turnos de refuerzo"
         description="Solicitudes de refuerzo por instalación y seguimiento para facturación."

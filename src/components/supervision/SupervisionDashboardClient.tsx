@@ -139,29 +139,29 @@ export function SupervisionDashboardClient({
         </DropdownMenu>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Visitas totales</p>
-            <p className="text-2xl font-semibold">{totals.total}</p>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-[10px] text-muted-foreground">Visitas totales</p>
+            <p className="text-xl font-bold">{totals.total}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Completadas</p>
-            <p className="text-2xl font-semibold">{totals.completed}</p>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-[10px] text-muted-foreground">Completadas</p>
+            <p className="text-xl font-bold">{totals.completed}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Críticas</p>
-            <p className="text-2xl font-semibold">{totals.criticas}</p>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-[10px] text-muted-foreground">Críticas</p>
+            <p className="text-xl font-bold">{totals.criticas}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Pendientes</p>
-            <p className="text-2xl font-semibold">{totals.pendientes}</p>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-[10px] text-muted-foreground">Pendientes</p>
+            <p className="text-xl font-bold">{totals.pendientes}</p>
           </CardContent>
         </Card>
       </div>

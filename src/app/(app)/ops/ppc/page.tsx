@@ -38,7 +38,7 @@ export default async function OpsPpcPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Puestos por cubrir (PPC)"
         description="Brechas de cobertura: puestos sin guardia asignado o con vacaciones/licencia/permiso."

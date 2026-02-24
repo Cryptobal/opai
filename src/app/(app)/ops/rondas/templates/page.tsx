@@ -23,7 +23,7 @@ export default async function RondasTemplatesPage() {
 
   if (!installations.length) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <PageHeader title="Plantillas de ronda" description="No hay instalaciones activas para crear plantillas." />
         <OpsGlobalSearch className="w-full sm:max-w-xs" />
       </div>
@@ -48,7 +48,7 @@ export default async function RondasTemplatesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader title="Plantillas de ronda" description="Configura plantillas por instalación." />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <RondasTemplatesClient

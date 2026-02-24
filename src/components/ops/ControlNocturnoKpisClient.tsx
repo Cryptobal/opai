@@ -455,28 +455,28 @@ export function ControlNocturnoKpisClient() {
             />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left py-2 pr-2">#</th>
-                  <th className="text-left py-2 pr-4">Instalación</th>
-                  <th className="text-center py-2 px-2">Cumpl.</th>
-                  <th className="text-center py-2 px-2">Compl.</th>
-                  <th className="text-center py-2 px-2">Omit.</th>
-                  <th className="text-center py-2 px-2">Desv.</th>
-                  <th className="text-center py-2 px-2">Rep.</th>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">#</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Cumpl.</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Compl.</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Omit.</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Desv.</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Rep.</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((inst, idx) => (
                   <tr
                     key={inst.installationId || inst.installationName}
-                    className="border-b border-border/50 last:border-0"
+                    className="border-b border-border/60 last:border-0"
                   >
-                    <td className="py-2 pr-2 text-muted-foreground">
+                    <td className="px-3 py-2 text-muted-foreground">
                       {(currentPage - 1) * pageSize + idx + 1}
                     </td>
-                    <td className="py-2 pr-4 font-medium max-w-[200px] truncate">
+                    <td className="px-3 py-2 font-medium max-w-[200px] truncate">
                       {inst.installationId ? (
                         <Link
                           href={`/crm/installations/${inst.installationId}`}
@@ -499,7 +499,7 @@ export function ControlNocturnoKpisClient() {
                         </span>
                       )}
                     </td>
-                    <td className="py-2 px-2 text-center">
+                    <td className="px-3 py-2 text-center">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${
                           inst.cumplimiento >= 80
@@ -512,16 +512,16 @@ export function ControlNocturnoKpisClient() {
                         {inst.cumplimiento}%
                       </span>
                     </td>
-                    <td className="py-2 px-2 text-center text-emerald-400">
+                    <td className="px-3 py-2 text-center text-emerald-400">
                       {inst.completadas}
                     </td>
-                    <td className="py-2 px-2 text-center text-red-400">
+                    <td className="px-3 py-2 text-center text-red-400">
                       {inst.omitidas}
                     </td>
-                    <td className="py-2 px-2 text-center text-muted-foreground">
+                    <td className="px-3 py-2 text-center text-muted-foreground">
                       {inst.avgDesvMin > 0 ? `${inst.avgDesvMin}m` : "—"}
                     </td>
-                    <td className="py-2 px-2 text-center text-muted-foreground">
+                    <td className="px-3 py-2 text-center text-muted-foreground">
                       {inst.reportCount}
                     </td>
                   </tr>

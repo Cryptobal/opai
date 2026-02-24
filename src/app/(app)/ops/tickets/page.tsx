@@ -17,7 +17,7 @@ export default async function OpsTicketsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Tickets"
         description="Seguimiento de solicitudes, incidentes y requerimientos internos con SLA y prioridades."

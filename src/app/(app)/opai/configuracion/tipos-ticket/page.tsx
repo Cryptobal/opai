@@ -15,7 +15,7 @@ export default async function TiposTicketConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <ConfigBackLink />
       <PageHeader
         title="Tipos de Ticket"

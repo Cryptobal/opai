@@ -14,7 +14,7 @@ export default async function OpsConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Operaciones"
         description="Configuración de marcaciones, rondas, emails automáticos y parámetros operativos"

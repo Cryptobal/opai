@@ -36,7 +36,7 @@ export default async function PagosProveedoresPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Pagos a Proveedores"
         description="Registro y gestion de pagos a proveedores con asignacion a documentos."

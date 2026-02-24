@@ -350,7 +350,7 @@ function InicioSection({
             <p className="text-xs text-muted-foreground">Mañana</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium">
+            <p className="text-sm font-semibold">
               {session.currentInstallationName ?? "Sin asignar"}
             </p>
             <p className="text-xs text-muted-foreground">07:00 - 19:00</p>
@@ -392,7 +392,7 @@ function InicioSection({
               <Ticket className="h-5 w-5 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium">Solicitudes</p>
+              <p className="text-sm font-semibold">Solicitudes</p>
               <p className="text-[11px] text-muted-foreground">Crear o ver</p>
             </div>
           </button>
@@ -405,7 +405,7 @@ function InicioSection({
               <CalendarDays className="h-5 w-5 text-blue-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium">Mi Pauta</p>
+              <p className="text-sm font-semibold">Mi Pauta</p>
               <p className="text-[11px] text-muted-foreground">Calendario</p>
             </div>
           </button>
@@ -418,7 +418,7 @@ function InicioSection({
               <User className="h-5 w-5 text-purple-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium">Perfil</p>
+              <p className="text-sm font-semibold">Perfil</p>
               <p className="text-[11px] text-muted-foreground">Mis datos</p>
             </div>
           </button>
@@ -431,7 +431,7 @@ function InicioSection({
               <Fingerprint className="h-5 w-5 text-emerald-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium">Marcaciones</p>
+              <p className="text-sm font-semibold">Marcaciones</p>
               <p className="text-[11px] text-muted-foreground">Historial</p>
             </div>
           </button>
@@ -685,7 +685,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
 
           {selectedTicket.status === "rejected" && (
             <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
-              <p className="text-sm font-medium text-red-400">Este ticket fue rechazado</p>
+              <p className="text-sm font-semibold text-red-400">Este ticket fue rechazado</p>
               <p className="text-xs text-muted-foreground">Puedes apelar el rechazo o aceptarlo y cerrar el ticket.</p>
 
               <div className="space-y-2">
@@ -736,7 +736,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
             <FileText className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="text-sm font-semibold text-muted-foreground">
             No tienes solicitudes
           </p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -1086,7 +1086,7 @@ function PerfilSection({
               <span className="text-sm text-muted-foreground">
                 {field.label}
               </span>
-              <span className="text-sm font-medium text-foreground text-right max-w-[60%] truncate">
+              <span className="text-sm font-semibold text-foreground text-right max-w-[60%] truncate">
                 {field.value ?? "—"}
               </span>
             </div>

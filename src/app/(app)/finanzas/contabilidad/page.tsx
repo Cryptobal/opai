@@ -80,7 +80,7 @@ export default async function ContabilidadPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Contabilidad"
         description="Plan de cuentas, asientos contables, libro mayor y períodos."

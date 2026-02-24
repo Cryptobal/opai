@@ -37,7 +37,7 @@ export default async function InventarioProductoPage({
   if (!product) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <div className="flex items-center gap-2">
         <Link href="/ops/inventario/productos">
           <Button variant="ghost" size="icon">

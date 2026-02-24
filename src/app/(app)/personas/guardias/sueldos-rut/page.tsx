@@ -8,7 +8,7 @@ export default async function SueldosRutPage() {
   if (!session?.user) redirect("/opai/login?callbackUrl=/personas/guardias/sueldos-rut");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Sueldos por RUT"
         description="Estructuras de sueldo asignadas directamente a guardias (tienen prioridad sobre el sueldo de la instalación)"

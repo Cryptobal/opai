@@ -15,7 +15,7 @@ export default async function InventarioComprasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Compras"
         description="Registrar ingresos de uniformes y activos. Asocia a factura más adelante."
