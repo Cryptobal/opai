@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,11 +18,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase } from "lucide-react";
+import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail } from "lucide-react";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
+import { LeadSourceBadge } from "./LeadSourceBadge";
+import { LeadContactActions } from "./LeadContactActions";
+import { DotacionSummary } from "./DotacionSummary";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 
@@ -101,23 +105,6 @@ function getLeadFilterLabel(filter: LeadStatusFilter): string | null {
   if (filter === "approved") return "Mostrando leads aprobados";
   if (filter === "rejected") return "Mostrando leads rechazados";
   return null;
-}
-
-/** Normaliza teléfono para tel: (solo dígitos) */
-function telHref(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  return `tel:${digits.length <= 9 ? "+56" + digits : "+" + digits}`;
-}
-
-/** URL WhatsApp Chile */
-function whatsappHref(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  const withCountry = digits.length === 9 && digits.startsWith("9") ? "56" + digits : digits.length >= 10 ? digits : "56" + digits;
-  return `https://wa.me/${withCountry}`;
 }
 
 /* ─── Component ─── */
@@ -256,7 +243,7 @@ export function CrmLeadsClient({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label>Empresa</Label>
-                  <Input value={form.companyName} onChange={(event) => updateForm("companyName", event.target.value)} placeholder="Nombre de la empresa" className={inputClassName} />
+                  <Input autoFocus value={form.companyName} onChange={(event) => updateForm("companyName", event.target.value)} placeholder="Nombre de la empresa" className={inputClassName} />
                 </div>
                 <div className="space-y-2">
                   <Label>Nombre</Label>
@@ -281,7 +268,7 @@ export function CrmLeadsClient({
               </div>
               <DialogFooter>
                 <Button onClick={createLead} disabled={creating}>
-                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                   Guardar lead
                 </Button>
               </DialogFooter>
@@ -290,24 +277,17 @@ export function CrmLeadsClient({
         }
       />
 
+      {/* ── Rejection reason sub-filter ── */}
       {statusFilter === "rejected" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Motivo:</span>
-          <Button
-            size="sm"
-            variant={rejectReasonFilter === "all" ? "default" : "outline"}
-            className="h-7 text-xs"
-            onClick={() => setRejectReasonFilter("all")}
-          >
-            {getLeadRejectReasonLabel("all")}
-          </Button>
-          {REJECTION_REASON_OPTIONS.map((opt) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">Motivo:</span>
+          {[{ value: "all" as LeadRejectReasonFilter, label: "Todos" }, ...REJECTION_REASON_OPTIONS].map((opt) => (
             <Button
               key={opt.value}
               size="sm"
               variant={rejectReasonFilter === opt.value ? "default" : "outline"}
-              className="h-7 text-xs"
-              onClick={() => setRejectReasonFilter(opt.value)}
+              className="h-7 text-xs rounded-full"
+              onClick={() => setRejectReasonFilter(opt.value as LeadRejectReasonFilter)}
             >
               {opt.label}
             </Button>
@@ -330,6 +310,7 @@ export function CrmLeadsClient({
               compact
             />
           ) : view === "cards" ? (
+            /* ═══ Cards View ═══ */
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
@@ -339,49 +320,53 @@ export function CrmLeadsClient({
                   <Link
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="block rounded-lg border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2 min-w-0 overflow-hidden"
+                    className="block rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2.5 min-w-0 overflow-hidden"
                   >
+                    {/* Header: company + status */}
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
                       <StatusBadge status={lead.status} />
                     </div>
-                    <p className="text-xs text-muted-foreground">{leadDisplayName(lead)}</p>
-                    {lead.email && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                        <Mail className="h-3 w-3 shrink-0" />{lead.email}
-                      </p>
-                    )}
-                    {lead.phone && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3 shrink-0" />{lead.phone}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {totalGuards > 0 && (
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                          {totalGuards} guardia{totalGuards > 1 ? "s" : ""}
-                        </span>
+
+                    {/* Contact info */}
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">{leadDisplayName(lead)}</p>
+                      {lead.email && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                          <Mail className="h-3 w-3 shrink-0" />{lead.email}
+                        </p>
                       )}
-                      {lead.source && (
-                        <span className="text-[10px] text-muted-foreground/80">
-                          {lead.source === "web_cotizador" ? "Cotizador Web" : lead.source === "web_cotizador_inteligente" ? "Cotizador IA" : lead.source === "email_forward" ? "Correo reenviado" : lead.source}
-                        </span>
-                      )}
-                      {lead.source === "email_forward" && (
-                        <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-400">Email</span>
-                      )}
-                      {lead.status === "rejected" && rejectionInfo && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${rejectionInfo.emailSent ? "bg-blue-500/15 text-blue-400" : "bg-amber-500/15 text-amber-400"}`}>
-                          {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
-                        </span>
+                      {lead.phone && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3 shrink-0" />{lead.phone}
+                        </p>
                       )}
                     </div>
+
+                    {/* Badges row: guards, source, rejection email status */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {totalGuards > 0 && (
+                        <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                          {totalGuards} guardia{totalGuards > 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                      <LeadSourceBadge source={lead.source} />
+                      {lead.status === "rejected" && rejectionInfo && (
+                        <Badge variant={rejectionInfo.emailSent ? "default" : "warning"} className="text-[10px] px-1.5 py-0">
+                          {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Rejection note */}
                     {lead.status === "rejected" && rejectionInfo?.note && (
-                      <p className="rounded-md border border-border/70 bg-muted/20 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
+                      <p className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
                         Observación: {rejectionInfo.note}
                       </p>
                     )}
-                    <div className="flex items-center justify-between pt-1">
+
+                    {/* Footer: dates + chevron */}
+                    <div className="flex items-center justify-between pt-0.5">
                       <CrmDates createdAt={lead.createdAt} />
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
@@ -390,6 +375,7 @@ export function CrmLeadsClient({
               })}
             </div>
           ) : (
+            /* ═══ List View ═══ */
             <div className="space-y-2 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
@@ -401,33 +387,28 @@ export function CrmLeadsClient({
                   <Link
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="block rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
+                    className="block rounded-lg border border-border p-3 sm:p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1 min-w-0">
+                        {/* Row 1: Company + badges */}
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{lead.companyName || "Empresa sin nombre"}</p>
                           <StatusBadge status={lead.status} />
-                          {lead.source === "web_cotizador" && (
-                            <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-400">Web</span>
-                          )}
-                          {lead.source === "web_cotizador_inteligente" && (
-                            <span className="rounded-full bg-teal-500/15 px-2 py-0.5 text-[10px] font-medium text-teal-400">Cotizador Inteligente</span>
-                          )}
-                          {lead.source === "email_forward" && (
-                            <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-400">Correo reenviado</span>
-                          )}
+                          <LeadSourceBadge source={lead.source} />
                           {totalGuards > 0 && (
-                            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                            <Badge variant="success" className="text-[10px] px-1.5 py-0">
                               {totalGuards} guardia{totalGuards > 1 ? "s" : ""}
-                            </span>
+                            </Badge>
                           )}
                           {lead.status === "rejected" && rejectionInfo && (
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${rejectionInfo.emailSent ? "bg-blue-500/15 text-blue-400" : "bg-amber-500/15 text-amber-400"}`}>
+                            <Badge variant={rejectionInfo.emailSent ? "default" : "warning"} className="text-[10px] px-1.5 py-0">
                               {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
-                            </span>
+                            </Badge>
                           )}
                         </div>
+
+                        {/* Row 2: Contact info + quick actions */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="text-xs text-muted-foreground">{leadDisplayName(lead)}</span>
                           {lead.email ? (
@@ -443,28 +424,14 @@ export function CrmLeadsClient({
                             </span>
                           )}
                           {lead.status === "rejected" && rejectionInfo?.note && (
-                            <span className="inline-flex items-center rounded border border-border/70 bg-muted/20 px-2 py-0.5 text-[11px] text-muted-foreground max-w-full truncate">
+                            <span className="inline-flex items-center rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground max-w-full truncate">
                               Observación: {rejectionInfo.note}
                             </span>
                           )}
-                          <div className="flex items-center gap-1 ml-1">
-                            {lead.phone && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" asChild>
-                                <a href={telHref(lead.phone)} onClick={(e) => e.stopPropagation()} aria-label="Llamar"><Phone className="h-3.5 w-3.5" /></a>
-                              </Button>
-                            )}
-                            {lead.email && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" asChild>
-                                <a href={`mailto:${lead.email}`} onClick={(e) => e.stopPropagation()} aria-label="Enviar email"><Mail className="h-3.5 w-3.5" /></a>
-                              </Button>
-                            )}
-                            {lead.phone && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" asChild>
-                                <a href={whatsappHref(lead.phone)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="WhatsApp"><MessageSquare className="h-3.5 w-3.5" /></a>
-                              </Button>
-                            )}
-                          </div>
+                          <LeadContactActions phone={lead.phone} email={lead.email} stopPropagation />
                         </div>
+
+                        {/* Row 3: Dates + meta */}
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 items-center">
                           <CrmDates createdAt={lead.createdAt} updatedAt={(lead as { updatedAt?: string }).updatedAt} showTime />
                           {lead.source && lead.source !== "web_cotizador" && lead.source !== "web_cotizador_inteligente" && lead.source !== "email_forward" && (
@@ -475,6 +442,8 @@ export function CrmLeadsClient({
                           )}
                         </div>
                       </div>
+
+                      {/* Right: CTA + chevron */}
                       <div className="flex items-center gap-2 shrink-0">
                         {(lead.status === "pending" || lead.status === "in_review") && (
                           <span className="text-xs text-primary font-medium group-hover:underline">
@@ -487,35 +456,8 @@ export function CrmLeadsClient({
 
                     {/* Dotación solicitada */}
                     {dotacion && dotacion.length > 0 && (
-                      <div className="mt-3 rounded-lg border border-border/80 bg-muted/20 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-border/60 bg-muted/30 flex items-center gap-2">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dotación solicitada</span>
-                          {totalGuards > 0 && (
-                            <span className="text-[10px] font-medium text-foreground bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                              {totalGuards} guardia{totalGuards > 1 ? "s" : ""} total
-                            </span>
-                          )}
-                        </div>
-                        <div className="divide-y divide-border/60">
-                          {dotacion.map((d, i) => (
-                            <div key={i} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                <span className="text-sm font-medium text-foreground truncate">{d.puesto}</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pl-5 sm:pl-0">
-                                <span className="inline-flex items-center gap-1"><Users className="h-3 w-3 shrink-0" />{d.cantidad} guardia{d.cantidad > 1 ? "s" : ""}</span>
-                                {d.horaInicio && d.horaFin && (
-                                  <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 shrink-0" />{d.horaInicio} – {d.horaFin}</span>
-                                )}
-                                {d.dias && d.dias.length > 0 && (
-                                  <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0" />{d.dias.length === 7 ? "Todos los días" : d.dias.join(", ")}</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="mt-3">
+                        <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
                       </div>
                     )}
 
