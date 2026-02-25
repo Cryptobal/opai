@@ -750,7 +750,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.uniforms}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Uniformes
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -869,7 +869,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.exams}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Exámenes
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -988,7 +988,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.meals}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Alimentación
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1109,7 +1109,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.operational}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Equipos operativos
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1196,7 +1196,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.transport}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Costos de transporte
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1283,7 +1283,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.vehicles}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Vehículos
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1455,7 +1455,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.infrastructure}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Infraestructura
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1542,7 +1542,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.systems}
           >
             <div>
-              <h3 className="text-xs font-semibold uppercase text-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                 Sistemas
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1627,7 +1627,7 @@ export function CpqQuoteCosts({
         {showFinancial && activeSection === "financieros" && (
         <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xs font-semibold uppercase text-foreground">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
               Costos financieros
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1766,7 +1766,7 @@ export function CpqQuoteCosts({
 
         {showFinancial && activeSection === "financieros" && (
         <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-          <h3 className="text-xs font-semibold uppercase text-foreground">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
             Margen y parámetros
           </h3>
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
@@ -1887,7 +1887,7 @@ export function CpqQuoteCosts({
                   {activeSection === "directos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Uniformes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1986,7 +1986,7 @@ export function CpqQuoteCosts({
                   {activeSection === "directos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Exámenes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2084,7 +2084,7 @@ export function CpqQuoteCosts({
                   {activeSection === "directos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Alimentación
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2184,7 +2184,7 @@ export function CpqQuoteCosts({
                   {activeSection === "indirectos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Equipos operativos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2250,7 +2250,7 @@ export function CpqQuoteCosts({
                   {activeSection === "indirectos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Costos de transporte
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2316,7 +2316,7 @@ export function CpqQuoteCosts({
                   {activeSection === "indirectos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Vehículos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2468,7 +2468,7 @@ export function CpqQuoteCosts({
                   {activeSection === "indirectos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Infraestructura
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2534,7 +2534,7 @@ export function CpqQuoteCosts({
                   {activeSection === "indirectos" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Sistemas
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2609,7 +2609,7 @@ export function CpqQuoteCosts({
                   {showFinancial && activeSection === "financieros" && (
                   <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-xs font-semibold uppercase text-foreground">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         Costos financieros
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2740,7 +2740,7 @@ export function CpqQuoteCosts({
 
                   {showFinancial && activeSection === "financieros" && (
                   <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-                    <h3 className="text-xs font-semibold uppercase text-foreground">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                       Margen y parámetros
                     </h3>
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
@@ -2831,7 +2831,7 @@ export function CpqQuoteCosts({
                     return (
                       <div key={item.catalogItemId} className="text-xs">
                         • {item.catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                       </div>
                     );
                   })}
@@ -2893,7 +2893,7 @@ export function CpqQuoteCosts({
                     return (
                       <div key={item.catalogItemId} className="text-xs">
                         • {item.catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                       </div>
                     );
                   })}
@@ -2932,7 +2932,7 @@ export function CpqQuoteCosts({
                     return (
                       <div key={meal.mealType} className="text-xs">
                         • {meal.mealType}: {formatCurrency(price)} × {meal.mealsPerDay}/día × {meal.daysOfService} días
-                        {meal.priceOverride && <span className="text-emerald-300"> (override)</span>}
+                        {meal.priceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                       </div>
                     );
                   })}
@@ -2960,7 +2960,7 @@ export function CpqQuoteCosts({
                     return (
                       <div key={item.catalogItemId} className="text-xs">
                         • {catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                       </div>
                     );
                   })}
@@ -2991,7 +2991,7 @@ export function CpqQuoteCosts({
                       return (
                         <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                         </div>
                       );
                     })}
@@ -3019,7 +3019,7 @@ export function CpqQuoteCosts({
                       return (
                         <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                         </div>
                       );
                     })}
@@ -3047,7 +3047,7 @@ export function CpqQuoteCosts({
                       return (
                         <div key={item.catalogItemId} className="text-xs">
                           • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                         </div>
                       );
                     })}
@@ -3075,7 +3075,7 @@ export function CpqQuoteCosts({
                     return (
                       <div key={item.catalogItemId} className="text-xs">
                         • {catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-300"> (override)</span>}
+                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
                       </div>
                     );
                   })}
@@ -3100,8 +3100,8 @@ export function CpqQuoteCosts({
           </div>
           <div className="flex justify-end">
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
-              <div className="text-xs text-emerald-300/70 uppercase">Total adicionales</div>
-              <div className="font-mono text-sm font-semibold text-emerald-400">
+              <div className="text-xs text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total adicionales</div>
+              <div className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                 {formatCurrency(summary.monthlyExtras)}
               </div>
             </div>
