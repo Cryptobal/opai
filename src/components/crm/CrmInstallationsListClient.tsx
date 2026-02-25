@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/opai/EmptyState";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { CrmDates } from "@/components/crm/CrmDates";
-import { ViewToggle, type ViewMode } from "./ViewToggle";
+import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 

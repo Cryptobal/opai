@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -19,14 +18,13 @@ import {
 import { EmptyState } from "@/components/opai";
 import {
   Plus,
-  Search,
   Receipt,
   Car,
   ChevronRight,
-  Filter,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ListToolbar } from "@/components/shared/ListToolbar";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 
 /* ── Types ── */
 
@@ -122,7 +120,7 @@ export function RendicionesClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
-  const [showFilters, setShowFilters] = useState(false);
+  const [displayView, setDisplayView] = useState<ViewMode>("list");
 
   const filtered = useMemo(() => {
     let list = rendiciones;
@@ -155,104 +153,52 @@ export function RendicionesClient({
 
   const hasActiveFilters = statusFilter !== "ALL" || typeFilter !== "ALL" || search.trim() !== "";
 
+  const statusFilters = useMemo(() =>
+    STATUS_TABS.map((tab) => ({
+      key: tab.value,
+      label: tab.label,
+      count: tab.value === "ALL"
+        ? rendiciones.length
+        : rendiciones.filter((r) => r.status === tab.value).length,
+    })),
+  [rendiciones]);
+
   return (
     <div className="space-y-4">
-      {/* Action bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar código, descripción..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
-            />
+      {/* Toolbar */}
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar código, descripción..."
+        filters={statusFilters}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        viewModes={["list", "cards"]}
+        activeView={displayView}
+        onViewChange={setDisplayView}
+        actionSlot={
+          <div className="flex items-center gap-2">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-9 w-[130px] text-xs">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos los tipos</SelectItem>
+                <SelectItem value="PURCHASE">Compra</SelectItem>
+                <SelectItem value="MILEAGE">Kilometraje</SelectItem>
+              </SelectContent>
+            </Select>
+            {canSubmit && (
+              <Link href="/finanzas/rendiciones/nueva">
+                <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+                  <Plus className="h-4 w-4" />
+                  <span className="sr-only">Nueva rendición</span>
+                </Button>
+              </Link>
+            )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(showFilters && "bg-accent")}
-          >
-            <Filter className="h-3.5 w-3.5 mr-1.5" />
-            Filtros
-          </Button>
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5 mr-1" />
-              Limpiar
-            </Button>
-          )}
-        </div>
-        {canSubmit && (
-          <Link href="/finanzas/rendiciones/nueva">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Nueva rendición
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Filters panel */}
-      {showFilters && (
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex flex-wrap gap-3">
-              <div className="w-48">
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos los tipos</SelectItem>
-                    <SelectItem value="PURCHASE">Compra</SelectItem>
-                    <SelectItem value="MILEAGE">Kilometraje</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Status tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-        {STATUS_TABS.map((tab) => {
-          const isActive = statusFilter === tab.value;
-          const count =
-            tab.value === "ALL"
-              ? rendiciones.length
-              : rendiciones.filter((r) => r.status === tab.value).length;
-          return (
-            <button
-              key={tab.value}
-              onClick={() => setStatusFilter(tab.value)}
-              className={cn(
-                "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
-                isActive
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
-              )}
-            >
-              {tab.label}
-              {count > 0 && (
-                <span
-                  className={cn(
-                    "text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center",
-                    isActive
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+        }
+      />
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
@@ -284,9 +230,9 @@ export function RendicionesClient({
             ) : undefined
           }
         />
-      ) : (
+      ) : displayView === "list" ? (
         <>
-          {/* Desktop table */}
+          {/* Table view */}
           <div className="hidden md:block">
             <Card>
               <div className="overflow-x-auto">
@@ -375,7 +321,7 @@ export function RendicionesClient({
             </Card>
           </div>
 
-          {/* Mobile cards */}
+          {/* Mobile fallback for list view */}
           <div className="md:hidden space-y-2">
             {filtered.map((r) => {
               const statusCfg = STATUS_CONFIG[r.status] ?? {
@@ -384,51 +330,78 @@ export function RendicionesClient({
               };
               return (
                 <Link key={r.id} href={`/finanzas/rendiciones/${r.id}`}>
-                  <Card className="transition-colors hover:bg-accent/30">
-                    <CardContent className="pt-3 pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {r.code}
-                            </span>
-                            <Badge className={cn("text-[10px]", statusCfg.className)}>
-                              {statusCfg.label}
-                            </Badge>
-                          </div>
-                          <p className="text-sm font-medium truncate">
-                            {r.description || r.itemName || TYPE_LABELS[r.type]}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span>
-                              {format(new Date(r.date), "dd MMM yyyy", {
-                                locale: es,
-                              })}
-                            </span>
-                            <span>·</span>
-                            <span className="inline-flex items-center gap-1">
-                              {r.type === "MILEAGE" ? (
-                                <Car className="h-3 w-3" />
-                              ) : (
-                                <Receipt className="h-3 w-3" />
-                              )}
-                              {TYPE_LABELS[r.type]}
-                            </span>
-                          </div>
+                  <div className="rounded-lg border border-border p-3 transition-colors hover:bg-accent/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {r.code}
+                          </span>
+                          <Badge className={cn("text-[10px]", statusCfg.className)}>
+                            {statusCfg.label}
+                          </Badge>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold tabular-nums">
-                            {fmtCLP.format(r.amount)}
-                          </p>
+                        <p className="text-sm font-medium truncate">
+                          {r.description || r.itemName || TYPE_LABELS[r.type]}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <span>{format(new Date(r.date), "dd MMM yyyy", { locale: es })}</span>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-1">
+                            {r.type === "MILEAGE" ? <Car className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
+                            {TYPE_LABELS[r.type]}
+                          </span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <p className="text-sm font-semibold tabular-nums shrink-0">
+                        {fmtCLP.format(r.amount)}
+                      </p>
+                    </div>
+                  </div>
                 </Link>
               );
             })}
           </div>
         </>
+      ) : (
+        /* Cards view */
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((r) => {
+            const statusCfg = STATUS_CONFIG[r.status] ?? {
+              label: r.status,
+              className: "bg-muted text-muted-foreground",
+            };
+            return (
+              <Link key={r.id} href={`/finanzas/rendiciones/${r.id}`}>
+                <div className="rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-mono text-[10px] text-muted-foreground">{r.code}</span>
+                    <Badge className={cn("text-[10px]", statusCfg.className)}>
+                      {statusCfg.label}
+                    </Badge>
+                  </div>
+                  <p className="text-sm font-medium line-clamp-2">
+                    {r.description || r.itemName || TYPE_LABELS[r.type]}
+                  </p>
+                  <p className="text-lg font-semibold tabular-nums mt-2">
+                    {fmtCLP.format(r.amount)}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                    <span>{format(new Date(r.date), "dd MMM yyyy", { locale: es })}</span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-1">
+                      {r.type === "MILEAGE" ? <Car className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
+                      {TYPE_LABELS[r.type]}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                    {r.submitterName}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </div>
   );

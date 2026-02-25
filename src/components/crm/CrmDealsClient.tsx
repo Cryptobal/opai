@@ -50,7 +50,7 @@ import { CrmDates } from "@/components/crm/CrmDates";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
-import type { ViewMode } from "./ViewToggle";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 
 type DealFormState = {

@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, LayoutGrid, List, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2 } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2 } from "lucide-react";
+import { ListToolbar } from "@/components/shared/ListToolbar";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
   Dialog,
   DialogContent,
@@ -96,7 +98,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loadingPublicForm, setLoadingPublicForm] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("contratado");
   
   const [form, setForm] = useState({
@@ -684,62 +686,28 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
       <Card>
         <CardContent className="pt-4 space-y-2.5 min-w-0 overflow-hidden">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <Input
-              placeholder="Buscar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 text-xs w-full sm:w-[260px] shrink-0"
-            />
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
-                lifecycleFilter === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-              onClick={() => setLifecycleFilter("all")}
-            >
-              Todos
-            </button>
-            {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
-              <button
-                key={status}
-                type="button"
-                className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
-                  lifecycleFilter === status
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-                onClick={() => setLifecycleFilter(status)}
-              >
-                {LIFECYCLE_LABELS[status] || status}
-              </button>
-            ))}
-            <div className="flex items-center gap-2 ml-auto">
+          <ListToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por nombre, RUT, email..."
+            filters={[
+              { key: "all", label: "Todos" },
+              ...GUARDIA_LIFECYCLE_STATUSES.map((s) => ({
+                key: s,
+                label: LIFECYCLE_LABELS[s] || s,
+              })),
+            ]}
+            activeFilter={lifecycleFilter}
+            onFilterChange={setLifecycleFilter}
+            viewModes={["list", "cards"]}
+            activeView={viewMode}
+            onViewChange={setViewMode}
+            actionSlot={
               <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                 {filtered.length} persona{filtered.length === 1 ? "" : "s"}
               </span>
-              <div className="flex items-center rounded-md border border-border">
-                <Button
-                  type="button"
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  className="h-7 rounded-none rounded-l-md px-2"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  className="h-7 rounded-none rounded-r-md px-2"
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
+            }
+          />
 
           {filtered.length === 0 ? (
             <EmptyState
@@ -749,7 +717,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               compact
             />
           ) : (
-            <div className={`min-w-0 ${viewMode === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}`}>
+            <div className={`min-w-0 ${viewMode === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}`}>
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
                 const lat = item.persona.lat;
@@ -769,7 +737,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       }
                     }}
                     className={
-                      viewMode === "grid"
+                      viewMode === "cards"
                         ? "rounded-lg border border-border p-3 flex gap-3 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                         : "rounded-lg border border-border p-3 flex flex-col gap-1.5 md:flex-row md:items-center md:gap-6 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                     }
@@ -852,7 +820,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
                     {/* Instalación, ubicación y mapa — a la derecha en grid */}
                     <div className={
-                      viewMode === "grid"
+                      viewMode === "cards"
                         ? "shrink-0 flex flex-col items-end gap-1 text-right min-w-0"
                         : "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-6 min-w-0 shrink"
                     }>

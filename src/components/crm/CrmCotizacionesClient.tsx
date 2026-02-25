@@ -11,7 +11,7 @@ import { FileText, ChevronRight, Plus, Loader2 } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
-import type { ViewMode } from "./ViewToggle";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 
 type QuoteRow = {

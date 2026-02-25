@@ -10,7 +10,6 @@ import {
   Clock,
   Loader2,
   Plus,
-  Search,
   ShieldCheck,
   Ticket as TicketIcon,
   X,
@@ -37,6 +36,8 @@ import {
   getSlaRemaining,
   isSlaBreached,
 } from "@/lib/tickets";
+import { ListToolbar } from "@/components/shared/ListToolbar";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 
 interface TicketsClientProps {
   userRole: string;
@@ -62,6 +63,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | TicketStatus>("active");
   const [filterPriority, setFilterPriority] = useState<"all" | TicketPriority>("all");
   const [originTab, setOriginTab] = useState<"all" | "internal" | "guard">("all");
+  const [displayView, setDisplayView] = useState<ViewMode>("list");
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -145,56 +147,54 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tickets..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-sm"
-          />
-        </div>
-        <Button
-          size="sm"
-          onClick={() => setViewState({ view: "create" })}
-          className="h-9 gap-1.5"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Nuevo ticket
-        </Button>
-      </div>
-
-      {/* Origin tabs */}
-      <div className="flex gap-1 rounded-md bg-muted p-0.5 w-fit">
-        {([
-          { value: "all", label: "Todos" },
-          { value: "internal", label: "Internos" },
-          { value: "guard", label: "Guardias" },
-        ] as const).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setOriginTab(tab.value)}
-            className={`rounded-sm px-3 py-1 text-xs font-medium transition-colors ${
-              originTab === tab.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+      {/* Toolbar */}
+      <ListToolbar
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar tickets..."
+        viewModes={["list", "cards"]}
+        activeView={displayView}
+        onViewChange={setDisplayView}
+        actionSlot={
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-9 w-9 shrink-0"
+            onClick={() => setViewState({ view: "create" })}
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">Nuevo ticket</span>
+          </Button>
+        }
+      />
 
-      {/* Filters */}
+      {/* Origin tabs + filters */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1 rounded-md bg-muted p-0.5">
+          {([
+            { value: "all", label: "Todos" },
+            { value: "internal", label: "Internos" },
+            { value: "guard", label: "Guardias" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setOriginTab(tab.value)}
+              className={`rounded-sm px-3 py-1 text-xs font-medium transition-colors ${
+                originTab === tab.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <Select
           value={filterStatus}
           onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
         >
-          <SelectTrigger className="h-8 w-[140px] text-xs">
+          <SelectTrigger className="h-9 w-[140px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -213,7 +213,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           value={filterPriority}
           onValueChange={(v) => setFilterPriority(v as typeof filterPriority)}
         >
-          <SelectTrigger className="h-8 w-[120px] text-xs">
+          <SelectTrigger className="h-9 w-[120px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -226,7 +226,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </Select>
       </div>
 
-      {/* List */}
+      {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -248,6 +248,16 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Crear primer ticket
           </Button>
+        </div>
+      ) : displayView === "cards" ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredTickets.map((ticket) => (
+            <TicketCardItem
+              key={ticket.id}
+              ticket={ticket}
+              onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+            />
+          ))}
         </div>
       ) : (
         <div className="space-y-2">
@@ -333,6 +343,72 @@ function TicketListItem({ ticket, onClick }: { ticket: Ticket; onClick: () => vo
         </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CARD ITEM
+// ═══════════════════════════════════════════════════════════════
+
+function TicketCardItem({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
+  const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
+  const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
+  const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const typeName = ticket.ticketType?.name ?? ticket.assignedTeam;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/30 hover:bg-accent/30"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground">{ticket.code}</span>
+        <div
+          className={`h-2 w-2 shrink-0 rounded-full ${
+            ticket.priority === "p1"
+              ? "bg-red-500"
+              : ticket.priority === "p2"
+                ? "bg-orange-500"
+                : ticket.priority === "p3"
+                  ? "bg-yellow-500"
+                  : "bg-muted-foreground/30"
+          }`}
+        />
+      </div>
+      <p className="text-sm font-medium line-clamp-2">{ticket.title}</p>
+      <div className="flex flex-wrap items-center gap-1.5 mt-auto">
+        <Badge variant={statusCfg.variant} className="text-[10px]">
+          {statusCfg.label}
+        </Badge>
+        <span className={`text-[10px] font-medium ${priorityCfg.color}`}>
+          {ticket.priority.toUpperCase()}
+        </span>
+        {ticket.approvalStatus === "pending" && (
+          <Badge variant="secondary" className="text-[10px] gap-0.5">
+            <ShieldCheck className="h-2.5 w-2.5" />
+            Aprobación
+          </Badge>
+        )}
+        {breached && (
+          <Badge variant="destructive" className="text-[10px] gap-0.5">
+            <AlertTriangle className="h-2.5 w-2.5" />
+            SLA
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="truncate">{typeName}</span>
+        {slaText && (
+          <>
+            <span className="text-border">·</span>
+            <Clock className="h-3 w-3 shrink-0" />
+            <span className={breached ? "text-red-500" : ""}>{slaText}</span>
+          </>
+        )}
+      </div>
     </button>
   );
 }

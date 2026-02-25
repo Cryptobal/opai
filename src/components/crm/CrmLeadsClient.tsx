@@ -22,7 +22,7 @@ import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
-import type { ViewMode } from "./ViewToggle";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 
 /* ─── Form types ─── */

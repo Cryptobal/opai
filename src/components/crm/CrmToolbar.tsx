@@ -3,9 +3,9 @@
 import { Search, CheckSquare, Square } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FilterPills, type FilterOption } from "./FilterPills";
-import { SortSelect, type SortOption, DEFAULT_SORT_OPTIONS } from "./SortSelect";
-import { ViewToggle, type ViewMode } from "./ViewToggle";
+import { FilterPills, type FilterOption } from "@/components/shared/FilterPills";
+import { SortSelect, type SortOption, DEFAULT_SORT_OPTIONS } from "@/components/shared/SortSelect";
+import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
 
 interface SelectAllConfig {
   checked: boolean;

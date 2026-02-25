@@ -22,7 +22,7 @@ import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
-import type { ViewMode } from "./ViewToggle";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 
 type AccountFormState = {
