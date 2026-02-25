@@ -146,8 +146,8 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
       {/* Sidebar flotante */}
       <PreviewSidebar sessionId={sessionId} zohoData={zohoData} />
 
-      {/* Presentación */}
-      <div className="pt-14">
+      {/* Presentación - pt-24 en móvil porque el banner amarillo es más alto (flex-col) */}
+      <div className="pt-24 sm:pt-14">
         <PresentationRenderer payload={presentationData} />
       </div>
 
