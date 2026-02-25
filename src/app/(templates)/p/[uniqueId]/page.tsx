@@ -89,6 +89,34 @@ export default async function PublicPresentationPage({ params, searchParams }: P
     ? { ...clientData, id: uniqueId, template_id: presentation.template.slug }
     : mapZohoDataToPresentation(clientData, uniqueId, presentation.template.slug);
 
+  // 6.1 Para datos CPQ: cargar negocio e instalación desde BD si no están en los datos almacenados
+  if (isCpqData && (!presentationData._dealName || !presentationData._installationName)) {
+    const cpqQuoteId = clientData._cpqQuoteId;
+    if (cpqQuoteId) {
+      const cpqQuote = await prisma.cpqQuote.findUnique({
+        where: { id: cpqQuoteId },
+        select: {
+          dealId: true,
+          installation: { select: { name: true } },
+        },
+      });
+      if (cpqQuote) {
+        if (!presentationData._installationName && cpqQuote.installation?.name) {
+          presentationData._installationName = cpqQuote.installation.name;
+        }
+        if (!presentationData._dealName && cpqQuote.dealId) {
+          const deal = await prisma.crmDeal.findUnique({
+            where: { id: cpqQuote.dealId },
+            select: { title: true },
+          });
+          if (deal) {
+            presentationData._dealName = deal.title;
+          }
+        }
+      }
+    }
+  }
+
   // 7. Obtener info del viewer para analytics
   const headersList = await headers();
   const userAgent = headersList.get('user-agent') || '';

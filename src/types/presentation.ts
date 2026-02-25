@@ -464,7 +464,12 @@ export interface PresentationPayload {
   theme: ThemeVariant;
   created_at: string;
   updated_at?: string;
-  
+
+  // Contexto CRM (populated by cpq-mapper for preview/header display)
+  _dealName?: string;
+  _installationName?: string;
+  _cpqQuoteId?: string;
+
   // Datos del cliente y cotización
   client: ClientData;
   quote: QuoteData;

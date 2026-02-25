@@ -16,11 +16,13 @@ interface PresentationHeaderProps {
   companyName?: string;
   quoteName?: string; // Asunto de la cotización (ej: "Apoyo nocturno Coronel")
   quoteNumber?: string;
+  dealName?: string;
+  installationName?: string;
   showTokens?: boolean;
   className?: string;
 }
 
-export function PresentationHeader({ 
+export function PresentationHeader({
   logo = '/Logo%20Gard%20Blanco.png',
   clientLogoUrl = null,
   cta,
@@ -28,8 +30,10 @@ export function PresentationHeader({
   companyName = 'tu empresa',
   quoteName = 'la cotización',
   quoteNumber = '',
+  dealName = '',
+  installationName = '',
   showTokens = false,
-  className 
+  className
 }: PresentationHeaderProps) {
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
@@ -37,12 +41,12 @@ export function PresentationHeader({
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/95 border-b border-white/10 shadow-2xl">
       <div className="w-full px-4 sm:px-6">
-        {/* Info propuesta - DISEÑO MEJORADO */}
+        {/* Info propuesta */}
         {companyName && companyName !== 'tu empresa' && (
           <div className="py-3 border-b border-white/5">
             <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-              {/* Lado izquierdo: Propuesta para + Nombre empresa */}
-              <div className="flex items-center gap-2">
+              {/* Lado izquierdo: Propuesta + empresa + negocio + instalación */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1">
                 <Sparkles className="w-3.5 h-3.5 text-teal-400" />
                 <span className="text-white/60">Propuesta para</span>
                 {showTokens ? (
@@ -50,9 +54,23 @@ export function PresentationHeader({
                 ) : (
                   <span className="font-bold text-white">{companyName}</span>
                 )}
+                {!showTokens && dealName && (
+                  <>
+                    <span className="text-white/30">·</span>
+                    <span className="text-white/50">Negocio:</span>
+                    <span className="font-semibold text-teal-400">{dealName}</span>
+                  </>
+                )}
+                {!showTokens && installationName && (
+                  <>
+                    <span className="text-white/30">·</span>
+                    <span className="text-white/50">Instalación:</span>
+                    <span className="font-semibold text-teal-400">{installationName}</span>
+                  </>
+                )}
               </div>
-              
-              {/* Centro: Nombre de la propuesta (Subject) */}
+
+              {/* Centro: Nombre de la propuesta (Subject) - solo desktop */}
               {(quoteName && quoteName !== 'la cotización') || showTokens ? (
                 <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-400/30">
                   {showTokens ? (
@@ -62,12 +80,12 @@ export function PresentationHeader({
                   )}
                 </div>
               ) : null}
-              
+
               {/* Lado derecho: Número + Preparado para */}
               <div className="flex items-center gap-3 text-white/70">
                 {(quoteNumber || showTokens) && (
                   <span className="flex items-center gap-1">
-                    <span className="text-white/50">N°</span> 
+                    <span className="text-white/50">N°</span>
                     {showTokens ? (
                       <ZohoToken token="quote.Quote_Number" inline />
                     ) : (
