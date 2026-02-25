@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, KpiCard, Stepper } from "@/components/opai";
+import { KpiCard, Stepper, EmptyState } from "@/components/opai";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
@@ -44,7 +44,16 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, Users, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Sparkles, Loader2, Plus, Building2, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AnimatePresence, motion } from "framer-motion";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -126,6 +135,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [aiCustomInstruction, setAiCustomInstruction] = useState("");
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
+  const [kpiExpanded, setKpiExpanded] = useState(false);
+  const [docAiTab, setDocAiTab] = useState<"desc" | "detail">("desc");
 
   // Inline creation modals
   const [inlineCreateType, setInlineCreateType] = useState<"account" | "installation" | "contact" | "deal" | null>(null);
@@ -227,7 +238,6 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
   const isLocked = quote?.status === "sent";
   const steps = ["Datos", "Puestos", "Costos", "Resumen", "Documento"];
-  const stepIcons = [FileText, Users, Layers, Calculator, Send];
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
     value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -855,218 +865,165 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
   return (
     <div className="space-y-3 pb-16">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Link href="/crm/cotizaciones">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <PageHeader
-            title={quote.code}
-            description={
-              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0 text-xs">
-                {/* Cuenta */}
-                {crmContext.accountId ? (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-muted-foreground">Cuenta:</span>
-                    <Link href={`/crm/accounts/${crmContext.accountId}`} className="text-primary hover:underline font-medium">
-                      {quote.clientName || "Sin cliente"}
-                    </Link>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-muted-foreground">Cuenta:</span>
-                    <span>{quote.clientName || "Sin cliente"}</span>
-                  </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold tracking-tight truncate">{quote.code}</h1>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] uppercase shrink-0",
+                  quote.status === "sent" && "border-emerald-500/40 text-emerald-400",
+                  quote.status === "draft" && "border-amber-500/40 text-amber-400"
                 )}
-                {/* Contacto */}
-                {crmContext.contactId && (() => {
-                  const c = crmContacts.find((x) => x.id === crmContext.contactId);
-                  const name = c ? `${c.firstName} ${c.lastName}`.trim() : "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Contacto:</span>
-                        <Link href={`/crm/contacts/${crmContext.contactId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-                {/* Instalación */}
-                {crmContext.installationId && (() => {
-                  const inst = crmInstallations.find((x) => x.id === crmContext.installationId);
-                  const name = inst?.name || "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Instalación:</span>
-                        <Link href={`/crm/installations/${crmContext.installationId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-                {/* Negocio */}
-                {crmContext.dealId && (() => {
-                  const deal = crmDeals.find((d) => d.id === crmContext.dealId);
-                  const name = deal?.title || "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Negocio:</span>
-                        <Link href={`/crm/deals/${crmContext.dealId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-              </span>
-            }
-          />
+              >
+                {quote.status === "sent" ? "Enviada" : "Borrador"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              {(() => {
+                const parts: string[] = [];
+                if (quote.clientName) parts.push(quote.clientName);
+                const inst = crmContext.installationId
+                  ? crmInstallations.find((x) => x.id === crmContext.installationId)
+                  : null;
+                if (inst?.name) parts.push(inst.name);
+                return parts.join(" · ") || "Sin cliente";
+              })()}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {quote.status === "sent" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              onClick={() => setStatusChangePending("draft")}
-              disabled={changingStatus}
-            >
-              {changingStatus ? "Guardando..." : "Volver a borrador"}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
-              onClick={() => setStatusChangePending("sent")}
-              disabled={changingStatus}
-            >
-              {changingStatus ? "Guardando..." : "Marcar como enviada"}
-            </Button>
-          )}
+        <div className="flex items-center gap-1.5 shrink-0">
           <Button
-            size="sm"
+            size="icon"
             variant="outline"
-            className="gap-2"
+            className="h-10 w-10"
             onClick={handleDownloadPdf}
             disabled={downloadingPdf || !quote}
+            title="Descargar PDF"
           >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {downloadingPdf ? "Generando..." : "PDF"}
-            </span>
+            {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={handleClone}
-            disabled={cloning}
-          >
-            <Copy className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {cloning ? "Clonando..." : "Clonar"}
-            </span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={handleSendDotacionToInstallation}
-            disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}
-            title={
-              !crmContext.installationId
-                ? "Vincula una instalación para enviar la dotación"
-                : positions.length === 0
-                ? "Agrega al menos un puesto"
-                : "Enviar dotación a instalación"
-            }
-          >
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {sendingDotacion ? "Enviando..." : "Enviar dotación"}
-            </span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={refresh}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            className="gap-2"
-            onClick={() => setDeleteConfirmOpen(true)}
-            disabled={deleting || isLocked}
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {deleting ? "Eliminando..." : "Eliminar"}
-            </span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="outline" className="h-10 w-10">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              {quote.status === "sent" ? (
+                <DropdownMenuItem onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Volver a borrador
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => setStatusChangePending("sent")}
+                  disabled={changingStatus}
+                  className="text-emerald-400"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Marcar como enviada
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={handleClone} disabled={cloning}>
+                <Copy className="h-4 w-4 mr-2" />
+                {cloning ? "Clonando..." : "Clonar cotización"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleSendDotacionToInstallation}
+                disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                {sendingDotacion ? "Enviando..." : "Enviar dotación"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={refresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refrescar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={deleting || isLocked}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} className="mb-6" />
 
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
-        <KpiCard
-          title="Puestos"
-          value={positions.length}
-          variant="blue"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Guardias"
-          value={stats.totalGuards}
-          variant="purple"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Costo mensual"
-          value={formatCurrency(monthlyTotal)}
-          variant="amber"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Margen"
-          value={`${formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%`}
-          variant="emerald"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Precio venta"
-          value={formatCLP(salePriceMonthly)}
-          description={ufValue && ufValue > 0 ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue)) : undefined}
-          descriptionClassName="text-base font-semibold text-emerald-400"
-          variant="emerald"
-          size="md"
-          className="col-span-2 sm:col-span-1"
-        />
+      {/* KPI Summary Strip (collapsible) */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setKpiExpanded((v) => !v)}
+          className="flex items-center justify-between w-full rounded-lg border border-border/50 bg-card/50 px-3 py-2.5 text-xs hover:bg-card/80 transition-colors"
+        >
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
+            <span><strong className="text-blue-400">{positions.length}</strong> puestos</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span><strong className="text-purple-400">{stats.totalGuards}</strong> guardias</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="font-mono text-amber-400 font-semibold">{formatCurrency(monthlyTotal)}</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="text-emerald-400 font-medium">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="font-mono text-emerald-400 font-semibold">{formatCLP(salePriceMonthly)}</span>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 shrink-0 ml-2 transition-transform text-muted-foreground", kpiExpanded && "rotate-180")} />
+        </button>
+        <AnimatePresence>
+          {kpiExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-5 pt-3">
+                <KpiCard title="Puestos" value={positions.length} variant="blue" size="lg" className="col-span-1" />
+                <KpiCard title="Guardias" value={stats.totalGuards} variant="purple" size="lg" className="col-span-1" />
+                <KpiCard title="Costo mensual" value={formatCurrency(monthlyTotal)} variant="amber" size="lg" className="col-span-1" />
+                <KpiCard title="Margen" value={`${formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%`} variant="emerald" size="lg" className="col-span-1" />
+                <KpiCard
+                  title="Precio venta"
+                  value={formatCLP(salePriceMonthly)}
+                  description={ufValue && ufValue > 0 ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue)) : undefined}
+                  descriptionClassName="text-base font-semibold text-emerald-400"
+                  variant="emerald"
+                  size="md"
+                  className="col-span-2 sm:col-span-1"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
+      <AnimatePresence mode="wait">
+      <motion.div
+        key={`step-${activeStep}`}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.15 }}
+      >
+
       {activeStep === 0 && (
-        <Card className="p-3 sm:p-4 space-y-3" inert={isLocked}>
+        <Card className="p-4 sm:p-5 space-y-4" inert={isLocked}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold">Datos básicos</h2>
@@ -1074,32 +1031,28 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 Se guarda automáticamente al avanzar.
               </p>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant="outline" className="text-xs">
-                {quote.status}
-              </Badge>
-              <span
-                className={`text-xs ${
-                  quoteDirty ? "text-amber-400" : "text-muted-foreground"
-                }`}
-              >
-                {saveLabel}
-              </span>
-            </div>
+            <span
+              className={cn(
+                "text-xs",
+                quoteDirty ? "text-amber-400" : "text-muted-foreground"
+              )}
+            >
+              {saveLabel}
+            </span>
           </div>
 
-          {/* CRM Context */}
-          <div className="space-y-3 rounded-md border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contexto CRM</h3>
-            <div className="grid gap-3 md:grid-cols-2">
+          {/* Section: Cliente */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cliente</h3>
+            <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Cuenta (empresa)</Label>
                 <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  <SearchableSelect
                     value={crmContext.accountId}
-                    onChange={(e) => {
-                      const accountId = e.target.value;
+                    options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
+                    placeholder="Buscar cuenta..."
+                    onChange={(accountId) => {
                       const account = crmAccounts.find((a) => a.id === accountId);
                       saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
                       if (account) {
@@ -1107,12 +1060,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         setQuoteDirty(true);
                       }
                     }}
-                  >
-                    <option value="">Seleccionar cuenta...</option>
-                    {crmAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                  />
                   <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -1121,36 +1069,39 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">Instalación</Label>
                 <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  <SearchableSelect
                     value={crmContext.installationId}
-                    onChange={(e) => saveCrmContext({ installationId: e.target.value })}
+                    options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
+                    placeholder="Buscar instalación..."
                     disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar instalación...</option>
-                    {crmInstallations.map((i) => (
-                      <option key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</option>
-                    ))}
-                  </select>
+                    onChange={(id) => saveCrmContext({ installationId: id })}
+                  />
                   <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Detalles */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Detalles</h3>
+            <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Contacto</Label>
                 <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  <SearchableSelect
                     value={crmContext.contactId}
-                    onChange={(e) => saveCrmContext({ contactId: e.target.value })}
+                    options={crmContacts.map((c) => ({
+                      id: c.id,
+                      label: `${c.firstName} ${c.lastName}`.trim(),
+                      description: c.email || undefined,
+                    }))}
+                    placeholder="Buscar contacto..."
                     disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar contacto...</option>
-                    {crmContacts.map((c) => (
-                      <option key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</option>
-                    ))}
-                  </select>
+                    onChange={(id) => saveCrmContext({ contactId: id })}
+                  />
                   <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -1159,17 +1110,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">Negocio</Label>
                 <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  <SearchableSelect
                     value={crmContext.dealId}
-                    onChange={(e) => saveCrmContext({ dealId: e.target.value })}
+                    options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
+                    placeholder="Buscar negocio..."
                     disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar negocio...</option>
-                    {crmDeals.map((d) => (
-                      <option key={d.id} value={d.id}>{d.title}</option>
-                    ))}
-                  </select>
+                    onChange={(id) => saveCrmContext({ dealId: id })}
+                  />
                   <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -1342,34 +1289,30 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       )}
 
       {activeStep === 1 && (
-        <Card className="p-3 sm:p-4" inert={isLocked}>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
+        <div className="space-y-3" inert={isLocked}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold">Puestos de trabajo</h2>
               {positions.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Costo total:{" "}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {positions.length} puesto{positions.length !== 1 ? "s" : ""} · Total mensual:{" "}
                   <span className="font-mono font-semibold text-foreground">
-                    {formatCurrency(
-                      positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0)
-                    )}
+                    {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
                   </span>
-                </span>
+                </p>
               )}
-              <Badge variant="outline" className="text-xs">
-                {quote.status}
-              </Badge>
             </div>
             <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
           </div>
-          <p className="mb-3 text-xs text-muted-foreground">
-            Agrega uno o más puestos. Puedes editar o duplicar luego.
-          </p>
 
           {positions.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              Agrega el primer puesto para comenzar la estructura de servicio.
-            </div>
+            <EmptyState
+              icon={<Users className="h-10 w-10" />}
+              title="Sin puestos"
+              description="Agrega el primer puesto para comenzar la estructura de servicio."
+              action={<CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />}
+              compact
+            />
           ) : (
             <div className="space-y-3">
               {positions.map((position) => (
@@ -1385,7 +1328,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               ))}
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {activeStep === 2 && (
@@ -1616,110 +1559,139 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       {/* ── Step 5: Documento ── */}
       {activeStep === 4 && (
         <div className="space-y-4" inert={isLocked}>
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold">Documento y envío</h2>
-                <p className="text-xs text-muted-foreground">
-                  Genera la descripción AI, revisa el documento y envía al cliente.
-                </p>
-              </div>
-              <Badge variant="outline" className="text-xs">{quote.status}</Badge>
+          {/* AI Content Tabs */}
+          <Card className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-center gap-1 rounded-lg bg-muted/30 p-1">
+              <button
+                type="button"
+                onClick={() => setDocAiTab("desc")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors flex-1",
+                  docAiTab === "desc" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Descripción AI
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocAiTab("detail")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors flex-1",
+                  docAiTab === "detail" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Detalle del servicio
+              </button>
             </div>
 
-            {/* AI Description */}
-            <div className="space-y-2 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Descripción AI</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={generateAiDescription}
-                  disabled={generatingAi}
-                >
-                  {generatingAi ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  {generatingAi ? "Generando..." : aiCustomInstruction.trim() ? "Refinar con AI" : "Generar con AI"}
+            {docAiTab === "desc" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Resumen ejecutivo profesional para la propuesta.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs h-9"
+                    onClick={generateAiDescription}
+                    disabled={generatingAi}
+                  >
+                    {generatingAi ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {generatingAi ? "Generando..." : "Generar"}
+                  </Button>
+                </div>
+                <Input
+                  value={aiCustomInstruction}
+                  onChange={(e) => setAiCustomInstruction(e.target.value)}
+                  placeholder="Instrucción opcional (ej: «más corto», «énfasis en retail»)"
+                  className="h-10 text-sm"
+                />
+                <textarea
+                  value={quote.aiDescription ?? ""}
+                  onChange={(e) => {
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ aiDescription: e.target.value }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Haz clic en 'Generar' para crear una descripción basada en los datos..."
+                  className="w-full min-h-[120px] rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={5}
+                />
+              </div>
+            )}
+
+            {docAiTab === "detail" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Qué incluye el servicio (uniformes, exámenes, alimentación, equipos).
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs h-9"
+                    onClick={generateServiceDetail}
+                    disabled={generatingServiceDetail}
+                  >
+                    {generatingServiceDetail ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {generatingServiceDetail ? "Generando..." : "Generar"}
+                  </Button>
+                </div>
+                <Input
+                  value={serviceDetailInstruction}
+                  onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                  placeholder="Instrucción opcional (ej: «más detallado», «mencionar turnos 4x4»)"
+                  className="h-10 text-sm"
+                />
+                <textarea
+                  value={quote.serviceDetail ?? ""}
+                  onChange={(e) => {
+                    setQuote({ ...quote, serviceDetail: e.target.value });
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ serviceDetail: e.target.value }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Haz clic en 'Generar' para crear un detalle de lo que incluye el servicio..."
+                  className="w-full min-h-[120px] rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={5}
+                />
+              </div>
+            )}
+          </Card>
+
+          {/* Document Preview */}
+          <div className="rounded-xl border-2 border-border overflow-hidden">
+            <div className="px-4 py-2.5 border-b bg-muted/20 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Vista previa</span>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote}>
+                  <Download className="h-4 w-4" />
+                  {downloadingPdf ? "..." : "PDF"}
                 </Button>
+                <SendCpqQuoteModal
+                  quoteId={quoteId}
+                  quoteCode={quote.code}
+                  clientName={quote.clientName || undefined}
+                  disabled={!quote || positions.length === 0 || quote.status === "sent"}
+                  hasAccount={!!crmContext.accountId}
+                  hasContact={!!crmContext.contactId}
+                  hasDeal={!!crmContext.dealId}
+                  contactName={(() => {
+                    const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                    return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+                  })()}
+                  contactEmail={(() => {
+                    const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                    return c?.email || undefined;
+                  })()}
+                />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Genera un resumen ejecutivo profesional para la propuesta. Puedes editarlo después.
-              </p>
-              <Input
-                value={aiCustomInstruction}
-                onChange={(e) => setAiCustomInstruction(e.target.value)}
-                placeholder="Instrucción para ajustar la descripción (ej: «más corto», «énfasis en retail») — opcional"
-                className="h-9 text-sm"
-              />
-              <textarea
-                value={quote.aiDescription ?? ""}
-                onChange={(e) => {
-                  // Save AI description directly
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ aiDescription: e.target.value }),
-                  }).catch(() => {});
-                }}
-                placeholder="Haz clic en 'Generar con AI' para crear una descripción profesional basada en los datos de la cotización..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={5}
-              />
             </div>
-
-            {/* Service Detail */}
-            <div className="space-y-2 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Detalle del servicio</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={generateServiceDetail}
-                  disabled={generatingServiceDetail}
-                >
-                  {generatingServiceDetail ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  {generatingServiceDetail ? "Generando..." : serviceDetailInstruction.trim() ? "Refinar con AI" : "Generar con AI"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Genera un resumen de lo que incluye el servicio (uniformes, exámenes, alimentación, equipos, etc.). Aparecerá en la propuesta.
-              </p>
-              <Input
-                value={serviceDetailInstruction}
-                onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                placeholder="Instrucción para ajustar el detalle (ej: «más detallado», «mencionar turnos 4x4») — opcional"
-                className="h-9 text-sm"
-              />
-              <textarea
-                value={quote.serviceDetail ?? ""}
-                onChange={(e) => {
-                  setQuote({ ...quote, serviceDetail: e.target.value });
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ serviceDetail: e.target.value }),
-                  }).catch(() => {});
-                }}
-                placeholder="Haz clic en 'Generar con AI' para crear un detalle profesional de lo que incluye el servicio..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={5}
-              />
-            </div>
-
-            {/* Document Preview */}
-            <div className="rounded-md border border-border overflow-hidden">
-              <div className="bg-muted/30 px-4 py-3 border-b">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vista previa del documento</p>
-              </div>
               <div className="p-4 space-y-3 bg-white text-black text-sm" style={{ fontFamily: "Arial, sans-serif" }}>
                 <div className="flex justify-between items-start border-b-2 pb-2" style={{ borderColor: "#2563eb" }}>
                   <div className="text-lg font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
@@ -1838,56 +1810,37 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                className="flex-1 gap-2"
-                onClick={handleDownloadPdf}
-                disabled={downloadingPdf || !quote}
-              >
-                <Download className="h-4 w-4" />
-                {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
-              </Button>
-              <SendCpqQuoteModal
-                quoteId={quoteId}
-                quoteCode={quote.code}
-                clientName={quote.clientName || undefined}
-                disabled={!quote || positions.length === 0 || quote.status === "sent"}
-                hasAccount={!!crmContext.accountId}
-                hasContact={!!crmContext.contactId}
-                hasDeal={!!crmContext.dealId}
-                contactName={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-                })()}
-                contactEmail={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c?.email || undefined;
-                })()}
-              />
-            </div>
-          </Card>
         </div>
       )}
 
-      <div className="sticky bottom-0 z-20 -mx-4 border-t border-border/60 bg-background/95 px-4 py-2 backdrop-blur">
-        <div className="flex items-center justify-between gap-2">
+      </motion.div>
+      </AnimatePresence>
+
+      {/* ── Bottom Navigation ── */}
+      <div className="sticky bottom-14 lg:bottom-0 z-20 -mx-4 border-t border-border/40 bg-card/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
           <Button
-            size="sm"
             variant="outline"
-            className="gap-1"
+            className="h-11 gap-1.5 px-4"
             onClick={() => void goToStep(activeStep - 1)}
             disabled={activeStep === 0}
           >
             <ChevronLeft className="h-4 w-4" />
             Atrás
           </Button>
-          <span className="text-xs text-muted-foreground">
-            Paso {activeStep + 1} de {steps.length} · {steps[activeStep]}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {steps.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors",
+                  i <= activeStep ? "bg-primary" : "bg-muted-foreground/30"
+                )}
+              />
+            ))}
+          </div>
           <Button
-            size="sm"
-            className="gap-1"
+            className="h-11 gap-1.5 px-4"
             onClick={() => {
               if (isLastStep) {
                 router.push("/crm/cotizaciones");

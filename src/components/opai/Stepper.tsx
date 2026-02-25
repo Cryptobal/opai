@@ -9,21 +9,15 @@ interface StepperProps {
 }
 
 /**
- * Stepper - Indicador de progreso por pasos
- * 
- * Muestra una línea de progreso con círculos para cada paso.
+ * Stepper - Horizontal pill-strip step navigator
+ *
+ * Mobile-first single-row with horizontal scroll + snap.
+ * Each step is a pill showing number + label inline.
  */
 export function Stepper({ steps, currentStep, onStepClick, className }: StepperProps) {
   return (
     <div className={cn('w-full', className)}>
-      {/* Progress bar */}
-      <div className="mb-3 h-1 w-full rounded-full bg-border overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
-          style={{ width: `${((currentStep + 0.5) / steps.length) * 100}%` }}
-        />
-      </div>
-      <div className="grid gap-2 grid-cols-2 sm:grid-cols-5">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 snap-x">
         {steps.map((label, index) => {
           const isCompleted = index < currentStep;
           const isCurrent = index === currentStep;
@@ -35,30 +29,28 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
               onClick={() => onStepClick?.(index)}
               disabled={!onStepClick}
               className={cn(
-                "flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg transition-colors min-w-0",
-                onStepClick && "cursor-pointer hover:bg-accent/50",
-                !onStepClick && "cursor-default"
+                'flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium whitespace-nowrap snap-start shrink-0 transition-all duration-200 min-h-[44px]',
+                onStepClick && 'cursor-pointer',
+                !onStepClick && 'cursor-default',
+                isCurrent && 'bg-primary text-primary-foreground border-primary shadow-sm',
+                isCompleted && 'bg-primary/10 text-primary border-primary/30',
+                !isCurrent && !isCompleted && 'bg-muted/30 text-muted-foreground border-border/50'
               )}
             >
-              <div
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all',
-                  isCompleted && 'border-primary bg-primary text-primary-foreground',
-                  isCurrent && 'border-primary bg-accent text-primary',
-                  !isCompleted && !isCurrent && 'border-border bg-background text-muted-foreground'
-                )}
-              >
-                {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
-              </div>
-              <span
-                className={cn(
-                  'text-xs font-medium truncate w-full text-center',
-                  isCurrent && 'text-foreground',
-                  !isCurrent && 'text-muted-foreground'
-                )}
-              >
-                {label}
-              </span>
+              {isCompleted ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20">
+                  <Check className="h-3 w-3" />
+                </span>
+              ) : (
+                <span className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold',
+                  isCurrent && 'bg-primary-foreground/20',
+                  !isCurrent && 'bg-muted-foreground/20'
+                )}>
+                  {index + 1}
+                </span>
+              )}
+              {label}
             </button>
           );
         })}

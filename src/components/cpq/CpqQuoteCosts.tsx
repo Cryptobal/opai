@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/opai";
 import { formatCurrency } from "@/components/cpq/utils";
-import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import type {
   CpqCatalogItem,
@@ -26,6 +26,7 @@ import type {
   CpqQuoteUniformItem,
   CpqQuoteVehicle,
 } from "@/types/cpq";
+import { cn } from "@/lib/utils";
 import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -709,33 +710,22 @@ export function CpqQuoteCosts({
   ) : (
     <>
       <div className="space-y-4 text-sm">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant={activeSection === "directos" ? "default" : "outline"}
-            className={activeSection === "directos" ? "bg-primary/90" : "bg-transparent"}
-            onClick={() => setActiveSection("directos")}
-          >
-            Directos
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSection === "indirectos" ? "default" : "outline"}
-            className={activeSection === "indirectos" ? "bg-primary/90" : "bg-transparent"}
-            onClick={() => setActiveSection("indirectos")}
-          >
-            Indirectos
-          </Button>
-          {showFinancial && (
-            <Button
-              size="sm"
-              variant={activeSection === "financieros" ? "default" : "outline"}
-              className={activeSection === "financieros" ? "bg-primary/90" : "bg-transparent"}
-              onClick={() => setActiveSection("financieros")}
+        <div className="flex items-center gap-1 rounded-lg bg-muted/30 p-1">
+          {(["directos", "indirectos", ...(showFinancial ? ["financieros"] : [])] as const).map((section) => (
+            <button
+              key={section}
+              type="button"
+              onClick={() => setActiveSection(section as typeof activeSection)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors flex-1 capitalize",
+                activeSection === section
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              Financieros
-            </Button>
-          )}
+              {section}
+            </button>
+          ))}
         </div>
 
         {activeSection === "directos" && (
@@ -1825,19 +1815,19 @@ export function CpqQuoteCosts({
   );
 
   return (
-    <Card className="p-3 sm:p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
+    <Card className="p-4 sm:p-5 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold">Costos adicionales</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground truncate">
             {showFinancial
-              ? "Agrupa por pestañas: directos, indirectos y financieros."
-              : "Agrupa por pestañas: directos e indirectos."}
+              ? "Directos, indirectos y financieros"
+              : "Directos e indirectos"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => handleSave()} disabled={saving || readOnly}>
-            {saving ? "Guardando..." : "Guardar cambios"}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" className="h-9" onClick={() => handleSave()} disabled={saving || readOnly}>
+            {saving ? "Guardando..." : "Guardar"}
           </Button>
           {!isInline && (
           <Dialog open={open} onOpenChange={setOpen}>

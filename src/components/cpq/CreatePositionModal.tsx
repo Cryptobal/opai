@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
-import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
 import { Calculator, Plus } from "lucide-react";
 
@@ -146,7 +146,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
     }
   };
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-11 sm:h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -162,7 +162,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ── Identificación: Tipo + Cargo / Nombre + Rol ── */}
+          {/* ── Identificación ── */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Puesto *</Label>
@@ -180,7 +180,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre personalizado</Label>
-              <Input value={form.customName} onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))} placeholder="Ej: Control Acceso Nocturno" className="h-10 bg-background text-sm" />
+              <Input value={form.customName} onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))} placeholder="Ej: Control Acceso Nocturno" className="h-11 sm:h-10 bg-background text-sm" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rol *</Label>
@@ -193,14 +193,30 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
 
           <div className="border-t border-border" />
 
-          {/* ── Operación: Horario + Días + Guardias ── */}
+          {/* ── Operación ── */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horario</Label>
                 <div className="flex gap-1.5">
-                  <Button type="button" size="sm" variant={form.startTime === "08:00" && form.endTime === "20:00" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setForm((p) => ({ ...p, startTime: "08:00", endTime: "20:00" }))}>Día</Button>
-                  <Button type="button" size="sm" variant={form.startTime === "20:00" && form.endTime === "08:00" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setForm((p) => ({ ...p, startTime: "20:00", endTime: "08:00" }))}>Noche</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={form.startTime === "08:00" && form.endTime === "20:00" ? "default" : "outline"}
+                    className="h-9 sm:h-7 px-3 sm:px-2 text-xs"
+                    onClick={() => setForm((p) => ({ ...p, startTime: "08:00", endTime: "20:00" }))}
+                  >
+                    Día
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={form.startTime === "20:00" && form.endTime === "08:00" ? "default" : "outline"}
+                    className="h-9 sm:h-7 px-3 sm:px-2 text-xs"
+                    onClick={() => setForm((p) => ({ ...p, startTime: "20:00", endTime: "08:00" }))}
+                  >
+                    Noche
+                  </Button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -224,16 +240,29 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               <div className="space-y-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Días</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekdays")}>Lun-Vie</Button>
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekend")}>Sáb-Dom</Button>
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("all")}>Todos</Button>
-                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-muted-foreground" onClick={() => applyWeekdayPreset("clear")}>Limpiar</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs" onClick={() => applyWeekdayPreset("weekdays")}>Lun-Vie</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs" onClick={() => applyWeekdayPreset("weekend")}>Sáb-Dom</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs" onClick={() => applyWeekdayPreset("all")}>Todos</Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-9 sm:h-7 px-3 sm:px-2 text-xs text-muted-foreground" onClick={() => applyWeekdayPreset("clear")}>Limpiar</Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {WEEKDAY_ORDER.map((day) => {
                     const active = form.weekdays.includes(day);
                     return (
-                      <button key={day} type="button" onClick={() => toggleWeekday(day)} aria-pressed={active} className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${active ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}>{day}</button>
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleWeekday(day)}
+                        aria-pressed={active}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 sm:py-0.5 text-xs sm:text-[11px] transition-colors min-h-[36px] sm:min-h-0",
+                          active
+                            ? "border-primary/50 bg-primary/15 text-primary"
+                            : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        {day}
+                      </button>
                     );
                   })}
                 </div>
@@ -241,32 +270,33 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guardias</Label>
-                <select className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numGuards} onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">N° puestos</Label>
-                <select className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guardias</Label>
+                  <select className={cn(selectClass, "w-full")} value={form.numGuards} onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">N° puestos</Label>
+                  <select className={cn(selectClass, "w-full")} value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sueldo base</Label>
-                <Input type="text" inputMode="numeric" value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })} onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))} className="h-10 bg-background text-sm" />
+                <Input type="text" inputMode="numeric" value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })} onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))} className="h-11 sm:h-10 bg-background text-sm" />
               </div>
 
-              <Button type="button" size="sm" variant="outline" className="w-full gap-2" onClick={handleCalculate}>
-                <Calculator className="h-3 w-3" />
+              <Button type="button" size="default" variant="outline" className="w-full gap-2 h-11 sm:h-10" onClick={handleCalculate}>
+                <Calculator className="h-4 w-4" />
                 {calculating ? "Calculando..." : "Calcular costo"}
               </Button>
 
               {preview && (
-                <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
                   <div className="flex justify-between"><span className="text-emerald-400">Costo empresa / guardia</span><span className="font-mono text-emerald-400">{formatCurrency(preview.monthly_employer_cost_clp)}</span></div>
                   <div className="flex justify-between"><span className="text-blue-400">Líquido / guardia</span><span className="font-mono text-blue-400">{formatCurrency(preview.worker_net_salary_estimate)}</span></div>
                   <div className="flex justify-between border-t pt-1"><span>Total puesto</span><span className="font-mono">{formatCurrency(preview.monthly_employer_cost_clp * form.numGuards * form.numPuestos)}</span></div>
@@ -279,7 +309,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
             <Badge variant="outline" className="text-[10px] text-muted-foreground">
               AFP Modelo · Fonasa por defecto
             </Badge>
-            <Button type="submit" size="sm" disabled={loading}>
+            <Button type="submit" className="h-11 sm:h-10 px-6" disabled={loading}>
               {loading ? "Guardando..." : "Crear Puesto"}
             </Button>
           </div>

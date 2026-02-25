@@ -1,25 +1,38 @@
 /**
- * CPQ Dashboard
+ * CPQ Dashboard — Redesigned
  */
 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHeader, KpiCard } from "@/components/opai";
-import { Card } from "@/components/ui/card";
+import { PageHeader, KpiCard, EmptyState } from "@/components/opai";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CpqQuotesList } from "@/components/cpq/CpqQuotesList";
 import { formatCurrency } from "@/components/cpq/utils";
+import { cn } from "@/lib/utils";
 import type { CpqQuote } from "@/types/cpq";
-import { FileText, Plus, Settings } from "lucide-react";
+import { FileText, MoreHorizontal, RefreshCw, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface CpqDashboardProps {
   initialQuotes?: CpqQuote[];
 }
+
+const STATUS_FILTERS = [
+  { key: "all", label: "Todas" },
+  { key: "draft", label: "Borradores" },
+  { key: "sent", label: "Enviadas" },
+  { key: "approved", label: "Aprobadas" },
+  { key: "rejected", label: "Rechazadas" },
+] as const;
 
 export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   const [quotes, setQuotes] = useState<CpqQuote[]>(initialQuotes || []);
@@ -52,6 +65,14 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
     return { totalQuotes, totalMonthly };
   }, [quotes]);
 
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: quotes.length };
+    for (const q of quotes) {
+      counts[q.status] = (counts[q.status] || 0) + 1;
+    }
+    return counts;
+  }, [quotes]);
+
   const filteredQuotes = useMemo(() => {
     const query = search.trim().toLowerCase();
     return quotes.filter((quote) => {
@@ -66,26 +87,41 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <PageHeader title="CPQ" description="Cotizador de servicios de seguridad" />
         <div className="flex items-center gap-2">
           <CreateQuoteModal onCreated={refresh} variant="quick" />
-          <Link href="/cpq/config">
-            <Button variant="outline" size="sm" className="gap-2 ">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurar</span>
-            </Button>
-          </Link>
-          <Link href="/payroll/simulator">
-            <Button variant="outline" size="sm" className="gap-2 ">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Payroll</span>
-            </Button>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem asChild>
+                <Link href="/cpq/config">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configurar
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/payroll/simulator">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Payroll
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={refresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+      {/* KPIs */}
+      <div className="grid gap-3 grid-cols-2">
         <KpiCard
           title="Cotizaciones"
           value={totals.totalQuotes}
@@ -98,80 +134,50 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
           variant="emerald"
           size="lg"
         />
-        <Card className="border-muted/40 bg-card p-4 col-span-2 md:col-span-1">
-          <p className="text-sm uppercase text-muted-foreground">Estado</p>
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline">Borradores</Badge>
-            <Badge variant="secondary">Enviadas</Badge>
-          </div>
-        </Card>
       </div>
 
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Cotizaciones recientes</h2>
-          <Button size="sm" variant="outline" className="gap-2" onClick={refresh}>
-            <Plus className="h-3 w-3" />
-            <span className="hidden sm:inline">Actualizar</span>
-          </Button>
+      {/* Search + Segmented Filter */}
+      <div className="space-y-3">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por código o cliente..."
+          className="h-11 bg-card/80 text-foreground border-input placeholder:text-muted-foreground"
+        />
+        <div className="flex items-center gap-0.5 rounded-lg bg-muted/30 p-0.5 overflow-x-auto scrollbar-hide">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStatusFilter(f.key)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                statusFilter === f.key
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+              {(statusCounts[f.key] ?? 0) > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-muted-foreground/20 px-1 text-[10px]">
+                  {statusCounts[f.key]}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-        <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por código o cliente"
-            className="h-10 bg-card/80 text-foreground border-input placeholder:text-muted-foreground"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusFilter("all")}
-              className={statusFilter === "all" ? "bg-primary/15 border-primary/30 text-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}
-            >
-              Todas
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusFilter("draft")}
-              className={statusFilter === "draft" ? "bg-primary/15 border-primary/30 text-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}
-            >
-              Borradores
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusFilter("sent")}
-              className={statusFilter === "sent" ? "bg-primary/15 border-primary/30 text-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}
-            >
-              Enviadas
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusFilter("approved")}
-              className={statusFilter === "approved" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "bg-background border-border text-muted-foreground hover:bg-accent"}
-            >
-              Aprobadas
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusFilter("rejected")}
-              className={statusFilter === "rejected" ? "bg-red-500/15 border-red-500/30 text-red-400" : "bg-background border-border text-muted-foreground hover:bg-accent"}
-            >
-              Rechazadas
-            </Button>
-          </div>
-        </div>
-        <CpqQuotesList quotes={filteredQuotes} loading={loading} />
-        {!loading && !filteredQuotes.length && (
-          <div className="text-sm text-muted-foreground">
-            No hay cotizaciones para los filtros seleccionados.
-          </div>
-        )}
-      </Card>
+      </div>
+
+      {/* Quotes List */}
+      <CpqQuotesList quotes={filteredQuotes} loading={loading} />
+      {!loading && !filteredQuotes.length && (
+        <EmptyState
+          icon={<FileText className="h-10 w-10" />}
+          title="Sin cotizaciones"
+          description="No hay cotizaciones para los filtros seleccionados."
+          compact
+        />
+      )}
     </div>
   );
 }
