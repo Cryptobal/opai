@@ -436,7 +436,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
                 />
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.lifecycleStatus}
                   onChange={(e) => setForm((prev) => ({ ...prev, lifecycleStatus: e.target.value }))}
                 >
@@ -500,7 +500,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.sex}
                   onChange={(e) => setForm((prev) => ({ ...prev, sex: e.target.value }))}
                 >
@@ -518,7 +518,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
                 />
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.afp}
                   onChange={(e) => setForm((prev) => ({ ...prev, afp: e.target.value }))}
                 >
@@ -530,7 +530,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.healthSystem}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -549,7 +549,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.hasMobilization}
                   onChange={(e) => setForm((prev) => ({ ...prev, hasMobilization: e.target.value }))}
                 >
@@ -560,7 +560,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               {form.healthSystem === "isapre" ? (
                 <div className="grid gap-3 md:grid-cols-3">
                   <select
-                    className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                    className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                     value={form.isapreName}
                     onChange={(e) => setForm((prev) => ({ ...prev, isapreName: e.target.value }))}
                   >
@@ -572,7 +572,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     ))}
                   </select>
                   <select
-                    className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                    className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                     value={form.isapreHasExtraPercent ? "si" : "no"}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -598,7 +598,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               ) : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.availableExtraShifts}
                   onChange={(e) => setForm((prev) => ({ ...prev, availableExtraShifts: e.target.value }))}
                 >
@@ -613,7 +613,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.bankCode}
                   onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
                 >
@@ -625,7 +625,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.accountType}
                   onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
                 >

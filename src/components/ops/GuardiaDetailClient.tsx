@@ -1363,7 +1363,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               </p>
               <div className="grid gap-3 md:grid-cols-4">
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={accountForm.bankCode}
                   onChange={(e) => setAccountForm((prev) => ({ ...prev, bankCode: e.target.value }))}
                 >
@@ -1375,7 +1375,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={accountForm.accountType}
                   onChange={(e) => setAccountForm((prev) => ({ ...prev, accountType: e.target.value }))}
                 >
@@ -1705,7 +1705,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               <div className="md:col-span-4">
                 <label className="text-xs text-muted-foreground block mb-1">Tipo de documento</label>
                 <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
                   value={docForm.type}
                   onChange={(e) => {
                     const nextType = e.target.value;
@@ -1874,7 +1874,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={linkForm.documentId}
               disabled={loadingDocLinks || !canManageDocs}
               onChange={(e) => setLinkForm((prev) => ({ ...prev, documentId: e.target.value }))}
@@ -1887,7 +1887,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={linkForm.role}
               disabled={!canManageDocs}
               onChange={(e) => setLinkForm((prev) => ({ ...prev, role: e.target.value }))}
@@ -1958,7 +1958,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </p>
             <div className="grid gap-3 md:grid-cols-3">
               <select
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                 value={commForm.channel}
                 onChange={(e) => {
                   const nextChannel = e.target.value;
@@ -1971,7 +1971,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               </select>
 
               <select
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                 value={commForm.templateId}
                 onChange={(e) => setCommForm((prev) => ({ ...prev, templateId: e.target.value }))}
               >
@@ -2402,7 +2402,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs">Sexo</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={editPersonalForm.sex}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, sex: e.target.value }))}
               >
@@ -2414,7 +2414,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs">Nacionalidad</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={editPersonalForm.nacionalidad}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, nacionalidad: e.target.value }))}
               >
@@ -2438,7 +2438,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs">Régimen previsional</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={editPersonalForm.regimenPrevisional}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, regimenPrevisional: e.target.value }))}
               >
@@ -2464,7 +2464,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 <div className="space-y-1.5">
                   <Label className="text-xs">Tipo de pensión</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={editPersonalForm.tipoPension}
                     onChange={(e) => setEditPersonalForm((p) => ({ ...p, tipoPension: e.target.value }))}
                   >
@@ -2512,7 +2512,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs">AFP</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={editPersonalForm.afp}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, afp: e.target.value }))}
               >
@@ -2525,7 +2525,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs">Sistema de salud</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={editPersonalForm.healthSystem}
                 onChange={(e) => setEditPersonalForm((p) => ({ ...p, healthSystem: e.target.value }))}
               >
@@ -2540,7 +2540,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 <div className="space-y-1.5">
                   <Label className="text-xs">Isapre</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={editPersonalForm.isapreName}
                     onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreName: e.target.value }))}
                   >

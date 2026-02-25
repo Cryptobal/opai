@@ -167,7 +167,7 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
     setForm((prev) => ({ ...prev, weekdays: map[preset] }));
   };
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,7 +195,7 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre personalizado</Label>
-              <Input value={form.customName} onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))} className="h-10 bg-background text-sm" />
+              <Input value={form.customName} onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))} className="h-9 bg-background text-sm" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rol *</Label>
@@ -258,21 +258,21 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guardias</Label>
-                <select className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numGuards} onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}>
+                <select className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numGuards} onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}>
                   {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">N° puestos</Label>
-                <select className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
+                <select className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
                   {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sueldo base</Label>
-                <Input type="text" inputMode="numeric" value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })} onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))} className="h-10 bg-background text-sm" />
+                <Input type="text" inputMode="numeric" value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })} onChange={(e) => setForm((p) => ({ ...p, baseSalary: parseLocalizedNumber(e.target.value) }))} className="h-9 bg-background text-sm" />
               </div>
 
               <Button type="button" size="sm" variant="outline" className="w-full gap-2" onClick={handleCalculate}>

@@ -137,7 +137,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={defaultClientName}
                 readOnly
                 disabled
-                className="h-10 bg-muted text-sm"
+                className="h-9 bg-muted text-sm"
               />
             </div>
           ) : (
@@ -147,7 +147,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="Nombre cliente"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
           )}
@@ -158,7 +158,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={dealName}
                 onChange={(e) => setDealName(e.target.value)}
                 placeholder="Ej: Obra Kennedy con Recreo"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
           )}
@@ -168,7 +168,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              className="h-10 bg-background text-sm"
+              className="h-9 bg-background text-sm"
             />
           </div>
           {!hasContext && (
@@ -178,7 +178,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Observaciones"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
           )}

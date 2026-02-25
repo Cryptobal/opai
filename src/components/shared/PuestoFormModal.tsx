@@ -258,7 +258,7 @@ export function PuestoFormModal({
   };
 
   const selectClass =
-    "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+    "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -322,7 +322,7 @@ export function PuestoFormModal({
                   setForm((p) => ({ ...p, customName: e.target.value }))
                 }
                 placeholder="Ej: Control Acceso Nocturno"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -358,7 +358,7 @@ export function PuestoFormModal({
               onChange={(e) =>
                 setForm((p) => ({ ...p, activeFrom: e.target.value }))
               }
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
             />
             <p className="text-[10px] text-muted-foreground">
               Desde cuándo está activo este puesto. La pauta solo se genera desde esta fecha.
@@ -530,7 +530,7 @@ export function PuestoFormModal({
                   Guardias
                 </Label>
                 <select
-                  className="flex h-10 w-20 rounded-md border border-input bg-card px-2 text-sm"
+                  className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm"
                   value={form.numGuards}
                   onChange={(e) =>
                     setForm((p) => ({

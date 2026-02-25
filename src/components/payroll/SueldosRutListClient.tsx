@@ -128,7 +128,7 @@ export function SueldosRutListClient() {
   const [viewBreakdownData, setViewBreakdownData] = useState<NetEstimate | null>(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   function DesgloseRow({ label, value, negative, bold }: { label: string; value: number; negative?: boolean; bold?: boolean }) {
     const display = negative ? `-${formatCLP(value)}` : formatCLP(value);
@@ -343,7 +343,7 @@ export function SueldosRutListClient() {
             return (
               <Card key={s.structureId} className={`transition-colors ${!s.isActive ? "opacity-60" : "hover:bg-accent/20"}`}>
                 <CardContent className="pt-4 pb-4 flex items-center gap-4">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${s.isActive ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground"}`}>
+                  <div className={`flex h-9 w-10 shrink-0 items-center justify-center rounded-full ${s.isActive ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground"}`}>
                     <User className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -426,7 +426,7 @@ export function SueldosRutListClient() {
           <div className="space-y-1.5 py-2">
             <Label className="text-xs">Fecha de término</Label>
             <input type="date" value={deactivateDate} onChange={(e) => setDeactivateDate(e.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeactivateConfirm(null)}>Cancelar</Button>
@@ -566,7 +566,7 @@ export function SueldosRutListClient() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Buscar guardia por nombre o RUT</Label>
                 <Input placeholder="Ej: Cedeño o 26746990" value={searchGuard} autoFocus
-                  onChange={(e) => { setSearchGuard(e.target.value); searchGuards(e.target.value); }} className="h-10" />
+                  onChange={(e) => { setSearchGuard(e.target.value); searchGuards(e.target.value); }} className="h-9" />
               </div>
               {searching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               {searchResults.length > 0 && (

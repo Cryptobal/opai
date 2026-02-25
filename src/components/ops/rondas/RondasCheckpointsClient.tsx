@@ -45,7 +45,7 @@ export function RondasCheckpointsClient({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <select
-          className="h-10 rounded border border-border bg-background px-2 text-sm"
+          className="h-9 rounded border border-border bg-background px-2 text-sm"
           value={installationId}
           onChange={(e) => setInstallationId(e.target.value)}
         >

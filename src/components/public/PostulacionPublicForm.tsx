@@ -371,7 +371,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               }
             />
             <div
-              className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-1 focus-within:ring-ring"
+              className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-1 focus-within:ring-ring"
               role="group"
             >
               <input
@@ -418,7 +418,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               readOnly
             />
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.sex}
               onChange={(e) => setForm((prev) => ({ ...prev, sex: e.target.value }))}
             >
@@ -430,7 +430,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.nacionalidad}
               onChange={(e) => setForm((prev) => ({ ...prev, nacionalidad: e.target.value }))}
             >
@@ -441,7 +441,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.afp}
               onChange={(e) => setForm((prev) => ({ ...prev, afp: e.target.value }))}
             >
@@ -453,7 +453,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={healthSystem}
               onChange={(e) => {
                 setHealthSystem(e.target.value);
@@ -470,7 +470,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.hasMobilization}
               onChange={(e) => setForm((prev) => ({ ...prev, hasMobilization: e.target.value }))}
             >
@@ -478,7 +478,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               <option value="no">No tiene movilización</option>
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.availableExtraShifts}
               onChange={(e) => setForm((prev) => ({ ...prev, availableExtraShifts: e.target.value }))}
             >
@@ -488,7 +488,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
             {healthSystem === "isapre" ? (
               <>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.isapreName}
                   onChange={(e) => setForm((prev) => ({ ...prev, isapreName: e.target.value }))}
                 >
@@ -500,7 +500,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={isapreHasExtraPercent ? "si" : "no"}
                   onChange={(e) => setIsapreHasExtraPercent(e.target.value === "si")}
                 >
@@ -519,7 +519,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               </>
             ) : null}
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.bankCode}
               onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
             >
@@ -531,7 +531,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               ))}
             </select>
             <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.accountType}
               onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
             >
@@ -559,7 +559,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
             <p className="text-sm font-medium">Documentos</p>
             <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
               <select
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
               >

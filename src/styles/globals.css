@@ -12,7 +12,7 @@
        ============================================ */
 
     /* Background & Foreground */
-    --background: 0 0% 100%;              /* #ffffff */
+    --background: 0 0% 99%;               /* #fcfcfc — warm off-white */
     --foreground: 220 20% 10%;            /* #151a23 */
 
     /* Cards & Surfaces */

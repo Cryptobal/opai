@@ -59,7 +59,7 @@ export function RondasTemplatesClient({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <select
-          className="h-10 rounded border border-border bg-background px-2 text-sm"
+          className="h-9 rounded border border-border bg-background px-2 text-sm"
           value={installationId}
           onChange={(e) => void loadInstallationData(e.target.value)}
         >

@@ -44,7 +44,7 @@ export function AnticipoProcessClient() {
   const [selectedPeriod, setSelectedPeriod] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   const load = useCallback(async () => {
     setLoading(true);

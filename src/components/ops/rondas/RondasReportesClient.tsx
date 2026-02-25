@@ -26,13 +26,13 @@ export function RondasReportesClient({ rows, totals }: { rows: any[]; totals: an
 
       <div className="flex flex-wrap items-center gap-2">
         <input
-          className="h-10 min-w-[240px] rounded border border-border bg-background px-3 text-sm"
+          className="h-9 min-w-[240px] rounded border border-border bg-background px-3 text-sm"
           placeholder="Buscar..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <Button
-          className="h-10"
+          className="h-9"
           variant="outline"
           onClick={() => {
             window.location.href = "/api/ops/rondas/reportes?format=csv";
