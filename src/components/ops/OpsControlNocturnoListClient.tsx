@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,8 @@ import {
   ChevronRight,
   BarChart3,
 } from "lucide-react";
+import { ListToolbar } from "@/components/shared/ListToolbar";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 
 /* ── Types ── */
 
@@ -80,6 +82,9 @@ export function OpsControlNocturnoListClient(_props: Props) {
   const [reportes, setReportes] = useState<ReporteListItem[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [displayView, setDisplayView] = useState<ViewMode>("list");
 
   // Create form
   const [formDate, setFormDate] = useState(toDateInput(new Date()));
@@ -100,6 +105,29 @@ export function OpsControlNocturnoListClient(_props: Props) {
   }, []);
 
   useEffect(() => { fetchReportes(); }, [fetchReportes]);
+
+  const filteredReportes = useMemo(() => {
+    let result = reportes;
+    if (statusFilter !== "all") {
+      result = result.filter((r) => r.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.centralOperatorName.toLowerCase().includes(q) ||
+          (r.centralLabel || "").toLowerCase().includes(q) ||
+          formatDateShort(r.date).toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [reportes, statusFilter, search]);
+
+  const statusFilters = useMemo(() => [
+    { key: "all", label: "Todos", count: reportes.length },
+    { key: "borrador", label: "Borrador", count: reportes.filter((r) => r.status === "borrador").length },
+    { key: "enviado", label: "Enviado", count: reportes.filter((r) => r.status === "enviado" || r.status === "aprobado").length },
+  ], [reportes]);
 
   const handleCreate = async () => {
     if (!formDate || !formOperator) {
@@ -142,44 +170,99 @@ export function OpsControlNocturnoListClient(_props: Props) {
 
   return (
     <>
-      {/* Header con botón crear + KPIs */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {reportes.length} reporte{reportes.length !== 1 ? "s" : ""}
-        </p>
-        <div className="flex items-center gap-2">
-          <Link href="/ops/control-nocturno/kpis">
-            <Button size="sm" variant="outline">
-              <BarChart3 className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">KPIs</span>
-              <span className="sm:hidden">KPIs</span>
-            </Button>
-          </Link>
-          {canCreate && (
-            <Button size="sm" onClick={() => {
-              setFormDate(toDateInput(new Date()));
-              setFormOperator("");
-              setFormCentral("");
-              setCreateOpen(true);
-            }}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Nuevo reporte</span>
-              <span className="sm:hidden">Nuevo</span>
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* Toolbar */}
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar reportes..."
+        filters={statusFilters}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        viewModes={["list", "cards"]}
+        activeView={displayView}
+        onViewChange={setDisplayView}
+        actionSlot={
+          <div className="flex items-center gap-2">
+            <Link href="/ops/control-nocturno/kpis">
+              <Button size="icon" variant="outline" className="h-9 w-9 shrink-0">
+                <BarChart3 className="h-4 w-4" />
+                <span className="sr-only">KPIs</span>
+              </Button>
+            </Link>
+            {canCreate && (
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" onClick={() => {
+                setFormDate(toDateInput(new Date()));
+                setFormOperator("");
+                setFormCentral("");
+                setCreateOpen(true);
+              }}>
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">Nuevo reporte</span>
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {/* Lista de reportes */}
-      {reportes.length === 0 ? (
+      {filteredReportes.length === 0 ? (
         <EmptyState
           icon={<Moon className="h-10 w-10" />}
           title="Sin reportes nocturnos"
-          description="Crea el primer reporte de control nocturno."
+          description={reportes.length === 0
+            ? "Crea el primer reporte de control nocturno."
+            : "No hay reportes para los filtros seleccionados."}
         />
+      ) : displayView === "cards" ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredReportes.map((r) => {
+            const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.borrador;
+            const StatusIcon = cfg.icon;
+            const totalInst = r.instalaciones.length;
+            const conNovedad = r.instalaciones.filter(
+              (i) => i.statusInstalacion === "novedad" || i.statusInstalacion === "critico"
+            ).length;
+
+            return (
+              <div
+                key={r.id}
+                className="rounded-lg border border-border p-4 cursor-pointer transition-colors hover:border-primary/30 hover:bg-accent/30"
+                onClick={() => router.push(`/ops/control-nocturno/${r.id}`)}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10">
+                    <Moon className="h-4 w-4 text-indigo-400" />
+                  </div>
+                  <p className="text-sm font-semibold truncate">
+                    {formatDateShort(r.date)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.color}`}>
+                    <StatusIcon className="h-3 w-3" />
+                    {cfg.label}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Building2 className="h-3 w-3" />
+                    {totalInst}
+                  </span>
+                  {conNovedad > 0 && (
+                    <span className="text-[11px] text-amber-400 font-medium">
+                      {conNovedad} nov.
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-2">
+                  {r.centralOperatorName}
+                  {r.centralLabel ? ` · ${r.centralLabel}` : ""}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="space-y-2">
-          {reportes.map((r) => {
+          {filteredReportes.map((r) => {
             const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.borrador;
             const StatusIcon = cfg.icon;
             const totalInst = r.instalaciones.length;
@@ -195,7 +278,6 @@ export function OpsControlNocturnoListClient(_props: Props) {
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    {/* Left: icon + info */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10">
                       <Moon className="h-5 w-5 text-indigo-400" />
                     </div>
@@ -225,7 +307,6 @@ export function OpsControlNocturnoListClient(_props: Props) {
                         )}
                       </div>
                     </div>
-                    {/* Right: chevron */}
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>

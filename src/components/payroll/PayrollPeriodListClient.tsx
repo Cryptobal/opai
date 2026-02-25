@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +12,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, ChevronRight } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Calendar } from "lucide-react";
+import { ListToolbar } from "@/components/shared/ListToolbar";
+import type { ViewMode } from "@/components/shared/ViewToggle";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -50,6 +51,9 @@ export function PayrollPeriodListClient() {
   const [newYear, setNewYear] = useState(new Date().getFullYear());
   const [newMonth, setNewMonth] = useState(new Date().getMonth() + 1);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [displayView, setDisplayView] = useState<ViewMode>("list");
 
   const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
@@ -69,6 +73,28 @@ export function PayrollPeriodListClient() {
   }, []);
 
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
+
+  const filteredPeriods = useMemo(() => {
+    let result = periods;
+    if (statusFilter !== "all") {
+      result = result.filter((p) => p.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((p) =>
+        `${MONTHS[p.month - 1]} ${p.year}`.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [periods, statusFilter, search]);
+
+  const statusFilters = useMemo(() => [
+    { key: "all", label: "Todos", count: periods.length },
+    { key: "OPEN", label: "Abierto", count: periods.filter((p) => p.status === "OPEN").length },
+    { key: "PROCESSING", label: "Procesando", count: periods.filter((p) => p.status === "PROCESSING").length },
+    { key: "CLOSED", label: "Cerrado", count: periods.filter((p) => p.status === "CLOSED").length },
+    { key: "PAID", label: "Pagado", count: periods.filter((p) => p.status === "PAID").length },
+  ], [periods]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -93,50 +119,93 @@ export function PayrollPeriodListClient() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Períodos</CardTitle>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Nuevo período
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : periods.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No hay períodos creados. Crea el primero para comenzar a procesar liquidaciones.
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar período..."
+        filters={statusFilters}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        viewModes={["list", "cards"]}
+        activeView={displayView}
+        onViewChange={setDisplayView}
+        actionSlot={
+          <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">Nuevo período</span>
+          </Button>
+        }
+      />
+
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredPeriods.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border p-8 text-center">
+          <Calendar className="mx-auto h-10 w-10 text-muted-foreground/30" />
+          <p className="mt-2 text-sm text-muted-foreground">
+            {periods.length === 0
+              ? "No hay períodos creados. Crea el primero para comenzar a procesar liquidaciones."
+              : "No hay períodos para los filtros seleccionados."}
           </p>
-        ) : (
-          <div className="space-y-2">
-            {periods.map((p) => (
-              <Link
-                key={p.id}
-                href={`/payroll/periodos/${p.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer transition-colors hover:bg-accent/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {MONTHS[p.month - 1]} {p.year}
-                    </span>
-                    <Badge variant="outline" className={STATUS_COLORS[p.status]}>
-                      {STATUS_LABELS[p.status] || p.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {p._count.liquidaciones} liquidaciones · {p._count.attendanceRecords} registros asistencia
-                  </p>
+        </div>
+      ) : displayView === "cards" ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredPeriods.map((p) => (
+            <Link
+              key={p.id}
+              href={`/payroll/periodos/${p.id}`}
+              className="rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Calendar className="h-4 w-4 text-blue-400" />
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
-        )}
-      </CardContent>
+                <span className="text-sm font-medium">
+                  {MONTHS[p.month - 1]} {p.year}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className={STATUS_COLORS[p.status]}>
+                  {STATUS_LABELS[p.status] || p.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {p._count.liquidaciones} liquidaciones · {p._count.attendanceRecords} asistencia
+              </p>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredPeriods.map((p) => (
+            <Link
+              key={p.id}
+              href={`/payroll/periodos/${p.id}`}
+              className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer transition-colors hover:bg-accent/40"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {MONTHS[p.month - 1]} {p.year}
+                  </span>
+                  <Badge variant="outline" className={STATUS_COLORS[p.status]}>
+                    {STATUS_LABELS[p.status] || p.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {p._count.liquidaciones} liquidaciones · {p._count.attendanceRecords} registros asistencia
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -171,6 +240,6 @@ export function PayrollPeriodListClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
