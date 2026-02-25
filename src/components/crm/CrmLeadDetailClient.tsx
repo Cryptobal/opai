@@ -29,11 +29,6 @@ import {
   ExternalLink,
   Mailbox,
   Sparkles,
-  Phone,
-  Mail,
-  MessageSquare,
-  Clock,
-  Calendar,
   Save,
   CheckCircle2,
   XCircle,
@@ -42,6 +37,7 @@ import {
   ArrowRight,
   Globe,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -52,6 +48,9 @@ import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
+import { LeadContactActions } from "./LeadContactActions";
+import { LeadSourceBadge } from "./LeadSourceBadge";
+import { DotacionSummary } from "./DotacionSummary";
 
 /* ─── Dotación & Installation draft types ─── */
 
@@ -211,21 +210,6 @@ function extractWebsiteFromEmail(email: string): string {
   const domain = email.split("@")[1]?.toLowerCase();
   if (!domain || GENERIC_EMAIL_DOMAINS.has(domain)) return "";
   return `https://${domain}`;
-}
-
-function telHref(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  return `tel:${digits.length <= 9 ? "+56" + digits : "+" + digits}`;
-}
-
-function whatsappHref(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  const withCountry = digits.length === 9 && digits.startsWith("9") ? "56" + digits : digits.length >= 10 ? digits : "56" + digits;
-  return `https://wa.me/${withCountry}`;
 }
 
 /* ─── Form types ─── */
@@ -555,8 +539,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
   // ─── Style helpers ───
   const inputClassName = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectClassName = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-  const selectCompactClassName = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-2 pr-6 py-1 text-xs text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px] bg-[right_4px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectClassName = "flex h-9 min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectCompactClassName = "flex h-9 min-h-[44px] w-full rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   // ─── Form helpers ───
   const updateApproveForm = (key: keyof ApproveFormState, value: string) => {
@@ -1018,97 +1002,61 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           )}
         </DetailFieldGrid>
 
+        {/* Contact actions + dates */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <CrmDates createdAt={lead.createdAt} updatedAt={lead.updatedAt} showTime />
-          {lead.phone && (
-            <div className="flex items-center gap-1 ml-2">
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" asChild>
-                <a href={telHref(lead.phone)} aria-label="Llamar"><Phone className="h-3.5 w-3.5" /></a>
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" asChild>
-                <a href={whatsappHref(lead.phone)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><MessageSquare className="h-3.5 w-3.5" /></a>
-              </Button>
-            </div>
-          )}
-          {lead.email && (
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" asChild>
-              <a href={`mailto:${lead.email}`} aria-label="Enviar email"><Mail className="h-3.5 w-3.5" /></a>
-            </Button>
-          )}
+          <LeadContactActions phone={lead.phone} email={lead.email} />
+          <LeadSourceBadge source={lead.source} />
         </div>
 
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
-          <div className="rounded-lg border border-border/80 bg-muted/20 overflow-hidden">
-            <div className="px-3 py-2 border-b border-border/60 bg-muted/30 flex items-center gap-2">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dotación solicitada</span>
-              {totalGuards > 0 && (
-                <span className="text-[10px] font-medium text-foreground bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                  {totalGuards} guardia{totalGuards > 1 ? "s" : ""} total
-                </span>
-              )}
-            </div>
-            <div className="divide-y divide-border/60">
-              {dotacion.map((d, i) => (
-                <div key={i} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-medium text-foreground truncate">{d.puesto}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pl-5 sm:pl-0">
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="h-3 w-3 shrink-0" />
-                      {d.cantidad} guardia{d.cantidad > 1 ? "s" : ""} x {d.numPuestos || 1} puesto{(d.numPuestos || 1) > 1 ? "s" : ""}
-                    </span>
-                    {d.horaInicio && d.horaFin && (
-                      <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 shrink-0" />{d.horaInicio} – {d.horaFin}</span>
-                    )}
-                    {d.dias && d.dias.length > 0 && (
-                      <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0 text-white" />{d.dias.length === 7 ? "Todos los días" : d.dias.join(", ")}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
         )}
 
         {/* Correo original (email_forward) */}
-        {lead.source === "email_forward" && meta && (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3 min-w-0 overflow-hidden">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Mailbox className="h-3.5 w-3.5" />
-              Correo original
-            </h4>
-            {(() => {
-              const emailMeta = meta as { inboundEmail?: { subject?: string; from?: string; text?: string; html?: string; receivedAt?: string } };
-              const email = emailMeta?.inboundEmail;
-              if (!email) return null;
-              return (
-                <div className="space-y-2 text-sm min-w-0 overflow-hidden">
-                  {email.subject && <p className="break-words"><span className="text-muted-foreground">Asunto:</span> {email.subject}</p>}
-                  {email.from && <p className="break-words"><span className="text-muted-foreground">De:</span> {email.from}</p>}
-                  {email.receivedAt && <p className="text-muted-foreground text-xs">{new Date(email.receivedAt).toLocaleString()}</p>}
-                  <div className="rounded border border-border bg-background/80 p-3 max-h-48 overflow-y-auto overflow-x-hidden text-xs whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                    {email.text ? email.text : email.html ? email.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000) : "Sin contenido"}
-                  </div>
+        {lead.source === "email_forward" && meta && (() => {
+          const emailMeta = meta as { inboundEmail?: { subject?: string; from?: string; text?: string; html?: string; receivedAt?: string } };
+          const email = emailMeta?.inboundEmail;
+          if (!email) return null;
+          return (
+            <div className="rounded-lg border border-border overflow-hidden min-w-0">
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/30 flex items-center gap-2">
+                <Mailbox className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Correo original</span>
+                {email.receivedAt && (
+                  <span className="ml-auto text-[10px] text-muted-foreground">{new Date(email.receivedAt).toLocaleString()}</span>
+                )}
+              </div>
+              <div className="p-3 space-y-2 text-sm min-w-0 overflow-hidden">
+                {email.subject && (
+                  <DetailFieldGrid columns={2}>
+                    <DetailField label="Asunto" value={email.subject} />
+                    <DetailField label="De" value={email.from} />
+                  </DetailFieldGrid>
+                )}
+                <div className="rounded-md border border-border bg-background/80 p-3 max-h-48 overflow-y-auto overflow-x-hidden text-xs whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                  {email.text ? email.text : email.html ? email.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000) : "Sin contenido"}
                 </div>
-              );
-            })()}
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Rejection info */}
         {lead.status === "rejected" && rejectionInfo && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-2">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
             <h4 className="text-sm font-medium text-destructive flex items-center gap-2">
               <XCircle className="h-4 w-4" />
               Información del rechazo
             </h4>
-            <DetailFieldGrid>
+            <DetailFieldGrid columns={3}>
               <DetailField label="Motivo" value={getRejectReasonLabel(rejectionInfo.reason)} />
-              <DetailField label="Correo enviado" value={rejectionInfo.emailSent ? "Sí" : "No"} />
+              <DetailField label="Correo enviado" value={
+                <Badge variant={rejectionInfo.emailSent ? "success" : "warning"} className="text-[10px]">
+                  {rejectionInfo.emailSent ? "Sí" : "No"}
+                </Badge>
+              } />
               {rejectionInfo.note && <DetailField label="Observación" value={rejectionInfo.note} fullWidth />}
             </DetailFieldGrid>
           </div>
@@ -1147,7 +1095,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   onChange={() => setUseExistingAccountId(duplicates[0]?.id ?? null)} className="rounded border-input" />
                 Usar cuenta existente:
               </label>
-              <select className="ml-6 mt-1 w-full max-w-[280px] sm:max-w-xs appearance-none rounded border border-input bg-background pl-2 pr-6 py-1.5 text-xs text-foreground min-h-[44px] bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px] bg-[right_6px_center] bg-no-repeat"
+              <select className="ml-6 mt-1 w-full max-w-[280px] sm:max-w-xs rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground min-h-[44px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={useExistingAccountId ?? ""}
                 onChange={(e) => { setUseExistingAccountId(e.target.value || null); setInstallationUseExisting({}); }}>
                 <option value="">Seleccionar cuenta...</option>
@@ -1510,28 +1458,28 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                           </div>
                         )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-[10px]">Días</Label>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_LABORABLES])}
-                            className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
                             Lun-Vie
                           </button>
                           <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_FINDE])}
-                            className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
                             Sáb-Dom
                           </button>
                           {WEEKDAYS.map((day) => {
                             const active = dot.dias.includes(day);
                             return (
                               <button key={day} type="button" onClick={() => toggleDotacionDay(inst._key, dotIdx, day)}
-                                className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}>
+                                className={`min-h-[32px] min-w-[32px] px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}>
                                 {WEEKDAYS_SHORT[day]}
                               </button>
                             );
                           })}
                           <button type="button" onClick={() => { const allSelected = dot.dias.length === 7; updateDotacionField(inst._key, dotIdx, "dias", allSelected ? [] : [...WEEKDAYS]); }}
-                            className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
                             {dot.dias.length === 7 ? "Ninguno" : "Todos"}
                           </button>
                         </div>
@@ -1568,30 +1516,34 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
             <p className="text-[10px] text-muted-foreground">Marca qué ítems de costo incluir en la cotización. Los montos se configuran después en el cotizador.</p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-3">
+              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
                 <span className="text-[10px] font-medium uppercase text-muted-foreground">Directos</span>
-                <div className="flex flex-wrap gap-3">
-                  {COST_GROUPS_DIRECTOS.map((g) => (
-                    <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input type="checkbox" checked={selectedCostGroups.includes(g.id)}
-                        onChange={(e) => { if (e.target.checked) setSelectedCostGroups((prev) => [...prev, g.id]); else setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); }}
-                        className="rounded border-border" />
-                      {g.label}
-                    </label>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  {COST_GROUPS_DIRECTOS.map((g) => {
+                    const active = selectedCostGroups.includes(g.id);
+                    return (
+                      <button key={g.id} type="button"
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
+                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
+                        {g.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-3">
+              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
                 <span className="text-[10px] font-medium uppercase text-muted-foreground">Indirectos</span>
-                <div className="flex flex-wrap gap-3">
-                  {COST_GROUPS_INDIRECTOS.map((g) => (
-                    <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input type="checkbox" checked={selectedCostGroups.includes(g.id)}
-                        onChange={(e) => { if (e.target.checked) setSelectedCostGroups((prev) => [...prev, g.id]); else setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); }}
-                        className="rounded border-border" />
-                      {g.label}
-                    </label>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  {COST_GROUPS_INDIRECTOS.map((g) => {
+                    const active = selectedCostGroups.includes(g.id);
+                    return (
+                      <button key={g.id} type="button"
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
+                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
+                        {g.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1632,46 +1584,48 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           {duplicateChecked && (
             <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground space-y-1">
               <p className="font-medium text-emerald-400">Verificación completada — al confirmar se creará:</p>
-              <ul className="list-disc list-inside text-muted-foreground space-y-0.5 pl-1">
-                <li>
-                  <span className="text-foreground font-medium">Cuenta:</span>{" "}
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                <Badge variant="outline" className="gap-1.5 text-[11px]">
+                  <Building2 className="h-3 w-3" />
                   {useExistingAccountId
-                    ? <><span className="text-amber-400">usar existente</span> ({duplicates.find((d) => d.id === useExistingAccountId)?.name || "cuenta seleccionada"})</>
-                    : <><span className="text-emerald-400">nueva</span> &quot;{approveForm.accountName}&quot;</>}
-                </li>
-                <li>
-                  <span className="text-foreground font-medium">Contacto:</span>{" "}
+                    ? <><span className="text-amber-400">Usar:</span> {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}</>
+                    : <><span className="text-emerald-400">Nueva:</span> {approveForm.accountName}</>}
+                </Badge>
+                <Badge variant="outline" className="gap-1.5 text-[11px]">
+                  <Users className="h-3 w-3" />
                   {existingContact
                     ? contactResolution === "use_existing"
-                      ? <><span className="text-amber-400">mantener existente</span> ({existingContact.firstName} {existingContact.lastName})</>
+                      ? <><span className="text-amber-400">Mantener:</span> {existingContact.firstName}</>
                       : contactResolution === "overwrite"
-                        ? <><span className="text-amber-400">sobrescribir</span> {existingContact.firstName} {existingContact.lastName}</>
-                        : <><span className="text-emerald-400">nuevo contacto</span></>
-                    : <><span className="text-emerald-400">nuevo</span> {approveForm.contactFirstName} {approveForm.contactLastName}</>}
-                </li>
-                <li><span className="text-foreground font-medium">Negocio:</span> &quot;{approveForm.dealTitle}&quot;</li>
+                        ? <><span className="text-amber-400">Sobrescribir:</span> {existingContact.firstName}</>
+                        : <span className="text-emerald-400">Nuevo contacto</span>
+                    : <><span className="text-emerald-400">Nuevo:</span> {approveForm.contactFirstName} {approveForm.contactLastName}</>}
+                </Badge>
+                <Badge variant="outline" className="gap-1.5 text-[11px]">
+                  <Briefcase className="h-3 w-3" />
+                  {approveForm.dealTitle}
+                </Badge>
                 {installations.filter((i) => i.name.trim()).length > 0 && (
-                  <li>
-                    <span className="text-foreground font-medium">Instalaciones:</span>{" "}
+                  <Badge variant="outline" className="gap-1.5 text-[11px]">
+                    <MapPin className="h-3 w-3" />
                     {installations.filter((i) => i.name.trim()).map((i) => i.name).join(", ")}
-                  </li>
+                  </Badge>
                 )}
-              </ul>
+              </div>
             </div>
           )}
-          <div className="flex flex-col sm:flex-row items-center justify-end gap-2">
-            <Button variant="outline" onClick={saveLeadDraft} disabled={approving || savingLead}>
-              {savingLead && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Save className="mr-2 h-4 w-4" />
+          {/* Mobile: Aprobar first (top, thumb-reachable), then others */}
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={saveLeadDraft} disabled={approving || savingLead} className="sm:order-1">
+              {savingLead ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Guardar en revisión
             </Button>
-            <Button variant="destructive" onClick={openRejectModal} disabled={approving || savingLead}>
+            <Button variant="outline" size="sm" onClick={openRejectModal} disabled={approving || savingLead} className="text-destructive hover:text-destructive sm:order-2">
               <XCircle className="mr-2 h-4 w-4" />
               Rechazar
             </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead}>
-              {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <CheckCircle2 className="mr-2 h-4 w-4" />
+            <Button onClick={approveLead} disabled={approving || savingLead} className="sm:order-3">
+              {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               {!duplicateChecked
                 ? "Verificar y aprobar"
                 : duplicates.length > 0
@@ -1769,8 +1723,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Contexto interno del rechazo..."
                 className={`w-full min-h-[80px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={3} />
             </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={rejectSendEmail} onChange={(e) => setRejectSendEmail(e.target.checked)} />
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer rounded-md border border-border px-3 py-2.5 hover:bg-muted/30 transition-colors">
+              <input type="checkbox" checked={rejectSendEmail} onChange={(e) => setRejectSendEmail(e.target.checked)} className="h-4 w-4 rounded border-input" />
               Enviar correo de respuesta
             </label>
             {rejectSendEmail && (
