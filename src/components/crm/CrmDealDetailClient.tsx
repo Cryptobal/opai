@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
@@ -234,8 +242,7 @@ export function CrmDealDetailClient({
     }
   };
 
-  const selectCn = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-  const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
+  const selectCn = "flex h-9 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const [dealProposalLink, setDealProposalLink] = useState<string | null>(deal.proposalLink || null);
   const [dealProposalSentAt, setDealProposalSentAt] = useState<string | null>(deal.proposalSentAt || null);
   const [followUpActioning, setFollowUpActioning] = useState(false);
@@ -316,6 +323,7 @@ export function CrmDealDetailClient({
   };
 
   const selectTemplate = (value: string) => {
+    if (value === "__none__") { setSelectedTemplateId(""); return; }
     setSelectedTemplateId(value);
     if (!value) return;
 
@@ -553,22 +561,23 @@ export function CrmDealDetailClient({
           label="Etapa"
           value={
             <div className="flex items-center gap-2 min-w-0">
-              <select
-                className="h-9 min-h-[44px] min-w-0 max-w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
+              <Select
                 value={currentStage?.id || ""}
-                onChange={(event) => updateStage(event.target.value)}
+                onValueChange={(value) => updateStage(value)}
                 disabled={changingStage || pipelineStages.length === 0}
-                aria-label={`Cambiar etapa de ${deal.title}`}
               >
-                {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
-                  <option value={currentStage.id}>{currentStage.name}</option>
-                )}
-                {pipelineStages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>{stage.name}</option>
-                ))}
-                {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
-              </select>
+                <SelectTrigger className="h-8 text-xs min-w-0 max-w-[180px]">
+                  <SelectValue placeholder="Sin etapas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
+                    <SelectItem value={currentStage.id}>{currentStage.name}</SelectItem>
+                  )}
+                  {pipelineStages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
           }
@@ -746,17 +755,17 @@ export function CrmDealDetailClient({
                   <div key={sequence} className="flex-1 flex flex-col items-center relative">
                     {/* Connector line */}
                     {idx > 0 && (
-                      <div className={`absolute top-[9px] right-1/2 w-full h-px ${lineColor}`} />
+                      <div className={`absolute top-[7px] right-1/2 w-full h-px ${lineColor}`} />
                     )}
 
                     {/* Dot */}
-                    <div className={`relative z-10 h-[18px] w-[18px] rounded-full ${dotColor} flex items-center justify-center`}>
-                      {isSent && <Check className="h-2.5 w-2.5 text-white" />}
-                      {isFailed && <AlertCircle className="h-2.5 w-2.5 text-white" />}
+                    <div className={`relative z-10 h-3.5 w-3.5 rounded-full ${dotColor} flex items-center justify-center`}>
+                      {isSent && <Check className="h-2 w-2 text-white" />}
+                      {isFailed && <AlertCircle className="h-2 w-2 text-white" />}
                     </div>
 
                     {/* Label */}
-                    <p className="mt-1.5 text-[11px] font-medium text-foreground">S{sequence}</p>
+                    <p className="mt-1 text-[10px] font-medium text-foreground">S{sequence}</p>
 
                     {/* Date / status */}
                     <p className="text-[10px] text-muted-foreground leading-tight text-center">
@@ -773,7 +782,7 @@ export function CrmDealDetailClient({
                     {isPending && log && (
                       <button
                         type="button"
-                        className="mt-1 text-[10px] text-primary hover:underline disabled:opacity-50"
+                        className="mt-0.5 text-[10px] text-primary hover:underline disabled:opacity-50"
                         disabled={sendingLogId === log.id}
                         onClick={() => handleSendFollowUpNow(log.id)}
                       >
@@ -801,8 +810,17 @@ export function CrmDealDetailClient({
                   <div className="mt-2 space-y-1">
                     {localFollowUpLogsDesc.map((log) => {
                       const statusMeta = getFollowUpStatusMeta(log.status);
+                      const borderColor = log.status === "sent"
+                        ? "border-l-emerald-500"
+                        : log.status === "failed"
+                          ? "border-l-red-500"
+                          : log.status === "pending"
+                            ? "border-l-blue-500"
+                            : log.status === "paused"
+                              ? "border-l-amber-500"
+                              : "border-l-muted";
                       return (
-                        <div key={log.id} className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-xs hover:bg-muted/40 transition-colors">
+                        <div key={log.id} className={cn("flex items-center justify-between gap-3 rounded-md border-l-2 px-2.5 py-1.5 text-xs hover:bg-muted/40 transition-colors", borderColor)}>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="font-medium shrink-0">S{log.sequence}</span>
                             <span className="text-muted-foreground truncate">
@@ -1054,7 +1072,7 @@ export function CrmDealDetailClient({
 
       {/* ── Email Compose Modal ── */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enviar correo</DialogTitle>
             <DialogDescription>Se enviará desde tu cuenta Gmail conectada. Tu firma se adjuntará automáticamente.</DialogDescription>
@@ -1062,31 +1080,34 @@ export function CrmDealDetailClient({
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Template</Label>
-              <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
-                <option value="">Sin plantilla</option>
-                {docTemplatesMail.length > 0 &&
-                  docTemplatesMail.map((t) => (
-                    <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
-                  ))
-                }
-              </select>
+              <Select value={selectedTemplateId} onValueChange={(v) => selectTemplate(v)} disabled={sending}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin plantilla" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin plantilla</SelectItem>
+                  {docTemplatesMail.map((t) => (
+                    <SelectItem key={t.id} value={`doc:${t.id}`}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Para</Label>
                 {!showCcBcc && <button type="button" onClick={() => setShowCcBcc(true)} className="text-[11px] text-primary hover:underline">CC / BCC</button>}
               </div>
-              <input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="correo@cliente.com" disabled={sending} />
+              <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="correo@cliente.com" disabled={sending} />
             </div>
             {showCcBcc && (
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label className="text-xs">CC</Label><input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="copia@empresa.com" disabled={sending} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">BCC</Label><input value={emailBcc} onChange={(e) => setEmailBcc(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="oculto@empresa.com" disabled={sending} /></div>
+                <div className="space-y-1.5"><Label className="text-xs">CC</Label><Input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} placeholder="copia@empresa.com" disabled={sending} /></div>
+                <div className="space-y-1.5"><Label className="text-xs">BCC</Label><Input value={emailBcc} onChange={(e) => setEmailBcc(e.target.value)} placeholder="oculto@empresa.com" disabled={sending} /></div>
               </div>
             )}
             <div className="space-y-1.5">
               <Label className="text-xs">Asunto</Label>
-              <input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className={`h-9 w-full rounded-md border px-3 text-sm ${inputCn}`} placeholder="Asunto" disabled={sending} />
+              <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Asunto" disabled={sending} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Mensaje</Label>
@@ -1115,15 +1136,15 @@ export function CrmDealDetailClient({
           <div className="grid gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Título *</Label>
-              <Input value={editDealForm.title} onChange={(e) => setEditDealForm((p) => ({ ...p, title: e.target.value }))} className={inputCn} placeholder="Nombre del negocio" />
+              <Input value={editDealForm.title} onChange={(e) => setEditDealForm((p) => ({ ...p, title: e.target.value }))} placeholder="Nombre del negocio" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Monto</Label>
-              <Input value={editDealForm.amount} onChange={(e) => setEditDealForm((p) => ({ ...p, amount: e.target.value }))} className={inputCn} placeholder="0" />
+              <Input value={editDealForm.amount} onChange={(e) => setEditDealForm((p) => ({ ...p, amount: e.target.value }))} placeholder="0" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Link propuesta</Label>
-              <Input value={editDealForm.proposalLink} onChange={(e) => setEditDealForm((p) => ({ ...p, proposalLink: e.target.value }))} className={inputCn} placeholder="https://..." />
+              <Input value={editDealForm.proposalLink} onChange={(e) => setEditDealForm((p) => ({ ...p, proposalLink: e.target.value }))} placeholder="https://..." />
             </div>
           </div>
           <DialogFooter>
