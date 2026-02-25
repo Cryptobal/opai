@@ -1090,97 +1090,176 @@ function StaffingSection({
         
       </div>
 
-      {/* Puestos table */}
+      {/* Puestos */}
       {hasPuestos ? (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {installation.puestosActivos!.map((item) => {
-                const cargoName = item.cargo?.name ?? "—";
-                const rolName = item.rol?.name ?? "—";
-                const salary = Number(item.baseSalary ?? 0);
-                return (
-                  <tr key={item.id} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{item.name}</div>
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2 min-w-0">
+            {installation.puestosActivos!.map((item) => {
+              const cargoName = item.cargo?.name ?? "—";
+              const rolName = item.rol?.name ?? "—";
+              const salary = Number(item.baseSalary ?? 0);
+              const ss = (item as any).salaryStructure;
+              const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
+              const startH = parseInt(item.shiftStart.split(":")[0], 10);
+              const isNight = startH >= 18 || startH < 6;
+              return (
+                <div key={item.id} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm truncate">{item.name}</p>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${
+                          isNight
+                            ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                            : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                        }`}>
+                          {isNight ? "Noche" : "Día"}
+                        </span>
+                      </div>
                       {item.puestoTrabajo && (
-                        <div className="text-[10px] text-muted-foreground">{item.puestoTrabajo.name}</div>
+                        <p className="text-[10px] text-muted-foreground">{item.puestoTrabajo.name}</p>
                       )}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{cargoName} / {rolName}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <span>{item.shiftStart} - {item.shiftEnd}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">{cargoName} / {rolName}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)} title="Editar">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteConfirm({ open: true, id: item.id, name: item.name })}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{item.shiftStart} - {item.shiftEnd}</span>
+                    <span>Dotación: {item.requiredGuards}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Base: </span>
+                      <span className="font-medium">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Líquido: </span>
+                      {net > 0
+                        ? <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[10px] px-2 w-full"
+                    onClick={() => setDeactivateConfirm({ open: true, id: item.id, name: item.name })}
+                  >
+                    Desactivar
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {installation.puestosActivos!.map((item) => {
+                  const cargoName = item.cargo?.name ?? "—";
+                  const rolName = item.rol?.name ?? "—";
+                  const salary = Number(item.baseSalary ?? 0);
+                  return (
+                    <tr key={item.id} className="border-b border-border/60 last:border-0">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{item.name}</div>
+                        {item.puestoTrabajo && (
+                          <div className="text-[10px] text-muted-foreground">{item.puestoTrabajo.name}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{cargoName} / {rolName}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span>{item.shiftStart} - {item.shiftEnd}</span>
+                          {(() => {
+                            const startH = parseInt(item.shiftStart.split(":")[0], 10);
+                            const isNight = startH >= 18 || startH < 6;
+                            return (
+                              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+                                isNight
+                                  ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                                  : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                              }`}>
+                                {isNight ? "Noche" : "Día"}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">{item.requiredGuards}</td>
+                      <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
+                      <td className="px-3 py-2 text-right">
                         {(() => {
-                          const startH = parseInt(item.shiftStart.split(":")[0], 10);
-                          const isNight = startH >= 18 || startH < 6;
-                          return (
-                            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                              isNight
-                                ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
-                                : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                            }`}>
-                              {isNight ? "Noche" : "Día"}
-                            </span>
-                          );
+                          const ss = (item as any).salaryStructure;
+                          const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
+                          if (net > 0) return <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>;
+                          return <span className="text-muted-foreground">—</span>;
                         })()}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right">{item.requiredGuards}</td>
-                    <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
-                    <td className="px-3 py-2 text-right">
-                      {(() => {
-                        const ss = (item as any).salaryStructure;
-                        const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                        if (net > 0) return <span className="text-emerald-400 font-medium">${net.toLocaleString("es-CL")}</span>;
-                        return <span className="text-muted-foreground">—</span>;
-                      })()}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)} title="Editar">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-[10px] px-2"
-                          onClick={() => setDeactivateConfirm({ open: true, id: item.id, name: item.name })}
-                          title="Desactivar"
-                        >
-                          Desactivar
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm({ open: true, id: item.id, name: item.name })}
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)} title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px] px-2"
+                            onClick={() => setDeactivateConfirm({ open: true, id: item.id, name: item.name })}
+                            title="Desactivar"
+                          >
+                            Desactivar
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteConfirm({ open: true, id: item.id, name: item.name })}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <EmptyState icon={<StaffingIcon className="h-8 w-8" />} title="Sin dotación activa" description="Aún no hay puestos activos. Usa el botón para agregar uno." compact />
       )}
@@ -1189,7 +1268,27 @@ function StaffingSection({
       {installation.puestosHistorial && installation.puestosHistorial.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Historial de puestos</p>
-          <div className="overflow-x-auto rounded-lg border border-border/50">
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2 min-w-0">
+            {installation.puestosHistorial.map((item) => {
+              const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+              const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+              return (
+                <div key={item.id} className="rounded-lg border border-border/50 p-3 space-y-1">
+                  <p className="font-medium text-sm text-muted-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{item.shiftStart} - {item.shiftEnd}</span>
+                    <span>{from} → {until}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-border/50">
             <table className="w-full text-sm">
               <thead className="bg-muted/30">
                 <tr>
