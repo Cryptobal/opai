@@ -56,18 +56,9 @@ function isTimestampValid(timestamp: string, maxAgeMinutes: number = 720): boole
     const now = Date.now();
     const diffMinutes = (now - requestTime) / (1000 * 60);
     
-    // Logs para debugging
-    console.log('⏰ Timestamp validation:');
-    console.log('  - Received timestamp:', timestamp);
-    console.log('  - Parsed as (UTC):', new Date(requestTime).toISOString());
-    console.log('  - Server time (UTC):', new Date(now).toISOString());
-    console.log('  - Diff (minutes):', diffMinutes.toFixed(2));
-    console.log('  - Max age (minutes):', maxAgeMinutes);
-    
     // Permitir timestamps con amplio margen (timezone differences)
     // Acepta: -60 minutos (futuro) hasta +720 minutos (pasado) = 12 horas
     const isValid = diffMinutes >= -60 && diffMinutes <= maxAgeMinutes;
-    console.log('  - Valid:', isValid);
     
     return isValid;
   } catch (error) {
@@ -106,10 +97,6 @@ export async function POST(request: NextRequest) {
       // Verificar signature usando el body RAW tal como llega de Zoho
       if (verifyHmacSignature(bodyText, timestamp, signature, secret)) {
         console.log('✅ HMAC signature válida');
-        
-        // Log timestamp para debug pero NO rechazar por timestamp
-        // (Zoho puede tener timezone diferente y la signature ya valida la autenticidad)
-        isTimestampValid(timestamp); // Solo para logs
         
         authenticated = true;
       } else {
