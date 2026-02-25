@@ -83,7 +83,7 @@ export default function PayrollParameters() {
       <div className="flex items-center justify-between">
         <PageHeader title="Parámetros Legales Chile" />
         <Badge variant="default" className="gap-1.5 text-xs">
-          <Calendar className="h-3 w-3 text-white" />
+          <Calendar className="h-3 w-3" />
           {parameters.effective_from}
         </Badge>
       </div>
@@ -368,14 +368,14 @@ export default function PayrollParameters() {
         {data.family_allowance?.tranches ? (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-2 font-medium">Tramo</th>
-                  <th className="pb-2 font-medium">Renta Desde</th>
-                  <th className="pb-2 font-medium">Renta Hasta</th>
-                  <th className="pb-2 font-medium text-right">Por Carga</th>
-                  <th className="pb-2 font-medium text-right">Maternal</th>
-                  <th className="pb-2 font-medium text-right">Invalidez</th>
+              <thead className="bg-muted/30 sticky top-0">
+                <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">Tramo</th>
+                  <th className="px-3 py-2 font-medium">Renta Desde</th>
+                  <th className="px-3 py-2 font-medium">Renta Hasta</th>
+                  <th className="px-3 py-2 font-medium text-right">Por Carga</th>
+                  <th className="px-3 py-2 font-medium text-right">Maternal</th>
+                  <th className="px-3 py-2 font-medium text-right">Invalidez</th>
                 </tr>
               </thead>
               <tbody>
@@ -414,14 +414,14 @@ export default function PayrollParameters() {
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="pb-2 font-medium">Tramo</th>
-                <th className="pb-2 font-medium">Desde (CLP)</th>
-                <th className="pb-2 font-medium">Hasta (CLP)</th>
-                <th className="pb-2 font-medium text-right">Factor</th>
-                <th className="pb-2 font-medium text-right">Rebaja (CLP)</th>
-                <th className="pb-2 font-medium text-right">Tasa Efectiva Máx.</th>
+            <thead className="bg-muted/30 sticky top-0">
+              <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2 font-medium">Tramo</th>
+                <th className="px-3 py-2 font-medium">Desde (CLP)</th>
+                <th className="px-3 py-2 font-medium">Hasta (CLP)</th>
+                <th className="px-3 py-2 font-medium text-right">Factor</th>
+                <th className="px-3 py-2 font-medium text-right">Rebaja (CLP)</th>
+                <th className="px-3 py-2 font-medium text-right">Tasa Efectiva Máx.</th>
               </tr>
             </thead>
             <tbody>

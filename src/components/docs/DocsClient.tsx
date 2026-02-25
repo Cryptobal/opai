@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/opai";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
@@ -112,9 +114,9 @@ export function DocsClient() {
 
   const kpis = [
     { label: "Total", value: totalCount, active: !filterStatus, onClick: () => setFilterStatus(null) },
-    { label: "Activos", value: activeCount, active: filterStatus === "active", onClick: () => setFilterStatus(filterStatus === "active" ? null : "active"), color: "text-green-600" },
-    { label: "Por Vencer", value: expiringCount, active: filterStatus === "expiring", onClick: () => setFilterStatus(filterStatus === "expiring" ? null : "expiring"), color: "text-orange-600" },
-    { label: "Borradores", value: draftCount, active: filterStatus === "draft", onClick: () => setFilterStatus(filterStatus === "draft" ? null : "draft"), color: "text-gray-600" },
+    { label: "Activos", value: activeCount, active: filterStatus === "active", onClick: () => setFilterStatus(filterStatus === "active" ? null : "active"), color: "text-emerald-400" },
+    { label: "Por Vencer", value: expiringCount, active: filterStatus === "expiring", onClick: () => setFilterStatus(filterStatus === "expiring" ? null : "expiring"), color: "text-amber-400" },
+    { label: "Borradores", value: draftCount, active: filterStatus === "draft", onClick: () => setFilterStatus(filterStatus === "draft" ? null : "draft"), color: "text-muted-foreground" },
   ];
 
   const deleteDocument = async (id: string) => {
@@ -137,16 +139,16 @@ export function DocsClient() {
             key={kpi.label}
             type="button"
             onClick={kpi.onClick}
-            className={`rounded-xl border p-4 text-left transition-all hover:shadow-sm ${
+            className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
               kpi.active
                 ? "border-primary bg-primary/5 ring-1 ring-primary"
                 : "border-border bg-card hover:border-primary/30"
             }`}
           >
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {kpi.label}
             </p>
-            <p className={`text-2xl font-bold mt-1 ${kpi.color || ""}`}>
+            <p className={`text-lg font-semibold font-mono tracking-tight mt-1 ${kpi.color || ""}`}>
               {kpi.value}
             </p>
           </button>
@@ -157,12 +159,12 @@ export function DocsClient() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
+          <Input
             type="text"
             placeholder="Buscar por título, nombre o RUT del guardia..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="pl-9"
           />
         </div>
 
@@ -224,34 +226,32 @@ export function DocsClient() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-20 rounded-xl border border-border bg-card animate-pulse"
+              className="h-20 rounded-lg border border-border bg-card animate-pulse"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl bg-muted/20">
-          <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">
-            No hay documentos
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Crea un nuevo documento o genera uno desde un template
-          </p>
-          <Button
-            size="sm"
-            className="mt-4 gap-1.5"
-            onClick={() => router.push("/opai/documentos/nuevo")}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Crear Documento
-          </Button>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-10 w-10" />}
+          title="No hay documentos"
+          description="Crea un nuevo documento o genera uno desde un template"
+          action={
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => router.push("/opai/documentos/nuevo")}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Crear Documento
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map((doc) => (
             <div
               key={doc.id}
-              className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
+              className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
               onClick={() => router.push(`/opai/documentos/${doc.id}`)}
             >
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -278,7 +278,7 @@ export function DocsClient() {
                   )}
                   {doc.expirationDate && (
                     <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-white" />
+                      <Calendar className="h-3 w-3" />
                       Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
                     </span>
                   )}
