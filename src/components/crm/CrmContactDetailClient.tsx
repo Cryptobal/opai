@@ -185,7 +185,7 @@ export function CrmContactDetailClient({
   }, []);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectCn = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectCn = "flex h-10 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   // ── Handlers ──
   const openEdit = () => {
@@ -502,9 +502,10 @@ export function CrmContactDetailClient({
                 }
                 href={`/crm/deals/${deal.id}`}
                 actions={
-                  <div onClick={(e) => e.preventDefault()}>
+                  <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
                     <select
-                      className="h-7 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                      className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
                       value={deal.stage?.id || ""}
                       onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
                       disabled={changingStageDealId === deal.id || pipelineStages.length === 0}

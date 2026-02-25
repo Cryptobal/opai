@@ -103,6 +103,8 @@ interface GlobalSearchProps {
   showShortcutHint?: boolean;
   /** Compact placeholder for topbar usage */
   compact?: boolean;
+  /** Called after the user selects a result and navigation starts */
+  onNavigate?: () => void;
 }
 
 export function GlobalSearch({
@@ -110,6 +112,7 @@ export function GlobalSearch({
   listenToCommandK = false,
   showShortcutHint = false,
   compact = false,
+  onNavigate,
 }: GlobalSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -179,6 +182,7 @@ export function GlobalSearch({
     setQuery("");
     setResults([]);
     setOpen(false);
+    onNavigate?.();
     router.push(result.href);
   };
 

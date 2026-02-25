@@ -9,7 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmInstallationsListClient } from "@/components/crm";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 export default async function CrmInstallationsPage() {
   const session = await auth();
@@ -80,7 +79,6 @@ export default async function CrmInstallationsPage() {
         title="Instalaciones"
         description="Sedes y ubicaciones de clientes"
       />
-      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmInstallationsListClient
         initialInstallations={initialInstallations}
         accounts={initialAccounts}

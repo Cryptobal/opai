@@ -1,8 +1,8 @@
 'use client';
 
-import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useState } from 'react';
+import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -36,10 +36,20 @@ export interface AppShellProps {
  */
 export function AppShell({ sidebar, children, userName, userEmail, userRole, className }: AppShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+
+  // Auto-close mobile search overlay on route change (safety net)
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      setIsMobileSearchOpen(false);
+    }
+  }, [pathname]);
 
   const handleMobileRefresh = () => {
     if (isRefreshing) return;
@@ -175,7 +185,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
       {isMobileSearchOpen && (
         <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <GlobalSearch compact className="flex-1" />
+            <GlobalSearch compact className="flex-1" onNavigate={() => setIsMobileSearchOpen(false)} />
             <button
               type="button"
               className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
