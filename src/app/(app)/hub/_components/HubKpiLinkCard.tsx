@@ -24,7 +24,7 @@ export function HubKpiLinkCard({
         trendValue={trendValue}
         variant={variant}
         titleInfoTooltip={titleInfoTooltip}
-        className="h-full cursor-pointer transition-all hover:ring-2 hover:ring-primary/25"
+        className="h-full cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-primary/25 hover:shadow-md hover:-translate-y-0.5"
       />
     </Link>
   );

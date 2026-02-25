@@ -155,7 +155,7 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 border-r border-border bg-card flex flex-col transition-[width] duration-200 ease-out",
+        "fixed left-0 top-0 z-30 border-r border-border/60 bg-gradient-to-b from-card to-card/80 flex flex-col transition-[width] duration-200 ease-out",
         showCloseButton ? "h-full max-h-full" : "h-screen",
         collapsed ? "w-[72px]" : "w-64",
         className
@@ -164,7 +164,7 @@ export function AppSidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex h-14 items-center border-b border-border shrink-0 transition-[padding] duration-200",
+          "flex h-14 items-center border-b border-transparent shrink-0 transition-[padding] duration-200 relative after:absolute after:bottom-0 after:left-3 after:right-3 after:h-px after:bg-gradient-to-r after:from-primary/30 after:via-border after:to-transparent",
           collapsed ? "justify-center px-0" : "gap-2.5 px-4",
           showCloseButton && "justify-between pr-2"
         )}
@@ -240,19 +240,19 @@ export function AppSidebar({
                       ? "gap-3 px-3 py-2.5"
                       : "gap-3 px-3 py-2",
                     isModuleActive
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                      ? "bg-primary/15 text-primary font-medium shadow-sm"
+                      : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
                   )}
                 >
                   {isModuleActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-primary/60" />
                   )}
                   <span className="relative shrink-0">
                     <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
                     {item.badge != null && item.badge > 0 && (
                       <span
                         className={cn(
-                          "absolute rounded-full bg-destructive text-destructive-foreground",
+                          "absolute rounded-full bg-destructive text-destructive-foreground animate-pulse",
                           collapsed
                             ? "top-0 right-0 h-2 w-2 -translate-y-0.5 translate-x-0.5"
                             : "top-0 right-0 min-w-[18px] h-[18px] text-[10px] font-semibold flex items-center justify-center px-1 -translate-y-1/2 translate-x-1/2"
@@ -281,8 +281,8 @@ export function AppSidebar({
                       ? "gap-3 px-3 py-2.5"
                       : "gap-3 px-3 py-2",
                     isModuleActive
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                      ? "bg-primary/15 text-primary font-medium shadow-sm"
+                      : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
                   )}
                   onMouseEnter={(e) => {
                     if (!showFlyout) return;
@@ -291,7 +291,7 @@ export function AppSidebar({
                   onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
                 >
                   {isModuleActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-primary/60" />
                   )}
                   <Link
                     href={item.href}
@@ -581,7 +581,7 @@ export function AppSidebar({
       {/* User footer */}
       <div
         className={cn(
-          "border-t border-border shrink-0 transition-[padding] duration-200 mt-auto",
+          "border-t border-border/60 shrink-0 transition-[padding] duration-200 mt-auto",
           collapsed ? "p-2" : showCloseButton ? "p-3.5" : "p-3"
         )}
       >
@@ -601,7 +601,7 @@ export function AppSidebar({
           >
             <div
               className={cn(
-                "flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary",
+                "flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary ring-2 ring-primary/20",
                 showCloseButton ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"
               )}
             >
@@ -649,7 +649,7 @@ export function AppSidebar({
             <span className={cn(collapsed ? "" : "ml-auto")}>
               <button
                 type="button"
-                className="hidden lg:inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="hidden lg:inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                 onClick={onToggleSidebar}
                 aria-label={isSidebarOpen ? 'Contraer navegación' : 'Expandir navegación'}
               >

@@ -100,7 +100,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
       {/* ── Mobile topbar ── */}
       {sidebar && (
         <header
-          className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-border bg-card/95 py-2 backdrop-blur lg:hidden"
+          className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-border/60 bg-card/95 py-2 shadow-sm backdrop-blur lg:hidden"
           style={{
             paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
             paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
@@ -115,7 +115,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             <NotificationBell compact />
             <button
               type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
               onClick={() => setIsMobileSearchOpen(true)}
               aria-label="Buscar"
             >
@@ -123,7 +123,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             </button>
             <button
               type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleMobileRefresh}
               disabled={isRefreshing}
               aria-label="Actualizar pantalla"
@@ -132,7 +132,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             </button>
             <button
               type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
               onClick={() => setIsMobileOpen(true)}
               aria-label="Abrir menú"
             >
@@ -207,7 +207,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
         )}
       >
         {/* Topbar actions desktop — búsqueda + campana + avatar */}
-        <div className="hidden lg:flex sticky top-0 z-20 items-center justify-end gap-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-2 shrink-0">
+        <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center justify-end gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
         <main className="flex-1 min-w-0 overflow-x-hidden">

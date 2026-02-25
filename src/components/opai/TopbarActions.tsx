@@ -44,7 +44,10 @@ export function TopbarActions({
   return (
     <div className={cn("flex items-center gap-2", className)}>
       {/* Buscador global */}
-      <GlobalSearch listenToCommandK showShortcutHint compact className="w-64" />
+      <GlobalSearch listenToCommandK showShortcutHint compact className="w-72" />
+
+      {/* Separator */}
+      <div className="h-6 w-px bg-border/60 shrink-0" />
 
       {/* Toggle tema claro/oscuro */}
       <ThemeToggle />

@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/opai';
 import { getGreeting } from '../_lib/hub-utils';
 import type { HubGreetingProps } from '../_lib/hub-types';
 
@@ -50,9 +49,12 @@ export function HubGreeting({
       : 'Centro de control operacional.';
 
   return (
-    <PageHeader
-      title={`${greeting}, ${firstName}`}
-      description={subtitle}
-    />
+    <div className="rounded-xl border border-primary/10 bg-gradient-to-r from-primary/5 via-transparent to-primary/3 p-5 sm:p-6">
+      <h1 className="text-2xl font-bold tracking-tight sm:text-2xl">
+        {greeting}, {firstName}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      <div className="mt-3 h-1 w-20 rounded-full bg-gradient-to-r from-primary to-primary/40" />
+    </div>
   );
 }

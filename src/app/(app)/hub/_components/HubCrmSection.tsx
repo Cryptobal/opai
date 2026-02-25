@@ -116,23 +116,31 @@ export function HubCrmSection({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {crmMetrics.funnel.map((step) => (
-              <Link
-                key={step.label}
-                href={step.href}
-                className="rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/40"
-              >
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  {step.label}
-                </p>
-                <p className="mt-1 text-2xl font-semibold">{step.value}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {step.rateFromPrev == null
-                    ? 'Base del periodo'
-                    : `${step.rateFromPrev}% desde etapa anterior`}
-                </p>
-              </Link>
-            ))}
+            {crmMetrics.funnel.map((step, idx) => {
+              const stepColors = ['bg-sky-500', 'bg-blue-500', 'bg-purple-500', 'bg-emerald-500'];
+              return (
+                <Link
+                  key={step.label}
+                  href={step.href}
+                  className="group rounded-lg border border-border bg-card p-3 transition-all hover:bg-accent/40 hover:shadow-sm relative overflow-hidden"
+                >
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${stepColors[idx % stepColors.length]}`} />
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1">
+                    {step.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">{step.value}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {step.rateFromPrev == null
+                      ? 'Base del periodo'
+                      : (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="font-medium text-foreground">{step.rateFromPrev}%</span> desde etapa anterior
+                        </span>
+                      )}
+                  </p>
+                </Link>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
