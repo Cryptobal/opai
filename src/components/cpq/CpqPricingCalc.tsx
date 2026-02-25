@@ -161,15 +161,15 @@ export function CpqPricingCalc({
 
       <div className="grid gap-0">
         {/* Directos */}
-        <div className="text-[10px] font-semibold uppercase text-blue-300/80 border-b border-blue-500/20 pb-0.5 mb-0.5">Directos</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 border-b border-blue-500/20 pb-0.5 mb-0.5">Directos</div>
         <CostRow label="Mano de obra" value={directCosts} />
-        <CostRow label={`Feriados (${summary.totalGuards} guardias)`} value={holidayCosts} className="text-emerald-300" />
+        <CostRow label={`Feriados (${summary.totalGuards} guardias)`} value={holidayCosts} className="text-emerald-700 dark:text-emerald-400" />
         <CostRow label="Uniformes" value={uniformCosts} />
         <CostRow label="Exámenes" value={examCosts} />
         <CostRow label="Alimentación" value={mealCosts} />
 
         {/* Indirectos */}
-        <div className="text-[10px] font-semibold uppercase text-teal-300/80 border-b border-teal-500/20 pb-0.5 mb-0.5 mt-1.5">Indirectos</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 border-b border-teal-500/20 pb-0.5 mb-0.5 mt-1.5">Indirectos</div>
         <CostRow label="Equipos" value={operationalCosts} />
         <CostRow label="Transporte" value={transportCosts} />
         <CostRow label="Vehículos" value={vehicleCosts} />
@@ -182,12 +182,12 @@ export function CpqPricingCalc({
         </div>
 
         {/* Porcentuales */}
-        <div className="text-[10px] font-semibold uppercase text-amber-300/80 border-b border-amber-500/20 pb-0.5 mb-0.5 mt-1.5">Porcentuales</div>
-        <div className="flex justify-between items-center py-0.5 text-amber-300">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 border-b border-amber-500/20 pb-0.5 mb-0.5 mt-1.5">Porcentuales</div>
+        <div className="flex justify-between items-center py-0.5 text-amber-700 dark:text-amber-400">
           <span className="text-[11px]">Financiero ({formatNumber(effectiveFinancialRatePct, { minDecimals: 2, maxDecimals: 2 })}%)</span>
           <span className="font-mono text-[11px]">{formatCurrency(financialAmount)}</span>
         </div>
-        <div className="flex justify-between items-center py-0.5 text-purple-300">
+        <div className="flex justify-between items-center py-0.5 text-purple-700 dark:text-purple-400">
           <span className="text-[11px]">Póliza ({formatNumber(effectivePolicyRatePct, { minDecimals: 2, maxDecimals: 2 })}%)</span>
           <span className="font-mono text-[11px]">{formatCurrency(policyAmount)}</span>
         </div>
@@ -198,7 +198,7 @@ export function CpqPricingCalc({
         </div>
 
         {/* Margen */}
-        <div className="flex items-center justify-between gap-2 text-emerald-300 mt-1.5 py-1">
+        <div className="flex items-center justify-between gap-2 text-emerald-700 dark:text-emerald-400 mt-1.5 py-1">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold">Margen</span>
             <Input
@@ -215,7 +215,7 @@ export function CpqPricingCalc({
                 setMarginDraft(formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 }));
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="h-7 w-16 text-xs bg-card/80 text-foreground border-emerald-600/40 placeholder:text-muted-foreground"
+              className="h-7 w-16 text-xs bg-card/80 text-foreground border-emerald-500/40 placeholder:text-muted-foreground"
             />
             <span className="text-[11px]">%</span>
             <Button
@@ -233,7 +233,7 @@ export function CpqPricingCalc({
         </div>
 
         {/* Sale price highlight */}
-        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-1.5 mt-1 text-sm font-bold text-emerald-400">
+        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-1.5 mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-400">
           <span>Venta mensual</span>
           <span className="font-mono">{formatCurrency(salePriceMonthly)}</span>
         </div>
@@ -243,7 +243,7 @@ export function CpqPricingCalc({
           <div className="mt-1.5 border-t border-emerald-500/20 pt-1">
             <button
               type="button"
-              className="text-[10px] font-semibold uppercase text-emerald-300/80 hover:text-emerald-300 transition-colors"
+              className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
               onClick={() => setShowHourly(!showHourly)}
             >
               {showHourly ? "▾" : "▸"} Valor hora por puesto
@@ -259,7 +259,7 @@ export function CpqPricingCalc({
                       <span className="text-muted-foreground truncate">
                         {positionName} ({formatNumber(weight * 100, { minDecimals: 1, maxDecimals: 1 })}%)
                       </span>
-                      <span className="font-mono text-emerald-300 shrink-0 ml-2">{formatCurrency(hourlyRate)}</span>
+                      <span className="font-mono text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">{formatCurrency(hourlyRate)}</span>
                     </div>
                   );
                 })}

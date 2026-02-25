@@ -126,10 +126,10 @@ export function CpqPositionCard({
             >
               {roleName}
             </Badge>
-            <Badge variant="outline" className={cn(compactBadge, "border-emerald-500/30 bg-emerald-500/15 text-emerald-300")}>
+            <Badge variant="outline" className={cn(compactBadge, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
               {position.numGuards}x{position.numPuestos || 1}
             </Badge>
-            <Badge variant="outline" className={cn(compactBadge, "border-amber-500/30 bg-amber-500/15 text-amber-300")}>
+            <Badge variant="outline" className={cn(compactBadge, "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400")}>
               {formatWeekdaysShort(position.weekdays)}
             </Badge>
             <Badge
@@ -137,8 +137,8 @@ export function CpqPositionCard({
               className={cn(
                 compactBadge,
                 shiftType === "night"
-                  ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
-                  : "border-yellow-500/30 bg-yellow-500/15 text-yellow-300"
+                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400"
+                  : "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
               )}
             >
               {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}

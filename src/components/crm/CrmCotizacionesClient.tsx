@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
+import { KpiCard } from "@/components/opai";
 import { FileText, ChevronRight, Plus, Loader2 } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -38,9 +39,9 @@ type AccountRow = {
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   draft: { label: "Borrador", className: "" },
-  sent: { label: "Enviada", className: "border-blue-500/30 text-blue-400" },
-  approved: { label: "Aprobada", className: "border-emerald-500/30 text-emerald-400" },
-  rejected: { label: "Rechazada", className: "border-red-500/30 text-red-400" },
+  sent: { label: "Enviada", className: "border-blue-500/30 text-blue-600 dark:text-blue-400" },
+  approved: { label: "Aprobada", className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400" },
+  rejected: { label: "Rechazada", className: "border-red-500/30 text-red-600 dark:text-red-400" },
 };
 
 export function CrmCotizacionesClient({
@@ -127,10 +128,10 @@ export function CrmCotizacionesClient({
     <div className="space-y-4">
       {/* KPI summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryCard label="Total" value={counts.total} />
-        <SummaryCard label="Borradores" value={counts.draft} />
-        <SummaryCard label="Enviadas" value={counts.sent} className="text-blue-400" />
-        <SummaryCard label="Aprobadas" value={counts.approved} className="text-emerald-400" />
+        <KpiCard title="Total" value={String(counts.total)} size="sm" />
+        <KpiCard title="Borradores" value={String(counts.draft)} size="sm" variant="amber" />
+        <KpiCard title="Enviadas" value={String(counts.sent)} size="sm" variant="blue" />
+        <KpiCard title="Aprobadas" value={String(counts.approved)} size="sm" variant="emerald" />
       </div>
 
       {/* ── Toolbar ── */}
@@ -224,16 +225,16 @@ function QuoteListRow({ quote }: { quote: QuoteRow }) {
       </div>
       <div className="flex items-center gap-4 shrink-0 ml-3 text-right">
         <div className="text-xs hidden sm:block">
-          <p className="text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium">{formatCLP(Number(quote.salePriceMonthly))}</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">P. venta</p>
+          <p className="text-sm font-medium font-mono">{formatCLP(Number(quote.salePriceMonthly))}</p>
         </div>
         <div className="text-xs hidden sm:block">
-          <p className="text-muted-foreground">Costo</p>
-          <p className="text-sm">{formatCLP(Number(quote.monthlyCost))}</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Costo</p>
+          <p className="text-sm font-mono">{formatCLP(Number(quote.monthlyCost))}</p>
         </div>
         <div className="text-xs hidden sm:block">
-          <p className="text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium text-emerald-400">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Margen</p>
+          <p className="text-sm font-medium font-mono text-emerald-600 dark:text-emerald-400">
             {quote.marginPct != null
               ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
               : "—"}
@@ -267,16 +268,16 @@ function QuoteCardItem({ quote }: { quote: QuoteRow }) {
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
         <div>
-          <p className="text-[10px] text-muted-foreground">Guardias</p>
-          <p className="text-sm font-medium">{quote.totalGuards}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Guardias</p>
+          <p className="text-sm font-medium font-mono">{quote.totalGuards}</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium">{formatCLP(Number(quote.salePriceMonthly))}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P. venta</p>
+          <p className="text-sm font-medium font-mono">{formatCLP(Number(quote.salePriceMonthly))}</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium text-emerald-400">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>
+          <p className="text-sm font-medium font-mono text-emerald-600 dark:text-emerald-400">
             {quote.marginPct != null
               ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
               : "—"}
@@ -288,19 +289,3 @@ function QuoteCardItem({ quote }: { quote: QuoteRow }) {
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: number;
-  className?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${className || ""}`}>{value}</p>
-    </div>
-  );
-}

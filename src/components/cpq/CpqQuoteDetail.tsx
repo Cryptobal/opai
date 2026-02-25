@@ -12,7 +12,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Stepper } from "@/components/opai";
+import { EmptyState } from "@/components/opai/EmptyState";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
@@ -885,7 +887,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               {changingStatus ? "..." : "Borrador"}
             </Button>
           ) : (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
               {changingStatus ? "..." : "Enviada"}
             </Button>
           )}
@@ -957,10 +959,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         </div>
         <span className="text-muted-foreground/30">·</span>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-emerald-400/80">Venta</span>
-          <span className="text-xs font-bold font-mono text-emerald-400">{formatCLP(salePriceMonthly)}</span>
+          <span className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</span>
+          <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">{formatCLP(salePriceMonthly)}</span>
           {ufValue && ufValue > 0 && (
-            <span className="text-[10px] font-semibold text-emerald-400/70">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</span>
+            <span className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</span>
           )}
         </div>
       </div>
@@ -970,13 +972,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           {/* ── CRM Context: compact 2-col grid ── */}
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Cuenta</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
               <div className="flex gap-0.5">
-                <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={crmContext.accountId}
-                  onChange={(e) => {
-                    const accountId = e.target.value;
+                <Select
+                  value={crmContext.accountId || "__none__"}
+                  onValueChange={(val) => {
+                    const accountId = val === "__none__" ? "" : val;
                     const account = crmAccounts.find((a) => a.id === accountId);
                     saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
                     if (account) {
@@ -985,68 +986,85 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                     }
                   }}
                 >
-                  <option value="">Seleccionar...</option>
-                  {crmAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Seleccionar...</SelectItem>
+                    {crmAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
             <div>
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Instalación</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
               <div className="flex gap-0.5">
-                <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={crmContext.installationId}
-                  onChange={(e) => saveCrmContext({ installationId: e.target.value })}
+                <Select
+                  value={crmContext.installationId || "__none__"}
+                  onValueChange={(val) => saveCrmContext({ installationId: val === "__none__" ? "" : val })}
                   disabled={!crmContext.accountId}
                 >
-                  <option value="">Seleccionar...</option>
-                  {crmInstallations.map((i) => (
-                    <option key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Seleccionar...</SelectItem>
+                    {crmInstallations.map((i) => (
+                      <SelectItem key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
             <div>
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Contacto</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
               <div className="flex gap-0.5">
-                <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={crmContext.contactId}
-                  onChange={(e) => saveCrmContext({ contactId: e.target.value })}
+                <Select
+                  value={crmContext.contactId || "__none__"}
+                  onValueChange={(val) => saveCrmContext({ contactId: val === "__none__" ? "" : val })}
                   disabled={!crmContext.accountId}
                 >
-                  <option value="">Seleccionar...</option>
-                  {crmContacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Seleccionar...</SelectItem>
+                    {crmContacts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
             <div>
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Negocio</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
               <div className="flex gap-0.5">
-                <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={crmContext.dealId}
-                  onChange={(e) => saveCrmContext({ dealId: e.target.value })}
+                <Select
+                  value={crmContext.dealId || "__none__"}
+                  onValueChange={(val) => saveCrmContext({ dealId: val === "__none__" ? "" : val })}
                   disabled={!crmContext.accountId}
                 >
-                  <option value="">Seleccionar...</option>
-                  {crmDeals.map((d) => (
-                    <option key={d.id} value={d.id}>{d.title}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Seleccionar...</SelectItem>
+                    {crmDeals.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1168,7 +1186,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           {/* ── Date + Currency in a single compact row ── */}
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Válida hasta</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Válida hasta</Label>
               <Input
                 type="date"
                 value={quoteForm.validUntil}
@@ -1180,7 +1198,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               />
             </div>
             <div className="shrink-0">
-              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Moneda</Label>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Moneda</Label>
               <div className="flex gap-0.5">
                 {["CLP", "UF"].map((cur) => (
                   <button
@@ -1231,9 +1249,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           </div>
 
           {positions.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-4 text-center">
-              Agrega el primer puesto para comenzar.
-            </div>
+            <EmptyState
+              icon={<Users className="h-6 w-6" />}
+              title="Sin puestos"
+              description="Agrega el primer puesto para comenzar."
+              compact
+            />
           ) : (
             <div className="space-y-1.5">
               {positions.map((position) => (
@@ -1317,13 +1338,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
                       costParams?.financialEnabled
-                        ? "bg-emerald-500/15 text-emerald-300"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                         : "bg-muted/30 text-muted-foreground"
                     )}
                     onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
                     aria-pressed={costParams?.financialEnabled}
                   >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-400" : "bg-muted-foreground")} />
+                    <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
                     {costParams?.financialEnabled ? "On" : "Off"}
                   </button>
                 </div>
@@ -1366,7 +1387,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   </div>
                 </div>
                 {salePriceBase > 0 && (
-                  <div className="text-[10px] text-emerald-400">
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
                     = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
                   </div>
                 )}
@@ -1381,13 +1402,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
                       policyEnabled
-                        ? "bg-emerald-500/15 text-emerald-300"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                         : "bg-muted/30 text-muted-foreground"
                     )}
                     onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
                     aria-pressed={policyEnabled}
                   >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-400" : "bg-muted-foreground")} />
+                    <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
                     {policyEnabled ? "On" : "Off"}
                   </button>
                 </div>
@@ -1445,7 +1466,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   </div>
                 </div>
                 {policyEnabled && salePriceBase > 0 && (
-                  <div className="text-[10px] text-emerald-400">
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
                     = {formatCurrency(
                       (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
                     )}/mes
