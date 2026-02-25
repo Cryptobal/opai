@@ -73,7 +73,7 @@ function LinkBottomNav({
               key={item.key}
               href={item.href}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 transition-colors min-w-0",
+                "relative flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 transition-all min-w-0 active:scale-95",
                 compact ? "px-1.5" : "px-3",
                 isActive
                   ? "text-primary"
@@ -81,9 +81,11 @@ function LinkBottomNav({
               )}
             >
               {isActive && (
-                <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-0.5 w-4 rounded-full bg-primary" />
+                <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-primary" />
               )}
-              <Icon className={cn("shrink-0", compact ? "h-4.5 w-4.5" : "h-5 w-5")} />
+              <span className={cn("flex items-center justify-center rounded-lg", isActive && "bg-primary/10 p-1")}>
+                <Icon className={cn("shrink-0", compact ? "h-4.5 w-4.5" : "h-5 w-5")} />
+              </span>
               <span
                 className={cn(
                   "font-medium truncate max-w-full",

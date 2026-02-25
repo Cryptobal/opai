@@ -53,13 +53,24 @@ export function KpiCard({
 
   const variantBg: Record<KpiVariant, string> = {
     default: 'border-border bg-card',
-    blue: 'border-blue-500/20 bg-blue-500/5',
-    emerald: 'border-emerald-500/20 bg-emerald-500/5',
-    purple: 'border-purple-500/20 bg-purple-500/5',
-    amber: 'border-amber-500/20 bg-amber-500/5',
-    indigo: 'border-indigo-500/20 bg-indigo-500/5',
-    sky: 'border-sky-500/20 bg-sky-500/5',
-    teal: 'border-primary/20 bg-primary/5',
+    blue: 'border-blue-500/25 bg-blue-500/10',
+    emerald: 'border-emerald-500/25 bg-emerald-500/10',
+    purple: 'border-purple-500/25 bg-purple-500/10',
+    amber: 'border-amber-500/25 bg-amber-500/10',
+    indigo: 'border-indigo-500/25 bg-indigo-500/10',
+    sky: 'border-sky-500/25 bg-sky-500/10',
+    teal: 'border-primary/25 bg-primary/10',
+  };
+
+  const variantIconBg: Record<KpiVariant, string> = {
+    default: 'p-1.5 rounded-lg bg-muted text-muted-foreground',
+    blue: 'p-1.5 rounded-lg bg-blue-500/15 text-blue-400',
+    emerald: 'p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400',
+    purple: 'p-1.5 rounded-lg bg-purple-500/15 text-purple-400',
+    amber: 'p-1.5 rounded-lg bg-amber-500/15 text-amber-400',
+    indigo: 'p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400',
+    sky: 'p-1.5 rounded-lg bg-sky-500/15 text-sky-400',
+    teal: 'p-1.5 rounded-lg bg-primary/15 text-primary',
   };
 
   const variantText: Record<KpiVariant, string> = {
@@ -98,7 +109,7 @@ export function KpiCard({
           )}
         </span>
         {icon && (
-          <span className="text-muted-foreground/60">{icon}</span>
+          <span className={variantIconBg[variant]}>{icon}</span>
         )}
       </div>
       <div className={cn(valueSize, "font-semibold font-mono tracking-tight break-words", variantText[variant])}>
