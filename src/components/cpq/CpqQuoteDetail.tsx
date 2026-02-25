@@ -12,13 +12,13 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader, KpiCard, Stepper } from "@/components/opai";
+import { Stepper } from "@/components/opai";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { formatCurrency, formatWeekdaysShort, getShiftLabel } from "@/components/cpq/utils";
+import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf";
 import type {
@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -108,6 +108,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [quoteDirty, setQuoteDirty] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [docAiTab, setDocAiTab] = useState<"description" | "service">("description");
+  const [docPreviewOpen, setDocPreviewOpen] = useState(false);
 
   // CRM context
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string }[]>([]);
@@ -854,331 +856,205 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   }
 
   return (
-    <div className="space-y-3 pb-16">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Link href="/crm/cotizaciones">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <PageHeader
-            title={quote.code}
-            description={
-              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0 text-xs">
-                {/* Cuenta */}
-                {crmContext.accountId ? (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-muted-foreground">Cuenta:</span>
-                    <Link href={`/crm/accounts/${crmContext.accountId}`} className="text-primary hover:underline font-medium">
-                      {quote.clientName || "Sin cliente"}
-                    </Link>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-muted-foreground">Cuenta:</span>
-                    <span>{quote.clientName || "Sin cliente"}</span>
-                  </span>
-                )}
-                {/* Contacto */}
-                {crmContext.contactId && (() => {
-                  const c = crmContacts.find((x) => x.id === crmContext.contactId);
-                  const name = c ? `${c.firstName} ${c.lastName}`.trim() : "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Contacto:</span>
-                        <Link href={`/crm/contacts/${crmContext.contactId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-                {/* Instalación */}
-                {crmContext.installationId && (() => {
-                  const inst = crmInstallations.find((x) => x.id === crmContext.installationId);
-                  const name = inst?.name || "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Instalación:</span>
-                        <Link href={`/crm/installations/${crmContext.installationId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-                {/* Negocio */}
-                {crmContext.dealId && (() => {
-                  const deal = crmDeals.find((d) => d.id === crmContext.dealId);
-                  const name = deal?.title || "";
-                  if (!name) return null;
-                  return (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted-foreground">Negocio:</span>
-                        <Link href={`/crm/deals/${crmContext.dealId}`} className="text-primary hover:underline font-medium">
-                          {name}
-                        </Link>
-                      </span>
-                    </>
-                  );
-                })()}
-              </span>
-            }
-          />
+    <div className="space-y-2 pb-14">
+      {/* ── Compact header ── */}
+      <div className="flex items-center gap-2 min-h-[40px]">
+        <Link href="/crm/cotizaciones">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-bold truncate">{quote.code}</h1>
+            <Badge variant="outline" className="text-[10px] h-5 shrink-0">
+              {quote.status}
+            </Badge>
+          </div>
+          <span className="text-[11px] text-muted-foreground truncate block">
+            {quote.clientName || "Sin cliente"}
+            {crmContext.contactId && (() => {
+              const c = crmContacts.find((x) => x.id === crmContext.contactId);
+              return c ? ` · ${c.firstName} ${c.lastName}`.trim() : "";
+            })()}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           {quote.status === "sent" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              onClick={() => setStatusChangePending("draft")}
-              disabled={changingStatus}
-            >
-              {changingStatus ? "Guardando..." : "Volver a borrador"}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
+              {changingStatus ? "..." : "Borrador"}
             </Button>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
-              onClick={() => setStatusChangePending("sent")}
-              disabled={changingStatus}
-            >
-              {changingStatus ? "Guardando..." : "Marcar como enviada"}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
+              {changingStatus ? "..." : "Enviada"}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={handleDownloadPdf}
-            disabled={downloadingPdf || !quote}
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {downloadingPdf ? "Generando..." : "PDF"}
-            </span>
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="PDF">
+            <Download className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={handleClone}
-            disabled={cloning}
-          >
-            <Copy className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {cloning ? "Clonando..." : "Clonar"}
-            </span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={handleSendDotacionToInstallation}
-            disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}
-            title={
-              !crmContext.installationId
-                ? "Vincula una instalación para enviar la dotación"
-                : positions.length === 0
-                ? "Agrega al menos un puesto"
-                : "Enviar dotación a instalación"
-            }
-          >
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {sendingDotacion ? "Enviando..." : "Enviar dotación"}
-            </span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={refresh}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            className="gap-2"
-            onClick={() => setDeleteConfirmOpen(true)}
-            disabled={deleting || isLocked}
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {deleting ? "Eliminando..." : "Eliminar"}
-            </span>
-          </Button>
+          <SendCpqQuoteModal
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            clientName={quote.clientName || undefined}
+            disabled={!quote || positions.length === 0 || quote.status === "sent"}
+            hasAccount={!!crmContext.accountId}
+            hasContact={!!crmContext.contactId}
+            hasDeal={!!crmContext.dealId}
+            contactName={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+            })()}
+            contactEmail={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c?.email || undefined;
+            })()}
+          />
+          {/* Overflow menu for secondary actions */}
+          <div className="relative group">
+            <Button size="icon" variant="ghost" className="h-7 w-7">
+              <Layers className="h-3.5 w-3.5" />
+            </Button>
+            <div className="absolute right-0 top-full mt-1 z-30 hidden group-focus-within:block hover:block min-w-[160px] rounded-md border bg-popover p-1 shadow-md">
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleClone} disabled={cloning}>
+                <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar"}
+              </button>
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleSendDotacionToInstallation} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
+                <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
+              </button>
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={refresh}>
+                <RefreshCw className="h-3.5 w-3.5" /> Refrescar
+              </button>
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => setDeleteConfirmOpen(true)} disabled={deleting || isLocked}>
+                <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} className="mb-6" />
+      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} />
 
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
-        <KpiCard
-          title="Puestos"
-          value={positions.length}
-          variant="blue"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Guardias"
-          value={stats.totalGuards}
-          variant="purple"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Costo mensual"
-          value={formatCurrency(monthlyTotal)}
-          variant="amber"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Margen"
-          value={`${formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%`}
-          variant="emerald"
-          size="lg"
-          className="col-span-1"
-        />
-        <KpiCard
-          title="Precio venta"
-          value={formatCLP(salePriceMonthly)}
-          description={ufValue && ufValue > 0 ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue)) : undefined}
-          descriptionClassName="text-base font-semibold text-emerald-400"
-          variant="emerald"
-          size="md"
-          className="col-span-2 sm:col-span-1"
-        />
+      {/* ── KPI strip compacta ── */}
+      <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 -mx-1 px-1">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground">Puestos</span>
+          <span className="text-xs font-bold font-mono">{positions.length}</span>
+        </div>
+        <span className="text-muted-foreground/30">·</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground">Guardias</span>
+          <span className="text-xs font-bold font-mono">{stats.totalGuards}</span>
+        </div>
+        <span className="text-muted-foreground/30">·</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground">Costo</span>
+          <span className="text-xs font-bold font-mono">{formatCurrency(monthlyTotal)}</span>
+        </div>
+        <span className="text-muted-foreground/30">·</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground">Margen</span>
+          <span className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</span>
+        </div>
+        <span className="text-muted-foreground/30">·</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] uppercase text-emerald-400/80">Venta</span>
+          <span className="text-xs font-bold font-mono text-emerald-400">{formatCLP(salePriceMonthly)}</span>
+          {ufValue && ufValue > 0 && (
+            <span className="text-[10px] font-semibold text-emerald-400/70">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</span>
+          )}
+        </div>
       </div>
 
       {activeStep === 0 && (
-        <Card className="p-3 sm:p-4 space-y-3" inert={isLocked}>
-          <div className="flex items-center justify-between">
+        <div className="space-y-2" inert={isLocked}>
+          {/* ── CRM Context: compact 2-col grid ── */}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
-              <h2 className="text-sm font-semibold">Datos básicos</h2>
-              <p className="text-xs text-muted-foreground">
-                Se guarda automáticamente al avanzar.
-              </p>
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Cuenta</Label>
+              <div className="flex gap-0.5">
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={crmContext.accountId}
+                  onChange={(e) => {
+                    const accountId = e.target.value;
+                    const account = crmAccounts.find((a) => a.id === accountId);
+                    saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
+                    if (account) {
+                      setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
+                      setQuoteDirty(true);
+                    }
+                  }}
+                >
+                  <option value="">Seleccionar...</option>
+                  {crmAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant="outline" className="text-xs">
-                {quote.status}
-              </Badge>
-              <span
-                className={`text-xs ${
-                  quoteDirty ? "text-amber-400" : "text-muted-foreground"
-                }`}
-              >
-                {saveLabel}
-              </span>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Instalación</Label>
+              <div className="flex gap-0.5">
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={crmContext.installationId}
+                  onChange={(e) => saveCrmContext({ installationId: e.target.value })}
+                  disabled={!crmContext.accountId}
+                >
+                  <option value="">Seleccionar...</option>
+                  {crmInstallations.map((i) => (
+                    <option key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</option>
+                  ))}
+                </select>
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-          </div>
-
-          {/* CRM Context */}
-          <div className="space-y-3 rounded-md border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contexto CRM</h3>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Cuenta (empresa)</Label>
-                <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={crmContext.accountId}
-                    onChange={(e) => {
-                      const accountId = e.target.value;
-                      const account = crmAccounts.find((a) => a.id === accountId);
-                      saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
-                      if (account) {
-                        setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
-                        setQuoteDirty(true);
-                      }
-                    }}
-                  >
-                    <option value="">Seleccionar cuenta...</option>
-                    {crmAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                  <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Contacto</Label>
+              <div className="flex gap-0.5">
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={crmContext.contactId}
+                  onChange={(e) => saveCrmContext({ contactId: e.target.value })}
+                  disabled={!crmContext.accountId}
+                >
+                  <option value="">Seleccionar...</option>
+                  {crmContacts.map((c) => (
+                    <option key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</option>
+                  ))}
+                </select>
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Instalación</Label>
-                <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={crmContext.installationId}
-                    onChange={(e) => saveCrmContext({ installationId: e.target.value })}
-                    disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar instalación...</option>
-                    {crmInstallations.map((i) => (
-                      <option key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</option>
-                    ))}
-                  </select>
-                  <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Contacto</Label>
-                <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={crmContext.contactId}
-                    onChange={(e) => saveCrmContext({ contactId: e.target.value })}
-                    disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar contacto...</option>
-                    {crmContacts.map((c) => (
-                      <option key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</option>
-                    ))}
-                  </select>
-                  <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Negocio</Label>
-                <div className="flex gap-1">
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={crmContext.dealId}
-                    onChange={(e) => saveCrmContext({ dealId: e.target.value })}
-                    disabled={!crmContext.accountId}
-                  >
-                    <option value="">Seleccionar negocio...</option>
-                    {crmDeals.map((d) => (
-                      <option key={d.id} value={d.id}>{d.title}</option>
-                    ))}
-                  </select>
-                  <Button size="icon" variant="outline" className="h-10 w-10 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Negocio</Label>
+              <div className="flex gap-0.5">
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={crmContext.dealId}
+                  onChange={(e) => saveCrmContext({ dealId: e.target.value })}
+                  disabled={!crmContext.accountId}
+                >
+                  <option value="">Seleccionar...</option>
+                  {crmDeals.map((d) => (
+                    <option key={d.id} value={d.id}>{d.title}</option>
+                  ))}
+                </select>
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           </div>
 
-          {/* Inline Create Modal */}
+          {/* ── Inline Create Modal (unchanged logic) ── */}
           <Dialog open={!!inlineCreateType} onOpenChange={(v) => !v && setInlineCreateType(null)}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -1289,9 +1165,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Válida hasta</Label>
+          {/* ── Date + Currency in a single compact row ── */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Válida hasta</Label>
               <Input
                 type="date"
                 value={quoteForm.validUntil}
@@ -1299,19 +1176,19 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   setQuoteForm((prev) => ({ ...prev, validUntil: e.target.value }));
                   setQuoteDirty(true);
                 }}
-                className="h-10 bg-background text-sm text-foreground [color-scheme:dark]"
+                className="h-8 bg-background text-xs text-foreground [color-scheme:dark]"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Moneda</Label>
-              <div className="flex gap-1">
+            <div className="shrink-0">
+              <Label className="text-[10px] uppercase text-muted-foreground font-medium">Moneda</Label>
+              <div className="flex gap-0.5">
                 {["CLP", "UF"].map((cur) => (
                   <button
                     key={cur}
                     type="button"
                     onClick={() => saveCrmContext({ currency: cur })}
                     className={cn(
-                      "flex-1 rounded-md px-3 py-2 text-sm font-medium border transition-colors",
+                      "rounded-md px-3 h-8 text-xs font-medium border transition-colors",
                       crmContext.currency === cur
                         ? "bg-primary/15 text-primary border-primary/30"
                         : "bg-background text-muted-foreground border-input hover:bg-accent/50"
@@ -1322,56 +1199,43 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 ))}
               </div>
             </div>
-          </div>
-
-          {quoteError && (
-            <div className="text-xs text-red-400">{quoteError}</div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-2 justify-end">
             <Button
               size="sm"
-              variant="outline"
+              variant={quoteDirty ? "default" : "outline"}
+              className="h-8 px-3 text-xs shrink-0"
               onClick={() => saveQuoteBasics()}
               disabled={!quoteDirty || savingQuote}
             >
-              {savingQuote ? "Guardando..." : "Guardar"}
+              {savingQuote ? "..." : quoteDirty ? "Guardar" : "Guardado"}
             </Button>
           </div>
-        </Card>
+
+          {quoteError && (
+            <div className="text-[11px] text-red-400">{quoteError}</div>
+          )}
+        </div>
       )}
 
       {activeStep === 1 && (
-        <Card className="p-3 sm:p-4" inert={isLocked}>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-sm font-semibold">Puestos de trabajo</h2>
+        <div className="space-y-1.5" inert={isLocked}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold">Puestos</span>
               {positions.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Costo total:{" "}
-                  <span className="font-mono font-semibold text-foreground">
-                    {formatCurrency(
-                      positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0)
-                    )}
-                  </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Total: <span className="font-mono font-semibold text-foreground">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
                 </span>
               )}
-              <Badge variant="outline" className="text-xs">
-                {quote.status}
-              </Badge>
             </div>
             <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
           </div>
-          <p className="mb-3 text-xs text-muted-foreground">
-            Agrega uno o más puestos. Puedes editar o duplicar luego.
-          </p>
 
           {positions.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              Agrega el primer puesto para comenzar la estructura de servicio.
+            <div className="text-xs text-muted-foreground py-4 text-center">
+              Agrega el primer puesto para comenzar.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-1.5">
               {positions.map((position) => (
                 <CpqPositionCard
                   key={position.id}
@@ -1385,7 +1249,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               ))}
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {activeStep === 2 && (
@@ -1395,7 +1259,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       )}
 
       {activeStep === 3 && (
-        <div className="space-y-3" inert={isLocked}>
+        <div className="space-y-2" inert={isLocked}>
           <CpqPricingCalc
             summary={costSummary}
             marginPct={marginPct}
@@ -1429,41 +1293,43 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             monthlyHours={monthlyHours}
           />
 
-          <Card className="p-3 sm:p-4 space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold">Gastos financieros</h2>
-              <p className="text-xs text-muted-foreground">
-                Costo financiero siempre activo y póliza configurable.
-              </p>
+          {/* ── Financials: compact 2-col side-by-side ── */}
+          <Card className="p-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold">Gastos financieros</h2>
+              <Button
+                size="sm"
+                className="h-7 px-2.5 text-[11px]"
+                onClick={handleSaveFinancials}
+                disabled={savingFinancials || !costParams}
+              >
+                {savingFinancials ? "..." : "Guardar"}
+              </Button>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Costo financiero</p>
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+              {/* Costo financiero */}
+              <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold">Financiero</span>
                   <button
                     type="button"
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
                       costParams?.financialEnabled
-                        ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
-                        : "border-border bg-muted/30 text-muted-foreground"
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-muted/30 text-muted-foreground"
                     )}
                     onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
                     aria-pressed={costParams?.financialEnabled}
                   >
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        costParams?.financialEnabled ? "bg-emerald-400" : "bg-muted-foreground"
-                      )}
-                    />
-                    {costParams?.financialEnabled ? "Activo" : "Inactivo"}
+                    <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-400" : "bg-muted-foreground")} />
+                    {costParams?.financialEnabled ? "On" : "Off"}
                   </button>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Precio de venta base</Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Base venta</Label>
                     <Input
                       type="text"
                       inputMode="numeric"
@@ -1476,12 +1342,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         updateParams({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
                         clearDecimalValue("salePriceBase");
                       }}
-                      className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
-                      placeholder="Ej: 4000000"
+                      className="h-7 text-xs bg-card text-foreground border-border"
+                      placeholder="4.000.000"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tasa (%)</Label>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -1494,46 +1360,40 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         updateParams({ financialRatePct: parsed, financialEnabled: true });
                         clearDecimalValue("financialRatePct");
                       }}
-                      className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                      className="h-7 text-xs bg-card text-foreground border-border"
                       placeholder="2,5"
                     />
                   </div>
                 </div>
                 {salePriceBase > 0 && (
-                  <div className="text-xs text-emerald-400">
-                    Costo financiero mensual:{" "}
-                    {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}
+                  <div className="text-[10px] text-emerald-400">
+                    = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Póliza de garantía</p>
+              {/* Póliza */}
+              <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold">Póliza</span>
                   <button
                     type="button"
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
                       policyEnabled
-                        ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
-                        : "border-border bg-muted/30 text-muted-foreground"
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-muted/30 text-muted-foreground"
                     )}
                     onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
                     aria-pressed={policyEnabled}
                   >
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        policyEnabled ? "bg-emerald-400" : "bg-muted-foreground"
-                      )}
-                    />
-                    {policyEnabled ? "Activa" : "Inactiva"}
+                    <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-400" : "bg-muted-foreground")} />
+                    {policyEnabled ? "On" : "Off"}
                   </button>
                 </div>
-
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Meses póliza</Label>
+                <div className="grid grid-cols-3 gap-1">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Meses</Label>
                     <Input
                       type="number"
                       value={policyContractMonths}
@@ -1543,12 +1403,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                           financialEnabled: true,
                         })
                       }
-                      className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                      className="h-7 text-xs bg-card text-foreground border-border"
                       placeholder="12"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Porcentaje (%)</Label>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">% Póliza</Label>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -1561,12 +1421,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         updateParams({ policyContractPct: parsed, financialEnabled: true });
                         clearDecimalValue("policyContractPct");
                       }}
-                      className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                      className="h-7 text-xs bg-card text-foreground border-border"
                       placeholder="20"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tasa (%)</Label>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -1579,152 +1439,170 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                         updateParams({ policyRatePct: parsed, financialEnabled: true });
                         clearDecimalValue("policyRatePct");
                       }}
-                      className="h-9 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                      className="h-7 text-xs bg-card text-foreground border-border"
                       placeholder="2,5"
                     />
                   </div>
                 </div>
-
                 {policyEnabled && salePriceBase > 0 && (
-                  <div className="text-xs text-emerald-400">
-                    Póliza mensual:{" "}
-                    {formatCurrency(
+                  <div className="text-[10px] text-emerald-400">
+                    = {formatCurrency(
                       (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
-                    )}
+                    )}/mes
                   </div>
                 )}
               </div>
             </div>
 
             {financialError && (
-              <div className="text-xs text-red-400">{financialError}</div>
+              <div className="text-[11px] text-red-400">{financialError}</div>
             )}
-
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={handleSaveFinancials}
-                disabled={savingFinancials || !costParams}
-              >
-                {savingFinancials ? "Guardando..." : "Guardar financieros"}
-              </Button>
-            </div>
           </Card>
         </div>
       )}
 
       {/* ── Step 5: Documento ── */}
       {activeStep === 4 && (
-        <div className="space-y-4" inert={isLocked}>
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold">Documento y envío</h2>
-                <p className="text-xs text-muted-foreground">
-                  Genera la descripción AI, revisa el documento y envía al cliente.
-                </p>
-              </div>
-              <Badge variant="outline" className="text-xs">{quote.status}</Badge>
+        <div className="space-y-2" inert={isLocked}>
+          {/* ── Action bar: PDF + Send (always visible, top) ── */}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1 h-9 gap-1.5 text-xs"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || !quote}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {downloadingPdf ? "Generando..." : "PDF"}
+            </Button>
+            <SendCpqQuoteModal
+              quoteId={quoteId}
+              quoteCode={quote.code}
+              clientName={quote.clientName || undefined}
+              disabled={!quote || positions.length === 0 || quote.status === "sent"}
+              hasAccount={!!crmContext.accountId}
+              hasContact={!!crmContext.contactId}
+              hasDeal={!!crmContext.dealId}
+              contactName={(() => {
+                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+              })()}
+              contactEmail={(() => {
+                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                return c?.email || undefined;
+              })()}
+            />
+          </div>
+
+          {/* ── AI sections as tabs ── */}
+          <Card className="p-2.5 space-y-2">
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              <button
+                type="button"
+                className={cn("px-3 py-1.5 text-xs font-medium transition-colors", docAiTab === "description" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
+                onClick={() => setDocAiTab("description")}
+              >
+                Descripción AI
+              </button>
+              <button
+                type="button"
+                className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", docAiTab === "service" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
+                onClick={() => setDocAiTab("service")}
+              >
+                Detalle servicio
+              </button>
             </div>
 
-            {/* AI Description */}
-            <div className="space-y-2 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Descripción AI</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={generateAiDescription}
-                  disabled={generatingAi}
-                >
-                  {generatingAi ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  {generatingAi ? "Generando..." : aiCustomInstruction.trim() ? "Refinar con AI" : "Generar con AI"}
-                </Button>
+            {docAiTab === "description" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={aiCustomInstruction}
+                    onChange={(e) => setAiCustomInstruction(e.target.value)}
+                    placeholder="Instrucción AI (opcional)"
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-[11px] shrink-0"
+                    onClick={generateAiDescription}
+                    disabled={generatingAi}
+                  >
+                    {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {generatingAi ? "..." : "Generar"}
+                  </Button>
+                </div>
+                <textarea
+                  value={quote.aiDescription ?? ""}
+                  onChange={(e) => {
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ aiDescription: e.target.value }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Clic en 'Generar' para crear una descripción profesional..."
+                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={4}
+                />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Genera un resumen ejecutivo profesional para la propuesta. Puedes editarlo después.
-              </p>
-              <Input
-                value={aiCustomInstruction}
-                onChange={(e) => setAiCustomInstruction(e.target.value)}
-                placeholder="Instrucción para ajustar la descripción (ej: «más corto», «énfasis en retail») — opcional"
-                className="h-9 text-sm"
-              />
-              <textarea
-                value={quote.aiDescription ?? ""}
-                onChange={(e) => {
-                  // Save AI description directly
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ aiDescription: e.target.value }),
-                  }).catch(() => {});
-                }}
-                placeholder="Haz clic en 'Generar con AI' para crear una descripción profesional basada en los datos de la cotización..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={5}
-              />
-            </div>
+            )}
 
-            {/* Service Detail */}
-            <div className="space-y-2 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Detalle del servicio</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={generateServiceDetail}
-                  disabled={generatingServiceDetail}
-                >
-                  {generatingServiceDetail ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  {generatingServiceDetail ? "Generando..." : serviceDetailInstruction.trim() ? "Refinar con AI" : "Generar con AI"}
-                </Button>
+            {docAiTab === "service" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={serviceDetailInstruction}
+                    onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                    placeholder="Instrucción AI (opcional)"
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-[11px] shrink-0"
+                    onClick={generateServiceDetail}
+                    disabled={generatingServiceDetail}
+                  >
+                    {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {generatingServiceDetail ? "..." : "Generar"}
+                  </Button>
+                </div>
+                <textarea
+                  value={quote.serviceDetail ?? ""}
+                  onChange={(e) => {
+                    setQuote({ ...quote, serviceDetail: e.target.value });
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ serviceDetail: e.target.value }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Clic en 'Generar' para detalle de servicios..."
+                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={4}
+                />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Genera un resumen de lo que incluye el servicio (uniformes, exámenes, alimentación, equipos, etc.). Aparecerá en la propuesta.
-              </p>
-              <Input
-                value={serviceDetailInstruction}
-                onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                placeholder="Instrucción para ajustar el detalle (ej: «más detallado», «mencionar turnos 4x4») — opcional"
-                className="h-9 text-sm"
-              />
-              <textarea
-                value={quote.serviceDetail ?? ""}
-                onChange={(e) => {
-                  setQuote({ ...quote, serviceDetail: e.target.value });
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ serviceDetail: e.target.value }),
-                  }).catch(() => {});
-                }}
-                placeholder="Haz clic en 'Generar con AI' para crear un detalle profesional de lo que incluye el servicio..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={5}
-              />
-            </div>
+            )}
+          </Card>
 
-            {/* Document Preview */}
-            <div className="rounded-md border border-border overflow-hidden">
-              <div className="bg-muted/30 px-4 py-3 border-b">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vista previa del documento</p>
-              </div>
-              <div className="p-4 space-y-3 bg-white text-black text-sm" style={{ fontFamily: "Arial, sans-serif" }}>
-                <div className="flex justify-between items-start border-b-2 pb-2" style={{ borderColor: "#2563eb" }}>
-                  <div className="text-lg font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
-                  <div className="text-right text-xs text-gray-600">
-                    <p className="font-bold text-sm text-black">{quote.code}</p>
+          {/* ── Document Preview: collapsible ── */}
+          <div className="rounded-md border border-border/40 overflow-hidden">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between bg-muted/20 px-3 py-2 hover:bg-muted/30 transition-colors"
+              onClick={() => setDocPreviewOpen(!docPreviewOpen)}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vista previa</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", docPreviewOpen && "rotate-180")} />
+            </button>
+            {docPreviewOpen && (
+              <div className="p-3 space-y-2 bg-white text-black text-xs" style={{ fontFamily: "Arial, sans-serif" }}>
+                <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
+                  <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
+                  <div className="text-right text-[10px] text-gray-600">
+                    <p className="font-bold text-xs text-black">{quote.code}</p>
                     <p>{quote.clientName || "Cliente"}</p>
                     {(() => {
                       const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
@@ -1738,9 +1616,8 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                   </div>
                 </div>
 
-                {/* Contexto: Negocio e Instalación */}
                 {(crmContext.dealId || crmContext.installationId) && (
-                  <div className="text-[10px] rounded" style={{ padding: "6px 10px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
+                  <div className="text-[10px] rounded" style={{ padding: "4px 8px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
                     {(() => {
                       const deal = crmContext.dealId ? crmDeals.find((d) => d.id === crmContext.dealId) : null;
                       return deal ? <span><strong>Negocio:</strong> {deal.title}</span> : null;
@@ -1754,25 +1631,19 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 )}
 
                 {quote.aiDescription && (
-                  <p className="text-xs text-gray-600 bg-blue-50 rounded p-2 italic">
-                    {quote.aiDescription}
-                  </p>
+                  <p className="text-[10px] text-gray-600 bg-blue-50 rounded p-1.5 italic">{quote.aiDescription}</p>
                 )}
 
                 <div className="overflow-x-auto">
-                  <p className="text-xs font-semibold border-b pb-1 mb-2">
-                    Puestos de trabajo · {stats.totalGuards} guardia(s)
-                  </p>
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[10px]">
                     <thead>
                       <tr style={{ background: "#eff6ff" }}>
-                        <th className="text-left p-1.5 font-semibold">Puesto</th>
-                        <th className="text-left p-1.5 font-semibold">Guardias</th>
-                        <th className="text-left p-1.5 font-semibold">Cantidad</th>
-                        <th className="text-left p-1.5 font-semibold">Días</th>
-                        <th className="text-left p-1.5 font-semibold">Horario</th>
-                        <th className="text-left p-1.5 font-semibold">Turno</th>
-                        <th className="text-right p-1.5 font-semibold">Precio mensual</th>
+                        <th className="text-left p-1 font-semibold">Puesto</th>
+                        <th className="text-left p-1 font-semibold">G</th>
+                        <th className="text-left p-1 font-semibold">Cant</th>
+                        <th className="text-left p-1 font-semibold">Días</th>
+                        <th className="text-left p-1 font-semibold">Horario</th>
+                        <th className="text-right p-1 font-semibold">Precio</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1782,36 +1653,20 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                           crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(clp, ufValue))
                             : formatCLP(clp);
-                        const shiftLabel = getShiftLabel(pos.startTime);
                         return (
                           <tr key={pos.id} className="border-b border-gray-100">
-                            <td className="p-1.5">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
-                            <td className="p-1.5">{pos.numGuards}</td>
-                            <td className="p-1.5">{pos.numPuestos || 1}</td>
-                            <td className="p-1.5">{formatWeekdaysShort(pos.weekdays)}</td>
-                            <td className="p-1.5">{pos.startTime} - {pos.endTime}</td>
-                            <td className="p-1.5">
-                              <span
-                                style={{
-                                  display: "inline-block",
-                                  padding: "1px 6px",
-                                  borderRadius: "4px",
-                                  fontSize: "9px",
-                                  fontWeight: 600,
-                                  background: shiftLabel === "Nocturno" ? "#eef2ff" : "#fefce8",
-                                  color: shiftLabel === "Nocturno" ? "#4338ca" : "#a16207",
-                                }}
-                              >
-                                {shiftLabel === "Nocturno" ? "🌙" : "☀️"} {shiftLabel}
-                              </span>
-                            </td>
-                            <td className="p-1.5 text-right">{formatted}</td>
+                            <td className="p-1">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
+                            <td className="p-1">{pos.numGuards}</td>
+                            <td className="p-1">{pos.numPuestos || 1}</td>
+                            <td className="p-1">{formatWeekdaysShort(pos.weekdays)}</td>
+                            <td className="p-1">{pos.startTime}-{pos.endTime}</td>
+                            <td className="p-1 text-right">{formatted}</td>
                           </tr>
                         );
                       })}
                       <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
-                        <td colSpan={6} className="p-1.5 text-right">Total mensual</td>
-                        <td className="p-1.5 text-right">
+                        <td colSpan={5} className="p-1 text-right">Total</td>
+                        <td className="p-1 text-right">
                           {crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
                             : formatCLP(salePriceMonthly)}
@@ -1822,72 +1677,39 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 </div>
 
                 {quote.serviceDetail && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold border-b pb-1 mb-2" style={{ color: "#1e3a5f" }}>
-                      Detalle del servicio
-                    </p>
-                    <div className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">
-                      {quote.serviceDetail}
-                    </div>
+                  <div>
+                    <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#1e3a5f" }}>Detalle del servicio</p>
+                    <div className="text-[10px] text-gray-700 whitespace-pre-line leading-relaxed">{quote.serviceDetail}</div>
                   </div>
                 )}
 
-                <div className="text-center text-[10px] text-gray-400 border-t pt-2">
+                <div className="text-center text-[9px] text-gray-400 border-t pt-1">
                   Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl
                 </div>
               </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                className="flex-1 gap-2"
-                onClick={handleDownloadPdf}
-                disabled={downloadingPdf || !quote}
-              >
-                <Download className="h-4 w-4" />
-                {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
-              </Button>
-              <SendCpqQuoteModal
-                quoteId={quoteId}
-                quoteCode={quote.code}
-                clientName={quote.clientName || undefined}
-                disabled={!quote || positions.length === 0 || quote.status === "sent"}
-                hasAccount={!!crmContext.accountId}
-                hasContact={!!crmContext.contactId}
-                hasDeal={!!crmContext.dealId}
-                contactName={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-                })()}
-                contactEmail={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c?.email || undefined;
-                })()}
-              />
-            </div>
-          </Card>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="sticky bottom-0 z-20 -mx-4 border-t border-border/60 bg-background/95 px-4 py-2 backdrop-blur">
+      <div className="sticky bottom-0 z-20 -mx-4 border-t border-border/60 bg-background/95 px-4 py-1.5 backdrop-blur">
         <div className="flex items-center justify-between gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="gap-1"
+            className="h-8 gap-1 px-2 text-xs"
             onClick={() => void goToStep(activeStep - 1)}
             disabled={activeStep === 0}
           >
-            <ChevronLeft className="h-4 w-4" />
-            Atrás
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Atrás</span>
           </Button>
-          <span className="text-xs text-muted-foreground">
-            Paso {activeStep + 1} de {steps.length} · {steps[activeStep]}
+          <span className="text-[11px] text-muted-foreground">
+            {activeStep + 1}/{steps.length}
           </span>
           <Button
             size="sm"
-            className="gap-1"
+            className="h-8 gap-1 px-3 text-xs"
             onClick={() => {
               if (isLastStep) {
                 router.push("/crm/cotizaciones");
@@ -1898,7 +1720,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             disabled={nextDisabled}
           >
             {nextLabel}
-            {!isLastStep && <ChevronRight className="h-4 w-4" />}
+            {!isLastStep && <ChevronRight className="h-3.5 w-3.5" />}
           </Button>
         </div>
       </div>
