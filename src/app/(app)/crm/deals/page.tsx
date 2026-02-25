@@ -9,7 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmDealsClient } from "@/components/crm";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 
 type DealsFocus =
@@ -173,7 +172,6 @@ export default async function CrmDealsPage({
         title="Negocios"
         description={getDealsFocusText(focus) ?? "Pipeline comercial y oportunidades"}
       />
-      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmDealsClient
         initialDeals={initialDeals}
         accounts={initialAccounts}

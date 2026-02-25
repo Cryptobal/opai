@@ -555,8 +555,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
   // ─── Style helpers ───
   const inputClassName = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectClassName = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-  const selectCompactClassName = "flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectClassName = "flex h-10 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectCompactClassName = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-2 pr-6 py-1 text-xs text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px] bg-[right_4px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   // ─── Form helpers ───
   const updateApproveForm = (key: keyof ApproveFormState, value: string) => {
@@ -1147,7 +1147,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   onChange={() => setUseExistingAccountId(duplicates[0]?.id ?? null)} className="rounded border-input" />
                 Usar cuenta existente:
               </label>
-              <select className="ml-6 mt-1 max-w-xs rounded border border-input bg-background px-2 py-1.5 text-xs text-foreground"
+              <select className="ml-6 mt-1 w-full max-w-[280px] sm:max-w-xs appearance-none rounded border border-input bg-background pl-2 pr-6 py-1.5 text-xs text-foreground min-h-[44px] bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px] bg-[right_6px_center] bg-no-repeat"
                 value={useExistingAccountId ?? ""}
                 onChange={(e) => { setUseExistingAccountId(e.target.value || null); setInstallationUseExisting({}); }}>
                 <option value="">Seleccionar cuenta...</option>

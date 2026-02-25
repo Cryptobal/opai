@@ -9,7 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmAccountsClient } from "@/components/crm";
-import { CrmGlobalSearch } from "@/components/crm/CrmGlobalSearch";
 
 export default async function CrmAccountsPage() {
   const session = await auth();
@@ -38,7 +37,6 @@ export default async function CrmAccountsPage() {
         title="Cuentas"
         description="Prospectos y clientes"
       />
-      <CrmGlobalSearch className="w-full sm:max-w-xs" />
       <CrmAccountsClient initialAccounts={initialAccounts} />
     </>
   );

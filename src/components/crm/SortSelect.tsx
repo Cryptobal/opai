@@ -34,7 +34,7 @@ export function SortSelect({
       <select
         value={active}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 appearance-none rounded-md border border-border bg-background pl-8 pr-7 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+        className="h-9 min-h-[44px] appearance-none rounded-md border border-border bg-background pl-8 pr-8 text-xs text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px] bg-[right_6px_center] bg-no-repeat focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
         title="Ordenar"
       >
         {options.map((opt) => (
