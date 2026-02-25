@@ -85,7 +85,7 @@ export function CreateDealModal({
               className="h-9 bg-background text-sm"
             />
           </div>
-          <Button onClick={createDeal} disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={createDeal} disabled={loading} className="w-full">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Crear
           </Button>

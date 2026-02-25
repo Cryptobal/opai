@@ -22,11 +22,18 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -46,9 +53,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
-import { CrmDates } from "@/components/crm/CrmDates";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, ChevronUp, Clock3, FileText } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
@@ -97,6 +103,7 @@ function getDealFollowUpIndicator(deal: CrmDeal): {
   label: string;
   dateLabel: string;
   className: string;
+  dotColor: string;
 } | null {
   const nextFollowUp = deal.followUpLogs?.[0];
   if (!nextFollowUp) return null;
@@ -107,22 +114,25 @@ function getDealFollowUpIndicator(deal: CrmDeal): {
 
   if (dueTime <= now) {
     return {
-      label: `Seg. ${nextFollowUp.sequence} vencido`,
+      label: `S${nextFollowUp.sequence} vencido`,
       dateLabel,
       className: "border-red-500/30 text-red-500",
+      dotColor: "bg-red-500",
     };
   }
   if (dueTime - now <= 24 * 60 * 60 * 1000) {
     return {
-      label: `Seg. ${nextFollowUp.sequence} hoy`,
+      label: `S${nextFollowUp.sequence} hoy`,
       dateLabel,
       className: "border-amber-500/30 text-amber-500",
+      dotColor: "bg-amber-500",
     };
   }
   return {
-    label: `Seg. ${nextFollowUp.sequence} programado`,
+    label: `S${nextFollowUp.sequence}`,
     dateLabel,
     className: "border-emerald-500/30 text-emerald-500",
+    dotColor: "bg-emerald-500",
   };
 }
 
@@ -135,12 +145,13 @@ type DealCardProps = {
 type DealColumnProps = {
   stage: CrmPipelineStage;
   deals: CrmDeal[];
+  stageTotal: string;
   children: ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 };
 
-function DealColumn({ stage, deals, children, collapsed = false, onToggleCollapse }: DealColumnProps) {
+function DealColumn({ stage, deals, stageTotal, children, collapsed = false, onToggleCollapse }: DealColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `stage-${stage.id}`,
   });
@@ -151,8 +162,8 @@ function DealColumn({ stage, deals, children, collapsed = false, onToggleCollaps
     <div
       ref={setNodeRef}
       className={cn(
-        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2.5 md:p-3 min-w-[220px] max-w-[220px] md:min-w-[260px] md:max-w-[260px] transition-colors overflow-hidden snap-center",
-        isOver ? "border-primary/60" : "border-border"
+        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2 md:p-2.5 min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors overflow-hidden snap-center",
+        isOver ? "border-primary/60 bg-primary/5" : "border-border"
       )}
     >
       <div
@@ -161,23 +172,23 @@ function DealColumn({ stage, deals, children, collapsed = false, onToggleCollaps
         onClick={onToggleCollapse}
         onKeyDown={onToggleCollapse ? (e) => e.key === "Enter" && onToggleCollapse() : undefined}
         className={cn(
-          "w-full mb-3 rounded-lg border px-3 py-2 flex items-center justify-between gap-2 transition-colors",
+          "w-full mb-2 rounded-md px-2.5 py-1.5 flex items-center justify-between gap-2 transition-colors",
           onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80"
         )}
         style={{
-          borderColor: stageColor,
-          backgroundColor: `${stageColor}18`,
+          borderLeft: `3px solid ${stageColor}`,
+          backgroundColor: `${stageColor}10`,
         }}
       >
-        <span className="text-sm font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }}>
+        <span className="text-xs font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }}>
           {stage.name}
         </span>
-        <Badge variant="secondary" className="shrink-0 text-xs font-medium tabular-nums">
-          {deals.length}
-        </Badge>
+        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+          {deals.length} · {stageTotal}
+        </span>
         {onToggleCollapse && (
           <span className="shrink-0 text-muted-foreground md:hidden" aria-hidden>
-            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
           </span>
         )}
       </div>
@@ -206,64 +217,56 @@ function DealCard({
     transition,
   };
   const followUpIndicator = getDealFollowUpIndicator(deal);
+  const quotesCount = (deal.quotes || []).length;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-lg border border-border bg-card p-2.5 md:p-3 min-w-0 overflow-hidden",
+        "rounded-md border border-border bg-card p-2 min-w-0 overflow-hidden transition-shadow hover:shadow-sm",
         isDragging && "opacity-60"
       )}
     >
-      <div className="flex items-start justify-between gap-1.5 md:gap-2">
+      <div className="flex items-start justify-between gap-1.5">
         <div
-          className="flex-1 space-y-1 cursor-pointer md:cursor-auto min-w-0"
+          className="flex-1 min-w-0 cursor-pointer md:cursor-auto"
           onClick={() => !isOverlay && onOpenSheet?.()}
         >
           <Link
             href={`/crm/deals/${deal.id}`}
-            className="text-sm font-semibold text-foreground hover:underline line-clamp-2"
+            className="text-[13px] font-medium text-foreground hover:underline line-clamp-1"
             onClick={(e) => e.stopPropagation()}
           >
             {deal.title}
           </Link>
-          <p className="text-xs text-muted-foreground truncate">
-            {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+            {deal.account?.name}
           </p>
-          {deal.createdAt && (
-            <CrmDates
-              createdAt={deal.createdAt}
-              updatedAt={(deal as { updatedAt?: string }).updatedAt}
-              className="mt-0.5"
-            />
-          )}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs font-semibold text-primary tabular-nums">
               ${Number(deal.amount).toLocaleString("es-CL")}
             </span>
-            {(deal.quotes || []).length > 0 && (
-              <Badge variant="outline" className="text-[10px] h-4">
-                {(deal.quotes || []).length} CPQ
-              </Badge>
+            {quotesCount > 0 && (
+              <span className="text-muted-foreground" title={`${quotesCount} cotizaciones`}>
+                <FileText className="h-3 w-3" />
+              </span>
             )}
             {followUpIndicator && (
-              <Badge
-                variant="outline"
-                className={`text-[10px] h-4 ${followUpIndicator.className}`}
-              >
-                {followUpIndicator.label} · {followUpIndicator.dateLabel}
-              </Badge>
+              <span className={cn("inline-flex items-center gap-0.5 text-[10px]", followUpIndicator.className)} title={`${followUpIndicator.label} · ${followUpIndicator.dateLabel}`}>
+                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", followUpIndicator.dotColor)} />
+                <Clock3 className="h-2.5 w-2.5" />
+              </span>
             )}
             {deal.proposalLink && (
               <a
                 href={deal.proposalLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
+                className="text-primary"
                 onClick={(e) => e.stopPropagation()}
+                title="Ver propuesta"
               >
-                Propuesta
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
@@ -272,14 +275,128 @@ function DealCard({
         {!isOverlay && (
           <button
             ref={setActivatorNodeRef}
-            className="mt-0.5 rounded-md p-1 text-muted-foreground hover:text-foreground hidden md:block"
+            className="mt-0.5 rounded-md p-0.5 text-muted-foreground hover:text-foreground hidden md:block"
             {...attributes}
             {...listeners}
             aria-label="Arrastrar negocio"
           >
-            <GripVertical className="h-4 w-4" />
+            <GripVertical className="h-3.5 w-3.5" />
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Mobile: grouped list by stage instead of horizontal kanban */
+function MobileStageList({
+  columns,
+  collapsedStages,
+  onToggleCollapse,
+}: {
+  columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[];
+  collapsedStages: Set<string>;
+  onToggleCollapse: (stageId: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {columns.map((column) => {
+        const stageColor = column.stage.color || "#94a3b8";
+        const isCollapsed = collapsedStages.has(column.stage.id);
+        const stageTotal = column.deals.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+
+        return (
+          <div key={column.stage.id}>
+            <button
+              type="button"
+              onClick={() => onToggleCollapse(column.stage.id)}
+              className="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
+              style={{ borderLeft: `3px solid ${stageColor}` }}
+            >
+              <span className="text-sm font-semibold truncate" style={{ color: stageColor }}>
+                {column.stage.name}
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {column.deals.length} · ${stageTotal.toLocaleString("es-CL")}
+                </span>
+                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              </div>
+            </button>
+            {!isCollapsed && (
+              <div className="mt-1 space-y-1 pl-3">
+                {column.deals.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground py-3 text-center">
+                    Sin negocios en esta etapa.
+                  </p>
+                )}
+                {column.deals.map((deal) => {
+                  const followUpIndicator = getDealFollowUpIndicator(deal);
+                  const quotesCount = (deal.quotes || []).length;
+                  return (
+                    <Link
+                      key={deal.id}
+                      href={`/crm/deals/${deal.id}`}
+                      className="flex items-center gap-3 rounded-md border border-border bg-card p-2.5 transition-colors hover:bg-accent/30 group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate">{deal.title}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs font-semibold text-primary tabular-nums">
+                            ${Number(deal.amount).toLocaleString("es-CL")}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {deal.account?.name}
+                          </span>
+                          {quotesCount > 0 && (
+                            <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                          {followUpIndicator && (
+                            <span className={cn("inline-flex items-center gap-0.5", followUpIndicator.className)}>
+                              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", followUpIndicator.dotColor)} />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Pipeline summary bar with per-stage totals */
+function PipelineSummary({ columns }: { columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[] }) {
+  const totalAmount = columns.reduce((acc, col) => acc + col.deals.reduce((sum, d) => sum + Number(d.amount || 0), 0), 0);
+  const totalDeals = columns.reduce((acc, col) => acc + col.deals.length, 0);
+  if (totalDeals === 0) return null;
+
+  return (
+    <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
+      <span className="text-xs text-muted-foreground shrink-0">
+        {totalDeals} negocio{totalDeals !== 1 ? "s" : ""} · <span className="font-semibold text-foreground tabular-nums">${totalAmount.toLocaleString("es-CL")}</span>
+      </span>
+      <div className="hidden sm:flex items-center gap-1.5">
+        {columns.map((col) => {
+          if (col.deals.length === 0) return null;
+          const stageColor = col.stage.color || "#94a3b8";
+          const stageAmount = col.deals.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+          return (
+            <span
+              key={col.stage.id}
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground shrink-0 rounded-full px-2 py-0.5"
+              style={{ backgroundColor: `${stageColor}15`, color: stageColor }}
+            >
+              {col.stage.name} ({col.deals.length}) ${stageAmount.toLocaleString("es-CL")}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -310,11 +427,6 @@ export function CrmDealsClient({
   const [sheetDealId, setSheetDealId] = useState<string | null>(null);
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
   const focusLabel = getDealsFocusLabel(initialFocus);
-
-  const inputClassName =
-    "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectClassName =
-    "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   const updateForm = (key: keyof DealFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -500,7 +612,7 @@ export function CrmDealsClient({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {focusLabel && (
         <p className="text-xs text-muted-foreground">{focusLabel}</p>
       )}
@@ -536,18 +648,18 @@ export function CrmDealsClient({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label>Cliente</Label>
-                  <select
-                    className={selectClassName}
-                    value={form.accountId}
-                    onChange={(event) => updateForm("accountId", event.target.value)}
-                  >
-                    <option value="">Selecciona un cliente</option>
-                    {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={form.accountId} onValueChange={(v) => updateForm("accountId", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Título</Label>
@@ -555,23 +667,22 @@ export function CrmDealsClient({
                     value={form.title}
                     onChange={(event) => updateForm("title", event.target.value)}
                     placeholder="Oportunidad para..."
-                    className={inputClassName}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Etapa</Label>
-                  <select
-                    className={selectClassName}
-                    value={form.stageId}
-                    onChange={(event) => updateForm("stageId", event.target.value)}
-                  >
-                    <option value="">Etapa por defecto</option>
-                    {stages.map((stage) => (
-                      <option key={stage.id} value={stage.id}>
-                        {stage.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={form.stageId} onValueChange={(v) => updateForm("stageId", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Etapa por defecto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          {stage.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Monto (CLP)</Label>
@@ -579,7 +690,6 @@ export function CrmDealsClient({
                     value={form.amount}
                     onChange={(event) => updateForm("amount", event.target.value)}
                     placeholder="0"
-                    className={inputClassName}
                   />
                 </div>
                 <div className="space-y-2">
@@ -588,7 +698,6 @@ export function CrmDealsClient({
                     value={form.probability}
                     onChange={(event) => updateForm("probability", event.target.value)}
                     placeholder="0"
-                    className={inputClassName}
                   />
                 </div>
                 <div className="space-y-2">
@@ -599,7 +708,6 @@ export function CrmDealsClient({
                     onChange={(event) =>
                       updateForm("expectedCloseDate", event.target.value)
                     }
-                    className={inputClassName}
                   />
                 </div>
               </div>
@@ -614,131 +722,158 @@ export function CrmDealsClient({
         }
       />
 
+      {/* ── Pipeline summary ── */}
+      {view === "kanban" && <PipelineSummary columns={columns} />}
+
       {view === "kanban" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Pipeline</CardTitle>
-            <CardDescription>Arrastra los negocios entre etapas.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {deals.length === 0 ? (
-              <EmptyState
-                icon={<TrendingUp className="h-8 w-8" />}
-                title="Sin negocios"
-                description="No hay negocios creados todavía."
-                compact
-              />
-            ) : filteredDeals.length === 0 ? (
-              <EmptyState
-                icon={<TrendingUp className="h-8 w-8" />}
-                title="Sin resultados"
-                description="No hay negocios para los filtros o búsqueda seleccionados."
-                compact
-              />
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCorners}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
-              >
-                <div className="flex flex-row gap-2.5 md:gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory md:snap-proximity">
-                  {columns.map((column) => (
-                    <DealColumn
-                      key={column.stage.id}
-                      stage={column.stage}
-                      deals={column.deals}
-                      collapsed={collapsedStages.has(column.stage.id)}
-                      onToggleCollapse={() => toggleStageCollapse(column.stage.id)}
-                    >
-                      <SortableContext
-                        items={column.deals.map((deal) => `deal-${deal.id}`)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="space-y-3">
-                          {column.deals.length === 0 && (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                              Sin negocios en esta etapa.
-                            </p>
-                          )}
-                          {column.deals.map((deal) => (
-                            <DealCard
-                              key={deal.id}
-                              deal={deal}
-                              onOpenSheet={() => setSheetDealId(deal.id)}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DealColumn>
-                  ))}
-                </div>
-                <DragOverlay dropAnimation={dropAnimation}>
-                  {activeDealId ? (
-                    <DealCard
-                      deal={deals.find((deal) => deal.id === activeDealId)!}
-                      isOverlay
-                    />
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
-            )}
-          </CardContent>
-        </Card>
+        <>
+          {deals.length === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="h-8 w-8" />}
+              title="Sin negocios"
+              description="No hay negocios creados todavía."
+              compact
+            />
+          ) : filteredDeals.length === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="h-8 w-8" />}
+              title="Sin resultados"
+              description="No hay negocios para los filtros o búsqueda seleccionados."
+              compact
+            />
+          ) : (
+            <>
+              {/* Mobile: vertical grouped list */}
+              <div className="md:hidden">
+                <MobileStageList
+                  columns={columns}
+                  collapsedStages={collapsedStages}
+                  onToggleCollapse={toggleStageCollapse}
+                />
+              </div>
+
+              {/* Desktop: horizontal kanban */}
+              <div className="hidden md:block">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCorners}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
+                >
+                  <div className="flex flex-row gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                    {columns.map((column) => {
+                      const stageTotal = column.deals.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+                      return (
+                        <DealColumn
+                          key={column.stage.id}
+                          stage={column.stage}
+                          deals={column.deals}
+                          stageTotal={`$${stageTotal.toLocaleString("es-CL")}`}
+                          collapsed={collapsedStages.has(column.stage.id)}
+                          onToggleCollapse={() => toggleStageCollapse(column.stage.id)}
+                        >
+                          <SortableContext
+                            items={column.deals.map((deal) => `deal-${deal.id}`)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-1.5">
+                              {column.deals.length === 0 && (
+                                <p className="text-[11px] text-muted-foreground text-center py-4">
+                                  Sin negocios en esta etapa.
+                                </p>
+                              )}
+                              {column.deals.map((deal) => (
+                                <DealCard
+                                  key={deal.id}
+                                  deal={deal}
+                                  onOpenSheet={() => setSheetDealId(deal.id)}
+                                />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DealColumn>
+                      );
+                    })}
+                  </div>
+                  <DragOverlay dropAnimation={dropAnimation}>
+                    {activeDealId ? (
+                      <DealCard
+                        deal={deals.find((deal) => deal.id === activeDealId)!}
+                        isOverlay
+                      />
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+              </div>
+            </>
+          )}
+        </>
       ) : (
         <Card>
-          <CardContent className="pt-5">
+          <CardContent className="p-0">
             {filteredDeals.length === 0 ? (
-              <EmptyState
-                icon={<TrendingUp className="h-8 w-8" />}
-                title="Sin negocios"
-                description={
-                  search || stageFilter !== "all"
-                    ? "No hay negocios para los filtros seleccionados."
-                    : "No hay negocios creados todavía."
-                }
-                compact
-              />
+              <div className="p-5">
+                <EmptyState
+                  icon={<TrendingUp className="h-8 w-8" />}
+                  title="Sin negocios"
+                  description={
+                    search || stageFilter !== "all"
+                      ? "No hay negocios para los filtros seleccionados."
+                      : "No hay negocios creados todavía."
+                  }
+                  compact
+                />
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-border">
                 {filteredDeals.map((deal) => {
                   const followUpIndicator = getDealFollowUpIndicator(deal);
+                  const stageColor = deal.stage?.color || "#94a3b8";
+                  const quotesCount = (deal.quotes || []).length;
                   return (
-                  <Link
-                    key={deal.id}
-                    href={`/crm/deals/${deal.id}`}
-                    className="flex items-center justify-between rounded-lg border p-3 md:p-4 transition-colors hover:bg-accent/30 group gap-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
-                        <p className="font-medium text-sm">{deal.title}</p>
-                        <Badge variant="outline">{deal.stage?.name}</Badge>
-                        {(deal.quotes || []).length > 0 && (
-                          <Badge variant="outline" className="text-[10px] h-4">
-                            {(deal.quotes || []).length} CPQ
+                    <Link
+                      key={deal.id}
+                      href={`/crm/deals/${deal.id}`}
+                      className="flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 transition-colors hover:bg-accent/30 group"
+                    >
+                      <div
+                        className="w-0.5 self-stretch rounded-full shrink-0"
+                        style={{ backgroundColor: stageColor }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm truncate">{deal.title}</p>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] h-4 shrink-0"
+                            style={{ borderColor: `${stageColor}40`, color: stageColor }}
+                          >
+                            {deal.stage?.name}
                           </Badge>
-                        )}
-                        {followUpIndicator && (
-                          <Badge variant="outline" className={`text-[10px] h-4 ${followUpIndicator.className}`}>
-                            {followUpIndicator.label} · {followUpIndicator.dateLabel}
-                          </Badge>
-                        )}
+                          {quotesCount > 0 && (
+                            <span className="text-muted-foreground shrink-0" title={`${quotesCount} CPQ`}>
+                              <FileText className="h-3 w-3" />
+                            </span>
+                          )}
+                          {followUpIndicator && (
+                            <span className={cn("inline-flex items-center gap-0.5 shrink-0", followUpIndicator.className)} title={`${followUpIndicator.label} · ${followUpIndicator.dateLabel}`}>
+                              <span className={cn("h-1.5 w-1.5 rounded-full", followUpIndicator.dotColor)} />
+                              <Clock3 className="h-2.5 w-2.5" />
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                          {deal.account?.name}
+                          {deal.primaryContact && ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
+                          {" · "}
+                          <span className="font-medium text-foreground tabular-nums">
+                            ${Number(deal.amount).toLocaleString("es-CL")}
+                          </span>
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
-                        {" · "}${Number(deal.amount).toLocaleString("es-CL")}
-                      </p>
-                      {deal.createdAt && (
-                        <CrmDates
-                          createdAt={deal.createdAt}
-                          updatedAt={(deal as { updatedAt?: string }).updatedAt}
-                          className="mt-0.5"
-                        />
-                      )}
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
-                  </Link>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
+                    </Link>
                   );
                 })}
               </div>
@@ -753,12 +888,34 @@ export function CrmDealsClient({
           {sheetDeal && (
             <>
               <SheetHeader className="text-left">
-                <SheetTitle>{sheetDeal.title}</SheetTitle>
+                <SheetTitle className="text-base">{sheetDeal.title}</SheetTitle>
                 <SheetDescription>
-                  {sheetDeal.account?.name} · ${Number(sheetDeal.amount).toLocaleString("es-CL")}
+                  {sheetDeal.account?.name} · <span className="font-semibold text-foreground tabular-nums">${Number(sheetDeal.amount).toLocaleString("es-CL")}</span>
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 space-y-3">
+                {/* Quick stage change */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Etapa</Label>
+                  <Select
+                    value={sheetDeal.stage?.id || ""}
+                    onValueChange={(stageId) => {
+                      updateStage(sheetDeal.id, stageId);
+                      setSheetDealId(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Selecciona etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          {stage.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Link
                   href={`/crm/deals/${sheetDeal.id}`}
                   className="flex items-center justify-center rounded-md border border-border bg-accent/30 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
