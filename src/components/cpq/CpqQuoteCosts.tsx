@@ -26,7 +26,6 @@ import type {
   CpqQuoteUniformItem,
   CpqQuoteVehicle,
 } from "@/types/cpq";
-import { cn } from "@/lib/utils";
 import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
