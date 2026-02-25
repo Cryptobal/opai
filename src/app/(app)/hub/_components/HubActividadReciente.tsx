@@ -34,6 +34,19 @@ function formatEntity(type: string): string {
   return map[type] || type;
 }
 
+const actionDotColor: Record<string, string> = {
+  create: 'bg-emerald-500',
+  update: 'bg-blue-500',
+  delete: 'bg-red-500',
+  approve: 'bg-purple-500',
+  reject: 'bg-red-400',
+  submit: 'bg-sky-500',
+  login: 'bg-muted-foreground',
+  attendance_mark: 'bg-emerald-400',
+  profile_update: 'bg-blue-400',
+  name_change: 'bg-blue-400',
+};
+
 export function HubActividadReciente({
   activities,
 }: HubActividadRecienteProps) {
@@ -53,13 +66,14 @@ export function HubActividadReciente({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className="divide-y divide-border/40">
           {activities.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-start gap-3 text-sm"
+              className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 text-sm"
             >
-              <span className="shrink-0 text-xs text-muted-foreground/70 tabular-nums">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${actionDotColor[entry.action] || 'bg-muted-foreground'}`} />
+              <span className="shrink-0 text-xs text-muted-foreground/70 tabular-nums mt-0.5">
                 {timeAgo(entry.createdAt)}
               </span>
               <span className="min-w-0 text-muted-foreground">
