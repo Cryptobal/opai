@@ -92,10 +92,10 @@ export function HubAccionesPrioritarias({
         <Link
           key={action.id}
           href={action.href}
-          className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/40"
+          className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all hover:bg-accent/40 hover:shadow-sm hover:border-primary/20"
         >
           <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${action.color}`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${action.color}`}
           >
             <action.icon className="h-4 w-4" />
           </div>
