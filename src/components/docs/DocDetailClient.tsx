@@ -20,6 +20,14 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PageHeader } from "@/components/opai";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SignatureStatusPanel } from "./SignatureStatusPanel";
@@ -224,97 +232,91 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => router.push("/opai/documentos")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Documentos
-        </Button>
-        <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setShowHistory(!showHistory)}
-        >
-          <History className="h-3.5 w-3.5" />
-          Historial
-        </Button>
-        {canDeleteDocument ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-destructive"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
-        {isEditable && (
-          <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
+      <PageHeader
+        backHref="/opai/documentos"
+        backLabel="Documentos"
+        title={doc.title}
+        description={`${doc.module.toUpperCase()} · ${getCategoryLabel(doc.module, doc.category)}${doc.template ? ` · Template: ${doc.template.name}` : ""}`}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              <History className="h-3.5 w-3.5" />
+              Historial
+            </Button>
+            {canDeleteDocument ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-destructive"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            {isEditable && (
+              <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Guardar
+              </Button>
             )}
-            Guardar
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => void handleDownloadPdf()}
-          disabled={downloadingPdf}
-        >
-          {downloadingPdf ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5" />
-          )}
-          Descargar PDF
-        </Button>
-        {!(doc.signedAt || doc.signatureStatus === "completed") && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => setSignatureModalOpen(true)}
-          >
-            <FileSignature className="h-3.5 w-3.5" />
-            Enviar a firma
-          </Button>
-        )}
-      </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => void handleDownloadPdf()}
+              disabled={downloadingPdf}
+            >
+              {downloadingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              Descargar PDF
+            </Button>
+            {!(doc.signedAt || doc.signatureStatus === "completed") && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setSignatureModalOpen(true)}
+              >
+                <FileSignature className="h-3.5 w-3.5" />
+                Enviar a firma
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Document info panel */}
-      <div className="flex items-start gap-4 flex-wrap p-4 rounded-xl border border-border bg-card">
-        <div className="flex-1 min-w-[200px]">
-          <h2 className="text-lg font-semibold">{doc.title}</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
-            {doc.template && ` · Template: ${doc.template.name}`}
-          </p>
-        </div>
-
+      <div className="flex items-center gap-4 flex-wrap p-4 rounded-lg border border-border bg-card">
         {/* Status selector */}
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onValueChange={setStatus}
             disabled={!isEditable && doc.status !== "approved"}
-            className="px-3 py-1.5 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            {Object.entries(DOC_STATUS_CONFIG).map(([key, cfg]) => (
-              <option key={key} value={key}>
-                {cfg.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DOC_STATUS_CONFIG).map(([key, cfg]) => (
+                <SelectItem key={key} value={key}>
+                  {cfg.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {status !== doc.status && (
             <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
               Actualizar
@@ -372,7 +374,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
       {/* Registro de firma electrónica (cuando está completado) */}
       {doc?.signatureStatus === "completed" && doc?.signatureData && (doc.signatureData as { signers?: Array<{ name: string; email: string; signedAt?: string | null; method?: string | null }> }).signers?.length ? (
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             <ShieldCheck className="h-4 w-4 text-primary" />
             Registro de firma electrónica
@@ -412,7 +414,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
       {/* History panel */}
       {showHistory && history.length > 0 && (
-        <div className="p-4 rounded-xl border border-border bg-muted/20">
+        <div className="p-4 rounded-lg border border-border bg-muted/20">
           <h3 className="text-sm font-semibold mb-3">Historial de Cambios</h3>
           <div className="space-y-2">
             {history.map((h) => (
@@ -443,7 +445,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
       {/* Editor o contenido resuelto (firmado) */}
       {doc && (doc.signedAt || doc.signatureStatus === "completed") && !isEditable ? (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
           {contentHtmlLoading ? (
             <div className="min-h-[300px] flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

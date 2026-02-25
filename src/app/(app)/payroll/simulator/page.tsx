@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { PageHeader } from "@/components/opai";
+import { PageHeader, KpiCard } from "@/components/opai";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -423,30 +423,9 @@ export default function PayrollSimulator() {
             <div className="space-y-4">
               {/* KPIs principales */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Card className="border-emerald-500/20 bg-emerald-500/5 p-3">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Líquido
-                  </p>
-                  <p className="mt-1 font-mono text-xl font-bold text-emerald-400">
-                    {fmt(result.net_salary)}
-                  </p>
-                </Card>
-                <Card className="border-blue-500/20 bg-blue-500/5 p-3">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Costo Empresa
-                  </p>
-                  <p className="mt-1 font-mono text-xl font-bold text-blue-400">
-                    {fmt(result.total_employer_cost)}
-                  </p>
-                </Card>
-                <Card className="p-3">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Descuentos
-                  </p>
-                  <p className="mt-1 font-mono text-xl font-bold text-red-400">
-                    {fmt(result.total_deductions)}
-                  </p>
-                </Card>
+                <KpiCard title="Líquido" value={fmt(result.net_salary)} variant="emerald" size="lg" />
+                <KpiCard title="Costo Empresa" value={fmt(result.total_employer_cost)} variant="blue" size="lg" />
+                <KpiCard title="Descuentos" value={fmt(result.total_deductions)} variant="default" />
               </div>
 
               {/* Desglose completo */}

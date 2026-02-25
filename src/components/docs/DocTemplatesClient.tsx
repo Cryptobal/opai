@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/opai";
 import { useCanDelete } from "@/lib/permissions-context";
 
 function getCategoryLabel(module: string, category: string): string {
@@ -108,12 +110,12 @@ function DocTemplatesInner() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
+          <Input
             type="text"
             placeholder="Buscar templates..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="pl-9"
           />
         </div>
 
@@ -135,28 +137,26 @@ function DocTemplatesInner() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-36 rounded-xl border border-border bg-card animate-pulse"
+              className="h-36 rounded-lg border border-border bg-card animate-pulse"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl bg-muted/20">
-          <LayoutTemplate className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">
-            No hay templates de documentos
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Crea tu primer template para empezar a generar documentos
-          </p>
-          <Button
-            size="sm"
-            className="mt-4 gap-1.5"
-            onClick={() => router.push("/opai/documentos/templates/nuevo")}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Crear Template
-          </Button>
-        </div>
+        <EmptyState
+          icon={<LayoutTemplate className="h-10 w-10" />}
+          title="No hay templates de documentos"
+          description="Crea tu primer template para empezar a generar documentos"
+          action={
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => router.push("/opai/documentos/templates/nuevo")}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Crear Template
+            </Button>
+          }
+        />
       ) : (
         Object.entries(grouped).map(([module, temps]) => (
           <div key={module}>
@@ -167,7 +167,7 @@ function DocTemplatesInner() {
               {temps.map((template) => (
                 <div
                   key={template.id}
-                  className="group relative rounded-xl border border-border bg-card p-5 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
+                  className="group relative rounded-lg border border-border bg-card p-5 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
                   onClick={() =>
                     router.push(`/opai/documentos/templates/${template.id}`)
                   }

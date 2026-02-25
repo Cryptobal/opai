@@ -14,10 +14,15 @@ import {
   Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/opai";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocTemplate } from "@/types/docs";
+
+const selectClass =
+  "flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export function DocGenerateClient() {
   const router = useRouter();
@@ -197,48 +202,44 @@ export function DocGenerateClient() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => router.push("/opai/documentos")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Documentos
-        </Button>
-        <h1 className="text-lg font-semibold">Nuevo Documento</h1>
-        <div className="flex-1" />
-        {content && !resolved && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handleResolve}
-            disabled={resolving}
-          >
-            {resolving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Eye className="h-3.5 w-3.5" />
+      <PageHeader
+        backHref="/opai/documentos"
+        backLabel="Documentos"
+        title="Nuevo Documento"
+        actions={
+          <>
+            {content && !resolved && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleResolve}
+                disabled={resolving}
+              >
+                {resolving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+                Resolver Tokens
+              </Button>
             )}
-            Resolver Tokens
-          </Button>
-        )}
-        <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Save className="h-3.5 w-3.5" />
-          )}
-          Guardar Documento
-        </Button>
-      </div>
+            <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Guardar Documento
+            </Button>
+          </>
+        }
+      />
 
       {/* Configuration panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: Metadata */}
-        <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
+        <div className="space-y-4 p-4 rounded-lg border border-border bg-card">
           <h3 className="text-sm font-semibold">Configuración</h3>
 
           {/* Template selector */}
@@ -249,7 +250,7 @@ export function DocGenerateClient() {
             <select
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className={`mt-1 ${selectClass}`}
             >
               <option value="">Sin template (documento libre)</option>
               {templates.map((t) => (
@@ -264,12 +265,12 @@ export function DocGenerateClient() {
             <label className="text-xs font-medium text-muted-foreground">
               Título del Documento *
             </label>
-            <input
+            <Input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Contrato de Servicios - Cliente XYZ"
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="mt-1"
             />
           </div>
 
@@ -284,7 +285,7 @@ export function DocGenerateClient() {
                   setModule(e.target.value);
                   setCategory("");
                 }}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`mt-1 ${selectClass}`}
               >
                 <option value="crm">CRM</option>
                 <option value="payroll">Payroll</option>
@@ -298,7 +299,7 @@ export function DocGenerateClient() {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`mt-1 ${selectClass}`}
               >
                 <option value="">Seleccionar...</option>
                 {categories.map((c) => (
@@ -313,33 +314,33 @@ export function DocGenerateClient() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-white" />
+                <Calendar className="h-3 w-3" />
                 Fecha Inicio
               </label>
-              <input
+              <Input
                 type="date"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-white" />
+                <Calendar className="h-3 w-3" />
                 Fecha Vencimiento
               </label>
-              <input
+              <Input
                 type="date"
                 value={expirationDate}
                 onChange={(e) => setExpirationDate(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1"
               />
             </div>
           </div>
         </div>
 
         {/* Center + Right: Entity selectors */}
-        <div className="lg:col-span-2 space-y-4 p-4 rounded-xl border border-border bg-card">
+        <div className="lg:col-span-2 space-y-4 p-4 rounded-lg border border-border bg-card">
           <h3 className="text-sm font-semibold">Asociar Entidades CRM</h3>
           <p className="text-xs text-muted-foreground -mt-2">
             Selecciona las entidades para resolver los tokens del documento
@@ -359,7 +360,7 @@ export function DocGenerateClient() {
                   setContactId("");
                   setInstallationId("");
                 }}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`mt-1 ${selectClass}`}
               >
                 <option value="">Seleccionar cuenta...</option>
                 {accounts.map((a: any) => (
@@ -381,7 +382,7 @@ export function DocGenerateClient() {
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
                 disabled={!accountId}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                className={`mt-1 ${selectClass} disabled:opacity-50`}
               >
                 <option value="">
                   {accountId ? "Seleccionar contacto..." : "Selecciona una cuenta primero"}
@@ -406,7 +407,7 @@ export function DocGenerateClient() {
                 value={installationId}
                 onChange={(e) => setInstallationId(e.target.value)}
                 disabled={!accountId}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                className={`mt-1 ${selectClass} disabled:opacity-50`}
               >
                 <option value="">
                   {accountId ? "Seleccionar instalación..." : "Selecciona una cuenta primero"}
@@ -426,12 +427,12 @@ export function DocGenerateClient() {
                 <Handshake className="h-3 w-3" />
                 Negocio
               </label>
-              <input
+              <Input
                 type="text"
                 value={dealId}
                 onChange={(e) => setDealId(e.target.value)}
                 placeholder="ID del negocio (opcional)"
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1"
               />
             </div>
           </div>
@@ -451,9 +452,9 @@ export function DocGenerateClient() {
       />
 
       {resolved && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-950/40 border border-green-800">
-          <Eye className="h-4 w-4 text-green-400" />
-          <p className="text-sm text-green-300 flex-1">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <Eye className="h-4 w-4 text-emerald-400" />
+          <p className="text-sm text-emerald-400 flex-1">
             Los tokens han sido resueltos con datos reales. El documento está
             listo para guardar.
           </p>

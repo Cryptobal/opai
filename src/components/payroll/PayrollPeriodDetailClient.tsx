@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KpiCard } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -360,7 +361,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
           )}
 
           {period._count.attendanceRecords > 0 ? (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <span className="text-sm font-medium text-emerald-400">
@@ -372,14 +373,14 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/30 sticky top-0">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
-                        <th className="px-3 py-2 text-center font-medium text-muted-foreground">Fuente</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Días trab.</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Faltas</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Licencia</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Vacación</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Hrs norm.</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">Hrs extra</th>
+                        <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Guardia</th>
+                        <th className="px-3 py-2 text-center text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Fuente</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Días trab.</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Faltas</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Licencia</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Vacación</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Hrs norm.</th>
+                        <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Hrs extra</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -398,12 +399,12 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                               {r.source}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right font-medium">{r.daysWorked}</td>
-                          <td className="px-3 py-2 text-right text-destructive">{r.daysAbsent > 0 ? r.daysAbsent : "—"}</td>
-                          <td className="px-3 py-2 text-right">{r.daysMedicalLeave > 0 ? r.daysMedicalLeave : "—"}</td>
-                          <td className="px-3 py-2 text-right">{r.daysVacation > 0 ? r.daysVacation : "—"}</td>
-                          <td className="px-3 py-2 text-right">{Number(r.normalHours)}</td>
-                          <td className="px-3 py-2 text-right">{Number(r.overtimeHours50) > 0 ? Number(r.overtimeHours50) : "—"}</td>
+                          <td className="px-3 py-2 text-right font-mono font-medium">{r.daysWorked}</td>
+                          <td className="px-3 py-2 text-right font-mono text-destructive">{r.daysAbsent > 0 ? r.daysAbsent : "—"}</td>
+                          <td className="px-3 py-2 text-right font-mono">{r.daysMedicalLeave > 0 ? r.daysMedicalLeave : "—"}</td>
+                          <td className="px-3 py-2 text-right font-mono">{r.daysVacation > 0 ? r.daysVacation : "—"}</td>
+                          <td className="px-3 py-2 text-right font-mono">{Number(r.normalHours)}</td>
+                          <td className="px-3 py-2 text-right font-mono">{Number(r.overtimeHours50) > 0 ? Number(r.overtimeHours50) : "—"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -473,24 +474,9 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
       {/* Summary */}
       {period.liquidaciones.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-[10px] text-muted-foreground uppercase">Total Bruto</p>
-              <p className="text-lg font-bold">{formatCLP(totalGross)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-[10px] text-muted-foreground uppercase">Total Líquido</p>
-              <p className="text-lg font-bold text-emerald-400">{formatCLP(totalNet)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-[10px] text-muted-foreground uppercase">Costo Empleador</p>
-              <p className="text-lg font-bold text-amber-400">{formatCLP(totalEmployer)}</p>
-            </CardContent>
-          </Card>
+          <KpiCard title="Total Bruto" value={formatCLP(totalGross)} />
+          <KpiCard title="Total Líquido" value={formatCLP(totalNet)} variant="emerald" />
+          <KpiCard title="Costo Empleador" value={formatCLP(totalEmployer)} variant="amber" />
         </div>
       )}
 
@@ -558,14 +544,14 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/30">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Fuente</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Días</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Bruto</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Desc.</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Estado</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground w-[60px]">Detalle</th>
+                      <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Guardia</th>
+                      <th className="px-3 py-2 text-center text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Fuente</th>
+                      <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Días</th>
+                      <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Bruto</th>
+                      <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Desc.</th>
+                      <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Líquido</th>
+                      <th className="px-3 py-2 text-center text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Estado</th>
+                      <th className="px-3 py-2 text-center text-[11px] uppercase tracking-wider font-medium text-muted-foreground w-[60px]">Detalle</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -580,10 +566,10 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                         <td className="px-3 py-2 text-center">
                           <Badge variant="outline" className="text-[9px]">{l.salarySource}</Badge>
                         </td>
-                        <td className="px-3 py-2 text-right">{l.daysWorked}</td>
-                        <td className="px-3 py-2 text-right">{formatCLP(l.grossSalary)}</td>
-                        <td className="px-3 py-2 text-right text-destructive">-{formatCLP(l.totalDeductions)}</td>
-                        <td className="px-3 py-2 text-right font-medium text-emerald-400">{formatCLP(l.netSalary)}</td>
+                        <td className="px-3 py-2 text-right font-mono">{l.daysWorked}</td>
+                        <td className="px-3 py-2 text-right font-mono">{formatCLP(l.grossSalary)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-destructive">-{formatCLP(l.totalDeductions)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-medium text-emerald-400">{formatCLP(l.netSalary)}</td>
                         <td className="px-3 py-2 text-center">
                           <Badge variant="outline" className={`text-[9px] ${l.status === "PAID" ? "bg-emerald-500/15 text-emerald-400" : ""}`}>
                             {l.status}
@@ -609,9 +595,9 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/30">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Motivo</th>
-                        <th className="px-3 py-2 text-center font-medium text-muted-foreground w-[120px]">Acción</th>
+                        <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Guardia</th>
+                        <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider font-medium text-muted-foreground">Motivo</th>
+                        <th className="px-3 py-2 text-center text-[11px] uppercase tracking-wider font-medium text-muted-foreground w-[120px]">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -677,20 +663,20 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
               {/* Totals */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Total Haberes</p>
-                  <p className="font-semibold">{formatCLP(selectedLiq.grossSalary)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Haberes</p>
+                  <p className="font-semibold font-mono">{formatCLP(selectedLiq.grossSalary)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Total Descuentos</p>
-                  <p className="font-semibold text-destructive">-{formatCLP(selectedLiq.totalDeductions)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Descuentos</p>
+                  <p className="font-semibold font-mono text-destructive">-{formatCLP(selectedLiq.totalDeductions)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Sueldo Líquido</p>
-                  <p className="font-bold text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sueldo Líquido</p>
+                  <p className="font-bold font-mono text-lg text-emerald-400">{formatCLP(selectedLiq.netSalary)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase">Costo Empleador</p>
-                  <p className="font-semibold text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Costo Empleador</p>
+                  <p className="font-semibold font-mono text-amber-400">{formatCLP(selectedLiq.employerCost)}</p>
                 </div>
               </div>
 
@@ -802,7 +788,7 @@ function Row({ label, value, bold, negative }: { label: string; value: number; b
   return (
     <div className={`flex justify-between ${bold ? "font-semibold pt-1 border-t border-border/30" : ""}`}>
       <span className="text-muted-foreground">{label}</span>
-      <span className={negative ? "text-destructive" : ""}>
+      <span className={`font-mono ${negative ? "text-destructive" : ""}`}>
         {negative ? "-" : ""}${Math.abs(value).toLocaleString("es-CL")}
       </span>
     </div>
