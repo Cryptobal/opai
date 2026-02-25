@@ -349,7 +349,7 @@ export function OpsPautaDiariaClient({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
+                className="h-9 w-10 sm:h-9 sm:w-9 shrink-0"
                 onClick={() => {
                   const d = new Date(date);
                   d.setUTCDate(d.getUTCDate() - 1);
@@ -362,13 +362,13 @@ export function OpsPautaDiariaClient({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-10 sm:h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
+                className="h-9 w-10 sm:h-9 sm:w-9 shrink-0"
                 onClick={() => {
                   const d = new Date(date);
                   d.setUTCDate(d.getUTCDate() + 1);
@@ -422,7 +422,7 @@ export function OpsPautaDiariaClient({
               <div className="space-y-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
-                  className="h-10 sm:h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={clientId}
                   onChange={(e) => {
                     setClientId(e.target.value);
@@ -438,7 +438,7 @@ export function OpsPautaDiariaClient({
               <div className="space-y-1">
                 <Label className="text-xs">Instalación</Label>
                 <select
-                  className="h-10 sm:h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={installationId}
                   onChange={(e) => setInstallationId(e.target.value)}
                 >
@@ -616,7 +616,7 @@ export function OpsPautaDiariaClient({
                                     placeholder="Nombre, código, RUT…"
                                     value={replacementSearch}
                                     onChange={(e) => setReplacementSearch(e.target.value)}
-                                    className="m-2 h-10 text-sm"
+                                    className="m-2 h-9 text-sm"
                                     autoFocus
                                   />
                                   <ul className="max-h-60 overflow-auto py-1">
@@ -982,7 +982,7 @@ export function OpsPautaDiariaClient({
                     onChange={(e) =>
                       setAsistioModalHours((p) => ({ ...p, checkIn: e.target.value }))
                     }
-                    className="h-10"
+                    className="h-9"
                   />
                 </div>
                 <div className="space-y-2">
@@ -994,7 +994,7 @@ export function OpsPautaDiariaClient({
                     onChange={(e) =>
                       setAsistioModalHours((p) => ({ ...p, checkOut: e.target.value }))
                     }
-                    className="h-10"
+                    className="h-9"
                   />
                 </div>
               </div>
@@ -1086,7 +1086,7 @@ export function OpsPautaDiariaClient({
               placeholder="Nombre, código, RUT…"
               value={replacementSearch}
               onChange={(e) => setReplacementSearch(e.target.value)}
-              className="m-2 h-10 text-sm"
+              className="m-2 h-9 text-sm"
               autoFocus
             />
             <ul className="max-h-60 overflow-auto py-1">

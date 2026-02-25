@@ -51,7 +51,7 @@ export function PayrollPeriodListClient() {
   const [newMonth, setNewMonth] = useState(new Date().getMonth() + 1);
   const [creating, setCreating] = useState(false);
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   const loadPeriods = useCallback(async () => {
     setLoading(true);

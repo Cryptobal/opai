@@ -92,7 +92,7 @@ export function BonosCatalogManager() {
   const [saving, setSaving] = useState(false);
 
   const selectClass =
-    "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+    "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   const loadBonos = useCallback(async () => {
     setLoading(true);
@@ -305,7 +305,7 @@ export function BonosCatalogManager() {
                   value={form.code}
                   onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase().replace(/\s/g, "_") }))}
                   placeholder="BONO_ASISTENCIA"
-                  className="h-10 bg-background text-sm font-mono"
+                  className="h-9 bg-background text-sm font-mono"
                   disabled={!!editingId}
                 />
               </div>
@@ -317,7 +317,7 @@ export function BonosCatalogManager() {
                   value={form.name}
                   onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                   placeholder="Bono Asistencia Perfecta"
-                  className="h-10 bg-background text-sm"
+                  className="h-9 bg-background text-sm"
                 />
               </div>
             </div>
@@ -330,7 +330,7 @@ export function BonosCatalogManager() {
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Descripción opcional"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
 
@@ -372,7 +372,7 @@ export function BonosCatalogManager() {
                   onChange={(e) =>
                     setForm((p) => ({ ...p, defaultAmount: parseLocalizedNumber(e.target.value) }))
                   }
-                  className="h-10 bg-background text-sm"
+                  className="h-9 bg-background text-sm"
                 />
               </div>
             )}
@@ -391,7 +391,7 @@ export function BonosCatalogManager() {
                   onChange={(e) =>
                     setForm((p) => ({ ...p, defaultPercentage: Number(e.target.value) }))
                   }
-                  className="h-10 bg-background text-sm"
+                  className="h-9 bg-background text-sm"
                 />
               </div>
             )}
@@ -428,7 +428,7 @@ export function BonosCatalogManager() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, conditionThreshold: Number(e.target.value) }))
                     }
-                    className="h-10 bg-background text-sm"
+                    className="h-9 bg-background text-sm"
                   />
                   <p className="text-[10px] text-muted-foreground">
                     Porcentaje mínimo de cumplimiento para otorgar el bono

@@ -369,7 +369,7 @@ export function SignatureManagerClient({
                 />
               </div>
               <div className="flex items-end">
-                <label className="flex items-center gap-2 text-sm h-10">
+                <label className="flex items-center gap-2 text-sm h-9">
                   <input
                     type="checkbox"
                     checked={isDefault}

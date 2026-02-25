@@ -59,12 +59,12 @@ export function RondaTemplateForm({
       }}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre plantilla" className="h-10" />
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-10" />
+        <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre plantilla" className="h-9" />
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
         <select
           value={orderMode}
           onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
-          className="h-10 rounded border border-border bg-background px-2 text-sm"
+          className="h-9 rounded border border-border bg-background px-2 text-sm"
         >
           <option value="flexible">Orden flexible</option>
           <option value="strict">Orden estricto</option>
@@ -73,7 +73,7 @@ export function RondaTemplateForm({
           value={estimatedDurationMin}
           onChange={(e) => setEstimatedDurationMin(e.target.value)}
           placeholder="Duración (min)"
-          className="h-10"
+          className="h-9"
           type="number"
         />
       </div>
@@ -93,7 +93,7 @@ export function RondaTemplateForm({
         ))}
       </div>
 
-      <Button type="submit" className="h-10" disabled={saving || !selected.length}>
+      <Button type="submit" className="h-9" disabled={saving || !selected.length}>
         {saving ? "Guardando..." : "Crear plantilla"}
       </Button>
     </form>

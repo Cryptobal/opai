@@ -480,7 +480,7 @@ export function CrmConfigClient({
                   type="color"
                   value={newStage.color}
                   onChange={(event) => setNewStage((prev) => ({ ...prev, color: event.target.value }))}
-                  className="h-10 w-full rounded-md border border-input bg-background text-sm text-foreground"
+                  className="h-9 w-full rounded-md border border-input bg-background text-sm text-foreground"
                 />
               </div>
               <div className="space-y-1">
@@ -588,7 +588,7 @@ export function CrmConfigClient({
                       prev.map((item) => (item.id === stage.id ? { ...item, color: event.target.value } : item))
                     )
                   }
-                  className="h-10 w-full rounded-md border border-input bg-background text-sm text-foreground"
+                  className="h-9 w-full rounded-md border border-input bg-background text-sm text-foreground"
                 />
                 <div className="flex gap-2 text-xs text-muted-foreground">
                   <label className="flex items-center gap-2">
@@ -708,7 +708,7 @@ export function CrmConfigClient({
               <div className="space-y-1">
                 <Label>Tipo</Label>
                 <select
-                  className="flex h-10 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={newField.type}
                   onChange={(e) => setNewField((prev) => ({ ...prev, type: e.target.value }))}
                 >
@@ -872,7 +872,7 @@ export function CrmConfigClient({
                           <div className="space-y-1">
                             <Label>Tipo</Label>
                             <select
-                              className="flex h-10 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              className="flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                               value={editForm.type}
                               onChange={(e) => setEditForm((p) => ({ ...p, type: e.target.value }))}
                             >

@@ -120,7 +120,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por código o cliente"
-            className="h-10 bg-card/80 text-foreground border-input placeholder:text-muted-foreground"
+            className="h-9 bg-card/80 text-foreground border-input placeholder:text-muted-foreground"
           />
           <div className="flex flex-wrap items-center gap-2">
             <Button

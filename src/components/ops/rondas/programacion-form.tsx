@@ -53,7 +53,7 @@ export function ProgramacionForm({
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <select
-          className="h-10 rounded border border-border bg-background px-2 text-sm"
+          className="h-9 rounded border border-border bg-background px-2 text-sm"
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
           required
@@ -63,18 +63,18 @@ export function ProgramacionForm({
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
-        <Input type="time" className="h-10" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
-        <Input type="time" className="h-10" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
+        <Input type="time" className="h-9" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+        <Input type="time" className="h-9" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
         <Input
           type="number"
-          className="h-10"
+          className="h-9"
           value={String(frecuenciaMinutos)}
           onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
           placeholder="Frecuencia min"
         />
         <Input
           type="number"
-          className="h-10"
+          className="h-9"
           value={String(toleranciaMinutos)}
           onChange={(e) => setToleranciaMinutos(Number(e.target.value))}
           placeholder="Tolerancia min"
@@ -98,7 +98,7 @@ export function ProgramacionForm({
         ))}
       </div>
 
-      <Button type="submit" className="h-10" disabled={saving || !templateId || !diasSemana.length}>
+      <Button type="submit" className="h-9" disabled={saving || !templateId || !diasSemana.length}>
         {saving ? "Guardando..." : "Crear programación"}
       </Button>
     </form>

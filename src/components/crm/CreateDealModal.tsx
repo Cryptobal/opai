@@ -74,7 +74,7 @@ export function CreateDealModal({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-sm">Cliente</Label>
-            <Input value={accountName} readOnly disabled className="h-10 bg-muted text-sm" />
+            <Input value={accountName} readOnly disabled className="h-9 bg-muted text-sm" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Título del negocio</Label>
@@ -82,7 +82,7 @@ export function CreateDealModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={`Ej: Obra ${accountName}`}
-              className="h-10 bg-background text-sm"
+              className="h-9 bg-background text-sm"
             />
           </div>
           <Button onClick={createDeal} disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700">

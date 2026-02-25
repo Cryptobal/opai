@@ -71,10 +71,10 @@ export function CheckpointForm({
         }
       }}
     >
-      <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre checkpoint" className="h-10" />
-      <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-10" />
-      <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitud" className="h-10" />
-      <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitud" className="h-10" />
+      <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre checkpoint" className="h-9" />
+      <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
+      <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitud" className="h-9" />
+      <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitud" className="h-9" />
       <Button type="button" variant="outline" className="h-10 w-full sm:w-auto" onClick={() => setGeoModalOpen(true)}>
         Georreferenciar en mapa
       </Button>
@@ -91,7 +91,7 @@ export function CheckpointForm({
         value={String(geoRadiusM)}
         onChange={(e) => setGeoRadiusM(Number(e.target.value))}
         placeholder="Radio metros"
-        className="h-10"
+        className="h-9"
         type="number"
       />
       <Button className="h-10 w-full sm:w-auto" type="submit" disabled={saving}>

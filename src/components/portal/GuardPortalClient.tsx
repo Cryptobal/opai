@@ -388,7 +388,7 @@ function InicioSection({
             onClick={() => onNavigate("solicitudes")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent transition-colors text-left"
           >
-            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+            <div className="h-9 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
               <Ticket className="h-5 w-5 text-amber-500" />
             </div>
             <div className="min-w-0">
@@ -401,7 +401,7 @@ function InicioSection({
             onClick={() => onNavigate("pauta")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent transition-colors text-left"
           >
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+            <div className="h-9 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
               <CalendarDays className="h-5 w-5 text-blue-500" />
             </div>
             <div className="min-w-0">
@@ -414,7 +414,7 @@ function InicioSection({
             onClick={() => onNavigate("perfil")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent transition-colors text-left"
           >
-            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+            <div className="h-9 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
               <User className="h-5 w-5 text-purple-500" />
             </div>
             <div className="min-w-0">
@@ -427,7 +427,7 @@ function InicioSection({
             onClick={() => onNavigate("inicio")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent transition-colors text-left"
           >
-            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
               <Fingerprint className="h-5 w-5 text-emerald-500" />
             </div>
             <div className="min-w-0">
@@ -610,7 +610,7 @@ function SolicitudesSection({ session }: { session: GuardSession }) {
               id="ticket-type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Selecciona un tipo...</option>
               {GUARD_TICKET_TYPES.map((t) => (
@@ -1061,7 +1061,7 @@ function PerfilSection({
       {/* Avatar / Header */}
       <div className="flex flex-col items-center gap-3">
         <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <User className="h-10 w-10 text-primary" />
+          <User className="h-9 w-10 text-primary" />
         </div>
         {profile && (
           <>

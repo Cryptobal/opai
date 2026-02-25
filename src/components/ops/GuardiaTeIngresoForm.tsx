@@ -288,7 +288,7 @@ export function GuardiaTeIngresoForm({
             <Label htmlFor="te-bankCode">Banco *</Label>
             <select
               id="te-bankCode"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={form.bankCode}
               onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
               required
@@ -305,7 +305,7 @@ export function GuardiaTeIngresoForm({
             <Label htmlFor="te-accountType">Tipo de cuenta *</Label>
             <select
               id="te-accountType"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={form.accountType}
               onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
               required
@@ -439,7 +439,7 @@ export function GuardiaTeIngresoForm({
           <Label htmlFor="te-notaEvaluacion">Nota</Label>
           <select
             id="te-notaEvaluacion"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm max-w-xs"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm max-w-xs"
             value={form.notaEvaluacion}
             onChange={(e) =>
               setForm((prev) => ({

@@ -42,7 +42,7 @@ export function HolidaysManager() {
   const [formType, setFormType] = useState("normal");
   const [saving, setSaving] = useState(false);
 
-  const selectClass = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm";
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm";
 
   const loadHolidays = useCallback(async () => {
     setLoading(true);
@@ -153,7 +153,7 @@ export function HolidaysManager() {
                   key={h.id}
                   className="flex items-center gap-3 rounded-lg border border-border p-2.5 hover:bg-accent/20 transition-colors"
                 >
-                  <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className="flex h-9 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <span className="text-[10px] font-medium leading-none">{monthName}</span>
                     <span className="text-base font-bold leading-tight">{dayNum}</span>
                   </div>
@@ -195,7 +195,7 @@ export function HolidaysManager() {
                 type="date"
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -204,7 +204,7 @@ export function HolidaysManager() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="Ej: Año Nuevo"
-                className="h-10 bg-background text-sm"
+                className="h-9 bg-background text-sm"
               />
             </div>
             <div className="space-y-1.5">
