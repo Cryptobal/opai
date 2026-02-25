@@ -1,5 +1,5 @@
 /**
- * Tarjeta de puesto de trabajo CPQ
+ * Tarjeta de puesto de trabajo CPQ - Layout compacto tipo fila
  */
 
 "use client";
@@ -99,131 +99,103 @@ export function CpqPositionCard({
   const title = position.customName || position.puestoTrabajo?.name || "Puesto";
   const puestoName = position.puestoTrabajo?.name || "Puesto";
   const roleName = position.rol?.name || "—";
-  const premiumBadgeClass =
-    "h-6 max-w-[160px] rounded-full border px-2.5 text-[11px] font-medium leading-none tracking-[0.01em] truncate";
+  const shiftType = getShiftType(position.startTime);
+  const compactBadge = "h-5 rounded-full border px-1.5 text-[10px] font-medium leading-none truncate max-w-[120px]";
 
   return (
     <Card className="overflow-hidden border border-muted/40">
-      <div className="flex items-start justify-between gap-3 border-b bg-muted/20 p-3">
+      {/* ── Row 1: Title + badges + actions ── */}
+      <div className="flex items-center gap-2 px-2.5 py-1.5">
         <div
-          className={cn("flex-1", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+          className={cn("flex-1 min-w-0", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
           onClick={readOnly ? undefined : () => setOpenEdit(true)}
         >
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-foreground truncate">{title}</span>
             <Badge
               variant="outline"
-              className={cn(premiumBadgeClass, "text-foreground/90")}
+              className={cn(compactBadge, "text-foreground/80")}
               style={getTintedBadgeStyle(position.puestoTrabajo?.colorHex)}
             >
               {puestoName}
             </Badge>
             <Badge
               variant="outline"
-              className={cn(premiumBadgeClass, "text-foreground/90")}
+              className={cn(compactBadge, "text-foreground/80")}
               style={getTintedBadgeStyle(position.rol?.colorHex)}
             >
               {roleName}
             </Badge>
-            <Badge
-              variant="outline"
-              className={cn(
-                premiumBadgeClass,
-                "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-              )}
-            >
-              {position.numGuards} x {position.numPuestos || 1} {(position.numGuards * (position.numPuestos || 1)) === 1 ? "guardia" : "guardias"}
+            <Badge variant="outline" className={cn(compactBadge, "border-emerald-500/30 bg-emerald-500/15 text-emerald-300")}>
+              {position.numGuards}x{position.numPuestos || 1}
             </Badge>
-            <Badge
-              variant="outline"
-              className={cn(premiumBadgeClass, "border-amber-500/30 bg-amber-500/15 text-amber-300")}
-            >
+            <Badge variant="outline" className={cn(compactBadge, "border-amber-500/30 bg-amber-500/15 text-amber-300")}>
               {formatWeekdaysShort(position.weekdays)}
             </Badge>
             <Badge
               variant="outline"
               className={cn(
-                premiumBadgeClass,
-                getShiftType(position.startTime) === "night"
+                compactBadge,
+                shiftType === "night"
                   ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
                   : "border-yellow-500/30 bg-yellow-500/15 text-yellow-300"
               )}
             >
-              {getShiftType(position.startTime) === "night" ? (
-                <Moon className="mr-1 h-3 w-3 inline" />
-              ) : (
-                <Sun className="mr-1 h-3 w-3 inline" />
-              )}
-              {getShiftLabel(position.startTime)} · {position.startTime} - {position.endTime}
+              {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
+              {position.startTime}-{position.endTime}
             </Badge>
           </div>
         </div>
         {!readOnly && (
-          <div className="flex items-center gap-1">
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setOpenEdit(true)} title="Editar">
-              <Pencil className="h-4 w-4" />
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOpenEdit(true)} title="Editar">
+              <Pencil className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleClone} disabled={loading} title="Clonar">
-              <Copy className="h-4 w-4" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleClone} disabled={loading} title="Clonar">
+              <Copy className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleRecalculate} disabled={loading} title="Recalcular costo">
-              <RefreshCw className="h-4 w-4" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleRecalculate} disabled={loading} title="Recalcular">
+              <RefreshCw className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={handleDelete} disabled={loading} title="Eliminar">
-              <Trash2 className="h-4 w-4" />
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={handleDelete} disabled={loading} title="Eliminar">
+              <Trash2 className="h-3 w-3" />
             </Button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
-        <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Costo empresa c/u</p>
-          <p className="text-sm sm:text-xs font-semibold">{formatCurrency(Number(position.employerCost))}</p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Líquido c/u</p>
-          <p className="text-sm sm:text-xs font-semibold">
-            {formatCurrency(Number(position.netSalary || 0))}
-          </p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-foreground">
-          <p className="text-xs uppercase text-muted-foreground">Base c/u</p>
-          <p className="text-sm sm:text-xs font-semibold">
-            {formatCurrency(Number(position.baseSalary))}
-          </p>
-        </div>
+      {/* ── Row 2: Costs inline ── */}
+      <div
+        className="flex items-center gap-3 px-2.5 py-1.5 border-t border-border/40 bg-muted/10 text-[11px] overflow-x-auto cursor-pointer hover:bg-muted/20 transition-colors"
+        onClick={() => setOpenBreakdown(true)}
+      >
+        <span className="text-muted-foreground">
+          Costo c/u <span className="font-mono font-semibold text-foreground">{formatCurrency(Number(position.employerCost))}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Líquido <span className="font-mono font-semibold text-foreground">{formatCurrency(Number(position.netSalary || 0))}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Base <span className="font-mono font-semibold text-foreground">{formatCurrency(Number(position.baseSalary))}</span>
+        </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="font-semibold text-foreground">
+          Total: <span className="font-mono">{formatCurrency(Number(position.monthlyPositionCost))}</span>
+        </span>
       </div>
 
-      <div className="flex items-center justify-between border-t bg-muted/10 px-3 py-2">
-        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-          <p className="text-xs sm:text-xs text-muted-foreground">
-            Costo mensual puesto ({position.numGuards} guardia(s) x {position.numPuestos || 1} puesto(s)):{' '}
-            <span className="font-mono text-foreground">
-              {formatCurrency(Number(position.monthlyPositionCost))}
-            </span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-9 sm:h-7 px-3 sm:px-2 text-xs sm:text-xs" onClick={() => setOpenBreakdown(true)}>
-            Ver desglose
-          </Button>
-        </div>
-        <EditPositionModal
-          quoteId={quoteId}
-          position={position}
-          open={openEdit}
-          onOpenChange={setOpenEdit}
-          onUpdated={onUpdated}
-        />
-        <CostBreakdownModal
-          open={openBreakdown}
-          onOpenChange={setOpenBreakdown}
-          position={position}
-        />
-      </div>
+      <EditPositionModal
+        quoteId={quoteId}
+        position={position}
+        open={openEdit}
+        onOpenChange={setOpenEdit}
+        onUpdated={onUpdated}
+      />
+      <CostBreakdownModal
+        open={openBreakdown}
+        onOpenChange={setOpenBreakdown}
+        position={position}
+      />
     </Card>
   );
 }

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/opai";
 import { formatCurrency } from "@/components/cpq/utils";
-import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import type {
   CpqCatalogItem,
@@ -104,8 +104,8 @@ export function CpqQuoteCosts({
   const [skipDefaultCosts, setSkipDefaultCosts] = useState(false);
   const defaultsApplied = useRef(false);
   const inputClass =
-    "h-10 bg-card text-foreground border-border placeholder:text-muted-foreground";
-  const sectionBoxClass = "rounded-md border border-border bg-muted/20 p-3 sm:p-2";
+    "h-8 bg-card text-foreground border-border placeholder:text-muted-foreground text-xs";
+  const sectionBoxClass = "rounded-md border border-border/50 bg-muted/10 p-2";
   const isInline = variant === "inline";
   const getDecimalValue = (
     key: string,
@@ -708,38 +708,36 @@ export function CpqQuoteCosts({
     <div className="text-sm text-muted-foreground">Cargando...</div>
   ) : (
     <>
-      <div className="space-y-4 text-sm">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant={activeSection === "directos" ? "default" : "outline"}
-            className={activeSection === "directos" ? "bg-primary/90" : "bg-transparent"}
+      <div className="space-y-2 text-xs">
+        {/* Segmented control tabs */}
+        <div className="inline-flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            className={cn("px-3 py-1.5 text-xs font-medium transition-colors", activeSection === "directos" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
             onClick={() => setActiveSection("directos")}
           >
             Directos
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSection === "indirectos" ? "default" : "outline"}
-            className={activeSection === "indirectos" ? "bg-primary/90" : "bg-transparent"}
+          </button>
+          <button
+            type="button"
+            className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", activeSection === "indirectos" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
             onClick={() => setActiveSection("indirectos")}
           >
             Indirectos
-          </Button>
+          </button>
           {showFinancial && (
-            <Button
-              size="sm"
-              variant={activeSection === "financieros" ? "default" : "outline"}
-              className={activeSection === "financieros" ? "bg-primary/90" : "bg-transparent"}
+            <button
+              type="button"
+              className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", activeSection === "financieros" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
               onClick={() => setActiveSection("financieros")}
             >
               Financieros
-            </Button>
+            </button>
           )}
         </div>
 
         {activeSection === "directos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -752,7 +750,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.uniforms}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Uniformes
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -769,7 +767,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -805,7 +803,7 @@ export function CpqQuoteCosts({
                     ))}
                 </select>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                 {(catalogByType.uniform || [])
                   .filter((item) =>
                     uniforms.find((u) => u.catalogItemId === item.id && u.active)
@@ -858,7 +856,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "directos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -871,7 +869,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.exams}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Exámenes
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -888,7 +886,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -924,7 +922,7 @@ export function CpqQuoteCosts({
                     ))}
                 </select>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                 {(catalogByType.exam || [])
                   .filter((item) =>
                     exams.find((u) => u.catalogItemId === item.id && u.active)
@@ -977,7 +975,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "directos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -990,7 +988,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.meals}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Alimentación
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1007,7 +1005,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1098,7 +1096,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1111,7 +1109,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.operational}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Equipos operativos
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1128,7 +1126,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1185,7 +1183,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1198,7 +1196,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.transport}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Costos de transporte
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1215,7 +1213,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1272,7 +1270,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1285,7 +1283,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.vehicles}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Vehículos
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1302,7 +1300,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1444,7 +1442,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1457,7 +1455,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.infrastructure}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Infraestructura
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1474,7 +1472,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1531,7 +1529,7 @@ export function CpqQuoteCosts({
         )}
 
         {activeSection === "indirectos" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1544,7 +1542,7 @@ export function CpqQuoteCosts({
             aria-expanded={!collapsedSections.systems}
           >
             <div>
-              <h3 className="text-sm font-semibold uppercase text-foreground">
+              <h3 className="text-xs font-semibold uppercase text-foreground">
                 Sistemas
               </h3>
               <span className="text-xs text-muted-foreground">
@@ -1561,7 +1559,7 @@ export function CpqQuoteCosts({
             <>
               <div className="flex items-center gap-2 sm:justify-end">
                 <select
-                  className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                   value=""
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1581,7 +1579,7 @@ export function CpqQuoteCosts({
                     ))}
                 </select>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                 {otherCostItems
                   .filter((item) => item.isEnabled)
                   .map((item) => {
@@ -1627,9 +1625,9 @@ export function CpqQuoteCosts({
         )}
 
         {showFinancial && activeSection === "financieros" && (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold uppercase text-foreground">
+            <h3 className="text-xs font-semibold uppercase text-foreground">
               Costos financieros
             </h3>
             <span className="text-xs text-muted-foreground">
@@ -1642,7 +1640,7 @@ export function CpqQuoteCosts({
             )}
             <div className="flex items-center gap-2">
               <select
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                 value=""
                 onChange={(e) => {
                   const value = e.target.value;
@@ -1663,7 +1661,7 @@ export function CpqQuoteCosts({
               </select>
             </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
             {financialCostItems
               .filter((item) => item.isEnabled)
               .map((item) => {
@@ -1887,9 +1885,9 @@ export function CpqQuoteCosts({
                   </div>
 
                   {activeSection === "directos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Uniformes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1897,7 +1895,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -1934,7 +1932,7 @@ export function CpqQuoteCosts({
                         </select>
                       </div>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                       {(catalogByType.uniform || [])
                         .filter((item) =>
                           uniforms.find((u) => u.catalogItemId === item.id && u.active)
@@ -1986,9 +1984,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "directos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Exámenes
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -1996,7 +1994,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2033,7 +2031,7 @@ export function CpqQuoteCosts({
                         </select>
                       </div>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                       {(catalogByType.exam || [])
                         .filter((item) =>
                           exams.find((u) => u.catalogItemId === item.id && u.active)
@@ -2084,9 +2082,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "directos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Alimentación
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2094,7 +2092,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2184,9 +2182,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "indirectos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Equipos operativos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2194,7 +2192,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2250,9 +2248,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "indirectos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Costos de transporte
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2260,7 +2258,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2316,9 +2314,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "indirectos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Vehículos
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2326,7 +2324,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2468,9 +2466,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "indirectos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Infraestructura
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2478,7 +2476,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2534,9 +2532,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {activeSection === "indirectos" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Sistemas
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2544,7 +2542,7 @@ export function CpqQuoteCosts({
                       </span>
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2565,7 +2563,7 @@ export function CpqQuoteCosts({
                         </select>
                       </div>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                       {otherCostItems
                         .filter((item) => item.isEnabled)
                         .map((item) => {
@@ -2609,9 +2607,9 @@ export function CpqQuoteCosts({
                   )}
 
                   {showFinancial && activeSection === "financieros" && (
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase text-foreground">
+                      <h3 className="text-xs font-semibold uppercase text-foreground">
                         Costos financieros
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -2624,7 +2622,7 @@ export function CpqQuoteCosts({
                       )}
                       <div className="flex items-center gap-2">
                         <select
-                          className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
                           value=""
                           onChange={(e) => {
                             const value = e.target.value;
@@ -2645,7 +2643,7 @@ export function CpqQuoteCosts({
                         </select>
                       </div>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
                       {financialCostItems
                         .filter((item) => item.isEnabled)
                         .map((item) => {
@@ -2803,11 +2801,11 @@ export function CpqQuoteCosts({
         </div>
       </div>
 
-      {isInline && <div className="space-y-3">{costForm}</div>}
+      {isInline && <div className="space-y-2">{costForm}</div>}
 
       {summary ? (
         <div className="space-y-3">
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 [&>*]:min-h-[88px]">
+          <div className="grid gap-1.5 grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 [&>*]:min-h-[60px]">
             <KpiCard
               title="Uniformes"
               value={formatCurrency(summary.monthlyUniforms)}

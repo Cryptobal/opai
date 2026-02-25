@@ -146,90 +146,61 @@ export function CpqPricingCalc({
     }
   };
 
+  const [showHourly, setShowHourly] = useState(false);
+
+  const CostRow = ({ label, value, className: cls }: { label: string; value: number; className?: string }) => (
+    <div className={`flex justify-between items-center py-0.5 ${cls || ""}`}>
+      <span className="text-[11px] text-muted-foreground truncate">{label}</span>
+      <span className="font-mono text-[11px] shrink-0 ml-2">{formatCurrency(value)}</span>
+    </div>
+  );
+
   return (
-    <Card className="p-4 space-y-3">
-      <h2 className="text-sm font-semibold">Cálculo detallado de cotización</h2>
-      
-      <div className="grid gap-1.5 text-sm">
-        <div className="text-xs font-semibold uppercase text-blue-300/80 border-b border-blue-500/30 pb-1">
-          Costos directos
+    <Card className="p-2.5 space-y-1.5">
+      <h2 className="text-xs font-semibold">Cálculo de cotización</h2>
+
+      <div className="grid gap-0">
+        {/* Directos */}
+        <div className="text-[10px] font-semibold uppercase text-blue-300/80 border-b border-blue-500/20 pb-0.5 mb-0.5">Directos</div>
+        <CostRow label="Mano de obra" value={directCosts} />
+        <CostRow label={`Feriados (${summary.totalGuards} guardias)`} value={holidayCosts} className="text-emerald-300" />
+        <CostRow label="Uniformes" value={uniformCosts} />
+        <CostRow label="Exámenes" value={examCosts} />
+        <CostRow label="Alimentación" value={mealCosts} />
+
+        {/* Indirectos */}
+        <div className="text-[10px] font-semibold uppercase text-teal-300/80 border-b border-teal-500/20 pb-0.5 mb-0.5 mt-1.5">Indirectos</div>
+        <CostRow label="Equipos" value={operationalCosts} />
+        <CostRow label="Transporte" value={transportCosts} />
+        <CostRow label="Vehículos" value={vehicleCosts} />
+        <CostRow label="Infraestructura" value={infraCosts} />
+        <CostRow label="Sistemas" value={systemCosts} />
+
+        <div className="flex justify-between items-center border-t border-border/40 pt-1 mt-1">
+          <span className="text-xs text-muted-foreground font-semibold">Subtotal base</span>
+          <span className="font-mono text-xs font-semibold">{formatCurrency(costsBase)}</span>
         </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Mano de obra</span>
-          <span className="font-mono text-xs">{formatCurrency(directCosts)}</span>
+
+        {/* Porcentuales */}
+        <div className="text-[10px] font-semibold uppercase text-amber-300/80 border-b border-amber-500/20 pb-0.5 mb-0.5 mt-1.5">Porcentuales</div>
+        <div className="flex justify-between items-center py-0.5 text-amber-300">
+          <span className="text-[11px]">Financiero ({formatNumber(effectiveFinancialRatePct, { minDecimals: 2, maxDecimals: 2 })}%)</span>
+          <span className="font-mono text-[11px]">{formatCurrency(financialAmount)}</span>
         </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-emerald-300 text-xs">
-            Ajuste feriados total ({summary.totalGuards} guardias)
-          </span>
-          <span className="font-mono text-xs text-emerald-300">{formatCurrency(holidayCosts)}</span>
+        <div className="flex justify-between items-center py-0.5 text-purple-300">
+          <span className="text-[11px]">Póliza ({formatNumber(effectivePolicyRatePct, { minDecimals: 2, maxDecimals: 2 })}%)</span>
+          <span className="font-mono text-[11px]">{formatCurrency(policyAmount)}</span>
         </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Uniformes</span>
-          <span className="font-mono text-xs">{formatCurrency(uniformCosts)}</span>
+
+        <div className="flex justify-between items-center border-t border-border/40 pt-1 mt-1">
+          <span className="text-xs text-muted-foreground font-semibold">Total costos</span>
+          <span className="font-mono text-xs font-semibold">{formatCurrency(costsBase + financialAmount + policyAmount)}</span>
         </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Exámenes</span>
-          <span className="font-mono text-xs">{formatCurrency(examCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Alimentación</span>
-          <span className="font-mono text-xs">{formatCurrency(mealCosts)}</span>
-        </div>
-        
-        <div className="text-xs font-semibold uppercase text-teal-300/80 border-b border-teal-500/30 pb-1 mt-2">
-          Costos indirectos
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Equipos operativos</span>
-          <span className="font-mono text-xs">{formatCurrency(operationalCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Costos de transporte</span>
-          <span className="font-mono text-xs">{formatCurrency(transportCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Vehículos</span>
-          <span className="font-mono text-xs">{formatCurrency(vehicleCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Infraestructura</span>
-          <span className="font-mono text-xs">{formatCurrency(infraCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2">
-          <span className="text-muted-foreground text-xs">Sistemas</span>
-          <span className="font-mono text-xs">{formatCurrency(systemCosts)}</span>
-        </div>
-        
-        <div className="flex justify-between items-center border-t border-border/50 pt-2 mt-1">
-          <span className="text-muted-foreground font-semibold">Subtotal costos base</span>
-          <span className="font-mono font-semibold">{formatCurrency(costsBase)}</span>
-        </div>
-        
-        <div className="text-xs font-semibold uppercase text-amber-300/80 border-b border-amber-500/30 pb-1 mt-2">
-          Costos porcentuales
-        </div>
-        <div className="flex justify-between items-center pl-2 text-amber-300">
-          <span className="text-xs">
-            Costo financiero ({formatNumber(effectiveFinancialRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
-          </span>
-          <span className="font-mono text-xs">{formatCurrency(financialAmount)}</span>
-        </div>
-        <div className="flex justify-between items-center pl-2 text-purple-300">
-          <span className="text-xs">
-            Póliza ({formatNumber(effectivePolicyRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
-          </span>
-          <span className="font-mono text-xs">{formatCurrency(policyAmount)}</span>
-        </div>
-        
-        <div className="flex justify-between items-center border-t border-border/50 pt-2 mt-1">
-          <span className="text-muted-foreground font-semibold">Costos totales</span>
-          <span className="font-mono font-semibold">{formatCurrency(costsBase + financialAmount + policyAmount)}</span>
-        </div>
-        
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-emerald-300 mt-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Margen</span>
+
+        {/* Margen */}
+        <div className="flex items-center justify-between gap-2 text-emerald-300 mt-1.5 py-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold">Margen</span>
             <Input
               type="text"
               inputMode="decimal"
@@ -244,46 +215,56 @@ export function CpqPricingCalc({
                 setMarginDraft(formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 }));
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="h-7 w-20 text-xs bg-card/80 text-foreground border-emerald-600/40 placeholder:text-muted-foreground"
+              className="h-7 w-16 text-xs bg-card/80 text-foreground border-emerald-600/40 placeholder:text-muted-foreground"
             />
-            <span className="text-xs">%</span>
+            <span className="text-[11px]">%</span>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 px-2 text-xs"
+              className="h-6 px-2 text-[10px]"
               onClick={handleSaveMargin}
               disabled={!dirty || saving}
             >
-              {saving ? "Guardando..." : "Guardar"}
+              {saving ? "..." : "OK"}
             </Button>
           </div>
-          <span className="font-mono font-semibold">{formatCurrency(marginAmount)}</span>
+          <span className="font-mono text-xs font-semibold">{formatCurrency(marginAmount)}</span>
         </div>
-        
-        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-2 mt-2 text-base font-bold text-emerald-400">
-          <span>Precio venta mensual</span>
+
+        {/* Sale price highlight */}
+        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-1.5 mt-1 text-sm font-bold text-emerald-400">
+          <span>Venta mensual</span>
           <span className="font-mono">{formatCurrency(salePriceMonthly)}</span>
         </div>
 
+        {/* Hourly rate per position - collapsible */}
         {saleAllocationByPosition.length > 0 && (
-          <div className="mt-3 space-y-1.5 border-t border-emerald-500/20 pt-2">
-            <div className="text-xs font-semibold uppercase text-emerald-300/80">
-              Valor hora cliente por puesto (prorrateado por peso)
-            </div>
-            {saleAllocationByPosition.map(({ position, allocated, weight }) => {
-              const guards = Math.max(1, Number(position.numGuards || 0));
-              const hourlyRate = allocated > 0 ? allocated / guards / Math.max(1, monthlyHours) : 0;
-              const positionName = position.customName || position.puestoTrabajo?.name || "Puesto";
-              return (
-                <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 pl-2 text-xs">
-                  <span className="text-muted-foreground">
-                    {positionName} ({formatNumber(weight * 100, { minDecimals: 2, maxDecimals: 2 })}%)
-                  </span>
-                  <span className="font-mono text-emerald-300">{formatCurrency(hourlyRate)}</span>
-                </div>
-              );
-            })}
+          <div className="mt-1.5 border-t border-emerald-500/20 pt-1">
+            <button
+              type="button"
+              className="text-[10px] font-semibold uppercase text-emerald-300/80 hover:text-emerald-300 transition-colors"
+              onClick={() => setShowHourly(!showHourly)}
+            >
+              {showHourly ? "▾" : "▸"} Valor hora por puesto
+            </button>
+            {showHourly && (
+              <div className="mt-1 space-y-0.5">
+                {saleAllocationByPosition.map(({ position, allocated, weight }) => {
+                  const guards = Math.max(1, Number(position.numGuards || 0));
+                  const hourlyRate = allocated > 0 ? allocated / guards / Math.max(1, monthlyHours) : 0;
+                  const positionName = position.customName || position.puestoTrabajo?.name || "Puesto";
+                  return (
+                    <div key={position.id} className="flex items-center justify-between pl-2 text-[11px]">
+                      <span className="text-muted-foreground truncate">
+                        {positionName} ({formatNumber(weight * 100, { minDecimals: 1, maxDecimals: 1 })}%)
+                      </span>
+                      <span className="font-mono text-emerald-300 shrink-0 ml-2">{formatCurrency(hourlyRate)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
