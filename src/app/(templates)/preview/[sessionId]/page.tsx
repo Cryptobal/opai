@@ -107,6 +107,34 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
     presentationData = mapZohoDataToPresentation(zohoData, sessionId, template.slug);
   }
 
+  // 5.1 Para borradores CPQ: cargar negocio e instalación desde la BD si no están en los datos almacenados
+  if (isCpqDraft && (!presentationData._dealName || !presentationData._installationName)) {
+    const cpqQuoteId = zohoData._cpqQuoteId;
+    if (cpqQuoteId) {
+      const cpqQuote = await prisma.cpqQuote.findUnique({
+        where: { id: cpqQuoteId },
+        select: {
+          dealId: true,
+          installation: { select: { name: true } },
+        },
+      });
+      if (cpqQuote) {
+        if (!presentationData._installationName && cpqQuote.installation?.name) {
+          presentationData._installationName = cpqQuote.installation.name;
+        }
+        if (!presentationData._dealName && cpqQuote.dealId) {
+          const deal = await prisma.crmDeal.findUnique({
+            where: { id: cpqQuote.dealId },
+            select: { title: true },
+          });
+          if (deal) {
+            presentationData._dealName = deal.title;
+          }
+        }
+      }
+    }
+  }
+
   // 6. Extraer datos del contacto y contexto CRM
   const contactName = `${zohoData.contact?.First_Name || ''} ${zohoData.contact?.Last_Name || ''}`.trim();
   const contactEmail = zohoData.contact?.Email || '';
