@@ -104,7 +104,7 @@ export default async function TemplatesPage() {
 
       {/* Info */}
       <Card className="mt-8 border-muted">
-        <CardContent className="pt-6">
+        <CardContent className="pt-5">
           <p className="text-sm text-muted-foreground">
             💡 <strong>¿Necesitas un template nuevo?</strong> Los templates se crean mediante código
             para máximo control y calidad. Cada template es un componente React personalizado.

@@ -128,6 +128,7 @@ export function HubCrmSection({
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1">
                     {step.label}
                   </p>
+                  {/* Intencional: funnel CRM con barra de color, no usa KpiCard por ser Link interactivo */}
                   <p className="mt-1 text-2xl font-bold">{step.value}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {step.rateFromPrev == null

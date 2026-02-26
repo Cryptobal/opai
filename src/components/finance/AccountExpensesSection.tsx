@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { KpiCard, DataTable } from "@/components/opai";
+import type { DataTableColumn } from "@/components/opai";
 
 interface AccountExpensesSectionProps {
   accountId: string;
@@ -58,6 +60,47 @@ interface Totals {
 interface ByInstallation {
   [key: string]: { total: number; count: number };
 }
+
+const columns: DataTableColumn[] = [
+  {
+    key: "code",
+    label: "Código",
+    render: (value, row) => (
+      <Link
+        href={`/finanzas/rendiciones/${row.id}`}
+        className="text-primary hover:underline text-xs"
+      >
+        {value}
+      </Link>
+    ),
+  },
+  {
+    key: "date",
+    label: "Fecha",
+    render: (value) =>
+      value ? format(new Date(value), "dd/MM/yy", { locale: es }) : "-",
+  },
+  {
+    key: "amount",
+    label: "Monto",
+    className: "text-right",
+    render: (value) => (
+      <span className="font-mono">{fmtCLP(value || 0)}</span>
+    ),
+  },
+  {
+    key: "status",
+    label: "Estado",
+    render: (value) => (
+      <Badge
+        variant="secondary"
+        className={`text-[10px] ${STATUS_COLORS[value] || ""}`}
+      >
+        {STATUS_LABELS[value] || value}
+      </Badge>
+    ),
+  },
+];
 
 export function AccountExpensesSection({
   accountId,
@@ -114,96 +157,35 @@ export function AccountExpensesSection({
 
   return (
     <div className="space-y-4">
-      {/* Summary cards */}
+      {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs text-muted-foreground">Total rendiciones</p>
-            <p className="text-lg font-semibold">{data.totals.count}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs text-muted-foreground">Gasto total</p>
-            <p className="text-lg font-semibold">{fmtCLP(data.totals.total)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs text-muted-foreground">Pagado</p>
-            <p className="text-lg font-semibold text-purple-400">
-              {fmtCLP(data.totals.paid)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs text-muted-foreground">Pendiente</p>
-            <p className="text-lg font-semibold text-amber-400">
-              {fmtCLP(data.totals.pending)}
-            </p>
-          </CardContent>
-        </Card>
+        <KpiCard title="Total rendiciones" value={data.totals.count} size="sm" />
+        <KpiCard title="Gasto total" value={fmtCLP(data.totals.total)} size="sm" />
+        <KpiCard
+          title="Pagado"
+          value={fmtCLP(data.totals.paid)}
+          size="sm"
+          variant="purple"
+        />
+        <KpiCard
+          title="Pendiente"
+          value={fmtCLP(data.totals.pending)}
+          size="sm"
+          variant="amber"
+        />
       </div>
 
-      {/* Recent rendiciones table */}
-      <Card>
-        <CardContent className="pt-4">
-          <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">
-            Últimas rendiciones
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/30">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.rendiciones.slice(0, 20).map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-border/60 last:border-0 hover:bg-accent/30"
-                  >
-                    <td className="px-3 py-2">
-                      <Link
-                        href={`/finanzas/rendiciones/${r.id}`}
-                        className="text-primary hover:underline text-xs"
-                      >
-                        {r.code}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {r.date
-                        ? format(new Date(r.date), "dd/MM/yy", { locale: es })
-                        : "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs font-mono">
-                      {fmtCLP(r.amount || 0)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] ${STATUS_COLORS[r.status] || ""}`}
-                      >
-                        {STATUS_LABELS[r.status] || r.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {data.rendiciones.length > 20 && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Mostrando 20 de {data.rendiciones.length} rendiciones
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Rendiciones table */}
+      <DataTable
+        columns={columns}
+        data={data.rendiciones.slice(0, 20)}
+        compact
+      />
+      {data.rendiciones.length > 20 && (
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          Mostrando 20 de {data.rendiciones.length} rendiciones
+        </p>
+      )}
     </div>
   );
 }

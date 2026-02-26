@@ -73,7 +73,7 @@ export function InventarioProductoSizesClient({
   if (category === "asset") {
     return (
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-5">
           <p className="text-sm text-muted-foreground">
             Los activos no usan tallas. Este producto tiene una única variante para compras y stock.
           </p>
