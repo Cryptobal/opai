@@ -243,7 +243,7 @@ export function RendicionesClient({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Toolbar */}
       <ListToolbar
         search={search}

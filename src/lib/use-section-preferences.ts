@@ -69,9 +69,7 @@ function getDefaultCollapsed(
   if (Array.isArray(defaultCollapsedSectionKeys) && defaultCollapsedSectionKeys.length) {
     return defaultCollapsedSectionKeys.filter((key) => valid.includes(key));
   }
-  if (fixedSectionKey) {
-    return valid.filter((key) => key !== fixedSectionKey);
-  }
+  // Default: all sections open (empty collapsed array)
   return [];
 }
 
@@ -172,12 +170,12 @@ export function useSectionPreferences({
     [fixedSectionKey, stableKeys, defaultCollapsedSectionKeys]
   );
 
-  // Sincronizar orden desde cache al cambiar tipo de página o claves; preservar collapsed
+  // Sincronizar orden y collapsed desde cache al cambiar tipo de página o claves
   useEffect(() => {
     const cached = readCache(pageType, fixedSectionKey, stableKeys, defaultCollapsedSectionKeys);
-    setPrefs((prev) =>
+    setPrefs(
       sanitizePrefs(
-        { order: cached.order, collapsed: prev.collapsed },
+        { order: cached.order, collapsed: cached.collapsed },
         fixedSectionKey,
         stableKeys,
         defaultCollapsedSectionKeys
@@ -255,8 +253,7 @@ export function useSectionPreferences({
         body: JSON.stringify({
           pageType,
           order: prefs.order,
-          // No persistimos estado de colapso para forzar inicio contraído en cada ingreso.
-          collapsed: [],
+          collapsed: prefs.collapsed,
         }),
       }).catch(() => {
         // silent fail, the local cache still preserves UX

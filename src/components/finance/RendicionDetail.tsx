@@ -385,7 +385,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
 
           {r.description && (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs font-medium text-muted-foreground mb-1">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">
                 Descripción
               </p>
               <p className="text-sm whitespace-pre-wrap">{r.description}</p>

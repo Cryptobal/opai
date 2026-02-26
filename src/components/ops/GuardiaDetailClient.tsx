@@ -822,7 +822,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         module="guardias"
         pageType="guardia"
         fixedSectionKey="datos"
-        defaultCollapsedSectionKeys={true}
         title={guardiaTitle}
         subtitle={guardiaSubtitle}
         badge={{

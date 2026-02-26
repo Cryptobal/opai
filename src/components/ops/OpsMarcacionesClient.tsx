@@ -278,7 +278,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* ── Links de marcación por instalación (contraíble, minimalista) ── */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <button
