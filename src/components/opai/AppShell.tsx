@@ -7,7 +7,6 @@ import { Menu, RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette } from './CommandPalette';
-import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
@@ -20,6 +19,7 @@ export interface AppShellProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  notificationUnreadCount?: number;
   className?: string;
 }
 
@@ -34,7 +34,15 @@ export interface AppShellProps {
  * - Sidebar: w-60 (expanded) / w-[72px] (collapsed)
  * - Transition: duration-200 ease-out
  */
-export function AppShell({ sidebar, children, userName, userEmail, userRole, className }: AppShellProps) {
+export function AppShell({
+  sidebar,
+  children,
+  userName,
+  userEmail,
+  userRole,
+  notificationUnreadCount = 0,
+  className,
+}: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -112,7 +120,6 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           </Link>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
             <ThemeToggle compact />
-            <NotificationBell compact />
             <button
               type="button"
               className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
@@ -132,11 +139,14 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
             </button>
             <button
               type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+              className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
               onClick={() => setIsMobileOpen(true)}
               aria-label="Abrir menú"
             >
               <Menu className="h-5 w-5" />
+              {notificationUnreadCount > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+              )}
             </button>
           </div>
         </header>
@@ -206,7 +216,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           className
         )}
       >
-        {/* Topbar actions desktop — búsqueda + campana + avatar */}
+        {/* Topbar actions desktop — búsqueda + tema + avatar */}
         <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center justify-end gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
