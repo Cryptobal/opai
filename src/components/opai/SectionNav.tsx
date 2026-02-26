@@ -324,14 +324,14 @@ function VerticalSectionNav({
   const [activeSection, setActiveSection] = useState<string>(
     sections[0]?.key ?? ""
   );
-  // Expanded on desktop (>1024px), collapsed on tablet (768-1024px)
-  const [isExpanded, setIsExpanded] = useState(windowWidth > 1024);
+  // Expandido en tablet+ (≥768px), colapsado solo en móvil
+  const [isExpanded, setIsExpanded] = useState(windowWidth >= 768);
   const isClickScrolling = useRef(false);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Auto-collapse/expand on resize
   useEffect(() => {
-    setIsExpanded(windowWidth > 1024);
+    setIsExpanded(windowWidth >= 768);
   }, [windowWidth]);
 
   // Intersection observer to track active section

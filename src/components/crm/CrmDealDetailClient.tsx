@@ -1058,6 +1058,7 @@ export function CrmDealDetailClient({
       <CrmDetailLayout
         pageType="deal"
         module="deals"
+        fixedSectionKey="general"
         title={dealTitle}
         subtitle={subtitle}
         badge={statusBadge}

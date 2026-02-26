@@ -81,7 +81,7 @@ function SortableSectionItem({
       ref={setNodeRef}
       style={style}
       id={`section-${section.key}`}
-      className={cn("scroll-mt-32", isDragging && "z-20")}
+      className={cn("scroll-mt-44", isDragging && "z-20")}
     >
       <CollapsibleSection
         icon={<section.icon className="h-4 w-4" />}
