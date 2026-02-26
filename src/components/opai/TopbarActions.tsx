@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, LogOut, Settings, User } from "lucide-react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
-import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
 import {
@@ -27,10 +26,11 @@ interface TopbarActionsProps {
  * TopbarActions — Acciones globales del usuario en topbar (estilo HubSpot/Salesforce).
  *
  * Muestra:
- * - Campana de notificaciones
+ * - Buscador global
+ * - Toggle de tema
  * - Avatar con dropdown: Perfil, Configuración, Cerrar sesión
  *
- * Patrón de apps de nivel mundial: notificaciones + usuario siempre en topbar derecho.
+ * Patrón de apps de nivel mundial: acciones globales + usuario en topbar derecho.
  */
 export function TopbarActions({
   userName = "Usuario",
@@ -51,9 +51,6 @@ export function TopbarActions({
 
       {/* Toggle tema claro/oscuro */}
       <ThemeToggle />
-
-      {/* Campana de notificaciones */}
-      <NotificationBell />
 
       {/* Avatar + User Menu — renderizar solo tras montaje para evitar hydration mismatch (Radix IDs) */}
       {!mounted ? (

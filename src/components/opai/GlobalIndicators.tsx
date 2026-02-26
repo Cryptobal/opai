@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { NotificationBell } from './NotificationBell';
 
 interface FxData {
   value: number;
@@ -21,7 +20,7 @@ const formatCLP = (n: number) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
 
 /**
- * GlobalIndicators - Campana + UF + UTM siempre visibles
+ * GlobalIndicators - UF + UTM siempre visibles
  *
  * Se muestra en la barra superior (desktop y mobile).
  * Única fuente de verdad: no duplicar en páginas individuales.
@@ -96,9 +95,6 @@ export function GlobalIndicators({
           </p>
         </div>
       )}
-
-      {/* Campana - siempre visible */}
-      <NotificationBell compact={compact} />
     </div>
   );
 }
