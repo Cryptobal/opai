@@ -128,6 +128,7 @@ export function NotificationListClient() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
+  const [replyFeedback, setReplyFeedback] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -249,6 +250,7 @@ export function NotificationListClient() {
     setReplyTarget(n);
     setReplyModalOpen(true);
     setReplyText("");
+    setReplyFeedback(null);
     setLoadingThread(true);
     try {
       const res = await fetch(`/api/crm/notes/thread?noteId=${payload.noteId}`);
@@ -269,6 +271,7 @@ export function NotificationListClient() {
     const payload = getNotePayload(replyTarget);
     const rootId = payload.rootNoteId || payload.noteId;
     setSendingReply(true);
+    setReplyFeedback(null);
     try {
       const res = await fetch("/api/crm/notes", {
         method: "POST",
@@ -285,13 +288,19 @@ export function NotificationListClient() {
       if (!replyTarget.read) {
         await setOneReadState(replyTarget.id, true);
       }
-      setReplyModalOpen(false);
-      setReplyTarget(null);
-      setThreadContext(null);
       setReplyText("");
+      setReplyFeedback("Respuesta enviada. Contexto actualizado.");
+
+      const refreshedThread = await fetch(`/api/crm/notes/thread?noteId=${payload.noteId}`);
+      const refreshedData = await refreshedThread.json();
+      if (refreshedThread.ok && refreshedData.success) {
+        setThreadContext(refreshedData.data as ThreadContext);
+      }
+
       await fetchNotifications();
     } catch (error) {
       console.error("No se pudo enviar respuesta inline", error);
+      setReplyFeedback("No se pudo enviar la respuesta. Intenta nuevamente.");
     } finally {
       setSendingReply(false);
     }
@@ -524,6 +533,9 @@ export function NotificationListClient() {
                 placeholder="Escribe tu respuesta..."
                 className="w-full min-h-[90px] resize-none rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
+              {replyFeedback && (
+                <p className="text-xs text-muted-foreground">{replyFeedback}</p>
+              )}
             </div>
           ) : (
             <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
