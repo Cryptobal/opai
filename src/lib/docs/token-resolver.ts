@@ -539,6 +539,7 @@ export function buildGuardiaEntityData(guardia: {
   persona: Record<string, any>;
   currentInstallation?: { name: string; address?: string | null; commune?: string | null; city?: string | null } | null;
   bankAccounts?: Array<Record<string, any>>;
+  asignaciones?: Array<{ startDate?: string | Date | null; isActive?: boolean }>;
   contractType?: string | null;
   contractStartDate?: string | Date | null;
   contractPeriod1End?: string | Date | null;
@@ -582,6 +583,9 @@ export function buildGuardiaEntityData(guardia: {
     code: guardia.code,
     cargo: guardia.cargo ?? null,
     currentInstallation: guardia.currentInstallation?.name ?? null,
+    fechaInicioInstalacion: formatDateOnly(
+      guardia.asignaciones?.find((a) => a.isActive)?.startDate ?? null
+    ),
     installationAddress: guardia.currentInstallation?.address ?? null,
     installationCommune: guardia.currentInstallation?.commune ?? null,
     installationCity: guardia.currentInstallation?.city ?? null,

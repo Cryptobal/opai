@@ -171,7 +171,10 @@ export async function resolveDocumentContentForDisplay(
         orderBy: { startDate: "desc" },
       });
 
-      let guardiaData = buildGuardiaEntityData(guardia as any);
+      let guardiaData = buildGuardiaEntityData({
+        ...(guardia as any),
+        asignaciones: activeAssignment ? [{ startDate: activeAssignment.startDate, isActive: true }] : [],
+      });
       guardiaData.cargo = activeAssignment?.puesto?.cargo?.name ?? "Guardia de Seguridad";
       guardiaData = await enrichGuardiaWithSalary(guardiaData, guardia.id);
 

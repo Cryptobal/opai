@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -733,11 +733,17 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {/* Fecha de inicio */}
+            {/* Fecha de inicio en instalación */}
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5 text-white" />
-                Fecha de inicio
+                Fecha de inicio en instalación
+                <span className="relative group">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-56 rounded-md border border-border bg-popover px-3 py-2 text-[10px] text-popover-foreground shadow-md z-50 leading-relaxed">
+                    Esta fecha es importante: será utilizada en los contratos como fecha de inicio en la nueva instalación y es la fecha base para el cálculo de payroll.
+                  </span>
+                </span>
               </Label>
               <input
                 type="date"

@@ -146,6 +146,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "guardia.code", label: "Código Guardia", path: "code" },
       { key: "guardia.cargo", label: "Último Cargo Desempeñado", path: "cargo" },
       { key: "guardia.currentInstallation", label: "Instalación Actual", path: "currentInstallation" },
+      { key: "guardia.fechaInicioInstalacion", label: "Fecha Inicio en Instalación", path: "fechaInicioInstalacion", type: "date" },
       { key: "guardia.installationAddress", label: "Dirección Instalación", path: "installationAddress" },
       { key: "guardia.installationCommune", label: "Comuna Instalación", path: "installationCommune" },
       { key: "guardia.installationCity", label: "Ciudad Instalación", path: "installationCity" },

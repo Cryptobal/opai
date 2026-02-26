@@ -1272,7 +1272,7 @@ export function OpsPautaMensualClient({
                           <thead>
                             <tr className="bg-muted/20 text-muted-foreground">
                               <th className="text-left px-2 py-1 font-medium">Puesto</th>
-                              <th className="text-center px-1 py-1 font-medium w-10">Turno</th>
+                              <th className="text-center px-1 py-1 font-medium w-20">Horario</th>
                               <th className="text-center px-1 py-1 font-medium w-16">Guardias</th>
                             </tr>
                           </thead>
@@ -1281,12 +1281,13 @@ export function OpsPautaMensualClient({
                               <tr key={p.id} className="border-t border-border/30">
                                 <td className="px-2 py-1 text-foreground truncate max-w-[160px]">{p.name}</td>
                                 <td className="text-center px-1 py-1">
-                                  <span className={`inline-block rounded-full px-1.5 py-px text-[8px] font-semibold border ${
+                                  <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[8px] font-semibold border ${
                                     p.isNight
                                       ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
                                       : "bg-amber-500/15 text-amber-300 border-amber-500/30"
                                   }`}>
                                     {p.isNight ? "N" : "D"}
+                                    <span className="font-normal ml-0.5">{p.shiftStart}-{p.shiftEnd}</span>
                                   </span>
                                 </td>
                                 <td className="text-center px-1 py-1">
@@ -2003,7 +2004,7 @@ export function OpsPautaMensualClient({
           <DialogHeader>
             <DialogTitle>Pintar serie de turnos</DialogTitle>
             <DialogDescription>
-              Asigna un guardia y define la rotación desde el día seleccionado.
+              Define la rotación para este guardia desde el día seleccionado. Cada línea se pinta de forma independiente.
             </DialogDescription>
           </DialogHeader>
 
@@ -2093,7 +2094,7 @@ export function OpsPautaMensualClient({
                     <div>
                       <p className="text-xs font-medium">Turno rotativo</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo
+                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta la línea de este guardia.
                       </p>
                     </div>
                     <button
@@ -2153,7 +2154,7 @@ export function OpsPautaMensualClient({
                             <div>
                               <Label className="text-xs">Puesto donde rotará en turno {currentIsNight ? "diurno" : "nocturno"}</Label>
                               <p className="text-[10px] text-muted-foreground mt-0.5">
-                                El guardia alternará entre el puesto actual y este puesto cada ciclo.
+                                El guardia alternará entre el puesto actual y este puesto cada ciclo. El guardia del puesto par se asigna por separado.
                               </p>
                             </div>
 
