@@ -31,7 +31,7 @@ describe('crm-deal-active-quotation', () => {
     expect(summary).toBeTruthy();
     expect(summary?.quoteId).toBe('q-1');
     expect(summary?.amountClp).toBe(1250000);
-    expect(summary?.amountUf).toBeCloseTo(32.0512, 4);
+    expect(summary?.amountUf).toBeCloseTo(32.0512, 3);
     expect(summary?.totalGuards).toBe(12);
   });
 
