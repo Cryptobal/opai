@@ -228,13 +228,13 @@ export function DetailLayout({
     return (
       <div className={cn("relative", className)}>
         {header}
-        <div className="mt-4 flex gap-4 sm:mt-6">
+        <div className="mt-4 flex gap-2 sm:mt-6 sm:gap-3">
           <SectionNav
             sections={navItems}
             onSectionClick={(key) => openSection(key)}
             extraAction={resetButton}
           />
-          <div className="min-w-0 flex-1">{sectionsList}</div>
+          <div className="min-w-0 flex-1 overflow-x-auto">{sectionsList}</div>
         </div>
       </div>
     );

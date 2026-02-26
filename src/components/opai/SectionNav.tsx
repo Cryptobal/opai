@@ -400,7 +400,7 @@ function VerticalSectionNav({
     <nav
       className={cn(
         "sticky top-[113px] z-[9] self-start shrink-0 border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 overflow-y-auto max-h-[calc(100vh-113px)] transition-[width] duration-200",
-        isExpanded ? "w-[200px]" : "w-12",
+        isExpanded ? "w-[220px] min-w-[220px]" : "w-12",
         className
       )}
       role="tablist"
@@ -456,7 +456,7 @@ function VerticalSectionNav({
                 <Icon className="h-4 w-4 shrink-0" />
                 {isExpanded && (
                   <>
-                    <span className="truncate flex-1 text-left">{section.label}</span>
+                    <span className="flex-1 text-left break-words min-w-0">{section.label}</span>
                     {section.count !== undefined && section.count > 0 && (
                       <span
                         className={cn(

@@ -211,7 +211,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
         <main className="flex-1 min-w-0 w-full overflow-x-hidden">
-          <div className="w-full max-w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden" role="region">
+          <div className="w-full max-w-full py-6 pb-24 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-4 pr-4 sm:pl-6 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-6 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
             {children}
           </div>
         </main>
