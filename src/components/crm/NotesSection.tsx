@@ -1,8 +1,20 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquareText, MoreHorizontal, Pencil, Send, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AtSign,
+  ChevronDown,
+  ChevronUp,
+  CornerDownRight,
+  Loader2,
+  MessageSquareText,
+  MoreHorizontal,
+  Pencil,
+  Send,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,20 +24,43 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 /* ─── Types ─── */
 
 type NoteUser = { id: string; name: string; email?: string };
+type NoteGroup = {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string;
+  memberIds: string[];
+  memberCount: number;
+};
+type MentionSpecial = {
+  id: string;
+  key: string;
+  label: string;
+  aliases: string[];
+  token: string;
+};
+type MentionOption =
+  | ({ kind: "special" } & MentionSpecial)
+  | ({ kind: "group" } & NoteGroup)
+  | ({ kind: "user" } & NoteUser);
 
 type Note = {
   id: string;
   content: string;
   mentions: string[];
+  mentionMeta?: Record<string, unknown> | null;
+  parentId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   author: NoteUser;
   mentionNames: string[];
+  replies: Note[];
 };
 
 interface NotesSectionProps {
@@ -74,30 +109,53 @@ function renderContent(content: string): React.ReactNode {
   });
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasMention(content: string, rawValue: string): boolean {
+  const value = rawValue.trim();
+  if (!value) return false;
+  const escaped = escapeRegex(value);
+  const pattern = new RegExp(`(?:^|\\s)[@＠]${escaped}(?=\\s|$|[.,;:!?])`, "iu");
+  return pattern.test(content.replace(/\u00A0/g, " "));
+}
+
 /* ─── Component ─── */
 
 export function NotesSection({ entityType, entityId, currentUserId }: NotesSectionProps) {
+  const searchParams = useSearchParams();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [replySending, setReplySending] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [highlightedNoteId, setHighlightedNoteId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
   // @mention state
   const [users, setUsers] = useState<NoteUser[]>([]);
+  const [groups, setGroups] = useState<NoteGroup[]>([]);
+  const [specialMentions, setSpecialMentions] = useState<MentionSpecial[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionTarget, setMentionTarget] = useState<"new" | "edit">("new");
+  const [mentionTarget, setMentionTarget] = useState<"new" | "edit" | "reply">("new");
   const [selectedMentionIdx, setSelectedMentionIdx] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const seenRootNoteIdsRef = useRef<Set<string>>(new Set());
 
   // Fetch notes
   const fetchNotes = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await fetch(`/api/crm/notes?entityType=${entityType}&entityId=${entityId}`);
       const data = await res.json();
       if (data.success) setNotes(data.data);
@@ -108,38 +166,98 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     }
   }, [entityType, entityId]);
 
-  // Fetch users for @mentions
+  // Fetch mention options (special + groups + users)
   useEffect(() => {
     fetch("/api/crm/users")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setUsers(d.data); })
+      .then((d) => {
+        if (d.success) {
+          setUsers(d.data?.users || []);
+          setGroups(d.data?.groups || []);
+          setSpecialMentions(d.data?.special || []);
+        }
+      })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchNotes();
+    void fetchNotes();
   }, [fetchNotes]);
 
-  // Extract mentions from content
-  const extractMentions = (content: string): string[] => {
-    const normalized = content.replace(/\u00A0/g, " ");
-    const ids = new Set<string>();
-    for (const user of users) {
-      const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const mentionPattern = new RegExp(`(^|\\s)[@＠]${escapedName}(?=\\s|$|[.,;:!?])`, "iu");
-      if (mentionPattern.test(normalized)) {
-        ids.add(user.id);
-      }
-    }
-    return [...ids];
-  };
+  const groupedMentionOptions = useMemo(() => {
+    const query = mentionQuery.trim().toLowerCase();
+    const special = specialMentions
+      .filter((item) => {
+        if (!query) return true;
+        return (
+          item.label.toLowerCase().includes(query) ||
+          item.token.toLowerCase().includes(query) ||
+          item.aliases.some((alias) => alias.toLowerCase().includes(query))
+        );
+      })
+      .map((item) => ({ ...item, kind: "special" as const }));
+    const groupsFiltered = groups
+      .filter((item) => {
+        if (!query) return true;
+        return (
+          item.name.toLowerCase().includes(query) ||
+          item.slug.toLowerCase().includes(query)
+        );
+      })
+      .map((item) => ({ ...item, kind: "group" as const }));
+    const usersFiltered = users
+      .filter((item) => {
+        if (!query) return true;
+        return (
+          item.name.toLowerCase().includes(query) ||
+          item.email?.toLowerCase().includes(query)
+        );
+      })
+      .map((item) => ({ ...item, kind: "user" as const }));
+    return {
+      special,
+      groups: groupsFiltered,
+      users: usersFiltered,
+      all: [...special, ...groupsFiltered, ...usersFiltered] as MentionOption[],
+    };
+  }, [groups, mentionQuery, specialMentions, users]);
+
+  const buildMentionPayload = useCallback((content: string) => {
+    const includeAll = /(?:^|\s)[@＠](todos|all)(?=\s|$|[.,;:!?])/iu.test(content);
+    const mentionedUserIds = users
+      .filter((user) => hasMention(content, user.name) || (user.email ? hasMention(content, user.email) : false))
+      .map((user) => user.id);
+    const mentionedGroupIds = groups
+      .filter((group) => hasMention(content, group.name) || hasMention(content, group.slug))
+      .map((group) => group.id);
+    const groupMemberIds = groups
+      .filter((group) => mentionedGroupIds.includes(group.id))
+      .flatMap((group) => group.memberIds);
+    const recipients = includeAll
+      ? users.map((user) => user.id).filter((id) => id !== currentUserId)
+      : [...new Set([...mentionedUserIds, ...groupMemberIds])].filter((id) => id !== currentUserId);
+    return {
+      mentions: recipients,
+      mentionMeta: {
+        includeAll,
+        userIds: mentionedUserIds,
+        groupIds: mentionedGroupIds,
+      },
+    };
+  }, [groups, users, currentUserId]);
 
   // Handle @ detection in textarea
-  const handleTextChange = (value: string, target: "new" | "edit") => {
+  const handleTextChange = (value: string, target: "new" | "edit" | "reply") => {
     if (target === "new") setNewNote(value);
-    else setEditContent(value);
+    else if (target === "edit") setEditContent(value);
+    else setReplyContent(value);
 
-    const ref = target === "new" ? textareaRef.current : editTextareaRef.current;
+    const ref =
+      target === "new"
+        ? textareaRef.current
+        : target === "edit"
+          ? editTextareaRef.current
+          : replyTextareaRef.current;
     if (!ref) return;
 
     const cursorPos = ref.selectionStart ?? value.length;
@@ -157,45 +275,59 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) => u.name.toLowerCase().includes(mentionQuery) || u.email?.toLowerCase().includes(mentionQuery)
-  );
-
-  const insertMention = (user: NoteUser) => {
+  const insertMention = (option: MentionOption) => {
     const target = mentionTarget;
     const value = target === "new" ? newNote : editContent;
-    const ref = target === "new" ? textareaRef.current : editTextareaRef.current;
-    if (!ref) return;
+    const activeValue = target === "reply" ? replyContent : value;
+    const activeRef =
+      target === "new"
+        ? textareaRef.current
+        : target === "edit"
+          ? editTextareaRef.current
+          : replyTextareaRef.current;
+    if (!activeRef) return;
 
-    const cursorPos = ref.selectionStart;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atIndex = textBeforeCursor.lastIndexOf("@");
-    const before = value.slice(0, atIndex);
-    const after = value.slice(cursorPos);
-    const newValue = `${before}@${user.name} ${after}`;
+    const cursorPos = activeRef.selectionStart ?? activeValue.length;
+    const textBeforeCursor = activeValue.slice(0, cursorPos);
+    const lastAsciiAt = textBeforeCursor.lastIndexOf("@");
+    const lastFullAt = textBeforeCursor.lastIndexOf("＠");
+    const fallbackAt = Math.max(lastAsciiAt, lastFullAt);
+    const atMatch = textBeforeCursor.match(/(?:^|\s)[@＠]([\p{L}\p{N}._-]*)$/u);
+    let atIndex = fallbackAt;
+    if (atMatch) {
+      const segment = atMatch[0] || "";
+      atIndex = cursorPos - segment.length + (segment.startsWith(" ") ? 1 : 0);
+    }
+
+    const mentionLabel =
+      option.kind === "special" ? option.token : option.name;
+    const before = activeValue.slice(0, Math.max(0, atIndex));
+    const after = activeValue.slice(cursorPos);
+    const newValue = `${before}@${mentionLabel} ${after}`;
 
     if (target === "new") setNewNote(newValue);
-    else setEditContent(newValue);
+    else if (target === "edit") setEditContent(newValue);
+    else setReplyContent(newValue);
 
     setShowMentions(false);
     setTimeout(() => {
-      const newCursorPos = atIndex + user.name.length + 2;
-      ref.setSelectionRange(newCursorPos, newCursorPos);
-      ref.focus();
+      const newCursorPos = Math.max(0, atIndex) + mentionLabel.length + 2;
+      activeRef.setSelectionRange(newCursorPos, newCursorPos);
+      activeRef.focus();
     }, 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showMentions || filteredUsers.length === 0) return;
+    if (!showMentions || groupedMentionOptions.all.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedMentionIdx((i) => Math.min(i + 1, filteredUsers.length - 1));
+      setSelectedMentionIdx((i) => Math.min(i + 1, groupedMentionOptions.all.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedMentionIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      insertMention(filteredUsers[selectedMentionIdx]);
+      insertMention(groupedMentionOptions.all[selectedMentionIdx]);
     } else if (e.key === "Escape") {
       setShowMentions(false);
     }
@@ -206,15 +338,21 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     if (!newNote.trim()) return;
     setSending(true);
     try {
-      const mentions = extractMentions(newNote);
+      const mentionPayload = buildMentionPayload(newNote);
       const res = await fetch("/api/crm/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityType, entityId, content: newNote, mentions }),
+        body: JSON.stringify({
+          entityType,
+          entityId,
+          content: newNote.trim(),
+          mentions: mentionPayload.mentions,
+          mentionMeta: mentionPayload.mentionMeta,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al crear");
-      setNotes((prev) => [data.data, ...prev]);
+      await fetchNotes();
       setNewNote("");
       toast.success("Nota agregada");
     } catch (err) {
@@ -225,22 +363,55 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     }
   };
 
+  const createReply = async () => {
+    if (!replyingToId || !replyContent.trim()) return;
+    setReplySending(true);
+    try {
+      const mentionPayload = buildMentionPayload(replyContent);
+      const res = await fetch("/api/crm/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType,
+          entityId,
+          parentId: replyingToId,
+          content: replyContent.trim(),
+          mentions: mentionPayload.mentions,
+          mentionMeta: mentionPayload.mentionMeta,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Error al responder");
+      await fetchNotes();
+      setReplyContent("");
+      setReplyingToId(null);
+      toast.success("Respuesta enviada");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo responder";
+      toast.error(msg);
+    } finally {
+      setReplySending(false);
+    }
+  };
+
   // Update note
   const saveEdit = async () => {
     if (!editingId || !editContent.trim()) return;
     setSavingEdit(true);
     try {
-      const mentions = extractMentions(editContent);
+      const mentionPayload = buildMentionPayload(editContent);
       const res = await fetch(`/api/crm/notes/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent, mentions }),
+        body: JSON.stringify({
+          content: editContent.trim(),
+          mentions: mentionPayload.mentions,
+          mentionMeta: mentionPayload.mentionMeta,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
-      setNotes((prev) =>
-        prev.map((n) => (n.id === editingId ? { ...n, content: editContent.trim(), updatedAt: new Date().toISOString() } : n))
-      );
+      await fetchNotes();
       setEditingId(null);
       toast.success("Nota actualizada");
     } catch (err: unknown) {
@@ -259,7 +430,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
         const data = await res.json();
         throw new Error(data?.error);
       }
-      setNotes((prev) => prev.filter((n) => n.id !== id));
+      await fetchNotes();
       setDeleteConfirm({ open: false, id: "" });
       toast.success("Nota eliminada");
     } catch (err: unknown) {
@@ -268,30 +439,285 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     }
   };
 
+  const markRootNoteSeen = useCallback(async (rootNoteId: string) => {
+    if (!rootNoteId || seenRootNoteIdsRef.current.has(rootNoteId)) return;
+    seenRootNoteIdsRef.current.add(rootNoteId);
+    try {
+      await fetch("/api/crm/notes/seen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteIds: [rootNoteId], read: true }),
+      });
+      window.dispatchEvent(new CustomEvent("opai-note-seen", { detail: { noteId: rootNoteId } }));
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => {
+    if (notes.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const rootNoteId = (entry.target as HTMLElement).dataset.rootNoteId;
+          if (rootNoteId) {
+            void markRootNoteSeen(rootNoteId);
+          }
+        }
+      },
+      { threshold: 0.45 }
+    );
+    const elements = document.querySelectorAll<HTMLElement>("[data-note-id]");
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [notes, markRootNoteSeen]);
+
+  const resolveRootNoteId = useCallback((noteId: string): string | null => {
+    for (const note of notes) {
+      if (note.id === noteId) return note.id;
+      if (note.replies.some((reply) => reply.id === noteId)) return note.id;
+    }
+    return null;
+  }, [notes]);
+
+  useEffect(() => {
+    const noteId = searchParams.get("noteId");
+    if (!noteId || notes.length === 0) return;
+
+    const replyTo = searchParams.get("replyTo");
+    const focusReply = searchParams.get("focusReply") === "1";
+    const rootNoteId = replyTo || resolveRootNoteId(noteId) || noteId;
+
+    if (focusReply) {
+      setReplyingToId(rootNoteId);
+      setExpandedThreads((prev) => new Set([...prev, rootNoteId]));
+      setTimeout(() => {
+        replyTextareaRef.current?.focus();
+      }, 180);
+    }
+
+    setHighlightedNoteId(noteId);
+    setTimeout(() => setHighlightedNoteId(null), 4500);
+
+    void markRootNoteSeen(rootNoteId);
+    requestAnimationFrame(() => {
+      const target =
+        document.getElementById(`note-${noteId}`) ||
+        document.getElementById(`note-${rootNoteId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }, [markRootNoteSeen, notes, resolveRootNoteId, searchParams]);
+
   // Mention dropdown (shared between new & edit)
   const MentionDropdown = () => {
-    if (!showMentions || filteredUsers.length === 0) return null;
-    return (
-      <div className="absolute z-[100] top-full mt-1 left-0 w-64 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
-        {filteredUsers.slice(0, 8).map((user, i) => (
+    if (!showMentions || groupedMentionOptions.all.length === 0) return null;
+
+    let optionCursor = 0;
+    const renderOption = (option: MentionOption) => {
+      const idx = optionCursor++;
+      const isSelected = idx === selectedMentionIdx;
+
+      if (option.kind === "special") {
+        return (
           <button
-            key={user.id}
+            key={`special-${option.id}`}
             type="button"
             className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-              i === selectedMentionIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+              isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
             }`}
-            onMouseDown={(e) => { e.preventDefault(); insertMention(user); }}
-            onClick={() => insertMention(user)}
+            onMouseDown={(e) => { e.preventDefault(); insertMention(option); }}
+            onClick={() => insertMention(option)}
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary shrink-0">
-              {getInitials(user.name)}
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+              <AtSign className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">
-              <p className="truncate font-medium text-xs">{user.name}</p>
-              {user.email && <p className="truncate text-[10px] text-muted-foreground">{user.email}</p>}
+              <p className="truncate font-medium text-xs">@{option.label}</p>
+              <p className="truncate text-[10px] text-muted-foreground">Notificar a todos los usuarios activos</p>
             </div>
           </button>
-        ))}
+        );
+      }
+
+      if (option.kind === "group") {
+        return (
+          <button
+            key={`group-${option.id}`}
+            type="button"
+            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+              isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+            }`}
+            onMouseDown={(e) => { e.preventDefault(); insertMention(option); }}
+            onClick={() => insertMention(option)}
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500 shrink-0">
+              <Users className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-xs">{option.name}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{option.memberCount} miembro(s)</p>
+            </div>
+          </button>
+        );
+      }
+
+      return (
+        <button
+          key={`user-${option.id}`}
+          type="button"
+          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+            isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          }`}
+          onMouseDown={(e) => { e.preventDefault(); insertMention(option); }}
+          onClick={() => insertMention(option)}
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary shrink-0">
+            {getInitials(option.name)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-xs">{option.name}</p>
+            {option.email && <p className="truncate text-[10px] text-muted-foreground">{option.email}</p>}
+          </div>
+        </button>
+      );
+    };
+
+    return (
+      <div className="absolute z-[100] top-full mt-1 left-0 w-72 max-h-56 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+        {groupedMentionOptions.special.length > 0 && (
+          <div>
+            <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Especial</p>
+            {groupedMentionOptions.special.map((option) => renderOption(option))}
+          </div>
+        )}
+        {groupedMentionOptions.groups.length > 0 && (
+          <div>
+            <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Grupos</p>
+            {groupedMentionOptions.groups.map((option) => renderOption(option))}
+          </div>
+        )}
+        {groupedMentionOptions.users.length > 0 && (
+          <div>
+            <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Usuarios</p>
+            {groupedMentionOptions.users.map((option) => renderOption(option))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderNote = (note: Note, opts: { rootId: string; isReply?: boolean }) => {
+    const isReply = opts.isReply ?? false;
+    const isHighlighted = highlightedNoteId === note.id;
+    const canEdit = note.createdBy === currentUserId && editingId !== note.id;
+    return (
+      <div
+        id={`note-${note.id}`}
+        data-note-id={note.id}
+        data-root-note-id={opts.rootId}
+        key={note.id}
+        className={`${isReply ? "rounded-md border border-border/40 bg-muted/20 p-2.5" : ""} ${
+          isHighlighted ? "ring-1 ring-primary/40 bg-primary/5" : ""
+        }`}
+      >
+        <div className="group flex gap-3">
+          <div className="shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+              {getInitials(note.author.name)}
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium">{note.author.name}</span>
+              <span className="text-[10px] text-muted-foreground">{timeAgo(note.createdAt)}</span>
+              {note.updatedAt !== note.createdAt && (
+                <span className="text-[10px] text-muted-foreground italic">(editada)</span>
+              )}
+            </div>
+
+            {editingId === note.id ? (
+              <div className="mt-1.5 relative">
+                {mentionTarget === "edit" && <MentionDropdown />}
+                <textarea
+                  ref={editTextareaRef}
+                  value={editContent}
+                  onChange={(e) => handleTextChange(e.target.value, "edit")}
+                  onKeyDown={(e) => {
+                    if (showMentions) handleKeyDown(e);
+                    else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void saveEdit(); }
+                    else if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="w-full min-h-[60px] resize-none rounded-md border border-input bg-background px-2.5 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={2}
+                  autoFocus
+                />
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <Button size="sm" className="h-6 text-xs px-2" onClick={saveEdit} disabled={savingEdit}>
+                    {savingEdit && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    Guardar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingId(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="mt-0.5 text-sm text-foreground/90 whitespace-pre-wrap break-words">
+                  {renderContent(note.content)}
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
+                    onClick={() => {
+                      setReplyingToId(opts.rootId);
+                      setExpandedThreads((prev) => new Set([...prev, opts.rootId]));
+                      setTimeout(() => replyTextareaRef.current?.focus(), 120);
+                    }}
+                  >
+                    <CornerDownRight className="h-3 w-3" />
+                    Responder
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {canEdit && (
+            <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditingId(note.id);
+                      setEditContent(note.content);
+                      setMentionTarget("edit");
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteConfirm({ open: true, id: note.id })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -301,7 +727,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
       {/* ── New note input ── */}
       <div className="relative">
         <div className="relative">
-          <MentionDropdown />
+          {mentionTarget === "new" && <MentionDropdown />}
           <textarea
             ref={textareaRef}
             value={newNote}
@@ -311,7 +737,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
                 handleKeyDown(e);
               } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
-                createNote();
+                void createNote();
               }
             }}
             placeholder="Escribe una nota... usa @ para mencionar"
@@ -345,93 +771,91 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
         </div>
       ) : (
         <div className="space-y-0">
-          {notes.map((note, idx) => (
+          {notes.map((note, idx) => {
+            const hasManyReplies = note.replies.length > 3;
+            const isExpanded = expandedThreads.has(note.id);
+            const visibleReplies =
+              hasManyReplies && !isExpanded ? note.replies.slice(-2) : note.replies;
+            const hiddenRepliesCount =
+              hasManyReplies && !isExpanded ? note.replies.length - visibleReplies.length : 0;
+            return (
             <div
               key={note.id}
               className={`group flex gap-3 py-3 ${idx < notes.length - 1 ? "border-b border-border/50" : ""}`}
             >
-              {/* Avatar */}
-              <div className="shrink-0">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                  {getInitials(note.author.name)}
-                </div>
-              </div>
+              <div className="flex-1">
+                {renderNote(note, { rootId: note.id })}
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium">{note.author.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{timeAgo(note.createdAt)}</span>
-                  {note.updatedAt !== note.createdAt && (
-                    <span className="text-[10px] text-muted-foreground italic">(editada)</span>
-                  )}
-                </div>
+                {note.replies.length > 0 && (
+                  <div className="ml-8 mt-2 border-l border-border/60 pl-3 space-y-2">
+                    {hasManyReplies && (
+                      <button
+                        type="button"
+                        className="mb-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        onClick={() =>
+                          setExpandedThreads((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(note.id)) next.delete(note.id);
+                            else next.add(note.id);
+                            return next;
+                          })
+                        }
+                      >
+                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {isExpanded
+                          ? `Ocultar respuestas (${note.replies.length})`
+                          : `${hiddenRepliesCount} respuestas más`}
+                      </button>
+                    )}
+                    {visibleReplies.map((reply) => renderNote(reply, { rootId: note.id, isReply: true }))}
+                  </div>
+                )}
 
-                {editingId === note.id ? (
-                  <div className="mt-1.5 relative">
-                    {mentionTarget === "edit" && <MentionDropdown />}
+                {replyingToId === note.id && (
+                  <div className="ml-8 mt-2 relative">
+                    {mentionTarget === "reply" && <MentionDropdown />}
                     <textarea
-                      ref={editTextareaRef}
-                      value={editContent}
-                      onChange={(e) => handleTextChange(e.target.value, "edit")}
+                      ref={replyTextareaRef}
+                      value={replyContent}
+                      onChange={(e) => handleTextChange(e.target.value, "reply")}
                       onKeyDown={(e) => {
-                        if (showMentions) handleKeyDown(e);
-                        else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(); }
-                        else if (e.key === "Escape") setEditingId(null);
+                        if (showMentions) {
+                          handleKeyDown(e);
+                        } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          void createReply();
+                        } else if (e.key === "Escape") {
+                          setReplyingToId(null);
+                          setReplyContent("");
+                        }
                       }}
-                      className="w-full min-h-[60px] resize-none rounded-md border border-input bg-background px-2.5 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Escribe una respuesta..."
+                      className="w-full min-h-[62px] resize-none rounded-md border border-input bg-background px-2.5 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       rows={2}
-                      autoFocus
                     />
                     <div className="mt-1.5 flex items-center gap-1.5">
-                      <Button size="sm" className="h-6 text-xs px-2" onClick={saveEdit} disabled={savingEdit}>
-                        {savingEdit && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                        Guardar
+                      <Button size="sm" className="h-6 text-xs px-2" onClick={createReply} disabled={replySending || !replyContent.trim()}>
+                        {replySending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                        Responder
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingId(null)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs px-2"
+                        onClick={() => {
+                          setReplyingToId(null);
+                          setReplyContent("");
+                        }}
+                      >
                         Cancelar
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-0.5 text-sm text-foreground/90 whitespace-pre-wrap break-words">
-                    {renderContent(note.content)}
-                  </p>
                 )}
               </div>
-
-              {/* Actions */}
-              {note.createdBy === currentUserId && editingId !== note.id && (
-                <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-32">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingId(note.id);
-                          setEditContent(note.content);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteConfirm({ open: true, id: note.id })}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 
