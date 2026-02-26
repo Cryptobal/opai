@@ -17,6 +17,7 @@ interface CreateNotificationInput {
   type: string;
   title: string;
   message?: string | null;
+  emailMessage?: string | null;
   link?: string | null;
   data?: Record<string, unknown>;
 }
@@ -41,7 +42,7 @@ interface UserForNotification {
  * individualmente a cada usuario que los tenga habilitados.
  */
 export async function sendNotification(input: CreateNotificationInput) {
-  const { tenantId, type, title, message, link, data } = input;
+  const { tenantId, type, title, message, emailMessage, link, data } = input;
   const typeDef = NOTIFICATION_TYPE_MAP.get(type);
 
   const users = await prisma.admin.findMany({
@@ -97,7 +98,7 @@ export async function sendNotification(input: CreateNotificationInput) {
       const html = await render(
         NotificationEmail({
           title,
-          message: message ?? undefined,
+          message: emailMessage ?? message ?? undefined,
           actionUrl: link ?? undefined,
           actionLabel,
           category,
@@ -127,7 +128,7 @@ export async function sendNotification(input: CreateNotificationInput) {
 export async function sendNotificationToUser(
   input: CreateNotificationInput & { targetUserId: string }
 ) {
-  const { tenantId, type, title, message, link, data, targetUserId } = input;
+  const { tenantId, type, title, message, emailMessage, link, data, targetUserId } = input;
   const typeDef = NOTIFICATION_TYPE_MAP.get(type);
 
   const user = await prisma.admin.findFirst({
@@ -147,14 +148,24 @@ export async function sendNotificationToUser(
   const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
   // Menciones: siempre enviar email (bypass preferencias) — es una comunicación directa
   const emailEnabled =
-    type === "mention"
+    type === "mention" ||
+    type === "mention_direct" ||
+    type === "mention_group" ||
+    type === "note_thread_reply"
       ? true
       : (pref?.email ?? typeDef?.defaultEmail ?? false);
 
   if (bellEnabled) {
     try {
       await prisma.notification.create({
-        data: { tenantId, type, title, message, link, data: (data ?? undefined) as any },
+        data: {
+          tenantId,
+          type,
+          title,
+          message,
+          link,
+          data: { ...(data ?? {}), targetUserId } as any,
+        },
       });
     } catch (err) {
       console.error(`[notification-service] Error creating bell for user (${type}):`, err);
@@ -168,7 +179,7 @@ export async function sendNotificationToUser(
       const html = await render(
         NotificationEmail({
           title,
-          message: message ?? undefined,
+          message: emailMessage ?? message ?? undefined,
           actionUrl: link ?? undefined,
           actionLabel,
           category: typeDef?.category,
@@ -196,7 +207,7 @@ export async function sendNotificationToUser(
 export async function sendNotificationToUsers(
   input: CreateNotificationInput & { targetUserIds: string[] }
 ) {
-  const { tenantId, type, title, message, link, data, targetUserIds } = input;
+  const { tenantId, type, title, message, emailMessage, link, data, targetUserIds } = input;
   if (targetUserIds.length === 0) return;
 
   // Deduplicate
@@ -226,7 +237,13 @@ export async function sendNotificationToUsers(
     const prefs = prefsMap.get(user.id);
     const pref = prefs?.[type];
     const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
-    const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+    const emailEnabled =
+      type === "mention" ||
+      type === "mention_direct" ||
+      type === "mention_group" ||
+      type === "note_thread_reply"
+        ? true
+        : (pref?.email ?? typeDef?.defaultEmail ?? false);
 
     if (bellEnabled) {
       try {
@@ -255,7 +272,7 @@ export async function sendNotificationToUsers(
       const html = await render(
         NotificationEmail({
           title,
-          message: message ?? undefined,
+          message: emailMessage ?? message ?? undefined,
           actionUrl: link ?? undefined,
           actionLabel,
           category: typeDef?.category,

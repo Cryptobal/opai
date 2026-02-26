@@ -42,11 +42,22 @@ const TYPE_ICONS: Record<string, string> = {
   followup_scheduled: '⏰',
   followup_failed: '❌',
   mention: '💬',
+  mention_direct: '📌',
+  mention_group: '👥',
+  note_thread_reply: '🧵',
   ticket_created: '🎫',
   ticket_approved: '✅',
   ticket_rejected: '❌',
   ticket_sla_breached: '🚨',
   ticket_sla_approaching: '⏳',
+  refuerzo_solicitud_created: '📋',
+};
+
+const NOTE_TYPE_LABEL: Record<string, string> = {
+  mention: 'Mención',
+  mention_direct: 'Mención directa',
+  mention_group: 'Mención grupal',
+  note_thread_reply: 'Respuesta en hilo',
 };
 
 function timeAgo(dateStr: string): string {
@@ -338,6 +349,11 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
+                    )}
+                    {NOTE_TYPE_LABEL[notification.type] && (
+                      <span className="mt-1 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        {NOTE_TYPE_LABEL[notification.type]}
+                      </span>
                     )}
                     <p className="text-[10px] text-muted-foreground/70 mt-1">
                       {timeAgo(notification.createdAt)}

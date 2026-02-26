@@ -35,12 +35,28 @@ async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
 function visibleNotificationsWhere(
   ctx: AuthContext,
   roleExcludedTypes: string[],
-  options?: { unreadOnly?: boolean; ids?: string[] }
+  options?: { unreadOnly?: boolean; read?: boolean; ids?: string[]; types?: string[] }
 ): Prisma.NotificationWhereInput {
-  const { unreadOnly = false, ids } = options || {};
-  const baseExclusions = roleExcludedTypes.filter((type) => type !== "mention");
+  const { unreadOnly = false, read, ids, types } = options || {};
+  const baseExclusions = roleExcludedTypes.filter(
+    (type) =>
+      type !== "mention" &&
+      type !== "mention_direct" &&
+      type !== "mention_group" &&
+      type !== "note_thread_reply"
+  );
   // Types that use targeted delivery (only visible to specific users via data.targetUserId)
-  const targetedTypes = ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "mention", "ticket_mention", "ticket_created"];
+  const targetedTypes = [
+    "ticket_approved",
+    "ticket_rejected",
+    "refuerzo_solicitud_created",
+    "mention",
+    "mention_direct",
+    "mention_group",
+    "note_thread_reply",
+    "ticket_mention",
+    "ticket_created",
+  ];
 
   const orConditions: Prisma.NotificationWhereInput[] = [
     {
@@ -55,15 +71,27 @@ function visibleNotificationsWhere(
     },
   ];
 
-  // Menciones: SIEMPRE visibles para el usuario mencionado (sin filtrar por CRM).
+  // Menciones legacy: visibles para el usuario mencionado (targetUserId o mentionUserId).
   orConditions.push({
     type: "mention",
-    data: { path: ["mentionUserId"], equals: ctx.userId },
+    OR: [
+      { data: { path: ["targetUserId"], equals: ctx.userId } },
+      { data: { path: ["mentionUserId"], equals: ctx.userId } },
+    ],
   });
 
-  // Ticket approval/rejection/refuerzo/mention/created notifications: solo visibles para el usuario destinatario.
+  // Targeted notifications: solo visibles para el usuario destinatario.
   // Si tienen data.targetUserId, solo ese usuario las ve. Si no lo tienen (legacy), se muestran a todos.
-  for (const targetedType of ["ticket_approved", "ticket_rejected", "refuerzo_solicitud_created", "ticket_mention", "ticket_created"]) {
+  for (const targetedType of [
+    "ticket_approved",
+    "ticket_rejected",
+    "refuerzo_solicitud_created",
+    "mention_direct",
+    "mention_group",
+    "note_thread_reply",
+    "ticket_mention",
+    "ticket_created",
+  ]) {
     if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
     orConditions.push({
       type: targetedType,
@@ -74,7 +102,8 @@ function visibleNotificationsWhere(
   return {
     tenantId: ctx.tenantId,
     ...(ids?.length ? { id: { in: ids } } : {}),
-    ...(unreadOnly ? { read: false } : {}),
+    ...(typeof read === "boolean" ? { read } : unreadOnly ? { read: false } : {}),
+    ...(types?.length ? { type: { in: types } } : {}),
     OR: orConditions,
   };
 }
@@ -163,6 +192,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unread") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const types = (searchParams.get("types") || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
 
     await ensureGuardiaDocExpiryNotifications(ctx.tenantId, true);
 
@@ -172,6 +205,7 @@ export async function GET(request: NextRequest) {
     const excludedTypesList = Array.from(excludedTypes);
     const notificationsWhere = visibleNotificationsWhere(ctx, excludedTypesList, {
       unreadOnly,
+      types,
     });
 
     const notifications = await prisma.notification.findMany({
@@ -181,7 +215,10 @@ export async function GET(request: NextRequest) {
     });
 
     const unreadCount = await prisma.notification.count({
-      where: visibleNotificationsWhere(ctx, excludedTypesList, { unreadOnly: true }),
+      where: visibleNotificationsWhere(ctx, excludedTypesList, {
+        unreadOnly: true,
+        types,
+      }),
     });
 
     return NextResponse.json({
@@ -206,21 +243,29 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
 
-    if (body.markAllRead) {
-      // Mark all notifications as read
+    const readValue = typeof body.read === "boolean" ? body.read : true;
+
+    if (body.markAllRead || body.markAllUnread) {
+      // Mark all notifications as read/unread
+      const where = body.markAllUnread
+        ? visibleNotificationsWhere(ctx, roleExcludedTypes, { read: true })
+        : visibleNotificationsWhere(ctx, roleExcludedTypes, { unreadOnly: true });
       await prisma.notification.updateMany({
-        where: visibleNotificationsWhere(ctx, roleExcludedTypes, { unreadOnly: true }),
-        data: { read: true },
+        where,
+        data: { read: body.markAllUnread ? false : true },
       });
     } else if (body.ids && Array.isArray(body.ids)) {
-      // Mark specific notifications as read
+      // Mark specific notifications read/unread
       await prisma.notification.updateMany({
         where: visibleNotificationsWhere(ctx, roleExcludedTypes, { ids: body.ids }),
-        data: { read: true },
+        data: { read: readValue },
       });
     } else {
       return NextResponse.json(
-        { success: false, error: "Provide 'markAllRead: true' or 'ids: string[]'" },
+        {
+          success: false,
+          error: "Provide 'markAllRead: true', 'markAllUnread: true' or 'ids: string[]'",
+        },
         { status: 400 }
       );
     }

@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  type CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverlay,
+  DragOverEvent,
   DragStartEvent,
   PointerSensor,
   TouchSensor,
   closestCorners,
   defaultDropAnimationSideEffects,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -54,7 +57,7 @@ import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, ChevronUp, Clock3, FileText } from "lucide-react";
+import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, Clock3, FileText } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
@@ -90,6 +93,29 @@ function getDealsFocusLabel(focus: DealsFocus): string | null {
   if (focus === "followup-open") return "Mostrando negocios abiertos en seguimiento";
   if (focus === "followup-overdue") return "Mostrando negocios con seguimientos vencidos";
   return null;
+}
+
+const DRAG_AUTO_EXPAND_DELAY_MS = 400;
+
+function normalizeStageName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function shouldStartCollapsedOnDesktop(stage: CrmPipelineStage): boolean {
+  if (stage.isClosedWon || stage.isClosedLost) return true;
+  const normalized = normalizeStageName(stage.name || "");
+  return normalized.includes("ganado") || normalized.includes("perdido");
+}
+
+function getDefaultDesktopCollapsedStages(stages: CrmPipelineStage[]): Set<string> {
+  return new Set(
+    stages
+      .filter((stage) => shouldStartCollapsedOnDesktop(stage))
+      .map((stage) => stage.id)
+  );
 }
 
 function formatFollowUpDate(dateStr: string): string {
@@ -165,31 +191,55 @@ type DealColumnProps = {
   children: ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  highlightDropTarget?: boolean;
 };
 
-function DealColumn({ stage, deals, stageTotal, children, collapsed = false, onToggleCollapse }: DealColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
+function DealColumn({
+  stage,
+  deals,
+  stageTotal,
+  children,
+  collapsed = false,
+  onToggleCollapse,
+  highlightDropTarget = false,
+}: DealColumnProps) {
+  const { setNodeRef: setColumnNodeRef, isOver: isOverColumn } = useDroppable({
     id: `stage-${stage.id}`,
+  });
+  const { setNodeRef: setHeaderNodeRef, isOver: isOverHeader } = useDroppable({
+    id: `stage-header-${stage.id}`,
   });
 
   const stageColor = stage.color || "#94a3b8";
+  const isOver = isOverColumn || isOverHeader || highlightDropTarget;
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setColumnNodeRef}
       className={cn(
         "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2 md:p-2.5 min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors overflow-hidden snap-center",
         isOver ? "border-primary/60 bg-primary/5" : "border-border"
       )}
     >
       <div
+        ref={setHeaderNodeRef}
         role={onToggleCollapse ? "button" : undefined}
         tabIndex={onToggleCollapse ? 0 : undefined}
         onClick={onToggleCollapse}
-        onKeyDown={onToggleCollapse ? (e) => e.key === "Enter" && onToggleCollapse() : undefined}
+        onKeyDown={
+          onToggleCollapse
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggleCollapse();
+                }
+              }
+            : undefined
+        }
         className={cn(
           "w-full mb-2 rounded-md px-2.5 py-1.5 flex items-center justify-between gap-2 transition-colors",
-          onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80"
+          onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80",
+          collapsed && highlightDropTarget && "ring-1 ring-primary/50 bg-primary/10"
         )}
         style={{
           borderLeft: `3px solid ${stageColor}`,
@@ -203,8 +253,8 @@ function DealColumn({ stage, deals, stageTotal, children, collapsed = false, onT
           {deals.length} · {stageTotal}
         </span>
         {onToggleCollapse && (
-          <span className="shrink-0 text-muted-foreground md:hidden" aria-hidden>
-            {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+          <span className="shrink-0 text-muted-foreground" aria-hidden>
+            {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </span>
         )}
       </div>
@@ -316,18 +366,18 @@ function DealCard({
 /** Mobile: grouped list by stage instead of horizontal kanban */
 function MobileStageList({
   columns,
-  collapsedStages,
-  onToggleCollapse,
+  expandedStageId,
+  onToggleExpand,
 }: {
   columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[];
-  collapsedStages: Set<string>;
-  onToggleCollapse: (stageId: string) => void;
+  expandedStageId: string | null;
+  onToggleExpand: (stageId: string) => void;
 }) {
   return (
     <div className="space-y-3">
       {columns.map((column) => {
         const stageColor = column.stage.color || "#94a3b8";
-        const isCollapsed = collapsedStages.has(column.stage.id);
+        const isExpanded = expandedStageId === column.stage.id;
         const stageTotal = column.deals.reduce(
           (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
           0
@@ -337,7 +387,7 @@ function MobileStageList({
           <div key={column.stage.id}>
             <button
               type="button"
-              onClick={() => onToggleCollapse(column.stage.id)}
+              onClick={() => onToggleExpand(column.stage.id)}
               className="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
               style={{ borderLeft: `3px solid ${stageColor}` }}
             >
@@ -348,10 +398,10 @@ function MobileStageList({
                 <span className="text-[11px] text-muted-foreground tabular-nums">
                   {column.deals.length} · ${stageTotal.toLocaleString("es-CL")}
                 </span>
-                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               </div>
             </button>
-            {!isCollapsed && (
+            {isExpanded && (
               <div className="mt-1 space-y-1 pl-3">
                 {column.deals.length === 0 && (
                   <p className="text-[11px] text-muted-foreground py-3 text-center">
@@ -468,11 +518,75 @@ export function CrmDealsClient({
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sort, setSort] = useState("newest");
-  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const [desktopCollapsedStages, setDesktopCollapsedStages] = useState<Set<string>>(
+    () => getDefaultDesktopCollapsedStages(stages)
+  );
+  const [mobileExpandedStageId, setMobileExpandedStageId] = useState<string | null>(null);
+  const [recentMoveRankByDealId, setRecentMoveRankByDealId] = useState<Record<string, number>>({});
+  const [hoveredCollapsedDropStageId, setHoveredCollapsedDropStageId] = useState<string | null>(null);
+  const moveRankCounterRef = useRef(0);
+  const desktopColumnsContainerRef = useRef<HTMLDivElement | null>(null);
+  const dragScrollSnapshotRef = useRef<{ scrollLeft: number; windowY: number } | null>(null);
+  const autoExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAutoExpandStageRef = useRef<string | null>(null);
+  const autoExpandedStageIdsRef = useRef<Set<string>>(new Set());
+  const hoveredCollapsedDropStageIdRef = useRef<string | null>(null);
   // Mobile sheet for deal actions
   const [sheetDealId, setSheetDealId] = useState<string | null>(null);
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
   const focusLabel = getDealsFocusLabel(initialFocus);
+
+  const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
+    if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
+    if (overId.startsWith("stage-")) return overId.replace("stage-", "");
+    return deals.find((deal) => `deal-${deal.id}` === overId)?.stage?.id;
+  }, [deals]);
+
+  const clearAutoExpandTimer = useCallback(() => {
+    if (autoExpandTimerRef.current) {
+      clearTimeout(autoExpandTimerRef.current);
+      autoExpandTimerRef.current = null;
+    }
+    pendingAutoExpandStageRef.current = null;
+  }, []);
+
+  const collapseAutoExpandedStages = useCallback((keepStageId?: string) => {
+    const keep = keepStageId ?? null;
+    const idsToCollapse = [...autoExpandedStageIdsRef.current].filter((id) => id !== keep);
+    if (!idsToCollapse.length) return;
+
+    setDesktopCollapsedStages((prev) => {
+      const next = new Set(prev);
+      idsToCollapse.forEach((id) => next.add(id));
+      return next;
+    });
+    idsToCollapse.forEach((id) => autoExpandedStageIdsRef.current.delete(id));
+  }, []);
+
+  const captureDragScrollSnapshot = useCallback(() => {
+    dragScrollSnapshotRef.current = {
+      scrollLeft: desktopColumnsContainerRef.current?.scrollLeft ?? 0,
+      windowY: window.scrollY,
+    };
+  }, []);
+
+  const restoreDragScrollSnapshot = useCallback(() => {
+    const snapshot = dragScrollSnapshotRef.current;
+    if (!snapshot) return;
+
+    requestAnimationFrame(() => {
+      if (desktopColumnsContainerRef.current) {
+        desktopColumnsContainerRef.current.scrollLeft = snapshot.scrollLeft;
+      }
+      window.scrollTo({ top: snapshot.windowY, behavior: "auto" });
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearAutoExpandTimer();
+    };
+  }, [clearAutoExpandTimer]);
 
   const updateForm = (key: keyof DealFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -520,6 +634,10 @@ export function CrmDealsClient({
 
     const nextStage = stages.find((stage) => stage.id === stageId);
     const snapshot = JSON.parse(JSON.stringify(current)) as CrmDeal;
+    const previousMoveRank = recentMoveRankByDealId[dealId];
+    moveRankCounterRef.current += 1;
+    const nextMoveRank = moveRankCounterRef.current;
+    setRecentMoveRankByDealId((prev) => ({ ...prev, [dealId]: nextMoveRank }));
 
     setDeals((prev) =>
       prev.map((deal) =>
@@ -547,6 +665,15 @@ export function CrmDealsClient({
     } catch (error) {
       console.error(error);
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
+      setRecentMoveRankByDealId((prev) => {
+        if (previousMoveRank == null) {
+          if (!(dealId in prev)) return prev;
+          const next = { ...prev };
+          delete next[dealId];
+          return next;
+        }
+        return { ...prev, [dealId]: previousMoveRank };
+      });
       toast.error("No se pudo actualizar la etapa.");
     }
   };
@@ -563,6 +690,15 @@ export function CrmDealsClient({
     });
 
     result = [...result].sort((a, b) => {
+      const sameStage = a.stage?.id && b.stage?.id && a.stage.id === b.stage.id;
+      if (sameStage) {
+        const aMoveRank = recentMoveRankByDealId[a.id] ?? 0;
+        const bMoveRank = recentMoveRankByDealId[b.id] ?? 0;
+        if (aMoveRank !== bMoveRank) {
+          return bMoveRank - aMoveRank;
+        }
+      }
+
       const aTime = new Date(a.createdAt || 0).getTime();
       const bTime = new Date(b.createdAt || 0).getTime();
       switch (sort) {
@@ -579,7 +715,7 @@ export function CrmDealsClient({
     });
 
     return result;
-  }, [deals, stageFilter, search, sort]);
+  }, [deals, stageFilter, search, sort, recentMoveRankByDealId]);
 
   const columns = useMemo(() => {
     return stages.map((stage) => ({
@@ -616,23 +752,88 @@ export function CrmDealsClient({
     })
   );
 
+  const collisionDetectionStrategy = useCallback<CollisionDetection>((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return closestCorners(args);
+  }, []);
+
   const handleDragStart = (event: DragStartEvent) => {
     const dealId = String(event.active.id).replace("deal-", "");
     setActiveDealId(dealId);
+    setHoveredCollapsedDropStageId(null);
+    hoveredCollapsedDropStageIdRef.current = null;
+    clearAutoExpandTimer();
+    collapseAutoExpandedStages();
+    captureDragScrollSnapshot();
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over ? String(event.over.id) : "";
+    const overStageId = overId ? resolveStageIdFromOverId(overId) : undefined;
+
+    if (!overStageId) {
+      setHoveredCollapsedDropStageId(null);
+      hoveredCollapsedDropStageIdRef.current = null;
+      clearAutoExpandTimer();
+      collapseAutoExpandedStages();
+      return;
+    }
+
+    collapseAutoExpandedStages(overStageId);
+
+    const isCollapsed = desktopCollapsedStages.has(overStageId);
+    hoveredCollapsedDropStageIdRef.current = isCollapsed ? overStageId : null;
+    setHoveredCollapsedDropStageId(isCollapsed ? overStageId : null);
+    if (!isCollapsed) {
+      clearAutoExpandTimer();
+      return;
+    }
+
+    if (pendingAutoExpandStageRef.current === overStageId) return;
+
+    clearAutoExpandTimer();
+    pendingAutoExpandStageRef.current = overStageId;
+    autoExpandTimerRef.current = setTimeout(() => {
+      setDesktopCollapsedStages((prev) => {
+        if (!prev.has(overStageId)) return prev;
+        const next = new Set(prev);
+        next.delete(overStageId);
+        return next;
+      });
+      autoExpandedStageIdsRef.current.add(overStageId);
+      pendingAutoExpandStageRef.current = null;
+      autoExpandTimerRef.current = null;
+    }, DRAG_AUTO_EXPAND_DELAY_MS);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) {
+    clearAutoExpandTimer();
+    const collapsedFallbackStageId = hoveredCollapsedDropStageIdRef.current;
+    hoveredCollapsedDropStageIdRef.current = null;
+    setHoveredCollapsedDropStageId(null);
+
+    const dealId = String(active.id).replace("deal-", "");
+    const overId = over ? String(over.id) : null;
+    const sourceStageId = deals.find((deal) => deal.id === dealId)?.stage?.id ?? null;
+    const resolvedStageId = overId ? resolveStageIdFromOverId(overId) : undefined;
+    const stageId =
+      resolvedStageId && resolvedStageId !== sourceStageId
+        ? resolvedStageId
+        : collapsedFallbackStageId && collapsedFallbackStageId !== sourceStageId
+          ? collapsedFallbackStageId
+          : undefined;
+
+    if (!over && !stageId) {
+      collapseAutoExpandedStages();
       setActiveDealId(null);
+      restoreDragScrollSnapshot();
       return;
     }
 
-    const dealId = String(active.id).replace("deal-", "");
-    const overId = String(over.id);
-    const stageId = overId.startsWith("stage-")
-      ? overId.replace("stage-", "")
-      : deals.find((deal) => `deal-${deal.id}` === overId)?.stage?.id;
+    collapseAutoExpandedStages(stageId);
+    restoreDragScrollSnapshot();
 
     if (stageId) {
       updateStage(dealId, stageId);
@@ -641,16 +842,25 @@ export function CrmDealsClient({
   };
 
   const handleDragCancel = () => {
+    clearAutoExpandTimer();
+    setHoveredCollapsedDropStageId(null);
+    hoveredCollapsedDropStageIdRef.current = null;
+    collapseAutoExpandedStages();
     setActiveDealId(null);
+    restoreDragScrollSnapshot();
   };
 
-  const toggleStageCollapse = (stageId: string) => {
-    setCollapsedStages((prev) => {
+  const toggleDesktopStageCollapse = (stageId: string) => {
+    setDesktopCollapsedStages((prev) => {
       const next = new Set(prev);
       if (next.has(stageId)) next.delete(stageId);
       else next.add(stageId);
       return next;
     });
+  };
+
+  const toggleMobileStageExpand = (stageId: string) => {
+    setMobileExpandedStageId((prev) => (prev === stageId ? null : stageId));
   };
 
   const dropAnimation = {
@@ -797,8 +1007,8 @@ export function CrmDealsClient({
               <div className="md:hidden">
                 <MobileStageList
                   columns={columns}
-                  collapsedStages={collapsedStages}
-                  onToggleCollapse={toggleStageCollapse}
+                  expandedStageId={mobileExpandedStageId}
+                  onToggleExpand={toggleMobileStageExpand}
                 />
               </div>
 
@@ -806,25 +1016,32 @@ export function CrmDealsClient({
               <div className="hidden md:block">
                 <DndContext
                   sensors={sensors}
-                  collisionDetection={closestCorners}
+                  collisionDetection={collisionDetectionStrategy}
                   onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
                   onDragEnd={handleDragEnd}
                   onDragCancel={handleDragCancel}
                 >
-                  <div className="flex flex-row gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  <div ref={desktopColumnsContainerRef} className="flex flex-row gap-3 overflow-x-auto pb-2 -mx-1 px-1">
                     {columns.map((column) => {
                       const stageTotal = column.deals.reduce(
                         (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
                         0
                       );
+                      const isCollapsed = desktopCollapsedStages.has(column.stage.id);
                       return (
                         <DealColumn
                           key={column.stage.id}
                           stage={column.stage}
                           deals={column.deals}
                           stageTotal={`$${stageTotal.toLocaleString("es-CL")}`}
-                          collapsed={collapsedStages.has(column.stage.id)}
-                          onToggleCollapse={() => toggleStageCollapse(column.stage.id)}
+                          collapsed={isCollapsed}
+                          onToggleCollapse={() => toggleDesktopStageCollapse(column.stage.id)}
+                          highlightDropTarget={
+                            isCollapsed &&
+                            activeDealId !== null &&
+                            hoveredCollapsedDropStageId === column.stage.id
+                          }
                         >
                           <SortableContext
                             items={column.deals.map((deal) => `deal-${deal.id}`)}
