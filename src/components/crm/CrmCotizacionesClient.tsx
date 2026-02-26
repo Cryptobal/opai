@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
 import { FileText, ChevronRight, Plus, Loader2 } from "lucide-react";
-import { formatCLP, formatNumber } from "@/lib/utils";
+import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
+import { clpToUf } from "@/lib/uf";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -47,9 +48,11 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 export function CrmCotizacionesClient({
   quotes,
   accounts,
+  ufValue,
 }: {
   quotes: QuoteRow[];
   accounts: AccountRow[];
+  ufValue: number;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -184,13 +187,13 @@ export function CrmCotizacionesClient({
           ) : viewMode === "list" ? (
             <div className="space-y-2 min-w-0">
               {filteredQuotes.map((quote) => (
-                <QuoteListRow key={quote.id} quote={quote} />
+                <QuoteListRow key={quote.id} quote={quote} ufValue={ufValue} />
               ))}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredQuotes.map((quote) => (
-                <QuoteCardItem key={quote.id} quote={quote} />
+                <QuoteCardItem key={quote.id} quote={quote} ufValue={ufValue} />
               ))}
             </div>
           )}
@@ -201,8 +204,10 @@ export function CrmCotizacionesClient({
 }
 
 /* ── List row ── */
-function QuoteListRow({ quote }: { quote: QuoteRow }) {
+function QuoteListRow({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
+  const salePriceClp = Number(quote.salePriceMonthly);
+  const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
   return (
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
@@ -226,7 +231,10 @@ function QuoteListRow({ quote }: { quote: QuoteRow }) {
       <div className="flex items-center gap-4 shrink-0 ml-3 text-right">
         <div className="text-xs hidden sm:block">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium font-mono">{formatCLP(Number(quote.salePriceMonthly))}</p>
+          <p className="text-sm font-medium font-mono">{formatCLP(salePriceClp)}</p>
+          {salePriceUf ? (
+            <p className="text-[10px] font-semibold text-muted-foreground">{salePriceUf}</p>
+          ) : null}
         </div>
         <div className="text-xs hidden sm:block">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Costo</p>
@@ -247,8 +255,10 @@ function QuoteListRow({ quote }: { quote: QuoteRow }) {
 }
 
 /* ── Card item ── */
-function QuoteCardItem({ quote }: { quote: QuoteRow }) {
+function QuoteCardItem({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
+  const salePriceClp = Number(quote.salePriceMonthly);
+  const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
   return (
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
@@ -273,7 +283,10 @@ function QuoteCardItem({ quote }: { quote: QuoteRow }) {
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium font-mono">{formatCLP(Number(quote.salePriceMonthly))}</p>
+          <p className="text-sm font-medium font-mono">{formatCLP(salePriceClp)}</p>
+          {salePriceUf ? (
+            <p className="text-[10px] font-semibold text-muted-foreground">{salePriceUf}</p>
+          ) : null}
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>

@@ -240,8 +240,8 @@ export async function GET(request: NextRequest) {
           type: "quote",
           title: quote.code,
           subtitle: [
-            quote.clientName,
             `Negocio: ${dealTitle}`,
+            quote.clientName,
             QUOTE_STATUS_LABEL[quote.status] || quote.status,
           ].filter(Boolean).join(" · "),
           href: `/crm/cotizaciones/${quote.id}`,

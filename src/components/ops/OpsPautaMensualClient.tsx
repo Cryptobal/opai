@@ -958,10 +958,62 @@ export function OpsPautaMensualClient({
     return allPuestos.filter((p) => p.id !== currentPuestoId && isPuestoNight(p.shiftStart) !== currentIsNight);
   };
 
-  // Open serie modal
-  const openSerieModal = (puestoId: string, slotNumber: number, dateKey: string) => {
+  const resolveAutoRotativoConfig = (puestoId: string, slotNumber: number) => {
     const currentPuesto = allPuestos.find((p) => p.id === puestoId);
     const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
+    const sortedOppositePuestos = [...getOppositePuestos(puestoId)].sort((a, b) => {
+      const [ah, am] = a.shiftStart.split(":").map((v) => parseInt(v, 10));
+      const [bh, bm] = b.shiftStart.split(":").map((v) => parseInt(v, 10));
+      const aMinutes = (Number.isNaN(ah) ? 0 : ah) * 60 + (Number.isNaN(am) ? 0 : am);
+      const bMinutes = (Number.isNaN(bh) ? 0 : bh) * 60 + (Number.isNaN(bm) ? 0 : bm);
+      if (aMinutes !== bMinutes) return aMinutes - bMinutes;
+      return a.name.localeCompare(b.name);
+    });
+
+    const existingSerie = series.find(
+      (s) =>
+        s.puestoId === puestoId &&
+        s.slotNumber === slotNumber &&
+        s.isRotativo &&
+        Boolean(s.rotatePuestoId)
+    );
+
+    const existingRotatePuesto = existingSerie?.rotatePuestoId
+      ? sortedOppositePuestos.find((p) => p.id === existingSerie.rotatePuestoId)
+      : undefined;
+
+    const rotatePuesto =
+      existingRotatePuesto ||
+      sortedOppositePuestos.find((p) => slotNumber <= p.requiredGuards) ||
+      sortedOppositePuestos[0];
+
+    const maxSlot = rotatePuesto?.requiredGuards ?? 0;
+    const existingRotateSlot =
+      typeof existingSerie?.rotateSlotNumber === "number" ? existingSerie.rotateSlotNumber : null;
+    const rotateSlotNumber =
+      maxSlot > 0
+        ? existingRotateSlot && existingRotateSlot >= 1 && existingRotateSlot <= maxSlot
+          ? existingRotateSlot
+          : Math.min(Math.max(slotNumber, 1), maxSlot)
+        : null;
+
+    const startShift: "day" | "night" =
+      existingSerie?.startShift === "day" || existingSerie?.startShift === "night"
+        ? existingSerie.startShift
+        : currentIsNight
+        ? "night"
+        : "day";
+
+    return {
+      rotatePuestoId: rotatePuesto?.id ?? null,
+      rotateSlotNumber,
+      startShift,
+    };
+  };
+
+  // Open serie modal
+  const openSerieModal = (puestoId: string, slotNumber: number, dateKey: string) => {
+    const autoRotativo = resolveAutoRotativoConfig(puestoId, slotNumber);
     setSerieForm({
       puestoId,
       slotNumber,
@@ -969,9 +1021,9 @@ export function OpsPautaMensualClient({
       startDate: dateKey,
       startPosition: 1,
       isRotativo: false,
-      rotatePuestoId: "",
-      rotateSlotNumber: 1,
-      startShift: currentIsNight ? "night" : "day",
+      rotatePuestoId: autoRotativo.rotatePuestoId ?? "",
+      rotateSlotNumber: autoRotativo.rotateSlotNumber ?? 1,
+      startShift: autoRotativo.startShift,
     });
     setSerieModalOpen(true);
   };
@@ -984,8 +1036,21 @@ export function OpsPautaMensualClient({
       return;
     }
 
-    if (serieForm.isRotativo && !serieForm.rotatePuestoId) {
-      toast.error("Selecciona el puesto par para el turno rotativo");
+    const autoRotativo = serieForm.isRotativo
+      ? resolveAutoRotativoConfig(serieForm.puestoId, serieForm.slotNumber)
+      : null;
+    const rotatePuestoId = serieForm.isRotativo
+      ? serieForm.rotatePuestoId || autoRotativo?.rotatePuestoId || ""
+      : "";
+    const rotateSlotNumber = serieForm.isRotativo
+      ? serieForm.rotateSlotNumber || autoRotativo?.rotateSlotNumber || 0
+      : 0;
+    const startShift = serieForm.isRotativo
+      ? serieForm.startShift || autoRotativo?.startShift || "day"
+      : "day";
+
+    if (serieForm.isRotativo && (!rotatePuestoId || !rotateSlotNumber)) {
+      toast.error("No hay un puesto de turno contrario configurado para pintar rotativo");
       return;
     }
 
@@ -1005,9 +1070,9 @@ export function OpsPautaMensualClient({
       };
 
       if (serieForm.isRotativo) {
-        payload_body.rotatePuestoId = serieForm.rotatePuestoId;
-        payload_body.rotateSlotNumber = serieForm.rotateSlotNumber;
-        payload_body.startShift = serieForm.startShift;
+        payload_body.rotatePuestoId = rotatePuestoId;
+        payload_body.rotateSlotNumber = rotateSlotNumber;
+        payload_body.startShift = startShift;
       }
 
       const res = await fetch("/api/ops/pauta-mensual/pintar-serie", {
@@ -2111,7 +2176,11 @@ export function OpsPautaMensualClient({
               const oppositePuestos = getOppositePuestos(serieForm.puestoId);
               const currentPuesto = allPuestos.find((p) => p.id === serieForm.puestoId);
               const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
-              const selectedRotatePuesto = allPuestos.find((p) => p.id === serieForm.rotatePuestoId);
+              const autoRotativo = resolveAutoRotativoConfig(serieForm.puestoId, serieForm.slotNumber);
+              const selectedRotatePuesto = autoRotativo.rotatePuestoId
+                ? allPuestos.find((p) => p.id === autoRotativo.rotatePuestoId)
+                : null;
+              const autoShiftLabel = autoRotativo.startShift === "night" ? "Nocturno" : "Diurno";
 
               return (
                 <div className="rounded-md border border-border p-3 space-y-3">
@@ -2119,7 +2188,7 @@ export function OpsPautaMensualClient({
                     <div>
                       <p className="text-xs font-medium">Turno rotativo</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta esta línea, sin seleccionar ni mover guardias automáticamente.
+                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Se resuelve en automático para esta línea.
                       </p>
                     </div>
                     <button
@@ -2127,13 +2196,26 @@ export function OpsPautaMensualClient({
                       role="switch"
                       aria-checked={serieForm.isRotativo}
                       onClick={() =>
-                        setSerieForm((p) => ({
-                          ...p,
-                          isRotativo: !p.isRotativo,
-                          rotatePuestoId: !p.isRotativo ? (oppositePuestos[0]?.id ?? "") : "",
-                          rotateSlotNumber: 1,
-                          startShift: currentIsNight ? "night" : "day",
-                        }))
+                        setSerieForm((p) => {
+                          const nextIsRotativo = !p.isRotativo;
+                          if (!nextIsRotativo) {
+                            return {
+                              ...p,
+                              isRotativo: false,
+                              rotatePuestoId: "",
+                              rotateSlotNumber: 1,
+                              startShift: currentIsNight ? "night" : "day",
+                            };
+                          }
+                          const defaults = resolveAutoRotativoConfig(p.puestoId, p.slotNumber);
+                          return {
+                            ...p,
+                            isRotativo: true,
+                            rotatePuestoId: defaults.rotatePuestoId ?? "",
+                            rotateSlotNumber: defaults.rotateSlotNumber ?? 1,
+                            startShift: defaults.startShift,
+                          };
+                        })
                       }
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
                         serieForm.isRotativo ? "bg-violet-500" : "bg-zinc-600"
@@ -2173,202 +2255,32 @@ export function OpsPautaMensualClient({
                           )}
                         </div>
                       ) : (
-                        <>
-                          {/* Puesto par selector - clear visual card */}
-                          <div className="space-y-2">
-                            <div>
-                              <Label className="text-xs">Puesto donde rotará en turno {currentIsNight ? "diurno" : "nocturno"}</Label>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                El guardia alternará entre el puesto actual y este puesto cada ciclo. El guardia del puesto par se asigna por separado.
+                        <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
+                          <p className="text-xs font-medium text-violet-200">
+                            Emparejamiento automático de turno contrario
+                          </p>
+                          <p className="text-[10px] text-violet-100/80">
+                            Esta acción pinta la serie de este slot. El sistema define automáticamente el puesto y posición del turno contrario.
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Slot base</p>
+                              <p className="text-[11px] font-medium text-foreground truncate">
+                                {currentPuesto?.name ?? "—"} · S{serieForm.slotNumber}
                               </p>
                             </div>
-
-                            {oppositePuestos.length === 1 ? (
-                              /* Si solo hay un puesto opuesto, mostrarlo como card fija */
-                              <div className="rounded-md border border-border bg-muted/20 p-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold border ${
-                                    isPuestoNight(oppositePuestos[0].shiftStart)
-                                      ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                  }`}>
-                                    {isPuestoNight(oppositePuestos[0].shiftStart) ? "N" : "D"}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-medium text-foreground truncate">{oppositePuestos[0].name}</p>
-                                    <p className="text-[10px] text-muted-foreground">{oppositePuestos[0].shiftStart} - {oppositePuestos[0].shiftEnd}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              /* Si hay múltiples puestos opuestos, dropdown */
-                              <select
-                                className="h-9 w-full rounded-md border border-input bg-background px-3 py-0 text-sm leading-tight"
-                                value={serieForm.rotatePuestoId}
-                                onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: 1 }))}
-                              >
-                                {oppositePuestos.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} ({p.shiftStart}-{p.shiftEnd})
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-
-                          {/* Slot selection in the paired puesto - only if multiple guards */}
-                          {selectedRotatePuesto && selectedRotatePuesto.requiredGuards > 1 && (
-                            <div className="space-y-2">
-                              <Label className="text-xs">Posición en {selectedRotatePuesto.name}</Label>
-                              <p className="text-[10px] text-muted-foreground">
-                                Elige en qué posición del puesto par quedará este guardia cuando rote.
-                              </p>
-                              <div className="grid gap-1.5">
-                                {Array.from({ length: selectedRotatePuesto.requiredGuards }, (_, i) => {
-                                  const slotNum = i + 1;
-                                  const slotAsig = slotAsignaciones.find(
-                                    (a) => a.puestoId === serieForm.rotatePuestoId && a.slotNumber === slotNum
-                                  );
-                                  const isSelected = serieForm.rotateSlotNumber === slotNum;
-                                  return (
-                                    <button
-                                      key={slotNum}
-                                      type="button"
-                                      onClick={() => setSerieForm((p) => ({ ...p, rotateSlotNumber: slotNum }))}
-                                      className={`flex items-center gap-2 rounded-md border-2 px-3 py-2 text-left transition-all ${
-                                        isSelected
-                                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                          : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                      }`}
-                                    >
-                                      <span className={`text-xs font-mono font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
-                                        S{slotNum}
-                                      </span>
-                                      <div className="flex-1 min-w-0">
-                                        {slotAsig ? (
-                                          <span className="text-xs text-foreground font-medium truncate block">
-                                            {slotAsig.guardia.persona.firstName} {slotAsig.guardia.persona.lastName}
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs text-amber-400/60 italic">Sin guardia asignado</span>
-                                        )}
-                                      </div>
-                                      {isSelected && (
-                                        <span className="shrink-0 w-2 h-2 rounded-full bg-primary" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Start shift: which puesto goes first */}
-                          <div className="space-y-2">
-                            <div>
-                              <Label className="text-xs">¿Comienza de día o de noche?</Label>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Indica en qué puesto arranca el primer ciclo de trabajo.
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Turno contrario</p>
+                              <p className="text-[11px] font-medium text-foreground truncate">
+                                {selectedRotatePuesto?.name ?? "—"} · S{autoRotativo.rotateSlotNumber ?? "—"}
                               </p>
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "day" }))}
-                                className={`flex-1 rounded-md px-3 py-2.5 text-left border-2 transition-all ${
-                                  serieForm.startShift === "day"
-                                    ? "border-amber-400 bg-amber-500/10"
-                                    : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="rounded-full px-1 py-px text-[8px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">D</span>
-                                  <span className={`text-xs font-medium ${serieForm.startShift === "day" ? "text-amber-300" : "text-muted-foreground"}`}>Diurno</span>
-                                </div>
-                                <p className="text-[9px] text-muted-foreground truncate">
-                                  {currentIsNight
-                                    ? (selectedRotatePuesto?.name ?? "Puesto diurno")
-                                    : (currentPuesto?.name ?? "Puesto actual")}
-                                </p>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "night" }))}
-                                className={`flex-1 rounded-md px-3 py-2.5 text-left border-2 transition-all ${
-                                  serieForm.startShift === "night"
-                                    ? "border-indigo-400 bg-indigo-500/10"
-                                    : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="rounded-full px-1 py-px text-[8px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">N</span>
-                                  <span className={`text-xs font-medium ${serieForm.startShift === "night" ? "text-indigo-300" : "text-muted-foreground"}`}>Nocturno</span>
-                                </div>
-                                <p className="text-[9px] text-muted-foreground truncate">
-                                  {currentIsNight
-                                    ? (currentPuesto?.name ?? "Puesto actual")
-                                    : (selectedRotatePuesto?.name ?? "Puesto nocturno")}
-                                </p>
-                              </button>
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Inicio de ciclo</p>
+                              <p className="text-[11px] font-medium text-foreground">{autoShiftLabel}</p>
                             </div>
                           </div>
-
-                          {/* Visual preview of rotative cycle with puesto names */}
-                          {(() => {
-                            const pattern = PATTERNS.find((p) => p.code === serieForm.patternCode);
-                            if (!pattern) return null;
-                            const dayPuesto = currentIsNight ? selectedRotatePuesto : currentPuesto;
-                            const nightPuesto = currentIsNight ? currentPuesto : selectedRotatePuesto;
-                            const firstPuesto = serieForm.startShift === "day" ? dayPuesto : nightPuesto;
-                            const secondPuesto = serieForm.startShift === "day" ? nightPuesto : dayPuesto;
-                            return (
-                              <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
-                                <p className="text-[10px] font-semibold text-violet-300">Resumen del ciclo rotativo</p>
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0">Ciclo 1</span>
-                                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                      serieForm.startShift === "day"
-                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/20"
-                                        : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
-                                    }`}>
-                                      {pattern.work} días trabajo
-                                    </span>
-                                    <span className="text-[9px] text-muted-foreground truncate">
-                                      en {firstPuesto?.name ?? "—"}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0" />
-                                    <span className="rounded px-1.5 py-0.5 text-[9px] bg-zinc-700/30 text-zinc-500 border border-zinc-600/20">
-                                      {pattern.off} días descanso
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0">Ciclo 2</span>
-                                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                      serieForm.startShift === "day"
-                                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
-                                        : "bg-amber-500/20 text-amber-300 border border-amber-500/20"
-                                    }`}>
-                                      {pattern.work} días trabajo
-                                    </span>
-                                    <span className="text-[9px] text-muted-foreground truncate">
-                                      en {secondPuesto?.name ?? "—"}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0" />
-                                    <span className="rounded px-1.5 py-0.5 text-[9px] bg-zinc-700/30 text-zinc-500 border border-zinc-600/20">
-                                      {pattern.off} días descanso
-                                    </span>
-                                  </div>
-                                  <p className="text-[9px] text-muted-foreground/50 italic pt-0.5">y repite…</p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </>
+                        </div>
                       )}
                     </>
                   )}

@@ -936,33 +936,29 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
       <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} />
 
-      {/* ── KPI strip compacta ── */}
-      <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 -mx-1 px-1">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Puestos</span>
-          <span className="text-xs font-bold font-mono">{positions.length}</span>
+      {/* ── KPI strip compacta (sin scroll horizontal) ── */}
+      <div className="grid grid-cols-2 gap-1.5 py-1 sm:grid-cols-5">
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Puestos</p>
+          <p className="text-xs font-bold font-mono">{positions.length}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Guardias</span>
-          <span className="text-xs font-bold font-mono">{stats.totalGuards}</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Guardias</p>
+          <p className="text-xs font-bold font-mono">{stats.totalGuards}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Costo</span>
-          <span className="text-xs font-bold font-mono">{formatCurrency(monthlyTotal)}</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Costo</p>
+          <p className="text-xs font-bold font-mono truncate">{formatCurrency(monthlyTotal)}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Margen</span>
-          <span className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Margen</p>
+          <p className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</span>
-          <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">{formatCLP(salePriceMonthly)}</span>
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 col-span-2 sm:col-span-1">
+          <p className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</p>
+          <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">{formatCLP(salePriceMonthly)}</p>
           {ufValue && ufValue > 0 && (
-            <span className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</span>
+            <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 truncate">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</p>
           )}
         </div>
       </div>
