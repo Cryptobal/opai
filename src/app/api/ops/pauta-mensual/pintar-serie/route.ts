@@ -208,17 +208,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check assignment on rotate puesto
-      const rotateAsignacion = await prisma.opsAsignacionGuardia.findFirst({
-        where: {
-          tenantId: ctx.tenantId,
-          puestoId: body.rotatePuestoId,
-          slotNumber: body.rotateSlotNumber,
-          isActive: true,
-        },
-        select: { guardiaId: true, startDate: true },
-      });
-
       // Generate rotative entries
       const { puestoA, puestoB } = generateRotativeSerieForMonth(
         startDate,
@@ -266,7 +255,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Upsert pauta entries: main puesto gets guardiaId, paired puesto gets shift codes only
+      // Upsert pauta entries:
+      // - Main puesto gets guardiaId.
+      // - Paired puesto also gets the same guardiaId on its "T" days so the guard's
+      //   rotative line (Td/Tn) stays coherent end-to-end.
       const updatedA = await upsertPautaEntries(
         puestoA, body.puestoId, body.slotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
@@ -275,7 +267,7 @@ export async function POST(request: NextRequest) {
       const updatedB = await upsertPautaEntries(
         puestoB, body.rotatePuestoId, body.rotateSlotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
-        null // No guardiaId for paired puesto — painted independently
+        asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
       );
 
       await createOpsAuditLog(ctx, "ops.pauta.serie_rotativa_painted", "ops_pauta", undefined, {

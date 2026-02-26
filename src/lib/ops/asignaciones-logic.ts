@@ -217,7 +217,9 @@ export async function executeAsignar(
     },
   });
 
-  // 4. Write plannedGuardiaId on all "T" days from startDate forward
+  // 4. Write plannedGuardiaId on all "T" days from startDate forward.
+  // Only fill empty cells (or same guard) to avoid overwriting
+  // manually painted rotative lines that belong to another guard.
   await prisma.opsPautaMensual.updateMany({
     where: {
       tenantId: ctx.tenantId,
@@ -225,6 +227,10 @@ export async function executeAsignar(
       slotNumber: body.slotNumber,
       shiftCode: "T",
       date: { gte: startDate },
+      OR: [
+        { plannedGuardiaId: null },
+        { plannedGuardiaId: body.guardiaId },
+      ],
     },
     data: {
       plannedGuardiaId: body.guardiaId,
