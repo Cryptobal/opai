@@ -31,19 +31,16 @@ export default async function PerfilPage() {
   };
 
   return (
-    <>
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Mi Perfil"
         description="Gestiona tu cuenta y configuración"
       />
 
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Información del usuario */}
         <UserInfo user={userData} />
-
-        {/* Cambiar contraseña */}
         <ChangePasswordForm />
       </div>
-    </>
+    </div>
   );
 }

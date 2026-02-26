@@ -89,8 +89,7 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <>
-      {/* Page Header: título, enlace a Templates y Recargar */}
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Documentos Comerciales"
         description={
@@ -103,18 +102,15 @@ export default async function DashboardPage() {
           </>
         }
         actions={<ReloadButton />}
-        className="mb-2"
       />
 
-      {/* Sub-navegación */}
       <DocumentosSubnav />
 
-      {/* Content con KPIs clickeables */}
       <DocumentosContent
         presentations={presentationsWithDeals}
         stats={stats}
         conversionRate={conversionRate}
       />
-    </>
+    </div>
   );
 }

@@ -17,6 +17,8 @@ export default async function MisNotificacionesPage() {
       <PageHeader
         title="Mis Notificaciones"
         description="Configura qué notificaciones recibes por campana y por correo electrónico"
+        backHref="/opai/perfil"
+        backLabel="Mi Perfil"
       />
       <UserNotificationPrefsClient />
     </div>

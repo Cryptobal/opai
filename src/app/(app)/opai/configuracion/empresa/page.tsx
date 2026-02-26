@@ -73,6 +73,8 @@ export default function EmpresaConfigPage() {
       <PageHeader
         title="Configuración · Empresa"
         description="Datos de la empresa empleadora. Estos datos se usan como tokens en contratos, finiquitos, cartas de aviso y otros documentos laborales."
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
 
       {loading ? (
@@ -90,12 +92,12 @@ export default function EmpresaConfigPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               {FIELDS.map((field) => (
                 <div key={field.key} className={field.key.includes("direccion") ? "sm:col-span-2" : ""}>
-                  <Label className="text-xs">{field.label}</Label>
+                  <Label className="text-xs mb-1.5">{field.label}</Label>
                   <Input
                     value={form[field.key] ?? ""}
                     onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
-                    className="mt-1 text-sm"
+                    className="text-sm"
                   />
                 </div>
               ))}
@@ -127,12 +129,12 @@ export default function EmpresaConfigPage() {
             <div className="grid gap-4">
               {EMAIL_FIELDS.map((field) => (
                 <div key={field.key}>
-                  <Label className="text-xs">{field.label}</Label>
+                  <Label className="text-xs mb-1.5">{field.label}</Label>
                   <Input
                     value={field.key === "empresa.emailReplyTo" ? "comercial@gard.cl" : (form[field.key] ?? "")}
                     onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
-                    className="mt-1 text-sm"
+                    className="text-sm"
                     disabled={"disabled" in field && field.disabled}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>
@@ -195,7 +197,7 @@ export default function EmpresaConfigPage() {
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-xs">Subir imagen</Label>
+                <Label className="text-xs mb-1.5">Subir imagen</Label>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -220,7 +222,7 @@ export default function EmpresaConfigPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">O dibujar a mano</Label>
+                <Label className="text-xs mb-1.5">O dibujar a mano</Label>
                 <SignatureCanvas
                   value={form["empresa.repLegalFirma"] || null}
                   onChange={(dataUrl) =>

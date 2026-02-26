@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader, ConfigBackLink } from "@/components/opai";
+import { PageHeader } from "@/components/opai";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { SignatureManagerClient } from "@/components/crm/SignatureManagerClient";
@@ -27,13 +27,14 @@ export default async function FirmasPage() {
   const initialSignatures = JSON.parse(JSON.stringify(signatures));
 
   return (
-    <>
-      <ConfigBackLink />
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Firmas de email"
         description="Gestiona las firmas que se incluyen al final de los correos enviados desde el CRM"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <SignatureManagerClient initialSignatures={initialSignatures} />
-    </>
+    </div>
   );
 }

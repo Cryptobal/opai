@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { ConfigBackLink, PageHeader } from "@/components/opai";
+import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
 
 type AuditPageProps = {
   searchParams?: Promise<{
@@ -11,6 +11,32 @@ type AuditPageProps = {
     entity?: string;
   }>;
 };
+
+const AUDIT_COLUMNS: DataTableColumn[] = [
+  {
+    key: "createdAt",
+    label: "Fecha",
+    className: "whitespace-nowrap",
+    render: (v) => new Date(v).toLocaleString("es-CL"),
+  },
+  {
+    key: "userEmail",
+    label: "Usuario",
+    render: (v) => v || "—",
+  },
+  { key: "action", label: "Acción" },
+  { key: "entity", label: "Entidad" },
+  {
+    key: "entityId",
+    label: "ID ficha",
+    render: (v) => v || "—",
+  },
+  {
+    key: "ipAddress",
+    label: "IP",
+    render: (v) => v || "—",
+  },
+];
 
 export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
   const session = await auth();
@@ -67,93 +93,61 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
   });
 
   return (
-    <>
-      <ConfigBackLink />
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Auditoría"
         description="Historial consolidado de acciones de usuarios en tu tenant"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
 
-      <div className="space-y-6">
-        <form method="GET" className="rounded-xl border border-border bg-card p-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder="Buscar por usuario, entidad o ID"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            />
-            <select
-              name="action"
-              defaultValue={action}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Todas las acciones</option>
-              {actions.map((item) => (
-                <option key={item.action} value={item.action}>
-                  {item.action}
-                </option>
-              ))}
-            </select>
-            <select
-              name="entity"
-              defaultValue={entity}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Todas las entidades</option>
-              {entities.map((item) => (
-                <option key={item.entity} value={item.entity}>
-                  {item.entity}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-            >
-              Filtrar
-            </button>
-          </div>
-        </form>
-
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Fecha</th>
-                  <th className="px-3 py-2 text-left">Usuario</th>
-                  <th className="px-3 py-2 text-left">Acción</th>
-                  <th className="px-3 py-2 text-left">Entidad</th>
-                  <th className="px-3 py-2 text-left">ID ficha</th>
-                  <th className="px-3 py-2 text-left">IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-t border-border/70">
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString("es-CL")}
-                    </td>
-                    <td className="px-3 py-2">{log.userEmail || "—"}</td>
-                    <td className="px-3 py-2">{log.action}</td>
-                    <td className="px-3 py-2">{log.entity}</td>
-                    <td className="px-3 py-2">{log.entityId || "—"}</td>
-                    <td className="px-3 py-2">{log.ipAddress || "—"}</td>
-                  </tr>
-                ))}
-                {logs.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-10 text-center text-sm text-muted-foreground">
-                      No hay registros de auditoría para los filtros seleccionados.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      <form method="GET" className="rounded-xl border border-border bg-card p-4">
+        <div className="grid gap-3 md:grid-cols-4">
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Buscar por usuario, entidad o ID"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          />
+          <select
+            name="action"
+            defaultValue={action}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Todas las acciones</option>
+            {actions.map((item) => (
+              <option key={item.action} value={item.action}>
+                {item.action}
+              </option>
+            ))}
+          </select>
+          <select
+            name="entity"
+            defaultValue={entity}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Todas las entidades</option>
+            {entities.map((item) => (
+              <option key={item.entity} value={item.entity}>
+                {item.entity}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            Filtrar
+          </button>
         </div>
-      </div>
-    </>
+      </form>
+
+      <DataTable
+        columns={AUDIT_COLUMNS}
+        data={logs}
+        compact
+        emptyMessage="No hay registros de auditoría para los filtros seleccionados."
+      />
+    </div>
   );
 }

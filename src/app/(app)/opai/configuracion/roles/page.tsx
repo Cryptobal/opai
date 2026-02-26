@@ -21,6 +21,8 @@ export default async function RolesConfigPage() {
       <PageHeader
         title="Gestión de Roles"
         description="Configura permisos por módulo y submódulo para cada rol"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <RoleTemplatesClient isOwner={role === "owner"} />
     </div>

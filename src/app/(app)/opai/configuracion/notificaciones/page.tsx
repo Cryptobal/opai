@@ -18,6 +18,8 @@ export default async function NotificacionesConfigPage() {
       <PageHeader
         title="Notificaciones"
         description="Parámetros globales. Cada usuario configura sus preferencias en Perfil → Mis notificaciones"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <NotificationConfigClient />
     </div>
