@@ -61,3 +61,20 @@ export { SectionNav } from './SectionNav';
 export type { SectionNavItem } from './SectionNav';
 export { DetailLayout } from './DetailLayout';
 export type { DetailLayoutSection } from './DetailLayout';
+
+// Data Display
+export { DataTable } from './DataTable';
+export type { DataTableProps, DataTableColumn } from './DataTable';
+
+export { KpiGrid } from './KpiGrid';
+export type { KpiGridProps } from './KpiGrid';
+
+export { ModuleCard } from './ModuleCard';
+export type { ModuleCardProps } from './ModuleCard';
+
+// Form Components
+export { FormField } from './FormField';
+export type { FormFieldProps } from './FormField';
+
+export { FilterBar } from './FilterBar';
+export type { FilterBarProps } from './FilterBar';
