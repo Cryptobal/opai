@@ -998,7 +998,7 @@ export function OpsPautaMensualClient({
         throw new Error(payload.error || "Error pintando serie");
       toast.success(
         serieForm.isRotativo
-          ? `Serie rotativa pintada (${payload.data.updated} días en ambos puestos)`
+          ? `Línea rotativa pintada (${payload.data.updated} celdas actualizadas)`
           : `Serie pintada (${payload.data.updated} días)`
       );
       setSerieModalOpen(false);
@@ -2094,7 +2094,7 @@ export function OpsPautaMensualClient({
                     <div>
                       <p className="text-xs font-medium">Turno rotativo</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta la línea de este guardia.
+                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta la línea de este guardia, sin tomar automáticamente el guardia del puesto par.
                       </p>
                     </div>
                     <button
@@ -2241,7 +2241,7 @@ export function OpsPautaMensualClient({
                           {/* Start shift: which puesto goes first */}
                           <div className="space-y-2">
                             <div>
-                              <Label className="text-xs">El primer ciclo de trabajo es en</Label>
+                              <Label className="text-xs">¿Comienza de día o de noche?</Label>
                               <p className="text-[10px] text-muted-foreground mt-0.5">
                                 Indica en qué puesto arranca el primer ciclo de trabajo.
                               </p>
