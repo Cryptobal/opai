@@ -44,59 +44,6 @@ function generateSerieForMonth(
 }
 
 /**
- * Generates rotative shift codes for two paired puestos.
- * Odd work cycles → puesto A works, puesto B rests.
- * Even work cycles → puesto B works, puesto A rests.
- *
- * Returns entries for both puestos.
- */
-function generateRotativeSerieForMonth(
-  startDate: Date,
-  startPosition: number,
-  patternWork: number,
-  patternOff: number,
-  monthDates: Date[],
-  startShift: "day" | "night"
-): {
-  puestoA: { date: Date; shiftCode: string }[];
-  puestoB: { date: Date; shiftCode: string }[];
-} {
-  const cycleLength = patternWork + patternOff;
-  const doubleCycleLength = cycleLength * 2;
-  const puestoA: { date: Date; shiftCode: string }[] = [];
-  const puestoB: { date: Date; shiftCode: string }[] = [];
-
-  for (const d of monthDates) {
-    const diffMs = d.getTime() - startDate.getTime();
-    const daysDiff = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    const positionInDoubleCycle =
-      ((daysDiff + (startPosition - 1)) % doubleCycleLength + doubleCycleLength) % doubleCycleLength;
-
-    // First cycle (0..cycleLength-1): work first half, rest second half
-    // Second cycle (cycleLength..doubleCycleLength-1): same pattern but for the other puesto
-    const isFirstCycle = positionInDoubleCycle < cycleLength;
-    const positionInCycle = isFirstCycle
-      ? positionInDoubleCycle
-      : positionInDoubleCycle - cycleLength;
-    const isWorkDay = positionInCycle < patternWork;
-
-    // startShift determines which puesto gets the first cycle
-    // "day" → puesto A (the one the user clicked) gets cycle 1
-    // "night" → puesto B (the rotate puesto) gets cycle 1
-    if (startShift === "day") {
-      puestoA.push({ date: new Date(d), shiftCode: isFirstCycle && isWorkDay ? "T" : "-" });
-      puestoB.push({ date: new Date(d), shiftCode: !isFirstCycle && isWorkDay ? "T" : "-" });
-    } else {
-      puestoA.push({ date: new Date(d), shiftCode: !isFirstCycle && isWorkDay ? "T" : "-" });
-      puestoB.push({ date: new Date(d), shiftCode: isFirstCycle && isWorkDay ? "T" : "-" });
-    }
-  }
-
-  return { puestoA, puestoB };
-}
-
-/**
  * Upserts pauta entries for a set of serie entries.
  */
 async function upsertPautaEntries(
@@ -188,7 +135,14 @@ export async function POST(request: NextRequest) {
     const { start: monthStart, end: monthEnd } = getMonthDateRange(body.year, body.month);
     const paintDates = listDatesBetween(monthStart, monthEnd);
 
-    // ── ROTATIVE SHIFT ──
+    if (body.isRotativo && (!body.rotatePuestoId || !body.rotateSlotNumber || !body.startShift)) {
+      return NextResponse.json(
+        { success: false, error: "Faltan datos de configuración para turno rotativo" },
+        { status: 400 }
+      );
+    }
+
+    // ── ROTATIVE SHIFT: solo pinta el slot origen ──
     if (body.isRotativo && body.rotatePuestoId && body.rotateSlotNumber && body.startShift) {
       // Validate the rotate puesto exists and belongs to same installation
       const rotatePuesto = await prisma.opsPuestoOperativo.findFirst({
@@ -208,20 +162,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Generate rotative entries
-      const { puestoA, puestoB } = generateRotativeSerieForMonth(
+      // La serie rotativa vive en una sola línea (slot origen).
+      // El par se guarda solo como metadata para identificar turno contrario.
+      const serieEntries = generateSerieForMonth(
         startDate,
         body.startPosition,
         body.patternWork,
         body.patternOff,
-        paintDates,
-        body.startShift
+        paintDates
       );
 
-      // Bug 2 fix: Paint only the current guard's line (per-line assignment).
       // Deactivate previous series only for the current puesto/slot.
-      // The paired puesto gets shift codes but NOT plannedGuardiaId,
-      // so each guard's line is painted independently.
       await prisma.opsSerieAsignacion.updateMany({
         where: {
           tenantId: ctx.tenantId,
@@ -232,8 +183,7 @@ export async function POST(request: NextRequest) {
         data: { isActive: false, endDate: monthStart },
       });
 
-      // Create only the main serie (no linked serie B).
-      // Each guard's rotative line is created independently.
+      // Create only the main serie (no mirrored serie).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (prisma.opsSerieAsignacion.create as any)({
         data: {
@@ -255,17 +205,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Upsert pauta entries:
-      // - Main puesto gets guardiaId.
-      // - Paired puesto also gets the same guardiaId on its "T" days so the guard's
-      //   rotative line (Td/Tn) stays coherent end-to-end.
-      const updatedA = await upsertPautaEntries(
-        puestoA, body.puestoId, body.slotNumber,
-        puesto.installationId, ctx.tenantId, ctx.userId,
-        asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
-      );
-      const updatedB = await upsertPautaEntries(
-        puestoB, body.rotatePuestoId, body.rotateSlotNumber,
+      const updated = await upsertPautaEntries(
+        serieEntries, body.puestoId, body.slotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
         asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
       );
@@ -279,14 +220,13 @@ export async function POST(request: NextRequest) {
         patternCode: body.patternCode,
         startDate: body.startDate,
         startPosition: body.startPosition,
-        updatedA,
-        updatedB,
+        updatedEntries: updated,
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          updated: updatedA + updatedB,
+          updated,
           patternCode: body.patternCode,
           isRotativo: true,
           guardiaId: asignacion?.guardiaId ?? null,

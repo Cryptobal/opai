@@ -110,6 +110,8 @@ type SerieInfo = {
   patternCode: string;
   patternWork: number;
   patternOff: number;
+  startDate?: string | Date;
+  startPosition?: number;
   isRotativo?: boolean;
   rotatePuestoId?: string | null;
   rotateSlotNumber?: number | null;
@@ -144,31 +146,6 @@ type SlotAsignacion = {
 type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
 type ShiftType = "day" | "night" | "rotativo";
-
-/** Merged row for rotativo: one row showing Td/Tn per date */
-type RotativoMergedRow = {
-  kind: "rotativo";
-  puestoId: string;
-  puestoName: string;
-  shiftStart: string;
-  shiftEnd: string;
-  shiftDisplay: string;
-  slotNumber: number;
-  patternCode?: string;
-  guardiaId?: string;
-  guardiaName?: string;
-  dayPuestoId: string;
-  daySlotNumber: number;
-  nightPuestoId: string;
-  nightSlotNumber: number;
-  cells: Map<string, {
-    displayCode: "Td" | "Tn" | "-";
-    item?: PautaItem;
-    execution?: ExecutionCell;
-    clickPuestoId: string;
-    clickSlotNumber: number;
-  }>;
-};
 
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
@@ -568,9 +545,14 @@ export function OpsPautaMensualClient({
     guardiaId?: string;
     guardiaName?: string;
     patternCode?: string;
+    patternWork?: number;
+    patternOff?: number;
+    startDate?: string;
+    startPosition?: number;
     isRotativo?: boolean;
     rotatePuestoId?: string | null;
     rotateSlotNumber?: number | null;
+    startShift?: "day" | "night" | null;
   };
   const matrix = useMemo(() => {
     const rows = new Map<RowKey, MatrixRow>();
@@ -620,9 +602,15 @@ export function OpsPautaMensualClient({
       const row = rows.get(key);
       if (row) {
         row.patternCode = s.patternCode;
+        row.patternWork = s.patternWork;
+        row.patternOff = s.patternOff;
+        row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
+        row.startPosition = s.startPosition;
         row.isRotativo = s.isRotativo ?? false;
         row.rotatePuestoId = s.rotatePuestoId ?? null;
         row.rotateSlotNumber = s.rotateSlotNumber ?? null;
+        row.startShift =
+          s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
       }
     }
 
@@ -662,116 +650,15 @@ export function OpsPautaMensualClient({
       rows: MatrixRow[];
     };
 
-    const rowByKey = new Map<string, MatrixRow>();
+    const byGroup = new Map<string, GroupedPuesto>();
     for (const row of matrix) {
-      rowByKey.set(`${row.puestoId}|${row.slotNumber}`, row);
-    }
-
-    // Build rotativo pairs and merged rows
-    const rotativoRowKeys = new Set<string>();
-    const rotativoMergedRows: RotativoMergedRow[] = [];
-
-    for (const row of matrix) {
-      if (!row.isRotativo || !row.rotatePuestoId || row.rotateSlotNumber == null) continue;
-      const otherKey = `${row.rotatePuestoId}|${row.rotateSlotNumber}`;
-      const otherRow = rowByKey.get(otherKey);
-      if (!otherRow) continue;
-      if (!row.guardiaId || !otherRow.guardiaId || row.guardiaId !== otherRow.guardiaId) {
-        // Si no comparten guardia activa, no se fusiona: cada slot debe verse por separado.
-        continue;
-      }
-
-      const myKey = `${row.puestoId}|${row.slotNumber}`;
-      if (rotativoRowKeys.has(myKey) || rotativoRowKeys.has(otherKey)) continue;
-
-      rotativoRowKeys.add(myKey);
-      rotativoRowKeys.add(otherKey);
-
       const h = parseInt(row.shiftStart.split(":")[0], 10);
-      const isDay = h >= 6 && h < 18;
-      const dayRow = isDay ? row : otherRow;
-      const nightRow = isDay ? otherRow : row;
-
-      const mergedCells = new Map<string, {
-        displayCode: "Td" | "Tn" | "-";
-        item?: PautaItem;
-        execution?: ExecutionCell;
-        clickPuestoId: string;
-        clickSlotNumber: number;
-      }>();
-      const allDateKeys = new Set<string>();
-      for (const [dk] of dayRow.cells) allDateKeys.add(dk);
-      for (const [dk] of nightRow.cells) allDateKeys.add(dk);
-
-      for (const dateKey of allDateKeys) {
-        const dayCell = dayRow.cells.get(dateKey);
-        const nightCell = nightRow.cells.get(dateKey);
-        const dayT = dayCell?.item?.shiftCode === "T";
-        const nightT = nightCell?.item?.shiftCode === "T";
-
-        let displayCode: "Td" | "Tn" | "-" = "-";
-        let item: PautaItem | undefined;
-        let execution: ExecutionCell | undefined;
-        let clickPuestoId: string;
-        let clickSlotNumber: number;
-
-        if (dayT) {
-          displayCode = "Td";
-          item = dayCell?.item;
-          execution = dayCell?.execution;
-          clickPuestoId = dayRow.puestoId;
-          clickSlotNumber = dayRow.slotNumber;
-        } else if (nightT) {
-          displayCode = "Tn";
-          item = nightCell?.item;
-          execution = nightCell?.execution;
-          clickPuestoId = nightRow.puestoId;
-          clickSlotNumber = nightRow.slotNumber;
-        } else {
-          item = dayCell?.item ?? nightCell?.item;
-          execution = dayCell?.execution ?? nightCell?.execution;
-          clickPuestoId = dayRow.puestoId;
-          clickSlotNumber = dayRow.slotNumber;
-        }
-
-        mergedCells.set(dateKey, {
-          displayCode,
-          item,
-          execution,
-          clickPuestoId,
-          clickSlotNumber,
-        });
-      }
-
-      rotativoMergedRows.push({
-        kind: "rotativo",
-        puestoId: dayRow.puestoId,
-        puestoName: dayRow.puestoName,
-        shiftStart: `${dayRow.shiftStart}-${dayRow.shiftEnd}`,
-        shiftEnd: `${nightRow.shiftStart}-${nightRow.shiftEnd}`,
-        shiftDisplay: `${dayRow.shiftStart}-${dayRow.shiftEnd} / ${nightRow.shiftStart}-${nightRow.shiftEnd}`,
-        slotNumber: dayRow.slotNumber,
-        patternCode: dayRow.patternCode,
-        guardiaId: dayRow.guardiaId ?? nightRow.guardiaId,
-        guardiaName: dayRow.guardiaName ?? nightRow.guardiaName,
-        dayPuestoId: dayRow.puestoId,
-        daySlotNumber: dayRow.slotNumber,
-        nightPuestoId: nightRow.puestoId,
-        nightSlotNumber: nightRow.slotNumber,
-        cells: mergedCells,
-      });
-    }
-
-    const byPuesto = new Map<string, GroupedPuesto>();
-    for (const row of matrix) {
-      const key = `${row.puestoId}|${row.slotNumber}`;
-      if (rotativoRowKeys.has(key)) continue;
-
-      const h = parseInt(row.shiftStart.split(":")[0], 10);
-      const shiftType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
-      if (!byPuesto.has(row.puestoId)) {
-        byPuesto.set(row.puestoId, {
-          puestoId: row.puestoId,
+      const baseShiftType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
+      const shiftType: ShiftType = row.isRotativo ? "rotativo" : baseShiftType;
+      const groupKey = `${shiftType}:${row.puestoId}`;
+      if (!byGroup.has(groupKey)) {
+        byGroup.set(groupKey, {
+          puestoId: groupKey,
           puestoName: row.puestoName,
           shiftStart: row.shiftStart,
           shiftEnd: row.shiftEnd,
@@ -779,10 +666,10 @@ export function OpsPautaMensualClient({
           rows: [],
         });
       }
-      byPuesto.get(row.puestoId)!.rows.push(row);
+      byGroup.get(groupKey)!.rows.push(row);
     }
 
-    const sortedGroups = Array.from(byPuesto.values())
+    const sortedGroups = Array.from(byGroup.values())
       .map((g) => ({
         ...g,
         rows: [...g.rows].sort((a, b) => a.slotNumber - b.slotNumber),
@@ -794,23 +681,46 @@ export function OpsPautaMensualClient({
         return a.puestoName.localeCompare(b.puestoName);
       });
 
-    const rotativoGroups = rotativoMergedRows.length > 0
-      ? [{
-          puestoId: "rotativo",
-          puestoName: "Rotativos",
-          shiftStart: "",
-          shiftEnd: "",
-          shiftType: "rotativo" as const,
-          rows: rotativoMergedRows,
-        }]
-      : [];
-
     return {
       day: sortedGroups.filter((g) => g.shiftType === "day"),
       night: sortedGroups.filter((g) => g.shiftType === "night"),
-      rotativo: rotativoGroups,
+      rotativo: sortedGroups.filter((g) => g.shiftType === "rotativo"),
     };
   }, [matrix]);
+
+  const getRotativoDisplayCode = useCallback(
+    (row: MatrixRow, dateKey: string, shiftCode?: string | null): "Td" | "Tn" | "-" => {
+      if (shiftCode !== "T") return "-";
+
+      const patternWork = row.patternWork ?? 0;
+      const patternOff = row.patternOff ?? 0;
+      const cycleLength = patternWork + patternOff;
+      const startPosition = Math.max(1, row.startPosition ?? 1);
+      const startDateKey = row.startDate;
+      const fallback = row.startShift === "night" ? "Tn" : "Td";
+
+      if (!startDateKey || cycleLength <= 0 || patternWork <= 0) return fallback;
+
+      const startMs = Date.parse(`${startDateKey}T00:00:00Z`);
+      const currentMs = Date.parse(`${dateKey}T00:00:00Z`);
+      if (Number.isNaN(startMs) || Number.isNaN(currentMs)) return fallback;
+
+      const daysDiff = Math.floor((currentMs - startMs) / 86_400_000);
+      const doubleCycleLength = cycleLength * 2;
+      const normalizedPosition =
+        ((daysDiff + (startPosition - 1)) % doubleCycleLength + doubleCycleLength) %
+        doubleCycleLength;
+
+      const isFirstCycle = normalizedPosition < cycleLength;
+      const positionInCycle = isFirstCycle ? normalizedPosition : normalizedPosition - cycleLength;
+      if (positionInCycle >= patternWork) return "-";
+
+      const firstCycleCode: "Td" | "Tn" = row.startShift === "night" ? "Tn" : "Td";
+      const secondCycleCode: "Td" | "Tn" = firstCycleCode === "Td" ? "Tn" : "Td";
+      return isFirstCycle ? firstCycleCode : secondCycleCode;
+    },
+    []
+  );
 
   const shiftSummary = useMemo(() => {
     // Cobertura canónica: slots requeridos por puestos activos vs slots con asignación activa válida.
@@ -1762,7 +1672,7 @@ export function OpsPautaMensualClient({
                                       <span className="hidden sm:inline truncate">{row.puestoName}</span>
                                     </span>
                                     <span className="shrink-0 text-[10px] text-muted-foreground hidden sm:inline">
-                                      {"shiftDisplay" in row ? row.shiftDisplay : `${row.shiftStart}-${row.shiftEnd}`}
+                                      {`${row.shiftStart}-${row.shiftEnd}`}
                                     </span>
                                   </div>
                                 )}
@@ -1789,7 +1699,7 @@ export function OpsPautaMensualClient({
                                   {row.patternCode && (
                                     <span className="text-primary/50 text-[10px] hidden sm:inline">
                                       {row.patternCode}
-                                      {("kind" in row && row.kind === "rotativo") || ("isRotativo" in row && (row as { isRotativo?: boolean }).isRotativo) ? (
+                                      {row.isRotativo ? (
                                         <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
                                           rot
                                         </span>
@@ -1803,15 +1713,19 @@ export function OpsPautaMensualClient({
                               {visibleDays.map((d) => {
                                 const dateKey = toDateKey(d);
                                 const cellData = row.cells.get(dateKey);
-                                const isRotativoRow = "kind" in row && row.kind === "rotativo";
-                                const rotativoCell = isRotativoRow ? (cellData as { displayCode: "Td" | "Tn" | "-"; item?: PautaItem; execution?: ExecutionCell; clickPuestoId: string; clickSlotNumber: number } | undefined) : undefined;
-                                const cell = isRotativoRow ? rotativoCell?.item : (cellData as { item?: PautaItem; execution?: ExecutionCell } | undefined)?.item;
-                                const execution = isRotativoRow ? rotativoCell?.execution : (cellData as { item?: PautaItem; execution?: ExecutionCell } | undefined)?.execution;
-                                const code = isRotativoRow ? (rotativoCell?.displayCode ?? "") : ((cell as PautaItem | undefined)?.shiftCode ?? "");
-                                const isEmpty = isRotativoRow ? !rotativoCell : !code;
-                                const isTrabajo = isRotativoRow ? (rotativoCell?.displayCode === "Td" || rotativoCell?.displayCode === "Tn") : code === "T";
+                                const cell = cellData?.item;
+                                const execution = cellData?.execution;
+                                const hasCell = Boolean(cellData);
+                                const isRotativoRow = row.isRotativo === true;
+                                const code = isRotativoRow
+                                  ? getRotativoDisplayCode(row, dateKey, cell?.shiftCode)
+                                  : (cell?.shiftCode ?? "");
+                                const isEmpty = !hasCell || !code;
+                                const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
                                 const trabajoClass = isRotativoRow
-                                  ? (rotativoCell?.displayCode === "Tn" ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" : "bg-amber-500/20 text-amber-300 border-amber-500/30")
+                                  ? (code === "Tn"
+                                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                                    : "bg-amber-500/20 text-amber-300 border-amber-500/30")
                                   : (group.shiftType === "night"
                                     ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
                                     : "bg-amber-500/20 text-amber-300 border-amber-500/30");
@@ -1837,11 +1751,11 @@ export function OpsPautaMensualClient({
                                           ? "bg-zinc-600 text-zinc-100"
                                           : "";
 
-                                const clickPuestoId = isRotativoRow && rotativoCell ? rotativoCell.clickPuestoId : row.puestoId;
-                                const clickSlotNumber = isRotativoRow && rotativoCell ? rotativoCell.clickSlotNumber : row.slotNumber;
+                                const clickPuestoId = row.puestoId;
+                                const clickSlotNumber = row.slotNumber;
                                 const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
                                 const displayCode = isRotativoRow
-                                  ? (rotativoCell?.displayCode ?? "·")
+                                  ? (code || "·")
                                   : (isTrabajo ? "T" : (code || "·"));
                                 const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
 
@@ -1850,7 +1764,7 @@ export function OpsPautaMensualClient({
                                     key={dateKey}
                                     className="text-center px-0.5 py-0.5"
                                   >
-                                    {(cell || (isRotativoRow && rotativoCell)) ? (
+                                    {hasCell ? (
                                       <div
                                         className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-7 sm:h-6 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
                                           isEmpty
@@ -1912,7 +1826,7 @@ export function OpsPautaMensualClient({
                                         }}
                                         onContextMenu={(e) => {
                                           e.preventDefault();
-                                          if (!cell && !rotativoCell) return;
+                                          if (!hasCell) return;
                                           openEliminarSerieModal({
                                             puestoId: clickPuestoId,
                                             slotNumber: clickSlotNumber,
@@ -1984,12 +1898,12 @@ export function OpsPautaMensualClient({
                           let slots = 0;
                           for (const g of groups) {
                             for (const r of g.rows) {
-                              if ("kind" in r && r.kind === "rotativo") {
-                                const rc = r.cells.get(dk);
-                                if (rc?.displayCode === "Td" || rc?.displayCode === "Tn") slots += 1;
-                              } else {
-                                const c = (r as MatrixRow).cells.get(dk)?.item;
-                                if (c?.shiftCode === "T") slots += 1;
+                              const shiftCode = r.cells.get(dk)?.item?.shiftCode;
+                              if (r.isRotativo) {
+                                const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
+                                if (displayCode === "Td" || displayCode === "Tn") slots += 1;
+                              } else if (shiftCode === "T") {
+                                slots += 1;
                               }
                             }
                           }
@@ -2017,12 +1931,12 @@ export function OpsPautaMensualClient({
                       const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.rotativo, ...groupedByShiftType.night];
                       for (const g of allGroups) {
                         for (const r of g.rows) {
-                          if ("kind" in r && r.kind === "rotativo") {
-                            const rc = r.cells.get(dk);
-                            if (rc?.displayCode === "Td" || rc?.displayCode === "Tn") slots += 1;
-                          } else {
-                            const c = (r as MatrixRow).cells.get(dk)?.item;
-                            if (c?.shiftCode === "T") slots += 1;
+                          const shiftCode = r.cells.get(dk)?.item?.shiftCode;
+                          if (r.isRotativo) {
+                            const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
+                            if (displayCode === "Td" || displayCode === "Tn") slots += 1;
+                          } else if (shiftCode === "T") {
+                            slots += 1;
                           }
                         }
                       }
