@@ -6,11 +6,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/opai";
+import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Calendar, AlertCircle, Info } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 
@@ -59,11 +58,13 @@ export default function PayrollParameters() {
     return (
       <div className="space-y-4">
         <PageHeader title="Parámetros Legales" />
-        <Card className="border-red-500/20 bg-red-500/10 p-4">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
+        <Card className="border-red-500/20 bg-red-500/10">
+          <CardContent>
+            <div className="flex items-start gap-2 pt-4">
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          </CardContent>
         </Card>
       </div>
     );
@@ -92,8 +93,11 @@ export default function PayrollParameters() {
       {/* Row 1: AFP, SIS/Salud, AFC, Mutual/Topes */}
       <div className="grid gap-3 lg:grid-cols-4">
         {/* ── AFP ─────────────────────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">AFP</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">AFP</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-2">
             <div className="rounded-md bg-muted/30 px-3 py-1.5">
               <div className="flex justify-between text-xs">
@@ -119,11 +123,15 @@ export default function PayrollParameters() {
                 ))}
             </div>
           </div>
+          </CardContent>
         </Card>
 
         {/* ── SIS / Salud ────────────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">SIS / Salud</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">SIS / Salud</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-3">
             <div className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
               <div className="flex justify-between text-xs">
@@ -148,11 +156,15 @@ export default function PayrollParameters() {
               </div>
             </div>
           </div>
+          </CardContent>
         </Card>
 
         {/* ── AFC ────────────────────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">AFC (Seguro Cesantía)</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">AFC (Seguro Cesantía)</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-2 text-xs">
             <div className="rounded-md bg-muted/30 p-2">
               <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">Indefinido</p>
@@ -195,11 +207,15 @@ export default function PayrollParameters() {
               </div>
             </div>
           </div>
+          </CardContent>
         </Card>
 
         {/* ── Mutual / Topes ─────────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">Mutual / Topes</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Mutual / Topes</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-3">
             {/* Mutual */}
             <div>
@@ -257,14 +273,18 @@ export default function PayrollParameters() {
               </div>
             </div>
           </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Row 2: Gratificación + IMM */}
       <div className="grid gap-3 lg:grid-cols-2">
         {/* ── Gratificación Legal ────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">Gratificación Legal</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Gratificación Legal</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-3">
             {data.gratification?.regime_25_monthly ? (
               <div className="rounded-md bg-muted/30 p-3">
@@ -323,11 +343,15 @@ export default function PayrollParameters() {
               <p className="text-xs text-muted-foreground">No configurado</p>
             )}
           </div>
+          </CardContent>
         </Card>
 
         {/* ── IMM + Referencias ──────────────── */}
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">Ingreso Mínimo Mensual (IMM)</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Ingreso Mínimo Mensual (IMM)</CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-3">
             {data.imm ? (
               <>
@@ -359,100 +383,56 @@ export default function PayrollParameters() {
               </div>
             )}
           </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Row 3: Asignación Familiar */}
-      <Card className="p-4">
-        <h3 className="mb-3 text-sm font-semibold">Asignación Familiar 2026 (IPS)</h3>
-        {data.family_allowance?.tranches ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/30 sticky top-0">
-                <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Tramo</th>
-                  <th className="px-3 py-2 font-medium">Renta Desde</th>
-                  <th className="px-3 py-2 font-medium">Renta Hasta</th>
-                  <th className="px-3 py-2 font-medium text-right">Por Carga</th>
-                  <th className="px-3 py-2 font-medium text-right">Maternal</th>
-                  <th className="px-3 py-2 font-medium text-right">Invalidez</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.family_allowance.tranches.map((t: any, i: number) => (
-                  <tr key={i} className="border-b border-border/30">
-                    <td className="py-1.5 font-mono font-medium">{String.fromCharCode(65 + i)}</td>
-                    <td className="py-1.5 font-mono text-muted-foreground">
-                      {formatCLP(t.from_clp)}
-                    </td>
-                    <td className="py-1.5 font-mono text-muted-foreground">
-                      {t.to_clp ? formatCLP(t.to_clp) : "Sin límite"}
-                    </td>
-                    <td className="py-1.5 font-mono text-right">
-                      {t.amount_per_dependent > 0 ? formatCLP(t.amount_per_dependent) : "—"}
-                    </td>
-                    <td className="py-1.5 font-mono text-right">
-                      {t.amount_maternal > 0 ? formatCLP(t.amount_maternal) : "—"}
-                    </td>
-                    <td className="py-1.5 font-mono text-right">
-                      {t.amount_invalidity > 0 ? formatCLP(t.amount_invalidity) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">No configurado</p>
-        )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Asignación Familiar 2026 (IPS)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.family_allowance?.tranches ? (
+            <DataTable
+              compact
+              columns={[
+                { key: "tramo", label: "Tramo" },
+                { key: "from_clp", label: "Renta Desde", render: (v: number) => <span className="font-mono">{formatCLP(v)}</span> },
+                { key: "to_clp", label: "Renta Hasta", render: (v: number | null) => <span className="font-mono">{v ? formatCLP(v) : "Sin límite"}</span> },
+                { key: "amount_per_dependent", label: "Por Carga", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
+                { key: "amount_maternal", label: "Maternal", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
+                { key: "amount_invalidity", label: "Invalidez", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
+              ] satisfies DataTableColumn[]}
+              data={data.family_allowance.tranches.map((t: any, i: number) => ({ ...t, tramo: String.fromCharCode(65 + i) }))}
+              emptyMessage="No configurado"
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">No configurado</p>
+          )}
+        </CardContent>
       </Card>
 
       {/* Row 4: Impuesto Único */}
-      <Card className="p-4">
-        <h3 className="mb-3 text-sm font-semibold">
-          Tramos Impuesto Único de Segunda Categoría (SII)
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/30 sticky top-0">
-              <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2 font-medium">Tramo</th>
-                <th className="px-3 py-2 font-medium">Desde (CLP)</th>
-                <th className="px-3 py-2 font-medium">Hasta (CLP)</th>
-                <th className="px-3 py-2 font-medium text-right">Factor</th>
-                <th className="px-3 py-2 font-medium text-right">Rebaja (CLP)</th>
-                <th className="px-3 py-2 font-medium text-right">Tasa Efectiva Máx.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.tax_brackets.map((b: any, i: number) => (
-                <tr
-                  key={i}
-                  className={`border-b border-border/30 ${
-                    b.factor === 0 ? "text-muted-foreground" : ""
-                  }`}
-                >
-                  <td className="py-1.5 font-mono font-medium">{i + 1}</td>
-                  <td className="py-1.5 font-mono">{formatCLP(b.from_clp)}</td>
-                  <td className="py-1.5 font-mono">
-                    {b.to_clp ? formatCLP(b.to_clp) : "Sin límite"}
-                  </td>
-                  <td className="py-1.5 font-mono text-right">
-                    {fmtPct(b.factor, 1)}%
-                  </td>
-                  <td className="py-1.5 font-mono text-right">
-                    {b.rebate_clp > 0 ? formatCLP(b.rebate_clp) : "—"}
-                  </td>
-                  <td className="py-1.5 font-mono text-right text-muted-foreground">
-                    {b.effective_rate_max > 0
-                      ? `${fmtPct(b.effective_rate_max, 1)}%`
-                      : "Exento"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Tramos Impuesto Único de Segunda Categoría (SII)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            compact
+            columns={[
+              { key: "tramo", label: "Tramo" },
+              { key: "from_clp", label: "Desde (CLP)", render: (v: number) => <span className="font-mono">{formatCLP(v)}</span> },
+              { key: "to_clp", label: "Hasta (CLP)", render: (v: number | null) => <span className="font-mono">{v ? formatCLP(v) : "Sin límite"}</span> },
+              { key: "factor", label: "Factor", className: "text-right", render: (v: number) => <span className="font-mono">{fmtPct(v, 1)}%</span> },
+              { key: "rebate_clp", label: "Rebaja (CLP)", className: "text-right", render: (v: number) => <span className="font-mono">{v > 0 ? formatCLP(v) : "—"}</span> },
+              { key: "effective_rate_max", label: "Tasa Efectiva Máx.", className: "text-right", render: (v: number) => <span className="font-mono text-muted-foreground">{v > 0 ? `${fmtPct(v, 1)}%` : "Exento"}</span> },
+            ] satisfies DataTableColumn[]}
+            data={data.tax_brackets.map((b: any, i: number) => ({ ...b, tramo: i + 1 }))}
+            emptyMessage="No hay tramos configurados"
+          />
+        </CardContent>
       </Card>
 
       {/* Footer: fuente */}

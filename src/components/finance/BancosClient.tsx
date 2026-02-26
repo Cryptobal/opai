@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai";
 import {
   Landmark,
   ArrowLeftRight,
@@ -323,6 +323,114 @@ function AccountsTab({
     }
   };
 
+  const accountColumns = useMemo<DataTableColumn[]>(() => {
+    const cols: DataTableColumn[] = [
+      {
+        key: "bankName",
+        label: "Banco",
+        render: (_v, row: BankAccountRow) => (
+          <div className="flex items-center gap-1.5">
+            {row.bankName}
+            {row.isDefault && (
+              <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "accountType",
+        label: "Tipo",
+        render: (_v, row: BankAccountRow) => {
+          const typeCfg = ACCOUNT_TYPE_LABELS[row.accountType] ?? {
+            label: row.accountType,
+            className: "bg-muted",
+          };
+          return (
+            <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
+              {typeCfg.label}
+            </Badge>
+          );
+        },
+      },
+      {
+        key: "accountNumber",
+        label: "N. Cuenta",
+        className: "font-mono text-xs",
+      },
+      {
+        key: "holderName",
+        label: "Titular",
+        render: (_v, row: BankAccountRow) => (
+          <div>
+            <div>{row.holderName}</div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {row.holderRut}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "currency",
+        label: "Moneda",
+        className: "text-xs",
+      },
+      {
+        key: "currentBalance",
+        label: "Saldo",
+        className: "text-right font-mono text-xs font-medium",
+        render: (v) => fmtCLP.format(v),
+      },
+      {
+        key: "isActive",
+        label: "Estado",
+        className: "text-center",
+        render: (_v, row: BankAccountRow) => (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              row.isActive
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+            )}
+          >
+            {row.isActive ? "Activa" : "Inactiva"}
+          </Badge>
+        ),
+      },
+    ];
+    if (canManage) {
+      cols.push({
+        key: "_actions",
+        label: "",
+        render: (_v, row: BankAccountRow) => (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEdit(row)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.id)}
+              disabled={deleting === row.id}
+            >
+              {deleting === row.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              )}
+            </Button>
+          </div>
+        ),
+      });
+    }
+    return cols;
+  }, [canManage, openEdit, handleDelete, deleting]);
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
@@ -374,103 +482,12 @@ function AccountsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Banco</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N. Cuenta</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Titular</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Moneda</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Saldo</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Estado</th>
-                      {canManage && (
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground" />
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((a) => {
-                      const typeCfg = ACCOUNT_TYPE_LABELS[a.accountType] ?? {
-                        label: a.accountType,
-                        className: "bg-muted",
-                      };
-                      return (
-                        <tr
-                          key={a.id}
-                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
-                        >
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1.5">
-                              {a.bankName}
-                              {a.isDefault && (
-                                <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
-                              {typeCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs">{a.accountNumber}</td>
-                          <td className="px-3 py-2">
-                            <div>{a.holderName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {a.holderRut}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-xs">{a.currency}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">
-                            {fmtCLP.format(a.currentBalance)}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs",
-                                a.isActive
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
-                              )}
-                            >
-                              {a.isActive ? "Activa" : "Inactiva"}
-                            </Badge>
-                          </td>
-                          {canManage && (
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openEdit(a)}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDelete(a.id)}
-                                  disabled={deleting === a.id}
-                                >
-                                  {deleting === a.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                  )}
-                                </Button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={accountColumns}
+              data={filtered}
+              compact
+              emptyMessage="Sin cuentas bancarias"
+            />
           </div>
 
           {/* Mobile cards */}
@@ -733,6 +750,67 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
     loadTransactions();
   }, [loadTransactions]);
 
+  const transactionColumns = useMemo<DataTableColumn[]>(
+    () => [
+      {
+        key: "transactionDate",
+        label: "Fecha",
+        className: "text-xs text-muted-foreground",
+        render: (v) =>
+          format(new Date(v), "dd MMM yyyy", { locale: es }),
+      },
+      {
+        key: "description",
+        label: "Descripción",
+      },
+      {
+        key: "reference",
+        label: "Referencia",
+        className: "text-xs text-muted-foreground font-mono",
+        render: (v) => v ?? "—",
+      },
+      {
+        key: "amount",
+        label: "Monto",
+        className: "text-right font-mono text-xs font-medium",
+        render: (_v, row: TransactionRow) => (
+          <span
+            className={
+              row.amount >= 0 ? "text-emerald-400" : "text-red-400"
+            }
+          >
+            {fmtCLP.format(row.amount)}
+          </span>
+        ),
+      },
+      {
+        key: "balance",
+        label: "Saldo",
+        className: "text-right font-mono text-xs",
+        render: (v) => (v != null ? fmtCLP.format(v) : "—"),
+      },
+      {
+        key: "reconciliationStatus",
+        label: "Estado",
+        render: (_v, row: TransactionRow) => {
+          const rcCfg = RECONC_STATUS_CONFIG[row.reconciliationStatus] ?? {
+            label: row.reconciliationStatus,
+            className: "bg-muted",
+          };
+          return (
+            <Badge
+              variant="outline"
+              className={cn("text-xs", rcCfg.className)}
+            >
+              {rcCfg.label}
+            </Badge>
+          );
+        },
+      },
+    ],
+    []
+  );
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -798,69 +876,12 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
 
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Referencia</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Monto
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Saldo
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => {
-                      const rcCfg = RECONC_STATUS_CONFIG[tx.reconciliationStatus] ?? {
-                        label: tx.reconciliationStatus,
-                        className: "bg-muted",
-                      };
-                      return (
-                        <tr
-                          key={tx.id}
-                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
-                        >
-                          <td className="px-3 py-2 text-xs text-muted-foreground">
-                            {format(new Date(tx.transactionDate), "dd MMM yyyy", {
-                              locale: es,
-                            })}
-                          </td>
-                          <td className="px-3 py-2">{tx.description}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
-                            {tx.reference ?? "—"}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 py-2 text-right font-mono text-xs font-medium",
-                              tx.amount >= 0 ? "text-emerald-400" : "text-red-400"
-                            )}
-                          >
-                            {fmtCLP.format(tx.amount)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
-                            {tx.balance != null ? fmtCLP.format(tx.balance) : "—"}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge
-                              variant="outline"
-                              className={cn("text-xs", rcCfg.className)}
-                            >
-                              {rcCfg.label}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={transactionColumns}
+              data={transactions}
+              compact
+              emptyMessage="Sin movimientos"
+            />
           </div>
 
           {/* Mobile cards */}

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { KpiCard, KpiGrid } from "@/components/opai";
 
 interface SupervisorHubProps {
   tenantId: string;
@@ -80,7 +81,7 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader>
           <CardTitle className="text-lg">Hola, {firstName}</CardTitle>
           <CardDescription>
             Hub de supervisión para trabajo en terreno: check-in, visitas y rendiciones.
@@ -88,35 +89,15 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Visitas hoy</p>
-            <p className="text-2xl font-semibold">{todayVisits}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Visitas mes</p>
-            <p className="text-2xl font-semibold">{monthVisits}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Instalaciones asignadas</p>
-            <p className="text-2xl font-semibold">{activeAssignments.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground">Rendiciones pendientes</p>
-            <p className="text-2xl font-semibold">{pendingRendiciones}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <KpiGrid columns={4}>
+        <KpiCard title="Visitas hoy" value={todayVisits} />
+        <KpiCard title="Visitas mes" value={monthVisits} />
+        <KpiCard title="Instalaciones asignadas" value={activeAssignments.length} />
+        <KpiCard title="Rendiciones pendientes" value={pendingRendiciones} variant={pendingRendiciones > 0 ? "amber" : "default"} />
+      </KpiGrid>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader>
           <CardTitle className="text-base">Accesos rápidos</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3">

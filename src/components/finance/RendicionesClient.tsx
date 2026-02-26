@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   Plus,
   Receipt,
@@ -163,6 +162,86 @@ export function RendicionesClient({
     })),
   [rendiciones]);
 
+  const tableColumns: DataTableColumn[] = useMemo(
+    () => [
+      {
+        key: "code",
+        label: "Código",
+        render: (value: string) => (
+          <span className="font-mono text-xs">{value}</span>
+        ),
+      },
+      {
+        key: "date",
+        label: "Fecha",
+        render: (value: string) => (
+          <span className="text-muted-foreground">
+            {format(new Date(value), "dd MMM yyyy", { locale: es })}
+          </span>
+        ),
+      },
+      {
+        key: "type",
+        label: "Tipo",
+        render: (value: string) => (
+          <span className="inline-flex items-center gap-1 text-xs">
+            {value === "MILEAGE" ? (
+              <Car className="h-3 w-3" />
+            ) : (
+              <Receipt className="h-3 w-3" />
+            )}
+            {TYPE_LABELS[value] ?? value}
+          </span>
+        ),
+      },
+      {
+        key: "itemName",
+        label: "Ítem",
+        render: (value: string | null) => (
+          <span className="text-muted-foreground">{value ?? "—"}</span>
+        ),
+      },
+      {
+        key: "amount",
+        label: "Monto",
+        className: "text-right",
+        render: (value: number) => (
+          <span className="font-medium tabular-nums">
+            {fmtCLP.format(value)}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        label: "Estado",
+        render: (value: string) => {
+          const statusCfg = STATUS_CONFIG[value] ?? {
+            label: value,
+            className: "bg-muted text-muted-foreground",
+          };
+          return (
+            <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+          );
+        },
+      },
+      {
+        key: "submitterName",
+        label: "Solicitante",
+        render: (value: string) => (
+          <span className="text-muted-foreground text-xs">{value}</span>
+        ),
+      },
+      {
+        key: "_chevron",
+        label: "",
+        render: () => (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        ),
+      },
+    ],
+    []
+  );
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -234,91 +313,14 @@ export function RendicionesClient({
         <>
           {/* Table view */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Código
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Fecha
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Tipo
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Ítem
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Monto
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Estado
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Solicitante
-                      </th>
-                      <th className="px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((r) => {
-                      const statusCfg = STATUS_CONFIG[r.status] ?? {
-                        label: r.status,
-                        className: "bg-muted text-muted-foreground",
-                      };
-                      return (
-                        <tr
-                          key={r.id}
-                          onClick={() =>
-                            router.push(`/finanzas/rendiciones/${r.id}`)
-                          }
-                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 cursor-pointer transition-colors"
-                        >
-                          <td className="px-3 py-2 font-mono text-xs">
-                            {r.code}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {format(new Date(r.date), "dd MMM yyyy", {
-                              locale: es,
-                            })}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className="inline-flex items-center gap-1 text-xs">
-                              {r.type === "MILEAGE" ? (
-                                <Car className="h-3 w-3" />
-                              ) : (
-                                <Receipt className="h-3 w-3" />
-                              )}
-                              {TYPE_LABELS[r.type] ?? r.type}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {r.itemName ?? "—"}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums">
-                            {fmtCLP.format(r.amount)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge className={statusCfg.className}>
-                              {statusCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">
-                            {r.submitterName}
-                          </td>
-                          <td className="px-3 py-2">
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={tableColumns}
+              data={filtered}
+              onRowClick={(row) =>
+                router.push(`/finanzas/rendiciones/${row.id}`)
+              }
+              compact
+            />
           </div>
 
           {/* Mobile fallback for list view */}

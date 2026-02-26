@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { PageHeader } from "@/components/opai";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader, ModuleCard } from "@/components/opai";
 import {
   Receipt,
   CheckCircle2,
@@ -112,28 +110,14 @@ export default async function FinanzasDashboardPage() {
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.filter((m) => m.show).map((item) => (
-          <Link key={item.href} href={item.href} className="min-w-0">
-            <Card className="h-full transition-colors hover:bg-accent/40 min-w-0 overflow-hidden">
-              <CardContent className="pt-5 flex items-start gap-3">
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.color}`}
-                >
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {item.description}
-                  </p>
-                  {item.count !== null && (
-                    <p className="mt-2 text-xs text-primary">
-                      {item.count} {item.countLabel}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <ModuleCard
+            key={item.href}
+            title={item.title}
+            description={item.description}
+            icon={item.icon}
+            href={item.href}
+            count={item.count ?? undefined}
+          />
         ))}
       </div>
     </div>

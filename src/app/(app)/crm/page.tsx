@@ -7,7 +7,7 @@ import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { getDefaultTenantId } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
-import { PageHeader } from '@/components/opai';
+import { PageHeader, KpiCard, KpiGrid } from '@/components/opai';
 import {
   LeadsByMonthChart,
   QuotesByMonthChart,
@@ -18,7 +18,6 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -182,73 +181,45 @@ export default async function CRMPage() {
     <div className="space-y-6 min-w-0">
       <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
       {/* ─── Resumen ejecutivo ─── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 min-w-0">
-        <Link href="/crm/leads" className="group min-w-0">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads este mes</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-semibold tabular-nums tracking-tight">{leadsThisMonth}</span>
-              {leadsMonthDelta !== 0 && (
-                <span className={`flex items-center gap-0.5 text-xs font-medium ${leadsMonthDelta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {leadsMonthDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {leadsMonthDelta > 0 ? '+' : ''}{leadsMonthDelta}%
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground/60">{leadsPrevMonth} mes anterior</p>
-          </div>
+      <KpiGrid columns={4}>
+        <Link href="/crm/leads" className="min-w-0">
+          <KpiCard
+            title="Leads este mes"
+            value={leadsThisMonth}
+            trend={leadsMonthDelta > 0 ? 'up' : leadsMonthDelta < 0 ? 'down' : undefined}
+            trendValue={leadsMonthDelta !== 0 ? `${leadsMonthDelta > 0 ? '+' : ''}${leadsMonthDelta}%` : undefined}
+            description={`${leadsPrevMonth} mes anterior`}
+            className="h-full transition-all hover:ring-2 hover:ring-primary/25"
+          />
         </Link>
-
-        <div className="rounded-xl border border-border/60 bg-card p-4 min-w-0 overflow-hidden">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Estado leads</p>
-          <div className="mt-2 flex items-baseline gap-4">
-            <div>
-              <span className="text-2xl font-semibold tabular-nums tracking-tight text-amber-400">{leadsPending}</span>
-              <p className="text-[10px] text-muted-foreground/60">Pendientes</p>
-            </div>
-            <div>
-              <span className="text-2xl font-semibold tabular-nums tracking-tight text-blue-400">{leadsInReview}</span>
-              <p className="text-[10px] text-muted-foreground/60">En revisión</p>
-            </div>
-          </div>
-          <div className="mt-2 flex gap-3 text-xs text-muted-foreground/60">
-            <span><span className="font-medium text-emerald-400/80">{leadsApproved12m}</span> aprobados</span>
-            <span><span className="font-medium text-red-400/80">{leadsRejected12m}</span> rechazados</span>
-          </div>
-        </div>
-
-        <Link href="/crm/accounts" className="group min-w-0">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Portafolio activo</p>
-            <div className="mt-2 flex items-baseline gap-4">
-              <div>
-                <span className="text-3xl font-semibold tabular-nums tracking-tight">{accountsActive}</span>
-                <p className="text-[10px] text-muted-foreground/60">Cuentas</p>
-              </div>
-              <div>
-                <span className="text-3xl font-semibold tabular-nums tracking-tight">{installationsActive}</span>
-                <p className="text-[10px] text-muted-foreground/60">Instalaciones</p>
-              </div>
-            </div>
-          </div>
+        <KpiCard
+          title="Estado leads"
+          value={`${leadsPending + leadsInReview}`}
+          description={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
+          variant="amber"
+        />
+        <Link href="/crm/accounts" className="min-w-0">
+          <KpiCard
+            title="Portafolio activo"
+            value={accountsActive}
+            description={`${installationsActive} instalaciones`}
+            className="h-full transition-all hover:ring-2 hover:ring-primary/25"
+          />
         </Link>
-
-        <Link href="/crm/deals" className="group min-w-0">
-          <div className="rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/30 hover:bg-primary/[0.03] min-w-0 overflow-hidden">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pipeline abierto</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-semibold tabular-nums tracking-tight">{openDealsCount}</span>
-              <span className="text-xs text-muted-foreground">negocios</span>
-            </div>
-            <p className="mt-1 text-xs font-medium text-primary/80">{openDealsAmountFormatted}</p>
-          </div>
+        <Link href="/crm/deals" className="min-w-0">
+          <KpiCard
+            title="Pipeline abierto"
+            value={openDealsCount}
+            description={openDealsAmountFormatted}
+            className="h-full transition-all hover:ring-2 hover:ring-primary/25"
+          />
         </Link>
-      </div>
+      </KpiGrid>
 
       {/* ─── Gráficos históricos ─── */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">
         <Card className="border-border/60 min-w-0 overflow-hidden">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Leads recibidos</CardTitle>
@@ -257,13 +228,13 @@ export default async function CRMPage() {
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalLeads12m}</span>
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent>
             <LeadsByMonthChart data={leadsByMonthData} />
           </CardContent>
         </Card>
 
         <Card className="border-border/60 min-w-0 overflow-hidden">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Cotizaciones enviadas</CardTitle>
@@ -272,7 +243,7 @@ export default async function CRMPage() {
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalQuotes24m}</span>
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent>
             <QuotesByMonthChart data={quotesByMonthData} />
           </CardContent>
         </Card>
@@ -281,7 +252,7 @@ export default async function CRMPage() {
       {/* ─── Fuente + Embudo ─── */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">
         <Card className="border-border/60 min-w-0 overflow-hidden">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm font-medium">Origen de leads</CardTitle>
             <CardDescription className="text-xs">Distribución últimos 12 meses</CardDescription>
           </CardHeader>
@@ -291,7 +262,7 @@ export default async function CRMPage() {
         </Card>
 
         <Card className="border-border/60 min-w-0 overflow-hidden">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm font-medium">Embudo comercial</CardTitle>
             <CardDescription className="text-xs">Conversión últimos 30 días</CardDescription>
           </CardHeader>

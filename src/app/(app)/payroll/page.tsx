@@ -2,10 +2,9 @@
  * PAYROLL MODULE - DASHBOARD
  */
 
-import Link from "next/link";
-import { PageHeader } from "@/components/opai";
+import { PageHeader, ModuleCard } from "@/components/opai";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator, FileText, Settings, CalendarDays, Wallet } from "lucide-react";
 
 export default function PayrollDashboard() {
@@ -50,54 +49,52 @@ export default function PayrollDashboard() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Card className="h-full transition-colors hover:bg-accent/40">
-              <CardContent className="pt-5 flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.color}`}>
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <ModuleCard
+            key={item.href}
+            title={item.title}
+            description={item.description}
+            icon={item.icon}
+            href={item.href}
+          />
         ))}
       </div>
 
       {/* Info */}
-      <Card className="border-primary/20 bg-primary/5 p-4">
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-          <Settings className="h-4 w-4" />
-          Información del Sistema
-        </h3>
-        <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-primary">·</span>
-            <span>
-              <strong className="text-foreground">Liquidaciones:</strong> Ejecuta liquidaciones masivas por período con asistencias OPAI o CSV externo
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-primary">·</span>
-            <span>
-              <strong className="text-foreground">Archivos:</strong> Exporta Previred, F30-1, Libro de Remuneraciones y archivos banco
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-primary">·</span>
-            <span>
-              <strong className="text-foreground">Snapshots inmutables:</strong> Cada liquidación guarda los parámetros exactos usados
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-primary">·</span>
-            <span>
-              <strong className="text-foreground">Sueldo por RUT:</strong> Override individual del guardia sobre el sueldo de la instalación
-            </span>
-          </li>
-        </ul>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm text-primary">
+            <Settings className="h-4 w-4" />
+            Información del Sistema
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-1.5 text-xs text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary">·</span>
+              <span>
+                <strong className="text-foreground">Liquidaciones:</strong> Ejecuta liquidaciones masivas por período con asistencias OPAI o CSV externo
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary">·</span>
+              <span>
+                <strong className="text-foreground">Archivos:</strong> Exporta Previred, F30-1, Libro de Remuneraciones y archivos banco
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary">·</span>
+              <span>
+                <strong className="text-foreground">Snapshots inmutables:</strong> Cada liquidación guarda los parámetros exactos usados
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary">·</span>
+              <span>
+                <strong className="text-foreground">Sueldo por RUT:</strong> Override individual del guardia sobre el sueldo de la instalación
+              </span>
+            </li>
+          </ul>
+        </CardContent>
       </Card>
     </div>
   );

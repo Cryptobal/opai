@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   BookText,
   FileSpreadsheet,
@@ -375,69 +375,75 @@ function AccountsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Código</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Nivel</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Movimientos</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                      {canManage && <th className="px-3 py-2" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((a) => {
-                      const typeCfg = ACCOUNT_TYPE_CONFIG[a.type] ?? { label: a.type, className: "bg-muted" };
-                      return (
-                        <tr key={a.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-3 py-2 font-mono text-xs" style={{ paddingLeft: `${(a.level - 1) * 16 + 16}px` }}>
-                            {a.code}
-                          </td>
-                          <td className="px-3 py-2">{a.name}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
-                              {typeCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-center text-muted-foreground">{a.level}</td>
-                          <td className="px-3 py-2 text-center">
-                            {a.acceptsEntries ? (
-                              <span className="text-emerald-400 text-xs">Sí</span>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">No</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs",
-                                a.isActive
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
-                              )}
-                            >
-                              {a.isActive ? "Activa" : "Inactiva"}
-                            </Badge>
-                          </td>
-                          {canManage && (
-                            <td className="px-3 py-2">
-                              <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={[
+                {
+                  key: "code",
+                  label: "Código",
+                  render: (_v, row) => (
+                    <span className="font-mono text-xs" style={{ paddingLeft: `${(row.level - 1) * 16}px` }}>
+                      {row.code}
+                    </span>
+                  ),
+                },
+                { key: "name", label: "Nombre" },
+                {
+                  key: "type",
+                  label: "Tipo",
+                  render: (_v, row) => {
+                    const typeCfg = ACCOUNT_TYPE_CONFIG[row.type] ?? { label: row.type, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
+                        {typeCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+                { key: "level", label: "Nivel", className: "text-center", render: (v) => <span className="text-muted-foreground">{v}</span> },
+                {
+                  key: "acceptsEntries",
+                  label: "Movimientos",
+                  className: "text-center",
+                  render: (v) =>
+                    v ? (
+                      <span className="text-emerald-400 text-xs">Sí</span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">No</span>
+                    ),
+                },
+                {
+                  key: "isActive",
+                  label: "Estado",
+                  render: (v) => (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        v
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+                      )}
+                    >
+                      {v ? "Activa" : "Inactiva"}
+                    </Badge>
+                  ),
+                },
+                ...(canManage
+                  ? [{
+                      key: "_actions",
+                      label: "",
+                      render: (_v: any, row: any) => (
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      ),
+                    }]
+                  : []),
+              ] as DataTableColumn[]}
+              data={filtered}
+              emptyMessage="Sin cuentas"
+            />
           </div>
 
           {/* Mobile cards */}
@@ -686,48 +692,63 @@ function JournalTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N°</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Debe</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Haber</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((e) => {
-                      const stCfg = JOURNAL_STATUS_CONFIG[e.status] ?? { label: e.status, className: "bg-muted" };
-                      return (
-                        <tr key={e.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-3 py-2 font-mono text-xs">{e.number}</td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {format(new Date(e.date), "dd MMM yyyy", { locale: es })}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div>{e.description}</div>
-                            {e.reference && (
-                              <div className="text-xs text-muted-foreground">Ref: {e.reference}</div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(e.totalDebit)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(e.totalCredit)}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                              {stCfg.label}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={[
+                {
+                  key: "number",
+                  label: "N°",
+                  render: (v) => <span className="font-mono text-xs">{v}</span>,
+                },
+                {
+                  key: "date",
+                  label: "Fecha",
+                  render: (v) => (
+                    <span className="text-muted-foreground">
+                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                    </span>
+                  ),
+                },
+                {
+                  key: "description",
+                  label: "Descripción",
+                  render: (_v, row) => (
+                    <div>
+                      <div>{row.description}</div>
+                      {row.reference && (
+                        <div className="text-xs text-muted-foreground">Ref: {row.reference}</div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: "totalDebit",
+                  label: "Debe",
+                  className: "text-right",
+                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "totalCredit",
+                  label: "Haber",
+                  className: "text-right",
+                  render: (v) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "status",
+                  label: "Estado",
+                  render: (v) => {
+                    const stCfg = JOURNAL_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
+                        {stCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+              ]}
+              data={filtered}
+              emptyMessage="Sin asientos"
+            />
           </div>
 
           {/* Mobile cards */}
@@ -874,45 +895,54 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">N° Asiento</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Debe</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Haber</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Saldo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ledgerData.map((entry, i) => (
-                      <tr key={i} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {format(new Date(entry.date), "dd MMM yyyy", { locale: es })}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-xs">#{entry.journalEntryNumber}</td>
-                        <td className="px-3 py-2">{entry.description}</td>
-                        <td className="px-3 py-2 text-right font-mono text-xs">
-                          {entry.debit > 0 ? fmtCLP.format(entry.debit) : ""}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs">
-                          {entry.credit > 0 ? fmtCLP.format(entry.credit) : ""}
-                        </td>
-                        <td className={cn(
-                          "px-3 py-2 text-right font-mono text-xs font-medium",
-                          entry.balance < 0 ? "text-red-400" : ""
-                        )}>
-                          {fmtCLP.format(entry.balance)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={[
+                {
+                  key: "date",
+                  label: "Fecha",
+                  render: (v) => (
+                    <span className="text-muted-foreground">
+                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                    </span>
+                  ),
+                },
+                {
+                  key: "journalEntryNumber",
+                  label: "N° Asiento",
+                  render: (v) => <span className="font-mono text-xs">#{v}</span>,
+                },
+                { key: "description", label: "Descripción" },
+                {
+                  key: "debit",
+                  label: "Debe",
+                  className: "text-right",
+                  render: (v) => (
+                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
+                  ),
+                },
+                {
+                  key: "credit",
+                  label: "Haber",
+                  className: "text-right",
+                  render: (v) => (
+                    <span className="font-mono text-xs">{v > 0 ? fmtCLP.format(v) : ""}</span>
+                  ),
+                },
+                {
+                  key: "balance",
+                  label: "Saldo",
+                  className: "text-right",
+                  render: (v) => (
+                    <span className={cn("font-mono text-xs font-medium", v < 0 ? "text-red-400" : "")}>
+                      {fmtCLP.format(v)}
+                    </span>
+                  ),
+                },
+              ]}
+              data={ledgerData}
+              emptyMessage="Sin movimientos"
+            />
           </div>
 
           {/* Mobile cards */}
@@ -1037,63 +1067,68 @@ function PeriodsTab({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Período</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Inicio</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fin</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                      {canManage && <th className="px-3 py-2" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((p) => {
-                      const stCfg = PERIOD_STATUS_CONFIG[p.status] ?? { label: p.status, className: "bg-muted" };
-                      return (
-                        <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-3 py-2 font-medium">
-                            {MONTH_NAMES[p.month - 1]} {p.year}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {format(new Date(p.startDate), "dd/MM/yyyy")}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {format(new Date(p.endDate), "dd/MM/yyyy")}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                              {stCfg.label}
-                            </Badge>
-                          </td>
-                          {canManage && (
-                            <td className="px-3 py-2">
-                              {p.status === "OPEN" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleClosePeriod(p.id)}
-                                  disabled={closing === p.id}
-                                >
-                                  {closing === p.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Lock className="h-3.5 w-3.5 mr-1" />
-                                  )}
-                                  Cerrar
-                                </Button>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={[
+                {
+                  key: "month",
+                  label: "Período",
+                  render: (_v, row) => (
+                    <span className="font-medium">{MONTH_NAMES[row.month - 1]} {row.year}</span>
+                  ),
+                },
+                {
+                  key: "startDate",
+                  label: "Inicio",
+                  render: (v) => (
+                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  ),
+                },
+                {
+                  key: "endDate",
+                  label: "Fin",
+                  render: (v) => (
+                    <span className="text-muted-foreground">{format(new Date(v), "dd/MM/yyyy")}</span>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Estado",
+                  render: (v) => {
+                    const stCfg = PERIOD_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
+                        {stCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+                ...(canManage
+                  ? [{
+                      key: "_actions",
+                      label: "",
+                      render: (_v: any, row: any) =>
+                        row.status === "OPEN" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleClosePeriod(row.id)}
+                            disabled={closing === row.id}
+                          >
+                            {closing === row.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Lock className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Cerrar
+                          </Button>
+                        ) : null,
+                    }]
+                  : []),
+              ] as DataTableColumn[]}
+              data={periods}
+              emptyMessage="Sin períodos"
+            />
           </div>
 
           {/* Mobile cards */}
