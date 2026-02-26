@@ -609,7 +609,7 @@ export function CrmAccountDetailClient({
     {
       key: "general",
       children: (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <DetailFieldGrid columns={3}>
             <DetailField
               label="Tipo"

@@ -202,7 +202,7 @@ export function DetailLayout({
         items={orderedSections.map((section) => section.key)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 pt-6 sm:space-y-6 sm:pt-8">
           {orderedSections.map((section) => {
             const isFixed = hasFixedSection && section.key === firstSectionKey;
             const isOpen = isFixed ? true : !collapsedKeys.has(section.key);
