@@ -1,31 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  CalendarDays,
-  CalendarPlus,
   ChevronDown,
-  Copy,
-  FilePlus2,
-  History,
-  Landmark,
   List,
   Loader2,
-  KeyRound,
-  Mail,
-  MessageCircle,
-  MessageSquare,
-  Link2,
-  MapPin,
   Pencil,
-  Route,
-  Save,
-  Send,
   Trash2,
-  Upload,
   UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,17 +30,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CrmDetailLayout } from "@/components/crm/CrmDetailLayout";
-import { DetailField, DetailFieldGrid } from "@/components/crm/DetailField";
 import type { RecordAction } from "@/components/crm/RecordActions";
 import {
   AFP_CHILE,
-  BANK_ACCOUNT_TYPES,
-  CHILE_BANKS,
-  DOCUMENT_STATUS,
-  DOCUMENT_TYPES,
   getLifecycleTransitions,
-  getRegimenPrevisionalLabel,
-  GUARDIA_COMM_TEMPLATES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
   PAISES_AMERICA,
@@ -72,15 +48,16 @@ import { GuardiaSalaryTab } from "@/components/ops/GuardiaSalaryTab";
 import { GuardiaLiquidacionesTab } from "@/components/payroll/GuardiaLiquidacionesTab";
 import { NotesSection } from "@/components/crm/NotesSection";
 import { InventarioGuardiaAssignmentsSection } from "@/components/inventario/InventarioGuardiaAssignmentsSection";
-
-/** Format a date-only value using UTC to avoid timezone shift */
-function formatDateUTC(value: string | Date): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = d.getUTCFullYear();
-  return `${day}-${month}-${year}`;
-}
+import DatosPersonalesSection from "@/components/ops/guardia-sections/DatosPersonalesSection";
+import AsignacionSection from "@/components/ops/guardia-sections/AsignacionSection";
+import MarcacionSection from "@/components/ops/guardia-sections/MarcacionSection";
+import RondasSection from "@/components/ops/guardia-sections/RondasSection";
+import DocumentosSection from "@/components/ops/guardia-sections/DocumentosSection";
+import DocsVinculadosSection from "@/components/ops/guardia-sections/DocsVinculadosSection";
+import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
+import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
+import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
+import HistorialSection from "@/components/ops/guardia-sections/HistorialSection";
 
 type GuardiaDetail = {
   id: string;
@@ -129,8 +106,8 @@ type GuardiaDetail = {
   hiredAt?: string | null;
   terminatedAt?: string | null;
   availableExtraShifts?: boolean;
-  marcacionPin?: string | null; // hash/indicador de PIN configurado
-  marcacionPinVisible?: string | null; // PIN visible para operación en ficha
+  marcacionPin?: string | null;
+  marcacionPinVisible?: string | null;
   montoAnticipo?: number;
   recibeAnticipo?: boolean;
   currentInstallation?: {
@@ -203,37 +180,6 @@ interface GuardiaDetailClientProps {
   hasInventarioAccess?: boolean;
 }
 
-const DOC_LABEL: Record<string, string> = {
-  certificado_antecedentes: "Certificado de antecedentes",
-  certificado_os10: "Certificado OS-10",
-  cedula_identidad: "Cédula de identidad",
-  curriculum: "Currículum",
-  contrato: "Contrato",
-  anexo_contrato: "Anexo de contrato",
-  certificado_ensenanza_media: "Certificado enseñanza media",
-  certificado_afp: "Certificado AFP",
-  certificado_fonasa_isapre: "Certificado Fonasa / Isapre",
-};
-
-const ACCOUNT_TYPE_LABEL: Record<string, string> = {
-  cuenta_corriente: "Cuenta corriente",
-  cuenta_vista: "Cuenta vista",
-  cuenta_rut: "Cuenta RUT",
-};
-
-const EVENT_TYPE_LABEL: Record<string, string> = {
-  lifecycle_changed: "Cambio de estado",
-  document_uploaded: "Documento subido",
-  document_updated: "Documento actualizado",
-  document_deleted: "Documento eliminado",
-  bank_account_created: "Cuenta bancaria creada",
-  bank_account_updated: "Cuenta bancaria actualizada",
-  bank_account_deleted: "Cuenta bancaria eliminada",
-  status_changed: "Cambio de estado",
-  assigned: "Asignado a puesto",
-  unassigned: "Desasignado de puesto",
-};
-
 function formatLifecycleBadgeLabel(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
@@ -258,53 +204,18 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   inactivo: "Inactivo",
 };
 
+function toDateInput(val: string | Date | undefined | null): string {
+  if (!val) return "";
+  const d = typeof val === "string" ? new Date(val) : val;
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId, guardiaDocConfig = [], hasInventarioAccess = false }: GuardiaDetailClientProps) {
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
-  const [uploading, setUploading] = useState(false);
-  const [creatingDoc, setCreatingDoc] = useState(false);
-  const [creatingAccount, setCreatingAccount] = useState(false);
-  const [docForm, setDocForm] = useState({
-    type: "certificado_antecedentes",
-    status: "pendiente",
-    issuedAt: "",
-    expiresAt: "",
-    fileUrl: "",
-  });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const issuedAtRef = useRef<HTMLInputElement | null>(null);
-  const expiresAtRef = useRef<HTMLInputElement | null>(null);
-  const existingAccount = guardia.bankAccounts[0] ?? null;
-  const [accountForm, setAccountForm] = useState({
-    bankCode: "",
-    accountType: "",
-    accountNumber: "",
-    isDefault: true,
-  });
-  useEffect(() => {
-    if (existingAccount) {
-      setAccountForm({
-        bankCode: existingAccount.bankCode ?? "",
-        accountType: existingAccount.accountType ?? "",
-        accountNumber: existingAccount.accountNumber ?? "",
-        isDefault: existingAccount.isDefault ?? true,
-      });
-    } else {
-      setAccountForm({ bankCode: "", accountType: "", accountNumber: "", isDefault: true });
-    }
-  }, [existingAccount?.id, existingAccount?.bankCode, existingAccount?.accountType, existingAccount?.accountNumber, existingAccount?.isDefault]);
-  const [sendingComm, setSendingComm] = useState(false);
-  const [commForm, setCommForm] = useState({
-    channel: "email",
-    templateId: GUARDIA_COMM_TEMPLATES.find((t) => t.channel === "email")?.id ?? "",
-  });
-  const [savingDocId, setSavingDocId] = useState<string | null>(null);
-  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
-  const [docEdits, setDocEdits] = useState<
-    Record<string, { status: string; issuedAt: string; expiresAt: string }>
-  >({});
-  const [commentText, setCommentText] = useState("");
-  const [commentSaving, setCommentSaving] = useState(false);
+
+  // ── Edit personal modal state ──
   const [editPersonalOpen, setEditPersonalOpen] = useState(false);
   const [editPersonalSaving, setEditPersonalSaving] = useState(false);
   const [editPersonalForm, setEditPersonalForm] = useState({
@@ -336,6 +247,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     cotizaAFC: false,
     cotizaSalud: true,
   });
+
+  // ── Doc links state (shared between DocsVinculados + Contratos) ──
   const [availableDocs, setAvailableDocs] = useState<
     Array<{
       id: string;
@@ -365,78 +278,23 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     }>
   >([]);
   const [loadingDocLinks, setLoadingDocLinks] = useState(false);
-  const [linkingDoc, setLinkingDoc] = useState(false);
-  const [unlinkingDocId, setUnlinkingDocId] = useState<string | null>(null);
+
+  // ── Lifecycle state ──
   const [lifecycleChanging, setLifecycleChanging] = useState(false);
   const [contractDateModalOpen, setContractDateModalOpen] = useState(false);
   const [contractDate, setContractDate] = useState("");
   const [pendingLifecycleStatus, setPendingLifecycleStatus] = useState<string | null>(null);
   const [recontratarModalOpen, setRecontratarModalOpen] = useState(false);
   const [recontratarDate, setRecontratarDate] = useState("");
-  const [linkForm, setLinkForm] = useState({
-    documentId: "",
-    role: "related",
-  });
 
-  type TeRow = {
-    id: string;
-    date: string;
-    installationName: string;
-    puestoName: string;
-    amountClp: number;
-    status: string;
-    paidAt: string | null;
-  };
-  const [turnosExtra, setTurnosExtra] = useState<TeRow[]>([]);
-  const [turnosExtraLoading, setTurnosExtraLoading] = useState(false);
-
-  type DiaTrabajadoRow = {
-    id: string;
-    date: string;
-    puestoId: string;
-    slotNumber: number;
-    attendanceStatus: string;
-    installationName: string;
-    puestoName: string;
-    shiftStart: string;
-    shiftEnd: string;
-  };
-  const [diasTrabajados, setDiasTrabajados] = useState<DiaTrabajadoRow[]>([]);
-  const [diasTrabajadosSummary, setDiasTrabajadosSummary] = useState<Record<string, number>>({});
-  const [diasTrabajadosLoading, setDiasTrabajadosLoading] = useState(false);
-
-  const hasExpirationByType = useMemo(() => {
-    const map = new Map<string, boolean>();
-    for (const c of guardiaDocConfig) {
-      map.set(c.code, c.hasExpiration);
-    }
-    return map;
-  }, [guardiaDocConfig]);
-
-  const docsByType = useMemo(() => {
-    const map = new Map<string, GuardiaDetail["documents"][number]>();
-    for (const doc of guardia.documents) {
-      if (!map.has(doc.type)) map.set(doc.type, doc);
-    }
-    return map;
-  }, [guardia.documents]);
-
+  // ── Permissions ──
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
   const canChangeLifecycle =
     hasOpsCapability(userRole, "guardias_manage") ||
     hasOpsCapability(userRole, "rrhh_events");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const rondaCode = guardia.currentInstallation?.marcacionCode ?? "";
-  const rondaUrl = rondaCode ? `${baseUrl}/ronda/${rondaCode}` : "";
 
-  function toDateInput(val: string | Date | undefined | null): string {
-    if (!val) return "";
-    const d = typeof val === "string" ? new Date(val) : val;
-    if (Number.isNaN(d.getTime())) return "";
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-  }
-
+  // ── Edit personal handlers ──
   const openEditPersonal = () => {
     setEditPersonalForm({
       firstName: guardia.persona.firstName || "",
@@ -523,7 +381,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         toast.error(data.error || "Error al guardar");
         return;
       }
-      // Update local state with returned data
       setGuardia((prev) => ({
         ...prev,
         availableExtraShifts: editPersonalForm.availableExtraShifts,
@@ -566,6 +423,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     }
   };
 
+  // ── Doc links (shared between DocsVinculados + Contratos sections) ──
   const loadDocLinks = async () => {
     setLoadingDocLinks(true);
     try {
@@ -576,10 +434,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       }
       setLinkedDocs(payload.data?.linked ?? []);
       setAvailableDocs(payload.data?.available ?? []);
-      setLinkForm((prev) => ({
-        ...prev,
-        documentId: payload.data?.available?.[0]?.id ?? "",
-      }));
     } catch (error) {
       console.error(error);
       toast.error("No se pudieron cargar documentos vinculables");
@@ -590,208 +444,10 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
   useEffect(() => {
     void loadDocLinks();
-    // guardia.id es estable para esta pantalla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guardia.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setTurnosExtraLoading(true);
-    fetch(`/api/te?guardiaId=${encodeURIComponent(guardia.id)}`)
-      .then((res) => res.json())
-      .then((payload: { success?: boolean; data?: Array<{
-        id: string;
-        date: string;
-        status: string;
-        amountClp: number | string;
-        paidAt?: string | null;
-        installation?: { name: string };
-        puesto?: { name: string };
-      }> }) => {
-        if (cancelled || !payload.success || !Array.isArray(payload.data)) return;
-        setTurnosExtra(
-          payload.data.map((t) => ({
-            id: t.id,
-            date: t.date,
-            installationName: t.installation?.name ?? "",
-            puestoName: t.puesto?.name ?? "",
-            amountClp: Number(t.amountClp),
-            status: t.status,
-            paidAt: t.paidAt ?? null,
-          }))
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setTurnosExtra([]);
-      })
-      .finally(() => {
-        if (!cancelled) setTurnosExtraLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [guardia.id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setDiasTrabajadosLoading(true);
-    const to = new Date();
-    const from = new Date(to);
-    from.setFullYear(from.getFullYear() - 1);
-    const fromStr = from.toISOString().slice(0, 10);
-    const toStr = to.toISOString().slice(0, 10);
-    fetch(`/api/personas/guardias/${guardia.id}/dias-trabajados?from=${fromStr}&to=${toStr}`)
-      .then((res) => res.json())
-      .then((payload: { success?: boolean; data?: { items: DiaTrabajadoRow[]; summaryByMonth: Record<string, number> } }) => {
-        if (cancelled || !payload.success || !payload.data) return;
-        setDiasTrabajados(payload.data.items ?? []);
-        setDiasTrabajadosSummary(payload.data.summaryByMonth ?? {});
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDiasTrabajados([]);
-          setDiasTrabajadosSummary({});
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDiasTrabajadosLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [guardia.id]);
-
-  const handleUpload = async (file?: File | null) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/personas/guardias/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo subir el archivo");
-      }
-      setDocForm((prev) => ({ ...prev, fileUrl: payload.data.url }));
-      toast.success("Archivo subido");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo subir archivo");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleCreateDocument = async () => {
-    if (!docForm.fileUrl) {
-      toast.error("Primero sube un archivo");
-      return;
-    }
-    setCreatingDoc(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardia.id}/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: docForm.type,
-          status: docForm.status,
-          fileUrl: docForm.fileUrl,
-          issuedAt: docForm.issuedAt || null,
-          expiresAt: hasExpirationByType.get(docForm.type) ? (docForm.expiresAt || null) : null,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo crear documento");
-      }
-      setGuardia((prev) => ({ ...prev, documents: [payload.data, ...prev.documents] }));
-      setDocForm({
-        type: "certificado_antecedentes",
-        status: "pendiente",
-        issuedAt: "",
-        expiresAt: "",
-        fileUrl: "",
-      });
-      toast.success("Documento agregado");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo crear documento");
-    } finally {
-      setCreatingDoc(false);
-    }
-  };
-
-  const getDocEdit = (doc: GuardiaDetail["documents"][number]) => {
-    return (
-      docEdits[doc.id] || {
-        status: doc.status,
-        issuedAt: toDateInput(doc.issuedAt),
-        expiresAt: toDateInput(doc.expiresAt),
-      }
-    );
-  };
-
-  const handleSaveDocument = async (doc: GuardiaDetail["documents"][number]) => {
-    const edit = getDocEdit(doc);
-    setSavingDocId(doc.id);
-    try {
-      const response = await fetch(
-        `/api/personas/guardias/${guardia.id}/documents?documentId=${encodeURIComponent(doc.id)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: edit.status,
-            issuedAt: edit.issuedAt || null,
-            expiresAt: hasExpirationByType.get(doc.type) ? (edit.expiresAt || null) : null,
-          }),
-        }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo actualizar documento");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        documents: prev.documents.map((it) => (it.id === doc.id ? payload.data : it)),
-      }));
-      toast.success("Documento actualizado");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo actualizar documento");
-    } finally {
-      setSavingDocId(null);
-    }
-  };
-
-  const handleDeleteDocument = async (doc: GuardiaDetail["documents"][number]) => {
-    if (!window.confirm("¿Eliminar este documento?")) return;
-    setDeletingDocId(doc.id);
-    try {
-      const response = await fetch(
-        `/api/personas/guardias/${guardia.id}/documents?documentId=${encodeURIComponent(doc.id)}`,
-        { method: "DELETE" }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo eliminar documento");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        documents: prev.documents.filter((it) => it.id !== doc.id),
-      }));
-      toast.success("Documento eliminado");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo eliminar documento");
-    } finally {
-      setDeletingDocId(null);
-    }
-  };
-
+  // ── Lifecycle handlers ──
   const handleLifecycleChange = async (nextStatus: string) => {
     if (lifecycleChanging) return;
     if (nextStatus === "contratado") {
@@ -876,254 +532,13 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     }
   };
 
-  const handleLinkDocument = async () => {
-    if (!linkForm.documentId) {
-      toast.error("Selecciona un documento");
-      return;
-    }
-    setLinkingDoc(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardia.id}/doc-links`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentId: linkForm.documentId,
-          role: linkForm.role,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo vincular documento");
-      }
-      await loadDocLinks();
-      toast.success("Documento vinculado al guardia");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo vincular documento");
-    } finally {
-      setLinkingDoc(false);
-    }
-  };
-
-  const handleUnlinkDocument = async (documentId: string) => {
-    if (!window.confirm("¿Desvincular este documento del guardia?")) return;
-    setUnlinkingDocId(documentId);
-    try {
-      const response = await fetch(
-        `/api/personas/guardias/${guardia.id}/doc-links?documentId=${encodeURIComponent(documentId)}`,
-        { method: "DELETE" }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo desvincular documento");
-      }
-      await loadDocLinks();
-      toast.success("Documento desvinculado");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo desvincular documento");
-    } finally {
-      setUnlinkingDocId(null);
-    }
-  };
-
-  const handleCreateBankAccount = async () => {
-    if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber) {
-      toast.error("Banco, tipo y número de cuenta son obligatorios");
-      return;
-    }
-    const holderName = guardia.persona.rut?.trim();
-    if (!holderName) {
-      toast.error("El guardia debe tener RUT para agregar cuenta bancaria");
-      return;
-    }
-    setCreatingAccount(true);
-    try {
-      const bank = CHILE_BANKS.find((b) => b.code === accountForm.bankCode);
-      const response = await fetch(`/api/personas/guardias/${guardia.id}/bank-accounts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bankCode: accountForm.bankCode,
-          bankName: bank?.name ?? accountForm.bankCode,
-          accountType: accountForm.accountType,
-          accountNumber: accountForm.accountNumber,
-          holderName,
-          isDefault: accountForm.isDefault,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo crear cuenta bancaria");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        bankAccounts: accountForm.isDefault
-          ? [payload.data, ...prev.bankAccounts.map((it) => ({ ...it, isDefault: false }))]
-          : [payload.data, ...prev.bankAccounts],
-      }));
-      setAccountForm({
-        bankCode: "",
-        accountType: "",
-        accountNumber: "",
-        isDefault: false,
-      });
-      toast.success("Cuenta bancaria agregada");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo crear cuenta bancaria");
-    } finally {
-      setCreatingAccount(false);
-    }
-  };
-
-  const handleUpdateBankAccount = async () => {
-    if (!existingAccount) return;
-    if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber) {
-      toast.error("Banco, tipo y número de cuenta son obligatorios");
-      return;
-    }
-    setCreatingAccount(true);
-    try {
-      const bank = CHILE_BANKS.find((b) => b.code === accountForm.bankCode);
-      const response = await fetch(
-        `/api/personas/guardias/${guardia.id}/bank-accounts?accountId=${existingAccount.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bankCode: accountForm.bankCode,
-            bankName: bank?.name ?? accountForm.bankCode,
-            accountType: accountForm.accountType,
-            accountNumber: accountForm.accountNumber,
-          }),
-        }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo actualizar cuenta bancaria");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        bankAccounts: prev.bankAccounts.map((acc) =>
-          acc.id === existingAccount.id ? { ...acc, ...payload.data } : acc
-        ),
-      }));
-      toast.success("Cuenta bancaria actualizada");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo actualizar cuenta bancaria");
-    } finally {
-      setCreatingAccount(false);
-    }
-  };
-
-  const availableTemplates = useMemo(
-    () => GUARDIA_COMM_TEMPLATES.filter((tpl) => tpl.channel === commForm.channel),
-    [commForm.channel]
-  );
-
-  const communicationHistory = useMemo(
-    () => guardia.historyEvents.filter((event) => event.eventType === "communication_sent"),
-    [guardia.historyEvents]
-  );
-
-  const expiringDocs = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return guardia.documents.filter((doc) => {
-      if (!doc.expiresAt || !hasExpirationByType.get(doc.type)) return false;
-      const cfg = guardiaDocConfig.find((c) => c.code === doc.type);
-      const daysBefore = cfg?.alertDaysBefore ?? 30;
-      const limit = new Date(today);
-      limit.setDate(limit.getDate() + daysBefore);
-      const exp = new Date(doc.expiresAt);
-      return exp <= limit;
-    });
-  }, [guardia.documents, guardiaDocConfig, hasExpirationByType]);
-
-  const handleSendCommunication = async () => {
-    if (!commForm.templateId) {
-      toast.error("Selecciona una plantilla");
-      return;
-    }
-    setSendingComm(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardia.id}/communications`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channel: commForm.channel,
-          templateId: commForm.templateId,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo enviar comunicación");
-      }
-
-      if (payload.data?.event) {
-        setGuardia((prev) => ({
-          ...prev,
-          historyEvents: [payload.data.event, ...prev.historyEvents],
-        }));
-      }
-
-      const waLink = payload.data?.waLink as string | undefined;
-      if (commForm.channel === "whatsapp" && waLink) {
-        window.open(waLink, "_blank", "noopener,noreferrer");
-        toast.success("Se abrió WhatsApp con el mensaje");
-      } else {
-        toast.success("Comunicación registrada");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo enviar comunicación");
-    } finally {
-      setSendingComm(false);
-    }
-  };
-
-  const handleCreateComment = async () => {
-    if (!commentText.trim()) {
-      toast.error("Escribe un comentario");
-      return;
-    }
-    setCommentSaving(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardia.id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: commentText.trim() }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo guardar comentario");
-      }
-      setGuardia((prev) => ({
-        ...prev,
-        comments: [payload.data, ...(prev.comments || [])],
-      }));
-      setCommentText("");
-      toast.success("Comentario guardado");
-    } catch (error) {
-      console.error(error);
-      toast.error("No se pudo guardar comentario");
-    } finally {
-      setCommentSaving(false);
-    }
-  };
-
-  const mapUrl =
-    guardia.persona.lat && guardia.persona.lng && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      ? `https://maps.googleapis.com/maps/api/staticmap?center=${guardia.persona.lat},${guardia.persona.lng}&zoom=15&size=160x120&scale=2&markers=color:red%7C${guardia.persona.lat},${guardia.persona.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      : null;
-
+  // ── Computed ──
   const guardiaTitle = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim() || "Guardia";
   const guardiaSubtitle = guardia.persona.rut ? `RUT ${guardia.persona.rut}` : undefined;
   const guardiaBadgeLabel = formatLifecycleBadgeLabel(guardia.lifecycleStatus);
   const guardiaBadgeVariant = lifecycleBadgeVariant(guardia.lifecycleStatus);
 
+  // ── Sections ──
   const sections = [
     /* datos — fixed, first, always open */
     {
@@ -1136,275 +551,25 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </Button>
       ) : undefined,
       children: (
-        <div className="space-y-6">
-          {/* Identificación */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Identificación</p>
-            <DetailFieldGrid columns={3}>
-              <DetailField label="Nombre completo" value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} />
-              <DetailField label="RUT" value={guardia.persona.rut} mono copyable />
-              <DetailField label="Fecha de nacimiento" value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : undefined} />
-              <DetailField
-                label="Sexo"
-                value={guardia.persona.sex ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1) : undefined}
-              />
-              <DetailField label="Nacionalidad" value={guardia.persona.nacionalidad} />
-            </DetailFieldGrid>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Contacto */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Contacto</p>
-            <DetailFieldGrid columns={3}>
-              <DetailField label="Email" value={guardia.persona.email} copyable />
-              <DetailField label="Celular" value={guardia.persona.phoneMobile} mono copyable />
-            </DetailFieldGrid>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Datos previsionales */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos previsionales</p>
-            <DetailFieldGrid columns={3}>
-              <DetailField label="Régimen previsional" value={getRegimenPrevisionalLabel(guardia.persona.regimenPrevisional)} />
-              <DetailField label="¿Jubilado?" value={guardia.persona.isJubilado ? "Sí" : "No"} />
-              {guardia.persona.isJubilado && (
-                <>
-                  <DetailField label="Cotiza AFP" value={guardia.persona.cotizaAFP ? "Sí" : "No"} />
-                  <DetailField label="Cotiza AFC" value={guardia.persona.cotizaAFC ? "Sí" : "No"} />
-                </>
-              )}
-              <DetailField label="Cotiza salud" value={guardia.persona.cotizaSalud !== false ? "Sí" : "No"} />
-              <DetailField label="AFP" value={guardia.persona.afp} />
-              <DetailField
-                label="Sistema de salud"
-                value={
-                  guardia.persona.healthSystem === "isapre"
-                    ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
-                    : guardia.persona.healthSystem
-                      ? guardia.persona.healthSystem.toUpperCase()
-                      : undefined
-                }
-              />
-              <DetailField
-                label="Cotización"
-                value={
-                  guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
-                    ? `${guardia.persona.isapreExtraPercent || "N/D"}%`
-                    : "Cotización legal"
-                }
-              />
-            </DetailFieldGrid>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Laboral */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Laboral</p>
-            <DetailFieldGrid columns={3}>
-              <DetailField label="Movilización" value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} />
-              <DetailField label="Turnos extra" value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} />
-              <DetailField label="Fecha de ingreso" value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : undefined} />
-              <DetailField label="Recibe anticipo" value={guardia.recibeAnticipo ? "Sí" : "No"} />
-              <DetailField label="Monto anticipo" value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} mono />
-              <DetailField
-                label="Cargo / Instalación"
-                value={(() => {
-                  const current = asignaciones.find((a) => a.isActive);
-                  if (!current) return undefined;
-                  const cargoLabel = current.puesto?.cargo?.name ?? current.puesto?.name ?? "Sin cargo";
-                  const instLabel = `${current.installation.name}${current.installation.account ? ` · ${current.installation.account.name}` : ""}`;
-                  return (
-                    <Link href={`/crm/installations/${current.installation.id}`} className="text-primary hover:underline">
-                      {cargoLabel} · {instLabel}
-                    </Link>
-                  );
-                })()}
-                placeholder="Sin cargo asignado"
-              />
-            </DetailFieldGrid>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Datos bancarios */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos bancarios</p>
-            <DetailFieldGrid columns={3}>
-              <DetailField
-                label="Banco"
-                value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName) : undefined}
-                placeholder="Sin datos"
-              />
-              <DetailField
-                label="Tipo cuenta"
-                value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : undefined}
-                placeholder="Sin datos"
-              />
-              <DetailField
-                label="Número de cuenta"
-                value={existingAccount?.accountNumber}
-                mono
-                copyable
-                placeholder="Sin datos"
-              />
-            </DetailFieldGrid>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Domicilio */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Domicilio</p>
-            <div className="grid gap-x-6 gap-y-4 md:grid-cols-[1fr_200px] md:items-start">
-              <DetailField
-                label="Dirección"
-                value={guardia.persona.addressFormatted}
-                icon={guardia.persona.addressFormatted ? <MapPin className="h-3 w-3" /> : undefined}
-              />
-              <div className="min-w-0">
-                <dt className="text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">Ubicación</dt>
-                <dd>
-                  {mapUrl ? (
-                    <a
-                      href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg overflow-hidden border border-border block h-[120px] w-[200px]"
-                      title="Abrir en Google Maps"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
-                    </a>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-border h-[120px] w-[200px] flex items-center justify-center text-xs text-muted-foreground">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      Sin mapa
-                    </div>
-                  )}
-                </dd>
-              </div>
-            </div>
-          </div>
-
-          {canManageGuardias && (
-            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {existingAccount ? "Edite los datos bancarios y guarde los cambios." : "Complete para registrar la cuenta bancaria."}
-              </p>
-              <div className="grid gap-3 md:grid-cols-4">
-                <select
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={accountForm.bankCode}
-                  onChange={(e) => setAccountForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-                >
-                  <option value="">Banco chileno</option>
-                  {CHILE_BANKS.map((bank) => (
-                    <option key={bank.code} value={bank.code}>
-                      {bank.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={accountForm.accountType}
-                  onChange={(e) => setAccountForm((prev) => ({ ...prev, accountType: e.target.value }))}
-                >
-                  <option value="">Tipo de cuenta</option>
-                  {BANK_ACCOUNT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {ACCOUNT_TYPE_LABEL[type]}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  placeholder="Número de cuenta"
-                  value={accountForm.accountNumber}
-                  onChange={(e) => setAccountForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
-                />
-                <Button
-                  onClick={existingAccount ? handleUpdateBankAccount : handleCreateBankAccount}
-                  disabled={creatingAccount}
-                >
-                  {creatingAccount ? "..." : existingAccount ? "Guardar" : "Agregar"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        <DatosPersonalesSection
+          guardiaId={guardia.id}
+          persona={guardia.persona}
+          hiredAt={guardia.hiredAt}
+          availableExtraShifts={guardia.availableExtraShifts}
+          recibeAnticipo={guardia.recibeAnticipo}
+          montoAnticipo={guardia.montoAnticipo}
+          bankAccounts={guardia.bankAccounts}
+          asignaciones={asignaciones}
+          canManageGuardias={canManageGuardias}
+          onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
+        />
       ),
     },
     /* asignacion */
     {
       key: "asignacion" as const,
       children: (
-        <div className="space-y-4">
-          {(() => {
-            const current = asignaciones.find((a) => a.isActive);
-            const history = asignaciones.filter((a) => !a.isActive);
-            return (
-              <>
-                {current ? (
-                  <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-emerald-300">
-                          {current.puesto.name}
-                          <span className="ml-2 text-xs text-emerald-300/60">Slot {current.slotNumber}</span>
-                        </p>
-                        <p className="text-xs text-emerald-200/80 mt-1">
-                          {current.installation.name}
-                          {current.installation.account && ` · ${current.installation.account.name}`}
-                        </p>
-                        <p className="text-xs text-emerald-200/60 mt-0.5">
-                          {current.puesto.shiftStart} - {current.puesto.shiftEnd} · Desde {formatDateUTC(current.startDate)}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
-                        Activo
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 p-4 text-center">
-                    <p className="text-sm text-amber-400">Sin asignación activa</p>
-                    <p className="text-xs text-muted-foreground mt-1">Este guardia no está asignado a ningún puesto.</p>
-                  </div>
-                )}
-
-                {history.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Historial de asignaciones</p>
-                    <div className="space-y-1.5">
-                      {history.map((h) => (
-                        <div key={h.id} className="rounded-md border border-border/60 px-3 py-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">{h.puesto.name}</span>
-                              <span className="text-muted-foreground"> · {h.installation.name}</span>
-                              {h.installation.account && (
-                                <span className="text-muted-foreground"> · {h.installation.account.name}</span>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-muted-foreground mt-0.5">
-                            {formatDateUTC(h.startDate)}
-                            {h.endDate && ` → ${formatDateUTC(h.endDate)}`}
-                            {h.reason && ` · ${h.reason}`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
+        <AsignacionSection asignaciones={asignaciones} />
       ),
     },
     /* uniformes asignados */
@@ -1424,73 +589,19 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "marcacion" as const,
       label: "Marcación de asistencia",
       children: (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-            <div>
-              <p className="text-sm font-medium">PIN de marcación</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {guardia.marcacionPin
-                  ? "PIN configurado — el guardia puede marcar asistencia"
-                  : "Sin PIN — el guardia no puede marcar asistencia"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {guardia.marcacionPin && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                  Activo
-                </span>
-              )}
-              {!guardia.marcacionPin && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                  Sin PIN
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-background px-4 py-3">
-            <p className="text-xs text-muted-foreground">PIN activo</p>
-            {guardia.marcacionPinVisible ? (
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-2xl font-mono font-semibold tracking-[0.2em]">{guardia.marcacionPinVisible}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[11px]"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(guardia.marcacionPinVisible || "");
-                    toast.success("PIN copiado");
-                  }}
-                >
-                  <Copy className="mr-1 h-3 w-3" />
-                  Copiar PIN
-                </Button>
-              </div>
-            ) : guardia.marcacionPin ? (
-              <p className="mt-2 text-xs text-amber-600">
-                Este guardia tiene PIN activo, pero no está visible en ficha. Usa "Resetear PIN" para dejarlo visible.
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Aún no tiene PIN activo.
-              </p>
-            )}
-          </div>
-
-          {canManageGuardias && (
-            <MarcacionPinSection
-              guardiaId={guardia.id}
-              hasPin={!!guardia.marcacionPin}
-              onPinUpdated={(pin) => {
-                setGuardia((prev) => ({
-                  ...prev,
-                  marcacionPin: "[configurado]",
-                  marcacionPinVisible: pin,
-                }));
-              }}
-            />
-          )}
-        </div>
+        <MarcacionSection
+          guardiaId={guardia.id}
+          marcacionPin={guardia.marcacionPin}
+          marcacionPinVisible={guardia.marcacionPinVisible}
+          canManageGuardias={canManageGuardias}
+          onPinUpdated={(pin) => {
+            setGuardia((prev) => ({
+              ...prev,
+              marcacionPin: "[configurado]",
+              marcacionPinVisible: pin,
+            }));
+          }}
+        />
       ),
     },
     /* rondas */
@@ -1498,55 +609,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "rondas" as const,
       label: "Marcación de rondas",
       children: (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
-            <p className="text-sm font-medium">Acceso móvil de rondas</p>
-            {!guardia.currentInstallation ? (
-              <p className="text-xs text-muted-foreground">
-                El guardia no tiene instalación actual asignada.
-              </p>
-            ) : !rondaCode ? (
-              <p className="text-xs text-muted-foreground">
-                La instalación {guardia.currentInstallation.name} no tiene código generado. Actívalo en{" "}
-                <Link href={`/crm/installations/${guardia.currentInstallation.id}`} className="text-primary underline">
-                  Instalación &gt; Marcación de rondas
-                </Link>
-                .
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  Instalación: <span className="font-medium text-foreground">{guardia.currentInstallation.name}</span>
-                </p>
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs font-mono truncate">{rondaUrl}</p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(rondaUrl);
-                        toast.success("Link de ronda copiado");
-                      }}
-                    >
-                      <Copy className="mr-1 h-3 w-3" />
-                      Copiar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      onClick={() => window.open(rondaUrl, "_blank", "noopener,noreferrer")}
-                    >
-                      Abrir
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <RondasSection currentInstallation={guardia.currentInstallation} />
       ),
     },
     /* contratos de trabajo */
@@ -1625,172 +688,13 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "documentos" as const,
       label: "Ficha de documentos",
       children: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Sube certificado de antecedentes, OS-10, cédula de identidad, currículum, contratos y anexos.
-          </p>
-          {expiringDocs.length > 0 ? (
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-              Hay {expiringDocs.length} documento(s) vencido(s) o por vencer.
-            </div>
-          ) : null}
-          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
-            <p className="text-sm font-medium">Subir nuevo documento</p>
-            <div className="grid gap-3 md:grid-cols-12">
-              <div className="md:col-span-4">
-                <label className="text-xs text-muted-foreground block mb-1.5">Tipo de documento</label>
-                <select
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
-                  value={docForm.type}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
-                    setDocForm((prev) => ({
-                      ...prev,
-                      type: nextType,
-                      expiresAt: hasExpirationByType.get(nextType) ? prev.expiresAt : "",
-                    }));
-                  }}
-                >
-                  {DOCUMENT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {DOC_LABEL[type] || type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {hasExpirationByType.get(docForm.type) && (
-                <div className="md:col-span-4">
-                  <label className="text-xs text-muted-foreground block mb-1.5">Vencimiento</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      ref={expiresAtRef}
-                      type="date"
-                      value={docForm.expiresAt}
-                      onChange={(e) => setDocForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => expiresAtRef.current?.showPicker?.()}
-                      aria-label="Abrir calendario de vencimiento"
-                    >
-                      <CalendarDays className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <div className="md:col-span-4 flex flex-col justify-end gap-2">
-                <label className="text-xs text-muted-foreground">Archivo (PDF, imagen)</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,image/*"
-                    className="hidden"
-                    onChange={(e) => void handleUpload(e.target.files?.[0])}
-                    disabled={uploading || !canManageDocs}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={uploading || !canManageDocs}
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Seleccionar archivo"
-                  >
-                    <FilePlus2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleCreateDocument}
-                    disabled={creatingDoc || !docForm.fileUrl || uploading || !canManageDocs}
-                  >
-                    <Upload className="h-4 w-4 mr-1" />
-                    {creatingDoc ? "Guardando..." : "Cargar"}
-                  </Button>
-                </div>
-                {docForm.fileUrl && (
-                  <span className="text-xs text-green-600 dark:text-green-400">Archivo listo · haz clic en Cargar</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Documentos cargados</p>
-            {guardia.documents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aún no hay documentos. Usa el bloque de arriba para subir el primero.</p>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-3">
-                {guardia.documents.map((doc) => {
-                  const edit = getDocEdit(doc);
-                  return (
-                    <div key={doc.id} className="rounded-md border border-border p-3 space-y-3">
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium">{DOC_LABEL[doc.type] || doc.type}</p>
-                        {hasExpirationByType.get(doc.type) && (
-                          <p className="text-xs text-muted-foreground">
-                            {doc.expiresAt ? `Vence: ${new Date(doc.expiresAt).toLocaleDateString("es-CL")}` : "Sin vencimiento"}
-                          </p>
-                        )}
-                      </div>
-                      {hasExpirationByType.get(doc.type) && (
-                        <div>
-                          <label className="text-xs text-muted-foreground block mb-1.5">Vencimiento</label>
-                          <Input
-                            type="date"
-                            value={edit.expiresAt}
-                            disabled={!canManageDocs}
-                            onChange={(e) =>
-                              setDocEdits((prev) => ({
-                                ...prev,
-                                [doc.id]: { ...edit, expiresAt: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <Button asChild size="sm" variant="outline">
-                          <a href={doc.fileUrl || "#"} target="_blank" rel="noreferrer">
-                            Ver archivo
-                          </a>
-                        </Button>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void handleSaveDocument(doc)}
-                            disabled={savingDocId === doc.id || !canManageDocs}
-                          >
-                            <Save className="h-4 w-4 mr-1" />
-                            {savingDocId === doc.id ? "..." : "Guardar"}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void handleDeleteDocument(doc)}
-                            disabled={deletingDocId === doc.id || !canManageDocs}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            {guardia.documents.length} documento(s) · tipos: antecedentes, OS-10, cédula, currículum, contrato, anexo.
-          </p>
-        </div>
+        <DocumentosSection
+          guardiaId={guardia.id}
+          documents={guardia.documents}
+          canManageDocs={canManageDocs}
+          guardiaDocConfig={guardiaDocConfig}
+          onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
+        />
       ),
     },
     /* docs-vinculados */
@@ -1798,87 +702,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "docs-vinculados" as const,
       label: "Documentos vinculados (Docs)",
       children: (
-        <div className="space-y-3">
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>
-              Aquí puedes vincular documentos que ya existen en el módulo <strong>Documentos</strong> (OPAI) a esta ficha de guardia. Sirve para mantener trazabilidad: por ejemplo, asociar el contrato o un anexo generado en Docs con este guardia, y ver desde su ficha qué documentos formales tiene vinculados.
-            </p>
-            <p className="text-xs">
-              El <strong>tipo de vínculo</strong> indica la relación: <em>Principal</em> (documento central, ej. contrato vigente), <em>Relacionado</em> (anexos, certificados complementarios) o <em>Copia</em> (duplicado o respaldo).
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-              value={linkForm.documentId}
-              disabled={loadingDocLinks || !canManageDocs}
-              onChange={(e) => setLinkForm((prev) => ({ ...prev, documentId: e.target.value }))}
-            >
-              <option value="">Selecciona documento disponible</option>
-              {availableDocs.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.title} · {doc.status}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-              value={linkForm.role}
-              disabled={!canManageDocs}
-              onChange={(e) => setLinkForm((prev) => ({ ...prev, role: e.target.value }))}
-              title="Tipo de vínculo del documento con esta ficha"
-            >
-              <option value="primary">Principal</option>
-              <option value="related">Relacionado</option>
-              <option value="copy">Copia</option>
-            </select>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleLinkDocument()}
-              disabled={!canManageDocs || linkingDoc || !linkForm.documentId}
-            >
-              {linkingDoc ? "Vinculando..." : "Vincular"}
-            </Button>
-          </div>
-
-          {linkedDocs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin documentos vinculados.</p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-3">
-              {linkedDocs.map((item) => (
-                <div key={item.id} className="rounded-md border border-border p-3 flex flex-col gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{item.document.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.document.category}
-                      {item.role === "primary" ? " · Principal" : item.role === "related" ? " · Relacionado" : " · Copia"}
-                    </p>
-                    {item.document.expirationDate && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Vence: {new Date(item.document.expirationDate).toLocaleDateString("es-CL")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-auto">
-                    <Button asChild size="sm" variant="outline" className="flex-1">
-                      <Link href={`/opai/documentos/${item.document.id}`}>Abrir</Link>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void handleUnlinkDocument(item.document.id)}
-                      disabled={!canManageDocs || unlinkingDocId === item.document.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <DocsVinculadosSection
+          guardiaId={guardia.id}
+          canManageDocs={canManageDocs}
+          linkedDocs={linkedDocs}
+          availableDocs={availableDocs}
+          loadingDocLinks={loadingDocLinks}
+          onReloadDocLinks={loadDocLinks}
+        />
       ),
     },
     /* communication (comunicaciones) */
@@ -1886,87 +717,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "communication" as const,
       label: "Comunicación con guardia",
       children: (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border p-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Envío con plantillas predefinidas por canal. Los envíos quedan registrados en la ficha.
-            </p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <select
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                value={commForm.channel}
-                onChange={(e) => {
-                  const nextChannel = e.target.value;
-                  const firstTemplate = GUARDIA_COMM_TEMPLATES.find((tpl) => tpl.channel === nextChannel)?.id ?? "";
-                  setCommForm({ channel: nextChannel, templateId: firstTemplate });
-                }}
-              >
-                <option value="email">Email</option>
-                <option value="whatsapp">WhatsApp</option>
-              </select>
-
-              <select
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                value={commForm.templateId}
-                onChange={(e) => setCommForm((prev) => ({ ...prev, templateId: e.target.value }))}
-              >
-                {availableTemplates.map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>
-                    {tpl.name}
-                  </option>
-                ))}
-              </select>
-
-              <Button onClick={handleSendCommunication} disabled={sendingComm || !commForm.templateId}>
-                <Send className="h-4 w-4 mr-1" />
-                {sendingComm ? "Enviando..." : "Enviar comunicación"}
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Email: {guardia.persona.email || "No registrado"}</span>
-              <span>·</span>
-              <span>Celular: {guardia.persona.phoneMobile ? `+56 ${guardia.persona.phoneMobile}` : "No registrado"}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(`${window.location.origin}/personas/guardias/${guardia.id}`);
-                  toast.success("Link copiado");
-                }}
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                Copiar link autogestión
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Envíos registrados</p>
-            {communicationHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aún no hay envíos.</p>
-            ) : (
-              communicationHistory.map((event) => {
-                const payload = (event.newValue || {}) as Record<string, unknown>;
-                const channel = String(payload.channel || "");
-                const status = String(payload.status || "");
-                const templateName = String(payload.templateName || payload.templateId || "");
-                return (
-                  <div key={event.id} className="rounded-md border border-border p-3 flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      {channel === "whatsapp" ? <MessageCircle className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                      <span className="font-medium">{templateName || "Comunicación"}</span>
-                      <span className="text-xs text-muted-foreground">· {status || "registrado"}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString("es-CL")}</p>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        <CommunicationSection
+          guardiaId={guardia.id}
+          email={guardia.persona.email}
+          phoneMobile={guardia.persona.phoneMobile}
+          historyEvents={guardia.historyEvents}
+          onHistoryEventAdded={(event) => {
+            setGuardia((prev) => ({
+              ...prev,
+              historyEvents: [event, ...prev.historyEvents],
+            }));
+          }}
+        />
       ),
     },
     /* comentarios internos con @ mentions */
@@ -1985,131 +747,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     {
       key: "dias-trabajados" as const,
       children: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Días en que este guardia asistió o cubrió como reemplazo (últimos 12 meses). Base para liquidación y portal del guardia.
-          </p>
-          {diasTrabajadosLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando días trabajados…
-            </div>
-          ) : (
-            <>
-              {Object.keys(diasTrabajadosSummary).length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Resumen por mes</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(diasTrabajadosSummary)
-                      .sort(([a], [b]) => b.localeCompare(a))
-                      .slice(0, 12)
-                      .map(([monthKey, count]) => {
-                        const [y, m] = monthKey.split("-");
-                        const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-                        const label = `${monthNames[parseInt(m, 10) - 1]} ${y}`;
-                        return (
-                          <div
-                            key={monthKey}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-sm"
-                          >
-                            <span className="text-muted-foreground">{label}</span>
-                            <span className="font-semibold text-foreground">{count}</span>
-                            <span className="text-muted-foreground text-xs">días</span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-              {diasTrabajados.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin días trabajados registrados en el período.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border border-border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
-                        <th className="px-3 py-2 text-center font-medium text-muted-foreground">Slot</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {diasTrabajados.map((d) => (
-                        <tr key={d.id} className="border-b border-border/60 last:border-0">
-                          <td className="px-3 py-2">{formatDateUTC(d.date)}</td>
-                          <td className="px-3 py-2">{d.installationName || "—"}</td>
-                          <td className="px-3 py-2">{d.puestoName || "—"}</td>
-                          <td className="px-3 py-2 text-center">S{d.slotNumber}</td>
-                          <td className="px-3 py-2">
-                            {d.attendanceStatus === "asistio" ? "Asistió" : d.attendanceStatus === "reemplazo" ? "Reemplazo" : d.attendanceStatus}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <DiasTrabajadesSection guardiaId={guardia.id} />
       ),
     },
     /* turnos-extra */
     {
       key: "turnos-extra" as const,
       children: (
-        <div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Historial de turnos extra (reemplazos y cubrimientos) de este guardia.
-          </p>
-          {turnosExtraLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando turnos extra…
-            </div>
-          ) : turnosExtra.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin turnos extra registrados.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Monto</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha de pago</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {turnosExtra.map((te) => (
-                    <tr key={te.id} className="border-b border-border/60 last:border-0">
-                      <td className="px-3 py-2">{formatDateUTC(te.date)}</td>
-                      <td className="px-3 py-2">{te.installationName || "—"}</td>
-                      <td className="px-3 py-2">{te.puestoName || "—"}</td>
-                      <td className="px-3 py-2 text-right">${te.amountClp.toLocaleString("es-CL")}</td>
-                      <td className="px-3 py-2">
-                        {te.status === "pending"
-                          ? "Pendiente"
-                          : te.status === "approved"
-                            ? "Aprobado"
-                            : te.status === "paid"
-                              ? "Pagado"
-                              : te.status === "rejected"
-                                ? "Rechazado"
-                                : te.status}
-                      </td>
-                      <td className="px-3 py-2">{te.paidAt ? formatDateUTC(te.paidAt) : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <TurnosExtraSection guardiaId={guardia.id} />
       ),
     },
     /* rendiciones */
@@ -2127,26 +772,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       key: "historial" as const,
       label: "Historial del guardia",
       children: (
-        <div className="space-y-2">
-          {guardia.historyEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin eventos registrados.</p>
-          ) : (
-            guardia.historyEvents.map((event) => (
-              <div key={event.id} className="rounded-md border border-border p-3">
-                <p className="text-sm font-medium">{EVENT_TYPE_LABEL[event.eventType] || event.eventType}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(event.createdAt).toLocaleString("es-CL")}
-                  {event.createdByName ? ` · por ${event.createdByName}` : ""}
-                  {event.reason ? ` · ${event.reason}` : ""}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
+        <HistorialSection historyEvents={guardia.historyEvents} />
       ),
     },
   ];
 
+  // ── Record actions ──
   const recordActions: RecordAction[] = [];
   const puedeRecontratar =
     canManageGuardias &&
@@ -2174,7 +805,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     });
   }
 
-  // Siempre mostrar el menú de tres puntos (al menos con "Ir a lista")
   const actionsToShow: RecordAction[] =
     recordActions.length > 0
       ? recordActions
@@ -2238,7 +868,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Fecha de inicio</Label>
               <Input
                 type="date"
@@ -2269,7 +899,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Fecha de recontratación</Label>
               <Input
                 type="date"
@@ -2558,95 +1188,5 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-// ─────────────────────────────────────────────
-// Sub-componente: Gestión de PIN de marcación
-// ─────────────────────────────────────────────
-
-function MarcacionPinSection({
-  guardiaId,
-  hasPin,
-  onPinUpdated,
-}: {
-  guardiaId: string;
-  hasPin: boolean;
-  onPinUpdated: (pin: string) => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [generatedPin, setGeneratedPin] = useState<string | null>(null);
-  const [pinConfigured, setPinConfigured] = useState(hasPin);
-
-  const handleGeneratePin = async () => {
-    setLoading(true);
-    setGeneratedPin(null);
-    try {
-      const res = await fetch("/api/ops/marcacion/pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guardiaId }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.error || "Error al generar PIN");
-        return;
-      }
-      setGeneratedPin(data.data.pin);
-      setPinConfigured(true);
-      onPinUpdated(data.data.pin);
-      toast.success(pinConfigured ? "PIN reseteado exitosamente" : "PIN generado exitosamente");
-    } catch {
-      toast.error("Error de conexión");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCopyPin = () => {
-    if (generatedPin) {
-      navigator.clipboard.writeText(generatedPin);
-      toast.success("PIN copiado al portapapeles");
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      {generatedPin && (
-        <div className="p-4 bg-emerald-950/50 border border-emerald-700/50 rounded-lg dark:bg-emerald-900/20 dark:border-emerald-600/50">
-          <p className="text-sm font-medium text-emerald-200 mb-2">
-            PIN generado (queda registrado en el sistema para marcación):
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-emerald-100">
-              {generatedPin}
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="bg-emerald-700 hover:bg-emerald-600 text-white border-0"
-              onClick={handleCopyPin}
-            >
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-              Copiar
-            </Button>
-          </div>
-          <p className="text-xs text-emerald-300/90 mt-2">
-            PIN actualizado. También queda visible en la ficha para consulta operativa.
-          </p>
-        </div>
-      )}
-
-      <Button
-        size="sm"
-        variant={pinConfigured ? "outline" : "default"}
-        onClick={handleGeneratePin}
-        disabled={loading}
-      >
-        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        <KeyRound className="mr-1.5 h-4 w-4" />
-        {pinConfigured ? "Resetear PIN" : "Generar PIN"}
-      </Button>
-    </div>
   );
 }
