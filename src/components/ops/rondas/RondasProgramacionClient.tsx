@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ProgramacionForm } from "@/components/ops/rondas/programacion-form";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/opai";
+import type { DataTableColumn } from "@/components/opai";
 
 interface ProgramacionItem {
   id: string;
@@ -26,6 +28,68 @@ export function RondasProgramacionClient({
 }) {
   const [rows, setRows] = useState(initialRows);
 
+  const columns: DataTableColumn[] = [
+    {
+      key: "rondaTemplate",
+      label: "Plantilla",
+      render: (_v, row) => row.rondaTemplate?.name ?? row.rondaTemplateId,
+    },
+    { key: "diasSemana", label: "Días", render: (v) => v.join(",") },
+    {
+      key: "horario",
+      label: "Horario",
+      render: (_v, row) => `${row.horaInicio} - ${row.horaFin}`,
+    },
+    { key: "frecuenciaMinutos", label: "Frecuencia", render: (v) => `${v} min` },
+    { key: "isActive", label: "Estado", render: (v) => (v ? "Activa" : "Inactiva") },
+    {
+      key: "actions",
+      label: "Acciones",
+      className: "text-right",
+      render: (_v, row) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={async () => {
+              const res = await fetch("/api/ops/rondas/ejecuciones", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ programacionId: row.id }),
+              });
+              const json = await res.json();
+              if (!res.ok || !json.success) {
+                toast.error(json.error ?? "No se pudieron generar ejecuciones");
+                return;
+              }
+              toast.success(`Generadas: ${json.data.created}`);
+            }}
+          >
+            Generar 24h
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={async () => {
+              const res = await fetch(`/api/ops/rondas/programacion/${row.id}`, { method: "DELETE" });
+              const json = await res.json();
+              if (!res.ok || !json.success) {
+                toast.error(json.error ?? "No se pudo eliminar");
+                return;
+              }
+              setRows((prev) => prev.filter((it) => it.id !== row.id));
+              toast.success("Programación eliminada");
+            }}
+          >
+            Eliminar
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <ProgramacionForm
@@ -47,81 +111,11 @@ export function RondasProgramacionClient({
         }}
       />
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Plantilla</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Días</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Frecuencia</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2">{r.rondaTemplate?.name ?? r.rondaTemplateId}</td>
-                  <td className="px-3 py-2">{r.diasSemana.join(",")}</td>
-                  <td className="px-3 py-2">{r.horaInicio} - {r.horaFin}</td>
-                  <td className="px-3 py-2">{r.frecuenciaMinutos} min</td>
-                  <td className="px-3 py-2">{r.isActive ? "Activa" : "Inactiva"}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs"
-                        onClick={async () => {
-                          const res = await fetch("/api/ops/rondas/ejecuciones", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ programacionId: r.id }),
-                          });
-                          const json = await res.json();
-                          if (!res.ok || !json.success) {
-                            toast.error(json.error ?? "No se pudieron generar ejecuciones");
-                            return;
-                          }
-                          toast.success(`Generadas: ${json.data.created}`);
-                        }}
-                      >
-                        Generar 24h
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs"
-                        onClick={async () => {
-                          const res = await fetch(`/api/ops/rondas/programacion/${r.id}`, { method: "DELETE" });
-                          const json = await res.json();
-                          if (!res.ok || !json.success) {
-                            toast.error(json.error ?? "No se pudo eliminar");
-                            return;
-                          }
-                          setRows((prev) => prev.filter((it) => it.id !== r.id));
-                          toast.success("Programación eliminada");
-                        }}
-                      >
-                        Eliminar
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
-                <tr>
-                  <td className="px-3 py-8 text-center text-muted-foreground" colSpan={6}>
-                    Sin programaciones registradas.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        emptyMessage="Sin programaciones registradas."
+      />
     </div>
   );
 }

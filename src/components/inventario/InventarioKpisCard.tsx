@@ -37,7 +37,7 @@ export function InventarioKpisCard() {
   if (loading) {
     return (
       <Card>
-        <CardContent className="pt-4 pb-3">
+        <CardContent className="pt-4 pb-4">
           <div className="text-sm text-muted-foreground">Cargando KPIs...</div>
         </CardContent>
       </Card>
@@ -55,7 +55,7 @@ export function InventarioKpisCard() {
 
   return (
     <Card>
-      <CardContent className="pt-4 pb-3 space-y-4">
+      <CardContent className="pt-4 pb-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-amber-500" />

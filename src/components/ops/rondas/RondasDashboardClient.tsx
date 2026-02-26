@@ -2,6 +2,8 @@
 
 import { RondaProgress } from "@/components/ops/rondas/ronda-progress";
 import { TrustScoreBadge } from "@/components/ops/rondas/trust-score-badge";
+import { KpiCard, KpiGrid, DataTable } from "@/components/opai";
+import type { DataTableColumn } from "@/components/opai";
 
 interface Row {
   id: string;
@@ -23,6 +25,34 @@ interface Stats {
   trustPromedio: number;
 }
 
+const columns: DataTableColumn[] = [
+  { key: "ronda", label: "Ronda", render: (_v, row) => row.rondaTemplate.name },
+  { key: "instalacion", label: "Instalación", render: (_v, row) => row.rondaTemplate.installation.name },
+  {
+    key: "guardia",
+    label: "Guardia",
+    render: (_v, row) =>
+      row.guardia ? `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}` : "Sin asignar",
+  },
+  {
+    key: "scheduledAt",
+    label: "Programada",
+    render: (_v, row) => new Date(row.scheduledAt).toLocaleString("es-CL"),
+  },
+  { key: "status", label: "Estado" },
+  {
+    key: "progreso",
+    label: "Progreso",
+    className: "min-w-[180px]",
+    render: (_v, row) => <RondaProgress completed={row.checkpointsCompletados} total={row.checkpointsTotal} />,
+  },
+  {
+    key: "trust",
+    label: "Trust",
+    render: (_v, row) => <TrustScoreBadge score={row.trustScore} />,
+  },
+];
+
 export function RondasDashboardClient({
   rows,
   stats,
@@ -32,67 +62,20 @@ export function RondasDashboardClient({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        <Stat label="Total" value={stats.total} />
-        <Stat label="Completadas" value={stats.completadas} />
-        <Stat label="En curso" value={stats.enCurso} />
-        <Stat label="Pendientes" value={stats.pendientes} />
-        <Stat label="No realizadas" value={stats.noRealizadas} />
-        <Stat label="Trust promedio" value={stats.trustPromedio} />
-      </div>
+      <KpiGrid columns={3}>
+        <KpiCard title="Total" value={stats.total} />
+        <KpiCard title="Completadas" value={stats.completadas} variant="emerald" />
+        <KpiCard title="En curso" value={stats.enCurso} variant="blue" />
+        <KpiCard title="Pendientes" value={stats.pendientes} variant="amber" />
+        <KpiCard title="No realizadas" value={stats.noRealizadas} />
+        <KpiCard title="Trust promedio" value={stats.trustPromedio} variant="purple" />
+      </KpiGrid>
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Ronda</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Instalación</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Guardia</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Programada</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Progreso</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Trust</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2">{r.rondaTemplate.name}</td>
-                  <td className="px-3 py-2">{r.rondaTemplate.installation.name}</td>
-                  <td className="px-3 py-2">
-                    {r.guardia ? `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}` : "Sin asignar"}
-                  </td>
-                  <td className="px-3 py-2">{new Date(r.scheduledAt).toLocaleString("es-CL")}</td>
-                  <td className="px-3 py-2">{r.status}</td>
-                  <td className="px-3 py-2 min-w-[180px]">
-                    <RondaProgress completed={r.checkpointsCompletados} total={r.checkpointsTotal} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <TrustScoreBadge score={r.trustScore} />
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
-                <tr>
-                  <td className="px-3 py-8 text-center text-muted-foreground" colSpan={7}>
-                    Sin rondas en el rango seleccionado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className="text-xl font-bold">{value}</p>
+      <DataTable
+        columns={columns}
+        data={rows}
+        emptyMessage="Sin rondas en el rango seleccionado."
+      />
     </div>
   );
 }
