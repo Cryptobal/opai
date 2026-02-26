@@ -96,26 +96,6 @@ function getDealsFocusLabel(focus: DealsFocus): string | null {
 }
 
 const DRAG_AUTO_EXPAND_DELAY_MS = 400;
-const DEBUG_LOG_ENDPOINT = "/api/debug/log";
-
-type DebugHypothesisId = "H1" | "H2" | "H3" | "H4" | "H5";
-
-function emitDebugLog(payload: {
-  hypothesisId: DebugHypothesisId;
-  location: string;
-  message: string;
-  data: Record<string, unknown>;
-  timestamp: number;
-  runId: string;
-}) {
-  if (typeof window === "undefined") return;
-  void fetch(DEBUG_LOG_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    keepalive: true,
-  }).catch(() => {});
-}
 
 function normalizeStageName(name: string): string {
   return name
@@ -504,58 +484,17 @@ export function CrmDealsClient({
   const autoExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingAutoExpandStageRef = useRef<string | null>(null);
   const autoExpandedStageIdsRef = useRef<Set<string>>(new Set());
-  const debugRunIdRef = useRef(`crm-deals-${Date.now()}`);
-  const lastResolveDebugRef = useRef("");
-  const lastDragOverDebugRef = useRef("");
+  const hoveredCollapsedDropStageIdRef = useRef<string | null>(null);
   // Mobile sheet for deal actions
   const [sheetDealId, setSheetDealId] = useState<string | null>(null);
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
   const focusLabel = getDealsFocusLabel(initialFocus);
 
-  const debugLog = useCallback((
-    hypothesisId: DebugHypothesisId,
-    location: string,
-    message: string,
-    data: Record<string, unknown>
-  ) => {
-    emitDebugLog({
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-      runId: debugRunIdRef.current,
-    });
-  }, []);
-
   const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
-    let resolvedStageId: string | undefined;
-    let overKind: "stage-header" | "stage-column" | "deal-card" | "unknown" = "unknown";
-    if (overId.startsWith("stage-header-")) {
-      resolvedStageId = overId.replace("stage-header-", "");
-      overKind = "stage-header";
-    } else if (overId.startsWith("stage-")) {
-      resolvedStageId = overId.replace("stage-", "");
-      overKind = "stage-column";
-    } else {
-      resolvedStageId = deals.find((deal) => `deal-${deal.id}` === overId)?.stage?.id;
-      overKind = overId.startsWith("deal-") ? "deal-card" : "unknown";
-    }
-
-    const signature = `${overId}|${resolvedStageId ?? "null"}`;
-    if (lastResolveDebugRef.current !== signature) {
-      lastResolveDebugRef.current = signature;
-      // #region agent log
-      debugLog("H4", "CrmDealsClient.tsx:resolveStageIdFromOverId", "Resolved stage from overId", {
-        overId,
-        overKind,
-        resolvedStageId: resolvedStageId ?? null,
-      });
-      // #endregion
-    }
-
-    return resolvedStageId;
-  }, [deals, debugLog]);
+    if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
+    if (overId.startsWith("stage-")) return overId.replace("stage-", "");
+    return deals.find((deal) => `deal-${deal.id}` === overId)?.stage?.id;
+  }, [deals]);
 
   const clearAutoExpandTimer = useCallback(() => {
     if (autoExpandTimerRef.current) {
@@ -643,25 +582,9 @@ export function CrmDealsClient({
   };
 
   const updateStage = async (dealId: string, stageId: string) => {
+    if (!stageId) return;
     const current = deals.find((deal) => deal.id === dealId);
-    // #region agent log
-    debugLog("H3", "CrmDealsClient.tsx:updateStage", "updateStage called", {
-      dealId,
-      stageId: stageId || null,
-      currentStageId: current?.stage?.id ?? null,
-    });
-    // #endregion
-
-    if (!stageId || !current || current.stage?.id === stageId) {
-      // #region agent log
-      debugLog("H3", "CrmDealsClient.tsx:updateStage", "updateStage skipped", {
-        dealId,
-        stageId: stageId || null,
-        reason: !stageId ? "missing-stage-id" : !current ? "deal-not-found" : "same-stage",
-      });
-      // #endregion
-      return;
-    }
+    if (!current || current.stage?.id === stageId) return;
 
     const nextStage = stages.find((stage) => stage.id === stageId);
     const snapshot = JSON.parse(JSON.stringify(current)) as CrmDeal;
@@ -684,14 +607,6 @@ export function CrmDealsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stageId }),
       });
-      // #region agent log
-      debugLog("H3", "CrmDealsClient.tsx:updateStage", "Stage update API response", {
-        dealId,
-        stageId,
-        responseStatus: response.status,
-        responseOk: response.ok,
-      });
-      // #endregion
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error || "Error cambiando etapa");
@@ -699,13 +614,6 @@ export function CrmDealsClient({
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? payload.data : deal)));
     } catch (error) {
       console.error(error);
-      // #region agent log
-      debugLog("H3", "CrmDealsClient.tsx:updateStage", "Stage update API failed", {
-        dealId,
-        stageId,
-        error: error instanceof Error ? error.message : "unknown-error",
-      });
-      // #endregion
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
       setRecentMoveRankByDealId((prev) => {
         if (previousMoveRank == null) {
@@ -802,16 +710,9 @@ export function CrmDealsClient({
 
   const handleDragStart = (event: DragStartEvent) => {
     const dealId = String(event.active.id).replace("deal-", "");
-    const sourceStageId = deals.find((deal) => deal.id === dealId)?.stage?.id ?? null;
-    // #region agent log
-    debugLog("H1", "CrmDealsClient.tsx:handleDragStart", "Drag started", {
-      activeId: String(event.active.id),
-      dealId,
-      sourceStageId,
-    });
-    // #endregion
     setActiveDealId(dealId);
     setHoveredCollapsedDropStageId(null);
+    hoveredCollapsedDropStageIdRef.current = null;
     clearAutoExpandTimer();
     collapseAutoExpandedStages();
     captureDragScrollSnapshot();
@@ -820,22 +721,10 @@ export function CrmDealsClient({
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over ? String(event.over.id) : "";
     const overStageId = overId ? resolveStageIdFromOverId(overId) : undefined;
-    const isCollapsed = overStageId ? desktopCollapsedStages.has(overStageId) : false;
-    const signature = `${overId || "none"}|${overStageId ?? "none"}|${isCollapsed ? "collapsed" : "expanded-or-none"}`;
-    if (lastDragOverDebugRef.current !== signature) {
-      lastDragOverDebugRef.current = signature;
-      // #region agent log
-      debugLog("H2", "CrmDealsClient.tsx:handleDragOver", "Drag over evaluated", {
-        activeId: String(event.active.id),
-        overId: overId || null,
-        overStageId: overStageId ?? null,
-        isCollapsedTarget: isCollapsed,
-      });
-      // #endregion
-    }
 
     if (!overStageId) {
       setHoveredCollapsedDropStageId(null);
+      hoveredCollapsedDropStageIdRef.current = null;
       clearAutoExpandTimer();
       collapseAutoExpandedStages();
       return;
@@ -843,6 +732,8 @@ export function CrmDealsClient({
 
     collapseAutoExpandedStages(overStageId);
 
+    const isCollapsed = desktopCollapsedStages.has(overStageId);
+    hoveredCollapsedDropStageIdRef.current = isCollapsed ? overStageId : null;
     setHoveredCollapsedDropStageId(isCollapsed ? overStageId : null);
     if (!isCollapsed) {
       clearAutoExpandTimer();
@@ -869,24 +760,22 @@ export function CrmDealsClient({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     clearAutoExpandTimer();
+    const collapsedFallbackStageId = hoveredCollapsedDropStageIdRef.current;
+    hoveredCollapsedDropStageIdRef.current = null;
     setHoveredCollapsedDropStageId(null);
 
     const dealId = String(active.id).replace("deal-", "");
     const overId = over ? String(over.id) : null;
-    const stageId = overId ? resolveStageIdFromOverId(overId) : undefined;
     const sourceStageId = deals.find((deal) => deal.id === dealId)?.stage?.id ?? null;
-    // #region agent log
-    debugLog("H1", "CrmDealsClient.tsx:handleDragEnd", "Drag ended", {
-      activeId: String(active.id),
-      dealId,
-      sourceStageId,
-      overId,
-      resolvedStageId: stageId ?? null,
-      overExists: Boolean(over),
-    });
-    // #endregion
+    const resolvedStageId = overId ? resolveStageIdFromOverId(overId) : undefined;
+    const stageId =
+      resolvedStageId && resolvedStageId !== sourceStageId
+        ? resolvedStageId
+        : collapsedFallbackStageId && collapsedFallbackStageId !== sourceStageId
+          ? collapsedFallbackStageId
+          : undefined;
 
-    if (!over) {
+    if (!over && !stageId) {
       collapseAutoExpandedStages();
       setActiveDealId(null);
       restoreDragScrollSnapshot();
@@ -905,6 +794,7 @@ export function CrmDealsClient({
   const handleDragCancel = () => {
     clearAutoExpandTimer();
     setHoveredCollapsedDropStageId(null);
+    hoveredCollapsedDropStageIdRef.current = null;
     collapseAutoExpandedStages();
     setActiveDealId(null);
     restoreDragScrollSnapshot();
