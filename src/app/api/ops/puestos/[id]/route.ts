@@ -7,6 +7,223 @@ import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
 
 type Params = { id: string };
 
+type DeleteDiagnostics = {
+  activeAssignmentCount: number;
+  activeAssignments: Array<{
+    slotNumber: number;
+    guardiaName: string;
+    startDate: string;
+  }>;
+  pautaSamples: Array<{
+    date: string;
+    slotNumber: number;
+    shiftCode: string | null;
+    plannedGuardiaName: string | null;
+  }>;
+  asistenciaSamples: Array<{
+    date: string;
+    slotNumber: number;
+    attendanceStatus: string;
+    plannedGuardiaName: string | null;
+    actualGuardiaName: string | null;
+    replacementGuardiaName: string | null;
+  }>;
+  pautaCount: number;
+  asistenciaCount: number;
+  activeSeriesCount: number;
+  firstPautaDate: string | null;
+  lastPautaDate: string | null;
+  firstAsistenciaDate: string | null;
+  lastAsistenciaDate: string | null;
+  canDelete: boolean;
+};
+
+async function getDeleteDiagnostics(tenantId: string, puestoId: string): Promise<DeleteDiagnostics> {
+  const [
+    activeAssignments,
+    pautaCount,
+    asistenciaCount,
+    activeSeriesCount,
+    firstPauta,
+    lastPauta,
+    firstAsistencia,
+    lastAsistencia,
+    pautaSamples,
+    asistenciaSamples,
+  ] =
+    await Promise.all([
+      prisma.opsAsignacionGuardia.findMany({
+        where: { tenantId, puestoId, isActive: true },
+        select: {
+          slotNumber: true,
+          startDate: true,
+          guardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        orderBy: [{ slotNumber: "asc" }],
+      }),
+      prisma.opsPautaMensual.count({ where: { tenantId, puestoId } }),
+      prisma.opsAsistenciaDiaria.count({ where: { tenantId, puestoId } }),
+      prisma.opsSerieAsignacion.count({
+        where: { tenantId, puestoId, isActive: true },
+      }),
+      prisma.opsPautaMensual.findFirst({
+        where: { tenantId, puestoId },
+        select: { date: true },
+        orderBy: { date: "asc" },
+      }),
+      prisma.opsPautaMensual.findFirst({
+        where: { tenantId, puestoId },
+        select: { date: true },
+        orderBy: { date: "desc" },
+      }),
+      prisma.opsAsistenciaDiaria.findFirst({
+        where: { tenantId, puestoId },
+        select: { date: true },
+        orderBy: { date: "asc" },
+      }),
+      prisma.opsAsistenciaDiaria.findFirst({
+        where: { tenantId, puestoId },
+        select: { date: true },
+        orderBy: { date: "desc" },
+      }),
+      prisma.opsPautaMensual.findMany({
+        where: { tenantId, puestoId },
+        select: {
+          date: true,
+          slotNumber: true,
+          shiftCode: true,
+          plannedGuardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        orderBy: [{ date: "desc" }, { slotNumber: "asc" }],
+        take: 8,
+      }),
+      prisma.opsAsistenciaDiaria.findMany({
+        where: { tenantId, puestoId },
+        select: {
+          date: true,
+          slotNumber: true,
+          attendanceStatus: true,
+          plannedGuardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+          actualGuardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+          replacementGuardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        orderBy: [{ date: "desc" }, { slotNumber: "asc" }],
+        take: 8,
+      }),
+    ]);
+
+  const activeAssignmentCount = activeAssignments.length;
+  const canDelete =
+    activeAssignmentCount === 0 &&
+    pautaCount === 0 &&
+    asistenciaCount === 0 &&
+    activeSeriesCount === 0;
+
+  return {
+    activeAssignmentCount,
+    activeAssignments: activeAssignments.map((a) => ({
+      slotNumber: a.slotNumber,
+      guardiaName: `${a.guardia.persona.firstName} ${a.guardia.persona.lastName}`,
+      startDate: toISODate(a.startDate),
+    })),
+    pautaSamples: pautaSamples.map((row) => ({
+      date: toISODate(row.date),
+      slotNumber: row.slotNumber,
+      shiftCode: row.shiftCode ?? null,
+      plannedGuardiaName: row.plannedGuardia
+        ? `${row.plannedGuardia.persona.firstName} ${row.plannedGuardia.persona.lastName}`
+        : null,
+    })),
+    asistenciaSamples: asistenciaSamples.map((row) => ({
+      date: toISODate(row.date),
+      slotNumber: row.slotNumber,
+      attendanceStatus: row.attendanceStatus,
+      plannedGuardiaName: row.plannedGuardia
+        ? `${row.plannedGuardia.persona.firstName} ${row.plannedGuardia.persona.lastName}`
+        : null,
+      actualGuardiaName: row.actualGuardia
+        ? `${row.actualGuardia.persona.firstName} ${row.actualGuardia.persona.lastName}`
+        : null,
+      replacementGuardiaName: row.replacementGuardia
+        ? `${row.replacementGuardia.persona.firstName} ${row.replacementGuardia.persona.lastName}`
+        : null,
+    })),
+    pautaCount,
+    asistenciaCount,
+    activeSeriesCount,
+    firstPautaDate: firstPauta ? toISODate(firstPauta.date) : null,
+    lastPautaDate: lastPauta ? toISODate(lastPauta.date) : null,
+    firstAsistenciaDate: firstAsistencia ? toISODate(firstAsistencia.date) : null,
+    lastAsistenciaDate: lastAsistencia ? toISODate(lastAsistencia.date) : null,
+    canDelete,
+  };
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+    const puesto = await prisma.opsPuestoOperativo.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: {
+        id: true,
+        name: true,
+        installationId: true,
+        active: true,
+        requiredGuards: true,
+      },
+    });
+    if (!puesto) {
+      return NextResponse.json(
+        { success: false, error: "Puesto no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const diagnostics = await getDeleteDiagnostics(ctx.tenantId, id);
+    return NextResponse.json({
+      success: true,
+      data: {
+        puesto,
+        diagnostics,
+      },
+    });
+  } catch (error) {
+    console.error("[OPS] Error getting puesto diagnostics:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo obtener el diagnóstico del puesto" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<Params> }
@@ -308,7 +525,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
   try {
@@ -318,6 +535,7 @@ export async function DELETE(
     if (forbidden) return forbidden;
 
     const { id } = await params;
+    const forceDelete = request.nextUrl.searchParams.get("force") === "true";
 
     const existing = await prisma.opsPuestoOperativo.findFirst({
       where: { id, tenantId: ctx.tenantId },
@@ -330,47 +548,81 @@ export async function DELETE(
       );
     }
 
-    // Check if puesto has active guard assignments
-    const activeAssignmentCount = await prisma.opsAsignacionGuardia.count({
-      where: { puestoId: id, tenantId: ctx.tenantId, isActive: true },
-    });
-
-    if (activeAssignmentCount > 0) {
+    const diagnostics = await getDeleteDiagnostics(ctx.tenantId, id);
+    if (!diagnostics.canDelete && !forceDelete) {
+      const reasons: string[] = [];
+      if (diagnostics.activeAssignmentCount > 0) {
+        reasons.push(`${diagnostics.activeAssignmentCount} guardia(s) activo(s)`);
+      }
+      if (diagnostics.pautaCount > 0) {
+        reasons.push(`${diagnostics.pautaCount} registro(s) de pauta`);
+      }
+      if (diagnostics.asistenciaCount > 0) {
+        reasons.push(`${diagnostics.asistenciaCount} registro(s) de asistencia`);
+      }
+      if (diagnostics.activeSeriesCount > 0) {
+        reasons.push(`${diagnostics.activeSeriesCount} serie(s) activa(s)`);
+      }
       return NextResponse.json(
         {
           success: false,
-          error: `No se puede eliminar: tiene ${activeAssignmentCount} guardia(s) asignado(s). Desasígnalos primero desde la sección Dotación activa.`,
+          error: `No se puede eliminar este puesto porque tiene ${reasons.join(", ")}. Puedes desactivarlo, o eliminar forzadamente si eres administrador.`,
+          details: diagnostics,
         },
         { status: 400 }
       );
     }
 
-    // Check if puesto has historical data
-    const [pautaCount, asistenciaCount] = await Promise.all([
-      prisma.opsPautaMensual.count({ where: { puestoId: id } }),
-      prisma.opsAsistenciaDiaria.count({ where: { puestoId: id } }),
-    ]);
-
-    if (pautaCount > 0 || asistenciaCount > 0) {
+    if (forceDelete && !["owner", "admin"].includes(ctx.userRole)) {
       return NextResponse.json(
         {
           success: false,
-          error: `No se puede eliminar: tiene ${pautaCount} registros de pauta y ${asistenciaCount} de asistencia. Desactívalo en su lugar.`,
+          error: "Solo administradores pueden eliminar forzadamente un puesto con historial.",
+          details: diagnostics,
         },
-        { status: 400 }
+        { status: 403 }
       );
     }
 
-    // Also clean up any inactive assignments before deleting
-    await prisma.opsAsignacionGuardia.deleteMany({
+    const affectedGuardias = await prisma.opsAsignacionGuardia.findMany({
       where: { puestoId: id, tenantId: ctx.tenantId },
+      select: { guardiaId: true },
+    });
+    const affectedGuardiaIds = [...new Set(affectedGuardias.map((a) => a.guardiaId))];
+
+    await prisma.$transaction(async (tx) => {
+      await tx.opsPuestoOperativo.delete({ where: { id } });
+
+      for (const guardiaId of affectedGuardiaIds) {
+        const nextActive = await tx.opsAsignacionGuardia.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            guardiaId,
+            isActive: true,
+          },
+          select: { installationId: true },
+          orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+        });
+
+        await tx.opsGuardia.update({
+          where: { id: guardiaId },
+          data: { currentInstallationId: nextActive?.installationId ?? null },
+        });
+      }
     });
 
-    // Safe to delete (no historical data, no active assignments)
-    await prisma.opsPuestoOperativo.delete({ where: { id } });
-    await createOpsAuditLog(ctx, "ops.puesto.deleted", "ops_puesto", id);
+    await createOpsAuditLog(ctx, forceDelete ? "ops.puesto.deleted_force" : "ops.puesto.deleted", "ops_puesto", id, {
+      diagnostics,
+      affectedGuardias: affectedGuardiaIds.length,
+    });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      data: {
+        forceDelete,
+        affectedGuardias: affectedGuardiaIds.length,
+      },
+    });
   } catch (error) {
     console.error("[OPS] Error deleting puesto:", error);
     return NextResponse.json(

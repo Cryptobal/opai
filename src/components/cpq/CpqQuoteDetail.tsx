@@ -46,11 +46,21 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
 }
+
+type CrmInstallationOption = {
+  id: string;
+  name: string;
+  address?: string | null;
+  commune?: string | null;
+  city?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
 
 const DEFAULT_PARAMS: CpqQuoteParameters = {
   monthlyHoursStandard: 180,
@@ -115,7 +125,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
   // CRM context
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string }[]>([]);
-  const [crmInstallations, setCrmInstallations] = useState<{ id: string; name: string; city?: string | null }[]>([]);
+  const [crmInstallations, setCrmInstallations] = useState<CrmInstallationOption[]>([]);
   const [crmContacts, setCrmContacts] = useState<{ id: string; firstName: string; lastName: string; email?: string | null }[]>([]);
   const [crmDeals, setCrmDeals] = useState<{ id: string; title: string }[]>([]);
   const [crmContext, setCrmContext] = useState({
@@ -204,7 +214,18 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           setQuoteDirty(true);
           break;
         case "installation":
-          setCrmInstallations((prev) => [...prev, { id: created.id, name: created.name, city: created.city }]);
+          setCrmInstallations((prev) => [
+            ...prev,
+            {
+              id: created.id,
+              name: created.name,
+              address: created.address ?? null,
+              commune: created.commune ?? null,
+              city: created.city ?? null,
+              lat: created.lat ?? null,
+              lng: created.lng ?? null,
+            },
+          ]);
           saveCrmContext({ installationId: created.id });
           break;
         case "contact":
@@ -388,7 +409,19 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       fetch("/api/crm/contacts").then((r) => r.json()),
       fetch("/api/crm/deals").then((r) => r.json()),
     ]).then(([instData, contactData, dealData]) => {
-      if (instData.success) setCrmInstallations(instData.data);
+      if (instData.success) {
+        setCrmInstallations(
+          (instData.data as Array<Record<string, unknown>>).map((installation) => ({
+            id: String(installation.id ?? ""),
+            name: String(installation.name ?? ""),
+            address: typeof installation.address === "string" ? installation.address : null,
+            commune: typeof installation.commune === "string" ? installation.commune : null,
+            city: typeof installation.city === "string" ? installation.city : null,
+            lat: typeof installation.lat === "number" ? installation.lat : null,
+            lng: typeof installation.lng === "number" ? installation.lng : null,
+          }))
+        );
+      }
       if (contactData.success) {
         setCrmContacts(
           contactData.data
@@ -405,6 +438,32 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       }
     }).catch(() => {});
   }, [crmContext.accountId]);
+
+  // Ensure selected installation details are available for address/map preview.
+  useEffect(() => {
+    if (!crmContext.installationId) return;
+    if (crmInstallations.some((installation) => installation.id === crmContext.installationId)) return;
+
+    fetch(`/api/crm/installations/${crmContext.installationId}`)
+      .then((res) => res.json())
+      .then((payload) => {
+        if (!payload?.success || !payload.data) return;
+        const installation = payload.data as Record<string, unknown>;
+        const normalized: CrmInstallationOption = {
+          id: String(installation.id ?? ""),
+          name: String(installation.name ?? ""),
+          address: typeof installation.address === "string" ? installation.address : null,
+          commune: typeof installation.commune === "string" ? installation.commune : null,
+          city: typeof installation.city === "string" ? installation.city : null,
+          lat: typeof installation.lat === "number" ? installation.lat : null,
+          lng: typeof installation.lng === "number" ? installation.lng : null,
+        };
+        setCrmInstallations((prev) =>
+          prev.some((item) => item.id === normalized.id) ? prev : [normalized, ...prev]
+        );
+      })
+      .catch(() => {});
+  }, [crmContext.installationId, crmInstallations]);
 
   const saveCrmContext = async (patch: Partial<typeof crmContext>) => {
     const updated = { ...crmContext, ...patch };
@@ -811,6 +870,33 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     }
     return map;
   }, [positions, positionSalePrices, monthlyHours]);
+
+  const selectedInstallation = useMemo(
+    () =>
+      crmContext.installationId
+        ? crmInstallations.find((installation) => installation.id === crmContext.installationId) ?? null
+        : null,
+    [crmContext.installationId, crmInstallations]
+  );
+
+  const selectedInstallationAddress = useMemo(() => {
+    if (!selectedInstallation) return "";
+    return [selectedInstallation.address, selectedInstallation.commune, selectedInstallation.city]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .join(", ");
+  }, [selectedInstallation]);
+
+  const selectedInstallationMapsUrl = useMemo(() => {
+    if (!selectedInstallation) return "";
+    if (selectedInstallation.lat != null && selectedInstallation.lng != null) {
+      return `https://www.google.com/maps/search/?api=1&query=${selectedInstallation.lat},${selectedInstallation.lng}`;
+    }
+    if (selectedInstallationAddress) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedInstallationAddress)}`;
+    }
+    return "";
+  }, [selectedInstallation, selectedInstallationAddress]);
+
   const saveLabel = savingQuote
     ? "Guardando..."
     : quoteDirty
@@ -936,33 +1022,29 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
       <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} />
 
-      {/* ── KPI strip compacta ── */}
-      <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 -mx-1 px-1">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Puestos</span>
-          <span className="text-xs font-bold font-mono">{positions.length}</span>
+      {/* ── KPI strip compacta (sin scroll horizontal) ── */}
+      <div className="grid grid-cols-2 gap-1.5 py-1 sm:grid-cols-5">
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Puestos</p>
+          <p className="text-xs font-bold font-mono">{positions.length}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Guardias</span>
-          <span className="text-xs font-bold font-mono">{stats.totalGuards}</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Guardias</p>
+          <p className="text-xs font-bold font-mono">{stats.totalGuards}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Costo</span>
-          <span className="text-xs font-bold font-mono">{formatCurrency(monthlyTotal)}</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Costo</p>
+          <p className="text-xs font-bold font-mono truncate">{formatCurrency(monthlyTotal)}</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-muted-foreground">Margen</span>
-          <span className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</span>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] uppercase text-muted-foreground">Margen</p>
+          <p className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</p>
         </div>
-        <span className="text-muted-foreground/30">·</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</span>
-          <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">{formatCLP(salePriceMonthly)}</span>
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 col-span-2 sm:col-span-1">
+          <p className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</p>
+          <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">{formatCLP(salePriceMonthly)}</p>
           {ufValue && ufValue > 0 && (
-            <span className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</span>
+            <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 truncate">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</p>
           )}
         </div>
       </div>
@@ -1070,6 +1152,36 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                 </Button>
               </div>
             </div>
+
+            {crmContext.installationId && (
+              <div className="col-span-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                      Ubicación de instalación
+                    </p>
+                    <p className="mt-0.5 text-xs font-medium text-foreground truncate">
+                      {selectedInstallation?.name || "Instalación seleccionada"}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground break-words">
+                      {selectedInstallationAddress || "Sin dirección registrada"}
+                    </p>
+                  </div>
+                  {selectedInstallationMapsUrl ? (
+                    <a
+                      href={selectedInstallationMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Ver mapa
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Inline Create Modal (unchanged logic) ── */}

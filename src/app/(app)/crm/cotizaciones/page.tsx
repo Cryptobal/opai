@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/opai";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { getUfValue } from "@/lib/uf";
 
 export default async function CrmCotizacionesPage() {
   const session = await auth();
@@ -21,7 +22,7 @@ export default async function CrmCotizacionesPage() {
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
-  const [quotes, accounts] = await Promise.all([
+  const [quotes, accounts, ufValue] = await Promise.all([
     prisma.cpqQuote.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" },
@@ -48,6 +49,7 @@ export default async function CrmCotizacionesPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    getUfValue(),
   ]);
 
   // Resolver nombres de negocio y cuenta
@@ -114,7 +116,7 @@ export default async function CrmCotizacionesPage() {
         description="Cotizaciones CPQ vinculadas al CRM"
         actions={<CpqIndicators />}
       />
-      <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} />
+      <CrmCotizacionesClient quotes={initialQuotes} accounts={initialAccounts} ufValue={ufValue} />
     </>
   );
 }

@@ -67,6 +67,19 @@ export async function POST(request: NextRequest) {
     }
 
     // from_forward: quitar serie desde esa fecha en adelante
+    const deactivatedSeries = await prisma.opsSerieAsignacion.updateMany({
+      where: {
+        tenantId: ctx.tenantId,
+        puestoId,
+        slotNumber,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        endDate: fromDate,
+      },
+    });
+
     const result = await prisma.opsPautaMensual.updateMany({
       where: {
         tenantId: ctx.tenantId,
@@ -85,13 +98,20 @@ export async function POST(request: NextRequest) {
       "ops.pauta.eliminar_serie",
       "ops_pauta_mensual",
       puestoId,
-      { slotNumber, date, mode: "from_forward", count: result.count }
+      {
+        slotNumber,
+        date,
+        mode: "from_forward",
+        count: result.count,
+        deactivatedSeries: deactivatedSeries.count,
+      }
     );
 
     return NextResponse.json({
       success: true,
       message: "Serie eliminada desde esa fecha en adelante",
       count: result.count,
+      deactivatedSeries: deactivatedSeries.count,
     });
   } catch (error) {
     console.error("[OPS] Error eliminar-serie:", error);

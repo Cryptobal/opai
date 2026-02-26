@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
             code: true,
             clientName: true,
             status: true,
+            dealId: true,
           },
         }),
         prisma.crmInstallation.findMany({
@@ -208,12 +209,38 @@ export async function GET(request: NextRequest) {
           href: `/crm/deals/${deal.id}`,
         });
       }
+      const quoteDealIds = Array.from(
+        new Set(
+          quotes
+            .map((quote) => quote.dealId)
+            .filter((dealId): dealId is string => Boolean(dealId))
+        )
+      );
+      const quoteDeals =
+        quoteDealIds.length > 0
+          ? await prisma.crmDeal.findMany({
+              where: {
+                tenantId,
+                id: { in: quoteDealIds },
+              },
+              select: {
+                id: true,
+                title: true,
+              },
+            })
+          : [];
+      const quoteDealTitleById = new Map(quoteDeals.map((deal) => [deal.id, deal.title]));
+
       for (const quote of quotes) {
+        const dealTitle = quote.dealId
+          ? quoteDealTitleById.get(quote.dealId) ?? "Sin negocio"
+          : "Sin negocio";
         results.push({
           id: quote.id,
           type: "quote",
           title: quote.code,
           subtitle: [
+            `Negocio: ${dealTitle}`,
             quote.clientName,
             QUOTE_STATUS_LABEL[quote.status] || quote.status,
           ].filter(Boolean).join(" · "),

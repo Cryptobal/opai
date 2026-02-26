@@ -5,7 +5,6 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsPautaMensualClient } from "@/components/ops";
-import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 
 export default async function OpsPautaMensualPage() {
   const session = await auth();
@@ -19,45 +18,24 @@ export default async function OpsPautaMensualPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [clients, guardias] = await Promise.all([
-    prisma.crmAccount.findMany({
-      where: {
-        tenantId,
-        type: "client",
-        isActive: true,
+  const clients = await prisma.crmAccount.findMany({
+    where: {
+      tenantId,
+      type: "client",
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      rut: true,
+      installations: {
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
       },
-      select: {
-        id: true,
-        name: true,
-        rut: true,
-        installations: {
-          where: { isActive: true },
-          select: { id: true, name: true },
-          orderBy: { name: "asc" },
-        },
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.opsGuardia.findMany({
-      where: {
-        tenantId,
-        status: "active",
-        isBlacklisted: false,
-      },
-      select: {
-        id: true,
-        code: true,
-        persona: {
-          select: {
-            firstName: true,
-            lastName: true,
-            rut: true,
-          },
-        },
-      },
-      orderBy: [{ persona: { lastName: "asc" } }],
-    }),
-  ]);
+    },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div className="space-y-6 min-w-0">
@@ -67,9 +45,7 @@ export default async function OpsPautaMensualPage() {
       />
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
-        guardias={JSON.parse(JSON.stringify(guardias))}
         currentUserId={session.user.id}
-        globalSearchSlot={<OpsGlobalSearch className="w-full min-w-[180px] max-w-[200px] [&_input]:h-8" />}
       />
     </div>
   );

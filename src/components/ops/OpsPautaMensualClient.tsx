@@ -72,12 +72,6 @@ type ClientOption = {
   installations: { id: string; name: string }[];
 };
 
-type GuardiaOption = {
-  id: string;
-  code?: string | null;
-  persona: { firstName: string; lastName: string; rut?: string | null };
-};
-
 type ShiftPatternOption = {
   id: string;
   name: string;
@@ -116,6 +110,8 @@ type SerieInfo = {
   patternCode: string;
   patternWork: number;
   patternOff: number;
+  startDate?: string | Date;
+  startPosition?: number;
   isRotativo?: boolean;
   rotatePuestoId?: string | null;
   rotateSlotNumber?: number | null;
@@ -151,37 +147,10 @@ type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
 type ShiftType = "day" | "night" | "rotativo";
 
-/** Merged row for rotativo: one row showing Td/Tn per date */
-type RotativoMergedRow = {
-  kind: "rotativo";
-  puestoId: string;
-  puestoName: string;
-  shiftStart: string;
-  shiftEnd: string;
-  shiftDisplay: string;
-  slotNumber: number;
-  patternCode?: string;
-  guardiaId?: string;
-  guardiaName?: string;
-  dayPuestoId: string;
-  daySlotNumber: number;
-  nightPuestoId: string;
-  nightSlotNumber: number;
-  cells: Map<string, {
-    displayCode: "Td" | "Tn" | "-";
-    item?: PautaItem;
-    execution?: ExecutionCell;
-    clickPuestoId: string;
-    clickSlotNumber: number;
-  }>;
-};
-
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
-  guardias: GuardiaOption[];
   shiftPatterns?: ShiftPatternOption[];
   currentUserId?: string;
-  globalSearchSlot?: React.ReactNode;
 }
 
 /* ── helper ────────────────────────────────────── */
@@ -239,10 +208,8 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
 
 export function OpsPautaMensualClient({
   initialClients,
-  guardias,
   shiftPatterns = [],
   currentUserId,
-  globalSearchSlot,
 }: OpsPautaMensualClientProps) {
   const PATTERNS = useMemo(() => {
     if (shiftPatterns.length > 0) {
@@ -578,9 +545,14 @@ export function OpsPautaMensualClient({
     guardiaId?: string;
     guardiaName?: string;
     patternCode?: string;
+    patternWork?: number;
+    patternOff?: number;
+    startDate?: string;
+    startPosition?: number;
     isRotativo?: boolean;
     rotatePuestoId?: string | null;
     rotateSlotNumber?: number | null;
+    startShift?: "day" | "night" | null;
   };
   const matrix = useMemo(() => {
     const rows = new Map<RowKey, MatrixRow>();
@@ -605,15 +577,40 @@ export function OpsPautaMensualClient({
       row.cells.set(dateKey, { item, execution });
     }
 
+    // Garantiza una fila por cada slot requerido del puesto activo, incluso si
+    // no hay filas de pauta en el mes seleccionado (evita perder cobertura en UI).
+    for (const puesto of allPuestos) {
+      for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
+        const key: RowKey = `${puesto.id}|${slot}`;
+        if (!rows.has(key)) {
+          rows.set(key, {
+            puestoId: puesto.id,
+            puestoName: puesto.name,
+            shiftStart: puesto.shiftStart,
+            shiftEnd: puesto.shiftEnd,
+            slotNumber: slot,
+            requiredGuards: puesto.requiredGuards ?? 1,
+            cells: new Map(),
+          });
+        }
+      }
+    }
+
     // Enrich with serie info (pattern code + rotativo)
     for (const s of series) {
       const key: RowKey = `${s.puestoId}|${s.slotNumber}`;
       const row = rows.get(key);
       if (row) {
         row.patternCode = s.patternCode;
+        row.patternWork = s.patternWork;
+        row.patternOff = s.patternOff;
+        row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
+        row.startPosition = s.startPosition;
         row.isRotativo = s.isRotativo ?? false;
         row.rotatePuestoId = s.rotatePuestoId ?? null;
         row.rotateSlotNumber = s.rotateSlotNumber ?? null;
+        row.startShift =
+          s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
       }
     }
 
@@ -632,7 +629,15 @@ export function OpsPautaMensualClient({
       if (a.puestoName !== b.puestoName) return a.puestoName.localeCompare(b.puestoName);
       return a.slotNumber - b.slotNumber;
     });
-  }, [items, series, slotAsignaciones, executionByCell]);
+  }, [items, series, slotAsignaciones, executionByCell, allPuestos]);
+
+  const guardiaBySlotKey = useMemo(() => {
+    const bySlot = new Map<string, string>();
+    for (const asignacion of slotAsignaciones) {
+      bySlot.set(`${asignacion.puestoId}|${asignacion.slotNumber}`, asignacion.guardiaId);
+    }
+    return bySlot;
+  }, [slotAsignaciones]);
 
   /** Agrupar por tipo de turno (día/noche/rotativo) y luego por puesto */
   const groupedByShiftType = useMemo(() => {
@@ -645,112 +650,15 @@ export function OpsPautaMensualClient({
       rows: MatrixRow[];
     };
 
-    const rowByKey = new Map<string, MatrixRow>();
+    const byGroup = new Map<string, GroupedPuesto>();
     for (const row of matrix) {
-      rowByKey.set(`${row.puestoId}|${row.slotNumber}`, row);
-    }
-
-    // Build rotativo pairs and merged rows
-    const rotativoRowKeys = new Set<string>();
-    const rotativoMergedRows: RotativoMergedRow[] = [];
-
-    for (const row of matrix) {
-      if (!row.isRotativo || !row.rotatePuestoId || row.rotateSlotNumber == null) continue;
-      const otherKey = `${row.rotatePuestoId}|${row.rotateSlotNumber}`;
-      const otherRow = rowByKey.get(otherKey);
-      if (!otherRow) continue;
-
-      const myKey = `${row.puestoId}|${row.slotNumber}`;
-      if (rotativoRowKeys.has(myKey) || rotativoRowKeys.has(otherKey)) continue;
-
-      rotativoRowKeys.add(myKey);
-      rotativoRowKeys.add(otherKey);
-
       const h = parseInt(row.shiftStart.split(":")[0], 10);
-      const isDay = h >= 6 && h < 18;
-      const dayRow = isDay ? row : otherRow;
-      const nightRow = isDay ? otherRow : row;
-
-      const mergedCells = new Map<string, {
-        displayCode: "Td" | "Tn" | "-";
-        item?: PautaItem;
-        execution?: ExecutionCell;
-        clickPuestoId: string;
-        clickSlotNumber: number;
-      }>();
-      const allDateKeys = new Set<string>();
-      for (const [dk] of dayRow.cells) allDateKeys.add(dk);
-      for (const [dk] of nightRow.cells) allDateKeys.add(dk);
-
-      for (const dateKey of allDateKeys) {
-        const dayCell = dayRow.cells.get(dateKey);
-        const nightCell = nightRow.cells.get(dateKey);
-        const dayT = dayCell?.item?.shiftCode === "T";
-        const nightT = nightCell?.item?.shiftCode === "T";
-
-        let displayCode: "Td" | "Tn" | "-" = "-";
-        let item: PautaItem | undefined;
-        let execution: ExecutionCell | undefined;
-        let clickPuestoId: string;
-        let clickSlotNumber: number;
-
-        if (dayT) {
-          displayCode = "Td";
-          item = dayCell?.item;
-          execution = dayCell?.execution;
-          clickPuestoId = dayRow.puestoId;
-          clickSlotNumber = dayRow.slotNumber;
-        } else if (nightT) {
-          displayCode = "Tn";
-          item = nightCell?.item;
-          execution = nightCell?.execution;
-          clickPuestoId = nightRow.puestoId;
-          clickSlotNumber = nightRow.slotNumber;
-        } else {
-          item = dayCell?.item ?? nightCell?.item;
-          execution = dayCell?.execution ?? nightCell?.execution;
-          clickPuestoId = dayRow.puestoId;
-          clickSlotNumber = dayRow.slotNumber;
-        }
-
-        mergedCells.set(dateKey, {
-          displayCode,
-          item,
-          execution,
-          clickPuestoId,
-          clickSlotNumber,
-        });
-      }
-
-      rotativoMergedRows.push({
-        kind: "rotativo",
-        puestoId: dayRow.puestoId,
-        puestoName: dayRow.puestoName,
-        shiftStart: `${dayRow.shiftStart}-${dayRow.shiftEnd}`,
-        shiftEnd: `${nightRow.shiftStart}-${nightRow.shiftEnd}`,
-        shiftDisplay: `${dayRow.shiftStart}-${dayRow.shiftEnd} / ${nightRow.shiftStart}-${nightRow.shiftEnd}`,
-        slotNumber: dayRow.slotNumber,
-        patternCode: dayRow.patternCode,
-        guardiaId: dayRow.guardiaId ?? nightRow.guardiaId,
-        guardiaName: dayRow.guardiaName ?? nightRow.guardiaName,
-        dayPuestoId: dayRow.puestoId,
-        daySlotNumber: dayRow.slotNumber,
-        nightPuestoId: nightRow.puestoId,
-        nightSlotNumber: nightRow.slotNumber,
-        cells: mergedCells,
-      });
-    }
-
-    const byPuesto = new Map<string, GroupedPuesto>();
-    for (const row of matrix) {
-      const key = `${row.puestoId}|${row.slotNumber}`;
-      if (rotativoRowKeys.has(key)) continue;
-
-      const h = parseInt(row.shiftStart.split(":")[0], 10);
-      const shiftType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
-      if (!byPuesto.has(row.puestoId)) {
-        byPuesto.set(row.puestoId, {
-          puestoId: row.puestoId,
+      const baseShiftType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
+      const shiftType: ShiftType = row.isRotativo ? "rotativo" : baseShiftType;
+      const groupKey = `${shiftType}:${row.puestoId}`;
+      if (!byGroup.has(groupKey)) {
+        byGroup.set(groupKey, {
+          puestoId: groupKey,
           puestoName: row.puestoName,
           shiftStart: row.shiftStart,
           shiftEnd: row.shiftEnd,
@@ -758,10 +666,10 @@ export function OpsPautaMensualClient({
           rows: [],
         });
       }
-      byPuesto.get(row.puestoId)!.rows.push(row);
+      byGroup.get(groupKey)!.rows.push(row);
     }
 
-    const sortedGroups = Array.from(byPuesto.values())
+    const sortedGroups = Array.from(byGroup.values())
       .map((g) => ({
         ...g,
         rows: [...g.rows].sort((a, b) => a.slotNumber - b.slotNumber),
@@ -773,49 +681,73 @@ export function OpsPautaMensualClient({
         return a.puestoName.localeCompare(b.puestoName);
       });
 
-    const rotativoGroups = rotativoMergedRows.length > 0
-      ? [{
-          puestoId: "rotativo",
-          puestoName: "Rotativos",
-          shiftStart: "",
-          shiftEnd: "",
-          shiftType: "rotativo" as const,
-          rows: rotativoMergedRows,
-        }]
-      : [];
-
     return {
       day: sortedGroups.filter((g) => g.shiftType === "day"),
       night: sortedGroups.filter((g) => g.shiftType === "night"),
-      rotativo: rotativoGroups,
+      rotativo: sortedGroups.filter((g) => g.shiftType === "rotativo"),
     };
   }, [matrix]);
 
-  const shiftSummary = useMemo(() => {
-    const summarize = (groups: Array<{ rows: unknown[] }>) => {
-      const puestos = groups.length;
-      const requiredSlots = groups.reduce((acc, g) => acc + g.rows.length, 0);
-      const assignedSlots = groups.reduce(
-        (acc, g) => acc + g.rows.filter((r) => Boolean((r as { guardiaId?: string }).guardiaId)).length,
-        0
-      );
-      const vacantes = Math.max(0, requiredSlots - assignedSlots);
-      return { puestos, requiredSlots, assignedSlots, vacantes };
-    };
+  const getRotativoDisplayCode = useCallback(
+    (row: MatrixRow, dateKey: string, shiftCode?: string | null): "Td" | "Tn" | "-" => {
+      if (shiftCode !== "T") return "-";
 
-    const day = summarize(groupedByShiftType.day);
-    const night = summarize(groupedByShiftType.night);
-    const rotativo = summarize(groupedByShiftType.rotativo);
+      const patternWork = row.patternWork ?? 0;
+      const patternOff = row.patternOff ?? 0;
+      const cycleLength = patternWork + patternOff;
+      const startPosition = Math.max(1, row.startPosition ?? 1);
+      const startDateKey = row.startDate;
+      const fallback = row.startShift === "night" ? "Tn" : "Td";
+
+      if (!startDateKey || cycleLength <= 0 || patternWork <= 0) return fallback;
+
+      const startMs = Date.parse(`${startDateKey}T00:00:00Z`);
+      const currentMs = Date.parse(`${dateKey}T00:00:00Z`);
+      if (Number.isNaN(startMs) || Number.isNaN(currentMs)) return fallback;
+
+      const daysDiff = Math.floor((currentMs - startMs) / 86_400_000);
+      const doubleCycleLength = cycleLength * 2;
+      const normalizedPosition =
+        ((daysDiff + (startPosition - 1)) % doubleCycleLength + doubleCycleLength) %
+        doubleCycleLength;
+
+      const isFirstCycle = normalizedPosition < cycleLength;
+      const positionInCycle = isFirstCycle ? normalizedPosition : normalizedPosition - cycleLength;
+      if (positionInCycle >= patternWork) return "-";
+
+      const firstCycleCode: "Td" | "Tn" = row.startShift === "night" ? "Tn" : "Td";
+      const secondCycleCode: "Td" | "Tn" = firstCycleCode === "Td" ? "Tn" : "Td";
+      return isFirstCycle ? firstCycleCode : secondCycleCode;
+    },
+    []
+  );
+
+  const shiftSummary = useMemo(() => {
+    // Cobertura canónica: slots requeridos por puestos activos vs slots con asignación activa válida.
+    const validSlotKeys = new Set<string>();
+    for (const puesto of allPuestos) {
+      for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
+        validSlotKeys.add(`${puesto.id}|${slot}`);
+      }
+    }
+
+    const assignedSlotKeys = new Set<string>();
+    for (const asignacion of slotAsignaciones) {
+      const key = `${asignacion.puestoId}|${asignacion.slotNumber}`;
+      if (validSlotKeys.has(key)) {
+        assignedSlotKeys.add(key);
+      }
+    }
+
+    const totalRequiredSlots = validSlotKeys.size;
+    const totalAssignedSlots = assignedSlotKeys.size;
 
     return {
-      day,
-      night,
-      rotativo,
-      totalRequiredSlots: day.requiredSlots + night.requiredSlots + rotativo.requiredSlots,
-      totalAssignedSlots: day.assignedSlots + night.assignedSlots + rotativo.assignedSlots,
-      totalVacantes: day.vacantes + night.vacantes + rotativo.vacantes,
+      totalRequiredSlots,
+      totalAssignedSlots,
+      totalVacantes: Math.max(0, totalRequiredSlots - totalAssignedSlots),
     };
-  }, [groupedByShiftType]);
+  }, [allPuestos, slotAsignaciones]);
 
   const daySectionIds = useMemo(
     () => groupedByShiftType.day.map((g) => g.puestoId),
@@ -936,10 +868,62 @@ export function OpsPautaMensualClient({
     return allPuestos.filter((p) => p.id !== currentPuestoId && isPuestoNight(p.shiftStart) !== currentIsNight);
   };
 
-  // Open serie modal
-  const openSerieModal = (puestoId: string, slotNumber: number, dateKey: string) => {
+  const resolveAutoRotativoConfig = (puestoId: string, slotNumber: number) => {
     const currentPuesto = allPuestos.find((p) => p.id === puestoId);
     const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
+    const sortedOppositePuestos = [...getOppositePuestos(puestoId)].sort((a, b) => {
+      const [ah, am] = a.shiftStart.split(":").map((v) => parseInt(v, 10));
+      const [bh, bm] = b.shiftStart.split(":").map((v) => parseInt(v, 10));
+      const aMinutes = (Number.isNaN(ah) ? 0 : ah) * 60 + (Number.isNaN(am) ? 0 : am);
+      const bMinutes = (Number.isNaN(bh) ? 0 : bh) * 60 + (Number.isNaN(bm) ? 0 : bm);
+      if (aMinutes !== bMinutes) return aMinutes - bMinutes;
+      return a.name.localeCompare(b.name);
+    });
+
+    const existingSerie = series.find(
+      (s) =>
+        s.puestoId === puestoId &&
+        s.slotNumber === slotNumber &&
+        s.isRotativo &&
+        Boolean(s.rotatePuestoId)
+    );
+
+    const existingRotatePuesto = existingSerie?.rotatePuestoId
+      ? sortedOppositePuestos.find((p) => p.id === existingSerie.rotatePuestoId)
+      : undefined;
+
+    const rotatePuesto =
+      existingRotatePuesto ||
+      sortedOppositePuestos.find((p) => slotNumber <= p.requiredGuards) ||
+      sortedOppositePuestos[0];
+
+    const maxSlot = rotatePuesto?.requiredGuards ?? 0;
+    const existingRotateSlot =
+      typeof existingSerie?.rotateSlotNumber === "number" ? existingSerie.rotateSlotNumber : null;
+    const rotateSlotNumber =
+      maxSlot > 0
+        ? existingRotateSlot && existingRotateSlot >= 1 && existingRotateSlot <= maxSlot
+          ? existingRotateSlot
+          : Math.min(Math.max(slotNumber, 1), maxSlot)
+        : null;
+
+    const startShift: "day" | "night" =
+      existingSerie?.startShift === "day" || existingSerie?.startShift === "night"
+        ? existingSerie.startShift
+        : currentIsNight
+        ? "night"
+        : "day";
+
+    return {
+      rotatePuestoId: rotatePuesto?.id ?? null,
+      rotateSlotNumber,
+      startShift,
+    };
+  };
+
+  // Open serie modal
+  const openSerieModal = (puestoId: string, slotNumber: number, dateKey: string) => {
+    const autoRotativo = resolveAutoRotativoConfig(puestoId, slotNumber);
     setSerieForm({
       puestoId,
       slotNumber,
@@ -947,9 +931,9 @@ export function OpsPautaMensualClient({
       startDate: dateKey,
       startPosition: 1,
       isRotativo: false,
-      rotatePuestoId: "",
-      rotateSlotNumber: 1,
-      startShift: currentIsNight ? "night" : "day",
+      rotatePuestoId: autoRotativo.rotatePuestoId ?? "",
+      rotateSlotNumber: autoRotativo.rotateSlotNumber ?? 1,
+      startShift: autoRotativo.startShift,
     });
     setSerieModalOpen(true);
   };
@@ -962,8 +946,21 @@ export function OpsPautaMensualClient({
       return;
     }
 
-    if (serieForm.isRotativo && !serieForm.rotatePuestoId) {
-      toast.error("Selecciona el puesto par para el turno rotativo");
+    const autoRotativo = serieForm.isRotativo
+      ? resolveAutoRotativoConfig(serieForm.puestoId, serieForm.slotNumber)
+      : null;
+    const rotatePuestoId = serieForm.isRotativo
+      ? serieForm.rotatePuestoId || autoRotativo?.rotatePuestoId || ""
+      : "";
+    const rotateSlotNumber = serieForm.isRotativo
+      ? serieForm.rotateSlotNumber || autoRotativo?.rotateSlotNumber || 0
+      : 0;
+    const startShift = serieForm.isRotativo
+      ? serieForm.startShift || autoRotativo?.startShift || "day"
+      : "day";
+
+    if (serieForm.isRotativo && (!rotatePuestoId || !rotateSlotNumber)) {
+      toast.error("No hay un puesto de turno contrario configurado para pintar rotativo");
       return;
     }
 
@@ -983,9 +980,9 @@ export function OpsPautaMensualClient({
       };
 
       if (serieForm.isRotativo) {
-        payload_body.rotatePuestoId = serieForm.rotatePuestoId;
-        payload_body.rotateSlotNumber = serieForm.rotateSlotNumber;
-        payload_body.startShift = serieForm.startShift;
+        payload_body.rotatePuestoId = rotatePuestoId;
+        payload_body.rotateSlotNumber = rotateSlotNumber;
+        payload_body.startShift = startShift;
       }
 
       const res = await fetch("/api/ops/pauta-mensual/pintar-serie", {
@@ -1125,7 +1122,7 @@ export function OpsPautaMensualClient({
 
     return (
       <div className="space-y-3">
-        {/* Month/Year selector + búsquedas (instalación/cliente + guardia) */}
+        {/* Month/Year selector + búsqueda por instalación/cliente */}
         <Card>
           <CardContent className="pt-3 pb-2.5">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
@@ -1133,7 +1130,7 @@ export function OpsPautaMensualClient({
                 <div key="overview-month" className="space-y-1">
                   <Label className="text-xs">Mes</Label>
                   <select
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                     value={month}
                     onChange={(e) => setMonth(Number(e.target.value))}
                   >
@@ -1166,12 +1163,6 @@ export function OpsPautaMensualClient({
                     />
                   </div>
                 </div>
-                {globalSearchSlot && (
-                  <div key="overview-guardia-search" className="space-y-1">
-                    <Label className="text-xs">Buscar guardia</Label>
-                    {globalSearchSlot}
-                  </div>
-                )}
               </div>
               <div key="overview-status" className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
@@ -1330,12 +1321,12 @@ export function OpsPautaMensualClient({
                 Volver al resumen
               </button>
             </div>
-            {/* Filtros: Cliente + Instalación + Mes + Año + Buscar guardia */}
+            {/* Filtros: Cliente + Instalación + Mes + Año */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                 >
@@ -1347,7 +1338,7 @@ export function OpsPautaMensualClient({
               <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Instalación</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={installationId}
                   onChange={(e) => setInstallationId(e.target.value)}
                 >
@@ -1359,7 +1350,7 @@ export function OpsPautaMensualClient({
               <div key="filter-month" className="space-y-1">
                 <Label className="text-xs">Mes</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
                 >
@@ -1379,12 +1370,6 @@ export function OpsPautaMensualClient({
                   className="h-8 text-sm"
                 />
               </div>
-              {globalSearchSlot && (
-                <div key="filter-guardia-search" className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label className="text-xs">Buscar guardia</Label>
-                  {globalSearchSlot}
-                </div>
-              )}
             </div>
             {/* Status + Exportar + Regenerar */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1400,6 +1385,20 @@ export function OpsPautaMensualClient({
                 </div>
               ) : null}
               <div className="flex items-center gap-1.5 ml-auto">
+                {installationId ? (
+                  <Link href={`/crm/installations/${installationId}`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-7 px-2"
+                      title="Abrir ficha de instalación en CRM"
+                    >
+                      <ExternalLink className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Instalación</span>
+                      <span className="sm:hidden">CRM</span>
+                    </Button>
+                  </Link>
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1534,7 +1533,7 @@ export function OpsPautaMensualClient({
                 </div>
               </div>
 
-              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto">
               <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
                 <colgroup>
                   <col style={{ width: "22%" }} />
@@ -1673,7 +1672,7 @@ export function OpsPautaMensualClient({
                                       <span className="hidden sm:inline truncate">{row.puestoName}</span>
                                     </span>
                                     <span className="shrink-0 text-[10px] text-muted-foreground hidden sm:inline">
-                                      {"shiftDisplay" in row ? row.shiftDisplay : `${row.shiftStart}-${row.shiftEnd}`}
+                                      {`${row.shiftStart}-${row.shiftEnd}`}
                                     </span>
                                   </div>
                                 )}
@@ -1700,7 +1699,7 @@ export function OpsPautaMensualClient({
                                   {row.patternCode && (
                                     <span className="text-primary/50 text-[10px] hidden sm:inline">
                                       {row.patternCode}
-                                      {("kind" in row && row.kind === "rotativo") || ("isRotativo" in row && (row as { isRotativo?: boolean }).isRotativo) ? (
+                                      {row.isRotativo ? (
                                         <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
                                           rot
                                         </span>
@@ -1714,15 +1713,19 @@ export function OpsPautaMensualClient({
                               {visibleDays.map((d) => {
                                 const dateKey = toDateKey(d);
                                 const cellData = row.cells.get(dateKey);
-                                const isRotativoRow = "kind" in row && row.kind === "rotativo";
-                                const rotativoCell = isRotativoRow ? (cellData as { displayCode: "Td" | "Tn" | "-"; item?: PautaItem; execution?: ExecutionCell; clickPuestoId: string; clickSlotNumber: number } | undefined) : undefined;
-                                const cell = isRotativoRow ? rotativoCell?.item : (cellData as { item?: PautaItem; execution?: ExecutionCell } | undefined)?.item;
-                                const execution = isRotativoRow ? rotativoCell?.execution : (cellData as { item?: PautaItem; execution?: ExecutionCell } | undefined)?.execution;
-                                const code = isRotativoRow ? (rotativoCell?.displayCode ?? "") : ((cell as PautaItem | undefined)?.shiftCode ?? "");
-                                const isEmpty = isRotativoRow ? !rotativoCell : !code;
-                                const isTrabajo = isRotativoRow ? (rotativoCell?.displayCode === "Td" || rotativoCell?.displayCode === "Tn") : code === "T";
+                                const cell = cellData?.item;
+                                const execution = cellData?.execution;
+                                const hasCell = Boolean(cellData);
+                                const isRotativoRow = row.isRotativo === true;
+                                const code = isRotativoRow
+                                  ? getRotativoDisplayCode(row, dateKey, cell?.shiftCode)
+                                  : (cell?.shiftCode ?? "");
+                                const isEmpty = !hasCell || !code;
+                                const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
                                 const trabajoClass = isRotativoRow
-                                  ? (rotativoCell?.displayCode === "Tn" ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" : "bg-amber-500/20 text-amber-300 border-amber-500/30")
+                                  ? (code === "Tn"
+                                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                                    : "bg-amber-500/20 text-amber-300 border-amber-500/30")
                                   : (group.shiftType === "night"
                                     ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
                                     : "bg-amber-500/20 text-amber-300 border-amber-500/30");
@@ -1748,10 +1751,11 @@ export function OpsPautaMensualClient({
                                           ? "bg-zinc-600 text-zinc-100"
                                           : "";
 
-                                const clickPuestoId = isRotativoRow && rotativoCell ? rotativoCell.clickPuestoId : row.puestoId;
-                                const clickSlotNumber = isRotativoRow && rotativoCell ? rotativoCell.clickSlotNumber : row.slotNumber;
+                                const clickPuestoId = row.puestoId;
+                                const clickSlotNumber = row.slotNumber;
+                                const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
                                 const displayCode = isRotativoRow
-                                  ? (rotativoCell?.displayCode ?? "·")
+                                  ? (code || "·")
                                   : (isTrabajo ? "T" : (code || "·"));
                                 const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
 
@@ -1760,7 +1764,7 @@ export function OpsPautaMensualClient({
                                     key={dateKey}
                                     className="text-center px-0.5 py-0.5"
                                   >
-                                    {(cell || (isRotativoRow && rotativoCell)) ? (
+                                    {hasCell ? (
                                       <div
                                         className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-7 sm:h-6 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
                                           isEmpty
@@ -1817,12 +1821,12 @@ export function OpsPautaMensualClient({
                                             slotNumber: clickSlotNumber,
                                             dateKey,
                                             puestoName: row.puestoName,
-                                            guardiaId: row.guardiaId,
+                                            guardiaId: clickGuardiaId,
                                           });
                                         }}
                                         onContextMenu={(e) => {
                                           e.preventDefault();
-                                          if (!cell && !rotativoCell) return;
+                                          if (!hasCell) return;
                                           openEliminarSerieModal({
                                             puestoId: clickPuestoId,
                                             slotNumber: clickSlotNumber,
@@ -1869,7 +1873,7 @@ export function OpsPautaMensualClient({
                                             slotNumber: clickSlotNumber,
                                             dateKey,
                                             puestoName: row.puestoName,
-                                            guardiaId: row.guardiaId,
+                                            guardiaId: clickGuardiaId,
                                           })
                                         }
                                       >
@@ -1894,12 +1898,12 @@ export function OpsPautaMensualClient({
                           let slots = 0;
                           for (const g of groups) {
                             for (const r of g.rows) {
-                              if ("kind" in r && r.kind === "rotativo") {
-                                const rc = r.cells.get(dk);
-                                if (rc?.displayCode === "Td" || rc?.displayCode === "Tn") slots += 1;
-                              } else {
-                                const c = (r as MatrixRow).cells.get(dk)?.item;
-                                if (c?.shiftCode === "T") slots += 1;
+                              const shiftCode = r.cells.get(dk)?.item?.shiftCode;
+                              if (r.isRotativo) {
+                                const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
+                                if (displayCode === "Td" || displayCode === "Tn") slots += 1;
+                              } else if (shiftCode === "T") {
+                                slots += 1;
                               }
                             }
                           }
@@ -1927,12 +1931,12 @@ export function OpsPautaMensualClient({
                       const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.rotativo, ...groupedByShiftType.night];
                       for (const g of allGroups) {
                         for (const r of g.rows) {
-                          if ("kind" in r && r.kind === "rotativo") {
-                            const rc = r.cells.get(dk);
-                            if (rc?.displayCode === "Td" || rc?.displayCode === "Tn") slots += 1;
-                          } else {
-                            const c = (r as MatrixRow).cells.get(dk)?.item;
-                            if (c?.shiftCode === "T") slots += 1;
+                          const shiftCode = r.cells.get(dk)?.item?.shiftCode;
+                          if (r.isRotativo) {
+                            const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
+                            if (displayCode === "Td" || displayCode === "Tn") slots += 1;
+                          } else if (shiftCode === "T") {
+                            slots += 1;
                           }
                         }
                       }
@@ -2004,7 +2008,7 @@ export function OpsPautaMensualClient({
           <DialogHeader>
             <DialogTitle>Pintar serie de turnos</DialogTitle>
             <DialogDescription>
-              Define la rotación para este guardia desde el día seleccionado. Cada línea se pinta de forma independiente.
+              Define la rotación para este slot desde el día seleccionado. El guardia se toma desde la asignación activa del slot.
             </DialogDescription>
           </DialogHeader>
 
@@ -2012,7 +2016,7 @@ export function OpsPautaMensualClient({
             <div className="space-y-1.5">
               <Label>Patrón de turno</Label>
               <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-0 text-sm leading-tight"
                 value={serieForm.patternCode}
                 onChange={(e) => setSerieForm((p) => ({ ...p, patternCode: e.target.value, startPosition: 1 }))}
               >
@@ -2032,7 +2036,7 @@ export function OpsPautaMensualClient({
               return (
                 <div className="rounded-md border border-border p-3">
                   <p className="text-xs font-medium mb-1.5">
-                    Selecciona el día del ciclo donde inicia el guardia
+                    Selecciona el día del ciclo donde inicia este slot
                   </p>
                   <p className="text-[10px] text-muted-foreground mb-3">
                     Pincha el día del ciclo que corresponde al primer día en la pauta.
@@ -2086,7 +2090,11 @@ export function OpsPautaMensualClient({
               const oppositePuestos = getOppositePuestos(serieForm.puestoId);
               const currentPuesto = allPuestos.find((p) => p.id === serieForm.puestoId);
               const currentIsNight = currentPuesto ? isPuestoNight(currentPuesto.shiftStart) : false;
-              const selectedRotatePuesto = allPuestos.find((p) => p.id === serieForm.rotatePuestoId);
+              const autoRotativo = resolveAutoRotativoConfig(serieForm.puestoId, serieForm.slotNumber);
+              const selectedRotatePuesto = autoRotativo.rotatePuestoId
+                ? allPuestos.find((p) => p.id === autoRotativo.rotatePuestoId)
+                : null;
+              const autoShiftLabel = autoRotativo.startShift === "night" ? "Nocturno" : "Diurno";
 
               return (
                 <div className="rounded-md border border-border p-3 space-y-3">
@@ -2094,7 +2102,7 @@ export function OpsPautaMensualClient({
                     <div>
                       <p className="text-xs font-medium">Turno rotativo</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta la línea de este guardia, sin tomar automáticamente el guardia del puesto par.
+                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Se resuelve en automático para esta línea.
                       </p>
                     </div>
                     <button
@@ -2102,13 +2110,26 @@ export function OpsPautaMensualClient({
                       role="switch"
                       aria-checked={serieForm.isRotativo}
                       onClick={() =>
-                        setSerieForm((p) => ({
-                          ...p,
-                          isRotativo: !p.isRotativo,
-                          rotatePuestoId: !p.isRotativo ? (oppositePuestos[0]?.id ?? "") : "",
-                          rotateSlotNumber: 1,
-                          startShift: currentIsNight ? "night" : "day",
-                        }))
+                        setSerieForm((p) => {
+                          const nextIsRotativo = !p.isRotativo;
+                          if (!nextIsRotativo) {
+                            return {
+                              ...p,
+                              isRotativo: false,
+                              rotatePuestoId: "",
+                              rotateSlotNumber: 1,
+                              startShift: currentIsNight ? "night" : "day",
+                            };
+                          }
+                          const defaults = resolveAutoRotativoConfig(p.puestoId, p.slotNumber);
+                          return {
+                            ...p,
+                            isRotativo: true,
+                            rotatePuestoId: defaults.rotatePuestoId ?? "",
+                            rotateSlotNumber: defaults.rotateSlotNumber ?? 1,
+                            startShift: defaults.startShift,
+                          };
+                        })
                       }
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
                         serieForm.isRotativo ? "bg-violet-500" : "bg-zinc-600"
@@ -2148,202 +2169,32 @@ export function OpsPautaMensualClient({
                           )}
                         </div>
                       ) : (
-                        <>
-                          {/* Puesto par selector - clear visual card */}
-                          <div className="space-y-2">
-                            <div>
-                              <Label className="text-xs">Puesto donde rotará en turno {currentIsNight ? "diurno" : "nocturno"}</Label>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                El guardia alternará entre el puesto actual y este puesto cada ciclo. El guardia del puesto par se asigna por separado.
+                        <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
+                          <p className="text-xs font-medium text-violet-200">
+                            Emparejamiento automático de turno contrario
+                          </p>
+                          <p className="text-[10px] text-violet-100/80">
+                            Esta acción pinta la serie de este slot. El sistema define automáticamente el puesto y posición del turno contrario.
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Slot base</p>
+                              <p className="text-[11px] font-medium text-foreground truncate">
+                                {currentPuesto?.name ?? "—"} · S{serieForm.slotNumber}
                               </p>
                             </div>
-
-                            {oppositePuestos.length === 1 ? (
-                              /* Si solo hay un puesto opuesto, mostrarlo como card fija */
-                              <div className="rounded-md border border-border bg-muted/20 p-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold border ${
-                                    isPuestoNight(oppositePuestos[0].shiftStart)
-                                      ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                  }`}>
-                                    {isPuestoNight(oppositePuestos[0].shiftStart) ? "N" : "D"}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-medium text-foreground truncate">{oppositePuestos[0].name}</p>
-                                    <p className="text-[10px] text-muted-foreground">{oppositePuestos[0].shiftStart} - {oppositePuestos[0].shiftEnd}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              /* Si hay múltiples puestos opuestos, dropdown */
-                              <select
-                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                value={serieForm.rotatePuestoId}
-                                onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: 1 }))}
-                              >
-                                {oppositePuestos.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} ({p.shiftStart}-{p.shiftEnd})
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-
-                          {/* Slot selection in the paired puesto - only if multiple guards */}
-                          {selectedRotatePuesto && selectedRotatePuesto.requiredGuards > 1 && (
-                            <div className="space-y-2">
-                              <Label className="text-xs">Posición en {selectedRotatePuesto.name}</Label>
-                              <p className="text-[10px] text-muted-foreground">
-                                Elige en qué posición del puesto par quedará este guardia cuando rote.
-                              </p>
-                              <div className="grid gap-1.5">
-                                {Array.from({ length: selectedRotatePuesto.requiredGuards }, (_, i) => {
-                                  const slotNum = i + 1;
-                                  const slotAsig = slotAsignaciones.find(
-                                    (a) => a.puestoId === serieForm.rotatePuestoId && a.slotNumber === slotNum
-                                  );
-                                  const isSelected = serieForm.rotateSlotNumber === slotNum;
-                                  return (
-                                    <button
-                                      key={slotNum}
-                                      type="button"
-                                      onClick={() => setSerieForm((p) => ({ ...p, rotateSlotNumber: slotNum }))}
-                                      className={`flex items-center gap-2 rounded-md border-2 px-3 py-2 text-left transition-all ${
-                                        isSelected
-                                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                          : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                      }`}
-                                    >
-                                      <span className={`text-xs font-mono font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
-                                        S{slotNum}
-                                      </span>
-                                      <div className="flex-1 min-w-0">
-                                        {slotAsig ? (
-                                          <span className="text-xs text-foreground font-medium truncate block">
-                                            {slotAsig.guardia.persona.firstName} {slotAsig.guardia.persona.lastName}
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs text-amber-400/60 italic">Sin guardia asignado</span>
-                                        )}
-                                      </div>
-                                      {isSelected && (
-                                        <span className="shrink-0 w-2 h-2 rounded-full bg-primary" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Start shift: which puesto goes first */}
-                          <div className="space-y-2">
-                            <div>
-                              <Label className="text-xs">¿Comienza de día o de noche?</Label>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Indica en qué puesto arranca el primer ciclo de trabajo.
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Turno contrario</p>
+                              <p className="text-[11px] font-medium text-foreground truncate">
+                                {selectedRotatePuesto?.name ?? "—"} · S{autoRotativo.rotateSlotNumber ?? "—"}
                               </p>
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "day" }))}
-                                className={`flex-1 rounded-md px-3 py-2.5 text-left border-2 transition-all ${
-                                  serieForm.startShift === "day"
-                                    ? "border-amber-400 bg-amber-500/10"
-                                    : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="rounded-full px-1 py-px text-[8px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">D</span>
-                                  <span className={`text-xs font-medium ${serieForm.startShift === "day" ? "text-amber-300" : "text-muted-foreground"}`}>Diurno</span>
-                                </div>
-                                <p className="text-[9px] text-muted-foreground truncate">
-                                  {currentIsNight
-                                    ? (selectedRotatePuesto?.name ?? "Puesto diurno")
-                                    : (currentPuesto?.name ?? "Puesto actual")}
-                                </p>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSerieForm((p) => ({ ...p, startShift: "night" }))}
-                                className={`flex-1 rounded-md px-3 py-2.5 text-left border-2 transition-all ${
-                                  serieForm.startShift === "night"
-                                    ? "border-indigo-400 bg-indigo-500/10"
-                                    : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="rounded-full px-1 py-px text-[8px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">N</span>
-                                  <span className={`text-xs font-medium ${serieForm.startShift === "night" ? "text-indigo-300" : "text-muted-foreground"}`}>Nocturno</span>
-                                </div>
-                                <p className="text-[9px] text-muted-foreground truncate">
-                                  {currentIsNight
-                                    ? (currentPuesto?.name ?? "Puesto actual")
-                                    : (selectedRotatePuesto?.name ?? "Puesto nocturno")}
-                                </p>
-                              </button>
+                            <div className="rounded-md border border-violet-500/20 bg-background/30 p-2">
+                              <p className="text-[9px] uppercase tracking-wide text-violet-200/70">Inicio de ciclo</p>
+                              <p className="text-[11px] font-medium text-foreground">{autoShiftLabel}</p>
                             </div>
                           </div>
-
-                          {/* Visual preview of rotative cycle with puesto names */}
-                          {(() => {
-                            const pattern = PATTERNS.find((p) => p.code === serieForm.patternCode);
-                            if (!pattern) return null;
-                            const dayPuesto = currentIsNight ? selectedRotatePuesto : currentPuesto;
-                            const nightPuesto = currentIsNight ? currentPuesto : selectedRotatePuesto;
-                            const firstPuesto = serieForm.startShift === "day" ? dayPuesto : nightPuesto;
-                            const secondPuesto = serieForm.startShift === "day" ? nightPuesto : dayPuesto;
-                            return (
-                              <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
-                                <p className="text-[10px] font-semibold text-violet-300">Resumen del ciclo rotativo</p>
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0">Ciclo 1</span>
-                                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                      serieForm.startShift === "day"
-                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/20"
-                                        : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
-                                    }`}>
-                                      {pattern.work} días trabajo
-                                    </span>
-                                    <span className="text-[9px] text-muted-foreground truncate">
-                                      en {firstPuesto?.name ?? "—"}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0" />
-                                    <span className="rounded px-1.5 py-0.5 text-[9px] bg-zinc-700/30 text-zinc-500 border border-zinc-600/20">
-                                      {pattern.off} días descanso
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0">Ciclo 2</span>
-                                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                      serieForm.startShift === "day"
-                                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
-                                        : "bg-amber-500/20 text-amber-300 border border-amber-500/20"
-                                    }`}>
-                                      {pattern.work} días trabajo
-                                    </span>
-                                    <span className="text-[9px] text-muted-foreground truncate">
-                                      en {secondPuesto?.name ?? "—"}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground w-12 shrink-0" />
-                                    <span className="rounded px-1.5 py-0.5 text-[9px] bg-zinc-700/30 text-zinc-500 border border-zinc-600/20">
-                                      {pattern.off} días descanso
-                                    </span>
-                                  </div>
-                                  <p className="text-[9px] text-muted-foreground/50 italic pt-0.5">y repite…</p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </>
+                        </div>
                       )}
                     </>
                   )}

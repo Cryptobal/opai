@@ -4,7 +4,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ChevronRight, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { ThemeLogo } from './ThemeLogo';
 
 export interface NavSubItem {
@@ -633,6 +633,32 @@ export function AppSidebar({
             )}
           </Link>
         )}
+
+        <Link
+          href="/api/auth/signout?callbackUrl=/opai/login"
+          onClick={onNavigate}
+          title={collapsed ? "Cerrar sesión" : undefined}
+          className={cn(
+            "flex rounded-md transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+            collapsed
+              ? "justify-center p-2 mb-1"
+              : showCloseButton
+              ? "items-center gap-2.5 px-2.5 py-2 mb-2"
+              : "items-center gap-2.5 px-2 py-1.5 mb-2"
+          )}
+        >
+          <LogOut className={cn("shrink-0", showCloseButton ? "h-4 w-4" : "h-3.5 w-3.5")} />
+          {!collapsed && (
+            <span
+              className={cn(
+                "font-medium",
+                showCloseButton ? "text-sm" : "text-xs"
+              )}
+            >
+              Cerrar sesión
+            </span>
+          )}
+        </Link>
 
         <div className={cn("flex gap-1 w-full", collapsed ? "flex-col items-center" : "items-center")}>
           {footer && (

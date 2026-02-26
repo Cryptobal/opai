@@ -10,7 +10,7 @@ interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
@@ -71,7 +71,7 @@ export function ConfirmDialog({
               <DialogPrimitive.Title className="text-base font-semibold text-foreground">
                 {title}
               </DialogPrimitive.Title>
-              <DialogPrimitive.Description className="text-sm text-muted-foreground leading-relaxed">
+              <DialogPrimitive.Description className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {description}
               </DialogPrimitive.Description>
             </div>

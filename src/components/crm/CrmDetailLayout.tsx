@@ -6,6 +6,7 @@ import { CrmRecordHeader, type CrmRecordHeaderProps } from "./CrmRecordHeader";
 import { CRM_SECTIONS, type CrmSectionKey } from "./CrmModuleIcons";
 import { type SectionPageType } from "@/lib/use-section-preferences";
 import { DetailLayout } from "@/components/opai/DetailLayout";
+import { cn } from "@/lib/utils";
 
 /* ── Types ── */
 
@@ -68,7 +69,7 @@ export function CrmDetailLayout({
   pageType,
   fixedSectionKey,
   defaultCollapsedSectionKeys,
-  className: _className,
+  className,
   // RecordHeader props
   module,
   title,
@@ -102,6 +103,7 @@ export function CrmDetailLayout({
       fixedSectionKey={fixedSectionKey}
       defaultCollapsedSectionKeys={defaultCollapsedSectionKeys}
       sections={mappedSections}
+      className={cn("-mt-3 sm:-mt-4 lg:-mt-5", className)}
       header={
         <CrmRecordHeader
           module={module}
