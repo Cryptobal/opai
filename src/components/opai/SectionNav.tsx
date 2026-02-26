@@ -30,8 +30,8 @@ interface SectionNavProps {
   layout?: SectionNavLayout;
 }
 
-/** Threshold for switching to vertical layout in auto mode */
-const VERTICAL_THRESHOLD = 7;
+/** Threshold for switching to vertical layout in auto mode (≥6 sections = vertical bar) */
+const VERTICAL_THRESHOLD = 6;
 
 /**
  * Resolve the effective layout given the prop and section count.
@@ -43,7 +43,7 @@ export function resolveSectionNavLayout(
 ): "horizontal" | "vertical" {
   if (layout === "horizontal") return "horizontal";
   if (layout === "vertical") return "vertical";
-  return sectionCount > VERTICAL_THRESHOLD ? "vertical" : "horizontal";
+  return sectionCount >= VERTICAL_THRESHOLD ? "vertical" : "horizontal";
 }
 
 function useWindowWidth() {
