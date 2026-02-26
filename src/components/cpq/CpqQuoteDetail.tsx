@@ -1050,9 +1050,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       </div>
 
       {activeStep === 0 && (
-        <div className="space-y-2" inert={isLocked}>
-          {/* ── CRM Context: compact 2-col grid ── */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+        <div className="space-y-2">
+          <div className="space-y-2" inert={isLocked}>
+            {/* ── CRM Context: compact 2-col grid ── */}
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
               <div className="flex gap-0.5">
@@ -1153,35 +1154,6 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
             </div>
 
-            {crmContext.installationId && (
-              <div className="col-span-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                      Ubicación de instalación
-                    </p>
-                    <p className="mt-0.5 text-xs font-medium text-foreground truncate">
-                      {selectedInstallation?.name || "Instalación seleccionada"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground break-words">
-                      {selectedInstallationAddress || "Sin dirección registrada"}
-                    </p>
-                  </div>
-                  {selectedInstallationMapsUrl ? (
-                    <a
-                      href={selectedInstallationMapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                    >
-                      <MapPin className="h-3 w-3" />
-                      Ver mapa
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ── Inline Create Modal (unchanged logic) ── */}
@@ -1342,6 +1314,37 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
           {quoteError && (
             <div className="text-[11px] text-red-400">{quoteError}</div>
+          )}
+
+          </div>
+
+          {crmContext.installationId && (
+            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                    Ubicación de instalación
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-foreground truncate">
+                    {selectedInstallation?.name || "Instalación seleccionada"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground break-words">
+                    {selectedInstallationAddress || "Sin dirección registrada"}
+                  </p>
+                </div>
+                {selectedInstallationMapsUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(selectedInstallationMapsUrl, "_blank", "noopener,noreferrer")}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    <MapPin className="h-3 w-3" />
+                    Ver dirección de instalación
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
           )}
         </div>
       )}
