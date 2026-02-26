@@ -1,4 +1,5 @@
-import { appendFile } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
       timestamp: typeof body.timestamp === "number" ? body.timestamp : Date.now(),
       runId: typeof body.runId === "string" ? body.runId : "unknown-run",
     };
+    await mkdir(dirname(DEBUG_LOG_PATH), { recursive: true });
     await appendFile(DEBUG_LOG_PATH, `${JSON.stringify(entry)}\n`, "utf8");
     return NextResponse.json({ success: true });
   } catch {

@@ -96,7 +96,7 @@ function getDealsFocusLabel(focus: DealsFocus): string | null {
 }
 
 const DRAG_AUTO_EXPAND_DELAY_MS = 400;
-const DEBUG_LOG_ENDPOINT = "/api/__debug/log";
+const DEBUG_LOG_ENDPOINT = "/api/debug/log";
 
 type DebugHypothesisId = "H1" | "H2" | "H3" | "H4" | "H5";
 
