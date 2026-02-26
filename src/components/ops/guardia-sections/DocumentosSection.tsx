@@ -221,7 +221,7 @@ export default function DocumentosSection({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground -mt-1">
+      <p className="text-sm text-muted-foreground">
         Sube certificado de antecedentes, OS-10, cédula de identidad, currículum, contratos y anexos.
       </p>
       {expiringDocs.length > 0 ? (
@@ -233,7 +233,7 @@ export default function DocumentosSection({
         <p className="text-sm font-medium">Subir nuevo documento</p>
         <div className="grid gap-3 md:grid-cols-12">
           <div className="md:col-span-4">
-            <label className="text-xs text-muted-foreground block mb-1">Tipo de documento</label>
+            <label className="text-xs text-muted-foreground block mb-1.5">Tipo de documento</label>
             <select
               className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
               value={docForm.type}
@@ -255,7 +255,7 @@ export default function DocumentosSection({
           </div>
           {hasExpirationByType.get(docForm.type) && (
             <div className="md:col-span-4">
-              <label className="text-xs text-muted-foreground block mb-1">Vencimiento</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">Vencimiento</label>
               <div className="flex items-center gap-2">
                 <Input
                   ref={expiresAtRef}

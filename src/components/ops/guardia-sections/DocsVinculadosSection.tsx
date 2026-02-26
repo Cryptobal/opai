@@ -109,7 +109,7 @@ export default function DocsVinculadosSection({
 
   return (
     <div className="space-y-3">
-      <div className="text-sm text-muted-foreground -mt-1 space-y-1">
+      <div className="text-sm text-muted-foreground space-y-1">
         <p>
           Aquí puedes vincular documentos que ya existen en el módulo <strong>Documentos</strong> (OPAI) a esta ficha de guardia. Sirve para mantener trazabilidad: por ejemplo, asociar el contrato o un anexo generado en Docs con este guardia, y ver desde su ficha qué documentos formales tiene vinculados.
         </p>

@@ -342,7 +342,7 @@ export function SueldosRutListClient() {
             const totalHaberes = s.baseSalary + s.colacion + s.movilizacion + totalBonos;
             return (
               <Card key={s.structureId} className={`transition-colors ${!s.isActive ? "opacity-60" : "hover:bg-accent/20"}`}>
-                <CardContent className="pt-4 pb-4 flex items-center gap-4">
+                <CardContent className="pt-4 flex items-center gap-4">
                   <div className={`flex h-9 w-10 shrink-0 items-center justify-center rounded-full ${s.isActive ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground"}`}>
                     <User className="h-5 w-5" />
                   </div>

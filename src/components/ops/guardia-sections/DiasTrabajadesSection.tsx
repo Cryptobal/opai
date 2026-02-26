@@ -95,7 +95,7 @@ export default function DiasTrabajadesSection({ guardiaId }: DiasTrabajadesSecti
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground -mt-1">
+      <p className="text-sm text-muted-foreground">
         Días en que este guardia asistió o cubrió como reemplazo (últimos 12 meses). Base para liquidación y portal del guardia.
       </p>
       {diasTrabajadosLoading ? (

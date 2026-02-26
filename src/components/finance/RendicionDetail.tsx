@@ -290,7 +290,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
 
       {/* Status banner */}
       <Card className={cn("border-l-4", r.status === "REJECTED" ? "border-l-red-500" : r.status === "APPROVED" ? "border-l-emerald-500" : r.status === "PAID" ? "border-l-purple-500" : "border-l-blue-500")}>
-        <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+        <CardContent className="pt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <StatusIcon className="h-5 w-5 text-muted-foreground" />
             <div>
@@ -312,7 +312,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
       {/* Rejection reason */}
       {r.status === "REJECTED" && r.rejectionReason && (
         <Card className="bg-red-500/5 border-red-500/20">
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-4">
             <div className="flex items-start gap-2">
               <XCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
               <div>

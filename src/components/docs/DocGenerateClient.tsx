@@ -341,10 +341,12 @@ export function DocGenerateClient() {
 
         {/* Center + Right: Entity selectors */}
         <div className="lg:col-span-2 space-y-4 p-4 rounded-lg border border-border bg-card">
-          <h3 className="text-sm font-semibold">Asociar Entidades CRM</h3>
-          <p className="text-xs text-muted-foreground -mt-2">
-            Selecciona las entidades para resolver los tokens del documento
-          </p>
+          <div>
+            <h3 className="text-sm font-semibold">Asociar Entidades CRM</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Selecciona las entidades para resolver los tokens del documento
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Account */}

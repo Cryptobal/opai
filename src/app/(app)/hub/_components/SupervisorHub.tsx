@@ -79,7 +79,7 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
     ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Hola, {firstName}</CardTitle>

@@ -267,7 +267,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
     <div className="space-y-6">
       {/* Header fields */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Tipo de documento *</Label>
@@ -479,7 +479,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
       {/* Totals */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="flex flex-col items-end gap-1 text-sm">
             <div className="flex items-center gap-8">
               <span className="text-muted-foreground">Neto</span>
@@ -501,7 +501,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
 
       {/* Options */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Notas / Observaciones</Label>

@@ -155,7 +155,7 @@ export function JournalEntryForm({ accounts, periods }: Props) {
     <div className="space-y-6">
       {/* Header fields */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="je-date">Fecha *</Label>

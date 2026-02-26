@@ -405,7 +405,7 @@ function LoginScreen({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
             RUT
           </label>
           <input
@@ -420,7 +420,7 @@ function LoginScreen({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
             PIN
           </label>
           <input
