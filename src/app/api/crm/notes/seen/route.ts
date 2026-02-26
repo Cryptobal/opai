@@ -15,9 +15,14 @@ export async function POST(request: NextRequest) {
     if (!ctx) return unauthorized();
 
     const body = await request.json().catch(() => ({}));
-    const noteIds = Array.isArray(body.noteIds)
-      ? [...new Set(body.noteIds.map((item: unknown) => String(item)).filter(Boolean))]
-      : [];
+    const rawNoteIds: unknown[] = Array.isArray(body.noteIds) ? body.noteIds : [];
+    const noteIds = Array.from(
+      new Set(
+        rawNoteIds
+          .map((item) => String(item))
+          .filter((item) => item.length > 0)
+      )
+    );
     const read = typeof body.read === "boolean" ? body.read : true;
 
     if (noteIds.length === 0) {

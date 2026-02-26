@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
       await sendMentionNotifications({
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
-        actorName,
+        actorName: authorName,
         entityType: entityType as ValidEntityType,
         entityId: String(entityId),
         rootNoteId: effectiveRootNoteId,
@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
         await sendThreadReplyNotifications({
           tenantId: ctx.tenantId,
           actorUserId: ctx.userId,
-          actorName,
+          actorName: authorName,
           entityType: entityType as ValidEntityType,
           entityId: String(entityId),
           rootNoteId: effectiveRootNoteId,
