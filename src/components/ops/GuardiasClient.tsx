@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { EmptyState } from "@/components/opai";
+import { Avatar, EmptyState } from "@/components/opai";
 import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2 } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -716,13 +716,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               description="Agrega personas para habilitar asignación en pauta. Haz clic en una persona para ver su ficha, documentos, cuentas bancarias e historial."
               compact
             />
-          ) : (
-            <div className={`min-w-0 ${viewMode === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}`}>
+          ) : viewMode === "cards" ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-w-0">
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
-                const lat = item.persona.lat;
-                const lng = item.persona.lng;
-                const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+                const fullName = `${item.persona.firstName} ${item.persona.lastName}`;
 
                 return (
                   <div
@@ -736,18 +734,118 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         router.push(`/personas/guardias/${item.id}`);
                       }
                     }}
-                    className={
-                      viewMode === "cards"
-                        ? "rounded-lg border border-border p-3 flex gap-3 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                        : "rounded-lg border border-border p-3 flex flex-col gap-1.5 md:flex-row md:items-center md:gap-6 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                    }
+                    className="rounded-lg border border-border p-3 flex gap-3 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                   >
-                    {/* Nombre y contacto */}
+                    <Avatar name={fullName} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold truncate">
-                          {item.persona.firstName} {item.persona.lastName}
-                        </p>
+                        <p className="text-sm font-semibold truncate">{fullName}</p>
+                        {canChangeLifecycle ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none hover:opacity-90 ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}
+                              >
+                                {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                              {getLifecycleTransitions(item.lifecycleStatus).map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleLifecycleChange(item, status);
+                                  }}
+                                  disabled={updatingId === item.id}
+                                >
+                                  {updatingId === item.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                  ) : null}
+                                  {LIFECYCLE_LABELS[status] || status}
+                                </DropdownMenuItem>
+                              ))}
+                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 && (
+                                <DropdownMenuItem disabled>Sin transiciones</DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[item.lifecycleStatus] || "bg-muted text-muted-foreground"}`}>
+                            {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
+                          </span>
+                        )}
+                      </div>
+                      {item.code && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.code}</p>
+                      )}
+                      {phone ? (
+                        <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`tel:+56${phone}`}
+                            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="h-3 w-3" />
+                            +56 {phone}
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">Sin teléfono</p>
+                      )}
+                      <div className="mt-1.5">
+                        {item.currentInstallation ? (
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                            <span className="text-xs font-medium truncate min-w-0">{item.currentInstallation.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
+                        )}
+                        {(item.persona.city || item.persona.commune) && (
+                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                            <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate min-w-0">
+                              {[item.persona.commune, item.persona.city].filter(Boolean).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* ── Vista lista: grid con columnas fijas ── */
+            <div className="space-y-1.5 min-w-0">
+              {filtered.map((item) => {
+                const phone = item.persona.phoneMobile;
+                const fullName = `${item.persona.firstName} ${item.persona.lastName}`;
+
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/personas/guardias/${item.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/personas/guardias/${item.id}`);
+                      }
+                    }}
+                    className="rounded-lg border border-border px-3 py-2.5 grid grid-cols-[auto_1fr_minmax(120px,180px)_minmax(140px,200px)] items-center gap-4 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer max-md:grid-cols-[auto_1fr] max-md:gap-2"
+                  >
+                    {/* Col 1: Avatar */}
+                    <Avatar name={fullName} size="md" />
+
+                    {/* Col 2: Nombre + estado + teléfono */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
                         {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -789,9 +887,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
                         )}
                       </div>
-
                       {phone ? (
-                        <div className="flex items-center gap-2 mt-1 ml-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
                           <a
                             href={`tel:+56${phone}`}
                             className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 hover:underline"
@@ -814,45 +911,34 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           </a>
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground mt-1 ml-4">Sin teléfono</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Sin teléfono</p>
                       )}
                     </div>
 
-                    {/* Instalación, ubicación y mapa — a la derecha en grid */}
-                    <div className={
-                      viewMode === "cards"
-                        ? "shrink-0 flex flex-col items-end gap-1 text-right min-w-0"
-                        : "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-6 min-w-0 shrink"
-                    }>
-                      <div className={viewMode === "list" ? "min-w-0 md:min-w-[180px]" : "min-w-0"}>
-                        {item.currentInstallation ? (
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-                            <span className="text-xs font-medium truncate min-w-0">{item.currentInstallation.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
-                        )}
-                      </div>
-                      {(item.persona.city || item.persona.commune) && (
+                    {/* Col 3: Teléfono / Ubicación (hidden on mobile) */}
+                    <div className="min-w-0 max-md:hidden">
+                      {(item.persona.city || item.persona.commune) ? (
                         <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
                           <span className="text-xs text-muted-foreground truncate min-w-0">
                             {[item.persona.commune, item.persona.city].filter(Boolean).join(", ")}
                           </span>
                         </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50 italic">Sin ubicación</span>
                       )}
-                      {lat && lng && mapsKey ? (
-                        <div className="shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=120x80&scale=2&maptype=roadmap&markers=size:small%7Ccolor:red%7C${lat},${lng}&key=${mapsKey}`}
-                            alt="Mapa"
-                            className="rounded border border-border w-[90px] h-[58px] object-cover max-w-full"
-                            loading="lazy"
-                          />
+                    </div>
+
+                    {/* Col 4: Instalación (hidden on mobile) */}
+                    <div className="min-w-0 max-md:hidden">
+                      {item.currentInstallation ? (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                          <span className="text-xs font-medium truncate min-w-0">{item.currentInstallation.name}</span>
                         </div>
-                      ) : null}
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
+                      )}
                     </div>
                   </div>
                 );
