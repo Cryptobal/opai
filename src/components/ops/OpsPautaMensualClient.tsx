@@ -948,7 +948,7 @@ export function OpsPautaMensualClient({
       startPosition: 1,
       isRotativo: false,
       rotatePuestoId: "",
-      rotateSlotNumber: 1,
+      rotateSlotNumber: slotNumber,
       startShift: currentIsNight ? "night" : "day",
     });
     setSerieModalOpen(true);
@@ -965,6 +965,16 @@ export function OpsPautaMensualClient({
     if (serieForm.isRotativo && !serieForm.rotatePuestoId) {
       toast.error("Selecciona el puesto par para el turno rotativo");
       return;
+    }
+    if (serieForm.isRotativo) {
+      const selectedRotatePuesto = allPuestos.find((p) => p.id === serieForm.rotatePuestoId);
+      if (selectedRotatePuesto && serieForm.slotNumber > selectedRotatePuesto.requiredGuards) {
+        toast.error(
+          `El puesto par tiene ${selectedRotatePuesto.requiredGuards} slot(s). ` +
+          `No existe el slot S${serieForm.slotNumber} para esta línea.`
+        );
+        return;
+      }
     }
 
     setSerieSaving(true);
@@ -984,7 +994,7 @@ export function OpsPautaMensualClient({
 
       if (serieForm.isRotativo) {
         payload_body.rotatePuestoId = serieForm.rotatePuestoId;
-        payload_body.rotateSlotNumber = serieForm.rotateSlotNumber;
+        payload_body.rotateSlotNumber = serieForm.slotNumber;
         payload_body.startShift = serieForm.startShift;
       }
 
@@ -2106,7 +2116,7 @@ export function OpsPautaMensualClient({
                           ...p,
                           isRotativo: !p.isRotativo,
                           rotatePuestoId: !p.isRotativo ? (oppositePuestos[0]?.id ?? "") : "",
-                          rotateSlotNumber: 1,
+                          rotateSlotNumber: p.slotNumber,
                           startShift: currentIsNight ? "night" : "day",
                         }))
                       }
@@ -2154,7 +2164,8 @@ export function OpsPautaMensualClient({
                             <div>
                               <Label className="text-xs">Puesto donde rotará en turno {currentIsNight ? "diurno" : "nocturno"}</Label>
                               <p className="text-[10px] text-muted-foreground mt-0.5">
-                                El guardia alternará entre el puesto actual y este puesto cada ciclo. El guardia del puesto par se asigna por separado.
+                                El guardia alternará entre el puesto actual y este puesto cada ciclo, manteniendo esta misma línea (S{serieForm.slotNumber}).
+                                El guardia del puesto par se asigna por separado.
                               </p>
                             </div>
 
@@ -2180,7 +2191,7 @@ export function OpsPautaMensualClient({
                               <select
                                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                 value={serieForm.rotatePuestoId}
-                                onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: 1 }))}
+                                onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: p.slotNumber }))}
                               >
                                 {oppositePuestos.map((p) => (
                                   <option key={p.id} value={p.id}>
@@ -2190,53 +2201,6 @@ export function OpsPautaMensualClient({
                               </select>
                             )}
                           </div>
-
-                          {/* Slot selection in the paired puesto - only if multiple guards */}
-                          {selectedRotatePuesto && selectedRotatePuesto.requiredGuards > 1 && (
-                            <div className="space-y-2">
-                              <Label className="text-xs">Posición en {selectedRotatePuesto.name}</Label>
-                              <p className="text-[10px] text-muted-foreground">
-                                Elige en qué posición del puesto par quedará este guardia cuando rote.
-                              </p>
-                              <div className="grid gap-1.5">
-                                {Array.from({ length: selectedRotatePuesto.requiredGuards }, (_, i) => {
-                                  const slotNum = i + 1;
-                                  const slotAsig = slotAsignaciones.find(
-                                    (a) => a.puestoId === serieForm.rotatePuestoId && a.slotNumber === slotNum
-                                  );
-                                  const isSelected = serieForm.rotateSlotNumber === slotNum;
-                                  return (
-                                    <button
-                                      key={slotNum}
-                                      type="button"
-                                      onClick={() => setSerieForm((p) => ({ ...p, rotateSlotNumber: slotNum }))}
-                                      className={`flex items-center gap-2 rounded-md border-2 px-3 py-2 text-left transition-all ${
-                                        isSelected
-                                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                          : "border-transparent bg-muted/20 hover:border-muted-foreground/20"
-                                      }`}
-                                    >
-                                      <span className={`text-xs font-mono font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
-                                        S{slotNum}
-                                      </span>
-                                      <div className="flex-1 min-w-0">
-                                        {slotAsig ? (
-                                          <span className="text-xs text-foreground font-medium truncate block">
-                                            {slotAsig.guardia.persona.firstName} {slotAsig.guardia.persona.lastName}
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs text-amber-400/60 italic">Sin guardia asignado</span>
-                                        )}
-                                      </div>
-                                      {isSelected && (
-                                        <span className="shrink-0 w-2 h-2 rounded-full bg-primary" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
 
                           {/* Start shift: which puesto goes first */}
                           <div className="space-y-2">
