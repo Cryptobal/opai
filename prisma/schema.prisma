@@ -1646,14 +1646,21 @@ model CrmNote {
   tenantId   String   @map("tenant_id")
   entityType String   @map("entity_type") // "account", "contact", "deal", "quote"
   entityId   String   @map("entity_id")
+  parentId   String?  @map("parent_id") @db.Uuid
   content    String   @db.Text
   mentions   String[] @default([]) // Array of admin IDs mentioned with @
+  mentionMeta Json?   @map("mention_meta") @db.JsonB // Mentions resolved metadata (groups, @all, recipients)
   createdBy  String   @map("created_by") // admin ID
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  parent  CrmNote?  @relation("CrmNoteThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies CrmNote[] @relation("CrmNoteThread")
+
   @@index([tenantId], map: "idx_crm_notes_tenant")
   @@index([entityType, entityId], map: "idx_crm_notes_entity")
+  @@index([parentId], map: "idx_crm_notes_parent")
+  @@index([entityType, entityId, parentId], map: "idx_crm_notes_entity_parent")
   @@index([createdAt(sort: Desc)], map: "idx_crm_notes_created_desc")
   @@map("notes")
   @@schema("crm")

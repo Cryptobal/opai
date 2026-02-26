@@ -301,7 +301,21 @@ export function AppSidebar({
                       collapsed ? "justify-center px-0 py-0" : ""
                     )}
                   >
-                    <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    <span className="relative shrink-0">
+                      <Icon className={cn("shrink-0", showCloseButton ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                      {item.badge != null && item.badge > 0 && (
+                        <span
+                          className={cn(
+                            "absolute rounded-full bg-destructive text-destructive-foreground animate-pulse",
+                            collapsed
+                              ? "top-0 right-0 h-2 w-2 -translate-y-0.5 translate-x-0.5"
+                              : "top-0 right-0 min-w-[18px] h-[18px] text-[10px] font-semibold flex items-center justify-center px-1 -translate-y-1/2 translate-x-1/2"
+                          )}
+                        >
+                          {!collapsed && (item.badge > 99 ? '99+' : item.badge)}
+                        </span>
+                      )}
+                    </span>
                     {!collapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
                   </Link>
                   {!collapsed && (

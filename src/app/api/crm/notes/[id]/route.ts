@@ -41,6 +41,10 @@ export async function PATCH(
     data: {
       content: body.content?.trim() || note.content,
       mentions: Array.isArray(body.mentions) ? body.mentions : note.mentions,
+      mentionMeta:
+        body.mentionMeta && typeof body.mentionMeta === "object"
+          ? (body.mentionMeta as any)
+          : note.mentionMeta,
     },
   });
 

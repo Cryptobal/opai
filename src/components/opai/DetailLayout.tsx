@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -24,6 +24,7 @@ import { useSectionPreferences, type SectionPageType } from "@/lib/use-section-p
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SectionNav, resolveSectionNavLayout, type SectionNavItem } from "./SectionNav";
+import { useSearchParams } from "next/navigation";
 
 export interface DetailLayoutSection {
   key: string;
@@ -123,6 +124,8 @@ export function DetailLayout({
   defaultCollapsedSectionKeys,
   className,
 }: DetailLayoutProps) {
+  const searchParams = useSearchParams();
+  const autoOpenedSectionRef = useRef<string | null>(null);
   const sectionByKey = useMemo(
     () => Object.fromEntries(sections.map((section) => [section.key, section])),
     [sections]
@@ -138,6 +141,24 @@ export function DetailLayout({
       sectionKeys,
       defaultCollapsedSectionKeys,
     });
+
+  useEffect(() => {
+    const sectionToOpen = searchParams.get("openSection");
+    if (!sectionToOpen) return;
+    if (!sectionByKey[sectionToOpen]) return;
+    if (autoOpenedSectionRef.current === sectionToOpen) return;
+
+    autoOpenedSectionRef.current = sectionToOpen;
+    openSection(sectionToOpen);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const sectionEl = document.getElementById(`section-${sectionToOpen}`);
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
+  }, [searchParams, sectionByKey, openSection]);
 
   const orderedSections = useMemo(
     () =>

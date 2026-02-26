@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FileText,
   Building2,
@@ -59,28 +59,36 @@ export function AppLayoutClient({
 }: AppLayoutClientProps) {
   const isAdmin = userRole === 'owner' || userRole === 'admin';
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
 
-  useEffect(() => {
-    fetch('/api/notifications?limit=1')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.success && typeof data?.meta?.unreadCount === 'number') {
-          setNotificationUnreadCount(data.meta.unreadCount);
+  const fetchUnreadCounters = useCallback(() => {
+    Promise.all([
+      fetch('/api/notifications?limit=1').then((r) => r.json()),
+      fetch('/api/notifications?limit=1&types=mention,mention_direct,mention_group').then((r) => r.json()),
+    ])
+      .then(([allData, noteData]) => {
+        if (allData?.success && typeof allData?.meta?.unreadCount === 'number') {
+          setNotificationUnreadCount(allData.meta.unreadCount);
+        }
+        if (noteData?.success && typeof noteData?.meta?.unreadCount === 'number') {
+          setUnreadMentionNotesCount(noteData.meta.unreadCount);
         }
       })
       .catch(() => {});
-    const interval = setInterval(() => {
-      fetch('/api/notifications?limit=1')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data?.success && typeof data?.meta?.unreadCount === 'number') {
-            setNotificationUnreadCount(data.meta.unreadCount);
-          }
-        })
-        .catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetchUnreadCounters();
+    const interval = setInterval(() => {
+      fetchUnreadCounters();
+    }, 30000);
+    const onNoteSeen = () => fetchUnreadCounters();
+    window.addEventListener('opai-note-seen', onNoteSeen as EventListener);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('opai-note-seen', onNoteSeen as EventListener);
+    };
+  }, [fetchUnreadCounters]);
 
   const navItems: NavItem[] = useMemo(() => [
     {
@@ -111,6 +119,7 @@ export function AppLayoutClient({
       label: 'Comercial',
       icon: Building2,
       show: hasModuleAccess(permissions, 'crm'),
+      badge: unreadMentionNotesCount,
       children: [
         canView(permissions, 'crm', 'leads') && { href: '/crm/leads', label: 'Leads', icon: Users },
         canView(permissions, 'crm', 'accounts') && { href: '/crm/accounts', label: 'Cuentas', icon: Building2 },
@@ -304,7 +313,7 @@ export function AppLayoutClient({
         return configChildren;
       })(),
     },
-  ], [permissions, isAdmin, notificationUnreadCount]);
+  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount]);
 
   return (
     <AppShell

@@ -22,7 +22,7 @@ interface NotificationEmailProps {
   category?: string;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "[REDACTED]";
 
 export default function NotificationEmail({
   title,
@@ -130,6 +130,7 @@ const text = {
   color: "#94a3b8",
   fontSize: "15px",
   lineHeight: "1.6",
+  whiteSpace: "pre-line" as const,
   margin: "0 0 16px",
   padding: "0 28px",
 };
