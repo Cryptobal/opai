@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai";
 import {
   Plus,
   Search,
@@ -223,6 +223,99 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
     }
   };
 
+  const tableColumns = useMemo(() => {
+    const cols: DataTableColumn[] = [
+      {
+        key: "rut",
+        label: "RUT",
+        render: (_v: string, row: SupplierRow) => (
+          <span className="font-mono text-xs">{row.rut}</span>
+        ),
+      },
+      {
+        key: "name",
+        label: "Razón Social",
+        render: (_v: string, row: SupplierRow) => (
+          <div>
+            <div>{row.name}</div>
+            {row.tradeName && (
+              <div className="text-xs text-muted-foreground">{row.tradeName}</div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "email",
+        label: "Email",
+        render: (_v: string | null, row: SupplierRow) => (
+          <span className="text-muted-foreground">{row.email ?? "—"}</span>
+        ),
+      },
+      {
+        key: "phone",
+        label: "Teléfono",
+        render: (_v: string | null, row: SupplierRow) => (
+          <span className="text-muted-foreground">{row.phone ?? "—"}</span>
+        ),
+      },
+      {
+        key: "paymentTermDays",
+        label: "Días pago",
+        className: "text-center",
+        render: (v: number) => <span>{v}</span>,
+      },
+      {
+        key: "isActive",
+        label: "Estado",
+        render: (_v: boolean, row: SupplierRow) => (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              row.isActive
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+            )}
+          >
+            {row.isActive ? "Activo" : "Inactivo"}
+          </Badge>
+        ),
+      },
+    ];
+
+    if (canManage) {
+      cols.push({
+        key: "_actions",
+        label: "",
+        render: (_v: unknown, row: SupplierRow) => (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEdit(row)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.id)}
+              disabled={deleting === row.id}
+            >
+              {deleting === row.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              )}
+            </Button>
+          </div>
+        ),
+      });
+    }
+
+    return cols;
+  }, [canManage, deleting, openEdit, handleDelete]);
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
@@ -287,82 +380,12 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">RUT</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Razón Social</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Email</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Teléfono</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Días pago</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado</th>
-                      {canManage && (
-                        <th className="px-3 py-2 font-medium text-muted-foreground" />
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((s) => (
-                      <tr
-                        key={s.id}
-                        className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
-                      >
-                        <td className="px-3 py-2 font-mono text-xs">{s.rut}</td>
-                        <td className="px-3 py-2">
-                          <div>{s.name}</div>
-                          {s.tradeName && (
-                            <div className="text-xs text-muted-foreground">{s.tradeName}</div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">{s.email ?? "—"}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{s.phone ?? "—"}</td>
-                        <td className="px-3 py-2 text-center">{s.paymentTermDays}</td>
-                        <td className="px-3 py-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              s.isActive
-                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
-                            )}
-                          >
-                            {s.isActive ? "Activo" : "Inactivo"}
-                          </Badge>
-                        </td>
-                        {canManage && (
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEdit(s)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(s.id)}
-                                disabled={deleting === s.id}
-                              >
-                                {deleting === s.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                )}
-                              </Button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={tableColumns}
+              data={filtered}
+              compact
+              emptyMessage="Sin proveedores"
+            />
           </div>
 
           {/* Mobile cards */}

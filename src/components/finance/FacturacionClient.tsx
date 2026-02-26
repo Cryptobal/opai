@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -325,96 +325,120 @@ function DtesTab({ dtes, canManage }: { dtes: DteRow[]; canManage: boolean }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Folio</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Receptor</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Neto</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">IVA</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Total</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Estado SII</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((d) => {
-                      const stCfg = SII_STATUS_CONFIG[d.siiStatus] ?? { label: d.siiStatus, className: "bg-muted" };
-                      return (
-                        <tr key={d.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-3 py-2 text-xs">
-                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs">{d.folio}</td>
-                          <td className="px-3 py-2">
-                            <div>{d.receiverName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">{d.receiverRut}</div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
-                              {stCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">
-                            {format(new Date(d.createdAt), "dd MMM yyyy", { locale: es })}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownloadPdf(d.id, d.folio)}
-                                title="Descargar PDF"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                              </Button>
-                              {canManage && d.siiStatus !== "ANNULLED" && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleVoid(d.id)}
-                                    disabled={voiding === d.id}
-                                    title="Anular"
-                                  >
-                                    {voiding === d.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Ban className="h-3.5 w-3.5 text-destructive" />
-                                    )}
-                                  </Button>
-                                  {d.dteType === 33 && (
-                                    <>
-                                      <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${d.id}`}>
-                                        <Button variant="ghost" size="sm" title="Nota de crédito">
-                                          <FileMinus className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </Link>
-                                      <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${d.id}`}>
-                                        <Button variant="ghost" size="sm" title="Nota de débito">
-                                          <FilePlus className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </Link>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={[
+                {
+                  key: "dteType",
+                  label: "Tipo",
+                  render: (v: number) => (
+                    <span className="text-xs">{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</span>
+                  ),
+                },
+                {
+                  key: "folio",
+                  label: "Folio",
+                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                },
+                {
+                  key: "receiverName",
+                  label: "Receptor",
+                  render: (_v: string, row: DteRow) => (
+                    <div>
+                      <div>{row.receiverName}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{row.receiverRut}</div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "netAmount",
+                  label: "Neto",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "taxAmount",
+                  label: "IVA",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "totalAmount",
+                  label: "Total",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs font-medium">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "siiStatus",
+                  label: "Estado SII",
+                  render: (v: string) => {
+                    const stCfg = SII_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", stCfg.className)}>
+                        {stCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+                {
+                  key: "createdAt",
+                  label: "Fecha",
+                  render: (v: string) => (
+                    <span className="text-muted-foreground text-xs">
+                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                    </span>
+                  ),
+                },
+                {
+                  key: "_actions",
+                  label: "",
+                  render: (_v: unknown, row: DteRow) => (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleDownloadPdf(row.id, row.folio); }}
+                        title="Descargar PDF"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      {canManage && row.siiStatus !== "ANNULLED" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleVoid(row.id); }}
+                            disabled={voiding === row.id}
+                            title="Anular"
+                          >
+                            {voiding === row.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Ban className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                          </Button>
+                          {row.dteType === 33 && (
+                            <>
+                              <Link href={`/finanzas/facturacion/notas/credito?referenceDteId=${row.id}`}>
+                                <Button variant="ghost" size="sm" title="Nota de crédito">
+                                  <FileMinus className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                              <Link href={`/finanzas/facturacion/notas/debito?referenceDteId=${row.id}`}>
+                                <Button variant="ghost" size="sm" title="Nota de débito">
+                                  <FilePlus className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ),
+                },
+              ] satisfies DataTableColumn[]}
+              data={filtered}
+              compact
+            />
           </div>
 
           {/* Mobile cards */}
@@ -532,32 +556,35 @@ function FoliosTab({ canManage }: { canManage: boolean }) {
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo DTE</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Último folio</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Siguiente folio</th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">Total emitidos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {folios.map((f) => (
-                      <tr key={f.dteType} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="px-3 py-2">
-                          {DTE_TYPE_LABELS[f.dteType] ?? `Tipo ${f.dteType}`}
-                        </td>
-                        <td className="px-3 py-2 text-center font-mono text-xs">{f.lastFolio || "—"}</td>
-                        <td className="px-3 py-2 text-center font-mono text-xs">{f.nextFolio}</td>
-                        <td className="px-3 py-2 text-center font-mono text-xs">{f.totalIssued}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={[
+                {
+                  key: "dteType",
+                  label: "Tipo DTE",
+                  render: (v: number) => <>{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</>,
+                },
+                {
+                  key: "lastFolio",
+                  label: "Último folio",
+                  className: "text-center",
+                  render: (v: number) => <span className="font-mono text-xs">{v || "—"}</span>,
+                },
+                {
+                  key: "nextFolio",
+                  label: "Siguiente folio",
+                  className: "text-center",
+                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                },
+                {
+                  key: "totalIssued",
+                  label: "Total emitidos",
+                  className: "text-center",
+                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                },
+              ] satisfies DataTableColumn[]}
+              data={folios}
+              compact
+            />
           </div>
 
           {/* Mobile cards */}
@@ -775,59 +802,85 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Folio</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Emisor</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fecha</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Neto</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">IVA</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Total</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Recepción</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Pago</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((d) => {
-                      const recCfg = RECEPTION_STATUS_CONFIG[d.receptionStatus] ?? { label: d.receptionStatus, className: "bg-muted" };
-                      const payCfg = PAYMENT_STATUS_CONFIG[d.paymentStatus] ?? { label: d.paymentStatus, className: "bg-muted" };
-                      return (
-                        <tr key={d.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="px-3 py-2 text-xs">
-                            {DTE_TYPE_LABELS[d.dteType] ?? `Tipo ${d.dteType}`}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs">{d.folio}</td>
-                          <td className="px-3 py-2">
-                            <div>{d.issuerName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">{d.issuerRut}</div>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">
-                            {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.netAmount)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmtCLP.format(d.taxAmount)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs font-medium">{fmtCLP.format(d.totalAmount)}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
-                              {recCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
-                              {payCfg.label}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              columns={[
+                {
+                  key: "dteType",
+                  label: "Tipo",
+                  render: (v: number) => (
+                    <span className="text-xs">{DTE_TYPE_LABELS[v] ?? `Tipo ${v}`}</span>
+                  ),
+                },
+                {
+                  key: "folio",
+                  label: "Folio",
+                  render: (v: number) => <span className="font-mono text-xs">{v}</span>,
+                },
+                {
+                  key: "issuerName",
+                  label: "Emisor",
+                  render: (_v: string, row: ReceivedDteRow) => (
+                    <div>
+                      <div>{row.issuerName}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{row.issuerRut}</div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "date",
+                  label: "Fecha",
+                  render: (v: string) => (
+                    <span className="text-muted-foreground text-xs">
+                      {format(new Date(v), "dd MMM yyyy", { locale: es })}
+                    </span>
+                  ),
+                },
+                {
+                  key: "netAmount",
+                  label: "Neto",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "taxAmount",
+                  label: "IVA",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "totalAmount",
+                  label: "Total",
+                  className: "text-right",
+                  render: (v: number) => <span className="font-mono text-xs font-medium">{fmtCLP.format(v)}</span>,
+                },
+                {
+                  key: "receptionStatus",
+                  label: "Recepción",
+                  render: (v: string) => {
+                    const recCfg = RECEPTION_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", recCfg.className)}>
+                        {recCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+                {
+                  key: "paymentStatus",
+                  label: "Pago",
+                  render: (v: string) => {
+                    const payCfg = PAYMENT_STATUS_CONFIG[v] ?? { label: v, className: "bg-muted" };
+                    return (
+                      <Badge variant="outline" className={cn("text-xs", payCfg.className)}>
+                        {payCfg.label}
+                      </Badge>
+                    );
+                  },
+                },
+              ] satisfies DataTableColumn[]}
+              data={filtered}
+              compact
+            />
           </div>
 
           {/* Mobile cards */}

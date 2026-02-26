@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { KpiCard, KpiGrid } from "@/components/opai";
 import {
   Download,
   Loader2,
@@ -165,46 +166,23 @@ export function ReportesClient({
   return (
     <div className="space-y-6">
       {/* Grand total cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Total rendiciones</p>
-            <p className="text-xl font-semibold">{totalCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Monto total</p>
-            <p className="text-xl font-semibold tabular-nums">
-              {fmtCLP.format(totalAmount)}
-            </p>
-          </CardContent>
-        </Card>
+      <KpiGrid columns={4}>
+        <KpiCard title="Total rendiciones" value={totalCount} />
+        <KpiCard title="Monto total" value={fmtCLP.format(totalAmount)} />
         {typeSummary.map((ts) => (
-          <Card key={ts.type}>
-            <CardContent className="pt-4 pb-4">
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                {ts.type === "MILEAGE" ? (
-                  <Car className="h-3 w-3" />
-                ) : (
-                  <Receipt className="h-3 w-3" />
-                )}
-                {TYPE_LABELS[ts.type] ?? ts.type}
-              </p>
-              <p className="text-xl font-semibold tabular-nums">
-                {fmtCLP.format(ts.amount)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {ts.count} rendición(es)
-              </p>
-            </CardContent>
-          </Card>
+          <KpiCard
+            key={ts.type}
+            title={TYPE_LABELS[ts.type] ?? ts.type}
+            value={fmtCLP.format(ts.amount)}
+            icon={ts.type === "MILEAGE" ? <Car className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
+            description={`${ts.count} rendición(es)`}
+          />
         ))}
-      </div>
+      </KpiGrid>
 
       {/* Status breakdown */}
       <Card>
-        <CardContent className="pt-5">
+        <CardContent>
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
             Resumen por estado

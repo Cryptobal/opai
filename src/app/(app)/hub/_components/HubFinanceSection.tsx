@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ClipboardCheck, Banknote, Wallet } from 'lucide-react';
 import { formatCLP } from '../_lib/hub-utils';
 import type { HubFinanceSectionProps } from '../_lib/hub-types';
+import { KpiCard } from '@/components/opai';
 
 export function HubFinanceSection({
   financeMetrics,
@@ -30,45 +31,25 @@ export function HubFinanceSection({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/finanzas?tab=aprobaciones"
-            className="rounded-lg border border-border bg-card p-4 transition-all hover:bg-accent/40 hover:shadow-sm relative overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-            <div className="flex items-center gap-2 text-muted-foreground mt-1">
-              <div className="p-1 rounded-md bg-amber-500/15">
-                <ClipboardCheck className="h-3.5 w-3.5 text-amber-400" />
-              </div>
-              <p className="text-[11px] uppercase tracking-wider">
-                Pendientes de aprobación
-              </p>
-            </div>
-            <p className="mt-2 text-2xl font-bold">
-              {financeMetrics.pendingApprovalCount}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{formatCLP(financeMetrics.pendingApprovalAmount)}</span> en total
-            </p>
+          <Link href="/finanzas?tab=aprobaciones" className="block min-w-0">
+            <KpiCard
+              title="Pendientes de aprobación"
+              value={financeMetrics.pendingApprovalCount}
+              icon={<ClipboardCheck className="h-4 w-4" />}
+              description={`${formatCLP(financeMetrics.pendingApprovalAmount)} en total`}
+              variant="amber"
+              className="h-full cursor-pointer transition-all hover:ring-2 hover:ring-primary/25"
+            />
           </Link>
-          <Link
-            href="/finanzas?tab=pagos"
-            className="rounded-lg border border-border bg-card p-4 transition-all hover:bg-accent/40 hover:shadow-sm relative overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-            <div className="flex items-center gap-2 text-muted-foreground mt-1">
-              <div className="p-1 rounded-md bg-emerald-500/15">
-                <Banknote className="h-3.5 w-3.5 text-emerald-400" />
-              </div>
-              <p className="text-[11px] uppercase tracking-wider">
-                Aprobadas sin pagar
-              </p>
-            </div>
-            <p className="mt-2 text-2xl font-bold">
-              {financeMetrics.approvedUnpaidCount}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{formatCLP(financeMetrics.approvedUnpaidAmount)}</span> en total
-            </p>
+          <Link href="/finanzas?tab=pagos" className="block min-w-0">
+            <KpiCard
+              title="Aprobadas sin pagar"
+              value={financeMetrics.approvedUnpaidCount}
+              icon={<Banknote className="h-4 w-4" />}
+              description={`${formatCLP(financeMetrics.approvedUnpaidAmount)} en total`}
+              variant="emerald"
+              className="h-full cursor-pointer transition-all hover:ring-2 hover:ring-primary/25"
+            />
           </Link>
         </div>
       </CardContent>

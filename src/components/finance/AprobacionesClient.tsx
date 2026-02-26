@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, KpiCard, KpiGrid } from "@/components/opai";
 import {
   CheckCircle2,
   XCircle,
@@ -162,22 +162,10 @@ export function AprobacionesClient({
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Pendientes</p>
-            <p className="text-lg font-semibold">{pendingApprovals.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Monto total</p>
-            <p className="text-lg font-semibold tabular-nums">
-              {fmtCLP.format(totalAmount)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <KpiGrid columns={2}>
+        <KpiCard title="Pendientes" value={pendingApprovals.length} />
+        <KpiCard title="Monto total" value={fmtCLP.format(totalAmount)} />
+      </KpiGrid>
 
       {/* Search */}
       <div className="relative max-w-sm">

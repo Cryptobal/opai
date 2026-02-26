@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   ArrowLeft,
   Check,
@@ -253,6 +253,76 @@ function ListView({
     }
   };
 
+  const listViewColumns: DataTableColumn[] = useMemo(
+    () => [
+      {
+        key: "period",
+        label: "Período",
+        render: (_v, r: ReconciliationRow) =>
+          `${MONTH_LABELS[r.periodMonth - 1]} ${r.periodYear}`,
+      },
+      {
+        key: "bankAccount",
+        label: "Cuenta bancaria",
+        render: (_v, r: ReconciliationRow) => (
+          <>
+            <div>{r.bankAccount.bankName}</div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {r.bankAccount.accountNumber}
+            </div>
+          </>
+        ),
+      },
+      {
+        key: "bankBalance",
+        label: "Saldo banco",
+        className: "text-right font-mono text-xs",
+        render: (v: number) => fmtCLP.format(v),
+      },
+      {
+        key: "bookBalance",
+        label: "Saldo libro",
+        className: "text-right font-mono text-xs",
+        render: (v: number) => fmtCLP.format(v),
+      },
+      {
+        key: "difference",
+        label: "Diferencia",
+        className: "text-right font-mono text-xs",
+        render: (v: number) => (
+          <span className={cn("font-medium", v !== 0 && "text-amber-400")}>
+            {fmtCLP.format(v)}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        label: "Estado",
+        render: (_v: string, r: ReconciliationRow) => {
+          const stCfg = STATUS_CONFIG[r.status] ?? {
+            label: r.status,
+            className: "bg-muted",
+          };
+          return (
+            <Badge
+              variant="outline"
+              className={cn("text-xs", stCfg.className)}
+            >
+              {stCfg.label}
+            </Badge>
+          );
+        },
+      },
+      {
+        key: "_count",
+        label: "Conciliaciones",
+        className: "text-center font-mono text-xs",
+        render: (_v, r: ReconciliationRow) => r._count.matches,
+      },
+    ],
+    []
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -316,87 +386,13 @@ function ListView({
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Período
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Cuenta bancaria
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Saldo banco
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Saldo libro
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Diferencia
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Estado
-                      </th>
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">
-                        Conciliaciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((r) => {
-                      const stCfg = STATUS_CONFIG[r.status] ?? {
-                        label: r.status,
-                        className: "bg-muted",
-                      };
-                      return (
-                        <tr
-                          key={r.id}
-                          onClick={() => onSelect(r.id)}
-                          className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
-                        >
-                          <td className="px-3 py-2 font-medium">
-                            {MONTH_LABELS[r.periodMonth - 1]} {r.periodYear}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div>{r.bankAccount.bankName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {r.bankAccount.accountNumber}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
-                            {fmtCLP.format(r.bankBalance)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">
-                            {fmtCLP.format(r.bookBalance)}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 py-2 text-right font-mono text-xs font-medium",
-                              r.difference !== 0 && "text-amber-400"
-                            )}
-                          >
-                            {fmtCLP.format(r.difference)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge
-                              variant="outline"
-                              className={cn("text-xs", stCfg.className)}
-                            >
-                              {stCfg.label}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-center font-mono text-xs">
-                            {r._count.matches}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={listViewColumns}
+              data={filtered}
+              onRowClick={(row) => onSelect(row.id)}
+              emptyMessage="Sin conciliaciones"
+            />
           </div>
 
           {/* Mobile cards */}
@@ -685,6 +681,75 @@ function DetailView({
     }
   };
 
+  const matchesColumns: DataTableColumn[] = useMemo(
+    () => [
+      {
+        key: "bankTransaction",
+        label: "Fecha",
+        className: "text-xs",
+        render: (_v, m: ReconciliationDetail["matches"][number]) =>
+          format(new Date(m.bankTransaction.transactionDate), "dd MMM yyyy", {
+            locale: es,
+          }),
+      },
+      {
+        key: "description",
+        label: "Descripción",
+        render: (_v, m: ReconciliationDetail["matches"][number]) =>
+          m.bankTransaction.description,
+      },
+      {
+        key: "amount",
+        label: "Monto",
+        className: "text-right font-mono text-xs",
+        render: (_v, m: ReconciliationDetail["matches"][number]) =>
+          fmtCLP.format(m.bankTransaction.amount),
+      },
+      {
+        key: "reference",
+        label: "Referencia",
+        className: "text-xs text-muted-foreground font-mono",
+        render: (_v, m: ReconciliationDetail["matches"][number]) =>
+          m.bankTransaction.reference ?? "\u2014",
+      },
+      {
+        key: "matchType",
+        label: "Tipo",
+        className: "text-xs",
+        render: (v: string) => (
+          <Badge variant="outline" className="text-xs">
+            {v}
+          </Badge>
+        ),
+      },
+      {
+        key: "associated",
+        label: "Registro asociado",
+        className: "text-xs",
+        render: (_v, m: ReconciliationDetail["matches"][number]) => {
+          if (m.paymentRecord) {
+            return (
+              <span>
+                Pago {m.paymentRecord.code} -{" "}
+                {fmtCLP.format(m.paymentRecord.amount)}
+              </span>
+            );
+          }
+          if (m.journalEntry) {
+            return (
+              <span>
+                Asiento #{m.journalEntry.number} -{" "}
+                {m.journalEntry.description}
+              </span>
+            );
+          }
+          return "\u2014";
+        },
+      },
+    ],
+    []
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -967,79 +1032,12 @@ function DetailView({
 
           {/* Desktop table */}
           <div className="hidden md:block">
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Fecha
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Descripción
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                        Monto
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Referencia
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Tipo
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                        Registro asociado
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.matches.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="border-b border-border/60 last:border-0 hover:bg-accent/30 transition-colors"
-                      >
-                        <td className="px-3 py-2 text-xs">
-                          {format(
-                            new Date(m.bankTransaction.transactionDate),
-                            "dd MMM yyyy",
-                            { locale: es }
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          {m.bankTransaction.description}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs">
-                          {fmtCLP.format(m.bankTransaction.amount)}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
-                          {m.bankTransaction.reference ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-xs">
-                          <Badge variant="outline" className="text-xs">
-                            {m.matchType}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-xs">
-                          {m.paymentRecord && (
-                            <span>
-                              Pago {m.paymentRecord.code} -{" "}
-                              {fmtCLP.format(m.paymentRecord.amount)}
-                            </span>
-                          )}
-                          {m.journalEntry && (
-                            <span>
-                              Asiento #{m.journalEntry.number} -{" "}
-                              {m.journalEntry.description}
-                            </span>
-                          )}
-                          {!m.paymentRecord && !m.journalEntry && "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <DataTable
+              compact
+              columns={matchesColumns}
+              data={detail.matches}
+              emptyMessage="No hay movimientos conciliados"
+            />
           </div>
 
           {/* Mobile cards */}

@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, KpiCard, KpiGrid } from "@/components/opai";
 import {
   Wallet,
   Plus,
@@ -279,32 +279,14 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">
-              Pendientes de pago
-            </p>
-            <p className="text-lg font-semibold">{pendingRendiciones.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Monto pendiente</p>
-            <p className="text-lg font-semibold tabular-nums">
-              {fmtCLP.format(
-                pendingRendiciones.reduce((s, r) => s + r.amount, 0)
-              )}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground">Pagos realizados</p>
-            <p className="text-lg font-semibold">{payments.length}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <KpiGrid columns={3}>
+        <KpiCard title="Pendientes de pago" value={pendingRendiciones.length} />
+        <KpiCard
+          title="Monto pendiente"
+          value={fmtCLP.format(pendingRendiciones.reduce((s, r) => s + r.amount, 0))}
+        />
+        <KpiCard title="Pagos realizados" value={payments.length} />
+      </KpiGrid>
 
       {/* Tab navigation */}
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
