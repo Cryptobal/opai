@@ -11,6 +11,9 @@ import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { QuoteNotesWrapper } from "@/components/crm/QuoteNotesWrapper";
+import { z } from "zod";
+
+const uuidSchema = z.string().uuid();
 
 export default async function CrmCotizacionDetailPage({
   params,
@@ -25,10 +28,25 @@ export default async function CrmCotizacionDetailPage({
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const quote = await prisma.cpqQuote.findFirst({
-    where: { id, tenantId },
-    select: { code: true },
-  });
+  const isUuid = uuidSchema.safeParse(id).success;
+  const quote = isUuid
+    ? await prisma.cpqQuote.findFirst({
+        where: { id, tenantId },
+        select: { id: true, code: true },
+      })
+    : await prisma.cpqQuote.findFirst({
+        where: { code: id, tenantId },
+        select: { id: true, code: true },
+      });
+
+  if (!quote) {
+    redirect("/crm/cotizaciones");
+  }
+
+  // Compatibilidad para links legacy por código o rutas antiguas.
+  if (quote.id !== id) {
+    redirect(`/crm/cotizaciones/${quote.id}`);
+  }
 
   return (
     <>
