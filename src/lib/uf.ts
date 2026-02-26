@@ -1,5 +1,8 @@
+import "server-only";
+
 import { prisma } from "@/lib/prisma";
 import { todayChileDate, todayChileStr } from "@/lib/fx-date";
+import { clpToUf, ufToClp } from "@/lib/uf-utils";
 
 /**
  * Obtiene la UF vigente para el día de hoy (Chile).
@@ -43,17 +46,4 @@ export async function getUfValue(): Promise<number> {
   return 38000;
 }
 
-/**
- * Convert CLP to UF
- */
-export function clpToUf(clp: number, ufValue: number): number {
-  if (!ufValue || ufValue <= 0) return 0;
-  return clp / ufValue;
-}
-
-/**
- * Convert UF to CLP
- */
-export function ufToClp(uf: number, ufValue: number): number {
-  return uf * ufValue;
-}
+export { clpToUf, ufToClp };
