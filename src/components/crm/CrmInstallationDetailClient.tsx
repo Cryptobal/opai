@@ -1101,10 +1101,7 @@ function StaffingSection({
     }
     setActionLoading(true);
     try {
-      const canForce =
-        Boolean(deleteDiagnostics) &&
-        deleteDiagnostics.canDelete === false &&
-        canForceDelete;
+      const canForce = deleteDiagnostics?.canDelete === false && canForceDelete;
       const url = canForce ? `/api/ops/puestos/${deleteConfirm.id}?force=true` : `/api/ops/puestos/${deleteConfirm.id}`;
       const res = await fetch(url, { method: "DELETE" });
       const payload = await res.json();
@@ -1127,10 +1124,7 @@ function StaffingSection({
     }
   };
 
-  const canForceThisDelete =
-    Boolean(deleteDiagnostics) &&
-    deleteDiagnostics.canDelete === false &&
-    canForceDelete;
+  const canForceThisDelete = deleteDiagnostics?.canDelete === false && canForceDelete;
 
   const deleteDescription = useMemo(() => {
     if (deleteDiagnosticsLoading) {
