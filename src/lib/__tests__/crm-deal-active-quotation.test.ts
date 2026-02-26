@@ -52,8 +52,8 @@ describe('crm-deal-active-quotation', () => {
       {
         id: 'q-2',
         status: 'sent',
-        currency: 'UF',
-        monthlyCost: 40,
+        currency: 'CLP',
+        monthlyCost: 1600000,
         totalGuards: 9,
         updatedAt: '2025-01-01T10:00:00.000Z',
       },

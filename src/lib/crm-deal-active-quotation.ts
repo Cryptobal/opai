@@ -48,10 +48,6 @@ function parseNumber(value: unknown): number {
   return parsed;
 }
 
-function normalizeCurrency(currency?: string | null): string {
-  return (currency ?? "CLP").toUpperCase();
-}
-
 function parseDate(value?: Date | string | null): Date | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -70,19 +66,14 @@ function toQuotationAmounts(
 ): { amountClp: number; amountUf: number } {
   const normalizedUf = normalizeUfValue(ufValue);
   const amountBase = resolveQuoteAmountBase(quote);
-  const currency = normalizeCurrency(quote.currency);
 
-  if (currency === "UF") {
-    return {
-      amountClp: amountBase * normalizedUf,
-      amountUf: amountBase,
-    };
-  }
+  // salePriceMonthly and monthlyCost are always stored in CLP (from CPQ cost computation).
+  // The quote.currency field is display preference only; it does not change stored values.
+  // Treat amountBase as CLP to avoid absurd values when currency=UF was set but value stayed in CLP.
+  const amountClp = amountBase;
+  const amountUf = normalizedUf > 0 ? amountBase / normalizedUf : 0;
 
-  return {
-    amountClp: amountBase,
-    amountUf: normalizedUf > 0 ? amountBase / normalizedUf : 0,
-  };
+  return { amountClp, amountUf };
 }
 
 function getQuoteSentAt(quote: QuoteForActiveQuotation): Date | null {

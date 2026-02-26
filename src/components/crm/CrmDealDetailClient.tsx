@@ -383,8 +383,9 @@ export function CrmDealDetailClient({
       const raw = salePriceMonthly > 0 ? salePriceMonthly : Number(quote.monthlyCost ?? 0);
       if (!Number.isFinite(raw) || raw <= 0) return "Monto no disponible";
       const safeUf = ufValue > 0 ? ufValue : 38000;
-      const amountClp = quote.currency === "UF" ? raw * safeUf : raw;
-      const amountUf = quote.currency === "UF" ? raw : raw / safeUf;
+      // salePriceMonthly/monthlyCost are always stored in CLP; currency is display preference only
+      const amountClp = raw;
+      const amountUf = raw / safeUf;
       return `$${Math.round(amountClp).toLocaleString("es-CL")} · UF ${amountUf.toLocaleString("es-CL", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
