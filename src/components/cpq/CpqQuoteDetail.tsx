@@ -22,7 +22,7 @@ import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
 import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
-import { clpToUf } from "@/lib/uf";
+import { clpToUf } from "@/lib/uf-utils";
 import type {
   CpqQuote,
   CpqPosition,

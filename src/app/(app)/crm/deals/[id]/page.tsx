@@ -8,6 +8,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { getUfValue } from "@/lib/uf";
+import { resolveDealActiveQuotationSummary } from "@/lib/crm-deal-active-quotation";
 import { CrmDealDetailClient, type DealDetail } from "@/components/crm";
 
 export default async function CrmDealDetailPage({
@@ -69,6 +70,14 @@ export default async function CrmDealDetailPage({
         status: true,
         monthlyCost: true,
         currency: true,
+        totalGuards: true,
+        createdAt: true,
+        updatedAt: true,
+        parameters: {
+          select: {
+            salePriceMonthly: true,
+          },
+        },
       },
     }),
     prisma.crmPipelineStage.findMany({
@@ -217,10 +226,23 @@ export default async function CrmDealDetailPage({
     };
   });
 
+  const linkedQuoteIds = new Set((deal.quotes ?? []).map((quote) => quote.quoteId));
+  const linkedQuotes = quotes.filter((quote) => linkedQuoteIds.has(quote.id));
+  const linkedQuoteById = new Map(linkedQuotes.map((quote) => [quote.id, quote]));
+  const activeQuoteSummary = resolveDealActiveQuotationSummary(
+    deal,
+    linkedQuoteById,
+    ufValue
+  );
+
   const initialDeal = JSON.parse(JSON.stringify(deal)) as DealDetail;
   initialDeal.proposalLink = deal.proposalLink ?? null;
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
   initialDeal.status = deal.status;
+  initialDeal.activeQuotationId = deal.activeQuotationId ?? null;
+  initialDeal.activeQuoteSummary = activeQuoteSummary
+    ? JSON.parse(JSON.stringify(activeQuoteSummary))
+    : null;
   const initialQuotes = JSON.parse(JSON.stringify(quotes));
   const initialPipelineStages = JSON.parse(JSON.stringify(pipelineStages));
   const initialDealContacts = JSON.parse(JSON.stringify(dealContacts));

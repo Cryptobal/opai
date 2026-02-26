@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
 import { FileText, ChevronRight, Plus, Loader2 } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
-import { clpToUf } from "@/lib/uf";
+import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";

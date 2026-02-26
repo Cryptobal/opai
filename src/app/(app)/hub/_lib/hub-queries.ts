@@ -13,6 +13,11 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { getUfValue } from '@/lib/uf';
+import {
+  collectLinkedQuoteIds,
+  resolveDealActiveQuotationSummary,
+} from '@/lib/crm-deal-active-quotation';
 import { toPercent, getTodayChile } from './hub-utils';
 import { triggerFollowUpProcessing } from '@/lib/followup-selfheal';
 import type {
@@ -75,8 +80,36 @@ export async function getCommercialMetrics(
   thirtyDaysAgo: Date,
   now: Date,
 ): Promise<CrmMetrics> {
+  const leadOpenStatuses = ['pending', 'open', 'active'];
+  const leadDraftStatuses = ['draft', 'in_review'];
+  const negotiatingStages = await prisma.crmPipelineStage.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      isClosedWon: false,
+      isClosedLost: false,
+      name: { contains: 'negoci', mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+  const negotiatingStageIds = negotiatingStages.map((stage) => stage.id);
+  const negotiatingDealsWhere =
+    negotiatingStageIds.length > 0
+      ? {
+          tenantId,
+          status: 'open',
+          stageId: { in: negotiatingStageIds },
+        }
+      : {
+          tenantId,
+          status: 'open',
+        };
+
   const [
     pendingLeadsCount,
+    leadsOpenCount,
+    leadsDraftCount,
+    quotesDraftCount,
     leadsCreated30,
     leadsConverted30,
     proposalsSent30,
@@ -89,9 +122,19 @@ export async function getCommercialMetrics(
     upcomingFollowUps,
     dealsWithoutPendingFollowUp,
     wonDealsWithProposal30Rows,
+    negotiatingDeals,
   ] = await Promise.all([
     prisma.crmLead.count({
       where: { tenantId, status: 'pending' },
+    }),
+    prisma.crmLead.count({
+      where: { tenantId, status: { in: leadOpenStatuses } },
+    }),
+    prisma.crmLead.count({
+      where: { tenantId, status: { in: leadDraftStatuses } },
+    }),
+    prisma.cpqQuote.count({
+      where: { tenantId, status: 'draft' },
     }),
     prisma.crmLead.count({
       where: { tenantId, createdAt: { gte: thirtyDaysAgo } },
@@ -232,7 +275,69 @@ export async function getCommercialMetrics(
       select: { dealId: true },
       distinct: ['dealId'],
     }),
+    prisma.crmDeal.findMany({
+      where: negotiatingDealsWhere,
+      select: {
+        id: true,
+        activeQuotationId: true,
+        quotes: {
+          select: {
+            quoteId: true,
+          },
+        },
+      },
+    }),
   ]);
+
+  const negotiatingQuoteIds = collectLinkedQuoteIds(negotiatingDeals);
+  const [ufValue, negotiatingQuotes] = await Promise.all([
+    getUfValue(),
+    negotiatingQuoteIds.length > 0
+      ? prisma.cpqQuote.findMany({
+          where: {
+            tenantId,
+            id: { in: negotiatingQuoteIds },
+          },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            currency: true,
+            monthlyCost: true,
+            totalGuards: true,
+            createdAt: true,
+            updatedAt: true,
+            parameters: {
+              select: {
+                salePriceMonthly: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+  const negotiatingQuoteById = new Map(
+    negotiatingQuotes.map((quote) => [quote.id, quote])
+  );
+  const activeNegotiationSummaries = negotiatingDeals
+    .map((deal) =>
+      resolveDealActiveQuotationSummary(deal, negotiatingQuoteById, ufValue)
+    )
+    .filter((summary): summary is NonNullable<typeof summary> =>
+      Boolean(summary)
+    );
+  const guardsInNegotiation = activeNegotiationSummaries.reduce(
+    (acc, summary) => acc + summary.totalGuards,
+    0
+  );
+  const amountInNegotiationClp = activeNegotiationSummaries.reduce(
+    (acc, summary) => acc + summary.amountClp,
+    0
+  );
+  const amountInNegotiationUf = activeNegotiationSummaries.reduce(
+    (acc, summary) => acc + summary.amountUf,
+    0
+  );
 
   const wonDealsWithProposal30 = wonDealsWithProposal30Rows.length;
   const leadToDealRate30 = toPercent(leadsConverted30, leadsCreated30);
@@ -277,6 +382,13 @@ export async function getCommercialMetrics(
 
   return {
     pendingLeadsCount,
+    leadsOpenCount,
+    leadsDraftCount,
+    quotesDraftCount,
+    dealsNegotiatingCount: negotiatingDeals.length,
+    guardsInNegotiation,
+    amountInNegotiationClp,
+    amountInNegotiationUf,
     leadsCreated30,
     leadsConverted30,
     leadToDealRate30,

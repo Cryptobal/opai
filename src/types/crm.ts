@@ -86,6 +86,17 @@ export interface CrmPipelineStage {
   isClosedLost?: boolean;
 }
 
+export interface CrmActiveQuoteSummary {
+  quoteId: string;
+  code: string | null;
+  status: string;
+  amountClp: number;
+  amountUf: number;
+  totalGuards: number;
+  isManual: boolean;
+  sentAt: string | null;
+}
+
 export interface CrmDeal {
   id: string;
   title: string;
@@ -110,6 +121,8 @@ export interface CrmDeal {
   lat?: number | null;
   lng?: number | null;
   installationWebsite?: string | null;
+  activeQuotationId?: string | null;
+  activeQuoteSummary?: CrmActiveQuoteSummary | null;
   account: CrmAccount;
   stage: CrmPipelineStage;
   primaryContact?: {
