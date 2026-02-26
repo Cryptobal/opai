@@ -6,6 +6,7 @@ import {
   createOpsAuditLog,
   ensureOpsAccess,
   getMonthDateRange,
+  listDatesBetween,
   parseDateOnly,
 } from "@/lib/ops";
 
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     const { start, end } = getMonthDateRange(year, month);
 
+    // Bug 4 fix: Only include pauta entries for active puestos
     const pauta = await prisma.opsPautaMensual.findMany({
       where: {
         tenantId: ctx.tenantId,
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
           gte: start,
           lte: end,
         },
+        puesto: { active: true },
       },
       include: {
         puesto: {
@@ -66,6 +69,92 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
     });
+
+    // Bugs 1/3/5 fix: Auto-sync missing slots for active puestos.
+    // If a puesto was added after pauta generation, or requiredGuards increased,
+    // create the missing OpsPautaMensual rows so they appear in the UI.
+    const activePuestos = await prisma.opsPuestoOperativo.findMany({
+      where: { tenantId: ctx.tenantId, installationId, active: true },
+      select: { id: true, requiredGuards: true, activeFrom: true, activeUntil: true },
+    });
+
+    // Build a set of existing puesto+slot+date combos for fast lookup
+    const existingKeys = new Set(
+      pauta.map((p) => `${p.puestoId}|${p.slotNumber}|${p.date.toISOString().slice(0, 10)}`)
+    );
+
+    const monthDates = listDatesBetween(start, end);
+    const missingRows: {
+      tenantId: string;
+      installationId: string;
+      puestoId: string;
+      slotNumber: number;
+      date: Date;
+      plannedGuardiaId: string | null;
+      shiftCode: string | null;
+      status: string;
+      createdBy: string | null;
+    }[] = [];
+
+    for (const puesto of activePuestos) {
+      for (const date of monthDates) {
+        // Respect active date range
+        if (puesto.activeFrom && date < puesto.activeFrom) continue;
+        if (puesto.activeUntil && date >= puesto.activeUntil) continue;
+
+        const dateKey = date.toISOString().slice(0, 10);
+        for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
+          const key = `${puesto.id}|${slot}|${dateKey}`;
+          if (!existingKeys.has(key)) {
+            missingRows.push({
+              tenantId: ctx.tenantId,
+              installationId: installationId!,
+              puestoId: puesto.id,
+              slotNumber: slot,
+              date,
+              plannedGuardiaId: null,
+              shiftCode: null,
+              status: "planificado",
+              createdBy: null,
+            });
+          }
+        }
+      }
+    }
+
+    if (missingRows.length > 0) {
+      await prisma.opsPautaMensual.createMany({
+        data: missingRows,
+        skipDuplicates: true,
+      });
+
+      // Re-fetch to include the newly created rows
+      const refetched = await prisma.opsPautaMensual.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          installationId,
+          date: { gte: start, lte: end },
+          puesto: { active: true },
+        },
+        include: {
+          puesto: {
+            select: {
+              id: true, name: true, shiftStart: true, shiftEnd: true,
+              weekdays: true, requiredGuards: true,
+            },
+          },
+          plannedGuardia: {
+            select: {
+              id: true, code: true, status: true,
+              persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          },
+        },
+        orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
+      });
+      pauta.length = 0;
+      pauta.push(...refetched);
+    }
 
     // Also get active series for this installation
     // Uses try-catch: rotative fields may not exist if migration hasn't been applied
@@ -276,12 +365,18 @@ export async function POST(request: NextRequest) {
 
     const puesto = await prisma.opsPuestoOperativo.findFirst({
       where: { id: body.puestoId, tenantId: ctx.tenantId },
-      select: { id: true, installationId: true },
+      select: { id: true, installationId: true, active: true },
     });
     if (!puesto) {
       return NextResponse.json(
         { success: false, error: "Puesto operativo no encontrado" },
         { status: 404 }
+      );
+    }
+    if (!puesto.active) {
+      return NextResponse.json(
+        { success: false, error: "No se puede crear turnos para un puesto desactivado" },
+        { status: 400 }
       );
     }
 

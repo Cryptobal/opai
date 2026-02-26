@@ -229,7 +229,10 @@ export async function POST(request: NextRequest) {
         body.startShift
       );
 
-      // Deactivate previous series for both puestos
+      // Bug 2 fix: Paint only the current guard's line (per-line assignment).
+      // Deactivate previous series only for the current puesto/slot.
+      // The paired puesto gets shift codes but NOT plannedGuardiaId,
+      // so each guard's line is painted independently.
       await prisma.opsSerieAsignacion.updateMany({
         where: {
           tenantId: ctx.tenantId,
@@ -239,33 +242,21 @@ export async function POST(request: NextRequest) {
         },
         data: { isActive: false, endDate: monthStart },
       });
-      await prisma.opsSerieAsignacion.updateMany({
-        where: {
-          tenantId: ctx.tenantId,
-          puestoId: body.rotatePuestoId,
-          slotNumber: body.rotateSlotNumber,
-          isActive: true,
-        },
-        data: { isActive: false, endDate: monthStart },
-      });
 
-      // Create linked series (A → B and B → A)
-      const baseSerieData = {
-        tenantId: ctx.tenantId,
-        patternCode: body.patternCode,
-        patternWork: body.patternWork,
-        patternOff: body.patternOff,
-        startDate,
-        startPosition: body.startPosition,
-        isActive: true,
-        isRotativo: true,
-        createdBy: ctx.userId,
-      };
-
+      // Create only the main serie (no linked serie B).
+      // Each guard's rotative line is created independently.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const serieA = await (prisma.opsSerieAsignacion.create as any)({
+      await (prisma.opsSerieAsignacion.create as any)({
         data: {
-          ...baseSerieData,
+          tenantId: ctx.tenantId,
+          patternCode: body.patternCode,
+          patternWork: body.patternWork,
+          patternOff: body.patternOff,
+          startDate,
+          startPosition: body.startPosition,
+          isActive: true,
+          isRotativo: true,
+          createdBy: ctx.userId,
           puestoId: body.puestoId,
           slotNumber: body.slotNumber,
           guardiaId: asignacion?.guardiaId ?? null,
@@ -275,28 +266,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const serieB = await (prisma.opsSerieAsignacion.create as any)({
-        data: {
-          ...baseSerieData,
-          puestoId: body.rotatePuestoId,
-          slotNumber: body.rotateSlotNumber,
-          guardiaId: rotateAsignacion?.guardiaId ?? asignacion?.guardiaId ?? null,
-          rotatePuestoId: body.puestoId,
-          rotateSlotNumber: body.slotNumber,
-          startShift: body.startShift === "day" ? "night" : "day",
-          linkedSerieId: serieA.id,
-        },
-      });
-
-      // Link A → B
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (prisma.opsSerieAsignacion.update as any)({
-        where: { id: serieA.id },
-        data: { linkedSerieId: serieB.id },
-      });
-
-      // Upsert pauta entries for both puestos
+      // Upsert pauta entries: main puesto gets guardiaId, paired puesto gets shift codes only
       const updatedA = await upsertPautaEntries(
         puestoA, body.puestoId, body.slotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
@@ -305,8 +275,7 @@ export async function POST(request: NextRequest) {
       const updatedB = await upsertPautaEntries(
         puestoB, body.rotatePuestoId, body.rotateSlotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
-        rotateAsignacion ? { guardiaId: rotateAsignacion.guardiaId, startDate: rotateAsignacion.startDate } :
-          asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
+        null // No guardiaId for paired puesto — painted independently
       );
 
       await createOpsAuditLog(ctx, "ops.pauta.serie_rotativa_painted", "ops_pauta", undefined, {

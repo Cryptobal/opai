@@ -34,6 +34,7 @@ export async function POST(
         persona: true,
         currentInstallation: { select: { name: true, address: true, commune: true, city: true } },
         bankAccounts: { where: { isDefault: true }, take: 1 },
+        asignaciones: { where: { isActive: true }, orderBy: { startDate: "desc" }, take: 1, select: { startDate: true, isActive: true } },
       },
     });
 
