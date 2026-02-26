@@ -228,7 +228,7 @@ export function DetailLayout({
     return (
       <div className={cn("relative", className)}>
         {header}
-        <div className="mt-4 flex gap-2 sm:mt-6 sm:gap-3">
+        <div className="mt-4 flex min-w-0 gap-2 sm:mt-6 sm:gap-3">
           <SectionNav
             sections={navItems}
             onSectionClick={(key) => openSection(key)}
