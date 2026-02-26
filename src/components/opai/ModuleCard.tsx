@@ -52,7 +52,8 @@ export function ModuleCard({
   return (
     <Link href={href} className={cn('block hover:shadow-md transition-shadow rounded-lg', className)}>
       <Card>
-        <CardContent className="pt-5 pb-4 px-5">
+        {/* pt-5 px-5: sin CardHeader, padding explícito necesario */}
+        <CardContent className="pt-5 px-5">
           <div
             className={cn(
               'w-10 h-10 rounded-lg flex items-center justify-center mb-3',

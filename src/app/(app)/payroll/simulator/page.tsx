@@ -158,7 +158,7 @@ export default function PayrollSimulator() {
   const selectedAfp = AFP_OPTIONS.find((a) => a.value === afpName);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <PageHeader

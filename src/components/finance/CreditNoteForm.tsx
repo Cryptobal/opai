@@ -173,7 +173,7 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
       {/* Reference DTE info */}
       {referenceDte ? (
         <Card>
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="pt-4">
             <p className="text-sm font-medium mb-3">DTE de referencia</p>
             <div className="grid gap-2 md:grid-cols-4 text-sm">
               <div>
@@ -198,7 +198,7 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
         </Card>
       ) : (
         <Card>
-          <CardContent className="pt-4 pb-4 text-center text-muted-foreground">
+          <CardContent className="pt-4 text-center text-muted-foreground">
             <p>No se proporcionó un DTE de referencia.</p>
             <p className="text-xs mt-1">Use los botones de NC/ND en la lista de DTEs emitidos.</p>
           </CardContent>
@@ -207,7 +207,7 @@ export function CreditNoteForm({ noteType, referenceDte }: Props) {
 
       {/* Reason and reference type */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Razón *</Label>

@@ -196,7 +196,7 @@ export function AprobacionesClient({
             const isRejecting = loadingAction === `reject-${a.rendicionId}`;
             return (
               <Card key={a.approvalId} className="overflow-hidden">
-                <CardContent className="pt-4 pb-4">
+                <CardContent className="pt-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Info */}
                     <Link

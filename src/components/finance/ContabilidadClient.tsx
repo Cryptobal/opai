@@ -838,7 +838,7 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1.5">
               <Label>Cuenta</Label>

@@ -114,13 +114,15 @@ export default function EmpresaConfigPage() {
           </div>
 
           <div className="rounded-lg border border-border p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Correo electrónico</h3>
+            <div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Correo electrónico</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configura desde qué dirección se envían los correos de OPAI (notificaciones, invitaciones, alertas) y a qué dirección llegan las respuestas.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground -mt-2">
-              Configura desde qué dirección se envían los correos de OPAI (notificaciones, invitaciones, alertas) y a qué dirección llegan las respuestas.
-            </p>
 
             <div className="grid gap-4">
               {EMAIL_FIELDS.map((field) => (
@@ -161,13 +163,15 @@ export default function EmpresaConfigPage() {
           </div>
 
           <div className="rounded-lg border border-border p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <FileSignature className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Firma del representante legal</h3>
+            <div>
+              <div className="flex items-center gap-2">
+                <FileSignature className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Firma del representante legal</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                La firma se inserta automáticamente en contratos y anexos con el token <code className="bg-muted px-1 rounded">{"{{empresa.firmaRepLegal}}"}</code>.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground -mt-2">
-              La firma se inserta automáticamente en contratos y anexos con el token <code className="bg-muted px-1 rounded">{"{{empresa.firmaRepLegal}}"}</code>.
-            </p>
             <label className="flex items-center justify-between rounded-lg border border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
               <div>
                 <span className="text-sm font-medium">

@@ -74,7 +74,7 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
         description="Historial consolidado de acciones de usuarios en tu tenant"
       />
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         <form method="GET" className="rounded-xl border border-border bg-card p-4">
           <div className="grid gap-3 md:grid-cols-4">
             <input

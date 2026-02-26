@@ -658,7 +658,7 @@ export function RendicionForm({
               {/* Mileage cost breakdown */}
               {estimatedDistance !== null && mileageCost && (
                 <Card className="bg-muted/30">
-                  <CardContent className="pt-4 pb-4">
+                  <CardContent className="pt-4">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
                       Cálculo estimado
                     </p>

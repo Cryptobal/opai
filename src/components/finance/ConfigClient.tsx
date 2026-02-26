@@ -674,7 +674,7 @@ function RulesTab({ initialConfig }: { initialConfig: ConfigData | null }) {
       <div className="space-y-2">
         {rules.map((rule) => (
           <Card key={rule.id}>
-            <CardContent className="pt-4 pb-4">
+            <CardContent className="pt-4">
               <button onClick={rule.toggle} className="w-full flex items-center justify-between gap-3 text-left">
                 <div>
                   <p className="text-sm font-medium">{rule.label}</p>

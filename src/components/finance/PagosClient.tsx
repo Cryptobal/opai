@@ -476,7 +476,7 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                 const isExpanded = expandedPayment === p.id;
                 return (
                   <Card key={p.id}>
-                    <CardContent className="pt-4 pb-4">
+                    <CardContent className="pt-4">
                       <button
                         type="button"
                         onClick={() =>
