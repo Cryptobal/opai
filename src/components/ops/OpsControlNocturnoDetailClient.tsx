@@ -1096,7 +1096,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
       ) : reporte.generalNotes ? (
         <Card>
           <CardContent className="p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Notas generales</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Notas generales</p>
             <p className="text-sm whitespace-pre-wrap">{reporte.generalNotes}</p>
           </CardContent>
         </Card>

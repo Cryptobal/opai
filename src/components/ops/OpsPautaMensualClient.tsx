@@ -2031,7 +2031,7 @@ export function OpsPautaMensualClient({
               const cycleLength = pattern.work + pattern.off;
               return (
                 <div className="rounded-md border border-border p-3">
-                  <p className="text-xs font-medium mb-1">
+                  <p className="text-xs font-medium mb-1.5">
                     Selecciona el día del ciclo donde inicia el guardia
                   </p>
                   <p className="text-[10px] text-muted-foreground mb-3">

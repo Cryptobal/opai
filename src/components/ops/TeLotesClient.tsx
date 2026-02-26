@@ -114,7 +114,7 @@ export function TeLotesClient({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card>
         <CardContent className="pt-5">
           <div className="grid gap-3 md:grid-cols-4">

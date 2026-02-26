@@ -864,7 +864,7 @@ export function OpsConfigClient() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium mb-1">
+                    <p className="text-xs text-muted-foreground font-medium mb-1.5">
                       Contenido del email
                     </p>
                     <ul className="text-xs text-foreground space-y-0.5 list-disc list-inside">

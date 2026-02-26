@@ -57,7 +57,7 @@ export { DocumentosSubnav } from './DocumentosSubnav';
 export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';
 export { ConfigBackLink } from './ConfigBackLink';
-export { SectionNav } from './SectionNav';
+export { SectionNav, resolveSectionNavLayout } from './SectionNav';
 export type { SectionNavItem } from './SectionNav';
 export { DetailLayout } from './DetailLayout';
 export type { DetailLayoutSection } from './DetailLayout';

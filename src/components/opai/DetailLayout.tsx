@@ -23,7 +23,7 @@ import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import { useSectionPreferences, type SectionPageType } from "@/lib/use-section-preferences";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SectionNav, type SectionNavItem } from "./SectionNav";
+import { SectionNav, resolveSectionNavLayout, type SectionNavItem } from "./SectionNav";
 
 export interface DetailLayoutSection {
   key: string;
@@ -180,6 +180,66 @@ export function DetailLayout({
     reorderSections(arrayMove(sortableKeys, from, to));
   };
 
+  const resolvedLayout = resolveSectionNavLayout("auto", navItems.length);
+  const isVertical = resolvedLayout === "vertical";
+
+  const resetButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-7 gap-1.5 text-[11px]"
+      onClick={resetToDefault}
+    >
+      <RotateCcw className="h-3.5 w-3.5" />
+      Restablecer orden
+    </Button>
+  );
+
+  const sectionsList = (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext
+        items={orderedSections.map((section) => section.key)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-4 sm:space-y-6">
+          {orderedSections.map((section) => {
+            const isFixed = hasFixedSection && section.key === firstSectionKey;
+            const isOpen = isFixed ? true : !collapsedKeys.has(section.key);
+
+            return (
+              <SortableSectionItem
+                key={section.key}
+                section={section}
+                open={isOpen}
+                locked={isFixed}
+                onToggle={(nextOpen) =>
+                  nextOpen ? openSection(section.key) : closeSection(section.key)
+                }
+              />
+            );
+          })}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+
+  if (isVertical) {
+    return (
+      <div className={cn("relative", className)}>
+        {header}
+        <div className="mt-4 flex gap-4 sm:mt-6">
+          <SectionNav
+            sections={navItems}
+            onSectionClick={(key) => openSection(key)}
+            extraAction={resetButton}
+          />
+          <div className="min-w-0 flex-1">{sectionsList}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("relative", className)}>
       {header}
@@ -187,45 +247,10 @@ export function DetailLayout({
       <SectionNav
         sections={navItems}
         onSectionClick={(key) => openSection(key)}
-        extraAction={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-[11px]"
-            onClick={resetToDefault}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Restablecer orden
-          </Button>
-        }
+        extraAction={resetButton}
       />
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext
-          items={orderedSections.map((section) => section.key)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
-            {orderedSections.map((section) => {
-              const isFixed = hasFixedSection && section.key === firstSectionKey;
-              const isOpen = isFixed ? true : !collapsedKeys.has(section.key);
-
-              return (
-                <SortableSectionItem
-                  key={section.key}
-                  section={section}
-                  open={isOpen}
-                  locked={isFixed}
-                  onToggle={(nextOpen) =>
-                    nextOpen ? openSection(section.key) : closeSection(section.key)
-                  }
-                />
-              );
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className="mt-4 sm:mt-6">{sectionsList}</div>
     </div>
   );
 }
