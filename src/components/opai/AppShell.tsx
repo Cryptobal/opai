@@ -201,7 +201,7 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
       {/* ── Main content ── */}
       <div
         className={cn(
-          'transition-[padding] duration-200 ease-out min-w-0 overflow-x-hidden',
+          'transition-[padding] duration-200 ease-out min-w-0 w-full',
           isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
           className
         )}
@@ -210,8 +210,8 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
         <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center justify-end gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
-        <main className="flex-1 min-w-0 overflow-x-hidden">
-          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden" role="region">
+        <main className="flex-1 min-w-0 w-full overflow-x-hidden">
+          <div className="w-full max-w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden" role="region">
             {children}
           </div>
         </main>

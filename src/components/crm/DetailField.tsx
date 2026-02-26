@@ -60,12 +60,12 @@ export function DetailField({
         className
       )}
     >
-      <dt className="text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
+      <dt className="text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide break-words">
         {label}
       </dt>
       <dd
         className={cn(
-          "text-sm text-foreground min-w-0",
+          "text-sm text-foreground min-w-0 break-words",
           mono && "font-mono tabular-nums",
           copyable && !isEmpty && "cursor-copy hover:text-primary transition-colors",
           isEmpty && "text-muted-foreground/60"
@@ -73,9 +73,9 @@ export function DetailField({
         onClick={copyable ? handleCopy : undefined}
         title={copyable && typeof value === "string" ? "Clic para copiar" : undefined}
       >
-        <span className="flex items-center gap-1.5 min-w-0">
-          {icon && <span className="shrink-0">{icon}</span>}
-          <span className="truncate">
+        <span className="flex items-start gap-1.5 min-w-0">
+          {icon && <span className="shrink-0 mt-0.5">{icon}</span>}
+          <span className="min-w-0 break-words">
             {isEmpty ? placeholder : value}
           </span>
         </span>
@@ -112,9 +112,9 @@ export function DetailFieldGrid({
   return (
     <dl
       className={cn(
-        "grid gap-x-6 gap-y-4",
-        columns === 2 && "sm:grid-cols-2",
-        columns === 3 && "sm:grid-cols-2 lg:grid-cols-3",
+        "grid gap-x-6 gap-y-4 min-w-0",
+        columns === 2 && "grid-cols-1 sm:grid-cols-2",
+        columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
         className
       )}
     >
