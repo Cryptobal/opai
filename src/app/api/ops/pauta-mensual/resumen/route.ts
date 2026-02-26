@@ -75,6 +75,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const puestoRequiredById = new Map(puestos.map((p) => [p.id, p.requiredGuards]));
+    const validAsignaciones = asignaciones.filter((a) => {
+      const required = puestoRequiredById.get(a.puestoId);
+      return typeof required === "number" && a.slotNumber >= 1 && a.slotNumber <= required;
+    });
+
     // Check which installations have pauta entries for this month
     const pautaCounts = await prisma.opsPautaMensual.groupBy({
       by: ["installationId"],
@@ -133,7 +139,7 @@ export async function GET(request: NextRequest) {
 
     // Build a set of assigned slots for fast lookup
     const assignedSlotSet = new Set(
-      asignaciones.map((a) => `${a.installationId}|${a.puestoId}|${a.slotNumber}`)
+      validAsignaciones.map((a) => `${a.installationId}|${a.puestoId}|${a.slotNumber}`)
     );
 
     // PPC per installation:
@@ -172,7 +178,7 @@ export async function GET(request: NextRequest) {
     // Build per-installation summary
     const summary = installations.map((inst) => {
       const instPuestos = puestos.filter((p) => p.installationId === inst.id);
-      const instAsignaciones = asignaciones.filter((a) => a.installationId === inst.id);
+      const instAsignaciones = validAsignaciones.filter((a) => a.installationId === inst.id);
 
       // Calculate total required guards (sum of requiredGuards across puestos)
       const totalRequired = instPuestos.reduce((sum, p) => sum + p.requiredGuards, 0);

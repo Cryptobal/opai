@@ -919,11 +919,13 @@ function StaffingSection({
   sourceQuoteId,
   sourceQuoteCode,
   sourceUpdatedAt,
+  canForceDelete = false,
 }: {
   installation: InstallationDetail;
   sourceQuoteId: string | null;
   sourceQuoteCode: string | null;
   sourceUpdatedAt: string | null;
+  canForceDelete?: boolean;
 }) {
   const router = useRouter();
   const StaffingIcon = CRM_MODULES.installations.icon;
@@ -936,6 +938,34 @@ function StaffingSection({
 
   // Delete/deactivate states
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: "", name: "" });
+  const [deleteDiagnostics, setDeleteDiagnostics] = useState<{
+    canDelete: boolean;
+    activeAssignmentCount: number;
+    activeAssignments: Array<{ slotNumber: number; guardiaName: string; startDate: string }>;
+    pautaSamples: Array<{
+      date: string;
+      slotNumber: number;
+      shiftCode: string | null;
+      plannedGuardiaName: string | null;
+    }>;
+    asistenciaSamples: Array<{
+      date: string;
+      slotNumber: number;
+      attendanceStatus: string;
+      plannedGuardiaName: string | null;
+      actualGuardiaName: string | null;
+      replacementGuardiaName: string | null;
+    }>;
+    pautaCount: number;
+    asistenciaCount: number;
+    activeSeriesCount: number;
+    firstPautaDate: string | null;
+    lastPautaDate: string | null;
+    firstAsistenciaDate: string | null;
+    lastAsistenciaDate: string | null;
+  } | null>(null);
+  const [deleteDiagnosticsLoading, setDeleteDiagnosticsLoading] = useState(false);
+  const [deleteDiagnosticsError, setDeleteDiagnosticsError] = useState<string>("");
   const [deactivateConfirm, setDeactivateConfirm] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: "", name: "" });
   const [deactivateDate, setDeactivateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [actionLoading, setActionLoading] = useState(false);
@@ -997,6 +1027,26 @@ function StaffingSection({
     setFormModalOpen(true);
   };
 
+  const openDeleteConfirm = useCallback(async (puestoId: string, puestoName: string) => {
+    setDeleteConfirm({ open: true, id: puestoId, name: puestoName });
+    setDeleteDiagnostics(null);
+    setDeleteDiagnosticsError("");
+    setDeleteDiagnosticsLoading(true);
+    try {
+      const res = await fetch(`/api/ops/puestos/${puestoId}`, { cache: "no-store" });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo auditar el puesto");
+      }
+      setDeleteDiagnostics(payload.data?.diagnostics ?? null);
+    } catch (error) {
+      console.error(error);
+      setDeleteDiagnosticsError(error instanceof Error ? error.message : "No se pudo auditar el puesto");
+    } finally {
+      setDeleteDiagnosticsLoading(false);
+    }
+  }, []);
+
   // Save (create or edit)
   const handleSave = async (data: PuestoFormData) => {
     const body: Record<string, unknown> = {
@@ -1044,21 +1094,134 @@ function StaffingSection({
 
   // Delete puesto
   const handleDelete = async () => {
+    if (!deleteConfirm.id) return;
+    if (deleteDiagnosticsLoading) {
+      toast.error("Espera el diagnóstico antes de confirmar la eliminación.");
+      return;
+    }
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/ops/puestos/${deleteConfirm.id}`, { method: "DELETE" });
+      const canForce =
+        Boolean(deleteDiagnostics) &&
+        deleteDiagnostics.canDelete === false &&
+        canForceDelete;
+      const url = canForce ? `/api/ops/puestos/${deleteConfirm.id}?force=true` : `/api/ops/puestos/${deleteConfirm.id}`;
+      const res = await fetch(url, { method: "DELETE" });
       const payload = await res.json();
-      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo eliminar");
-      toast.success("Puesto eliminado");
+      if (!res.ok || !payload.success) {
+        if (payload?.details) {
+          setDeleteDiagnostics(payload.details);
+        }
+        throw new Error(payload.error || "No se pudo eliminar");
+      }
+      toast.success(canForce ? "Puesto eliminado forzadamente" : "Puesto eliminado");
       setDeleteConfirm({ open: false, id: "", name: "" });
+      setDeleteDiagnostics(null);
+      setDeleteDiagnosticsError("");
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo eliminar el puesto");
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar el puesto");
     } finally {
       setActionLoading(false);
     }
   };
+
+  const canForceThisDelete =
+    Boolean(deleteDiagnostics) &&
+    deleteDiagnostics.canDelete === false &&
+    canForceDelete;
+
+  const deleteDescription = useMemo(() => {
+    if (deleteDiagnosticsLoading) {
+      return "Analizando dependencias del puesto para evitar inconsistencias...";
+    }
+    if (deleteDiagnosticsError) {
+      return (
+        <div className="space-y-1">
+          <p>No se pudo obtener el diagnóstico completo.</p>
+          <p className="text-xs text-amber-300">{deleteDiagnosticsError}</p>
+        </div>
+      );
+    }
+    if (!deleteDiagnostics) {
+      return `El puesto "${deleteConfirm.name}" será eliminado permanentemente.`;
+    }
+
+    const hasHistory =
+      deleteDiagnostics.pautaCount > 0 ||
+      deleteDiagnostics.asistenciaCount > 0 ||
+      deleteDiagnostics.activeSeriesCount > 0;
+    const pautaPreview = deleteDiagnostics.pautaSamples
+      .slice(0, 3)
+      .map((row) => {
+        const code = row.shiftCode ?? "—";
+        const guardia = row.plannedGuardiaName ? ` (${row.plannedGuardiaName})` : "";
+        return `${row.date} · S${row.slotNumber} · ${code}${guardia}`;
+      })
+      .join(" | ");
+    const asistenciaPreview = deleteDiagnostics.asistenciaSamples
+      .slice(0, 3)
+      .map((row) => {
+        const plan = row.plannedGuardiaName ? `plan:${row.plannedGuardiaName}` : "plan:—";
+        const real = row.actualGuardiaName ? `real:${row.actualGuardiaName}` : "real:—";
+        return `${row.date} · S${row.slotNumber} · ${row.attendanceStatus} (${plan}, ${real})`;
+      })
+      .join(" | ");
+
+    return (
+      <div className="space-y-2">
+        <p>
+          {deleteDiagnostics.canDelete
+            ? `El puesto "${deleteConfirm.name}" puede eliminarse sin bloqueos.`
+            : `El puesto "${deleteConfirm.name}" tiene bloqueos y no puede eliminarse de forma estándar.`}
+        </p>
+        <ul className="list-disc pl-4 text-xs space-y-0.5">
+          <li>Asignaciones activas: {deleteDiagnostics.activeAssignmentCount}</li>
+          <li>Registros en pauta: {deleteDiagnostics.pautaCount}</li>
+          <li>Registros en asistencia: {deleteDiagnostics.asistenciaCount}</li>
+          <li>Series activas: {deleteDiagnostics.activeSeriesCount}</li>
+        </ul>
+        {deleteDiagnostics.activeAssignments.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Slots activos:{" "}
+            {deleteDiagnostics.activeAssignments
+              .map((a) => `S${a.slotNumber} (${a.guardiaName})`)
+              .slice(0, 4)
+              .join(", ")}
+            {deleteDiagnostics.activeAssignments.length > 4 ? "..." : ""}
+          </p>
+        ) : null}
+        {hasHistory ? (
+          <p className="text-xs text-muted-foreground">
+            Historial: pauta {deleteDiagnostics.firstPautaDate ?? "—"} → {deleteDiagnostics.lastPautaDate ?? "—"} · asistencia{" "}
+            {deleteDiagnostics.firstAsistenciaDate ?? "—"} → {deleteDiagnostics.lastAsistenciaDate ?? "—"}.
+          </p>
+        ) : null}
+        {deleteDiagnostics.pautaSamples.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Pauta (muestra): {pautaPreview}
+          </p>
+        ) : null}
+        {deleteDiagnostics.asistenciaSamples.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Asistencia (muestra): {asistenciaPreview}
+          </p>
+        ) : null}
+        {canForceThisDelete ? (
+          <p className="text-xs text-amber-300">
+            Como administrador puedes eliminar forzadamente. Esto borrará también historial asociado al puesto.
+          </p>
+        ) : null}
+      </div>
+    );
+  }, [
+    canForceThisDelete,
+    deleteConfirm.name,
+    deleteDiagnostics,
+    deleteDiagnosticsError,
+    deleteDiagnosticsLoading,
+  ]);
 
   // Deactivate puesto
   const handleDeactivate = async () => {
@@ -1148,7 +1311,7 @@ function StaffingSection({
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteConfirm({ open: true, id: item.id, name: item.name })}
+                        onClick={() => void openDeleteConfirm(item.id, item.name)}
                         title="Eliminar"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1261,7 +1424,7 @@ function StaffingSection({
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteConfirm({ open: true, id: item.id, name: item.name })}
+                            onClick={() => void openDeleteConfirm(item.id, item.name)}
                             title="Eliminar"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1355,10 +1518,17 @@ function StaffingSection({
       {/* Delete confirmation */}
       <ConfirmDialog
         open={deleteConfirm.open}
-        onOpenChange={(open) => setDeleteConfirm((prev) => ({ ...prev, open }))}
+        onOpenChange={(open) => {
+          setDeleteConfirm((prev) => ({ ...prev, open }));
+          if (!open) {
+            setDeleteDiagnostics(null);
+            setDeleteDiagnosticsError("");
+            setDeleteDiagnosticsLoading(false);
+          }
+        }}
         title="Eliminar puesto"
-        description={`El puesto "${deleteConfirm.name}" será eliminado permanentemente. Si tiene pauta o asistencia asociada, no se podrá eliminar.`}
-        confirmLabel="Eliminar"
+        description={deleteDescription}
+        confirmLabel={canForceThisDelete ? "Eliminar forzadamente" : "Eliminar"}
         variant="destructive"
         loading={actionLoading}
         loadingLabel="Eliminando..."
@@ -1407,11 +1577,13 @@ function StaffingSection({
 export function CrmInstallationDetailClient({
   installation,
   canEditDotacion = false,
+  canForceDeletePuesto = false,
   hasInventarioAccess = false,
   currentUserId = "",
 }: {
   installation: InstallationDetail;
   canEditDotacion?: boolean;
+  canForceDeletePuesto?: boolean;
   hasInventarioAccess?: boolean;
   currentUserId?: string;
 }) {
@@ -1824,6 +1996,7 @@ export function CrmInstallationDetailClient({
           sourceQuoteId={sourceQuoteId}
           sourceQuoteCode={sourceQuoteCode}
           sourceUpdatedAt={sourceUpdatedAt}
+          canForceDelete={canForceDeletePuesto}
         />
       ),
     },

@@ -643,6 +643,14 @@ export function OpsPautaMensualClient({
     });
   }, [items, series, slotAsignaciones, executionByCell, allPuestos]);
 
+  const guardiaBySlotKey = useMemo(() => {
+    const bySlot = new Map<string, string>();
+    for (const asignacion of slotAsignaciones) {
+      bySlot.set(`${asignacion.puestoId}|${asignacion.slotNumber}`, asignacion.guardiaId);
+    }
+    return bySlot;
+  }, [slotAsignaciones]);
+
   /** Agrupar por tipo de turno (día/noche/rotativo) y luego por puesto */
   const groupedByShiftType = useMemo(() => {
     type GroupedPuesto = {
@@ -668,6 +676,10 @@ export function OpsPautaMensualClient({
       const otherKey = `${row.rotatePuestoId}|${row.rotateSlotNumber}`;
       const otherRow = rowByKey.get(otherKey);
       if (!otherRow) continue;
+      if (!row.guardiaId || !otherRow.guardiaId || row.guardiaId !== otherRow.guardiaId) {
+        // Si no comparten guardia activa, no se fusiona: cada slot debe verse por separado.
+        continue;
+      }
 
       const myKey = `${row.puestoId}|${row.slotNumber}`;
       if (rotativoRowKeys.has(myKey) || rotativoRowKeys.has(otherKey)) continue;
@@ -801,30 +813,31 @@ export function OpsPautaMensualClient({
   }, [matrix]);
 
   const shiftSummary = useMemo(() => {
-    const summarize = (groups: Array<{ rows: unknown[] }>) => {
-      const puestos = groups.length;
-      const requiredSlots = groups.reduce((acc, g) => acc + g.rows.length, 0);
-      const assignedSlots = groups.reduce(
-        (acc, g) => acc + g.rows.filter((r) => Boolean((r as { guardiaId?: string }).guardiaId)).length,
-        0
-      );
-      const vacantes = Math.max(0, requiredSlots - assignedSlots);
-      return { puestos, requiredSlots, assignedSlots, vacantes };
-    };
+    // Cobertura canónica: slots requeridos por puestos activos vs slots con asignación activa válida.
+    const validSlotKeys = new Set<string>();
+    for (const puesto of allPuestos) {
+      for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
+        validSlotKeys.add(`${puesto.id}|${slot}`);
+      }
+    }
 
-    const day = summarize(groupedByShiftType.day);
-    const night = summarize(groupedByShiftType.night);
-    const rotativo = summarize(groupedByShiftType.rotativo);
+    const assignedSlotKeys = new Set<string>();
+    for (const asignacion of slotAsignaciones) {
+      const key = `${asignacion.puestoId}|${asignacion.slotNumber}`;
+      if (validSlotKeys.has(key)) {
+        assignedSlotKeys.add(key);
+      }
+    }
+
+    const totalRequiredSlots = validSlotKeys.size;
+    const totalAssignedSlots = assignedSlotKeys.size;
 
     return {
-      day,
-      night,
-      rotativo,
-      totalRequiredSlots: day.requiredSlots + night.requiredSlots + rotativo.requiredSlots,
-      totalAssignedSlots: day.assignedSlots + night.assignedSlots + rotativo.assignedSlots,
-      totalVacantes: day.vacantes + night.vacantes + rotativo.vacantes,
+      totalRequiredSlots,
+      totalAssignedSlots,
+      totalVacantes: Math.max(0, totalRequiredSlots - totalAssignedSlots),
     };
-  }, [groupedByShiftType]);
+  }, [allPuestos, slotAsignaciones]);
 
   const daySectionIds = useMemo(
     () => groupedByShiftType.day.map((g) => g.puestoId),
@@ -1142,7 +1155,7 @@ export function OpsPautaMensualClient({
                 <div key="overview-month" className="space-y-1">
                   <Label className="text-xs">Mes</Label>
                   <select
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                     value={month}
                     onChange={(e) => setMonth(Number(e.target.value))}
                   >
@@ -1338,7 +1351,7 @@ export function OpsPautaMensualClient({
               <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                 >
@@ -1350,7 +1363,7 @@ export function OpsPautaMensualClient({
               <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Instalación</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={installationId}
                   onChange={(e) => setInstallationId(e.target.value)}
                 >
@@ -1362,7 +1375,7 @@ export function OpsPautaMensualClient({
               <div key="filter-month" className="space-y-1">
                 <Label className="text-xs">Mes</Label>
                 <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
                 >
@@ -1397,6 +1410,20 @@ export function OpsPautaMensualClient({
                 </div>
               ) : null}
               <div className="flex items-center gap-1.5 ml-auto">
+                {installationId ? (
+                  <Link href={`/crm/installations/${installationId}`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-7 px-2"
+                      title="Abrir ficha de instalación en CRM"
+                    >
+                      <ExternalLink className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Instalación</span>
+                      <span className="sm:hidden">CRM</span>
+                    </Button>
+                  </Link>
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1747,6 +1774,7 @@ export function OpsPautaMensualClient({
 
                                 const clickPuestoId = isRotativoRow && rotativoCell ? rotativoCell.clickPuestoId : row.puestoId;
                                 const clickSlotNumber = isRotativoRow && rotativoCell ? rotativoCell.clickSlotNumber : row.slotNumber;
+                                const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
                                 const displayCode = isRotativoRow
                                   ? (rotativoCell?.displayCode ?? "·")
                                   : (isTrabajo ? "T" : (code || "·"));
@@ -1814,7 +1842,7 @@ export function OpsPautaMensualClient({
                                             slotNumber: clickSlotNumber,
                                             dateKey,
                                             puestoName: row.puestoName,
-                                            guardiaId: row.guardiaId,
+                                            guardiaId: clickGuardiaId,
                                           });
                                         }}
                                         onContextMenu={(e) => {
@@ -1866,7 +1894,7 @@ export function OpsPautaMensualClient({
                                             slotNumber: clickSlotNumber,
                                             dateKey,
                                             puestoName: row.puestoName,
-                                            guardiaId: row.guardiaId,
+                                            guardiaId: clickGuardiaId,
                                           })
                                         }
                                       >
@@ -2001,7 +2029,7 @@ export function OpsPautaMensualClient({
           <DialogHeader>
             <DialogTitle>Pintar serie de turnos</DialogTitle>
             <DialogDescription>
-              Define la rotación para este guardia desde el día seleccionado. Cada línea se pinta de forma independiente.
+              Define la rotación para este slot desde el día seleccionado. El guardia se toma desde la asignación activa del slot.
             </DialogDescription>
           </DialogHeader>
 
@@ -2009,7 +2037,7 @@ export function OpsPautaMensualClient({
             <div className="space-y-1.5">
               <Label>Patrón de turno</Label>
               <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-0 text-sm leading-tight"
                 value={serieForm.patternCode}
                 onChange={(e) => setSerieForm((p) => ({ ...p, patternCode: e.target.value, startPosition: 1 }))}
               >
@@ -2029,7 +2057,7 @@ export function OpsPautaMensualClient({
               return (
                 <div className="rounded-md border border-border p-3">
                   <p className="text-xs font-medium mb-1.5">
-                    Selecciona el día del ciclo donde inicia el guardia
+                    Selecciona el día del ciclo donde inicia este slot
                   </p>
                   <p className="text-[10px] text-muted-foreground mb-3">
                     Pincha el día del ciclo que corresponde al primer día en la pauta.
@@ -2091,7 +2119,7 @@ export function OpsPautaMensualClient({
                     <div>
                       <p className="text-xs font-medium">Turno rotativo</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta la línea de este guardia, sin tomar automáticamente el guardia del puesto par.
+                        Alterna entre turno {currentIsNight ? "nocturno" : "diurno"} y {currentIsNight ? "diurno" : "nocturno"} cada ciclo. Solo pinta esta línea, sin seleccionar ni mover guardias automáticamente.
                       </p>
                     </div>
                     <button
@@ -2175,7 +2203,7 @@ export function OpsPautaMensualClient({
                             ) : (
                               /* Si hay múltiples puestos opuestos, dropdown */
                               <select
-                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 py-0 text-sm leading-tight"
                                 value={serieForm.rotatePuestoId}
                                 onChange={(e) => setSerieForm((p) => ({ ...p, rotatePuestoId: e.target.value, rotateSlotNumber: 1 }))}
                               >

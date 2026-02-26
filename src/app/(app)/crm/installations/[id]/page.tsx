@@ -206,12 +206,14 @@ export default async function CrmInstallationDetailPage({
 
   const canEditDotacion = canEdit(perms, "crm", "dotacion");
   const hasInventarioAccess = canView(perms, "ops", "inventario");
+  const canForceDeletePuesto = ["owner", "admin"].includes(session.user.role ?? "");
 
   return (
     <>
       <CrmInstallationDetailClient
         installation={data}
         canEditDotacion={canEditDotacion}
+        canForceDeletePuesto={canForceDeletePuesto}
         hasInventarioAccess={hasInventarioAccess}
         currentUserId={session.user.id ?? ""}
       />
