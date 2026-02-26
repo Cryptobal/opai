@@ -202,7 +202,7 @@ export function DetailLayout({
         items={orderedSections.map((section) => section.key)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-4 pt-6 sm:space-y-6 sm:pt-8">
+        <div className="space-y-4 pt-4 sm:space-y-6 sm:pt-6">
           {orderedSections.map((section) => {
             const isFixed = hasFixedSection && section.key === firstSectionKey;
             const isOpen = isFixed ? true : !collapsedKeys.has(section.key);
@@ -229,7 +229,7 @@ export function DetailLayout({
       <div className={cn("relative", className)}>
         {header}
         {/* En móvil: columna (nav arriba, contenido abajo). En desktop: fila (nav izquierda, contenido derecha) */}
-        <div className="mt-4 flex min-w-0 flex-col gap-2 sm:mt-6 sm:gap-3 lg:flex-row">
+        <div className="mt-4 flex min-w-0 flex-col gap-2 pt-8 sm:mt-6 sm:gap-3 sm:pt-12 lg:flex-row lg:pt-16">
           <SectionNav
             sections={navItems}
             onSectionClick={(key) => openSection(key)}
@@ -251,7 +251,7 @@ export function DetailLayout({
         extraAction={resetButton}
       />
 
-      <div className="mt-4 sm:mt-6">{sectionsList}</div>
+      <div className="mt-4 pt-8 sm:mt-6 sm:pt-12">{sectionsList}</div>
     </div>
   );
 }
