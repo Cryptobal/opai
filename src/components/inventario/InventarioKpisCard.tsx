@@ -68,6 +68,7 @@ export function InventarioKpisCard() {
           </Link>
         </div>
 
+        {/* Intencional: KPI compuesto con breakdown — no usa KpiCard por layout multi-sección */}
         <div className="rounded-lg bg-muted/40 p-3 min-h-[4rem]">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Costo total asignado

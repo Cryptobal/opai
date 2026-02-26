@@ -720,6 +720,7 @@ function ConfirmacionScreen({
       <h2 className="text-xl font-bold text-slate-900 mb-1">
         {data.tipo === "entrada" ? "Entrada Registrada" : "Salida Registrada"}
       </h2>
+      {/* Intencional: display de hora en pantalla de confirmación, no es un KPI — no requiere KpiCard */}
       <p className="text-3xl font-bold text-slate-900 tabular-nums my-3">
         {timeStr}
       </p>

@@ -520,6 +520,7 @@ export default function PayrollSimulator() {
                 </div>
 
                 {/* ── LÍQUIDO ── */}
+                {/* Intencional: resultado principal del simulador con estilo destacado, no usa KpiCard */}
                 <div className="bg-emerald-500/5 px-4 py-4">
                   <div className="flex items-baseline justify-between">
                     <span className="text-sm font-semibold uppercase tracking-wider text-emerald-400">

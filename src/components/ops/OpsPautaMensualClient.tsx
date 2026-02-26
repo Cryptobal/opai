@@ -1193,7 +1193,7 @@ export function OpsPautaMensualClient({
           </div>
         ) : overviewData.length === 0 ? (
           <Card>
-            <CardContent className="pt-6 pb-6">
+            <CardContent className="pt-8 pb-8">
               <EmptyState
                 icon={<Building2 className="h-8 w-8" />}
                 title="Sin instalaciones"
@@ -1204,7 +1204,7 @@ export function OpsPautaMensualClient({
           </Card>
         ) : filteredOverviewData.length === 0 ? (
           <Card>
-            <CardContent className="pt-6 pb-6">
+            <CardContent className="pt-8 pb-8">
               <EmptyState
                 icon={<Search className="h-8 w-8" />}
                 title="Sin resultados"
