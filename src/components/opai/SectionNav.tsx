@@ -30,8 +30,8 @@ interface SectionNavProps {
   layout?: SectionNavLayout;
 }
 
-/** Threshold for switching to vertical layout in auto mode */
-const VERTICAL_THRESHOLD = 7;
+/** Threshold for switching to vertical layout in auto mode (≥6 sections = vertical bar) */
+const VERTICAL_THRESHOLD = 6;
 
 /**
  * Resolve the effective layout given the prop and section count.
@@ -43,7 +43,7 @@ export function resolveSectionNavLayout(
 ): "horizontal" | "vertical" {
   if (layout === "horizontal") return "horizontal";
   if (layout === "vertical") return "vertical";
-  return sectionCount > VERTICAL_THRESHOLD ? "vertical" : "horizontal";
+  return sectionCount >= VERTICAL_THRESHOLD ? "vertical" : "horizontal";
 }
 
 function useWindowWidth() {
@@ -223,12 +223,15 @@ function HorizontalSectionNav({
   return (
     <div
       className={cn(
-        "sticky top-[113px] z-[9] -mx-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-        "sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12",
+        "sticky top-[113px] z-[9] border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "-mx-2 px-4 sm:-mx-3 sm:px-6",
+        "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
+        "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
+        "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12",
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+      <div className="flex items-center justify-between gap-2">
         <div
           ref={navRef}
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide"
@@ -321,14 +324,14 @@ function VerticalSectionNav({
   const [activeSection, setActiveSection] = useState<string>(
     sections[0]?.key ?? ""
   );
-  // Expanded on desktop (>1024px), collapsed on tablet (768-1024px)
-  const [isExpanded, setIsExpanded] = useState(windowWidth > 1024);
+  // Expandido en tablet+ (≥768px), colapsado solo en móvil
+  const [isExpanded, setIsExpanded] = useState(windowWidth >= 768);
   const isClickScrolling = useRef(false);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Auto-collapse/expand on resize
   useEffect(() => {
-    setIsExpanded(windowWidth > 1024);
+    setIsExpanded(windowWidth >= 768);
   }, [windowWidth]);
 
   // Intersection observer to track active section
@@ -400,7 +403,7 @@ function VerticalSectionNav({
     <nav
       className={cn(
         "sticky top-[113px] z-[9] self-start shrink-0 border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 overflow-y-auto max-h-[calc(100vh-113px)] transition-[width] duration-200",
-        isExpanded ? "w-[200px]" : "w-12",
+        isExpanded ? "w-[220px] min-w-[220px]" : "w-12",
         className
       )}
       role="tablist"
@@ -456,7 +459,7 @@ function VerticalSectionNav({
                 <Icon className="h-4 w-4 shrink-0" />
                 {isExpanded && (
                   <>
-                    <span className="truncate flex-1 text-left">{section.label}</span>
+                    <span className="flex-1 text-left break-words min-w-0">{section.label}</span>
                     {section.count !== undefined && section.count > 0 && (
                       <span
                         className={cn(

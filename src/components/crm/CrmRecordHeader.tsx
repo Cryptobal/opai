@@ -61,8 +61,11 @@ export function CrmRecordHeader({
   return (
     <div
       className={cn(
-        "sticky top-0 lg:top-[40px] z-10 -mx-4 -mt-6 mb-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-        "px-4 py-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12",
+        "sticky top-0 lg:top-12 z-10 -mt-6 mb-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "-mx-2 px-4 py-4 sm:-mx-3 sm:px-6",
+        "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
+        "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
+        "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12",
         className
       )}
     >

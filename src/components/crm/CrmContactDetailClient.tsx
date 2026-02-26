@@ -581,6 +581,7 @@ export function CrmContactDetailClient({
       <CrmDetailLayout
         pageType="contact"
         module="contacts"
+        fixedSectionKey="general"
         title={fullName}
         subtitle={subtitle}
         badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
