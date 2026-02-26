@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CrmDetailLayout } from "@/components/crm/CrmDetailLayout";
+import { DetailField, DetailFieldGrid } from "@/components/crm/DetailField";
 import type { RecordAction } from "@/components/crm/RecordActions";
 import {
   AFP_CHILE,
@@ -1138,220 +1139,154 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         <div className="space-y-6">
           {/* Identificación */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Identificación</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nombre completo</Label>
-                <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">RUT</Label>
-                <Input value={guardia.persona.rut || "Sin RUT"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Fecha de nacimiento</Label>
-                <Input value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Sexo</Label>
-                <Input
-                  value={
-                    guardia.persona.sex
-                      ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1)
-                      : "Sin sexo"
-                  }
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nacionalidad</Label>
-                <Input value={guardia.persona.nacionalidad || "Sin nacionalidad"} readOnly className="h-9" />
-              </div>
-            </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Identificación</p>
+            <DetailFieldGrid columns={3}>
+              <DetailField label="Nombre completo" value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} />
+              <DetailField label="RUT" value={guardia.persona.rut} mono copyable />
+              <DetailField label="Fecha de nacimiento" value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : undefined} />
+              <DetailField
+                label="Sexo"
+                value={guardia.persona.sex ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1) : undefined}
+              />
+              <DetailField label="Nacionalidad" value={guardia.persona.nacionalidad} />
+            </DetailFieldGrid>
           </div>
+
+          <div className="border-t border-border" />
 
           {/* Contacto */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Contacto</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Email</Label>
-                <Input value={guardia.persona.email || "Sin email"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Celular</Label>
-                <Input value={guardia.persona.phoneMobile || "Sin celular"} readOnly className="h-9" />
-              </div>
-            </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Contacto</p>
+            <DetailFieldGrid columns={3}>
+              <DetailField label="Email" value={guardia.persona.email} copyable />
+              <DetailField label="Celular" value={guardia.persona.phoneMobile} mono copyable />
+            </DetailFieldGrid>
           </div>
+
+          <div className="border-t border-border" />
 
           {/* Datos previsionales */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Datos previsionales</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Régimen previsional</Label>
-                <Input value={getRegimenPrevisionalLabel(guardia.persona.regimenPrevisional) || "Sin especificar"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">¿Jubilado?</Label>
-                <Input value={guardia.persona.isJubilado ? "Sí" : "No"} readOnly className="h-9" />
-              </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos previsionales</p>
+            <DetailFieldGrid columns={3}>
+              <DetailField label="Régimen previsional" value={getRegimenPrevisionalLabel(guardia.persona.regimenPrevisional)} />
+              <DetailField label="¿Jubilado?" value={guardia.persona.isJubilado ? "Sí" : "No"} />
               {guardia.persona.isJubilado && (
                 <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Cotiza AFP</Label>
-                    <Input value={guardia.persona.cotizaAFP ? "Sí" : "No"} readOnly className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Cotiza AFC</Label>
-                    <Input value={guardia.persona.cotizaAFC ? "Sí" : "No"} readOnly className="h-9" />
-                  </div>
+                  <DetailField label="Cotiza AFP" value={guardia.persona.cotizaAFP ? "Sí" : "No"} />
+                  <DetailField label="Cotiza AFC" value={guardia.persona.cotizaAFC ? "Sí" : "No"} />
                 </>
               )}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Cotiza salud</Label>
-                <Input value={guardia.persona.cotizaSalud !== false ? "Sí" : "No"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">AFP</Label>
-                <Input value={guardia.persona.afp || "Sin AFP"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Sistema de salud</Label>
-                <Input
-                  value={
-                    guardia.persona.healthSystem === "isapre"
-                      ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
-                      : guardia.persona.healthSystem
-                        ? guardia.persona.healthSystem.toUpperCase()
-                        : "Sin sistema de salud"
-                  }
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Cotización</Label>
-                <Input
-                  value={
-                    guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
-                      ? `Cotización ${guardia.persona.isapreExtraPercent || "N/D"}%`
-                      : "Cotización legal"
-                  }
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-            </div>
+              <DetailField label="Cotiza salud" value={guardia.persona.cotizaSalud !== false ? "Sí" : "No"} />
+              <DetailField label="AFP" value={guardia.persona.afp} />
+              <DetailField
+                label="Sistema de salud"
+                value={
+                  guardia.persona.healthSystem === "isapre"
+                    ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
+                    : guardia.persona.healthSystem
+                      ? guardia.persona.healthSystem.toUpperCase()
+                      : undefined
+                }
+              />
+              <DetailField
+                label="Cotización"
+                value={
+                  guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
+                    ? `${guardia.persona.isapreExtraPercent || "N/D"}%`
+                    : "Cotización legal"
+                }
+              />
+            </DetailFieldGrid>
           </div>
 
-          {/* Otros */}
+          <div className="border-t border-border" />
+
+          {/* Laboral */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Otros</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Movilización</Label>
-                <Input value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Turnos extra</Label>
-                <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Fecha de ingreso</Label>
-                <Input value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : "Sin fecha de ingreso"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Recibe anticipo</Label>
-                <Input value={guardia.recibeAnticipo ? "Sí" : "No"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Monto anticipo</Label>
-                <Input value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Cargo / Instalación</Label>
-              {(() => {
-                const current = asignaciones.find((a) => a.isActive);
-                if (!current) {
-                  return <Input value="Sin cargo asignado" readOnly className="h-9" />;
-                }
-                const cargoLabel = current.puesto?.cargo?.name ?? current.puesto?.name ?? "Sin cargo";
-                const instLabel = `${current.installation.name}${current.installation.account ? ` · ${current.installation.account.name}` : ""}`;
-                return (
-                  <Link href={`/crm/installations/${current.installation.id}`} className="block">
-                    <Input
-                      value={`${cargoLabel} · ${instLabel}`}
-                      readOnly
-                      className="h-9 cursor-pointer text-primary hover:underline"
-                    />
-                  </Link>
-                );
-              })()}
-              </div>
-            </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Laboral</p>
+            <DetailFieldGrid columns={3}>
+              <DetailField label="Movilización" value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} />
+              <DetailField label="Turnos extra" value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} />
+              <DetailField label="Fecha de ingreso" value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : undefined} />
+              <DetailField label="Recibe anticipo" value={guardia.recibeAnticipo ? "Sí" : "No"} />
+              <DetailField label="Monto anticipo" value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} mono />
+              <DetailField
+                label="Cargo / Instalación"
+                value={(() => {
+                  const current = asignaciones.find((a) => a.isActive);
+                  if (!current) return undefined;
+                  const cargoLabel = current.puesto?.cargo?.name ?? current.puesto?.name ?? "Sin cargo";
+                  const instLabel = `${current.installation.name}${current.installation.account ? ` · ${current.installation.account.name}` : ""}`;
+                  return (
+                    <Link href={`/crm/installations/${current.installation.id}`} className="text-primary hover:underline">
+                      {cargoLabel} · {instLabel}
+                    </Link>
+                  );
+                })()}
+                placeholder="Sin cargo asignado"
+              />
+            </DetailFieldGrid>
           </div>
+
+          <div className="border-t border-border" />
 
           {/* Datos bancarios */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Datos bancarios</p>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Banco</Label>
-                <Input
-                  value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName ?? "Sin banco") : "Sin datos"}
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Tipo cuenta</Label>
-                <Input
-                  value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : "Sin datos"}
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Número de cuenta</Label>
-                <Input
-                  value={existingAccount?.accountNumber ?? "Sin datos"}
-                  readOnly
-                  className="h-9"
-                />
-              </div>
-            </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Datos bancarios</p>
+            <DetailFieldGrid columns={3}>
+              <DetailField
+                label="Banco"
+                value={existingAccount ? (CHILE_BANKS.find((b) => b.code === existingAccount.bankCode)?.name ?? existingAccount.bankName) : undefined}
+                placeholder="Sin datos"
+              />
+              <DetailField
+                label="Tipo cuenta"
+                value={existingAccount ? (ACCOUNT_TYPE_LABEL[existingAccount.accountType] ?? existingAccount.accountType) : undefined}
+                placeholder="Sin datos"
+              />
+              <DetailField
+                label="Número de cuenta"
+                value={existingAccount?.accountNumber}
+                mono
+                copyable
+                placeholder="Sin datos"
+              />
+            </DetailFieldGrid>
           </div>
+
+          <div className="border-t border-border" />
 
           {/* Domicilio */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Domicilio</p>
-            <div className="grid gap-3 md:grid-cols-[1fr_200px] md:items-start">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Dirección</Label>
-                <Input value={guardia.persona.addressFormatted || "Sin dirección"} readOnly className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Ubicación</Label>
-                {mapUrl ? (
-                  <a
-                    href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg overflow-hidden border border-border block h-[120px] w-full min-w-[160px]"
-                    title="Abrir en Google Maps"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
-                  </a>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border h-[120px] w-full min-w-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    Sin mapa
-                  </div>
-                )}
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Domicilio</p>
+            <div className="grid gap-x-6 gap-y-4 md:grid-cols-[1fr_200px] md:items-start">
+              <DetailField
+                label="Dirección"
+                value={guardia.persona.addressFormatted}
+                icon={guardia.persona.addressFormatted ? <MapPin className="h-3 w-3" /> : undefined}
+              />
+              <div className="min-w-0">
+                <dt className="text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">Ubicación</dt>
+                <dd>
+                  {mapUrl ? (
+                    <a
+                      href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg overflow-hidden border border-border block h-[120px] w-[200px]"
+                      title="Abrir en Google Maps"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
+                    </a>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border h-[120px] w-[200px] flex items-center justify-center text-xs text-muted-foreground">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      Sin mapa
+                    </div>
+                  )}
+                </dd>
               </div>
             </div>
           </div>
@@ -2256,6 +2191,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       <CrmDetailLayout
         module="guardias"
         pageType="guardia"
+        fixedSectionKey="datos"
         defaultCollapsedSectionKeys={true}
         title={guardiaTitle}
         subtitle={guardiaSubtitle}
