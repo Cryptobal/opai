@@ -92,6 +92,8 @@ export default async function FinanzasConfiguracionPage() {
       <PageHeader
         title="Configuración de Finanzas"
         description="Administra ítems de rendición, parámetros de kilometraje, aprobadores y reglas."
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <ConfigClient
         config={configData}

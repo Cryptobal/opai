@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigBackLink } from "@/components/opai";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { BonosCatalogManager } from "@/components/payroll/BonosCatalogManager";
@@ -19,20 +18,18 @@ export default async function PayrollConfigPage() {
   }
 
   return (
-    <>
-      <ConfigBackLink />
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Configuración Payroll"
         description="Parámetros, bonos y supuestos para remuneraciones"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
 
-      {/* Feriados */}
       <HolidaysManager />
-
-      {/* Catálogo de bonos */}
       <BonosCatalogManager />
 
-      <div className="grid gap-4 md:grid-cols-2 mt-6">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Parámetros base</CardTitle>
@@ -52,6 +49,6 @@ export default async function PayrollConfigPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

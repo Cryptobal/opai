@@ -18,6 +18,8 @@ export default async function AsistenteIaConfigPage() {
       <PageHeader
         title="Asistente IA"
         description="Configura acceso por roles y alcance del chat conversacional en la aplicación"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <AiHelpChatConfigClient />
     </div>

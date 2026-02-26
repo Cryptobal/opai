@@ -21,11 +21,9 @@ export default async function EditDocTemplatePage({
   }
 
   return (
-    <>
+    <div className="space-y-6 min-w-0">
       <DocumentosSubnav />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-        <DocTemplateEditorClient templateId={id} />
-      </div>
-    </>
+      <DocTemplateEditorClient templateId={id} />
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigBackLink } from "@/components/opai";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import GroupsConfigClient from "@/components/config/GroupsConfigClient";
 
@@ -16,10 +15,11 @@ export default async function GruposConfigPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ConfigBackLink />
       <PageHeader
         title="Grupos de Usuarios"
         description="Crea y administra grupos organizacionales (RRHH, Operaciones, etc.) para cadenas de aprobación y asignación de equipo"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <GroupsConfigClient userRole={role} />
     </div>

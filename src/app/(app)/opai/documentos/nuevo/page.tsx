@@ -17,13 +17,11 @@ export default async function NewDocumentPage() {
   }
 
   return (
-    <>
+    <div className="space-y-6 min-w-0">
       <DocumentosSubnav />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-        <Suspense>
-          <DocGenerateClient />
-        </Suspense>
-      </div>
-    </>
+      <Suspense>
+        <DocGenerateClient />
+      </Suspense>
+    </div>
   );
 }

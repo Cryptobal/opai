@@ -18,6 +18,8 @@ export default async function OpsConfigPage() {
       <PageHeader
         title="Operaciones"
         description="Configuración de marcaciones, rondas, emails automáticos y parámetros operativos"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <OpsConfigClient />
     </div>

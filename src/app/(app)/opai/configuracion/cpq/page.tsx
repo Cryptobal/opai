@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
-import { ConfigBackLink } from "@/components/opai";
 import { CpqConfigTabs } from "@/components/cpq/CpqConfigTabs";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
@@ -17,13 +16,14 @@ export default async function CpqConfigPage() {
   }
 
   return (
-    <>
-      <ConfigBackLink />
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Configuración CPQ"
         description="Catálogo, puestos, cargos, roles y parámetros de pricing"
+        backHref="/opai/configuracion"
+        backLabel="Configuración"
       />
       <CpqConfigTabs />
-    </>
+    </div>
   );
 }
