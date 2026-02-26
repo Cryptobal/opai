@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
+import { DataTable, FilterBar } from "@/components/opai";
+import type { DataTableColumn } from "@/components/opai";
 
 interface InstallationOption {
   id: string;
@@ -55,9 +57,52 @@ export function RondasTemplatesClient({
     setRows(tplJson.data);
   };
 
+  const columns: DataTableColumn[] = [
+    {
+      key: "name",
+      label: "Nombre",
+      render: (_v, row) => (
+        <div>
+          <p className="font-medium">{row.name}</p>
+          {row.description && <p className="text-muted-foreground">{row.description}</p>}
+        </div>
+      ),
+    },
+    { key: "orderMode", label: "Orden" },
+    {
+      key: "checkpoints",
+      label: "Checkpoints",
+      render: (v) => v.map((c: any) => c.checkpoint.name).join(", "),
+    },
+    {
+      key: "actions",
+      label: "Acciones",
+      className: "text-right",
+      render: (_v, row) => (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={async () => {
+            const res = await fetch(`/api/ops/rondas/templates/${row.id}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok || !json.success) {
+              toast.error(json.error ?? "No se pudo eliminar plantilla");
+              return;
+            }
+            setRows((prev) => prev.filter((r) => r.id !== row.id));
+            toast.success("Plantilla eliminada");
+          }}
+        >
+          Eliminar
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <FilterBar>
         <select
           className="h-9 rounded border border-border bg-background px-2 text-sm"
           value={installationId}
@@ -69,7 +114,7 @@ export function RondasTemplatesClient({
             </option>
           ))}
         </select>
-      </div>
+      </FilterBar>
 
       <RondaTemplateForm
         installationId={installationId}
@@ -90,60 +135,11 @@ export function RondasTemplatesClient({
         }}
       />
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Orden</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Checkpoints</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((t) => (
-                <tr key={t.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2">
-                    <p className="font-medium">{t.name}</p>
-                    {t.description && <p className="text-muted-foreground">{t.description}</p>}
-                  </td>
-                  <td className="px-3 py-2">{t.orderMode}</td>
-                  <td className="px-3 py-2">
-                    {t.checkpoints.map((c) => c.checkpoint.name).join(", ")}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={async () => {
-                        const res = await fetch(`/api/ops/rondas/templates/${t.id}`, { method: "DELETE" });
-                        const json = await res.json();
-                        if (!res.ok || !json.success) {
-                          toast.error(json.error ?? "No se pudo eliminar plantilla");
-                          return;
-                        }
-                        setRows((prev) => prev.filter((r) => r.id !== t.id));
-                        toast.success("Plantilla eliminada");
-                      }}
-                    >
-                      Eliminar
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                    Sin plantillas creadas.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        emptyMessage="Sin plantillas creadas."
+      />
     </div>
   );
 }

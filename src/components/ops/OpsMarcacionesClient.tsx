@@ -25,6 +25,7 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KpiCard, KpiGrid } from "@/components/opai";
 
 // ─── Tipos ───
 
@@ -301,7 +302,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
           </span>
         </button>
         {urlsMarcacionOpen && (
-          <div className="px-4 pb-4 pt-0 border-t border-border/60">
+          <div className="p-3 border-t border-border/60">
             {installationsWithCode.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {installationsWithCode.map((i) => (
@@ -360,17 +361,17 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
         )}
       </div>
 
-      {/* ── Dashboard resumen ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Marcaciones hoy" value={stats.totalHoy} color="text-blue-400" />
-        <StatCard label="Entradas hoy" value={stats.entradasHoy} color="text-emerald-400" />
-        <StatCard label="Salidas hoy" value={stats.salidasHoy} color="text-orange-400" />
-        <StatCard
-          label="Fuera de radio"
+      {/* -- Dashboard resumen -- */}
+      <KpiGrid columns={4}>
+        <KpiCard title="Marcaciones hoy" value={stats.totalHoy} variant="blue" />
+        <KpiCard title="Entradas hoy" value={stats.entradasHoy} variant="emerald" />
+        <KpiCard title="Salidas hoy" value={stats.salidasHoy} variant="amber" />
+        <KpiCard
+          title="Fuera de radio"
           value={stats.fueraRadioHoy}
-          color={stats.fueraRadioHoy > 0 ? "text-red-400" : "text-slate-400"}
+          variant={stats.fueraRadioHoy > 0 ? "amber" : "default"}
         />
-      </div>
+      </KpiGrid>
 
       {/* ── Filtros ── */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
@@ -613,14 +614,6 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
 
 // ─── Sub-componentes ───
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-    </div>
-  );
-}
 
 function DetailItem({
   icon: Icon,

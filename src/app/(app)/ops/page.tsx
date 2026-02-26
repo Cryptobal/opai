@@ -1,12 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView, hasModuleAccess } from "@/lib/permissions-server";
+import { resolvePagePerms, hasModuleAccess } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { PageHeader } from "@/components/opai";
+import { PageHeader, KpiCard, KpiGrid, ModuleCard } from "@/components/opai";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Route,
   CalendarDays,
@@ -57,14 +55,19 @@ export default async function OpsDashboardPage() {
   const guardsAssigned = assignedGuards;
   const vacantes = slotsTotal - guardsAssigned;
 
-  const modules = [
+  const modules: {
+    href: string;
+    title: string;
+    description: string;
+    icon: typeof Zap;
+    count: number | string | null;
+  }[] = [
     {
       href: "/ops/refuerzos",
       title: "Turnos de refuerzo",
       description: "Solicitudes de refuerzo y control de facturación.",
       icon: Zap,
       count: null,
-      color: "text-fuchsia-400 bg-fuchsia-400/10",
     },
     {
       href: "/ops/pauta-mensual",
@@ -72,7 +75,6 @@ export default async function OpsDashboardPage() {
       description: "Genera y asigna guardias por fecha y puesto.",
       icon: CalendarDays,
       count: null,
-      color: "text-emerald-400 bg-emerald-400/10",
     },
     {
       href: "/ops/pauta-diaria",
@@ -80,7 +82,6 @@ export default async function OpsDashboardPage() {
       description: "Marca asistencia, reemplazos y generación TE.",
       icon: UserRoundCheck,
       count: null,
-      color: "text-purple-400 bg-purple-400/10",
     },
     {
       href: "/ops/turnos-extra",
@@ -88,7 +89,6 @@ export default async function OpsDashboardPage() {
       description: "Gestión de turnos extra generados desde asistencia.",
       icon: Clock3,
       count: teCount > 0 ? teCount : null,
-      color: "text-rose-400 bg-rose-400/10",
     },
     {
       href: "/ops/rondas",
@@ -96,7 +96,6 @@ export default async function OpsDashboardPage() {
       description: "Control de rondas por checkpoints QR con monitoreo en vivo.",
       icon: Route,
       count: null,
-      color: "text-indigo-400 bg-indigo-400/10",
     },
     {
       href: "/ops/marcaciones",
@@ -104,7 +103,6 @@ export default async function OpsDashboardPage() {
       description: "Registro de marcaciones de asistencia digital (Res. Exenta N°38).",
       icon: Fingerprint,
       count: null,
-      color: "text-cyan-400 bg-cyan-400/10",
     },
     {
       href: "/ops/ppc",
@@ -112,7 +110,6 @@ export default async function OpsDashboardPage() {
       description: "Brechas de cobertura: sin guardia o con vacaciones/licencia.",
       icon: ShieldAlert,
       count: ppcCount > 0 ? ppcCount : null,
-      color: "text-amber-400 bg-amber-400/10",
     },
     {
       href: "/ops/control-nocturno",
@@ -120,7 +117,6 @@ export default async function OpsDashboardPage() {
       description: "Reportes nocturnos de la central de operaciones: rondas, asistencia y novedades.",
       icon: Moon,
       count: null,
-      color: "text-indigo-400 bg-indigo-400/10",
     },
     {
       href: "/ops/tickets",
@@ -128,7 +124,6 @@ export default async function OpsDashboardPage() {
       description: "Gestión de solicitudes y aprobaciones internas.",
       icon: Ticket,
       count: null,
-      color: "text-orange-400 bg-orange-400/10",
     },
     {
       href: "/ops/inventario",
@@ -136,7 +131,6 @@ export default async function OpsDashboardPage() {
       description: "Uniformes, activos y teléfonos por instalación.",
       icon: Package,
       count: null,
-      color: "text-teal-400 bg-teal-400/10",
     },
   ];
 
@@ -148,79 +142,45 @@ export default async function OpsDashboardPage() {
       />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
 
-      {/* ── KPI Dotación ── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 min-w-0">
-        <Link href="/crm/installations">
-          <Card className="transition-colors hover:bg-accent/40">
-            <CardContent className="pt-4 pb-3 flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-                <Building2 className="h-4.5 w-4.5" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{activeInstallations}</p>
-                <p className="text-[10px] text-muted-foreground">Instalaciones activas</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/crm/installations">
-          <Card className="transition-colors hover:bg-accent/40">
-            <CardContent className="pt-4 pb-3 flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                <Users className="h-4.5 w-4.5" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{guardsAssigned}<span className="text-sm font-normal text-muted-foreground">/{slotsTotal}</span></p>
-                <p className="text-[10px] text-muted-foreground">Guardias asignados</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/crm/installations">
-          <Card className={`transition-colors hover:bg-accent/40 ${vacantes > 0 ? "border-amber-500/30" : ""}`}>
-            <CardContent className="pt-4 pb-3 flex items-center gap-3">
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${vacantes > 0 ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
-                <ShieldAlert className="h-4.5 w-4.5" />
-              </div>
-              <div>
-                <p className={`text-xl font-bold ${vacantes > 0 ? "text-red-400" : "text-emerald-400"}`}>{vacantes}</p>
-                <p className="text-[10px] text-muted-foreground">Vacantes (PPC)</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Card>
-          <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400">
-              <Users className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <p className="text-xl font-bold">{slotsTotal > 0 ? Math.round((guardsAssigned / slotsTotal) * 100) : 0}<span className="text-sm font-normal text-muted-foreground">%</span></p>
-              <p className="text-[10px] text-muted-foreground">Cobertura dotación</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* -- KPI Dotación -- */}
+      <KpiGrid columns={4}>
+        <KpiCard
+          title="Instalaciones activas"
+          value={activeInstallations}
+          icon={<Building2 className="h-4.5 w-4.5" />}
+          variant="blue"
+        />
+        <KpiCard
+          title="Guardias asignados"
+          value={`${guardsAssigned}/${slotsTotal}`}
+          icon={<Users className="h-4.5 w-4.5" />}
+          variant="emerald"
+        />
+        <KpiCard
+          title="Vacantes (PPC)"
+          value={vacantes}
+          icon={<ShieldAlert className="h-4.5 w-4.5" />}
+          variant={vacantes > 0 ? "amber" : "emerald"}
+        />
+        <KpiCard
+          title="Cobertura dotación"
+          value={`${slotsTotal > 0 ? Math.round((guardsAssigned / slotsTotal) * 100) : 0}%`}
+          icon={<Users className="h-4.5 w-4.5" />}
+          variant="sky"
+        />
+      </KpiGrid>
 
-      {/* ── Módulos ── */}
+      {/* -- Módulos -- */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Card className="h-full transition-colors hover:bg-accent/40">
-              <CardContent className="pt-5 flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.color}`}>
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-                  {item.count !== null && (
-                    <p className="mt-2 text-xs text-primary">{item.count} registro(s)</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <ModuleCard
+            key={item.href}
+            title={item.title}
+            description={item.description}
+            icon={item.icon}
+            href={item.href}
+            count={item.count ?? undefined}
+          />
         ))}
       </div>
     </div>

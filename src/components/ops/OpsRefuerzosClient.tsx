@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge } from "@/components/opai";
+import { EmptyState, StatusBadge, KpiCard, KpiGrid, FilterBar } from "@/components/opai";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 type RefuerzoItem = {
@@ -617,57 +617,55 @@ export function OpsRefuerzosClient({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-5 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Nuevo turno de refuerzo
-            </Button>
-            <Button size="sm" variant="outline" onClick={exportCsv}>
-              <FileDown className="h-4 w-4 mr-1" />
-              Exportar CSV
-            </Button>
-          </div>
-          <div className="grid gap-2 md:grid-cols-4">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por instalación, cliente, guardia o solicitado por..."
-              />
-            </div>
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              <option value="pendiente_aprobacion">Pendiente aprobación</option>
-              <option value="rechazado">Rechazado</option>
-              <option value="solicitado">Solicitado (aprobado)</option>
-              <option value="en_curso">En curso</option>
-              <option value="realizado">Realizado</option>
-              <option value="facturado">Facturado</option>
-            </select>
-            <label className="h-9 rounded-md border border-input px-3 text-sm flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pendingBillingOnly}
-                onChange={(e) => setPendingBillingOnly(e.target.checked)}
-              />
-              Pendientes de facturar
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded border p-2">Turnos: <strong>{totals.count}</strong></div>
-            <div className="rounded border p-2">Monto total: <strong>{formatMoney(totals.amount)}</strong></div>
-            <div className="rounded border p-2">Pendiente facturar: <strong>{formatMoney(totals.pendingAmount)}</strong></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Nuevo turno de refuerzo
+        </Button>
+        <Button size="sm" variant="outline" onClick={exportCsv}>
+          <FileDown className="h-4 w-4 mr-1" />
+          Exportar CSV
+        </Button>
+      </div>
+
+      <KpiGrid columns={3}>
+        <KpiCard title="Turnos" value={totals.count} />
+        <KpiCard title="Monto total" value={formatMoney(totals.amount)} />
+        <KpiCard title="Pendiente facturar" value={formatMoney(totals.pendingAmount)} variant="amber" />
+      </KpiGrid>
+
+      <FilterBar>
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por instalación, cliente, guardia o solicitado por..."
+          />
+        </div>
+        <select
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">Todos</option>
+          <option value="pendiente_aprobacion">Pendiente aprobación</option>
+          <option value="rechazado">Rechazado</option>
+          <option value="solicitado">Solicitado (aprobado)</option>
+          <option value="en_curso">En curso</option>
+          <option value="realizado">Realizado</option>
+          <option value="facturado">Facturado</option>
+        </select>
+        <label className="h-9 rounded-md border border-input px-3 text-sm flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={pendingBillingOnly}
+            onChange={(e) => setPendingBillingOnly(e.target.checked)}
+          />
+          Pendientes de facturar
+        </label>
+      </FilterBar>
 
       <Card>
         <CardContent className="pt-5">

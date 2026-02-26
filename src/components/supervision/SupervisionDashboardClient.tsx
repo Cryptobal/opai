@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { KpiCard, KpiGrid } from "@/components/opai";
 import { MoreHorizontal, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -139,32 +140,12 @@ export function SupervisionDashboardClient({
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-[10px] text-muted-foreground">Visitas totales</p>
-            <p className="text-xl font-bold">{totals.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-[10px] text-muted-foreground">Completadas</p>
-            <p className="text-xl font-bold">{totals.completed}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-[10px] text-muted-foreground">Críticas</p>
-            <p className="text-xl font-bold">{totals.criticas}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-[10px] text-muted-foreground">Pendientes</p>
-            <p className="text-xl font-bold">{totals.pendientes}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <KpiGrid columns={4}>
+        <KpiCard title="Visitas totales" value={totals.total} />
+        <KpiCard title="Completadas" value={totals.completed} variant="emerald" />
+        <KpiCard title="Críticas" value={totals.criticas} variant="amber" />
+        <KpiCard title="Pendientes" value={totals.pendientes} variant="blue" />
+      </KpiGrid>
 
       <Card>
         <CardHeader>
