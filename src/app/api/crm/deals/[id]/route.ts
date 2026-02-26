@@ -81,6 +81,43 @@ export async function PATCH(
     if (data.expectedCloseDate)
       data.expectedCloseDate = new Date(data.expectedCloseDate as string);
 
+    if ("activeQuotationId" in raw) {
+      const nextActiveQuotationId = raw.activeQuotationId as string | null | undefined;
+      if (nextActiveQuotationId) {
+        const [quoteLink, sentQuote] = await Promise.all([
+          prisma.crmDealQuote.findFirst({
+            where: {
+              tenantId: ctx.tenantId,
+              dealId: id,
+              quoteId: nextActiveQuotationId,
+            },
+            select: { id: true },
+          }),
+          prisma.cpqQuote.findFirst({
+            where: {
+              tenantId: ctx.tenantId,
+              id: nextActiveQuotationId,
+              status: "sent",
+            },
+            select: { id: true },
+          }),
+        ]);
+
+        if (!quoteLink || !sentQuote) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "La cotización activa debe estar vinculada al negocio y en estado enviada.",
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      data.activeQuotationId = nextActiveQuotationId ?? null;
+    }
+
     const deal = await prisma.crmDeal.update({
       where: { id },
       data,

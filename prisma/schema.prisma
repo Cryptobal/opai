@@ -1342,6 +1342,7 @@ model CrmDeal {
   primaryContactId    String?   @map("primary_contact_id") @db.Uuid
   title               String
   amount              Decimal   @default(0) @db.Decimal(14, 2)
+  activeQuotationId   String?   @map("active_quotation_id") @db.Uuid
   stageId             String    @map("stage_id") @db.Uuid
   probability         Int       @default(0)
   expectedCloseDate   DateTime? @map("expected_close_date") @db.Date

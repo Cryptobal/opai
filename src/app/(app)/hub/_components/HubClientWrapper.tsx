@@ -12,6 +12,7 @@ import { HubExecutiveSnapshot } from './HubExecutiveSnapshot';
 import { HubAlertasCriticas } from './HubAlertasCriticas';
 import { HubAccionesPrioritarias } from './HubAccionesPrioritarias';
 import { HubEstadoOperacional } from './HubEstadoOperacional';
+import { HubCommercialKpiBlock } from './HubCommercialKpiBlock';
 import { HubCrmSection } from './HubCrmSection';
 import { HubFinanceSection } from './HubFinanceSection';
 import { HubDocsSection } from './HubDocsSection';
@@ -49,6 +50,10 @@ export function HubClientWrapper({
 }: HubClientWrapperProps) {
   return (
     <div className="space-y-6 min-w-0">
+      {crmMetrics && hubPerms.hasCrm && (
+        <HubCommercialKpiBlock crmMetrics={crmMetrics} />
+      )}
+
       <HubGreeting
         firstName={firstName}
         perms={hubPerms}

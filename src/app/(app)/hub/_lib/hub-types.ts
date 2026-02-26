@@ -67,6 +67,13 @@ export interface FunnelStep {
 
 export interface CrmMetrics {
   pendingLeadsCount: number;
+  leadsOpenCount: number;
+  leadsDraftCount: number;
+  quotesDraftCount: number;
+  dealsNegotiatingCount: number;
+  guardsInNegotiation: number;
+  amountInNegotiationClp: number;
+  amountInNegotiationUf: number;
   leadsCreated30: number;
   leadsConverted30: number;
   leadToDealRate30: number;

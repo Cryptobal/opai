@@ -7,6 +7,11 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
+import { getUfValue } from "@/lib/uf";
+import {
+  collectLinkedQuoteIds,
+  resolveDealActiveQuotationSummary,
+} from "@/lib/crm-deal-active-quotation";
 import { PageHeader } from "@/components/opai";
 import { CrmDealsClient } from "@/components/crm";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
@@ -137,7 +142,9 @@ export default async function CrmDealsPage({
     });
   }
 
-  const [accounts, stages] = await Promise.all([
+  const quoteIds = collectLinkedQuoteIds(deals);
+
+  const [accounts, stages, ufValue, linkedQuotes] = await Promise.all([
     prisma.crmAccount.findMany({
       where: { tenantId },
       select: {
@@ -152,13 +159,40 @@ export default async function CrmDealsPage({
       where: { tenantId, isActive: true },
       orderBy: { order: "asc" },
     }),
+    getUfValue(),
+    quoteIds.length > 0
+      ? prisma.cpqQuote.findMany({
+          where: {
+            tenantId,
+            id: { in: quoteIds },
+          },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            currency: true,
+            monthlyCost: true,
+            totalGuards: true,
+            createdAt: true,
+            updatedAt: true,
+            parameters: {
+              select: {
+                salePriceMonthly: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const quoteById = new Map(linkedQuotes.map((quote) => [quote.id, quote]));
 
   const accountById = new Map(
     accounts.map((account: { id: string; name: string; type: string; status: string }) => [account.id, account])
   );
-  const dealsWithAccount = deals.map((deal: { accountId: string | null }) => ({
+  const dealsWithAccount = deals.map((deal) => ({
     ...deal,
+    activeQuoteSummary: resolveDealActiveQuotationSummary(deal, quoteById, ufValue),
     account: deal.accountId ? accountById.get(deal.accountId) ?? null : null,
   }));
 

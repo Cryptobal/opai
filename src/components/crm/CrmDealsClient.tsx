@@ -50,7 +50,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { EmptyState } from "@/components/opai/EmptyState";
@@ -136,6 +136,22 @@ function getDealFollowUpIndicator(deal: CrmDeal): {
   };
 }
 
+function getDealCommercialIndicators(deal: CrmDeal): {
+  amountClp: number;
+  amountUf: number;
+  totalGuards: number;
+} {
+  const amountClp = Number(deal.activeQuoteSummary?.amountClp ?? 0);
+  const amountUf = Number(deal.activeQuoteSummary?.amountUf ?? 0);
+  const totalGuards = Number(deal.activeQuoteSummary?.totalGuards ?? 0);
+
+  return {
+    amountClp: Number.isFinite(amountClp) ? amountClp : 0,
+    amountUf: Number.isFinite(amountUf) ? amountUf : 0,
+    totalGuards: Number.isFinite(totalGuards) ? totalGuards : 0,
+  };
+}
+
 type DealCardProps = {
   deal: CrmDeal;
   isOverlay?: boolean;
@@ -218,6 +234,7 @@ function DealCard({
   };
   const followUpIndicator = getDealFollowUpIndicator(deal);
   const quotesCount = (deal.quotes || []).length;
+  const indicators = getDealCommercialIndicators(deal);
 
   return (
     <div
@@ -243,10 +260,18 @@ function DealCard({
           <p className="text-[11px] text-muted-foreground truncate mt-0.5">
             {deal.account?.name}
           </p>
+          <div className="mt-1 space-y-0.5">
+            <p className="text-xs font-semibold text-primary tabular-nums">
+              {formatCLP(indicators.amountClp)}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <span className="tabular-nums">{formatUFSuffix(indicators.amountUf)}</span>
+              <span className="tabular-nums">
+                {indicators.totalGuards.toLocaleString("es-CL")} guardias
+              </span>
+            </div>
+          </div>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-xs font-semibold text-primary tabular-nums">
-              ${Number(deal.amount).toLocaleString("es-CL")}
-            </span>
             {quotesCount > 0 && (
               <span className="text-muted-foreground" title={`${quotesCount} cotizaciones`}>
                 <FileText className="h-3 w-3" />
@@ -303,7 +328,10 @@ function MobileStageList({
       {columns.map((column) => {
         const stageColor = column.stage.color || "#94a3b8";
         const isCollapsed = collapsedStages.has(column.stage.id);
-        const stageTotal = column.deals.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+        const stageTotal = column.deals.reduce(
+          (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
+          0
+        );
 
         return (
           <div key={column.stage.id}>
@@ -333,6 +361,7 @@ function MobileStageList({
                 {column.deals.map((deal) => {
                   const followUpIndicator = getDealFollowUpIndicator(deal);
                   const quotesCount = (deal.quotes || []).length;
+                  const indicators = getDealCommercialIndicators(deal);
                   return (
                     <Link
                       key={deal.id}
@@ -341,12 +370,18 @@ function MobileStageList({
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{deal.title}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs font-semibold text-primary tabular-nums">
-                            ${Number(deal.amount).toLocaleString("es-CL")}
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {deal.account?.name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                          <span className="font-semibold text-primary tabular-nums">
+                            {formatCLP(indicators.amountClp)}
                           </span>
-                          <span className="text-[11px] text-muted-foreground truncate">
-                            {deal.account?.name}
+                          <span className="text-muted-foreground tabular-nums">
+                            {formatUFSuffix(indicators.amountUf)}
+                          </span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {indicators.totalGuards.toLocaleString("es-CL")} guardias
                           </span>
                           {quotesCount > 0 && (
                             <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -373,7 +408,15 @@ function MobileStageList({
 
 /** Pipeline summary bar with per-stage totals */
 function PipelineSummary({ columns }: { columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[] }) {
-  const totalAmount = columns.reduce((acc, col) => acc + col.deals.reduce((sum, d) => sum + Number(d.amount || 0), 0), 0);
+  const totalAmount = columns.reduce(
+    (acc, col) =>
+      acc +
+      col.deals.reduce(
+        (sum, d) => sum + getDealCommercialIndicators(d).amountClp,
+        0
+      ),
+    0
+  );
   const totalDeals = columns.reduce((acc, col) => acc + col.deals.length, 0);
   if (totalDeals === 0) return null;
 
@@ -386,7 +429,10 @@ function PipelineSummary({ columns }: { columns: { stage: CrmPipelineStage; deal
         {columns.map((col) => {
           if (col.deals.length === 0) return null;
           const stageColor = col.stage.color || "#94a3b8";
-          const stageAmount = col.deals.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+          const stageAmount = col.deals.reduce(
+            (sum, d) => sum + getDealCommercialIndicators(d).amountClp,
+            0
+          );
           return (
             <span
               key={col.stage.id}
@@ -493,7 +539,11 @@ export function CrmDealsClient({
       if (!response.ok) {
         throw new Error(payload?.error || "Error cambiando etapa");
       }
-      setDeals((prev) => prev.map((deal) => (deal.id === dealId ? payload.data : deal)));
+      setDeals((prev) =>
+        prev.map((deal) =>
+          deal.id === dealId ? { ...deal, ...payload.data } : deal
+        )
+      );
     } catch (error) {
       console.error(error);
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
@@ -763,7 +813,10 @@ export function CrmDealsClient({
                 >
                   <div className="flex flex-row gap-3 overflow-x-auto pb-2 -mx-1 px-1">
                     {columns.map((column) => {
-                      const stageTotal = column.deals.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+                      const stageTotal = column.deals.reduce(
+                        (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
+                        0
+                      );
                       return (
                         <DealColumn
                           key={column.stage.id}
@@ -831,6 +884,7 @@ export function CrmDealsClient({
                   const followUpIndicator = getDealFollowUpIndicator(deal);
                   const stageColor = deal.stage?.color || "#94a3b8";
                   const quotesCount = (deal.quotes || []).length;
+                  const indicators = getDealCommercialIndicators(deal);
                   return (
                     <Link
                       key={deal.id}
@@ -866,11 +920,18 @@ export function CrmDealsClient({
                         <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                           {deal.account?.name}
                           {deal.primaryContact && ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
-                          {" · "}
-                          <span className="font-medium text-foreground tabular-nums">
-                            ${Number(deal.amount).toLocaleString("es-CL")}
-                          </span>
                         </p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                          <span className="font-semibold text-primary tabular-nums">
+                            {formatCLP(indicators.amountClp)}
+                          </span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {formatUFSuffix(indicators.amountUf)}
+                          </span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {indicators.totalGuards.toLocaleString("es-CL")} guardias
+                          </span>
+                        </div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
                     </Link>
@@ -887,12 +948,22 @@ export function CrmDealsClient({
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
           {sheetDeal && (
             <>
-              <SheetHeader className="text-left">
-                <SheetTitle className="text-base">{sheetDeal.title}</SheetTitle>
-                <SheetDescription>
-                  {sheetDeal.account?.name} · <span className="font-semibold text-foreground tabular-nums">${Number(sheetDeal.amount).toLocaleString("es-CL")}</span>
-                </SheetDescription>
-              </SheetHeader>
+              {(() => {
+                const indicators = getDealCommercialIndicators(sheetDeal);
+                return (
+                  <SheetHeader className="text-left">
+                    <SheetTitle className="text-base">{sheetDeal.title}</SheetTitle>
+                    <SheetDescription>
+                      {sheetDeal.account?.name} ·{" "}
+                      <span className="font-semibold text-foreground tabular-nums">
+                        {formatCLP(indicators.amountClp)}
+                      </span>{" "}
+                      · <span className="tabular-nums">{formatUFSuffix(indicators.amountUf)}</span>{" "}
+                      · <span className="tabular-nums">{indicators.totalGuards.toLocaleString("es-CL")} guardias</span>
+                    </SheetDescription>
+                  </SheetHeader>
+                );
+              })()}
               <div className="mt-4 space-y-3">
                 {/* Quick stage change */}
                 <div className="space-y-1.5">

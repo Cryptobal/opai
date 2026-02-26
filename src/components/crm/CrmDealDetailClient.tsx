@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -85,6 +85,12 @@ type QuoteOption = {
   status: string;
   monthlyCost?: string | number | null;
   currency?: "CLP" | "UF" | string;
+  totalGuards?: number | null;
+  createdAt?: string;
+  updatedAt?: string | null;
+  parameters?: {
+    salePriceMonthly?: string | number | null;
+  } | null;
 };
 type DealQuote = { id: string; quoteId: string; };
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean; };
@@ -126,6 +132,17 @@ export type DealDetail = {
   title: string;
   amount: string;
   status?: string;
+  activeQuotationId?: string | null;
+  activeQuoteSummary?: {
+    quoteId: string;
+    code: string | null;
+    status: string;
+    amountClp: number;
+    amountUf: number;
+    totalGuards: number;
+    isManual: boolean;
+    sentAt: string | null;
+  } | null;
   stage?: { id: string; name: string } | null;
   account?: { id: string; name: string; isActive?: boolean } | null;
   primaryContactId?: string | null;
@@ -157,6 +174,18 @@ export function CrmDealDetailClient({
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [linkedQuotes, setLinkedQuotes] = useState<DealQuote[]>(deal.quotes || []);
+  const [activeQuotationId, setActiveQuotationId] = useState<string | null>(
+    deal.activeQuotationId ?? null
+  );
+  const [updatingActiveQuotation, setUpdatingActiveQuotation] = useState(false);
+
+  useEffect(() => {
+    setLinkedQuotes(deal.quotes || []);
+  }, [deal.quotes]);
+
+  useEffect(() => {
+    setActiveQuotationId(deal.activeQuotationId ?? null);
+  }, [deal.activeQuotationId]);
 
   // ── Deal contacts state ──
   const [dealContacts, setDealContacts] = useState<DealContactRow[]>(initialDealContacts);
@@ -350,7 +379,8 @@ export function CrmDealDetailClient({
   const formatQuoteAmounts = useCallback(
     (quote?: QuoteOption) => {
       if (!quote) return "Monto no disponible";
-      const raw = Number(quote.monthlyCost ?? 0);
+      const salePriceMonthly = Number(quote.parameters?.salePriceMonthly ?? 0);
+      const raw = salePriceMonthly > 0 ? salePriceMonthly : Number(quote.monthlyCost ?? 0);
       if (!Number.isFinite(raw) || raw <= 0) return "Monto no disponible";
       const safeUf = ufValue > 0 ? ufValue : 38000;
       const amountClp = quote.currency === "UF" ? raw * safeUf : raw;
@@ -362,6 +392,66 @@ export function CrmDealDetailClient({
     },
     [ufValue]
   );
+  const sentLinkedQuotes = useMemo(() => {
+    return linkedQuotes
+      .map((quoteLink) => ({ quoteLink, quoteInfo: quotesById[quoteLink.quoteId] }))
+      .filter(
+        (entry): entry is { quoteLink: DealQuote; quoteInfo: QuoteOption } =>
+          Boolean(entry.quoteInfo) && entry.quoteInfo.status === "sent"
+      )
+      .sort((a, b) => {
+        const bTime = new Date(
+          b.quoteInfo.updatedAt || b.quoteInfo.createdAt || 0
+        ).getTime();
+        const aTime = new Date(
+          a.quoteInfo.updatedAt || a.quoteInfo.createdAt || 0
+        ).getTime();
+        return bTime - aTime;
+      });
+  }, [linkedQuotes, quotesById]);
+  const activeQuotationSelectValue =
+    activeQuotationId &&
+    sentLinkedQuotes.some(({ quoteInfo }) => quoteInfo.id === activeQuotationId)
+      ? activeQuotationId
+      : "__auto__";
+  const rawAmountClp = Number(deal.activeQuoteSummary?.amountClp ?? 0);
+  const rawAmountUf = Number(deal.activeQuoteSummary?.amountUf ?? 0);
+  const rawTotalGuards = Number(deal.activeQuoteSummary?.totalGuards ?? 0);
+  const activeQuoteIndicators = {
+    amountClp: Number.isFinite(rawAmountClp) ? rawAmountClp : 0,
+    amountUf: Number.isFinite(rawAmountUf) ? rawAmountUf : 0,
+    totalGuards: Number.isFinite(rawTotalGuards) ? rawTotalGuards : 0,
+  };
+
+  const updateActiveQuotation = async (value: string) => {
+    const nextActiveQuotationId = value === "__auto__" ? null : value;
+    const previousActiveQuotationId = activeQuotationId;
+    setActiveQuotationId(nextActiveQuotationId);
+    setUpdatingActiveQuotation(true);
+    try {
+      const response = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeQuotationId: nextActiveQuotationId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo actualizar la cotización activa.");
+      }
+      setActiveQuotationId(payload?.data?.activeQuotationId ?? nextActiveQuotationId);
+      toast.success(
+        nextActiveQuotationId
+          ? "Cotización activa actualizada."
+          : "Selección automática activada."
+      );
+      router.refresh();
+    } catch (error: any) {
+      setActiveQuotationId(previousActiveQuotationId ?? null);
+      toast.error(error?.message || "No se pudo actualizar la cotización activa.");
+    } finally {
+      setUpdatingActiveQuotation(false);
+    }
+  };
 
   const linkQuote = async () => {
     if (!selectedQuoteId) { toast.error("Selecciona una cotización."); return; }
@@ -371,6 +461,7 @@ export function CrmDealDetailClient({
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error);
       setLinkedQuotes((prev) => [...prev, payload.data]); setSelectedQuoteId(""); setQuoteDialogOpen(false); toast.success("Cotización vinculada");
+      router.refresh();
     } catch (error) { console.error(error); toast.error("No se pudo vincular."); }
     finally { setLinking(false); }
   };
@@ -534,7 +625,7 @@ export function CrmDealDetailClient({
   const subtitle = [
     deal.account?.name || "Sin cliente",
     currentStage?.name || "Sin etapa",
-    dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : null,
+    formatCLP(activeQuoteIndicators.amountClp),
   ].filter(Boolean).join(" · ");
 
   const statusBadge = deal.status === "won"
@@ -548,66 +639,148 @@ export function CrmDealDetailClient({
     key: "general",
     label: "Resumen del negocio",
     children: (
-      <DetailFieldGrid columns={3}>
-        <DetailField
-          label="Cliente"
-          value={deal.account ? (
-            <Link href={`/crm/accounts/${deal.account.id}`} className="text-primary hover:underline flex items-center gap-1">
-              {deal.account.name}<ExternalLink className="h-3 w-3" />
-            </Link>
-          ) : "Sin cliente"}
-        />
-        <DetailField
-          label="Etapa"
-          value={
-            <div className="flex items-center gap-2 min-w-0">
-              <Select
-                value={currentStage?.id || ""}
-                onValueChange={(value) => updateStage(value)}
-                disabled={changingStage || pipelineStages.length === 0}
-              >
-                <SelectTrigger className="h-8 text-xs min-w-0 max-w-[180px]">
-                  <SelectValue placeholder="Sin etapas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
-                    <SelectItem value={currentStage.id}>{currentStage.name}</SelectItem>
-                  )}
-                  {pipelineStages.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+      <div className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Monto CLP
+            </p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">
+              {formatCLP(activeQuoteIndicators.amountClp)}
+            </p>
+          </div>
+          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Monto UF
+            </p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">
+              {formatUFSuffix(activeQuoteIndicators.amountUf)}
+            </p>
+          </div>
+          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Guardias
+            </p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">
+              {activeQuoteIndicators.totalGuards.toLocaleString("es-CL")}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">
+            Cotización activa en negociación
+          </Label>
+          <Select
+            value={activeQuotationSelectValue}
+            onValueChange={(value) => void updateActiveQuotation(value)}
+            disabled={updatingActiveQuotation || sentLinkedQuotes.length === 0}
+          >
+            <SelectTrigger className="h-8 text-xs max-w-xl">
+              <SelectValue
+                placeholder={
+                  sentLinkedQuotes.length === 0
+                    ? "Sin cotizaciones enviadas"
+                    : "Selecciona cotización activa"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">
+                Automática{" "}
+                {linkedQuotes.length > 1
+                  ? "(última enviada)"
+                  : "(única cotización)"}
+              </SelectItem>
+              {sentLinkedQuotes.map(({ quoteInfo }) => {
+                const quoteDate = quoteInfo.updatedAt || quoteInfo.createdAt || null;
+                const quoteDateLabel = quoteDate
+                  ? formatDealDate(quoteDate)
+                  : "sin fecha";
+                return (
+                  <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
+                    {`${quoteInfo.code} · ${quoteDateLabel} · ${formatQuoteAmounts(
+                      quoteInfo
+                    )}`}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            {deal.activeQuoteSummary
+              ? `Actual: ${deal.activeQuoteSummary.code || "Sin código"} (${deal.activeQuoteSummary.isManual ? "selección manual" : "selección automática"}).`
+              : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada."}
+          </p>
+          {updatingActiveQuotation && (
+            <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Guardando selección...
             </div>
-          }
-        />
-        <DetailField
-          label="Monto"
-          value={dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : undefined}
-          mono
-        />
-        <DetailField
-          label="Contacto"
-          value={deal.primaryContact && deal.primaryContactId ? (
-            <Link href={`/crm/contacts/${deal.primaryContactId}`} className="text-primary hover:underline flex items-center gap-1">
-              {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}<ExternalLink className="h-3 w-3" />
-            </Link>
-          ) : "Sin contacto"}
-        />
-        <DetailField
-          label="Link propuesta"
-          value={dealProposalLink ? (
-            <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-              Ver propuesta<ExternalLink className="h-3 w-3" />
-            </a>
-          ) : undefined}
-        />
-        <DetailField
-          label="Flujo seguimiento"
-          value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
-        />
-      </DetailFieldGrid>
+          )}
+        </div>
+
+        <DetailFieldGrid columns={3}>
+          <DetailField
+            label="Cliente"
+            value={deal.account ? (
+              <Link href={`/crm/accounts/${deal.account.id}`} className="text-primary hover:underline flex items-center gap-1">
+                {deal.account.name}<ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : "Sin cliente"}
+          />
+          <DetailField
+            label="Etapa"
+            value={
+              <div className="flex items-center gap-2 min-w-0">
+                <Select
+                  value={currentStage?.id || ""}
+                  onValueChange={(value) => updateStage(value)}
+                  disabled={changingStage || pipelineStages.length === 0}
+                >
+                  <SelectTrigger className="h-8 text-xs min-w-0 max-w-[180px]">
+                    <SelectValue placeholder="Sin etapas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
+                      <SelectItem value={currentStage.id}>{currentStage.name}</SelectItem>
+                    )}
+                    {pipelineStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </div>
+            }
+          />
+          <DetailField
+            label="Monto negocio (manual)"
+            value={dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : undefined}
+            mono
+          />
+          <DetailField
+            label="Contacto"
+            value={deal.primaryContact && deal.primaryContactId ? (
+              <Link href={`/crm/contacts/${deal.primaryContactId}`} className="text-primary hover:underline flex items-center gap-1">
+                {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}<ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : "Sin contacto"}
+          />
+          <DetailField
+            label="Link propuesta"
+            value={dealProposalLink ? (
+              <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                Ver propuesta<ExternalLink className="h-3 w-3" />
+              </a>
+            ) : undefined}
+          />
+          <DetailField
+            label="Flujo seguimiento"
+            value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
+          />
+        </DetailFieldGrid>
+      </div>
     ),
   };
 
@@ -863,6 +1036,7 @@ export function CrmDealDetailClient({
             if (dealQuote) {
               setLinkedQuotes((prev) => [...prev, dealQuote]);
             }
+            router.refresh();
           }}
         />
         <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
