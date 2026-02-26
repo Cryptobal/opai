@@ -588,6 +588,15 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/ops/pauta-mensual?installationId=${installation.id}`}>
+            <CalendarDays className="h-3.5 w-3.5 mr-1.5 text-white" />
+            Abrir pauta mensual
+          </Link>
+        </Button>
+      </div>
+
       <div className="space-y-2">
         {puestos.map((puesto) => {
           const puestoAssignments = assignmentsByPuesto.get(puesto.id) ?? [];

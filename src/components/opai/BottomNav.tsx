@@ -88,7 +88,7 @@ function LinkBottomNav({
               </span>
               <span
                 className={cn(
-                  "font-medium truncate max-w-full",
+                  "font-medium truncate max-w-full w-full text-center leading-tight",
                   compact ? "text-[9px]" : "text-[10px]"
                 )}
               >
@@ -205,7 +205,7 @@ function SectionBottomNav({
               <Icon className={cn("shrink-0", compact ? "h-4 w-4" : "h-5 w-5")} />
               <span
                 className={cn(
-                  "font-medium truncate max-w-full",
+                  "font-medium truncate max-w-full w-full text-center leading-tight",
                   compact ? "text-[8px]" : "text-[10px]"
                 )}
               >

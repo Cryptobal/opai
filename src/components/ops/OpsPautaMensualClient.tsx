@@ -72,12 +72,6 @@ type ClientOption = {
   installations: { id: string; name: string }[];
 };
 
-type GuardiaOption = {
-  id: string;
-  code?: string | null;
-  persona: { firstName: string; lastName: string; rut?: string | null };
-};
-
 type ShiftPatternOption = {
   id: string;
   name: string;
@@ -178,10 +172,8 @@ type RotativoMergedRow = {
 
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
-  guardias: GuardiaOption[];
   shiftPatterns?: ShiftPatternOption[];
   currentUserId?: string;
-  globalSearchSlot?: React.ReactNode;
 }
 
 /* ── helper ────────────────────────────────────── */
@@ -239,10 +231,8 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
 
 export function OpsPautaMensualClient({
   initialClients,
-  guardias,
   shiftPatterns = [],
   currentUserId,
-  globalSearchSlot,
 }: OpsPautaMensualClientProps) {
   const PATTERNS = useMemo(() => {
     if (shiftPatterns.length > 0) {
@@ -605,6 +595,25 @@ export function OpsPautaMensualClient({
       row.cells.set(dateKey, { item, execution });
     }
 
+    // Garantiza una fila por cada slot requerido del puesto activo, incluso si
+    // no hay filas de pauta en el mes seleccionado (evita perder cobertura en UI).
+    for (const puesto of allPuestos) {
+      for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
+        const key: RowKey = `${puesto.id}|${slot}`;
+        if (!rows.has(key)) {
+          rows.set(key, {
+            puestoId: puesto.id,
+            puestoName: puesto.name,
+            shiftStart: puesto.shiftStart,
+            shiftEnd: puesto.shiftEnd,
+            slotNumber: slot,
+            requiredGuards: puesto.requiredGuards ?? 1,
+            cells: new Map(),
+          });
+        }
+      }
+    }
+
     // Enrich with serie info (pattern code + rotativo)
     for (const s of series) {
       const key: RowKey = `${s.puestoId}|${s.slotNumber}`;
@@ -632,7 +641,7 @@ export function OpsPautaMensualClient({
       if (a.puestoName !== b.puestoName) return a.puestoName.localeCompare(b.puestoName);
       return a.slotNumber - b.slotNumber;
     });
-  }, [items, series, slotAsignaciones, executionByCell]);
+  }, [items, series, slotAsignaciones, executionByCell, allPuestos]);
 
   /** Agrupar por tipo de turno (día/noche/rotativo) y luego por puesto */
   const groupedByShiftType = useMemo(() => {
@@ -1125,7 +1134,7 @@ export function OpsPautaMensualClient({
 
     return (
       <div className="space-y-3">
-        {/* Month/Year selector + búsquedas (instalación/cliente + guardia) */}
+        {/* Month/Year selector + búsqueda por instalación/cliente */}
         <Card>
           <CardContent className="pt-3 pb-2.5">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
@@ -1166,12 +1175,6 @@ export function OpsPautaMensualClient({
                     />
                   </div>
                 </div>
-                {globalSearchSlot && (
-                  <div key="overview-guardia-search" className="space-y-1">
-                    <Label className="text-xs">Buscar guardia</Label>
-                    {globalSearchSlot}
-                  </div>
-                )}
               </div>
               <div key="overview-status" className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
@@ -1330,7 +1333,7 @@ export function OpsPautaMensualClient({
                 Volver al resumen
               </button>
             </div>
-            {/* Filtros: Cliente + Instalación + Mes + Año + Buscar guardia */}
+            {/* Filtros: Cliente + Instalación + Mes + Año */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
@@ -1379,12 +1382,6 @@ export function OpsPautaMensualClient({
                   className="h-8 text-sm"
                 />
               </div>
-              {globalSearchSlot && (
-                <div key="filter-guardia-search" className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label className="text-xs">Buscar guardia</Label>
-                  {globalSearchSlot}
-                </div>
-              )}
             </div>
             {/* Status + Exportar + Regenerar */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1534,7 +1531,7 @@ export function OpsPautaMensualClient({
                 </div>
               </div>
 
-              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto">
               <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
                 <colgroup>
                   <col style={{ width: "22%" }} />
