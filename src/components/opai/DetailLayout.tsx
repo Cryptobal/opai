@@ -228,7 +228,8 @@ export function DetailLayout({
     return (
       <div className={cn("relative", className)}>
         {header}
-        <div className="mt-4 flex min-w-0 gap-2 sm:mt-6 sm:gap-3">
+        {/* En móvil: columna (nav arriba, contenido abajo). En desktop: fila (nav izquierda, contenido derecha) */}
+        <div className="mt-4 flex min-w-0 flex-col gap-2 sm:mt-6 sm:gap-3 lg:flex-row">
           <SectionNav
             sections={navItems}
             onSectionClick={(key) => openSection(key)}

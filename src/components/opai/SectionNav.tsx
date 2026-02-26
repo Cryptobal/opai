@@ -223,12 +223,15 @@ function HorizontalSectionNav({
   return (
     <div
       className={cn(
-        "sticky top-[113px] z-[9] -mx-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-        "sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12",
+        "sticky top-[113px] z-[9] border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "-mx-2 px-4 sm:-mx-3 sm:px-6",
+        "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
+        "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
+        "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12",
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+      <div className="flex items-center justify-between gap-2">
         <div
           ref={navRef}
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide"

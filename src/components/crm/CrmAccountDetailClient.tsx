@@ -840,6 +840,7 @@ export function CrmAccountDetailClient({
       <CrmDetailLayout
         pageType="account"
         module="accounts"
+        fixedSectionKey="general"
         title={account.name}
         subtitle={lifecycleSubtitle}
         badge={lifecycleBadge}
