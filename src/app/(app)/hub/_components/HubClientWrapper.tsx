@@ -1,29 +1,27 @@
 "use client";
 
 /**
- * Wrapper cliente para el Hub.
- * Evita el error createClientModuleProxy al reducir a un solo boundary servidor→cliente.
+ * Wrapper cliente para el Hub — refactored accordion layout.
+ * Evita el error createClientModuleProxy al reducir a un solo boundary servidor->cliente.
  */
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HubGreeting } from './HubGreeting';
-import { HubQuickActions } from './HubQuickActions';
-import { HubExecutiveSnapshot } from './HubExecutiveSnapshot';
-import { HubAlertasCriticas } from './HubAlertasCriticas';
-import { HubAccionesPrioritarias } from './HubAccionesPrioritarias';
-import { HubEstadoOperacional } from './HubEstadoOperacional';
-import { HubCommercialKpiBlock } from './HubCommercialKpiBlock';
-import { HubCrmSection } from './HubCrmSection';
-import { HubFinanceSection } from './HubFinanceSection';
-import { HubDocsSection } from './HubDocsSection';
-import { HubActividadReciente } from './HubActividadReciente';
+import { HubNotifications } from './HubNotifications';
+import { HubFabSpeedDial } from './HubFabSpeedDial';
+import { HubPipelineSection } from './HubPipelineSection';
+import { HubOperationsSection } from './HubOperationsSection';
+import { HubFinanzasSection } from './HubFinanzasSection';
+import { HubTicketsSection } from './HubTicketsSection';
+import { HubActivitySection } from './HubActivitySection';
 import type {
   HubPerms,
   CrmMetrics,
   DocsSignals,
   FinanceMetrics,
   OpsMetrics,
-  HubAlert,
+  HubNotification,
+  TicketMetrics,
   ActivityEntry,
 } from '../_lib/hub-types';
 
@@ -34,7 +32,8 @@ export interface HubClientWrapperProps {
   crmMetrics: CrmMetrics | null;
   financeMetrics: FinanceMetrics | null;
   docsSignals: DocsSignals | null;
-  alerts: HubAlert[];
+  notifications: HubNotification[];
+  ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
 }
 
@@ -45,75 +44,67 @@ export function HubClientWrapper({
   crmMetrics,
   financeMetrics,
   docsSignals,
-  alerts,
+  notifications,
+  ticketMetrics,
   activities,
 }: HubClientWrapperProps) {
-  return (
-    <div className="space-y-6 min-w-0">
-      {crmMetrics && hubPerms.hasCrm && (
-        <HubCommercialKpiBlock crmMetrics={crmMetrics} />
-      )}
+  const pendingFollowUpsCount = crmMetrics
+    ? crmMetrics.followUpsOverdueCount + crmMetrics.followUpQueue.length
+    : 0;
 
+  return (
+    <div className="space-y-4 min-w-0 pb-24">
+      {/* Header */}
       <HubGreeting
         firstName={firstName}
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
+        pendingFollowUpsCount={pendingFollowUpsCount}
       />
 
-      <HubQuickActions perms={hubPerms} />
+      {/* Notifications (last 3) */}
+      <HubNotifications notifications={notifications} />
 
-      <HubExecutiveSnapshot
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
-        docsSignals={docsSignals}
-      />
-
-      <HubAlertasCriticas alerts={alerts} />
-
-      <HubAccionesPrioritarias
-        perms={hubPerms}
-        opsMetrics={opsMetrics}
-        crmMetrics={crmMetrics}
-        financeMetrics={financeMetrics}
-      />
-
-      {opsMetrics && hubPerms.hasOps && (
-        <HubEstadoOperacional opsMetrics={opsMetrics} />
-      )}
-
+      {/* Section 1: Pipeline Comercial (expanded by default) */}
       {crmMetrics && hubPerms.hasCrm && (
-        <HubCrmSection
+        <HubPipelineSection
           perms={hubPerms}
           crmMetrics={crmMetrics}
           docsSignals={docsSignals}
-          financeMetrics={financeMetrics}
         />
       )}
 
+      {/* Section 2: Operations (collapsed by default) */}
+      {opsMetrics && hubPerms.hasOps && (
+        <HubOperationsSection opsMetrics={opsMetrics} />
+      )}
+
+      {/* Section 3: Finance & Rendiciones (collapsed by default) */}
       {financeMetrics && hubPerms.hasFinance && (
-        <HubFinanceSection financeMetrics={financeMetrics} />
+        <HubFinanzasSection
+          financeMetrics={financeMetrics}
+          opsMetrics={opsMetrics}
+        />
       )}
 
-      {docsSignals && hubPerms.hasDocs && !hubPerms.hasCrm && (
-        <HubDocsSection docsSignals={docsSignals} />
-      )}
+      {/* Section 4: Tickets (collapsed by default) */}
+      <HubTicketsSection ticketMetrics={ticketMetrics} />
 
+      {/* Section 5: Recent Activity (collapsed by default) */}
+      <HubActivitySection activities={activities} />
+
+      {/* Empty state */}
       {!crmMetrics && !docsSignals && !opsMetrics && !financeMetrics && (
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Sin datos disponibles</CardTitle>
             <CardDescription>
-              No hay acceso a módulos de Inicio para este rol.
+              No hay acceso a modulos de Inicio para este rol.
             </CardDescription>
           </CardHeader>
         </Card>
       )}
 
-      <HubActividadReciente activities={activities} />
+      {/* FAB Speed Dial */}
+      <HubFabSpeedDial />
     </div>
   );
 }

@@ -2,6 +2,8 @@
  * Hub utilities — formatting helpers extracted from the monolithic page.
  */
 
+import type { ActivityEntry, GroupedActivity, ActivityCategory } from './hub-types';
+
 export function toPercent(value: number, total: number): number {
   if (total <= 0) return 0;
   return Math.round((value / total) * 100);
@@ -88,4 +90,50 @@ export function getGreeting(): string {
   if (hour < 12) return 'Buenos días';
   if (hour < 20) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+/* ------------------------------------------------------------------ */
+/* Activity grouping (client-safe — no Prisma imports)                */
+/* ------------------------------------------------------------------ */
+
+function resolveCategory(entity: string): ActivityCategory {
+  if (['CrmLead', 'CrmDeal', 'CrmContact', 'CrmAccount', 'Presentation'].includes(entity)) return 'comercial';
+  if (['OpsGuardia', 'OpsTurnoExtra', 'OpsRondaEjecucion', 'OpsAsistenciaDiaria', 'OpsPuestoOperativo'].includes(entity)) return 'ops';
+  if (['FinanceRendicion'].includes(entity)) return 'finanzas';
+  return 'sistema';
+}
+
+export function groupActivities(activities: ActivityEntry[]): GroupedActivity[] {
+  const groups = new Map<string, GroupedActivity>();
+
+  for (const entry of activities) {
+    const key = `${entry.action}:${entry.entity}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.count++;
+      if (new Date(entry.createdAt) < existing.firstTimestamp) {
+        existing.firstTimestamp = new Date(entry.createdAt);
+      }
+      if (new Date(entry.createdAt) > existing.lastTimestamp) {
+        existing.lastTimestamp = new Date(entry.createdAt);
+      }
+    } else {
+      groups.set(key, {
+        key,
+        action: entry.action,
+        entity: entry.entity,
+        category: resolveCategory(entry.entity),
+        count: 1,
+        firstTimestamp: new Date(entry.createdAt),
+        lastTimestamp: new Date(entry.createdAt),
+        userEmail: entry.userEmail,
+        entityId: entry.entityId,
+      });
+    }
+  }
+
+  return Array.from(groups.values()).sort(
+    (a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime()
+  );
 }

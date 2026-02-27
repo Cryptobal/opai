@@ -27,6 +27,9 @@ import type {
   OpsMetrics,
   HubAlert,
   ActivityEntry,
+  HubNotification,
+  NotificationType,
+  TicketMetrics,
 } from './hub-types';
 
 /* ------------------------------------------------------------------ */
@@ -456,9 +459,12 @@ export async function getOpsMetrics(
   };
   const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
 
+  const monthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+
   const [
     activePuestos,
     activeGuardias,
+    guardiasNuevosMes,
     pendingTE,
     ppcGaps,
     attPresent,
@@ -480,6 +486,9 @@ export async function getOpsMetrics(
     }),
     prisma.opsGuardia.count({
       where: { tenantId, status: 'active' },
+    }),
+    prisma.opsGuardia.count({
+      where: { tenantId, status: 'active', createdAt: { gte: monthStart } },
     }),
     prisma.opsTurnoExtra.count({
       where: { tenantId, status: 'pending' },
@@ -592,6 +601,7 @@ export async function getOpsMetrics(
   return {
     activePuestos,
     activeGuardias,
+    guardiasNuevosMes,
     pendingTE,
     refuerzosActivosHoy,
     refuerzosProximos,
@@ -707,7 +717,7 @@ export async function getRecentActivity(
   const rows = await prisma.auditLog.findMany({
     where: { tenantId },
     orderBy: { createdAt: 'desc' },
-    take: 10,
+    take: 50,
     select: {
       id: true,
       action: true,
@@ -720,4 +730,75 @@ export async function getRecentActivity(
   });
 
   return rows as ActivityEntry[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Notifications (latest 3)                                           */
+/* ------------------------------------------------------------------ */
+
+export async function getNotifications(
+  tenantId: string,
+): Promise<HubNotification[]> {
+  const rows = await prisma.notification.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+    take: 3,
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      link: true,
+      createdAt: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    type: resolveNotificationType(row.type),
+    text: row.title,
+    timestamp: row.createdAt,
+    href: row.link || '/hub',
+  }));
+}
+
+function resolveNotificationType(type: string): NotificationType {
+  if (type.startsWith('lead') || type.includes('proposal') || type.includes('deal') || type.includes('quote')) return 'comercial';
+  if (type.includes('ops') || type.includes('guardia') || type.includes('turno') || type.includes('ronda') || type.includes('attendance')) return 'operaciones';
+  if (type.includes('finance') || type.includes('rendicion')) return 'finanzas';
+  if (type.includes('lead')) return 'leads';
+  return 'comercial';
+}
+
+/* ------------------------------------------------------------------ */
+/* Ticket metrics                                                     */
+/* ------------------------------------------------------------------ */
+
+export async function getTicketMetrics(
+  tenantId: string,
+): Promise<TicketMetrics> {
+  const todayStr = getTodayChile();
+  const todayDate = new Date(todayStr);
+  const tomorrowDate = new Date(todayDate.getTime() + 24 * 60 * 60 * 1000);
+
+  try {
+    const [openCount, inProgressCount, resolvedTodayCount] = await Promise.all([
+      prisma.opsTicket.count({
+        where: { tenantId, status: 'open' },
+      }),
+      prisma.opsTicket.count({
+        where: { tenantId, status: 'in_progress' },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          status: { in: ['resolved', 'closed'] },
+          resolvedAt: { gte: todayDate, lt: tomorrowDate },
+        },
+      }),
+    ]);
+
+    return { openCount, inProgressCount, resolvedTodayCount, moduleActive: true };
+  } catch {
+    return { openCount: 0, inProgressCount: 0, resolvedTodayCount: 0, moduleActive: false };
+  }
 }

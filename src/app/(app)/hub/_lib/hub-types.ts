@@ -1,5 +1,6 @@
 /**
  * Hub types — TypeScript interfaces for all hub sections and queries.
+ * Refactored for accordion-based, mobile-first home.
  */
 
 import type { ReactNode } from 'react';
@@ -26,7 +27,7 @@ export interface HubPerms {
 }
 
 /* ------------------------------------------------------------------ */
-/* CRM metrics (existing)                                             */
+/* CRM metrics                                                        */
 /* ------------------------------------------------------------------ */
 
 export interface CrmOpenLead {
@@ -93,7 +94,7 @@ export interface CrmMetrics {
 }
 
 /* ------------------------------------------------------------------ */
-/* Docs signals (existing)                                            */
+/* Docs signals                                                       */
 /* ------------------------------------------------------------------ */
 
 export interface DocsSignals {
@@ -104,7 +105,7 @@ export interface DocsSignals {
 }
 
 /* ------------------------------------------------------------------ */
-/* Finance metrics (existing)                                         */
+/* Finance metrics                                                    */
 /* ------------------------------------------------------------------ */
 
 export interface FinanceMetrics {
@@ -115,7 +116,7 @@ export interface FinanceMetrics {
 }
 
 /* ------------------------------------------------------------------ */
-/* Ops metrics (new)                                                  */
+/* Ops metrics                                                        */
 /* ------------------------------------------------------------------ */
 
 export interface OpsAttendance {
@@ -138,6 +139,7 @@ export interface OpsRounds {
 export interface OpsMetrics {
   activePuestos: number;
   activeGuardias: number;
+  guardiasNuevosMes: number;
   pendingTE: number;
   refuerzosActivosHoy: number;
   refuerzosProximos: number;
@@ -151,7 +153,7 @@ export interface OpsMetrics {
 }
 
 /* ------------------------------------------------------------------ */
-/* Alerts (new)                                                       */
+/* Alerts                                                             */
 /* ------------------------------------------------------------------ */
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -165,7 +167,32 @@ export interface HubAlert {
 }
 
 /* ------------------------------------------------------------------ */
-/* Activity (new)                                                     */
+/* Notifications                                                      */
+/* ------------------------------------------------------------------ */
+
+export type NotificationType = 'comercial' | 'operaciones' | 'finanzas' | 'leads';
+
+export interface HubNotification {
+  id: string;
+  type: NotificationType;
+  text: string;
+  timestamp: Date;
+  href: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tickets                                                            */
+/* ------------------------------------------------------------------ */
+
+export interface TicketMetrics {
+  openCount: number;
+  inProgressCount: number;
+  resolvedTodayCount: number;
+  moduleActive: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/* Activity (grouped)                                                 */
 /* ------------------------------------------------------------------ */
 
 export interface ActivityEntry {
@@ -178,16 +205,27 @@ export interface ActivityEntry {
   createdAt: Date;
 }
 
+export type ActivityCategory = 'all' | 'comercial' | 'ops' | 'finanzas' | 'sistema';
+
+export interface GroupedActivity {
+  key: string;
+  action: string;
+  entity: string;
+  category: ActivityCategory;
+  count: number;
+  firstTimestamp: Date;
+  lastTimestamp: Date;
+  userEmail: string | null;
+  entityId: string | null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Component props                                                    */
 /* ------------------------------------------------------------------ */
 
 export interface HubGreetingProps {
   firstName: string;
-  perms: HubPerms;
-  opsMetrics: OpsMetrics | null;
-  crmMetrics: CrmMetrics | null;
-  financeMetrics: FinanceMetrics | null;
+  pendingFollowUpsCount: number;
 }
 
 export interface HubQuickActionsProps {
@@ -212,6 +250,7 @@ export interface KpiLinkCardProps {
   trendValue?: string;
   variant?: KpiVariant;
   titleInfoTooltip?: string;
+  alert?: boolean;
 }
 
 export interface CompactStatProps {
@@ -243,6 +282,7 @@ export interface HubCrmSectionProps {
 
 export interface HubFinanceSectionProps {
   financeMetrics: FinanceMetrics;
+  opsMetrics: OpsMetrics | null;
 }
 
 export interface HubDocsSectionProps {
@@ -251,4 +291,12 @@ export interface HubDocsSectionProps {
 
 export interface HubActividadRecienteProps {
   activities: ActivityEntry[];
+}
+
+export interface HubNotificationsProps {
+  notifications: HubNotification[];
+}
+
+export interface HubTicketsSectionProps {
+  ticketMetrics: TicketMetrics;
 }
