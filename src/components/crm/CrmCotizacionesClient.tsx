@@ -20,6 +20,7 @@ import { useUnreadNoteIds } from "@/lib/hooks";
 type QuoteRow = {
   id: string;
   code: string;
+  name?: string | null;
   status: string;
   clientName?: string | null;
   monthlyCost: string | number;
@@ -92,7 +93,7 @@ export function CrmCotizacionesClient({
         const matchesAccount = quote.clientName?.toLowerCase() === accounts.find((a) => a.id === accountFilter)?.name.toLowerCase();
         if (!matchesAccount) return false;
       }
-      if (q && !`${quote.code} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
+      if (q && !`${quote.code} ${quote.name || ""} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
 
@@ -218,6 +219,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium">{quote.code}</span>
+          {quote.name && <span className="text-sm text-foreground truncate">{quote.name}</span>}
           {hasUnreadNotes && (
             <span className="relative shrink-0" title="Notas no leídas">
               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -286,8 +288,11 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           {status.label}
         </Badge>
       </div>
+      {quote.name && (
+        <p className="text-sm font-medium truncate">{quote.name}</p>
+      )}
       {quote.dealTitle && (
-        <p className="text-sm font-medium truncate">{quote.dealTitle}</p>
+        <p className="text-sm truncate text-foreground">{quote.dealTitle}</p>
       )}
       <p className="text-xs text-muted-foreground truncate">
         {quote.accountName || quote.clientName || "Sin cliente"}

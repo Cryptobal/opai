@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { InventarioInstallationSection } from "@/components/inventario/Inventari
 import { OpsRefuerzosClient } from "@/components/ops";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
+import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -143,6 +144,16 @@ export type InstallationDetail = {
     amount: string;
     status: string;
     stage?: { name: string } | null;
+  }>;
+  /** Contactos de la cuenta asociada (solo cuando hay accountId) */
+  contactsOfAccount?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string | null;
+    phone?: string | null;
+    roleTitle?: string | null;
+    isPrimary?: boolean;
   }>;
 };
 
@@ -1493,7 +1504,7 @@ function StaffingSection({
           <p className="text-xs font-medium text-muted-foreground">Cotizaciones asociadas</p>
           <div className="space-y-2">
             {installation.quotesInstalacion.map((quote) => (
-              <CrmRelatedRecordCard key={quote.id} module="quotes" title={quote.code} subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`} badge={{ label: quote.status, variant: "secondary" }} meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")} href={`/cpq/${quote.id}`} />
+              <CrmRelatedRecordCard key={quote.id} module="quotes" title={quote.name ? `${quote.code} — ${quote.name}` : quote.code} subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`} badge={{ label: quote.status, variant: "secondary" }} meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")} href={`/crm/cotizaciones/${quote.id}`} />
             ))}
           </div>
         </div>
@@ -1765,8 +1776,37 @@ export function CrmInstallationDetailClient({
     }
   };
 
+  // ── New contact state ──
+  const [newContactOpen, setNewContactOpen] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "" });
+  const [savingContact, setSavingContact] = useState(false);
+
+  const saveNewContact = async () => {
+    if (!newContactForm.firstName.trim()) { toast.error("El nombre es obligatorio."); return; }
+    if (!installation.account?.id) { toast.error("Se requiere una cuenta asociada."); return; }
+    setSavingContact(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newContactForm, accountId: installation.account.id }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload?.error || "No se pudo crear");
+      toast.success("Contacto creado");
+      setNewContactOpen(false);
+      setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "" });
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error?.message || "No se pudo crear el contacto.");
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
   // ── Helpers ──
   const AccountIcon = CRM_MODULES.accounts.icon;
+  const ContactsIcon = CRM_MODULES.contacts.icon;
   const StaffingIcon = CRM_MODULES.installations.icon;
   const DealsIcon = CRM_MODULES.deals.icon;
   const QuotesIcon = CRM_MODULES.quotes.icon;
@@ -1782,6 +1822,7 @@ export function CrmInstallationDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "account", label: "Cuenta", icon: AccountIcon },
+    { id: "contacts", label: "Contactos", icon: UserCircle, count: installation.contactsOfAccount?.length ?? 0 },
     { id: "deals", label: "Negocios", icon: Briefcase, count: installation.dealsOfAccount?.length ?? 0 },
     { id: "quotes", label: "Cotizaciones", icon: FileText, count: installation.quotesInstalacion?.length ?? 0 },
     { id: "staffing", label: "Puestos", icon: Users },
@@ -1911,6 +1952,40 @@ export function CrmInstallationDetailClient({
         <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
   );
 
+  const contactsAction = installation.account?.id ? (
+    <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
+  ) : undefined;
+
+  const contactsContent = !installation.account ? (
+        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
+      ) : !installation.contactsOfAccount?.length ? (
+        <EmptyState
+          icon={<ContactsIcon className="h-8 w-8" />}
+          title="Sin contactos"
+          description="No hay contactos asociados a la cuenta de esta instalación."
+          compact
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/crm/contacts">Ver contactos</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {installation.contactsOfAccount.map((c) => (
+            <CrmRelatedRecordCard
+              key={c.id}
+              module="contacts"
+              title={`${c.firstName} ${c.lastName}`.trim()}
+              subtitle={c.roleTitle || "Sin cargo"}
+              meta={[c.email, c.phone].filter(Boolean).join(" · ") || undefined}
+              badge={c.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+              href={`/crm/contacts/${c.id}`}
+            />
+          ))}
+        </CrmRelatedRecordGrid>
+  );
+
   const dealsAction = installation.account?.id ? (
     <CreateDealModal
       accountId={installation.account.id}
@@ -1980,7 +2055,7 @@ export function CrmInstallationDetailClient({
             <CrmRelatedRecordCard
               key={q.id}
               module="quotes"
-              title={q.code}
+              title={q.name ? `${q.code} — ${q.name}` : q.code}
               subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
               meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
               badge={{ label: q.status, variant: "secondary" }}
@@ -2018,6 +2093,15 @@ export function CrmInstallationDetailClient({
       >
         {activeTab === "general" && generalContent}
         {activeTab === "account" && accountContent}
+        {activeTab === "contacts" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Contactos</h3>
+              {contactsAction}
+            </div>
+            {contactsContent}
+          </div>
+        )}
         {activeTab === "deals" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -2229,6 +2313,47 @@ export function CrmInstallationDetailClient({
         loadingLabel="Guardando..."
         onConfirm={confirmNocturnoToggle}
       />
+
+      {/* New Contact modal */}
+      <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo contacto</DialogTitle>
+            <DialogDescription>
+              Crear contacto vinculado a {installation.account?.name || "esta cuenta"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nombre *</Label>
+              <Input value={newContactForm.firstName} onChange={(e) => setNewContactForm((p) => ({ ...p, firstName: e.target.value }))} placeholder="Nombre" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Apellido</Label>
+              <Input value={newContactForm.lastName} onChange={(e) => setNewContactForm((p) => ({ ...p, lastName: e.target.value }))} placeholder="Apellido" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input type="email" value={newContactForm.email} onChange={(e) => setNewContactForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@ejemplo.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Teléfono</Label>
+              <Input value={newContactForm.phone} onChange={(e) => setNewContactForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+56 9 1234 5678" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cargo</Label>
+              <Input value={newContactForm.roleTitle} onChange={(e) => setNewContactForm((p) => ({ ...p, roleTitle: e.target.value }))} placeholder="Cargo o rol" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNewContactOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={saveNewContact} disabled={savingContact || !newContactForm.firstName.trim()}>
+              {savingContact && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+              Crear contacto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

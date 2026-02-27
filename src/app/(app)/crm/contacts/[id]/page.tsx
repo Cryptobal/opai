@@ -52,6 +52,40 @@ export default async function CrmContactDetailPage({
       })
     : [];
 
+  // Get installations from the contact's account
+  const installations = contact.accountId
+    ? await prisma.crmInstallation.findMany({
+        where: { tenantId, accountId: contact.accountId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          city: true,
+          commune: true,
+          isActive: true,
+        },
+      })
+    : [];
+
+  // Get quotes from the contact's account
+  const quotes = contact.accountId
+    ? await prisma.cpqQuote.findMany({
+        where: { tenantId, accountId: contact.accountId },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          status: true,
+          totalPositions: true,
+          totalGuards: true,
+          updatedAt: true,
+        },
+      })
+    : [];
+
   // Gmail, pipeline stages, doc templates (mail + whatsapp)
   const [gmailAccount, pipelineStages, docTemplatesMail, docTemplatesWhatsApp] = await Promise.all([
     prisma.crmEmailAccount.findFirst({
@@ -111,6 +145,8 @@ export default async function CrmContactDetailPage({
 
   const data = JSON.parse(JSON.stringify(contact));
   const initialDeals = JSON.parse(JSON.stringify(deals));
+  const initialInstallations = JSON.parse(JSON.stringify(installations));
+  const initialQuotes = JSON.parse(JSON.stringify(quotes));
   const initialPipelineStages = JSON.parse(JSON.stringify(pipelineStages));
   const initialDocTemplatesMail = JSON.parse(JSON.stringify(docTemplatesMail));
   const initialDocTemplatesWhatsApp = JSON.parse(JSON.stringify(docTemplatesWhatsApp));
@@ -128,6 +164,8 @@ export default async function CrmContactDetailPage({
       <CrmContactDetailClient
         contact={data}
         deals={initialDeals}
+        installations={initialInstallations}
+        quotes={initialQuotes}
         pipelineStages={initialPipelineStages}
         gmailConnected={!!gmailAccount}
         docTemplatesMail={initialDocTemplatesMail}

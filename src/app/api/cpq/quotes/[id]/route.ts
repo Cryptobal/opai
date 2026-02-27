@@ -68,6 +68,7 @@ export async function PATCH(
     // Build update data - only include fields that are present in the body
     const updateData: Record<string, unknown> = {};
     if (body.status !== undefined) updateData.status = body.status;
+    if (body.name !== undefined) updateData.name = body.name?.trim() || null;
     if (body.clientName !== undefined) updateData.clientName = body.clientName?.trim() || null;
     if (body.validUntil !== undefined) updateData.validUntil = body.validUntil ? new Date(body.validUntil) : null;
     if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;

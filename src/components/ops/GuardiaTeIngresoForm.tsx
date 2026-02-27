@@ -19,6 +19,7 @@ import {
   normalizeRut,
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   cuenta_corriente: "Cuenta corriente",
@@ -286,20 +287,12 @@ export function GuardiaTeIngresoForm({
         <div className={`grid gap-3 ${compact ? "grid-cols-2" : "md:grid-cols-3"}`}>
           <div className="space-y-1">
             <Label htmlFor="te-bankCode">Banco *</Label>
-            <select
-              id="te-bankCode"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            <SearchableSelect
               value={form.bankCode}
-              onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-              required
-            >
-              <option value="">Seleccionar banco</option>
-              {CHILE_BANKS.map((b) => (
-                <option key={b.code} value={b.code}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+              options={CHILE_BANKS.map((b) => ({ id: b.code, label: b.name }))}
+              placeholder="Seleccionar banco"
+              onChange={(val) => setForm((prev) => ({ ...prev, bankCode: val }))}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="te-accountType">Tipo de cuenta *</Label>

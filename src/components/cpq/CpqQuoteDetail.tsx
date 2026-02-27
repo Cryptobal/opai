@@ -35,6 +35,7 @@ import type {
   CpqQuoteVehicle,
   CpqQuoteInfrastructure,
 } from "@/types/cpq";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -46,7 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
 
 interface CpqQuoteDetailProps {
@@ -104,6 +105,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -114,6 +116,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [financialError, setFinancialError] = useState<string | null>(null);
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [quoteForm, setQuoteForm] = useState({
+    name: "",
     clientName: "",
     validUntil: "",
     notes: "",
@@ -367,6 +370,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   useEffect(() => {
     if (!quote) return;
     setQuoteForm({
+      name: quote.name || "",
       clientName: quote.clientName || "",
       validUntil: formatDateInput(quote.validUntil),
       notes: quote.notes || "",
@@ -544,6 +548,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: quoteForm.name || null,
           clientName: quoteForm.clientName,
           validUntil: quoteForm.validUntil || null,
           notes: quoteForm.notes,
@@ -639,10 +644,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       });
       const data = await response.json();
       if (data.success) {
-        router.push(`/cpq/${data.data.id}`);
+        toast.success(`Cotización clonada: ${data.data.code}`);
+        router.push(`/crm/cotizaciones/${data.data.id}`);
+      } else {
+        toast.error(data.error || "No se pudo clonar la cotización.");
       }
     } catch (error) {
       console.error("Error cloning quote:", error);
+      toast.error("Error al clonar la cotización.");
     } finally {
       setCloning(false);
     }
@@ -957,6 +966,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold truncate">{quote.code}</h1>
+            {quote.name && <span className="text-sm font-medium truncate text-foreground/80">— {quote.name}</span>}
             <Badge variant="outline" className="text-[10px] h-5 shrink-0">
               {quote.status}
             </Badge>
@@ -983,24 +993,30 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
           {/* Overflow menu for secondary actions */}
-          <div className="relative group">
-            <Button size="icon" variant="ghost" className="h-7 w-7">
-              <Layers className="h-3.5 w-3.5" />
+          <div className="relative">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
+              <MoreVertical className="h-3.5 w-3.5" />
             </Button>
-            <div className="absolute right-0 top-full mt-1 z-30 hidden group-focus-within:block hover:block min-w-[160px] rounded-md border bg-popover p-1 shadow-md">
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleClone} disabled={cloning}>
-                <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar"}
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleSendDotacionToInstallation} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
-                <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={refresh}>
-                <RefreshCw className="h-3.5 w-3.5" /> Refrescar
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => setDeleteConfirmOpen(true)} disabled={deleting || isLocked}>
-                <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
-              </button>
-            </div>
+            {overflowMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] rounded-md border bg-popover p-1 shadow-md">
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
+                    <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotización"}
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleSendDotacionToInstallation(); }} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
+                    <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Refrescar
+                  </button>
+                  <div className="my-1 h-px bg-border" />
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setDeleteConfirmOpen(true); }} disabled={deleting || isLocked}>
+                    <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1031,28 +1047,19 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.accountId || "__none__"}
-                  onValueChange={(val) => {
-                    const accountId = val === "__none__" ? "" : val;
-                    const account = crmAccounts.find((a) => a.id === accountId);
-                    saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
+                <SearchableSelect
+                  value={crmContext.accountId || ""}
+                  options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
+                  placeholder="Seleccionar..."
+                  onChange={(val) => {
+                    const account = crmAccounts.find((a) => a.id === val);
+                    saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
                     if (account) {
                       setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
                       setQuoteDirty(true);
                     }
                   }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1061,21 +1068,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.installationId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ installationId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.installationId || ""}
+                  options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmInstallations.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ installationId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1084,21 +1083,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.contactId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ contactId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.contactId || ""}
+                  options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ contactId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1107,21 +1098,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.dealId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ dealId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.dealId || ""}
+                  options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmDeals.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ dealId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1240,6 +1223,20 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* ── Quote name (optional identifier) ── */}
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
+            <Input
+              value={quoteForm.name}
+              onChange={(e) => {
+                setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
+                setQuoteDirty(true);
+              }}
+              placeholder="Ej: Propuesta guardias planta norte"
+              className="h-8 bg-background text-xs"
+            />
+          </div>
 
           {/* ── Date + Currency in a single compact row ── */}
           <div className="flex items-end gap-2">
@@ -1684,7 +1681,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
                   <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
                   <div className="text-right text-[10px] text-gray-600">
-                    <p className="font-bold text-xs text-black">{quote.code}</p>
+                    <p className="font-bold text-xs text-black">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
                     <p>{quote.clientName || "Cliente"}</p>
                     {(() => {
                       const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;

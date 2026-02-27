@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   Dialog,
   DialogContent,
@@ -665,22 +666,17 @@ function AccountsTab({
             {accountPlans.length > 0 && (
               <div className="space-y-1.5">
                 <Label>Cuenta contable</Label>
-                <Select
+                <SearchableSelect
                   value={form.accountPlanId}
-                  onValueChange={(v) => setField("accountPlanId", v)}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Sin asignar</SelectItem>
-                    {accountPlans.map((ap) => (
-                      <SelectItem key={ap.id} value={ap.id}>
-                        {ap.code} - {ap.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={accountPlans.map((ap) => ({
+                    id: ap.id,
+                    label: `${ap.code} - ${ap.name}`,
+                    description: ap.code,
+                  }))}
+                  placeholder="Seleccionar..."
+                  emptyText="No se encontraron cuentas contables"
+                  onChange={(v) => setField("accountPlanId", v)}
+                />
               </div>
             )}
 
@@ -817,18 +813,16 @@ function TransactionsTab({ accounts }: { accounts: BankAccountRow[] }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end flex-wrap">
         <div className="space-y-1.5 min-w-[200px]">
           <Label>Cuenta</Label>
-          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Seleccionar cuenta..." />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.bankName} - {a.accountNumber}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={selectedAccount}
+            options={accounts.map((a) => ({
+              id: a.id,
+              label: `${a.bankName} - ${a.accountNumber}`,
+            }))}
+            placeholder="Seleccionar cuenta..."
+            emptyText="No se encontraron cuentas"
+            onChange={setSelectedAccount}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="tx-from">Desde</Label>
@@ -1020,18 +1014,16 @@ function ImportTab({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Cuenta bancaria *</Label>
-              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccionar cuenta..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.bankName} - {a.accountNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedAccount}
+                options={accounts.map((a) => ({
+                  id: a.id,
+                  label: `${a.bankName} - ${a.accountNumber}`,
+                }))}
+                placeholder="Seleccionar cuenta..."
+                emptyText="No se encontraron cuentas"
+                onChange={setSelectedAccount}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Formato</Label>

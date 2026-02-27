@@ -29,7 +29,7 @@ export default async function CrmInstallationDetailPage({
     };
   };
   const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount, contactsOfAccount] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       select: {
@@ -118,6 +118,7 @@ export default async function CrmInstallationDetailPage({
       select: {
         id: true,
         code: true,
+        name: true,
         status: true,
         totalPositions: true,
         totalGuards: true,
@@ -186,6 +187,24 @@ export default async function CrmInstallationDetailPage({
           })
         : Promise.resolve([])
     ),
+    // Contactos de la cuenta (para mostrar en sección Contactos)
+    prisma.crmInstallation.findFirst({ where: { id, tenantId }, select: { accountId: true } }).then((inst) =>
+      inst?.accountId
+        ? prisma.crmContact.findMany({
+            where: { tenantId, accountId: inst.accountId },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              roleTitle: true,
+              isPrimary: true,
+            },
+          })
+        : Promise.resolve([])
+    ),
   ]);
 
   if (!installation) {
@@ -202,6 +221,7 @@ export default async function CrmInstallationDetailPage({
       guardiasActuales,
       refuerzos,
       dealsOfAccount: dealsOfAccount ?? [],
+      contactsOfAccount: contactsOfAccount ?? [],
     })
   );
 

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/opai";
 import {
@@ -781,43 +782,32 @@ function NewPaymentTab({
             {/* Bank Account */}
             <div className="space-y-1.5">
               <Label>Cuenta bancaria</Label>
-              <Select
+              <SearchableSelect
                 value={form.bankAccountId}
-                onValueChange={(v) => setField("bankAccountId", v)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Sin asignar</SelectItem>
-                  {bankAccounts.map((ba) => (
-                    <SelectItem key={ba.id} value={ba.id}>
-                      {ba.bankName} - {ba.accountNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={bankAccounts.map((ba) => ({
+                  id: ba.id,
+                  label: `${ba.bankName} - ${ba.accountNumber}`,
+                }))}
+                placeholder="Seleccionar..."
+                emptyText="No se encontraron cuentas bancarias"
+                onChange={(v) => setField("bankAccountId", v)}
+              />
             </div>
 
             {/* Supplier */}
             <div className="space-y-1.5">
               <Label>Proveedor</Label>
-              <Select
+              <SearchableSelect
                 value={form.supplierId}
-                onValueChange={(v) => setField("supplierId", v)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Sin asignar</SelectItem>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s.rut})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={suppliers.map((s) => ({
+                  id: s.id,
+                  label: s.name,
+                  description: s.rut,
+                }))}
+                placeholder="Seleccionar..."
+                emptyText="No se encontraron proveedores"
+                onChange={(v) => setField("supplierId", v)}
+              />
             </div>
 
             {/* Check Number (conditional) */}

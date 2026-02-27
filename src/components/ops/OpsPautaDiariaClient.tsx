@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Input } from "@/components/ui/input";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 
@@ -421,32 +422,26 @@ export function OpsPautaDiariaClient({
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 animate-in slide-in-from-top-2 duration-200">
               <div className="space-y-1">
                 <Label className="text-xs">Cliente</Label>
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  value={clientId}
-                  onChange={(e) => {
-                    setClientId(e.target.value);
+                <SearchableSelect
+                  value={clientId === "all" ? "" : clientId}
+                  options={clients.map((c) => ({ id: c.id, label: c.name }))}
+                  placeholder="Todos los clientes"
+                  emptyText="Sin clientes"
+                  onChange={(val) => {
+                    setClientId(val || "all");
                     setInstallationId("all");
                   }}
-                >
-                  <option value="all">Todos los clientes</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Instalación</Label>
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  value={installationId}
-                  onChange={(e) => setInstallationId(e.target.value)}
-                >
-                  <option value="all">Todas</option>
-                  {installations.map((inst) => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={installationId === "all" ? "" : installationId}
+                  options={installations.map((inst) => ({ id: inst.id, label: inst.name }))}
+                  placeholder="Todas"
+                  emptyText="Sin instalaciones"
+                  onChange={(val) => setInstallationId(val || "all")}
+                />
               </div>
             </div>
           )}

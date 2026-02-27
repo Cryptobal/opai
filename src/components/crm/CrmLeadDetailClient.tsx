@@ -45,6 +45,7 @@ import { CrmDates } from "@/components/crm/CrmDates";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
@@ -1195,10 +1196,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Industria</Label>
-              <select className={selectClassName} value={approveForm.industry} onChange={(e) => updateApproveForm("industry", e.target.value)}>
-                <option value="">Seleccionar industria</option>
-                {industries.map((i) => (<option key={i.id} value={i.name}>{i.name}</option>))}
-              </select>
+              <SearchableSelect
+                value={approveForm.industry}
+                options={industries.map((i) => ({ id: i.name, label: i.name }))}
+                placeholder="Seleccionar industria"
+                onChange={(val) => updateApproveForm("industry", val)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Segmento</Label>

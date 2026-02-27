@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { EmptyState, StatusBadge } from "@/components/opai";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Clock3, FileDown, Plus, Search } from "lucide-react";
 
 type TeItem = {
@@ -590,49 +591,43 @@ export function TeTurnosClient({
           <div className="space-y-4">
             <div>
               <Label>Cliente</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              <SearchableSelect
                 value={createForm.clientId}
-                onChange={(e) =>
+                options={clients.map((c) => ({
+                  id: c.id,
+                  label: c.name,
+                }))}
+                placeholder="Seleccionar cliente..."
+                onChange={(val) =>
                   setCreateForm((f) => ({
                     ...f,
-                    clientId: e.target.value,
+                    clientId: val,
                     installationId: "",
                     puestoId: "",
                     amountClp: "",
                   }))
                 }
-              >
-                <option value="">Seleccionar cliente...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <Label>Instalación</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              <SearchableSelect
                 value={createForm.installationId}
-                onChange={(e) =>
+                options={clientInstallations.map((i) => ({
+                  id: i.id,
+                  label: i.name,
+                }))}
+                placeholder="Seleccionar instalación..."
+                disabled={!createForm.clientId}
+                onChange={(val) =>
                   setCreateForm((f) => ({
                     ...f,
-                    installationId: e.target.value,
+                    installationId: val,
                     puestoId: "",
                     amountClp: "",
                   }))
                 }
-                disabled={!createForm.clientId}
-              >
-                <option value="">Seleccionar instalación...</option>
-                {clientInstallations.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <Label>Puesto (opcional)</Label>
@@ -658,19 +653,16 @@ export function TeTurnosClient({
             </div>
             <div>
               <Label>Guardia</Label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              <SearchableSelect
                 value={createForm.guardiaId}
-                onChange={(e) => setCreateForm((f) => ({ ...f, guardiaId: e.target.value }))}
-              >
-                <option value="">Seleccionar...</option>
-                {guardias.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.persona.firstName} {g.persona.lastName}
-                    {g.code ? ` (${g.code})` : ""}
-                  </option>
-                ))}
-              </select>
+                options={guardias.map((g) => ({
+                  id: g.id,
+                  label: `${g.persona.firstName} ${g.persona.lastName}`,
+                  ...(g.code ? { description: `Cód. ${g.code}` } : {}),
+                }))}
+                placeholder="Seleccionar..."
+                onChange={(val) => setCreateForm((f) => ({ ...f, guardiaId: val }))}
+              />
             </div>
             <div>
               <Label>Fecha</Label>

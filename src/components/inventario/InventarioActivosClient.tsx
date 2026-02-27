@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Asset = {
   id: string;
@@ -149,18 +150,18 @@ export function InventarioActivosClient() {
               <div className="grid gap-4 py-4">
                 <div>
                   <Label>Tipo (opcional)</Label>
-                  <select
-                    className="w-full h-9 rounded-md border px-3 text-sm mt-1"
-                    value={form.variantId}
-                    onChange={(e) => setForm((f) => ({ ...f, variantId: e.target.value }))}
-                  >
-                    <option value="">Sin tipo</option>
-                    {variants.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.product.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      value={form.variantId}
+                      options={variants.map((v) => ({
+                        id: v.id,
+                        label: v.product.name,
+                      }))}
+                      placeholder="Sin tipo"
+                      emptyText="Sin tipos disponibles"
+                      onChange={(id) => setForm((f) => ({ ...f, variantId: id }))}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label>Número de serie / IMEI</Label>

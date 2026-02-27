@@ -39,15 +39,32 @@ export async function POST(
       );
     }
 
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
+    // Generate unique code with retry to avoid race conditions
     const year = new Date().getFullYear();
-    const code = `CPQ-${year}-${String(count + 1).padStart(3, "0")}`;
+    let code = "";
+    const maxAttempts = 10;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const count = await prisma.cpqQuote.count({ where: { tenantId } });
+      const candidate = `CPQ-${year}-${String(count + attempt).padStart(3, "0")}`;
+      const exists = await prisma.cpqQuote.findFirst({ where: { code: candidate } });
+      if (!exists) {
+        code = candidate;
+        break;
+      }
+    }
+    if (!code) {
+      return NextResponse.json(
+        { success: false, error: "Could not generate unique quote code" },
+        { status: 500 }
+      );
+    }
 
     const cloned = await prisma.$transaction(async (tx) => {
       const newQuote = await tx.cpqQuote.create({
         data: {
           tenantId,
           code,
+          name: source.name ? `${source.name} (copia)` : null,
           status: "draft",
           clientName: source.clientName,
           validUntil: source.validUntil,
@@ -55,6 +72,14 @@ export async function POST(
           totalPositions: source.totalPositions,
           totalGuards: source.totalGuards,
           monthlyCost: source.monthlyCost,
+          currency: source.currency,
+          // Preserve CRM context so the clone stays linked to the same deal/account
+          accountId: source.accountId,
+          contactId: source.contactId,
+          dealId: source.dealId,
+          installationId: source.installationId,
+          aiDescription: source.aiDescription,
+          serviceDetail: source.serviceDetail,
         },
       });
 

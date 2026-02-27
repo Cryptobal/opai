@@ -6,6 +6,7 @@ import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { Button } from "@/components/ui/button";
 import { DataTable, FilterBar } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface InstallationOption {
   id: string;
@@ -103,17 +104,15 @@ export function RondasTemplatesClient({
   return (
     <div className="space-y-4">
       <FilterBar>
-        <select
-          className="h-9 rounded border border-border bg-background px-2 text-sm"
+        <SearchableSelect
           value={installationId}
-          onChange={(e) => void loadInstallationData(e.target.value)}
-        >
-          {installations.map((installation) => (
-            <option key={installation.id} value={installation.id}>
-              {installation.name}
-            </option>
-          ))}
-        </select>
+          options={installations.map((installation) => ({
+            id: installation.id,
+            label: installation.name,
+          }))}
+          placeholder="Seleccionar instalación..."
+          onChange={(val) => { void loadInstallationData(val); }}
+        />
       </FilterBar>
 
       <RondaTemplateForm

@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/opai";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { DocTemplate } from "@/types/docs";
 
 const selectClass =
@@ -247,18 +248,18 @@ export function DocGenerateClient() {
             <label className="text-xs font-medium text-muted-foreground">
               Template base
             </label>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className={`mt-1 ${selectClass}`}
-            >
-              <option value="">Sin template (documento libre)</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.module.toUpperCase()})
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                value={selectedTemplateId}
+                options={templates.map((t) => ({
+                  id: t.id,
+                  label: `${t.name} (${t.module.toUpperCase()})`,
+                }))}
+                placeholder="Sin template (documento libre)"
+                emptyText="Sin templates disponibles"
+                onChange={(id) => setSelectedTemplateId(id)}
+              />
+            </div>
           </div>
 
           <div>
@@ -355,23 +356,23 @@ export function DocGenerateClient() {
                 <Building2 className="h-3 w-3" />
                 Cuenta / Empresa
               </label>
-              <select
-                value={accountId}
-                onChange={(e) => {
-                  setAccountId(e.target.value);
-                  setContactId("");
-                  setInstallationId("");
-                }}
-                className={`mt-1 ${selectClass}`}
-              >
-                <option value="">Seleccionar cuenta...</option>
-                {accounts.map((a: any) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                    {a.rut ? ` (${a.rut})` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={accountId}
+                  options={accounts.map((a: any) => ({
+                    id: a.id,
+                    label: a.name,
+                    description: a.rut || undefined,
+                  }))}
+                  placeholder="Seleccionar cuenta..."
+                  emptyText="Sin cuentas"
+                  onChange={(id) => {
+                    setAccountId(id);
+                    setContactId("");
+                    setInstallationId("");
+                  }}
+                />
+              </div>
             </div>
 
             {/* Contact */}
@@ -380,23 +381,19 @@ export function DocGenerateClient() {
                 <User className="h-3 w-3" />
                 Contacto
               </label>
-              <select
-                value={contactId}
-                onChange={(e) => setContactId(e.target.value)}
-                disabled={!accountId}
-                className={`mt-1 ${selectClass} disabled:opacity-50`}
-              >
-                <option value="">
-                  {accountId ? "Seleccionar contacto..." : "Selecciona una cuenta primero"}
-                </option>
-                {contacts.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName}
-                    {c.roleTitle ? ` - ${c.roleTitle}` : ""}
-                    {c.isPrimary ? " (Principal)" : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={contactId}
+                  options={contacts.map((c: any) => ({
+                    id: c.id,
+                    label: `${c.firstName} ${c.lastName}${c.roleTitle ? ` - ${c.roleTitle}` : ""}${c.isPrimary ? " (Principal)" : ""}`,
+                  }))}
+                  placeholder={accountId ? "Seleccionar contacto..." : "Selecciona una cuenta primero"}
+                  emptyText="Sin contactos"
+                  disabled={!accountId}
+                  onChange={(id) => setContactId(id)}
+                />
+              </div>
             </div>
 
             {/* Installation */}
@@ -405,22 +402,20 @@ export function DocGenerateClient() {
                 <MapPin className="h-3 w-3" />
                 Instalación
               </label>
-              <select
-                value={installationId}
-                onChange={(e) => setInstallationId(e.target.value)}
-                disabled={!accountId}
-                className={`mt-1 ${selectClass} disabled:opacity-50`}
-              >
-                <option value="">
-                  {accountId ? "Seleccionar instalación..." : "Selecciona una cuenta primero"}
-                </option>
-                {installations.map((i: any) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                    {i.address ? ` - ${i.address}` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={installationId}
+                  options={installations.map((i: any) => ({
+                    id: i.id,
+                    label: i.name,
+                    description: i.address || undefined,
+                  }))}
+                  placeholder={accountId ? "Seleccionar instalación..." : "Selecciona una cuenta primero"}
+                  emptyText="Sin instalaciones"
+                  disabled={!accountId}
+                  onChange={(id) => setInstallationId(id)}
+                />
+              </div>
             </div>
 
             {/* Deal */}

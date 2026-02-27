@@ -40,7 +40,7 @@ export default async function CrmAccountDetailPage({
     prisma.cpqQuote.findMany({
       where: { accountId: id, tenantId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, code: true, status: true, clientName: true, monthlyCost: true, createdAt: true },
+      select: { id: true, code: true, name: true, status: true, clientName: true, monthlyCost: true, createdAt: true },
     }),
   ]);
 

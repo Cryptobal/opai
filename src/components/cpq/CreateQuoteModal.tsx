@@ -32,6 +32,7 @@ interface CreateQuoteModalProps {
 export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId }: CreateQuoteModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [quoteName, setQuoteName] = useState("");
   const [clientName, setClientName] = useState(defaultClientName ?? "");
   const [dealName, setDealName] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -47,7 +48,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
     }
   }, [open, defaultClientName, defaultDealName]);
 
-  const createQuote = async (payload: { clientName?: string; validUntil?: string; notes?: string; accountId?: string; dealId?: string; installationId?: string }) => {
+  const createQuote = async (payload: { name?: string; clientName?: string; validUntil?: string; notes?: string; accountId?: string; dealId?: string; installationId?: string }) => {
     setLoading(true);
     try {
       const res = await fetch("/api/cpq/quotes", {
@@ -73,6 +74,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
         }
       }
       setOpen(false);
+      setQuoteName("");
       setClientName("");
       setDealName("");
       setValidUntil("");
@@ -107,7 +109,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       toast.error("El cliente es obligatorio.");
       return;
     }
-    await createQuote({ clientName: finalClient, validUntil, notes: finalNotes, accountId, dealId, installationId });
+    await createQuote({ name: quoteName.trim() || undefined, clientName: finalClient, validUntil, notes: finalNotes, accountId, dealId, installationId });
   };
 
   if (variant === "quick") {
@@ -134,6 +136,16 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
           <DialogTitle>Nueva Cotización</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Nombre de la cotización</Label>
+            <Input
+              value={quoteName}
+              onChange={(e) => setQuoteName(e.target.value)}
+              placeholder="Ej: Propuesta guardias planta norte"
+              className="h-9 bg-background text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">Opcional — para identificar fácilmente la cotización</p>
+          </div>
           {hasContext ? (
             <div className="space-y-1.5">
               <Label className="text-sm">Cliente</Label>

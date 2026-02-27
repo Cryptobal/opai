@@ -43,6 +43,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
@@ -704,7 +705,7 @@ export function CrmDealDetailClient({
                   : "sin fecha";
                 return (
                   <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
-                    {`${quoteInfo.code} · ${quoteDateLabel} · ${formatQuoteAmounts(
+                    {`${quoteInfo.code}${quoteInfo.name ? ` — ${quoteInfo.name}` : ""} · ${quoteDateLabel} · ${formatQuoteAmounts(
                       quoteInfo
                     )}`}
                   </SelectItem>
@@ -1052,10 +1053,13 @@ export function CrmDealDetailClient({
           <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
           <div className="space-y-2">
             <Label>Cotización</Label>
-            <select className={selectCn} value={selectedQuoteId} onChange={(e) => setSelectedQuoteId(e.target.value)} disabled={linking}>
-              <option value="">Selecciona cotización</option>
-              {quotes.map((q) => <option key={q.id} value={q.id}>{q.code} · {q.clientName || "Sin cliente"}</option>)}
-            </select>
+            <SearchableSelect
+              value={selectedQuoteId}
+              options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.name ? ` — ${q.name}` : ""} · ${q.clientName || "Sin cliente"}` }))}
+              placeholder="Selecciona cotización"
+              disabled={linking}
+              onChange={setSelectedQuoteId}
+            />
           </div>
           <DialogFooter>
             <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
@@ -1082,7 +1086,7 @@ export function CrmDealDetailClient({
             <CrmRelatedRecordCard
               key={quote.id}
               module="quotes"
-              title={info?.code || "CPQ"}
+              title={info?.name ? `${info.code} — ${info.name}` : info?.code || "CPQ"}
               subtitle={subtitleParts}
               meta={formatQuoteAmounts(info)}
               badge={{ label: statusLabel, variant: statusVariant as any }}
@@ -1132,12 +1136,13 @@ export function CrmDealDetailClient({
           <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
           <div className="space-y-2">
             <Label>Contacto</Label>
-            <select className={selectCn} value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)} disabled={addingContact}>
-              <option value="">Selecciona contacto</option>
-              {availableContacts.map((c) => (
-                <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim()} · {c.email || "Sin email"}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={selectedContactId}
+              options={availableContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || "Sin email" }))}
+              placeholder="Selecciona contacto"
+              disabled={addingContact}
+              onChange={setSelectedContactId}
+            />
           </div>
           <DialogFooter>
             <Button onClick={addDealContact} disabled={addingContact}>{addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular</Button>

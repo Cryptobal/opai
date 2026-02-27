@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Purchase = {
   id: string;
@@ -206,24 +207,22 @@ export function InventarioComprasClient() {
                       <div key={i} className="grid grid-cols-12 gap-2 items-end">
                         <div className="col-span-5">
                           <Label className="text-xs">Producto/Talla</Label>
-                          <select
-                            className="w-full h-9 rounded-md border px-3 text-sm"
+                          <SearchableSelect
                             value={line.variantId}
-                            onChange={(e) =>
+                            options={variants.map((v) => ({
+                              id: v.id,
+                              label: variantLabel(v),
+                            }))}
+                            placeholder="Seleccionar"
+                            emptyText="Sin productos"
+                            onChange={(id) =>
                               setForm((f) => {
                                 const next = [...f.lines];
-                                next[i] = { ...next[i], variantId: e.target.value };
+                                next[i] = { ...next[i], variantId: id };
                                 return { ...f, lines: next };
                               })
                             }
-                          >
-                            <option value="">Seleccionar</option>
-                            {variants.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {variantLabel(v)}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div className="col-span-2">
                           <Label className="text-xs">Cant.</Label>

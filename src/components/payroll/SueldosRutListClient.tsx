@@ -32,6 +32,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface SueldoRut {
   structureId: string;
@@ -653,11 +654,15 @@ export function SueldosRutListClient() {
                     const cat = bonosCatalog.find((c) => c.id === bono.bonoCatalogId);
                     return (
                       <div key={idx} className="flex items-center gap-2">
-                        <select className="flex h-8 flex-1 rounded-md border border-input bg-card px-2 text-xs" value={bono.bonoCatalogId}
-                          onChange={(e) => { const nb = [...formBonos]; const nc = bonosCatalog.find((c) => c.id === e.target.value); nb[idx] = { bonoCatalogId: e.target.value, overrideAmount: nc?.defaultAmount != null ? Number(nc.defaultAmount) : undefined, overridePercentage: nc?.defaultPercentage != null ? Number(nc.defaultPercentage) : undefined }; setFormBonos(nb); }}>
-                          <option value="">Selecciona bono...</option>
-                          {bonosCatalog.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                        <div className="flex-1">
+                          <SearchableSelect
+                            value={bono.bonoCatalogId}
+                            options={bonosCatalog.map((c) => ({ id: c.id, label: c.name }))}
+                            placeholder="Selecciona bono..."
+                            emptyText="Sin bonos disponibles"
+                            onChange={(id) => { const nb = [...formBonos]; const nc = bonosCatalog.find((c) => c.id === id); nb[idx] = { bonoCatalogId: id, overrideAmount: nc?.defaultAmount != null ? Number(nc.defaultAmount) : undefined, overridePercentage: nc?.defaultPercentage != null ? Number(nc.defaultPercentage) : undefined }; setFormBonos(nb); }}
+                          />
+                        </div>
                         {cat && (cat.bonoType === "FIJO" || cat.bonoType === "CONDICIONAL") && (
                           <Input type="text" inputMode="numeric" placeholder="Monto"
                             value={bono.overrideAmount != null ? formatNumber(bono.overrideAmount, { minDecimals: 0, maxDecimals: 0 }) : ""}
