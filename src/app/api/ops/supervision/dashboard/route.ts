@@ -56,14 +56,19 @@ export async function GET(request: NextRequest) {
       // Table does not exist yet — gracefully degrade
     }
 
-    const [
-      visitas,
-      prevVisitas,
-      assignments,
-      supervisors,
-      installations,
-    ] = await Promise.all([
-      prisma.opsVisitaSupervision.findMany({
+    // Try with new columns first; fall back to safe columns if migration
+    // hasn't been applied yet.
+    type VisitRow = {
+      id: string; supervisorId: string; installationId: string;
+      status: string; checkInAt: Date; checkOutAt: Date | null;
+      installationState: string | null; ratings: unknown;
+      durationMinutes: number | null; isExpressFlagged: boolean;
+      guardsExpected: number | null; guardsFound: number | null;
+      bookUpToDate: boolean | null;
+    };
+    let visitas: VisitRow[];
+    try {
+      visitas = await prisma.opsVisitaSupervision.findMany({
         where: baseWhere,
         select: {
           id: true,
@@ -80,7 +85,37 @@ export async function GET(request: NextRequest) {
           guardsFound: true,
           bookUpToDate: true,
         },
-      }),
+      });
+    } catch {
+      const safe = await prisma.opsVisitaSupervision.findMany({
+        where: baseWhere,
+        select: {
+          id: true,
+          supervisorId: true,
+          installationId: true,
+          status: true,
+          checkInAt: true,
+          checkOutAt: true,
+          installationState: true,
+          ratings: true,
+        },
+      });
+      visitas = safe.map((v) => ({
+        ...v,
+        durationMinutes: null,
+        isExpressFlagged: false,
+        guardsExpected: null,
+        guardsFound: null,
+        bookUpToDate: null,
+      }));
+    }
+
+    const [
+      prevVisitas,
+      assignments,
+      supervisors,
+      installations,
+    ] = await Promise.all([
       prisma.opsVisitaSupervision.findMany({
         where: prevWhere,
         select: { id: true, status: true },

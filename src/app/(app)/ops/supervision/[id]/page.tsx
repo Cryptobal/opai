@@ -55,7 +55,9 @@ export default async function VisitaSupervisionDetailPage({
   const userCanDelete = canDelete(perms, "ops", "supervision") || canViewAll;
 
   // Try with full includes (new supervision tables). Fall back to safe
-  // query if migration 20260401000000_supervision_module_refactor hasn't run.
+  // select-only query if migration 20260401000000_supervision_module_refactor
+  // hasn't been applied yet (avoids selecting new columns/relations that
+  // don't exist in the database).
   let visit: Awaited<ReturnType<typeof prisma.opsVisitaSupervision.findFirst<{
     where: { id: string; tenantId: string };
     include: {
@@ -85,21 +87,68 @@ export default async function VisitaSupervisionDetailPage({
       },
     });
   } catch {
-    // New relation tables may not exist yet — retry without them
+    // New columns/tables don't exist — use select with only safe columns
     const base = await prisma.opsVisitaSupervision.findFirst({
       where: {
         id,
         tenantId,
         ...(canViewAll ? {} : { supervisorId: session.user.id }),
       },
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        supervisorId: true,
+        installationId: true,
+        checkInAt: true,
+        checkInLat: true,
+        checkInLng: true,
+        checkInGeoValidada: true,
+        checkInDistanciaM: true,
+        checkOutAt: true,
+        checkOutLat: true,
+        checkOutLng: true,
+        checkOutGeoValidada: true,
+        checkOutDistanciaM: true,
+        status: true,
+        generalComments: true,
+        guardsCounted: true,
+        installationState: true,
+        ratings: true,
+        documentChecklist: true,
+        startedVia: true,
+        completedVia: true,
+        createdAt: true,
+        updatedAt: true,
         installation: { select: { name: true, address: true, commune: true } },
         supervisor: { select: { name: true, email: true } },
         images: { orderBy: [{ createdAt: "desc" }] },
       },
     });
     if (base) {
-      visit = { ...base, guardEvaluations: [], findings: [], photos: [] } as typeof visit;
+      visit = {
+        ...base,
+        durationMinutes: null,
+        guardsExpected: null,
+        guardsFound: null,
+        bookUpToDate: null,
+        bookLastEntryDate: null,
+        bookPhotoUrl: null,
+        bookNotes: null,
+        clientContacted: false,
+        clientContactName: null,
+        clientSatisfaction: null,
+        clientComment: null,
+        clientValidationUrl: null,
+        healthScore: null,
+        isExpressFlagged: false,
+        draftData: null,
+        wizardStep: 1,
+        guardEvaluations: [],
+        findings: [],
+        verifiedFindings: [],
+        checklistResults: [],
+        photos: [],
+      } as unknown as typeof visit;
     }
   }
 

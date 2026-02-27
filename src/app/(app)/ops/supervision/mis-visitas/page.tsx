@@ -41,20 +41,28 @@ export default async function MisVisitasPage() {
   // NOTE: _count on new relations (guardEvaluations, findings, photos) and
   // opsSupervisionFinding queries may fail if migration
   // 20260401000000_supervision_module_refactor hasn't been applied yet.
-  // We try with full data first, and fall back to a safe query if it fails.
-  let visitas: Awaited<ReturnType<typeof prisma.opsVisitaSupervision.findMany<{
-    where: { tenantId: string; supervisorId: string };
-    include: { installation: { select: { name: true; commune: true } }; _count: { select: { guardEvaluations: true; findings: true; photos: true } } };
-    orderBy: [{ checkInAt: "desc" }];
-    take: 50;
-  }>>>;
+  // We try with full data first, and fall back to safe select-only queries.
+  type VisitRow = {
+    id: string;
+    checkInAt: Date;
+    status: string;
+    installationState: string | null;
+    ratings: unknown;
+    durationMinutes: number | null;
+    isExpressFlagged: boolean;
+    installation: { name: string; commune: string | null };
+    _count: { guardEvaluations: number; findings: number; photos: number };
+  };
+  type AssignmentRow = {
+    installationId: string;
+    installation: { id: string; name: string; commune: string | null };
+  };
+
+  let visitas: VisitRow[];
   let todayCount: number;
   let monthCount: number;
   let openFindings: number;
-  let assignments: Awaited<ReturnType<typeof prisma.opsAsignacionSupervisor.findMany<{
-    where: { tenantId: string; supervisorId: string; isActive: true };
-    include: { installation: { select: { id: true; name: true; commune: true } } };
-  }>>>;
+  let assignments: AssignmentRow[];
 
   try {
     [visitas, todayCount, monthCount, openFindings, assignments] =
@@ -89,15 +97,24 @@ export default async function MisVisitasPage() {
         }),
       ]);
   } catch {
-    // Fallback: new supervision tables may not exist yet
-    const fallbackVisitas = await prisma.opsVisitaSupervision.findMany({
+    // Fallback: use select with only pre-migration columns
+    const safe = await prisma.opsVisitaSupervision.findMany({
       where: { tenantId, supervisorId: session.user.id },
-      include: { installation: { select: { name: true, commune: true } } },
+      select: {
+        id: true,
+        checkInAt: true,
+        status: true,
+        installationState: true,
+        ratings: true,
+        installation: { select: { name: true, commune: true } },
+      },
       orderBy: [{ checkInAt: "desc" }],
       take: 50,
     });
-    visitas = fallbackVisitas.map((v) => ({
+    visitas = safe.map((v) => ({
       ...v,
+      durationMinutes: null,
+      isExpressFlagged: false,
       _count: { guardEvaluations: 0, findings: 0, photos: 0 },
     }));
     [todayCount, monthCount] = await Promise.all([

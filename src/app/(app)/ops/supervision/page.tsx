@@ -64,9 +64,14 @@ export default async function OpsSupervisionPage({
       take: 25,
     });
   } catch {
+    // Fallback: use select with only pre-migration columns
     const base = await prisma.opsVisitaSupervision.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        checkInAt: true,
+        status: true,
+        installationState: true,
         installation: { select: { id: true, name: true, commune: true } },
         supervisor: { select: { id: true, name: true } },
       },
@@ -78,7 +83,7 @@ export default async function OpsSupervisionPage({
       checkInAt: v.checkInAt,
       status: v.status,
       installationState: v.installationState,
-      durationMinutes: (v as Record<string, unknown>).durationMinutes as number | null ?? null,
+      durationMinutes: null,
       installation: v.installation,
       supervisor: { id: v.supervisor.id, name: v.supervisor.name ?? "" },
       _count: { guardEvaluations: 0, findings: 0, photos: 0 },
