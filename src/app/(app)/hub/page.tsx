@@ -85,7 +85,7 @@ export default async function HubPage() {
         ? getOpsMetrics(tenantId)
         : null,
       getRecentActivity(tenantId),
-      getNotifications(tenantId),
+      getNotifications(tenantId, session.user.id, perms),
       getTicketMetrics(tenantId),
     ]);
 

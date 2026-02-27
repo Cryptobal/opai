@@ -13,6 +13,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { getUfValue } from '@/lib/uf';
 import {
   collectLinkedQuoteIds,
@@ -20,6 +21,12 @@ import {
 } from '@/lib/crm-deal-active-quotation';
 import { toPercent, getTodayChile } from './hub-utils';
 import { triggerFollowUpProcessing } from '@/lib/followup-selfheal';
+import {
+  NOTIFICATION_TYPES,
+  canSeeNotificationType,
+  type UserNotifPrefsMap,
+} from '@/lib/notification-types';
+import type { RolePermissions } from '@/lib/permissions';
 import type {
   CrmMetrics,
   DocsSignals,
@@ -738,9 +745,80 @@ export async function getRecentActivity(
 
 export async function getNotifications(
   tenantId: string,
+  userId: string,
+  permissions: RolePermissions,
 ): Promise<HubNotification[]> {
+  // 1. Get role-excluded notification types (same logic as /api/notifications)
+  const roleExcludedTypes = NOTIFICATION_TYPES
+    .filter((t) => !canSeeNotificationType(permissions, t))
+    .map((t) => t.key);
+
+  // 2. Get user bell-disabled types
+  const userPrefRecord = await prisma.userNotificationPreference.findUnique({
+    where: { userId_tenantId: { userId, tenantId } },
+  });
+  const userDisabledTypes: string[] = [];
+  if (userPrefRecord?.preferences) {
+    const prefs = userPrefRecord.preferences as unknown as UserNotifPrefsMap;
+    for (const [key, pref] of Object.entries(prefs)) {
+      if (pref.bell === false) userDisabledTypes.push(key);
+    }
+  }
+
+  // 3. Combine exclusions (keep "mention" out of base exclusions — handled separately)
+  const allExcluded = [...new Set([...roleExcludedTypes, ...userDisabledTypes])];
+  const baseExclusions = allExcluded.filter((type) => type !== "mention");
+
+  // 4. Targeted types need per-user filtering
+  const targetedTypes = [
+    "ticket_approved",
+    "ticket_rejected",
+    "refuerzo_solicitud_created",
+    "mention",
+    "ticket_mention",
+    "ticket_created",
+  ];
+
+  // 5. Build OR conditions (same logic as visibleNotificationsWhere in the API)
+  const orConditions: Prisma.NotificationWhereInput[] = [
+    {
+      // General (non-targeted) notifications, respecting exclusions
+      type: {
+        notIn: baseExclusions.length > 0
+          ? [...baseExclusions, ...targetedTypes]
+          : targetedTypes,
+      },
+    },
+    {
+      // Mentions: only if targeted to this user
+      type: "mention",
+      OR: [
+        { data: { path: ["targetUserId"], equals: userId } },
+        { data: { path: ["mentionUserId"], equals: userId } },
+      ],
+    },
+  ];
+
+  // Other targeted types: only visible if targetUserId matches
+  for (const targetedType of [
+    "ticket_approved",
+    "ticket_rejected",
+    "refuerzo_solicitud_created",
+    "ticket_mention",
+    "ticket_created",
+  ]) {
+    if (baseExclusions.includes(targetedType)) continue;
+    orConditions.push({
+      type: targetedType,
+      data: { path: ["targetUserId"], equals: userId },
+    });
+  }
+
   const rows = await prisma.notification.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      OR: orConditions,
+    },
     orderBy: { createdAt: 'desc' },
     take: 3,
     select: {
@@ -757,7 +835,7 @@ export async function getNotifications(
     type: resolveNotificationType(row.type),
     text: row.title,
     timestamp: row.createdAt,
-    href: row.link || '/hub',
+    href: row.link || '/opai/notificaciones',
   }));
 }
 
