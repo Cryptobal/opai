@@ -57,7 +57,7 @@ export function CollapsibleSection({
 
   return (
     <Card className={className}>
-      <CardHeader className="p-4 pb-0 sm:p-6 sm:pb-0">
+      <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
@@ -107,7 +107,7 @@ export function CollapsibleSection({
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <CardContent className="px-4 pt-5 sm:px-6 sm:pt-6">{children}</CardContent>
+            <CardContent className="px-4 pt-2 sm:px-6 sm:pt-2">{children}</CardContent>
           </motion.div>
         )}
       </AnimatePresence>
