@@ -38,6 +38,7 @@ import {
   Package,
   GitCompareArrows,
   BookText,
+  Inbox,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem, type NavSubItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -61,6 +62,7 @@ export function AppLayoutClient({
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
+  const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
 
   const fetchUnreadCounters = useCallback(() => {
     Promise.all([
@@ -77,6 +79,7 @@ export function AppLayoutClient({
         }
         if (unreadCounts?.success && unreadCounts?.data?.byModule) {
           setNotesByModule(unreadCounts.data.byModule);
+          setActivityUnreadTotal(typeof unreadCounts.data.total === 'number' ? unreadCounts.data.total : 0);
         }
       })
       .catch(() => {});
@@ -109,6 +112,13 @@ export function AppLayoutClient({
       label: 'Inicio',
       icon: Grid3x3,
       show: hasModuleAccess(permissions, 'hub'),
+    },
+    {
+      href: '/opai/actividad',
+      label: 'Actividad',
+      icon: Inbox,
+      show: true,
+      badge: activityUnreadTotal,
     },
     {
       href: '/opai/notificaciones',
@@ -332,7 +342,7 @@ export function AppLayoutClient({
         return configChildren;
       })(),
     },
-  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
+  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, activityUnreadTotal]);
 
   return (
     <AppShell

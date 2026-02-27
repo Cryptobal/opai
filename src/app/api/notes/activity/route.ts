@@ -8,8 +8,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { CONTEXT_LABELS, buildNoteContextLink } from "@/lib/note-utils";
+import { CONTEXT_LABELS, buildNoteContextLink, getContextModule } from "@/lib/note-utils";
 import type { NoteContextType, NoteType, Prisma } from "@prisma/client";
+
+/* ── Module display labels ── */
+const MODULE_LABELS: Record<string, string> = {
+  crm: "CRM",
+  cpq: "CPQ",
+  ops: "Operaciones",
+  docs: "Documentos",
+  payroll: "Payroll",
+  finance: "Finanzas",
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -162,17 +172,37 @@ export async function GET(request: NextRequest) {
       prisma.note.count({ where }),
     ]);
 
-    // Enrich with context labels & links
-    const enriched = notes.map((note) => ({
-      ...note,
-      contextLabel: CONTEXT_LABELS[note.contextType] ?? note.contextType,
-      contextLink: buildNoteContextLink(note.contextType, note.contextId),
-      replyCount: note._count.replies,
-      reactionCount: note._count.reactions,
-      isMentioned: note.mentions.some(
-        (m) => m.mentionedUserId === ctx.userId || m.mentionType === "ALL",
-      ),
-    }));
+    // Get read statuses for isRead calculation
+    const readStatusesForEnrich = await prisma.noteReadStatus.findMany({
+      where: { tenantId: ctx.tenantId, userId: ctx.userId },
+      select: { contextType: true, contextId: true, lastReadAt: true },
+    });
+    const enrichReadMap = new Map<string, Date>();
+    for (const rs of readStatusesForEnrich) {
+      if (rs.contextType && rs.contextId) {
+        enrichReadMap.set(`${rs.contextType}:${rs.contextId}`, rs.lastReadAt);
+      }
+    }
+
+    // Enrich with context labels, links, module & read state
+    const enriched = notes.map((note) => {
+      const ctxKey = `${note.contextType}:${note.contextId}`;
+      const lastRead = enrichReadMap.get(ctxKey);
+      const isRead = note.authorId === ctx.userId || (lastRead ? note.createdAt <= lastRead : false);
+      const moduleName = getContextModule(note.contextType);
+      return {
+        ...note,
+        contextLabel: CONTEXT_LABELS[note.contextType] ?? note.contextType,
+        contextLink: buildNoteContextLink(note.contextType, note.contextId),
+        contextModule: MODULE_LABELS[moduleName] ?? moduleName,
+        replyCount: note._count.replies,
+        reactionCount: note._count.reactions,
+        isMentioned: note.mentions.some(
+          (m) => m.mentionedUserId === ctx.userId || m.mentionType === "ALL",
+        ),
+        isRead,
+      };
+    });
 
     return NextResponse.json({
       success: true,
