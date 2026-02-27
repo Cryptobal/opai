@@ -21,6 +21,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -202,17 +203,13 @@ export function CrmInstallationsListClient({
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Cuenta *</Label>
-                  <select
-                    className={selectCn}
+                  <SearchableSelect
                     value={form.accountId}
-                    onChange={(e) => setForm((p) => ({ ...p, accountId: e.target.value }))}
+                    options={accounts.map((acc) => ({ id: acc.id, label: acc.name }))}
+                    placeholder="Selecciona cuenta"
                     disabled={loading}
-                  >
-                    <option value="">Selecciona cuenta</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>{acc.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setForm((p) => ({ ...p, accountId: val }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Nombre *</Label>

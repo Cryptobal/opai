@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -261,18 +262,12 @@ export function CrmContactsClient({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label>Cliente *</Label>
-                  <select
-                    className={selectClassName}
+                  <SearchableSelect
                     value={form.accountId}
-                    onChange={(event) => updateForm("accountId", event.target.value)}
-                  >
-                    <option value="">Selecciona un cliente</option>
-                    {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={accounts.map((account) => ({ id: account.id, label: account.name }))}
+                    placeholder="Selecciona un cliente"
+                    onChange={(val) => updateForm("accountId", val)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Nombre *</Label>

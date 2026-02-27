@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 
 type AccountFormState = {
@@ -291,18 +292,12 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Industria</Label>
-                  <select
-                    className={selectClassName}
+                  <SearchableSelect
                     value={form.industry}
-                    onChange={(event) => updateForm("industry", event.target.value)}
-                  >
-                    <option value="">Seleccionar industria</option>
-                    {industries.map((i) => (
-                      <option key={i.id} value={i.name}>
-                        {i.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={industries.map((i) => ({ id: i.name, label: i.name }))}
+                    placeholder="Seleccionar industria"
+                    onChange={(val) => updateForm("industry", val)}
+                  />
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Página web</Label>
