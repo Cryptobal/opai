@@ -1,3 +1,4 @@
+export * from "./EntityDetailLayout";
 export * from "./CrmLeadsClient";
 export * from "./CrmLeadDetailClient";
 export * from "./CrmDealsClient";

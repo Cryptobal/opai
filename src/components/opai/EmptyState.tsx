@@ -9,11 +9,14 @@ export interface EmptyStateProps {
   action?: ReactNode;
   className?: string;
   compact?: boolean;
+  /** Ultra-compact inline mode: single line with muted text, no icon, no padding */
+  inline?: boolean;
 }
 
 /**
  * EmptyState - Estado vacío estándar
  *
+ * inline=true: single-line muted text for collapsible sections (no icon, no border)
  * compact=true: para inline dentro de cards (menos alto)
  * compact=false: para páginas completas
  */
@@ -24,7 +27,17 @@ export function EmptyState({
   action,
   className,
   compact = false,
+  inline = false,
 }: EmptyStateProps) {
+  if (inline) {
+    return (
+      <div className={cn("flex items-center gap-2 py-2 text-sm text-muted-foreground", className)}>
+        <span>{title}</span>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
