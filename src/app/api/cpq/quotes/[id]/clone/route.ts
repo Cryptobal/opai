@@ -29,6 +29,7 @@ export async function POST(
         meals: true,
         vehicles: true,
         infrastructure: true,
+        additionalLines: true,
       },
     });
 
@@ -216,6 +217,18 @@ export async function POST(
             fuelPrice: infra.fuelPrice,
             isEnabled: infra.isEnabled,
             visibility: infra.visibility,
+          })),
+        });
+      }
+
+      if (source.additionalLines.length) {
+        await tx.cpqQuoteAdditionalLine.createMany({
+          data: source.additionalLines.map((line) => ({
+            quoteId: newQuote.id,
+            nombre: line.nombre,
+            descripcion: line.descripcion,
+            precio: line.precio,
+            orden: line.orden,
           })),
         });
       }

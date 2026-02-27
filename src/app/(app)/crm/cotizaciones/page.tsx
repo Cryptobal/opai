@@ -102,6 +102,8 @@ export default async function CrmCotizacionesPage() {
         totalGuards: q.totalGuards,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
+        accountId: q.accountId || null,
+        dealId: q.dealId || null,
         dealTitle: (q.dealId && dealsMap.get(q.dealId)) || null,
         accountName: (q.accountId && accountsMap.get(q.accountId)) || null,
       };

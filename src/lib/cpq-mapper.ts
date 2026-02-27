@@ -62,6 +62,13 @@ interface CpqMapperInput {
   salePriceMonthly: number;
   positionSalePrices: Map<string, number>;
   templateId?: string;
+  additionalLines?: Array<{
+    nombre: string;
+    descripcion?: string | null;
+    precio: number;
+    orden?: number;
+  }>;
+  totalAdditionalLines?: number;
 }
 
 import { clpToUf } from "@/lib/uf";
@@ -232,26 +239,39 @@ export function mapCpqDataToPresentation(
       s23_propuesta_economica: {
         serviceDetail: (quote.serviceDetail as string) || undefined,
         pricing: {
-          items: positions.map((pos) => {
-            const salePriceClp =
-              input.positionSalePrices.get(pos.id) ??
-              Number(pos.monthlyPositionCost);
-            const numPuestos = Math.max(1, Number(pos.numPuestos || 1));
-            const unitPriceClp = salePriceClp / numPuestos;
-            const displayPrice = toDisplayValue(salePriceClp);
-            const displayUnitPrice = toDisplayValue(unitPriceClp);
-            return {
-              name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
-              description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
-              quantity: numPuestos,
-              unit_price: displayUnitPrice,
-              subtotal: displayPrice,
-              currency,
-            };
-          }),
-          subtotal: toDisplayValue(input.salePriceMonthly),
+          items: [
+            ...positions.map((pos) => {
+              const salePriceClp =
+                input.positionSalePrices.get(pos.id) ??
+                Number(pos.monthlyPositionCost);
+              const numPuestos = Math.max(1, Number(pos.numPuestos || 1));
+              const unitPriceClp = salePriceClp / numPuestos;
+              const displayPrice = toDisplayValue(salePriceClp);
+              const displayUnitPrice = toDisplayValue(unitPriceClp);
+              return {
+                name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
+                description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
+                quantity: numPuestos,
+                unit_price: displayUnitPrice,
+                subtotal: displayPrice,
+                currency,
+              };
+            }),
+            ...(input.additionalLines || [])
+              .filter((l) => l.nombre && Number(l.precio) > 0)
+              .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+              .map((l) => ({
+                name: l.nombre,
+                description: l.descripcion || "Servicio adicional",
+                quantity: 1,
+                unit_price: toDisplayValue(Number(l.precio)),
+                subtotal: toDisplayValue(Number(l.precio)),
+                currency,
+              })),
+          ],
+          subtotal: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
           tax: 0,
-          total: toDisplayValue(input.salePriceMonthly),
+          total: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
           currency,
           payment_terms: "Mensual, contraentrega de factura",
           adjustment_terms: "Reajuste anual: 70% IPC + 30% IMO",

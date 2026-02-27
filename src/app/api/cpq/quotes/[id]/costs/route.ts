@@ -63,6 +63,7 @@ export async function GET(
       vehicles,
       infrastructure,
       catalogItems,
+      additionalLines,
     ] = await Promise.all([
       prisma.cpqPosition.findMany({
         where: { quoteId: id },
@@ -101,6 +102,10 @@ export async function GET(
           OR: [{ tenantId }, { tenantId: null }],
           active: true,
         },
+      }),
+      prisma.cpqQuoteAdditionalLine.findMany({
+        where: { quoteId: id },
+        orderBy: { orden: "asc" },
       }),
       ]);
 
@@ -396,6 +401,13 @@ export async function GET(
         meals: mergedMeals,
         vehicles,
         infrastructure,
+        additionalLines: additionalLines.map((l) => ({
+          id: l.id,
+          nombre: l.nombre,
+          descripcion: l.descripcion || "",
+          precio: Number(l.precio),
+          orden: l.orden,
+        })),
         summary,
         skipDefaultCosts: skipDefaultCosts,
       },
@@ -440,6 +452,7 @@ export async function PUT(
     const meals = Array.isArray(body?.meals) ? body.meals : [];
     const vehicles = Array.isArray(body?.vehicles) ? body.vehicles : [];
     const infrastructure = Array.isArray(body?.infrastructure) ? body.infrastructure : [];
+    const additionalLines = Array.isArray(body?.additionalLines) ? body.additionalLines : [];
 
     await prisma.$transaction(async (tx) => {
       const defaultCatalog = await tx.cpqCatalogItem.findMany({
@@ -753,6 +766,20 @@ export async function PUT(
             fuelPrice: infra.fuelPrice ?? 0,
             isEnabled: infra.isEnabled ?? true,
             visibility: infra.visibility || "visible",
+          })),
+        });
+      }
+
+      // Additional lines (pass-through, no margin)
+      await tx.cpqQuoteAdditionalLine.deleteMany({ where: { quoteId: id } });
+      if (additionalLines.length) {
+        await tx.cpqQuoteAdditionalLine.createMany({
+          data: additionalLines.map((line: any, idx: number) => ({
+            quoteId: id,
+            nombre: String(line.nombre || "").slice(0, 200),
+            descripcion: line.descripcion || null,
+            precio: Number(line.precio) || 0,
+            orden: line.orden ?? idx,
           })),
         });
       }

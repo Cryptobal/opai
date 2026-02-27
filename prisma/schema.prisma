@@ -815,9 +815,10 @@ model CpqQuote {
   examItems      CpqQuoteExamItem[]
   costItems      CpqQuoteCostItem[]
   meals          CpqQuoteMeal[]
-  vehicles       CpqQuoteVehicle[]
-  infrastructure CpqQuoteInfrastructure[]
-  installation   CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  vehicles         CpqQuoteVehicle[]
+  infrastructure   CpqQuoteInfrastructure[]
+  additionalLines  CpqQuoteAdditionalLine[]
+  installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
@@ -1092,6 +1093,23 @@ model CpqQuoteInfrastructure {
 
   @@index([quoteId], map: "idx_cpq_infra_quote")
   @@map("quote_infrastructure")
+  @@schema("cpq")
+}
+
+model CpqQuoteAdditionalLine {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId     String   @map("quote_id") @db.Uuid
+  nombre      String   @db.VarChar(200)
+  descripcion String?  @db.Text
+  precio      Decimal  @default(0) @db.Decimal(12, 0)
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quote CpqQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId], map: "idx_cpq_additional_lines_quote")
+  @@map("quote_additional_lines")
   @@schema("cpq")
 }
 

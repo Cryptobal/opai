@@ -17,6 +17,7 @@ import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import type {
   CpqCatalogItem,
+  CpqQuoteAdditionalLine,
   CpqQuoteCostItem,
   CpqQuoteCostSummary,
   CpqQuoteExamItem,
@@ -26,7 +27,7 @@ import type {
   CpqQuoteUniformItem,
   CpqQuoteVehicle,
 } from "@/types/cpq";
-import { ChevronDown, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CpqQuoteCostsProps {
@@ -34,6 +35,7 @@ interface CpqQuoteCostsProps {
   variant?: "modal" | "inline";
   showFinancial?: boolean;
   readOnly?: boolean;
+  onAdditionalLinesChange?: (lines: CpqQuoteAdditionalLine[]) => void;
 }
 
 const DEFAULT_PARAMS: CpqQuoteParameters = {
@@ -75,6 +77,7 @@ export function CpqQuoteCosts({
   variant = "modal",
   showFinancial = true,
   readOnly = false,
+  onAdditionalLinesChange,
 }: CpqQuoteCostsProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,6 +93,7 @@ export function CpqQuoteCosts({
     infrastructure: true,
     systems: true,
     financials: true,
+    additionalLines: false,
   });
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<CpqCatalogItem[]>([]);
@@ -101,6 +105,7 @@ export function CpqQuoteCosts({
   const [meals, setMeals] = useState<CpqQuoteMeal[]>([]);
   const [vehicles, setVehicles] = useState<CpqQuoteVehicle[]>([]);
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
+  const [additionalLines, setAdditionalLines] = useState<CpqQuoteAdditionalLine[]>([]);
   const [skipDefaultCosts, setSkipDefaultCosts] = useState(false);
   const defaultsApplied = useRef(false);
   const inputClass =
@@ -163,6 +168,9 @@ export function CpqQuoteCosts({
         setMeals(payload.meals || []);
         setVehicles(payload.vehicles || []);
         setInfrastructure(payload.infrastructure || []);
+        const lines = payload.additionalLines || [];
+        setAdditionalLines(lines);
+        onAdditionalLinesChange?.(lines);
       }
     } catch (err) {
       console.error("Error loading CPQ costs:", err);
@@ -269,11 +277,13 @@ export function CpqQuoteCosts({
           meals,
           vehicles,
           infrastructure,
+          additionalLines,
         }),
       });
       const data = await res.json();
       if (data?.success) {
         setSummary(data.data);
+        onAdditionalLinesChange?.(additionalLines);
         if (options?.close !== false) setOpen(false);
         toast.success("Costos guardados");
         return;
@@ -1809,6 +1819,122 @@ export function CpqQuoteCosts({
         )}
       </div>
 
+      {/* ── Additional Lines (pass-through, no margin) ── */}
+      <div className="space-y-2 mt-4">
+        <div
+          className="flex items-center justify-between cursor-pointer rounded-lg border-2 border-purple-500/30 bg-purple-500/5 p-2"
+          onClick={() =>
+            setCollapsedSections((prev) => ({
+              ...prev,
+              additionalLines: !prev.additionalLines,
+            }))
+          }
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-purple-400 transition-transform",
+                collapsedSections.additionalLines && "-rotate-90"
+              )}
+            />
+            <span className="text-xs font-semibold text-purple-300">
+              Líneas adicionales
+            </span>
+            <Badge variant="outline" className="border-purple-500/30 text-purple-400 text-[10px]">
+              {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"}
+            </Badge>
+          </div>
+          <span className="text-xs font-mono text-purple-300">
+            {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
+          </span>
+        </div>
+        {!collapsedSections.additionalLines && (
+          <div className="space-y-2 pl-1">
+            <p className="text-[11px] text-muted-foreground">
+              Productos o servicios adicionales (casetas, radios, arriendos). Se cobran sin margen.
+            </p>
+            {additionalLines.map((line, idx) => (
+              <div
+                key={line.id || idx}
+                className="grid grid-cols-[1fr_1fr_120px_32px] gap-2 items-start rounded-md border border-border/50 bg-muted/10 p-2"
+              >
+                <Input
+                  placeholder="Nombre"
+                  value={line.nombre}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], nombre: e.target.value };
+                    setAdditionalLines(updated);
+                  }}
+                  className={cn(inputClass, "text-xs")}
+                  disabled={readOnly}
+                />
+                <Input
+                  placeholder="Descripción"
+                  value={line.descripcion}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], descripcion: e.target.value };
+                    setAdditionalLines(updated);
+                  }}
+                  className={cn(inputClass, "text-xs")}
+                  disabled={readOnly}
+                />
+                <Input
+                  placeholder="Precio"
+                  type="text"
+                  inputMode="numeric"
+                  value={fmtN(Number(line.precio || 0))}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], precio: toNumber(e.target.value) };
+                    setAdditionalLines(updated);
+                  }}
+                  className={cn(inputClass, "text-xs text-right font-mono")}
+                  disabled={readOnly}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  onClick={() => {
+                    setAdditionalLines((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                  disabled={readOnly}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                onClick={() =>
+                  setAdditionalLines((prev) => [
+                    ...prev,
+                    { nombre: "", descripcion: "", precio: 0, orden: prev.length },
+                  ])
+                }
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar línea
+              </Button>
+            )}
+            {additionalLines.length > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
+                <span className="text-[11px] font-medium text-purple-300">
+                  Total líneas adicionales
+                </span>
+                <span className="text-sm font-bold font-mono text-purple-300">
+                  {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Save button at the end */}
       <div className="flex justify-end pt-2">
         <Button
@@ -2817,6 +2943,7 @@ export function CpqQuoteCosts({
             { label: "Infraestructura", value: sumCostItemsByType(INFRA_TYPES), section: "indirect" },
             { label: "Sistemas", value: sumCostItemsByType(["system"]), section: "indirect" },
             ...(showFinancial ? [{ label: "Gastos financieros", value: summary.monthlyFinancial + summary.monthlyPolicy, section: "financial" as const }] : []),
+            ...(additionalLines.length > 0 ? [{ label: "Líneas adicionales", value: additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0), section: "additional" as const }] : []),
           ].map(({ label, value }) => (
             <div
               key={label}
