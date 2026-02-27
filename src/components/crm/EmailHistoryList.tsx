@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmailContentSkeleton } from "@/components/ui/skeleton";
 
 export type EmailMessage = {
   id: string;
@@ -490,10 +491,7 @@ export function EmailHistoryList({
               {loadingSelectedContent &&
               !selectedEmail.htmlBody &&
               !selectedEmail.textBody ? (
-                <div className="rounded-md border p-3 text-sm text-muted-foreground flex items-center gap-2 max-w-full overflow-x-hidden">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando contenido del correo...
-                </div>
+                <EmailContentSkeleton />
               ) : (
                 <div className="rounded-md border p-3 text-sm whitespace-pre-wrap break-all leading-relaxed max-w-full overflow-x-hidden">
                   {getEmailBodyText(selectedEmail)}

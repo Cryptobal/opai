@@ -25,6 +25,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
+import { NotesSkeleton } from "@/components/ui/skeleton";
 
 /* ─── Types ─── */
 
@@ -763,9 +764,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
 
       {/* ── Notes list ── */}
       {loading ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
+        <NotesSkeleton />
       ) : notes.length === 0 ? (
         <div className="flex flex-col items-center gap-1.5 py-6 text-center">
           <MessageSquareText className="h-8 w-8 text-muted-foreground/30" />

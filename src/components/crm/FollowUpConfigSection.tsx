@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Loader2, Save, Mail, Clock, MessageSquare, ArrowRightLeft, Pause, Bell, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { FormSkeleton } from "@/components/ui/skeleton";
 
 type DocTemplate = {
   id: string;
@@ -187,9 +188,7 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
       {open && (
         <CardContent className="space-y-6 text-sm">
           {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
+            <FormSkeleton rows={3} />
           ) : config ? (
             <>
               <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-card/70">
