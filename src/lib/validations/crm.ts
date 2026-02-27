@@ -154,6 +154,7 @@ export const createDealSchema = z.object({
   probability: z.number().min(0).max(100).default(0),
   expectedCloseDate: z.string().optional(),
   activeQuotationId: z.string().uuid("activeQuotationId inválido").optional().nullable(),
+  proposalLink: z.string().trim().max(1000).optional().nullable(),
 });
 
 export const updateDealStageSchema = z.object({

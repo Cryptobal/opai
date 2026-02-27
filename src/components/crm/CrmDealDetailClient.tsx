@@ -251,7 +251,7 @@ export function CrmDealDetailClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: editDealForm.title,
-          amount: editDealForm.amount,
+          amount: Number(editDealForm.amount) || 0,
           proposalLink: editDealForm.proposalLink || null,
         }),
       });
