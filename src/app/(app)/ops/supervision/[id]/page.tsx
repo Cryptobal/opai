@@ -54,33 +54,54 @@ export default async function VisitaSupervisionDetailPage({
   const userCanEdit = canEdit(perms, "ops", "supervision");
   const userCanDelete = canDelete(perms, "ops", "supervision") || canViewAll;
 
-  const visit = await prisma.opsVisitaSupervision.findFirst({
-    where: {
-      id,
-      tenantId,
-      ...(canViewAll ? {} : { supervisorId: session.user.id }),
-    },
+  // Try with full includes (new supervision tables). Fall back to safe
+  // query if migration 20260401000000_supervision_module_refactor hasn't run.
+  let visit: Awaited<ReturnType<typeof prisma.opsVisitaSupervision.findFirst<{
+    where: { id: string; tenantId: string };
     include: {
-      installation: {
-        select: { name: true, address: true, commune: true },
+      installation: { select: { name: true; address: true; commune: true } };
+      supervisor: { select: { name: true; email: true } };
+      images: { orderBy: [{ createdAt: "desc" }] };
+      guardEvaluations: { orderBy: [{ createdAt: "asc" }] };
+      findings: { orderBy: [{ createdAt: "desc" }] };
+      photos: { orderBy: [{ takenAt: "asc" }] };
+    };
+  }>>> | null = null;
+
+  try {
+    visit = await prisma.opsVisitaSupervision.findFirst({
+      where: {
+        id,
+        tenantId,
+        ...(canViewAll ? {} : { supervisorId: session.user.id }),
       },
-      supervisor: {
-        select: { name: true, email: true },
+      include: {
+        installation: { select: { name: true, address: true, commune: true } },
+        supervisor: { select: { name: true, email: true } },
+        images: { orderBy: [{ createdAt: "desc" }] },
+        guardEvaluations: { orderBy: [{ createdAt: "asc" }] },
+        findings: { orderBy: [{ createdAt: "desc" }] },
+        photos: { orderBy: [{ takenAt: "asc" }] },
       },
-      images: {
-        orderBy: [{ createdAt: "desc" }],
+    });
+  } catch {
+    // New relation tables may not exist yet — retry without them
+    const base = await prisma.opsVisitaSupervision.findFirst({
+      where: {
+        id,
+        tenantId,
+        ...(canViewAll ? {} : { supervisorId: session.user.id }),
       },
-      guardEvaluations: {
-        orderBy: [{ createdAt: "asc" }],
+      include: {
+        installation: { select: { name: true, address: true, commune: true } },
+        supervisor: { select: { name: true, email: true } },
+        images: { orderBy: [{ createdAt: "desc" }] },
       },
-      findings: {
-        orderBy: [{ createdAt: "desc" }],
-      },
-      photos: {
-        orderBy: [{ takenAt: "asc" }],
-      },
-    },
-  });
+    });
+    if (base) {
+      visit = { ...base, guardEvaluations: [], findings: [], photos: [] } as typeof visit;
+    }
+  }
 
   if (!visit) {
     notFound();

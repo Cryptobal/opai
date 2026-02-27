@@ -42,12 +42,25 @@ export async function GET(request: NextRequest) {
       ...(canViewAll ? {} : { supervisorId: ctx.userId }),
     };
 
+    // Query findings separately — table may not exist before migration
+    let openFindings: { id: string; installationId: string; severity: string; createdAt: Date }[] = [];
+    try {
+      openFindings = await prisma.opsSupervisionFinding.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          status: { in: ["open", "in_progress"] },
+        },
+        select: { id: true, installationId: true, severity: true, createdAt: true },
+      });
+    } catch {
+      // Table does not exist yet — gracefully degrade
+    }
+
     const [
       visitas,
       prevVisitas,
       assignments,
       supervisors,
-      openFindings,
       installations,
     ] = await Promise.all([
       prisma.opsVisitaSupervision.findMany({
@@ -86,18 +99,6 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true },
           })
         : Promise.resolve([]),
-      prisma.opsSupervisionFinding.findMany({
-        where: {
-          tenantId: ctx.tenantId,
-          status: { in: ["open", "in_progress"] },
-        },
-        select: {
-          id: true,
-          installationId: true,
-          severity: true,
-          createdAt: true,
-        },
-      }),
       prisma.crmInstallation.findMany({
         where: {
           tenantId: ctx.tenantId,

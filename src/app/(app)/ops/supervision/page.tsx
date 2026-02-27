@@ -40,16 +40,50 @@ export default async function OpsSupervisionPage({
     ...(canViewAll ? {} : { supervisorId: session.user.id }),
   };
 
-  const visitas = await prisma.opsVisitaSupervision.findMany({
-    where,
-    include: {
-      installation: { select: { id: true, name: true, commune: true } },
-      supervisor: { select: { id: true, name: true } },
-      _count: { select: { guardEvaluations: true, findings: true, photos: true } },
-    },
-    orderBy: [{ checkInAt: "desc" }],
-    take: 25,
-  });
+  // Try with full includes (_count on new relation tables). Fall back
+  // to safe query if migration hasn't been applied yet.
+  let visitas: {
+    id: string;
+    checkInAt: Date;
+    status: string;
+    installationState: string | null;
+    durationMinutes: number | null;
+    installation: { id: string; name: string; commune: string | null };
+    supervisor: { id: string; name: string };
+    _count: { guardEvaluations: number; findings: number; photos: number };
+  }[];
+  try {
+    visitas = await prisma.opsVisitaSupervision.findMany({
+      where,
+      include: {
+        installation: { select: { id: true, name: true, commune: true } },
+        supervisor: { select: { id: true, name: true } },
+        _count: { select: { guardEvaluations: true, findings: true, photos: true } },
+      },
+      orderBy: [{ checkInAt: "desc" }],
+      take: 25,
+    });
+  } catch {
+    const base = await prisma.opsVisitaSupervision.findMany({
+      where,
+      include: {
+        installation: { select: { id: true, name: true, commune: true } },
+        supervisor: { select: { id: true, name: true } },
+      },
+      orderBy: [{ checkInAt: "desc" }],
+      take: 25,
+    });
+    visitas = base.map((v) => ({
+      id: v.id,
+      checkInAt: v.checkInAt,
+      status: v.status,
+      installationState: v.installationState,
+      durationMinutes: (v as Record<string, unknown>).durationMinutes as number | null ?? null,
+      installation: v.installation,
+      supervisor: { id: v.supervisor.id, name: v.supervisor.name ?? "" },
+      _count: { guardEvaluations: 0, findings: 0, photos: 0 },
+    }));
+  }
 
   return (
     <div className="space-y-6 min-w-0">

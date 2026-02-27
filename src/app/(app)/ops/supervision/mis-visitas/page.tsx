@@ -38,56 +38,82 @@ export default async function MisVisitasPage() {
   monthStart.setHours(0, 0, 0, 0);
 
   // --- Parallel queries ---
-  const [visitas, todayCount, monthCount, openFindings, assignments] =
-    await Promise.all([
-      // Main visits list
-      prisma.opsVisitaSupervision.findMany({
-        where: { tenantId, supervisorId: session.user.id },
-        include: {
-          installation: { select: { name: true, commune: true } },
-          _count: {
-            select: {
-              guardEvaluations: true,
-              findings: true,
-              photos: true,
+  // NOTE: _count on new relations (guardEvaluations, findings, photos) and
+  // opsSupervisionFinding queries may fail if migration
+  // 20260401000000_supervision_module_refactor hasn't been applied yet.
+  // We try with full data first, and fall back to a safe query if it fails.
+  let visitas: Awaited<ReturnType<typeof prisma.opsVisitaSupervision.findMany<{
+    where: { tenantId: string; supervisorId: string };
+    include: { installation: { select: { name: true; commune: true } }; _count: { select: { guardEvaluations: true; findings: true; photos: true } } };
+    orderBy: [{ checkInAt: "desc" }];
+    take: 50;
+  }>>>;
+  let todayCount: number;
+  let monthCount: number;
+  let openFindings: number;
+  let assignments: Awaited<ReturnType<typeof prisma.opsAsignacionSupervisor.findMany<{
+    where: { tenantId: string; supervisorId: string; isActive: true };
+    include: { installation: { select: { id: true; name: true; commune: true } } };
+  }>>>;
+
+  try {
+    [visitas, todayCount, monthCount, openFindings, assignments] =
+      await Promise.all([
+        prisma.opsVisitaSupervision.findMany({
+          where: { tenantId, supervisorId: session.user.id },
+          include: {
+            installation: { select: { name: true, commune: true } },
+            _count: {
+              select: {
+                guardEvaluations: true,
+                findings: true,
+                photos: true,
+              },
             },
           },
-        },
-        orderBy: [{ checkInAt: "desc" }],
-        take: 50,
-      }),
-      // Today count
+          orderBy: [{ checkInAt: "desc" }],
+          take: 50,
+        }),
+        prisma.opsVisitaSupervision.count({
+          where: { tenantId, supervisorId: session.user.id, checkInAt: { gte: dayStart } },
+        }),
+        prisma.opsVisitaSupervision.count({
+          where: { tenantId, supervisorId: session.user.id, checkInAt: { gte: monthStart } },
+        }),
+        prisma.opsSupervisionFinding.count({
+          where: { tenantId, visit: { supervisorId: session.user.id }, status: { in: ["open", "in_progress"] } },
+        }),
+        prisma.opsAsignacionSupervisor.findMany({
+          where: { tenantId, supervisorId: session.user.id, isActive: true },
+          include: { installation: { select: { id: true, name: true, commune: true } } },
+        }),
+      ]);
+  } catch {
+    // Fallback: new supervision tables may not exist yet
+    const fallbackVisitas = await prisma.opsVisitaSupervision.findMany({
+      where: { tenantId, supervisorId: session.user.id },
+      include: { installation: { select: { name: true, commune: true } } },
+      orderBy: [{ checkInAt: "desc" }],
+      take: 50,
+    });
+    visitas = fallbackVisitas.map((v) => ({
+      ...v,
+      _count: { guardEvaluations: 0, findings: 0, photos: 0 },
+    }));
+    [todayCount, monthCount] = await Promise.all([
       prisma.opsVisitaSupervision.count({
-        where: {
-          tenantId,
-          supervisorId: session.user.id,
-          checkInAt: { gte: dayStart },
-        },
+        where: { tenantId, supervisorId: session.user.id, checkInAt: { gte: dayStart } },
       }),
-      // Month count
       prisma.opsVisitaSupervision.count({
-        where: {
-          tenantId,
-          supervisorId: session.user.id,
-          checkInAt: { gte: monthStart },
-        },
-      }),
-      // Open findings for this supervisor
-      prisma.opsSupervisionFinding.count({
-        where: {
-          tenantId,
-          visit: { supervisorId: session.user.id },
-          status: { in: ["open", "in_progress"] },
-        },
-      }),
-      // Active assignments for route suggestions
-      prisma.opsAsignacionSupervisor.findMany({
-        where: { tenantId, supervisorId: session.user.id, isActive: true },
-        include: {
-          installation: { select: { id: true, name: true, commune: true } },
-        },
+        where: { tenantId, supervisorId: session.user.id, checkInAt: { gte: monthStart } },
       }),
     ]);
+    openFindings = 0;
+    assignments = await prisma.opsAsignacionSupervisor.findMany({
+      where: { tenantId, supervisorId: session.user.id, isActive: true },
+      include: { installation: { select: { id: true, name: true, commune: true } } },
+    });
+  }
 
   // --- Average rating ---
   const ratedVisits = visitas.filter(
@@ -112,29 +138,34 @@ export default async function MisVisitasPage() {
   // --- Route suggestions ---
   const installationIds = assignments.map((a) => a.installationId);
 
-  const [lastVisits, findingsByInstallation] = await Promise.all([
-    installationIds.length > 0
-      ? prisma.opsVisitaSupervision.groupBy({
-          by: ["installationId"],
-          where: {
-            tenantId,
-            supervisorId: session.user.id,
-            installationId: { in: installationIds },
-          },
-          _max: { checkInAt: true },
-        })
-      : Promise.resolve([]),
-    installationIds.length > 0
-      ? prisma.opsSupervisionFinding.groupBy({
-          by: ["installationId"],
-          where: {
-            installationId: { in: installationIds },
-            status: { in: ["open", "in_progress"] },
-          },
-          _count: true,
-        })
-      : Promise.resolve([]),
-  ]);
+  let lastVisits: { installationId: string; _max: { checkInAt: Date | null } }[] = [];
+  let findingsByInstallation: { installationId: string; _count: number }[] = [];
+
+  if (installationIds.length > 0) {
+    const groupResult = await prisma.opsVisitaSupervision.groupBy({
+      by: ["installationId"],
+      where: {
+        tenantId,
+        supervisorId: session.user.id,
+        installationId: { in: installationIds },
+      },
+      _max: { checkInAt: true },
+    });
+    lastVisits = groupResult;
+    try {
+      const findingsGroup = await prisma.opsSupervisionFinding.groupBy({
+        by: ["installationId"],
+        where: {
+          installationId: { in: installationIds },
+          status: { in: ["open", "in_progress"] },
+        },
+        _count: true,
+      });
+      findingsByInstallation = findingsGroup;
+    } catch {
+      // Table may not exist yet
+    }
+  }
 
   const lastVisitMap = new Map(
     lastVisits.map((lv) => [lv.installationId, lv._max.checkInAt]),

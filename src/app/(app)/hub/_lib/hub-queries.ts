@@ -893,33 +893,40 @@ export async function getSupervisionMetrics(
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [visitas, openFindings, assignments, activeInstallations] =
-    await Promise.all([
-      prisma.opsVisitaSupervision.findMany({
-        where: { tenantId, checkInAt: { gte: monthStart } },
-        select: {
-          id: true,
-          status: true,
-          installationState: true,
-          installationId: true,
-          ratings: true,
-          checkInAt: true,
-          installation: { select: { name: true } },
-        },
-        orderBy: { checkInAt: "desc" },
-      }),
-      prisma.opsSupervisionFinding.findMany({
-        where: { tenantId, status: { in: ["open", "in_progress"] } },
-        select: { id: true, createdAt: true },
-      }),
-      prisma.opsAsignacionSupervisor.findMany({
-        where: { tenantId, isActive: true },
-        select: { installationId: true },
-      }),
-      prisma.crmInstallation.count({
-        where: { tenantId, isActive: true },
-      }),
-    ]);
+  // Query findings separately — the table may not exist yet if migration
+  // 20260401000000_supervision_module_refactor hasn't been applied.
+  let openFindings: { id: string; createdAt: Date }[] = [];
+  try {
+    openFindings = await prisma.opsSupervisionFinding.findMany({
+      where: { tenantId, status: { in: ["open", "in_progress"] } },
+      select: { id: true, createdAt: true },
+    });
+  } catch {
+    // Table does not exist yet — gracefully degrade
+  }
+
+  const [visitas, assignments, activeInstallations] = await Promise.all([
+    prisma.opsVisitaSupervision.findMany({
+      where: { tenantId, checkInAt: { gte: monthStart } },
+      select: {
+        id: true,
+        status: true,
+        installationState: true,
+        installationId: true,
+        ratings: true,
+        checkInAt: true,
+        installation: { select: { name: true } },
+      },
+      orderBy: { checkInAt: "desc" },
+    }),
+    prisma.opsAsignacionSupervisor.findMany({
+      where: { tenantId, isActive: true },
+      select: { installationId: true },
+    }),
+    prisma.crmInstallation.count({
+      where: { tenantId, isActive: true },
+    }),
+  ]);
 
   const totalVisitas = visitas.length;
   const visitasCompleted = visitas.filter(
