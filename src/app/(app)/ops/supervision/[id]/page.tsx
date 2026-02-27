@@ -70,6 +70,15 @@ export default async function VisitaSupervisionDetailPage({
       images: {
         orderBy: [{ createdAt: "desc" }],
       },
+      guardEvaluations: {
+        orderBy: [{ createdAt: "asc" }],
+      },
+      findings: {
+        orderBy: [{ createdAt: "desc" }],
+      },
+      photos: {
+        orderBy: [{ takenAt: "asc" }],
+      },
     },
   });
 
@@ -142,8 +151,12 @@ export default async function VisitaSupervisionDetailPage({
               {visit.checkInDistanciaM != null ? ` (${Math.round(visit.checkInDistanciaM)}m)` : ""}
             </p>
             <p>
-              <span className="text-muted-foreground">Guardias contados:</span>{" "}
-              {visit.guardsCounted ?? "N/D"}
+              <span className="text-muted-foreground">Guardias esperados:</span>{" "}
+              {visit.guardsExpected ?? "N/D"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Guardias encontrados:</span>{" "}
+              {visit.guardsFound ?? visit.guardsCounted ?? "N/D"}
             </p>
             <p>
               <span className="text-muted-foreground">Estado instalación:</span>{" "}
@@ -187,32 +200,154 @@ export default async function VisitaSupervisionDetailPage({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Evaluación y comentarios</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>
-            <span className="text-muted-foreground">Presentación:</span> {ratings?.presentacion ?? "N/D"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Orden:</span> {ratings?.orden ?? "N/D"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Protocolo:</span> {ratings?.protocolo ?? "N/D"}
-          </p>
-          <p className="whitespace-pre-wrap rounded-md border p-3">
-            {visit.generalComments ?? "Sin comentarios"}
-          </p>
-        </CardContent>
-      </Card>
+      {/* Guard evaluations */}
+      {visit.guardEvaluations && visit.guardEvaluations.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Evaluación individual de guardias ({visit.guardEvaluations.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {visit.guardEvaluations.map((ev: { id: string; guardName: string; isReinforcement: boolean; presentationScore: number | null; orderScore: number | null; protocolScore: number | null; observation: string | null }) => (
+              <div key={ev.id} className="rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{ev.guardName}</p>
+                  {ev.isReinforcement && <Badge variant="warning" className="text-[10px]">Refuerzo</Badge>}
+                </div>
+                <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
+                  <span>Presentación: <strong>{ev.presentationScore ?? "—"}</strong>/5</span>
+                  <span>Orden: <strong>{ev.orderScore ?? "—"}</strong>/5</span>
+                  <span>Protocolo: <strong>{ev.protocolScore ?? "—"}</strong>/5</span>
+                </div>
+                {ev.observation && (
+                  <p className="mt-1 text-xs text-muted-foreground">{ev.observation}</p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Evaluación y comentarios</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="text-muted-foreground">Presentación:</span> {ratings?.presentacion ?? "N/D"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Orden:</span> {ratings?.orden ?? "N/D"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Protocolo:</span> {ratings?.protocolo ?? "N/D"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* General comments */}
+      {visit.generalComments && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Comentarios generales</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap rounded-md border p-3 text-sm">
+              {visit.generalComments}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Findings */}
+      {visit.findings && visit.findings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Hallazgos ({visit.findings.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {visit.findings.map((f: { id: string; category: string; severity: string; description: string; status: string }) => (
+              <div key={f.id} className="rounded-md border p-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant={f.severity === "critical" ? "destructive" : f.severity === "major" ? "warning" : "secondary"} className="text-[10px]">
+                    {f.severity === "critical" ? "Crítico" : f.severity === "major" ? "Mayor" : "Menor"}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px]">{f.category}</Badge>
+                  <Badge variant={f.status === "open" ? "warning" : f.status === "verified" ? "success" : "secondary"} className="text-[10px]">
+                    {f.status}
+                  </Badge>
+                </div>
+                <p className="mt-1">{f.description}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Book / Logbook info */}
+      {visit.bookUpToDate !== null && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Libro de novedades</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="text-muted-foreground">Al día:</span>{" "}
+              {visit.bookUpToDate ? "Sí" : "No"}
+            </p>
+            {visit.bookLastEntryDate && (
+              <p>
+                <span className="text-muted-foreground">Última entrada:</span>{" "}
+                {new Date(visit.bookLastEntryDate).toLocaleDateString("es-CL")}
+              </p>
+            )}
+            {visit.bookNotes && (
+              <p>
+                <span className="text-muted-foreground">Novedades:</span> {visit.bookNotes}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Duration and express flag */}
+      {visit.durationMinutes != null && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Duración</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>
+              {visit.durationMinutes} minutos
+              {visit.isExpressFlagged && (
+                <Badge variant="warning" className="ml-2 text-[10px]">Visita express</Badge>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Evidencia fotográfica</CardTitle>
         </CardHeader>
         <CardContent>
-          {visit.images.length === 0 ? (
+          {/* Show categorized photos first if available */}
+          {visit.photos && visit.photos.length > 0 ? (
+            <div className="space-y-3">
+              {visit.photos.map((photo: { id: string; categoryName: string | null; photoUrl: string }) => (
+                <div key={photo.id} className="overflow-hidden rounded-md border">
+                  {photo.categoryName && (
+                    <div className="border-b bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      {photo.categoryName}
+                    </div>
+                  )}
+                  <a href={photo.photoUrl} target="_blank" rel="noreferrer">
+                    <img src={photo.photoUrl} alt={photo.categoryName ?? "Evidencia"} className="h-48 w-full object-cover" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          ) : visit.images.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin imágenes adjuntas.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

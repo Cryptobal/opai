@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canEdit, hasCapability } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
-import { SupervisionNewVisitFlow } from "@/components/supervision/SupervisionNewVisitFlow";
+import { SupervisionVisitWizard } from "@/components/supervision/wizard";
 
 export default async function NuevaVisitaSupervisionPage() {
   const session = await auth();
@@ -16,12 +16,12 @@ export default async function NuevaVisitaSupervisionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 pb-20">
       <PageHeader
         title="Nueva visita de supervisión"
-        description="Flujo rápido para check-in georreferenciado, reporte y checkout."
+        description="Wizard de 5 pasos: Check-in, Evaluación, Verificación, Evidencia y Cierre."
       />
-      <SupervisionNewVisitFlow />
+      <SupervisionVisitWizard />
     </div>
   );
 }

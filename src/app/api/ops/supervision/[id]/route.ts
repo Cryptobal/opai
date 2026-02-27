@@ -19,6 +19,19 @@ const updateVisitSchema = z.object({
     .optional()
     .nullable(),
   documentChecklist: z.record(z.string(), z.boolean()).optional().nullable(),
+  // New wizard fields
+  guardsExpected: z.number().int().min(0).optional().nullable(),
+  guardsFound: z.number().int().min(0).optional().nullable(),
+  bookUpToDate: z.boolean().optional().nullable(),
+  bookLastEntryDate: z.string().optional().nullable(),
+  bookPhotoUrl: z.string().url().optional().nullable(),
+  bookNotes: z.string().max(2000).optional().nullable(),
+  clientContacted: z.boolean().optional(),
+  clientContactName: z.string().max(200).optional().nullable(),
+  clientSatisfaction: z.number().int().min(1).max(5).optional().nullable(),
+  clientComment: z.string().max(2000).optional().nullable(),
+  clientValidationUrl: z.string().url().optional().nullable(),
+  wizardStep: z.number().int().min(1).max(5).optional(),
 });
 
 type Params = { id: string };
@@ -73,6 +86,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<P
         },
         images: {
           orderBy: { createdAt: "desc" },
+        },
+        guardEvaluations: {
+          orderBy: { createdAt: "asc" },
+        },
+        findings: {
+          orderBy: { createdAt: "desc" },
+        },
+        checklistResults: {
+          include: { checklistItem: true },
+          orderBy: { checklistItem: { sortOrder: "asc" } },
+        },
+        photos: {
+          orderBy: { takenAt: "asc" },
         },
       },
     });
@@ -157,6 +183,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(documentChecklistJson !== undefined
           ? { documentChecklist: documentChecklistJson }
           : {}),
+        // New wizard fields
+        ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
+        ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
+        ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
+        ...(body.bookLastEntryDate !== undefined
+          ? { bookLastEntryDate: body.bookLastEntryDate ? new Date(body.bookLastEntryDate) : null }
+          : {}),
+        ...(body.bookPhotoUrl !== undefined ? { bookPhotoUrl: body.bookPhotoUrl } : {}),
+        ...(body.bookNotes !== undefined ? { bookNotes: body.bookNotes } : {}),
+        ...(body.clientContacted !== undefined ? { clientContacted: body.clientContacted } : {}),
+        ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
+        ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
+        ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
+        ...(body.clientValidationUrl !== undefined ? { clientValidationUrl: body.clientValidationUrl } : {}),
+        ...(body.wizardStep !== undefined ? { wizardStep: body.wizardStep } : {}),
       },
     });
 

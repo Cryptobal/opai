@@ -7,10 +7,24 @@ import { canEdit, hasCapability } from "@/lib/permissions";
 
 type Params = { id: string };
 
+const EXPRESS_MIN_MINUTES = 15;
+
 const checkoutSchema = z.object({
   lat: z.number(),
   lng: z.number(),
   completedVia: z.enum(["hub", "ops_supervision", "mobile"]).optional(),
+  // New wizard fields
+  generalComments: z.string().max(4000).optional().nullable(),
+  installationState: z.enum(["normal", "incidencia", "critico"]).optional().nullable(),
+  guardsExpected: z.number().int().min(0).optional().nullable(),
+  guardsFound: z.number().int().min(0).optional().nullable(),
+  bookUpToDate: z.boolean().optional().nullable(),
+  bookLastEntryDate: z.string().optional().nullable(),
+  bookNotes: z.string().max(2000).optional().nullable(),
+  clientContacted: z.boolean().optional(),
+  clientContactName: z.string().max(200).optional().nullable(),
+  clientSatisfaction: z.number().int().min(1).max(5).optional().nullable(),
+  clientComment: z.string().max(2000).optional().nullable(),
 });
 
 export async function POST(
@@ -78,16 +92,40 @@ export async function POST(
       checkOutGeoValidada = checkOutDistanciaM <= visit.installation.geoRadiusM;
     }
 
+    // Calculate duration
+    const checkOutAt = new Date();
+    const checkInAt = new Date(visit.checkInAt);
+    const durationMinutes = Math.round((checkOutAt.getTime() - checkInAt.getTime()) / 60000);
+    const isExpressFlagged = durationMinutes < EXPRESS_MIN_MINUTES;
+
     const updated = await prisma.opsVisitaSupervision.update({
       where: { id: visit.id },
       data: {
-        checkOutAt: new Date(),
+        checkOutAt,
         checkOutLat: body.lat,
         checkOutLng: body.lng,
         checkOutGeoValidada,
         checkOutDistanciaM,
         status: "completed",
         completedVia: body.completedVia ?? "ops_supervision",
+        durationMinutes,
+        isExpressFlagged,
+        draftData: null, // Clear draft on completion
+        wizardStep: 5,
+        // Save additional wizard data if provided
+        ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
+        ...(body.installationState !== undefined ? { installationState: body.installationState } : {}),
+        ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
+        ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
+        ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
+        ...(body.bookLastEntryDate !== undefined
+          ? { bookLastEntryDate: body.bookLastEntryDate ? new Date(body.bookLastEntryDate) : null }
+          : {}),
+        ...(body.bookNotes !== undefined ? { bookNotes: body.bookNotes } : {}),
+        ...(body.clientContacted !== undefined ? { clientContacted: body.clientContacted } : {}),
+        ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
+        ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
+        ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
       },
     });
 

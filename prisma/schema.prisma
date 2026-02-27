@@ -32,6 +32,13 @@ model Tenant {
   opsSupervisorAssignments    OpsAsignacionSupervisor[]
   opsSupervisionVisits        OpsVisitaSupervision[]
   opsSupervisionVisitImages   OpsVisitaImagen[]
+  opsSupervisionGuardEvals    OpsSupervisionGuardEvaluation[]
+  opsSupervisionFindings      OpsSupervisionFinding[]
+  opsInstChecklistItems       OpsInstallationChecklistItem[]
+  opsSupervisionCheckResults  OpsSupervisionChecklistResult[]
+  opsInstPhotoCategories      OpsInstallationPhotoCategory[]
+  opsSupervisionPhotos        OpsSupervisionPhoto[]
+  opsInstHealthScores         OpsInstallationHealthScore[]
   inventoryProducts           InventoryProduct[]
   inventoryWarehouses         InventoryWarehouse[]
   inventoryPurchases          InventoryPurchase[]
@@ -1275,6 +1282,10 @@ model CrmInstallation {
   opsControlNocturnoInstalaciones OpsControlNocturnoInstalacion[]
   supervisorAssignments           OpsAsignacionSupervisor[]       @relation("ops_supervisor_assignment_installation")
   supervisionVisits               OpsVisitaSupervision[]          @relation("ops_supervision_visit_installation")
+  supervisionFindings             OpsSupervisionFinding[]         @relation("supervision_finding_installation")
+  installationChecklistItems      OpsInstallationChecklistItem[]  @relation("installation_checklist_items")
+  installationPhotoCategories     OpsInstallationPhotoCategory[]  @relation("installation_photo_categories")
+  installationHealthScore         OpsInstallationHealthScore?     @relation("installation_health_score")
   inventoryWarehouses             InventoryWarehouse[]            @relation("inventory_warehouse_installation")
   inventoryAssetAssignments       InventoryAssetAssignment[]
   inventoryMovements              InventoryMovement[]
@@ -1905,6 +1916,8 @@ model OpsGuardia {
   tickets                     OpsTicket[]
   inventoryGuardiaAssignments InventoryGuardiaAssignment[]
   inventoryMovements          InventoryMovement[]
+  supervisionEvaluations      OpsSupervisionGuardEvaluation[] @relation("supervision_guard_evaluation_guard")
+  supervisionFindings         OpsSupervisionFinding[]         @relation("supervision_finding_guard")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2165,13 +2178,35 @@ model OpsVisitaSupervision {
   documentChecklist   Json?     @map("document_checklist") @db.JsonB
   startedVia          String?   @map("started_via")
   completedVia        String?   @map("completed_via")
+  // New fields for enhanced wizard
+  durationMinutes     Int?      @map("duration_minutes")
+  guardsExpected      Int?      @map("guards_expected")
+  guardsFound         Int?      @map("guards_found")
+  bookUpToDate        Boolean?  @map("book_up_to_date")
+  bookLastEntryDate   DateTime? @map("book_last_entry_date") @db.Date
+  bookPhotoUrl        String?   @map("book_photo_url")
+  bookNotes           String?   @map("book_notes") @db.Text
+  clientContacted     Boolean   @default(false) @map("client_contacted")
+  clientContactName   String?   @map("client_contact_name")
+  clientSatisfaction  Int?      @map("client_satisfaction")
+  clientComment       String?   @map("client_comment") @db.Text
+  clientValidationUrl String?   @map("client_validation_url")
+  healthScore         Int?      @map("health_score")
+  isExpressFlagged    Boolean   @default(false) @map("is_express_flagged")
+  draftData           Json?     @map("draft_data") @db.JsonB
+  wizardStep          Int       @default(1) @map("wizard_step")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supervisor   Admin             @relation("ops_supervision_visit_supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
-  installation CrmInstallation   @relation("ops_supervision_visit_installation", fields: [installationId], references: [id], onDelete: Cascade)
-  images       OpsVisitaImagen[]
+  tenant             Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor         Admin                         @relation("ops_supervision_visit_supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  installation       CrmInstallation               @relation("ops_supervision_visit_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  images             OpsVisitaImagen[]
+  guardEvaluations   OpsSupervisionGuardEvaluation[]
+  findings           OpsSupervisionFinding[]        @relation("supervision_finding_visit")
+  verifiedFindings   OpsSupervisionFinding[]        @relation("supervision_finding_verified_visit")
+  checklistResults   OpsSupervisionChecklistResult[]
+  photos             OpsSupervisionPhoto[]
 
   @@index([tenantId], map: "idx_ops_visitas_supervision_tenant")
   @@index([supervisorId], map: "idx_ops_visitas_supervision_supervisor")
@@ -2200,6 +2235,172 @@ model OpsVisitaImagen {
   @@index([tenantId], map: "idx_ops_visita_imagen_tenant")
   @@index([visitaId], map: "idx_ops_visita_imagen_visita")
   @@map("visita_imagenes")
+  @@schema("ops")
+}
+
+model OpsSupervisionGuardEvaluation {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String   @map("tenant_id")
+  visitId           String   @map("visit_id") @db.Uuid
+  guardId           String?  @map("guard_id") @db.Uuid
+  guardName         String   @map("guard_name")
+  presentationScore Int?     @map("presentation_score")
+  orderScore        Int?     @map("order_score")
+  protocolScore     Int?     @map("protocol_score")
+  observation       String?  @db.Text
+  isReinforcement   Boolean  @default(false) @map("is_reinforcement")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit   OpsVisitaSupervision @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  guard   OpsGuardia?          @relation("supervision_guard_evaluation_guard", fields: [guardId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_supervision_guard_eval_tenant")
+  @@index([visitId], map: "idx_supervision_guard_eval_visit")
+  @@index([guardId], map: "idx_supervision_guard_eval_guard")
+  @@map("supervision_guard_evaluations")
+  @@schema("ops")
+}
+
+model OpsSupervisionFinding {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  visitId          String    @map("visit_id") @db.Uuid
+  installationId   String    @map("installation_id") @db.Uuid
+  guardId          String?   @map("guard_id") @db.Uuid
+  category         String
+  severity         String    @default("minor")
+  description      String    @db.Text
+  photoUrl         String?   @map("photo_url")
+  ticketId         String?   @map("ticket_id") @db.Uuid
+  status           String    @default("open")
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
+  verifiedInVisitId String?  @map("verified_in_visit_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit           OpsVisitaSupervision @relation("supervision_finding_visit", fields: [visitId], references: [id], onDelete: Cascade)
+  installation    CrmInstallation      @relation("supervision_finding_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  guard           OpsGuardia?          @relation("supervision_finding_guard", fields: [guardId], references: [id], onDelete: SetNull)
+  ticket          OpsTicket?           @relation("supervision_finding_ticket", fields: [ticketId], references: [id], onDelete: SetNull)
+  verifiedInVisit OpsVisitaSupervision? @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
+  checklistResults OpsSupervisionChecklistResult[]
+
+  @@index([tenantId], map: "idx_supervision_findings_tenant")
+  @@index([visitId], map: "idx_supervision_findings_visit")
+  @@index([installationId], map: "idx_supervision_findings_installation")
+  @@index([status], map: "idx_supervision_findings_status")
+  @@index([guardId], map: "idx_supervision_findings_guard")
+  @@map("supervision_findings")
+  @@schema("ops")
+}
+
+model OpsInstallationChecklistItem {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  name           String
+  category       String?
+  isMandatory    Boolean  @default(false) @map("is_mandatory")
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation("installation_checklist_items", fields: [installationId], references: [id], onDelete: Cascade)
+  results      OpsSupervisionChecklistResult[]
+
+  @@index([tenantId], map: "idx_installation_checklist_items_tenant")
+  @@index([installationId], map: "idx_installation_checklist_items_installation")
+  @@map("installation_checklist_items")
+  @@schema("ops")
+}
+
+model OpsSupervisionChecklistResult {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  visitId         String   @map("visit_id") @db.Uuid
+  checklistItemId String   @map("checklist_item_id") @db.Uuid
+  isChecked       Boolean  @default(false) @map("is_checked")
+  findingId       String?  @map("finding_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant        Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit         OpsVisitaSupervision         @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  checklistItem OpsInstallationChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  finding       OpsSupervisionFinding?       @relation(fields: [findingId], references: [id], onDelete: SetNull)
+
+  @@index([visitId], map: "idx_supervision_checklist_results_visit")
+  @@index([checklistItemId], map: "idx_supervision_checklist_results_item")
+  @@map("supervision_checklist_results")
+  @@schema("ops")
+}
+
+model OpsInstallationPhotoCategory {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  name           String
+  isMandatory    Boolean  @default(false) @map("is_mandatory")
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation("installation_photo_categories", fields: [installationId], references: [id], onDelete: Cascade)
+  photos       OpsSupervisionPhoto[]
+
+  @@index([installationId], map: "idx_installation_photo_categories_installation")
+  @@map("installation_photo_categories")
+  @@schema("ops")
+}
+
+model OpsSupervisionPhoto {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String    @map("tenant_id")
+  visitId      String    @map("visit_id") @db.Uuid
+  categoryId   String?   @map("category_id") @db.Uuid
+  categoryName String?   @map("category_name")
+  photoUrl     String    @map("photo_url")
+  storageKey   String    @map("storage_key")
+  fileName     String?   @map("file_name")
+  mimeType     String?   @map("mime_type")
+  size         Int?
+  gpsLat       Decimal?  @map("gps_lat") @db.Decimal(10, 7)
+  gpsLng       Decimal?  @map("gps_lng") @db.Decimal(10, 7)
+  takenAt      DateTime  @default(now()) @map("taken_at") @db.Timestamptz(6)
+
+  tenant   Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit    OpsVisitaSupervision          @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  category OpsInstallationPhotoCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([visitId], map: "idx_supervision_photos_visit")
+  @@index([categoryId], map: "idx_supervision_photos_category")
+  @@map("supervision_photos")
+  @@schema("ops")
+}
+
+model OpsInstallationHealthScore {
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                String   @map("tenant_id")
+  installationId          String   @unique @map("installation_id") @db.Uuid
+  score                   Int      @default(0)
+  avgRating               Decimal? @map("avg_rating") @db.Decimal(3, 1)
+  daysSinceLastVisit      Int?     @map("days_since_last_visit")
+  openFindingsCount       Int      @default(0) @map("open_findings_count")
+  overdueFindingsCount    Int      @default(0) @map("overdue_findings_count")
+  lastDotationCompliance  Decimal? @map("last_dotation_compliance") @db.Decimal(5, 2)
+  lastChecklistCompliance Decimal? @map("last_checklist_compliance") @db.Decimal(5, 2)
+  bookUpToDate            Boolean? @map("book_up_to_date")
+  calculatedAt            DateTime @default(now()) @map("calculated_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation("installation_health_score", fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_installation_health_scores_tenant")
+  @@index([score], map: "idx_installation_health_scores_score")
+  @@map("installation_health_scores")
   @@schema("ops")
 }
 
@@ -2949,7 +3150,8 @@ model OpsTicket {
   guardia           OpsGuardia?           @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
   approvals         OpsTicketApproval[]
   comments          OpsTicketComment[]
-  refuerzoSolicitud OpsRefuerzoSolicitud?
+  refuerzoSolicitud   OpsRefuerzoSolicitud?
+  supervisionFindings OpsSupervisionFinding[] @relation("supervision_finding_ticket")
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
