@@ -25,7 +25,7 @@ import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAct
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { NotesSection } from "./NotesSection";
+import { NotesPanel } from "@/components/notes";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
@@ -2075,7 +2075,7 @@ export function CrmInstallationDetailClient({
           <InventarioInstallationSection installationId={installation.id} />
         )}
         {activeTab === "notes" && (
-          <NotesSection entityType="installation" entityId={installation.id} currentUserId={currentUserId} />
+          <NotesPanel entityType="installation" entityId={installation.id} currentUserId={currentUserId} />
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />

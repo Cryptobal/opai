@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { NotesSection } from "./NotesSection";
+import { NotesPanel } from "@/components/notes";
 import { FileAttachments } from "./FileAttachments";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -866,7 +866,7 @@ export function CrmAccountDetailClient({
           />
         )}
 
-        {activeTab === "notes" && <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />}
+        {activeTab === "notes" && <NotesPanel entityType="account" entityId={account.id} currentUserId={currentUserId} />}
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
       </EntityDetailLayout>

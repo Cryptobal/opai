@@ -49,7 +49,7 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
 import { QuoteNotesDrawer } from "@/components/cpq/QuoteNotesDrawer";
-import { NotesSection } from "@/components/crm/NotesSection";
+import { NotesPanel } from "@/components/notes";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -1819,7 +1819,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</span>
             </div>
             <div className="p-3 max-h-[400px] overflow-y-auto">
-              <NotesSection entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
+              <NotesPanel entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
             </div>
           </div>
         )}
