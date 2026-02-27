@@ -590,7 +590,7 @@ export function NoteItem({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-36">
-                  {isAuthor && (
+                  {canModify && (
                     <DropdownMenuItem onClick={startEdit}>
                       <Pencil className="h-3.5 w-3.5 mr-2" />
                       Editar
@@ -622,7 +622,7 @@ export function NoteItem({
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
         title="Eliminar nota"
-        description="Esta nota y sus respuestas serán eliminadas permanentemente."
+        description="Esta nota y sus respuestas serán eliminadas."
         onConfirm={handleDelete}
       />
 

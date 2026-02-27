@@ -11,7 +11,6 @@ import { hasModuleAccess } from "@/lib/permissions";
 import {
   isValidContextType,
   getContextModule,
-  buildNoteContextLink,
   extractEntityReferences,
   CONTEXT_LABELS,
 } from "@/lib/note-utils";
@@ -428,35 +427,8 @@ export async function POST(request: NextRequest) {
       return created;
     });
 
-    // ── Send notifications asynchronously (don't block response) ──
-    if (mentionResolution.resolvedRecipientIds.length > 0 || parentNoteId) {
-      sendNoteNotifications({
-        tenantId: ctx.tenantId,
-        actorUserId: ctx.userId,
-        actorName: note.author.name,
-        contextType,
-        contextId,
-        noteId: note.id,
-        rootNoteId: rootNoteId ?? note.id,
-        content,
-        mentionResolution,
-        isReply: !!parentNoteId,
-      }).catch((err) => console.error("Error sending note notifications:", err));
-    }
-
-    // ── ALERT notes: notify ALL followers of this context ──
-    if (noteType === "ALERT" && !parentNoteId) {
-      sendAlertNotifications({
-        tenantId: ctx.tenantId,
-        actorUserId: ctx.userId,
-        actorName: note.author.name,
-        contextType,
-        contextId,
-        noteId: note.id,
-        content,
-        alreadyNotified: new Set(mentionResolution.resolvedRecipientIds),
-      }).catch((err) => console.error("Error sending alert notifications:", err));
-    }
+    // Note: Notifications for notes are handled exclusively through the
+    // Activity feed (/api/notes/activity), NOT the legacy Notificaciones system.
 
     return NextResponse.json({
       success: true,
@@ -495,147 +467,3 @@ function groupReactions(
   }));
 }
 
-async function sendNoteNotifications(input: {
-  tenantId: string;
-  actorUserId: string;
-  actorName: string;
-  contextType: NoteContextType;
-  contextId: string;
-  noteId: string;
-  rootNoteId: string;
-  content: string;
-  mentionResolution: ReturnType<typeof resolveMentionsFromContent>;
-  isReply: boolean;
-}) {
-  const { sendNotificationToUser } = await import("@/lib/notification-service");
-  const link = buildNoteContextLink(input.contextType, input.contextId);
-  const contextLabel = CONTEXT_LABELS[input.contextType] ?? input.contextType;
-  const directMentionSet = new Set(input.mentionResolution.userMentionIds);
-
-  // Send mention notifications
-  await Promise.allSettled(
-    input.mentionResolution.resolvedRecipientIds.map((targetUserId) => {
-      const isDirect =
-        !input.mentionResolution.mentionAll && directMentionSet.has(targetUserId);
-      const type = isDirect ? "mention_direct" : "mention_group";
-      const title = isDirect
-        ? `${input.actorName} te mencionó en ${contextLabel}`
-        : input.mentionResolution.mentionAll
-          ? `${input.actorName} mencionó a @Todos en ${contextLabel}`
-          : `${input.actorName} te mencionó en una nota grupal`;
-
-      return sendNotificationToUser({
-        tenantId: input.tenantId,
-        type,
-        title,
-        message: input.content.slice(0, 220),
-        emailMessage: input.content,
-        link,
-        data: {
-          noteId: input.rootNoteId,
-          rootNoteId: input.rootNoteId,
-          replyNoteId: input.noteId !== input.rootNoteId ? input.noteId : null,
-          entityType: input.contextType,
-          entityId: input.contextId,
-          authorId: input.actorUserId,
-        },
-        targetUserId,
-      });
-    }),
-  );
-
-  // Send thread reply notifications to participants (excluding already-mentioned)
-  if (input.isReply) {
-    const excluded = new Set(input.mentionResolution.resolvedRecipientIds);
-    excluded.add(input.actorUserId);
-
-    const participants = await prisma.note.findMany({
-      where: {
-        tenantId: input.tenantId,
-        OR: [{ id: input.rootNoteId }, { parentNoteId: input.rootNoteId }],
-        deletedAt: null,
-      },
-      select: { authorId: true },
-    });
-
-    const recipients = [...new Set(participants.map((p) => p.authorId))].filter(
-      (uid) => !excluded.has(uid),
-    );
-
-    await Promise.allSettled(
-      recipients.map((targetUserId) =>
-        sendNotificationToUser({
-          tenantId: input.tenantId,
-          type: "note_thread_reply",
-          title: `${input.actorName} respondió en un hilo (${contextLabel})`,
-          message: input.content.slice(0, 220),
-          emailMessage: input.content,
-          link,
-          data: {
-            noteId: input.rootNoteId,
-            rootNoteId: input.rootNoteId,
-            replyNoteId: input.noteId,
-            entityType: input.contextType,
-            entityId: input.contextId,
-            authorId: input.actorUserId,
-          },
-          targetUserId,
-        }),
-      ),
-    );
-  }
-}
-
-/**
- * ALERT notes → notify ALL followers of this context, except author and already-notified.
- */
-async function sendAlertNotifications(input: {
-  tenantId: string;
-  actorUserId: string;
-  actorName: string;
-  contextType: NoteContextType;
-  contextId: string;
-  noteId: string;
-  content: string;
-  alreadyNotified: Set<string>;
-}) {
-  const { sendNotificationToUser } = await import("@/lib/notification-service");
-  const link = buildNoteContextLink(input.contextType, input.contextId);
-  const contextLabel = CONTEXT_LABELS[input.contextType] ?? input.contextType;
-
-  // Get all followers of this context
-  const followers = await prisma.entityFollower.findMany({
-    where: {
-      tenantId: input.tenantId,
-      contextType: input.contextType,
-      contextId: input.contextId,
-    },
-    select: { userId: true },
-  });
-
-  const recipients = followers
-    .map((f) => f.userId)
-    .filter((uid) => uid !== input.actorUserId && !input.alreadyNotified.has(uid));
-
-  if (recipients.length === 0) return;
-
-  await Promise.allSettled(
-    recipients.map((targetUserId) =>
-      sendNotificationToUser({
-        tenantId: input.tenantId,
-        type: "note_alert",
-        title: `🚨 Alerta de ${input.actorName} en ${contextLabel}`,
-        message: input.content.slice(0, 220),
-        emailMessage: input.content,
-        link,
-        data: {
-          noteId: input.noteId,
-          entityType: input.contextType,
-          entityId: input.contextId,
-          authorId: input.actorUserId,
-        },
-        targetUserId,
-      }),
-    ),
-  );
-}
