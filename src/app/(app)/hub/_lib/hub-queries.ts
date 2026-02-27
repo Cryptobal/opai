@@ -37,6 +37,7 @@ import type {
   HubNotification,
   NotificationType,
   TicketMetrics,
+  SupervisionMetrics,
 } from './hub-types';
 
 /* ------------------------------------------------------------------ */
@@ -879,4 +880,129 @@ export async function getTicketMetrics(
   } catch {
     return { openCount: 0, inProgressCount: 0, resolvedTodayCount: 0, moduleActive: false };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Supervision metrics                                                 */
+/* ------------------------------------------------------------------ */
+
+export async function getSupervisionMetrics(
+  tenantId: string,
+): Promise<SupervisionMetrics> {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [visitas, openFindings, assignments, activeInstallations] =
+    await Promise.all([
+      prisma.opsVisitaSupervision.findMany({
+        where: { tenantId, checkInAt: { gte: monthStart } },
+        select: {
+          id: true,
+          status: true,
+          installationState: true,
+          installationId: true,
+          ratings: true,
+          checkInAt: true,
+          installation: { select: { name: true } },
+        },
+        orderBy: { checkInAt: "desc" },
+      }),
+      prisma.opsSupervisionFinding.findMany({
+        where: { tenantId, status: { in: ["open", "in_progress"] } },
+        select: { id: true, createdAt: true },
+      }),
+      prisma.opsAsignacionSupervisor.findMany({
+        where: { tenantId, isActive: true },
+        select: { installationId: true },
+      }),
+      prisma.crmInstallation.count({
+        where: { tenantId, isActive: true },
+      }),
+    ]);
+
+  const totalVisitas = visitas.length;
+  const visitasCompleted = visitas.filter(
+    (v) => v.status === "completed",
+  ).length;
+  const criticas = visitas.filter(
+    (v) => v.installationState === "critico",
+  ).length;
+
+  // Average rating
+  const ratedVisits = visitas
+    .map(
+      (v) =>
+        v.ratings as {
+          presentacion?: number;
+          orden?: number;
+          protocolo?: number;
+        } | null,
+    )
+    .filter(
+      (
+        r,
+      ): r is {
+        presentacion: number;
+        orden: number;
+        protocolo: number;
+      } =>
+        r !== null &&
+        typeof r.presentacion === "number" &&
+        typeof r.orden === "number" &&
+        typeof r.protocolo === "number",
+    );
+  const avgRating =
+    ratedVisits.length > 0
+      ? Math.round(
+          (ratedVisits.reduce(
+            (s, r) => s + (r.presentacion + r.orden + r.protocolo) / 3,
+            0,
+          ) /
+            ratedVisits.length) *
+            10,
+        ) / 10
+      : null;
+
+  // Findings
+  const overdueFindingsCount = openFindings.filter(
+    (f) => f.createdAt < sevenDaysAgo,
+  ).length;
+
+  // Coverage
+  const assignmentInstallationSet = new Set(
+    assignments.map((a) => a.installationId),
+  );
+  const visitedInstallationSet = new Set(visitas.map((v) => v.installationId));
+  const coveragePct =
+    assignmentInstallationSet.size > 0
+      ? Math.round(
+          (visitedInstallationSet.size / assignmentInstallationSet.size) * 100,
+        )
+      : 0;
+
+  // Installations without visit in 7 days — count assigned that haven't been visited in 7 days
+  const recentVisits = visitas.filter((v) => true); // already this month
+  const recentVisitedSet = new Set(recentVisits.map((v) => v.installationId));
+  const installationsSinVisita = Array.from(assignmentInstallationSet).filter(
+    (id) => !recentVisitedSet.has(id),
+  ).length;
+
+  return {
+    visitasMonth: totalVisitas,
+    visitasCompleted,
+    criticas,
+    avgRating,
+    openFindings: openFindings.length,
+    overdueFindingsCount,
+    coveragePct,
+    installationsSinVisita,
+    recentVisits: visitas.slice(0, 3).map((v) => ({
+      id: v.id,
+      installationName: v.installation.name,
+      checkInAt: v.checkInAt,
+      status: v.status,
+      installationState: v.installationState,
+    })),
+  };
 }

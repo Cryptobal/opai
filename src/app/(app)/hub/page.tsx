@@ -31,6 +31,7 @@ import {
   getRecentActivity,
   getNotifications,
   getTicketMetrics,
+  getSupervisionMetrics,
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
 
@@ -67,10 +68,11 @@ export default async function HubPage() {
     canManageRefuerzos: canEdit(perms, 'ops', 'turnos_extra'),
     canApproveRendicion: hasCapability(perms, 'rendicion_approve'),
     canMarkAttendance: canEdit(perms, 'ops', 'pauta_diaria'),
+    hasSupervision: canView(perms, 'ops', 'supervision'),
   };
 
   // Fetch data in parallel — only for modules user has access to
-  const [crmMetrics, docsSignals, financeMetrics, opsMetrics, activities, notifications, ticketMetrics] =
+  const [crmMetrics, docsSignals, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics] =
     await Promise.all([
       hubPerms.hasCrm
         ? getCommercialMetrics(tenantId, thirtyDaysAgo, now)
@@ -87,6 +89,9 @@ export default async function HubPage() {
       getRecentActivity(tenantId),
       getNotifications(tenantId, session.user.id, perms),
       getTicketMetrics(tenantId),
+      hubPerms.hasSupervision
+        ? getSupervisionMetrics(tenantId)
+        : null,
     ]);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
@@ -106,6 +111,7 @@ export default async function HubPage() {
       notifications={notifications}
       ticketMetrics={ticketMetrics}
       activities={activities}
+      supervisionMetrics={supervisionMetrics}
     />
   );
 }

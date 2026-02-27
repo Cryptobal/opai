@@ -11,6 +11,7 @@ import { HubNotifications } from './HubNotifications';
 import { HubFabSpeedDial } from './HubFabSpeedDial';
 import { HubPipelineSection } from './HubPipelineSection';
 import { HubOperationsSection } from './HubOperationsSection';
+import { HubSupervisionSection } from './HubSupervisionSection';
 import { HubFinanzasSection } from './HubFinanzasSection';
 import { HubTicketsSection } from './HubTicketsSection';
 import { HubActivitySection } from './HubActivitySection';
@@ -23,6 +24,7 @@ import type {
   HubNotification,
   TicketMetrics,
   ActivityEntry,
+  SupervisionMetrics,
 } from '../_lib/hub-types';
 
 export interface HubClientWrapperProps {
@@ -35,6 +37,7 @@ export interface HubClientWrapperProps {
   notifications: HubNotification[];
   ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
+  supervisionMetrics: SupervisionMetrics | null;
 }
 
 export function HubClientWrapper({
@@ -47,6 +50,7 @@ export function HubClientWrapper({
   notifications,
   ticketMetrics,
   activities,
+  supervisionMetrics,
 }: HubClientWrapperProps) {
   const pendingFollowUpsCount = crmMetrics
     ? crmMetrics.followUpsOverdueCount + crmMetrics.followUpQueue.length
@@ -75,6 +79,11 @@ export function HubClientWrapper({
       {/* Section 2: Operations (collapsed by default) */}
       {opsMetrics && hubPerms.hasOps && (
         <HubOperationsSection opsMetrics={opsMetrics} />
+      )}
+
+      {/* Section 2.5: Supervision (collapsed by default) */}
+      {supervisionMetrics && hubPerms.hasSupervision && (
+        <HubSupervisionSection metrics={supervisionMetrics} />
       )}
 
       {/* Section 3: Finance & Rendiciones (collapsed by default) */}
