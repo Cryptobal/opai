@@ -207,7 +207,7 @@ export function TemplateSidebar({
             animate={{ x: 0 }}
             exit={{ x: -320 }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 top-0 h-screen w-80 bg-card/98 backdrop-blur-xl border-r border-border z-[60] flex flex-col shadow-2xl overflow-hidden"
+            className="fixed left-0 top-0 h-screen w-[calc(100vw-3rem)] sm:w-80 bg-card/98 backdrop-blur-xl border-r border-border z-[60] flex flex-col shadow-2xl overflow-hidden"
           >
             {/* Header FIJO - SIN SCROLL */}
             <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-white/10 bg-muted/50">

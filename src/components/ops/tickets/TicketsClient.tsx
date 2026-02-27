@@ -194,7 +194,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           value={filterStatus}
           onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
         >
-          <SelectTrigger className="h-9 w-[140px] text-xs">
+          <SelectTrigger className="h-9 w-full max-w-[140px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
