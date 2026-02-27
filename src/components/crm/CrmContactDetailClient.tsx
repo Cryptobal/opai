@@ -24,7 +24,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
-import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -39,6 +39,9 @@ import {
   MessageSquare,
   FileText,
   ChevronRight,
+  Info,
+  Building2,
+  MessageSquareText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -414,12 +417,27 @@ export function CrmContactDetailClient({
     contact.roleTitle || "Sin cargo",
   ].join(" · ");
 
-  // ── Sections ──
-  const sections: DetailSection[] = [
-    {
-      key: "general",
-      label: "Datos del contacto",
-      children: (
+  // ── Tab state & definitions ──
+  const { activeTab, setActiveTab } = useEntityTabs("general");
+
+  const tabs: EntityTab[] = [
+    { id: "general", label: "General", icon: Info },
+    { id: "account", label: "Cuenta", icon: Building2 },
+    { id: "deals", label: "Negocios", icon: Briefcase, count: contactDeals.length },
+    { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
+    { id: "notes", label: "Notas", icon: MessageSquareText },
+    { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const headerActions: EntityHeaderAction[] = [
+    { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
+    { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
+    { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
+    { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+  ];
+
+  // ── Tab content: General ──
+  const generalContent = (
         <DetailFieldGrid columns={3}>
           <DetailField label="Nombre completo" value={fullName} />
           <DetailField
@@ -449,151 +467,146 @@ export function CrmContactDetailClient({
             ) : "Secundario"}
           />
         </DetailFieldGrid>
-      ),
-    },
-    {
-      key: "account",
-      children: contact.account ? (
-        <CrmRelatedRecordCard
-          module="accounts"
-          title={contact.account.name}
-          subtitle={contact.account.industry || undefined}
-          badge={
-            contact.account.type === "client"
-              ? { label: "Cliente", variant: "success" }
-              : { label: "Prospecto", variant: "warning" }
-          }
-          href={`/crm/accounts/${contact.account.id}`}
-        />
-      ) : (
-        <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
-      ),
-    },
-    {
-      key: "deals",
-      count: contactDeals.length,
-      action: contact.account?.id ? (
-        <CreateDealModal
-          accountId={contact.account.id}
-          accountName={contact.account.name}
-        />
-      ) : undefined,
-      children: contactDeals.length === 0 ? (
-        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {contactDeals.map((deal) => {
-            const hasCurrentStage = deal.stage?.id
-              ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
-              : false;
-            return (
-              <CrmRelatedRecordCard
-                key={deal.id}
-                module="deals"
-                title={deal.title}
-                subtitle={deal.stage?.name || "Sin etapa"}
-                meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-                badge={
-                  deal.status === "won"
-                    ? { label: "Ganado", variant: "success" }
-                    : deal.status === "lost"
-                    ? { label: "Perdido", variant: "destructive" }
-                    : undefined
-                }
-                href={`/crm/deals/${deal.id}`}
-                actions={
-                  <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
-                    <select
-                      className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
-                      value={deal.stage?.id || ""}
-                      onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
-                      disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
-                      aria-label={`Cambiar etapa de ${deal.title}`}
-                    >
-                      {deal.stage?.id && !hasCurrentStage && (
-                        <option value={deal.stage.id}>{deal.stage.name}</option>
-                      )}
-                      {pipelineStages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>{stage.name}</option>
-                      ))}
-                      {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
-                    </select>
-                  </div>
-                }
-              />
-            );
-          })}
-        </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "communication",
-      count: emailCount,
-      action: (
-        <div className="flex items-center gap-2">
-          {whatsappUrl && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
-                  <MessageSquare className="h-3.5 w-3.5 mr-1" /> WhatsApp
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
-                {docTemplatesWhatsApp.length > 0 && docTemplatesWhatsApp.map((t) => (
-                  <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
-                    <FileText className="h-3 w-3 mr-2" />{t.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {gmailConnected && contact.email && (
-            <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
-              <Send className="h-3.5 w-3.5 mr-1" />
-              Enviar correo
-            </Button>
-          )}
-        </div>
-      ),
-      children: (
-        <EmailHistoryList
-          contactId={contact.id}
-          compact
-          onReply={gmailConnected ? handleReplyFromHistory : undefined}
-          onCountChange={setEmailCount}
-        />
-      ),
-    },
-    {
-      key: "notes",
-      children: <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />,
-    },
-    {
-      key: "files",
-      children: <FileAttachments entityType="contact" entityId={contact.id} title="Archivos" />,
-    },
-  ];
+  );
 
   return (
     <>
-      <CrmDetailLayout
-        pageType="contact"
-        module="contacts"
-        fixedSectionKey="general"
-        title={fullName}
-        subtitle={subtitle}
-        badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
-        backHref="/crm/contacts"
-        actions={[
-          { label: "Editar contacto", icon: Pencil, onClick: openEdit },
-          { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
-          { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
-          { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-        ]}
-        sections={sections}
-      />
+      <EntityDetailLayout
+        breadcrumb={["CRM", "Contactos", fullName]}
+        breadcrumbHrefs={["/crm", "/crm/contacts"]}
+        header={{
+          avatar: { initials: fullName.charAt(0).toUpperCase() },
+          title: fullName,
+          subtitle,
+          status: contact.isPrimary ? { label: "Principal", variant: "default" } : undefined,
+          actions: headerActions,
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "general" && generalContent}
+
+        {activeTab === "account" && (
+          contact.account ? (
+            <CrmRelatedRecordCard
+              module="accounts"
+              title={contact.account.name}
+              subtitle={contact.account.industry || undefined}
+              badge={
+                contact.account.type === "client"
+                  ? { label: "Cliente", variant: "success" }
+                  : { label: "Prospecto", variant: "warning" }
+              }
+              href={`/crm/accounts/${contact.account.id}`}
+            />
+          ) : (
+            <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
+          )
+        )}
+
+        {activeTab === "deals" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Negocios</h3>
+              {contact.account?.id && (
+                <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} />
+              )}
+            </div>
+            {contactDeals.length === 0 ? (
+              <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {contactDeals.map((deal) => {
+                  const hasCurrentStage = deal.stage?.id
+                    ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
+                    : false;
+                  return (
+                    <CrmRelatedRecordCard
+                      key={deal.id}
+                      module="deals"
+                      title={deal.title}
+                      subtitle={deal.stage?.name || "Sin etapa"}
+                      meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+                      badge={
+                        deal.status === "won"
+                          ? { label: "Ganado", variant: "success" }
+                          : deal.status === "lost"
+                          ? { label: "Perdido", variant: "destructive" }
+                          : undefined
+                      }
+                      href={`/crm/deals/${deal.id}`}
+                      actions={
+                        <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
+                          <select
+                            className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
+                            value={deal.stage?.id || ""}
+                            onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
+                            disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
+                            aria-label={`Cambiar etapa de ${deal.title}`}
+                          >
+                            {deal.stage?.id && !hasCurrentStage && (
+                              <option value={deal.stage.id}>{deal.stage.name}</option>
+                            )}
+                            {pipelineStages.map((stage) => (
+                              <option key={stage.id} value={stage.id}>{stage.name}</option>
+                            ))}
+                            {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
+                          </select>
+                        </div>
+                      }
+                    />
+                  );
+                })}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
+        {activeTab === "communication" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Comunicación</h3>
+              <div className="flex items-center gap-2">
+                {whatsappUrl && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10">
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" /> WhatsApp
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openWhatsApp()}>Sin plantilla</DropdownMenuItem>
+                      {docTemplatesWhatsApp.length > 0 && docTemplatesWhatsApp.map((t) => (
+                        <DropdownMenuItem key={t.id} onClick={() => openWhatsApp(t.id)}>
+                          <FileText className="h-3 w-3 mr-2" />{t.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {gmailConnected && contact.email && (
+                  <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    Enviar correo
+                  </Button>
+                )}
+              </div>
+            </div>
+            <EmailHistoryList
+              contactId={contact.id}
+              compact
+              onReply={gmailConnected ? handleReplyFromHistory : undefined}
+              onCountChange={setEmailCount}
+            />
+          </div>
+        )}
+
+        {activeTab === "notes" && <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />}
+
+        {activeTab === "files" && <FileAttachments entityType="contact" entityId={contact.id} title="Archivos" />}
+      </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>

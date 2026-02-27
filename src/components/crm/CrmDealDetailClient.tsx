@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, MessageSquareText, CalendarClock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
-import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
@@ -636,7 +636,7 @@ export function CrmDealDetailClient({
     : undefined;
 
   // ── Sections ──
-  const generalSection: DetailSection = {
+  const generalSection = {
     key: "general",
     label: "Resumen del negocio",
     children: (
@@ -836,7 +836,7 @@ export function CrmDealDetailClient({
 
   const followUpHasActions = localPendingCount > 0 || localPausedCount > 0 || !!dealProposalSentAt || canConfigureCrm;
 
-  const followUpSection: DetailSection = {
+  const followUpSection = {
     key: "followup",
     count: localFollowUpLogs.length,
     action: followUpHasActions ? (
@@ -1022,7 +1022,7 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const quotesSection: DetailSection = {
+  const quotesSection = {
     key: "quotes",
     label: "Cotizaciones",
     count: linkedQuotes.length,
@@ -1084,7 +1084,7 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const installationsSection: DetailSection = {
+  const installationsSection = {
     key: "installations",
     label: "Instalaciones de la cuenta",
     count: accountInstallations.length,
@@ -1109,7 +1109,7 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const contactsSection: DetailSection = {
+  const contactsSection = {
     key: "contacts",
     label: "Contactos del negocio",
     count: dealContacts.length,
@@ -1169,7 +1169,7 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const communicationSection: DetailSection = {
+  const communicationSection = {
     key: "communication",
     action: (
       <div className="flex items-center gap-1">
@@ -1206,45 +1206,94 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const notesSection: DetailSection = {
+  const notesSection = {
     key: "notes",
     children: <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />,
   };
 
-  const filesSection: DetailSection = {
+  const filesSection = {
     key: "files",
     label: "Archivos",
     children: <FileAttachments entityType="deal" entityId={deal.id} title="Archivos" />,
   };
 
-  const sections: DetailSection[] = [
-    generalSection,
-    contactsSection,
-    installationsSection,
-    quotesSection,
-    followUpSection,
-    communicationSection,
-    notesSection,
-    filesSection,
+  // ── Tab state & definitions ──
+  const { activeTab, setActiveTab } = useEntityTabs("general");
+
+  const tabs: EntityTab[] = [
+    { id: "general", label: "General", icon: Info },
+    { id: "contacts", label: "Contactos", icon: Users, count: contactsSection.count },
+    { id: "installations", label: "Instalaciones", icon: MapPin },
+    { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotesSection.count },
+    { id: "followup", label: "Seguimiento", icon: CalendarClock },
+    { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "notes", label: "Notas", icon: MessageSquareText },
+    { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const headerActions: EntityHeaderAction[] = [
+    { label: "Editar negocio", icon: Pencil, onClick: openDealEdit, primary: true },
+    { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
+    { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 
   return (
     <>
-      <CrmDetailLayout
-        pageType="deal"
-        module="deals"
-        fixedSectionKey="general"
-        title={dealTitle}
-        subtitle={subtitle}
-        badge={statusBadge}
-        backHref="/crm/deals"
-        actions={[
-          { label: "Editar negocio", icon: Pencil, onClick: openDealEdit },
-          { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
-          { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-        ]}
-        sections={sections}
-      />
+      <EntityDetailLayout
+        breadcrumb={["CRM", "Negocios", dealTitle]}
+        breadcrumbHrefs={["/crm", "/crm/deals"]}
+        header={{
+          avatar: { initials: dealTitle.charAt(0).toUpperCase() },
+          title: dealTitle,
+          subtitle,
+          status: statusBadge,
+          actions: headerActions,
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "general" && generalSection.children}
+        {activeTab === "contacts" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Contactos del negocio</h3>
+              {contactsSection.action}
+            </div>
+            {contactsSection.children}
+          </div>
+        )}
+        {activeTab === "installations" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Instalaciones</h3>
+              {installationsSection.action}
+            </div>
+            {installationsSection.children}
+          </div>
+        )}
+        {activeTab === "quotes" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Cotizaciones</h3>
+              {quotesSection.action}
+            </div>
+            {quotesSection.children}
+          </div>
+        )}
+        {activeTab === "followup" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Seguimiento automático</h3>
+              {followUpSection.action}
+            </div>
+            {followUpSection.children}
+          </div>
+        )}
+        {activeTab === "communication" && communicationSection.children}
+        {activeTab === "notes" && notesSection.children}
+        {activeTab === "files" && filesSection.children}
+      </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
