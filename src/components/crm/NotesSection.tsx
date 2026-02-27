@@ -353,7 +353,9 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al crear");
-      await fetchNotes();
+      if (data.data) {
+        setNotes((prev) => [data.data, ...prev]);
+      }
       setNewNote("");
       toast.success("Nota agregada");
     } catch (err) {
@@ -383,7 +385,15 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al responder");
-      await fetchNotes();
+      if (data.data) {
+        setNotes((prev) =>
+          prev.map((n) =>
+            n.id === replyingToId
+              ? { ...n, replies: [...n.replies, data.data] }
+              : n,
+          ),
+        );
+      }
       setReplyContent("");
       setReplyingToId(null);
       toast.success("Respuesta enviada");
@@ -412,7 +422,17 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
-      await fetchNotes();
+      // Update locally instead of full refetch
+      const trimmed = editContent.trim();
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id === editingId) return { ...n, content: trimmed, updatedAt: new Date().toISOString() };
+          const updatedReplies = n.replies.map((r) =>
+            r.id === editingId ? { ...r, content: trimmed, updatedAt: new Date().toISOString() } : r,
+          );
+          return { ...n, replies: updatedReplies };
+        }),
+      );
       setEditingId(null);
       toast.success("Nota actualizada");
     } catch (err: unknown) {
@@ -431,7 +451,18 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
         const data = await res.json();
         throw new Error(data?.error);
       }
-      await fetchNotes();
+      // Remove locally instead of full refetch
+      setNotes((prev) => {
+        // Try removing as root note
+        if (prev.some((n) => n.id === id)) {
+          return prev.filter((n) => n.id !== id);
+        }
+        // Otherwise remove from replies
+        return prev.map((n) => ({
+          ...n,
+          replies: n.replies.filter((r) => r.id !== id),
+        }));
+      });
       setDeleteConfirm({ open: false, id: "" });
       toast.success("Nota eliminada");
     } catch (err: unknown) {

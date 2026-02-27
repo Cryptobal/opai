@@ -429,7 +429,10 @@ export function NoteInput({
       setVisibleToUsers([]);
       entityRefLabelsRef.current = {};
       toast.success(parentNoteId ? "Respuesta enviada" : "Nota agregada");
-      await ctx.fetchNotes();
+      // Add the server-returned note to local state instead of full refetch
+      if (data.data) {
+        ctx.addNoteToState(data.data);
+      }
       onSent?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo enviar");
