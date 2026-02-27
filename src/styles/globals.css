@@ -265,6 +265,34 @@
 }
 
 /* ============================================
+   Mobile: Prevent horizontal overflow on dynamic elements
+   Modals, dropdowns, popovers and tables that open dynamically
+   must not exceed the viewport width on small screens.
+   ============================================ */
+@media screen and (max-width: 768px) {
+  /* Modales y overlays */
+  [role="dialog"] {
+    max-width: 100vw !important;
+    max-width: 100dvw !important;
+    overflow-x: hidden;
+  }
+
+  /* Dropdowns y popovers — Radix portals */
+  [data-radix-popper-content-wrapper] {
+    max-width: 100vw !important;
+    max-width: 100dvw !important;
+  }
+
+  /* Tablas responsivas */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+}
+
+/* ============================================
    Mobile: Prevent iOS Safari auto-zoom on inputs
    iOS Safari zooms in when an input has font-size < 16px.
    This forces 16px on all interactive form elements on mobile

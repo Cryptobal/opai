@@ -24,7 +24,7 @@ export function HubTicketsSection({ ticketMetrics }: HubTicketsSectionProps) {
       icon={<Ticket className="h-4 w-4" />}
       title="Tickets"
     >
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <HubKpiLinkCard
           href="/ops/tickets?status=open"
           title="Abiertos"

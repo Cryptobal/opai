@@ -90,13 +90,20 @@ export function NotesPanel() {
     return () => document.removeEventListener("keydown", handler);
   }, [ctx.isPanelOpen, ctx]);
 
-  // ── Lock body scroll on mobile when open ──
+  // ── Lock body scroll on mobile when open (iOS-safe) ──
   useEffect(() => {
     if (!ctx.isPanelOpen) return;
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
     };
   }, [ctx.isPanelOpen]);
 

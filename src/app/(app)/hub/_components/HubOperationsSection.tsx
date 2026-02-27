@@ -106,7 +106,7 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
             Ver pauta diaria
           </Link>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <HubCompactStat label="Presente" value={attendance.present} className="[&>p:last-child]:text-emerald-500" />
           <HubCompactStat label="Ausente" value={attendance.absent} className="[&>p:last-child]:text-red-400" />
           <HubCompactStat label="Pendiente" value={attendance.pending} className="[&>p:last-child]:text-amber-500" />
@@ -125,7 +125,7 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
             Ver rondas
           </Link>
         </div>
-        <div className="grid grid-cols-4 gap-2 mb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
           <HubCompactStat label="Programadas" value={rounds.scheduled} />
           <HubCompactStat label="Completadas" value={rounds.completed} className="[&>p:last-child]:text-emerald-500" />
           <HubCompactStat label="En curso" value={rounds.inProgress} />
