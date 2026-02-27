@@ -821,6 +821,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
           ) : (
             /* ── Vista lista: grid con columnas fijas ── */
             <div className="space-y-1.5 min-w-0">
+              {/* Desktop column headers */}
+              <div className="hidden md:grid grid-cols-[auto_1fr_auto_minmax(120px,180px)_minmax(140px,200px)] items-center gap-4 px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="w-8" />
+                <div>Persona</div>
+                <div className="w-[120px]">Teléfono</div>
+                <div>Ubicación</div>
+                <div>Instalación</div>
+              </div>
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
                 const fullName = `${item.persona.firstName} ${item.persona.lastName}`;
@@ -837,12 +845,12 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         router.push(`/personas/guardias/${item.id}`);
                       }
                     }}
-                    className="rounded-lg border border-border px-3 py-2.5 grid grid-cols-[auto_1fr_minmax(120px,180px)_minmax(140px,200px)] items-center gap-4 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer max-md:grid-cols-[auto_1fr] max-md:gap-2"
+                    className="rounded-lg border border-border px-3 py-2.5 grid grid-cols-[auto_1fr_auto_minmax(120px,180px)_minmax(140px,200px)] items-center gap-4 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer max-md:grid-cols-[auto_1fr_auto] max-md:gap-2"
                   >
                     {/* Col 1: Avatar */}
                     <Avatar name={fullName} size="md" />
 
-                    {/* Col 2: Nombre + estado + teléfono */}
+                    {/* Col 2: Nombre + estado + teléfono + mobile extras */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
@@ -913,9 +921,40 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       ) : (
                         <p className="text-xs text-muted-foreground mt-0.5">Sin teléfono</p>
                       )}
+                      {/* Mobile: show installation and location inline */}
+                      <div className="md:hidden mt-1 flex items-center gap-3 flex-wrap min-w-0">
+                        {item.currentInstallation && (
+                          <span className="inline-flex items-center gap-1 text-xs min-w-0">
+                            <Building2 className="h-3 w-3 text-violet-400 shrink-0" />
+                            <span className="truncate">{item.currentInstallation.name}</span>
+                          </span>
+                        )}
+                        {(item.persona.city || item.persona.commune) && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{[item.persona.commune, item.persona.city].filter(Boolean).join(", ")}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Col 3: Teléfono / Ubicación (hidden on mobile) */}
+                    {/* Chevron for mobile */}
+                    <div className="md:hidden shrink-0 text-muted-foreground">
+                      <ChevronDown className="h-4 w-4 -rotate-90" />
+                    </div>
+
+                    {/* Col 3: Phone (desktop only) */}
+                    <div className="min-w-0 max-md:hidden w-[120px] shrink-0">
+                      {phone ? (
+                        <span className="text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                          <a href={`tel:+56${phone}`} className="hover:text-sky-400 transition-colors">+56 {phone}</a>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </div>
+
+                    {/* Col 4: Ubicación (hidden on mobile) */}
                     <div className="min-w-0 max-md:hidden">
                       {(item.persona.city || item.persona.commune) ? (
                         <div className="flex items-center gap-1.5 min-w-0">
