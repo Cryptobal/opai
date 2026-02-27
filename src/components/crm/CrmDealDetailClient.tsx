@@ -705,7 +705,7 @@ export function CrmDealDetailClient({
                   : "sin fecha";
                 return (
                   <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
-                    {`${quoteInfo.code}${quoteInfo.name ? ` — ${quoteInfo.name}` : ""} · ${quoteDateLabel} · ${formatQuoteAmounts(
+                    {`${quoteInfo.code}${quoteInfo.clientName ? ` — ${quoteInfo.clientName}` : ""} · ${quoteDateLabel} · ${formatQuoteAmounts(
                       quoteInfo
                     )}`}
                   </SelectItem>
