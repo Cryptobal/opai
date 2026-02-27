@@ -1,5 +1,3 @@
-import type React from "react";
-
 export function timeAgo(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -24,14 +22,4 @@ export function getInitials(name: string): string {
     .map((w) => w[0])
     .join("")
     .toUpperCase();
-}
-
-export function renderContent(content: string): React.ReactNode {
-  const parts = content.split(/(@\w[\w\s]*?)(?=\s|$|@)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("@")) {
-      return { key: i, mention: true, text: part };
-    }
-    return { key: i, mention: false, text: part };
-  });
 }
