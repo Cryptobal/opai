@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { haversineDistance } from "@/lib/marcacion";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
@@ -110,7 +111,7 @@ export async function POST(
         completedVia: body.completedVia ?? "ops_supervision",
         durationMinutes,
         isExpressFlagged,
-        draftData: null, // Clear draft on completion
+        draftData: Prisma.DbNull, // Clear draft on completion
         wizardStep: 5,
         // Save additional wizard data if provided
         ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
