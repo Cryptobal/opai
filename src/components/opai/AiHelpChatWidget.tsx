@@ -360,7 +360,7 @@ export function AiHelpChatWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-transform hover:scale-[1.05] bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] md:bottom-6"
+        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-transform hover:scale-[1.05] bottom-[calc(env(safe-area-inset-bottom)+7rem)] md:bottom-6"
         aria-label="Abrir asistente IA"
       >
         <MessageCircle className="mx-auto h-5 w-5" />

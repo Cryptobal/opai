@@ -18,7 +18,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
-import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -30,6 +30,13 @@ import {
   Plus,
   Sparkles,
   ExternalLink,
+  Info,
+  Users,
+  Briefcase,
+  FileText,
+  Mail,
+  MessageSquareText,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -600,15 +607,31 @@ export function CrmAccountDetailClient({
     </div>
   );
 
-  // ── Sections ──
+  // ── Tab state & definitions ──
+  const { activeTab, setActiveTab } = useEntityTabs("general");
   const ContactsIcon = CRM_MODULES.contacts.icon;
   const DealsIcon = CRM_MODULES.deals.icon;
   const QuotesIcon = CRM_MODULES.quotes.icon;
 
-  const sections: DetailSection[] = [
-    {
-      key: "general",
-      children: (
+  const tabs: EntityTab[] = [
+    { id: "general", label: "General", icon: Info },
+    { id: "contacts", label: "Contactos", icon: Users, count: account.contacts.length },
+    { id: "installations", label: "Instalaciones", icon: MapPin, count: account.installations.length },
+    { id: "deals", label: "Negocios", icon: Briefcase, count: account.deals.length },
+    { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotes.length },
+    { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "rendiciones", label: "Rendiciones", icon: Receipt },
+    { id: "notes", label: "Notas", icon: MessageSquareText },
+    { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const headerActions: EntityHeaderAction[] = [
+    { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit, primary: true },
+    { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
+  ];
+
+  // ── Tab content: General ──
+  const generalContent = (
         <div className="space-y-6">
           <DetailFieldGrid columns={3}>
             <DetailField
@@ -714,144 +737,139 @@ export function CrmAccountDetailClient({
             </div>
           </div>
         </div>
-      ),
-    },
-    {
-      key: "contacts",
-      count: account.contacts.length,
-      action: (
-        <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
-      ),
-      children: account.contacts.length === 0 ? (
-        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {account.contacts.map((contact) => (
-            <CrmRelatedRecordCard
-              key={contact.id}
-              module="contacts"
-              title={`${contact.firstName} ${contact.lastName}`.trim()}
-              subtitle={contact.roleTitle || "Sin cargo"}
-              meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
-              badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
-              href={`/crm/contacts/${contact.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "installations",
-      count: account.installations.length,
-      keepMounted: true,
-      action: (
-        <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
-      ),
-      children: (
-        <CrmInstallationsClient
-          accountId={account.id}
-          accountIsActive={account.isActive}
-          initialInstallations={account.installations}
-          createRef={createInstallationRef}
-        />
-      ),
-    },
-    {
-      key: "deals",
-      count: account.deals.length,
-      action: (
-        <CreateDealModal accountId={account.id} accountName={account.name} />
-      ),
-      children: account.deals.length === 0 ? (
-        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {account.deals.map((deal) => (
-            <CrmRelatedRecordCard
-              key={deal.id}
-              module="deals"
-              title={deal.title}
-              subtitle={deal.stage?.name || "Sin etapa"}
-              meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-              badge={
-                deal.status === "won"
-                  ? { label: "Ganado", variant: "success" }
-                  : deal.status === "lost"
-                  ? { label: "Perdido", variant: "destructive" }
-                  : undefined
-              }
-              href={`/crm/deals/${deal.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "quotes",
-      label: "Cotizaciones",
-      count: quotes.length,
-      action: (
-        <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
-      ),
-      children: quotes.length === 0 ? (
-        <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {quotes.map((q) => (
-            <CrmRelatedRecordCard
-              key={q.id}
-              module="quotes"
-              title={q.code}
-              subtitle={q.clientName || undefined}
-              meta={formatCLP(q.monthlyCost)}
-              badge={{ label: q.status, variant: "secondary" }}
-              href={`/crm/cotizaciones/${q.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "communication",
-      children: <EmailHistoryList accountId={account.id} compact />,
-    },
-    {
-      key: "rendiciones",
-      label: "Rendiciones de gastos",
-      children: (
-        <AccountExpensesSection
-          accountId={account.id}
-          installationIds={account.installations?.map((i) => i.id) || []}
-        />
-      ),
-    },
-    {
-      key: "notes",
-      children: <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />,
-    },
-    {
-      key: "files",
-      children: <FileAttachments entityType="account" entityId={account.id} title="Archivos" />,
-    },
-  ];
+  );
 
   return (
     <>
-      <CrmDetailLayout
-        pageType="account"
-        module="accounts"
-        fixedSectionKey="general"
-        title={account.name}
-        subtitle={lifecycleSubtitle}
-        badge={lifecycleBadge}
-        backHref="/crm/accounts"
-        actions={[
-          { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit },
-          { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
-        ]}
-        extra={extraActions}
-        sections={sections}
-      />
+      <EntityDetailLayout
+        breadcrumb={["CRM", "Cuentas", account.name]}
+        breadcrumbHrefs={["/crm", "/crm/accounts"]}
+        header={{
+          avatar: { initials: account.name.charAt(0).toUpperCase() },
+          title: account.name,
+          subtitle: lifecycleSubtitle,
+          status: lifecycleBadge,
+          actions: headerActions,
+          extra: extraActions,
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "general" && generalContent}
+
+        {activeTab === "contacts" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Contactos</h3>
+              <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
+            </div>
+            {account.contacts.length === 0 ? (
+              <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {account.contacts.map((contact) => (
+                  <CrmRelatedRecordCard
+                    key={contact.id}
+                    module="contacts"
+                    title={`${contact.firstName} ${contact.lastName}`.trim()}
+                    subtitle={contact.roleTitle || "Sin cargo"}
+                    meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
+                    badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+                    href={`/crm/contacts/${contact.id}`}
+                  />
+                ))}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
+        {activeTab === "installations" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Instalaciones</h3>
+              <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
+            </div>
+            <CrmInstallationsClient
+              accountId={account.id}
+              accountIsActive={account.isActive}
+              initialInstallations={account.installations}
+              createRef={createInstallationRef}
+            />
+          </div>
+        )}
+
+        {activeTab === "deals" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Negocios</h3>
+              <CreateDealModal accountId={account.id} accountName={account.name} />
+            </div>
+            {account.deals.length === 0 ? (
+              <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {account.deals.map((deal) => (
+                  <CrmRelatedRecordCard
+                    key={deal.id}
+                    module="deals"
+                    title={deal.title}
+                    subtitle={deal.stage?.name || "Sin etapa"}
+                    meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+                    badge={
+                      deal.status === "won"
+                        ? { label: "Ganado", variant: "success" }
+                        : deal.status === "lost"
+                        ? { label: "Perdido", variant: "destructive" }
+                        : undefined
+                    }
+                    href={`/crm/deals/${deal.id}`}
+                  />
+                ))}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
+        {activeTab === "quotes" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Cotizaciones</h3>
+              <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
+            </div>
+            {quotes.length === 0 ? (
+              <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {quotes.map((q) => (
+                  <CrmRelatedRecordCard
+                    key={q.id}
+                    module="quotes"
+                    title={q.code}
+                    subtitle={q.clientName || undefined}
+                    meta={formatCLP(q.monthlyCost)}
+                    badge={{ label: q.status, variant: "secondary" }}
+                    href={`/crm/cotizaciones/${q.id}`}
+                  />
+                ))}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
+        {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
+
+        {activeTab === "rendiciones" && (
+          <AccountExpensesSection
+            accountId={account.id}
+            installationIds={account.installations?.map((i) => i.id) || []}
+          />
+        )}
+
+        {activeTab === "notes" && <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />}
+
+        {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
+      </EntityDetailLayout>
 
       {/* ── Account Edit Modal ── */}
       <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>

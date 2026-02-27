@@ -145,9 +145,9 @@ export function SendCpqQuoteModal({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2" disabled={disabled}>
+        <Button className="flex-1 h-10 gap-2 text-sm font-medium" disabled={disabled}>
           <Send className="h-4 w-4" />
-          <span className="hidden sm:inline">Enviar</span>
+          Enviar cotización
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">

@@ -71,19 +71,21 @@ export function LeadsByMonthChart({ data }: { data: LeadByMonthRow[] }) {
   if (data.length === 0) return <EmptyChart message="Sin leads en el periodo" />;
 
   return (
-    <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 12, right: 4, left: -12, bottom: 0 }} barCategoryGap="20%">
-          <CartesianGrid stroke={PALETTE.grid} vertical={false} />
-          <XAxis dataKey="monthLabel" tick={{ fontSize: 11, fill: PALETTE.axis }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: PALETTE.axis }} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <Bar dataKey="rejected" stackId="stack" fill={PALETTE.redMuted} name="rejected" />
-          <Bar dataKey="pending" stackId="stack" fill={PALETTE.amber} name="pending" />
-          <Bar dataKey="in_review" stackId="stack" fill={PALETTE.blue} name="in_review" />
-          <Bar dataKey="approved" stackId="stack" fill={PALETTE.teal} name="approved" radius={[3, 3, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div>
+      <div className="h-[220px] sm:h-[280px] lg:h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 12, right: 4, left: -12, bottom: 0 }} barCategoryGap="20%">
+            <CartesianGrid stroke={PALETTE.grid} vertical={false} />
+            <XAxis dataKey="monthLabel" tick={{ fontSize: 11, fill: PALETTE.axis }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: PALETTE.axis }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+            <Bar dataKey="rejected" stackId="stack" fill={PALETTE.redMuted} name="rejected" />
+            <Bar dataKey="pending" stackId="stack" fill={PALETTE.amber} name="pending" />
+            <Bar dataKey="in_review" stackId="stack" fill={PALETTE.blue} name="in_review" />
+            <Bar dataKey="approved" stackId="stack" fill={PALETTE.teal} name="approved" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
         <LegendDot color={PALETTE.teal} label="Aprobado" />
         <LegendDot color={PALETTE.blue} label="En revisión" />
@@ -100,7 +102,7 @@ export function QuotesByMonthChart({ data }: { data: QuotesByMonthRow[] }) {
   if (data.length === 0) return <EmptyChart message="Sin cotizaciones en el periodo" />;
 
   return (
-    <div className="h-[300px] w-full">
+    <div className="h-[220px] sm:h-[280px] lg:h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 24, right: 4, left: -12, bottom: 0 }} barCategoryGap="25%">
           <CartesianGrid stroke={PALETTE.grid} vertical={false} />

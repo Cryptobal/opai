@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FileListSkeleton } from "@/components/ui/skeleton";
 
 export type FileAttachmentItem = {
   id: string;
@@ -174,9 +175,7 @@ export function FileAttachments({
       </CardHeader>
       <CardContent className="pt-4">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+          <FileListSkeleton />
         ) : (
           <>
             {!readOnly && (

@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, MessageSquareText } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -1777,11 +1777,30 @@ export function CrmInstallationDetailClient({
     [installation.commune, installation.city].filter(Boolean).join(", "),
   ].filter(Boolean).join(" · ") || "Sin ubicación";
 
-  // ── Sections ──
-  const sections: DetailSection[] = [
-    {
-      key: "general",
-      children: (
+  // ── Tabs ──
+  const { activeTab, setActiveTab } = useEntityTabs("general");
+
+  const tabs: EntityTab[] = [
+    { id: "general", label: "General", icon: Info },
+    { id: "account", label: "Cuenta", icon: AccountIcon },
+    { id: "deals", label: "Negocios", icon: Briefcase, count: installation.dealsOfAccount?.length ?? 0 },
+    { id: "quotes", label: "Cotizaciones", icon: FileText, count: installation.quotesInstalacion?.length ?? 0 },
+    { id: "staffing", label: "Puestos", icon: Users },
+    { id: "refuerzos", label: "Refuerzos", icon: Shield, count: installation.refuerzos?.length ?? 0 },
+    { id: "dotacion", label: "Dotación", icon: ClipboardList },
+    { id: "marcacion", label: "Marcación", icon: QrCode },
+    { id: "rendiciones", label: "Rendiciones", icon: Receipt },
+    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
+    { id: "notes", label: "Notas", icon: MessageSquareText },
+    { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const headerActions: EntityHeaderAction[] = [
+    { label: "Editar instalación", icon: Pencil, onClick: openEdit, primary: true },
+    { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+  ];
+
+  const generalContent = (
         <div className="flex flex-col lg:flex-row lg:gap-6">
           <DetailFieldGrid columns={3} className="flex-1">
             <DetailField
@@ -1877,11 +1896,9 @@ export function CrmInstallationDetailClient({
             </div>
           )}
         </div>
-      ),
-    },
-    {
-      key: "account",
-      children: installation.account ? (
+  );
+
+  const accountContent = installation.account ? (
         <CrmRelatedRecordCard
           module="accounts"
           title={installation.account.name}
@@ -1894,19 +1911,16 @@ export function CrmInstallationDetailClient({
         />
       ) : (
         <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
-      ),
-    },
-    {
-      key: "deals",
-      label: "Negocios",
-      count: installation.dealsOfAccount?.length ?? 0,
-      action: installation.account?.id ? (
-        <CreateDealModal
-          accountId={installation.account.id}
-          accountName={installation.account.name}
-        />
-      ) : undefined,
-      children: !installation.account ? (
+  );
+
+  const dealsAction = installation.account?.id ? (
+    <CreateDealModal
+      accountId={installation.account.id}
+      accountName={installation.account.name}
+    />
+  ) : undefined;
+
+  const dealsContent = !installation.account ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
       ) : !installation.dealsOfAccount?.length ? (
         <EmptyState
@@ -1940,20 +1954,17 @@ export function CrmInstallationDetailClient({
             />
           ))}
         </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "quotes",
-      label: "Cotizaciones",
-      count: installation.quotesInstalacion?.length ?? 0,
-      action: installation.account?.id ? (
-        <CreateQuoteModal
-          defaultClientName={installation.account.name}
-          accountId={installation.account.id}
-          installationId={installation.id}
-        />
-      ) : undefined,
-      children: !installation.quotesInstalacion?.length ? (
+  );
+
+  const quotesAction = installation.account?.id ? (
+    <CreateQuoteModal
+      defaultClientName={installation.account.name}
+      accountId={installation.account.id}
+      installationId={installation.id}
+    />
+  ) : undefined;
+
+  const quotesContent = !installation.quotesInstalacion?.length ? (
         <EmptyState
           icon={<QuotesIcon className="h-8 w-8" />}
           title="Sin cotizaciones"
@@ -1979,106 +1990,97 @@ export function CrmInstallationDetailClient({
             />
           ))}
         </CrmRelatedRecordGrid>
-      ),
-    },
-    {
-      key: "staffing",
-      label: "Puestos operativos",
-      children: (
-        <StaffingSection
-          installation={installation}
-          sourceQuoteId={sourceQuoteId}
-          sourceQuoteCode={sourceQuoteCode}
-          sourceUpdatedAt={sourceUpdatedAt}
-          canForceDelete={canForceDeletePuesto}
-        />
-      ),
-    },
-    {
-      key: "refuerzos",
-      label: "Turnos refuerzo",
-      count: installation.refuerzos?.length ?? 0,
-      children: (
-        <OpsRefuerzosClient
-          initialItems={(installation.refuerzos ?? []) as any}
-          defaultInstallationId={installation.id}
-        />
-      ),
-    },
-    {
-      key: "dotacion",
-      label: "Dotación activa",
-      children: (
-        <DotacionSection installation={installation} canEdit={canEditDotacion} />
-      ),
-    },
-    {
-      key: "marcacion_asistencia",
-      label: "Marcación asistencia",
-      children: (
-        <MarcacionAsistenciaSection installation={installation} />
-      ),
-    },
-    {
-      key: "marcacion_rondas",
-      label: "Marcación rondas",
-      children: (
-        <MarcacionRondasSection installation={installation} />
-      ),
-    },
-    {
-      key: "rendiciones",
-      label: "Rendiciones de gastos",
-      children: (
-        <InstallationExpensesSection installationId={installation.id} />
-      ),
-    },
-    ...(hasInventarioAccess
-      ? [
-          {
-            key: "uniformes-activos" as const,
-            label: "Uniformes y activos",
-            children: (
-              <InventarioInstallationSection installationId={installation.id} />
-            ),
-          },
-        ]
-      : []),
-    {
-      key: "notes",
-      children: <NotesSection entityType="installation" entityId={installation.id} currentUserId={currentUserId} />,
-    },
-    {
-      key: "files",
-      children: <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />,
-    },
-  ];
+  );
 
   return (
     <>
-      <CrmDetailLayout
-        pageType="installation"
-        module="installations"
-        title={installation.name}
-        subtitle={subtitle}
-        badge={isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" }}
-        backHref="/crm/installations"
-        actions={[
-          { label: "Editar instalación", icon: Pencil, onClick: openEdit },
-          { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
-        ]}
-        extra={
-          <Button
-            size="sm"
-            variant={isActive ? "outline" : "secondary"}
-            onClick={openToggleInstallationStatus}
-            disabled={statusUpdating}
-          >
-            {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
-          </Button>
-        }
-        sections={sections}
-      />
+      <EntityDetailLayout
+        breadcrumb={["CRM", "Instalaciones", installation.name]}
+        breadcrumbHrefs={["/crm", "/crm/installations"]}
+        header={{
+          avatar: { initials: installation.name.charAt(0).toUpperCase() },
+          title: installation.name,
+          subtitle,
+          status: isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" },
+          actions: headerActions,
+          extra: (
+            <Button
+              size="sm"
+              variant={isActive ? "outline" : "secondary"}
+              onClick={openToggleInstallationStatus}
+              disabled={statusUpdating}
+            >
+              {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
+            </Button>
+          ),
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "general" && generalContent}
+        {activeTab === "account" && accountContent}
+        {activeTab === "deals" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Negocios</h3>
+              {dealsAction}
+            </div>
+            {dealsContent}
+          </div>
+        )}
+        {activeTab === "quotes" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Cotizaciones</h3>
+              {quotesAction}
+            </div>
+            {quotesContent}
+          </div>
+        )}
+        {activeTab === "staffing" && (
+          <StaffingSection
+            installation={installation}
+            sourceQuoteId={sourceQuoteId}
+            sourceQuoteCode={sourceQuoteCode}
+            sourceUpdatedAt={sourceUpdatedAt}
+            canForceDelete={canForceDeletePuesto}
+          />
+        )}
+        {activeTab === "refuerzos" && (
+          <OpsRefuerzosClient
+            initialItems={(installation.refuerzos ?? []) as any}
+            defaultInstallationId={installation.id}
+          />
+        )}
+        {activeTab === "dotacion" && (
+          <DotacionSection installation={installation} canEdit={canEditDotacion} />
+        )}
+        {activeTab === "marcacion" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Marcación asistencia</h3>
+              <MarcacionAsistenciaSection installation={installation} />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-3">Marcación rondas</h3>
+              <MarcacionRondasSection installation={installation} />
+            </div>
+          </div>
+        )}
+        {activeTab === "rendiciones" && (
+          <InstallationExpensesSection installationId={installation.id} />
+        )}
+        {activeTab === "uniformes" && hasInventarioAccess && (
+          <InventarioInstallationSection installationId={installation.id} />
+        )}
+        {activeTab === "notes" && (
+          <NotesSection entityType="installation" entityId={installation.id} currentUserId={currentUserId} />
+        )}
+        {activeTab === "files" && (
+          <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />
+        )}
+      </EntityDetailLayout>
 
       {/* ── Edit Dialog ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

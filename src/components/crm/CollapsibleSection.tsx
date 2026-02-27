@@ -9,6 +9,10 @@ interface CollapsibleSectionProps {
   icon?: React.ReactNode;
   title: string;
   count?: number;
+  /** Optional badge text shown next to the title (e.g. "6 campos") */
+  badge?: string;
+  /** Text shown inline when the section is collapsed AND has no children content */
+  emptyText?: string;
   defaultOpen?: boolean;
   open?: boolean;
   onToggle?: (nextOpen: boolean) => void;
@@ -25,6 +29,8 @@ export function CollapsibleSection({
   icon,
   title,
   count,
+  badge,
+  emptyText,
   defaultOpen = true,
   open,
   onToggle,
@@ -71,6 +77,16 @@ export function CollapsibleSection({
               {count !== undefined && (
                 <span className="text-[10px] text-muted-foreground font-normal">
                   ({count})
+                </span>
+              )}
+              {badge && (
+                <span className="text-[10px] text-muted-foreground font-normal rounded bg-muted px-1.5 py-0.5">
+                  {badge}
+                </span>
+              )}
+              {!resolvedOpen && emptyText && (
+                <span className="text-[11px] text-muted-foreground/60 font-normal ml-1">
+                  — {emptyText}
                 </span>
               )}
             </CardTitle>
