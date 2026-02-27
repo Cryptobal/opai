@@ -7,6 +7,7 @@ import { CheckpointQrGenerator } from "@/components/ops/rondas/checkpoint-qr-gen
 import { Button } from "@/components/ui/button";
 import { DataTable, FilterBar } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface Installation {
   id: string;
@@ -93,15 +94,15 @@ export function RondasCheckpointsClient({
   return (
     <div className="space-y-4">
       <FilterBar>
-        <select
-          className="h-9 rounded border border-border bg-background px-2 text-sm"
+        <SearchableSelect
           value={installationId}
-          onChange={(e) => setInstallationId(e.target.value)}
-        >
-          {installations.map((inst) => (
-            <option key={inst.id} value={inst.id}>{inst.name}</option>
-          ))}
-        </select>
+          options={installations.map((inst) => ({
+            id: inst.id,
+            label: inst.name,
+          }))}
+          placeholder="Seleccionar instalación..."
+          onChange={(val) => setInstallationId(val)}
+        />
       </FilterBar>
 
       {installationId && (

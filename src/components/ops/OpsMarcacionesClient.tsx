@@ -25,6 +25,7 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { KpiCard, KpiGrid } from "@/components/opai";
 
 // ─── Tipos ───
@@ -382,18 +383,13 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
 
         <div className="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[140px]">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Instalación</label>
-          <select
+          <SearchableSelect
             value={installationId}
-            onChange={(e) => setInstallationId(e.target.value)}
-            className="w-full rounded border border-border bg-background px-2 py-1.5 text-xs"
-          >
-            <option value="">Todas</option>
-            {allInstallationsLive.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name} ({i.clientName})
-              </option>
-            ))}
-          </select>
+            options={allInstallationsLive.map((i) => ({ id: i.id, label: i.name, description: i.clientName }))}
+            placeholder="Todas"
+            emptyText="Sin instalaciones"
+            onChange={(val) => setInstallationId(val)}
+          />
         </div>
 
         <div className="flex-1 sm:flex-none">

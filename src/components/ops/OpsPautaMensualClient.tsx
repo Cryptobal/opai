@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { EmptyState } from "@/components/opai";
 import { NotesSection } from "@/components/crm/NotesSection";
 import {
@@ -1325,27 +1326,23 @@ export function OpsPautaMensualClient({
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
-                <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
+                <SearchableSelect
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                >
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  options={clients.map((c) => ({ id: c.id, label: c.name }))}
+                  placeholder="Seleccionar cliente"
+                  emptyText="Sin clientes"
+                  onChange={(val) => setClientId(val)}
+                />
               </div>
               <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Instalación</Label>
-                <select
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 py-0 text-sm leading-tight"
+                <SearchableSelect
                   value={installationId}
-                  onChange={(e) => setInstallationId(e.target.value)}
-                >
-                  {installations.map((inst) => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
+                  options={installations.map((inst) => ({ id: inst.id, label: inst.name }))}
+                  placeholder="Seleccionar instalación"
+                  emptyText="Sin instalaciones"
+                  onChange={(val) => setInstallationId(val)}
+                />
               </div>
               <div key="filter-month" className="space-y-1">
                 <Label className="text-xs">Mes</Label>

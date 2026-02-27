@@ -40,6 +40,7 @@ import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import { Avatar } from "@/components/opai";
 import { cn } from "@/lib/utils";
 import { ChipTabs } from "@/components/ui/chip-tabs";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   AFP_CHILE,
   getLifecycleTransitions,
@@ -671,9 +672,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 <option value="">Sin especificar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option>
               </select></div>
             <div className="space-y-1.5"><Label className="text-xs">Nacionalidad</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.nacionalidad} onChange={(e) => setEditPersonalForm((p) => ({ ...p, nacionalidad: e.target.value }))}>
-                <option value="">Sin especificar</option>{PAISES_AMERICA.map((p) => (<option key={p} value={p}>{p}</option>))}
-              </select></div>
+              <SearchableSelect
+                value={editPersonalForm.nacionalidad}
+                options={PAISES_AMERICA.map((p) => ({ id: p, label: p }))}
+                placeholder="Sin especificar"
+                onChange={(val) => setEditPersonalForm((p) => ({ ...p, nacionalidad: val }))}
+              /></div>
             <div className="space-y-1.5"><Label className="text-xs">Fecha de nacimiento</Label>
               <Input type="date" value={editPersonalForm.birthDate} onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Datos previsionales</Label></div>

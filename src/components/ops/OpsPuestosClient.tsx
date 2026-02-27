@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 function toDateInput(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -531,18 +532,13 @@ export function OpsPuestosClient({
           {/* Row 1: Client selector + Search */}
           <div className="flex gap-2">
             <div className="w-[45%] sm:w-[200px] shrink-0">
-              <select
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-              >
-                <option value="__all__">Todos los clientes ({clients.length})</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.instCount})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={selectedClientId === "__all__" ? "" : selectedClientId}
+                options={clientOptions.map((c) => ({ id: c.id, label: c.name, description: `${c.instCount} instalaciones` }))}
+                placeholder={`Todos los clientes (${clients.length})`}
+                emptyText="Sin clientes"
+                onChange={(val) => setSelectedClientId(val || "__all__")}
+              />
             </div>
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
