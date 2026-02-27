@@ -48,6 +48,7 @@ import type { AdminGroup } from "@/lib/groups";
 
 interface TicketTypesConfigClientProps {
   userRole: string;
+  originFilter?: TicketOrigin;
 }
 
 interface ApprovalStepDraft {
@@ -631,6 +632,7 @@ function TicketTypeForm({
 
 export function TicketTypesConfigClient({
   userRole,
+  originFilter,
 }: TicketTypesConfigClientProps) {
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [groups, setGroups] = useState<AdminGroup[]>([]);
@@ -742,17 +744,22 @@ export function TicketTypesConfigClient({
 
   // ── Organize by origin ──
 
+  const filteredTypes = useMemo(
+    () => originFilter ? ticketTypes.filter((t) => t.origin === originFilter) : ticketTypes,
+    [ticketTypes, originFilter],
+  );
+
   const guardTypes = useMemo(
-    () => ticketTypes.filter((t) => t.origin === "guard"),
-    [ticketTypes],
+    () => filteredTypes.filter((t) => t.origin === "guard"),
+    [filteredTypes],
   );
   const internalTypes = useMemo(
-    () => ticketTypes.filter((t) => t.origin === "internal"),
-    [ticketTypes],
+    () => filteredTypes.filter((t) => t.origin === "internal"),
+    [filteredTypes],
   );
   const bothTypes = useMemo(
-    () => ticketTypes.filter((t) => t.origin === "both"),
-    [ticketTypes],
+    () => filteredTypes.filter((t) => t.origin === "both"),
+    [filteredTypes],
   );
 
   // ── Loading state ──
@@ -805,8 +812,8 @@ export function TicketTypesConfigClient({
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {ticketTypes.length} tipo{ticketTypes.length !== 1 ? "s" : ""} de
-          ticket configurado{ticketTypes.length !== 1 ? "s" : ""}
+          {filteredTypes.length} tipo{filteredTypes.length !== 1 ? "s" : ""} de
+          ticket configurado{filteredTypes.length !== 1 ? "s" : ""}
         </p>
         <Button size="sm" onClick={() => setIsCreating(true)} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -848,7 +855,7 @@ export function TicketTypesConfigClient({
       )}
 
       {/* Empty state */}
-      {ticketTypes.length === 0 && (
+      {filteredTypes.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-accent/20 p-8 text-center">
           <Clock className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-foreground">

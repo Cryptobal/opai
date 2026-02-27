@@ -49,7 +49,7 @@ export { ReloadButton } from './ReloadButton';
 export { SubNav } from './SubNav';
 export type { SubNavItem } from './SubNav';
 export { BottomNav } from './BottomNav';
-export { CommandPalette } from './CommandPalette';
+export { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 
 // Page Components
 export { DocumentosContent } from './DocumentosContent';

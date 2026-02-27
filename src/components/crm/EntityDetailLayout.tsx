@@ -3,10 +3,11 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { RecordActions, type RecordAction } from "./RecordActions";
+import { ChipTabs } from "@/components/ui/chip-tabs";
+import { RecordActions } from "./RecordActions";
 
 /* ── Types ── */
 
@@ -250,50 +251,17 @@ export function EntityDetailLayout({
           </div>
         </div>
 
-        {/* ── Tab Bar (flex-wrap, NEVER horizontal scroll) ── */}
-        <div
-          className="border-b border-border"
-          role="tablist"
-          aria-label="Secciones"
-        >
-          <div className="flex flex-wrap gap-0.5 py-1">
-            {visibleTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => onTabChange(tab.id)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors whitespace-nowrap",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span
-                      className={cn(
-                        "ml-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums",
-                        isActive
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {tab.count > 99 ? "99+" : tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* ── ChipTabs (inside sticky container) ── */}
+        <ChipTabs
+          tabs={visibleTabs.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            icon: tab.icon,
+            badge: tab.count,
+          }))}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
       </div>
 
       {/* ── Tab Content ── */}

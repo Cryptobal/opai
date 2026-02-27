@@ -26,6 +26,7 @@ import {
   Lock,
   AlertTriangle,
 } from "lucide-react";
+import { ChipTabs } from "@/components/ui/chip-tabs";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -513,30 +514,17 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
       {(period.liquidaciones.length > 0 || skippedGuards.length > 0) && (
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center gap-1">
-              <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === "liquidaciones"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-                onClick={() => setActiveTab("liquidaciones")}
-              >
-                Liquidaciones ({period.liquidaciones.length})
-              </button>
-              {skippedGuards.length > 0 && (
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === "no_procesados"
-                      ? "bg-amber-500/10 text-amber-400"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }`}
-                  onClick={() => setActiveTab("no_procesados")}
-                >
-                  No procesados ({skippedGuards.length})
-                </button>
-              )}
-            </div>
+            <ChipTabs
+              tabs={[
+                { id: "liquidaciones", label: "Liquidaciones", icon: CheckCircle2, badge: period.liquidaciones.length },
+                ...(skippedGuards.length > 0
+                  ? [{ id: "no_procesados", label: "No procesados", icon: AlertTriangle, badge: skippedGuards.length }]
+                  : []),
+              ]}
+              activeTab={activeTab}
+              onTabChange={(id) => setActiveTab(id as "liquidaciones" | "no_procesados")}
+              centered={false}
+            />
           </CardHeader>
           <CardContent>
             {activeTab === "liquidaciones" ? (

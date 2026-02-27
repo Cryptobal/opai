@@ -237,6 +237,19 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* ChipTabs — hidden scrollbar + snap scroll */
+  .chip-tabs-container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+  }
+  .chip-tabs-container::-webkit-scrollbar {
+    display: none;
+  }
+  .chip-tab {
+    scroll-snap-align: center;
+  }
 }
 
 @layer utilities {
