@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function GET() {
   try {
@@ -29,6 +30,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: followers });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error listing followed entities:", error);
     return NextResponse.json(
       { success: false, error: "Error al listar entidades seguidas" },

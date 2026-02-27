@@ -13,6 +13,8 @@ import {
   getContextModule,
   extractEntityReferences,
   CONTEXT_LABELS,
+  isNotesTableMissing,
+  notesNotAvailableResponse,
 } from "@/lib/note-utils";
 import {
   resolveMentionsFromContent,
@@ -158,6 +160,7 @@ export async function GET(request: NextRequest) {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error listing notes:", error);
     return NextResponse.json(
       { success: false, error: "Error al listar notas" },
@@ -441,6 +444,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error creating note:", error);
     return NextResponse.json(
       { success: false, error: "Error al crear nota" },

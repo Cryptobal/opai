@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasModuleAccess } from "@/lib/permissions";
-import { isValidContextType, getContextModule, CONTEXT_LABELS } from "@/lib/note-utils";
+import { isValidContextType, getContextModule, CONTEXT_LABELS, isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 import type { NoteContextType } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -205,6 +205,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error fetching AI context:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener contexto AI" },

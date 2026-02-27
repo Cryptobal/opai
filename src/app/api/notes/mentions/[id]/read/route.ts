@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function PATCH(
   _request: NextRequest,
@@ -46,6 +47,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error marking mention as read:", error);
     return NextResponse.json(
       { success: false, error: "Error al marcar mención como leída" },

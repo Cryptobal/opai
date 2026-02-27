@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function PATCH(
   request: NextRequest,
@@ -82,6 +83,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error updating note:", error);
     return NextResponse.json(
       { success: false, error: "Error al actualizar nota" },
@@ -134,6 +136,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error deleting note:", error);
     return NextResponse.json(
       { success: false, error: "Error al eliminar nota" },

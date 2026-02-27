@@ -513,39 +513,43 @@ export function NotificationListClient() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <div>
-          <h3 className="text-lg font-semibold">Tus notificaciones</h3>
-          <p className="text-sm text-muted-foreground">
-            {activeUnreadCount > 0
-              ? `${activeUnreadCount} sin leer`
-              : "Todas leídas"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeUnreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={markAllRead}
-              disabled={actionLoading}
-            >
-              <CheckCheck className="h-4 w-4 mr-1.5" />
-              Marcar todas leídas
-            </Button>
-          )}
-          {notifications.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={deleteAll}
-              disabled={actionLoading}
-            >
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Eliminar todas
-            </Button>
-          )}
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Tus notificaciones</h3>
+            <p className="text-sm text-muted-foreground">
+              {activeUnreadCount > 0
+                ? `${activeUnreadCount} sin leer`
+                : "Todas leídas"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeUnreadCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllRead}
+                disabled={actionLoading}
+              >
+                <CheckCheck className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Marcar todas leídas</span>
+                <span className="sm:hidden">Leídas</span>
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={deleteAll}
+                disabled={actionLoading}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Eliminar todas</span>
+                <span className="sm:hidden">Eliminar</span>
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>

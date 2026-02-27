@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { isValidContextType } from "@/lib/note-utils";
+import { isValidContextType, isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 import type { NoteContextType } from "@prisma/client";
 
 export async function DELETE(request: NextRequest) {
@@ -42,6 +42,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error unfollowing entity:", error);
     return NextResponse.json(
       { success: false, error: "Error al dejar de seguir entidad" },

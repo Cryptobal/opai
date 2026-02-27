@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { CONTEXT_LABELS, buildNoteContextLink, getContextModule } from "@/lib/note-utils";
+import { CONTEXT_LABELS, buildNoteContextLink, getContextModule, isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 import type { NoteContextType, Prisma } from "@prisma/client";
 
 /* ── Module display labels ── */
@@ -214,6 +214,7 @@ export async function GET(request: NextRequest) {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error fetching activity feed:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener actividad" },

@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: unreadIds });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error fetching unread entity IDs:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener IDs con notas no leídas" },

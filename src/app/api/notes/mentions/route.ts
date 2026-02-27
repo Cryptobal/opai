@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error listing mentions:", error);
     return NextResponse.json(
       { success: false, error: "Error al listar menciones" },

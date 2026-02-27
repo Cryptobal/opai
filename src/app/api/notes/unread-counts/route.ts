@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 import type { NoteContextType } from "@prisma/client";
 
 export async function GET() {
@@ -91,6 +92,7 @@ export async function GET() {
       data: { total, byContext, byModule },
     });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error fetching unread counts:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener conteos de no leídas" },

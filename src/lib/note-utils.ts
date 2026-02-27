@@ -5,6 +5,7 @@
  * (re-uses existing crm-note-utils for @mention parsing).
  */
 
+import { NextResponse } from "next/server";
 import type { NoteContextType } from "@prisma/client";
 
 // ── Valid context types (mirrors Prisma enum) ──
@@ -141,4 +142,33 @@ export function extractEntityReferences(
     }
   }
   return refs;
+}
+
+// ── Database migration guard ──
+
+/**
+ * Check if an error is Prisma P2021 (table does not exist).
+ * Used to gracefully handle the case where the notes migration hasn't been deployed yet.
+ */
+export function isNotesTableMissing(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "P2021"
+  );
+}
+
+/**
+ * Return a JSON response indicating the notes module is not yet available.
+ */
+export function notesNotAvailableResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "El módulo de notas aún no está disponible. La migración de base de datos debe ejecutarse.",
+      code: "NOTES_NOT_MIGRATED",
+    },
+    { status: 503 },
+  );
 }

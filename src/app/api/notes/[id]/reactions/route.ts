@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function POST(
   request: NextRequest,
@@ -65,6 +66,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, action: "added", data: reaction });
   } catch (error) {
+    if (isNotesTableMissing(error)) return notesNotAvailableResponse();
     console.error("Error toggling reaction:", error);
     return NextResponse.json(
       { success: false, error: "Error al procesar reacción" },
