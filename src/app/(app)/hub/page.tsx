@@ -1,17 +1,15 @@
 /**
- * Hub OPAI — ERP Command Center
+ * Hub OPAI — ERP Command Center (refactored)
  *
- * Dashboard multi-módulo adaptivo por rol:
- * - Greeting con resumen contextual
- * - Quick actions adaptativas
- * - Executive snapshot (KPIs adaptativos)
- * - Alertas críticas (exception-driven)
- * - Acciones prioritarias
- * - Estado operacional del día (si tiene ops)
- * - Sección CRM (si tiene crm)
- * - Sección Finanzas (si tiene finance)
- * - Sección Docs (si tiene docs, sin crm)
- * - Actividad reciente
+ * Mobile-first accordion layout with collapsible sections:
+ * - Header: greeting + date + pending follow-ups
+ * - Notifications (latest 3)
+ * - Section 1: Pipeline Comercial (expanded by default)
+ * - Section 2: Operaciones (collapsed)
+ * - Section 3: Finanzas & Rendiciones (collapsed)
+ * - Section 4: Tickets (collapsed)
+ * - Section 5: Actividad Reciente (collapsed)
+ * - FAB Speed Dial for quick actions
  */
 
 import { redirect } from 'next/navigation';
@@ -30,8 +28,9 @@ import {
   getDocsSignals,
   getFinanceMetrics,
   getOpsMetrics,
-  getAlerts,
   getRecentActivity,
+  getNotifications,
+  getTicketMetrics,
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
 
@@ -71,7 +70,7 @@ export default async function HubPage() {
   };
 
   // Fetch data in parallel — only for modules user has access to
-  const [crmMetrics, docsSignals, financeMetrics, opsMetrics, activities] =
+  const [crmMetrics, docsSignals, financeMetrics, opsMetrics, activities, notifications, ticketMetrics] =
     await Promise.all([
       hubPerms.hasCrm
         ? getCommercialMetrics(tenantId, thirtyDaysAgo, now)
@@ -86,10 +85,9 @@ export default async function HubPage() {
         ? getOpsMetrics(tenantId)
         : null,
       getRecentActivity(tenantId),
+      getNotifications(tenantId),
+      getTicketMetrics(tenantId),
     ]);
-
-  // Derive alerts from all metrics
-  const alerts = getAlerts(opsMetrics, crmMetrics, financeMetrics);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
 
@@ -105,7 +103,8 @@ export default async function HubPage() {
       crmMetrics={crmMetrics}
       financeMetrics={financeMetrics}
       docsSignals={docsSignals}
-      alerts={alerts}
+      notifications={notifications}
+      ticketMetrics={ticketMetrics}
       activities={activities}
     />
   );
