@@ -36,12 +36,13 @@ import {
   FileText,
   ArrowRight,
   Globe,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { CrmDates } from "@/components/crm/CrmDates";
-import { CrmDetailLayout, type DetailSection } from "./CrmDetailLayout";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { toast } from "sonner";
@@ -946,24 +947,32 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const statusBadge = getStatusBadge(lead.status);
   const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Sin contacto";
 
-  // ─── Build header actions (dropdown menu) ───
-  const headerActions = useMemo(() => [
-    {
-      label: "Eliminar",
-      icon: Trash2,
-      variant: "destructive" as const,
-      onClick: () => setDeleteConfirm(true),
-    },
-  ], []);
+  // ─── Tab state & definitions ───
+  const { activeTab, setActiveTab } = useEntityTabs("general");
 
-  // ─── Build sections ───
-  const sections: DetailSection[] = [];
+  const STATUS_MAP: Record<string, { label: string; variant: "default" | "warning" | "success" | "destructive" }> = {
+    pending: { label: "Pendiente", variant: "warning" },
+    in_review: { label: "En revisión", variant: "default" },
+    approved: { label: "Aprobado", variant: "success" },
+    rejected: { label: "Rechazado", variant: "destructive" },
+  };
+  const statusInfo = STATUS_MAP[lead.status] || STATUS_MAP.pending;
 
-  // === SECTION: General ===
-  sections.push({
-    key: "general",
-    label: "Información del lead",
-    children: (
+  const tabs: EntityTab[] = [
+    { id: "general", label: "General", icon: Info },
+    { id: "account", label: "Cuenta", icon: Building2, hidden: !isEditable },
+    { id: "contacts", label: "Contacto", icon: Users, hidden: !isEditable },
+    { id: "deals", label: "Negocio", icon: Briefcase, hidden: !isEditable },
+    { id: "installations", label: "Instalaciones", icon: MapPin, hidden: !isEditable },
+    { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const headerActions: EntityHeaderAction[] = [
+    { label: "Eliminar", icon: Trash2, variant: "destructive", onClick: () => setDeleteConfirm(true) },
+  ];
+
+  // === TAB: General ===
+  const generalContent = (
       <div className="space-y-4">
         <DetailFieldGrid columns={3}>
           <DetailField label="Empresa" value={lead.companyName} />
@@ -1070,12 +1079,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
       </div>
-    ),
-  });
+  );
 
-  // === For editable leads: show the approval form sections ===
-  if (isEditable) {
-    // Conflict alerts
+  // === For editable leads: approval form tab contents ===
+  // Conflict alerts
     const conflictAlerts = (
       <div className="space-y-3">
         {duplicates.length > 0 && (
@@ -1161,11 +1168,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       </div>
     );
 
-    // SECTION: Account
-    sections.push({
-      key: "account",
-      label: "Cuenta (Prospecto)",
-      children: (
+    // TAB: Account
+    const accountContent = (
         <div className="space-y-4">
           {conflictAlerts}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -1231,14 +1235,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
           </div>
         </div>
-      ),
-    });
+    );
 
-    // SECTION: Contacts
-    sections.push({
-      key: "contacts",
-      label: "Contacto principal",
-      children: (
+    // TAB: Contacts
+    const contactsContent = (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Nombre *</Label>
@@ -1261,14 +1261,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <Input value={approveForm.phone} onChange={(e) => updateApproveForm("phone", e.target.value)} placeholder="+56 9 1234 5678" className={inputClassName} />
           </div>
         </div>
-      ),
-    });
+    );
 
-    // SECTION: Deals
-    sections.push({
-      key: "deals",
-      label: "Negocio",
-      children: (
+    // TAB: Deals
+    const dealsContent = (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Título del negocio</Label>
@@ -1282,19 +1278,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <p className="text-[10px] text-muted-foreground">Estas notas se agregarán al negocio y a las cotizaciones creadas.</p>
           </div>
         </div>
-      ),
-    });
+    );
 
-    // SECTION: Installations & Dotación
-    sections.push({
-      key: "installations",
-      label: "Instalaciones y Dotación",
-      action: (
-        <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
-          <Plus className="h-3 w-3" /> Nueva instalación
-        </Button>
-      ),
-      children: (
+    // TAB: Installations & Dotación
+    const installationsContent = (
         <div className="space-y-4 pb-40 lg:pb-32">
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
@@ -1549,29 +1536,41 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
           </div>
         </div>
-      ),
-    });
-  }
-
-  // === SECTION: Files (always) ===
-  sections.push({
-    key: "files",
-    children: <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Archivos adjuntos" />,
-  });
+    );
 
   return (
     <>
-      <CrmDetailLayout
-        pageType="lead"
-        module="leads"
-        title={lead.companyName || fullName}
-        subtitle={lead.companyName ? fullName : undefined}
-        badge={statusBadge}
-        backHref="/crm/leads"
-        backLabel="Prospectos"
-        actions={headerActions}
-        sections={sections}
-      />
+      <EntityDetailLayout
+        breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
+        breadcrumbHrefs={["/crm", "/crm/leads"]}
+        header={{
+          avatar: { initials: (lead.companyName || fullName).charAt(0).toUpperCase() },
+          title: lead.companyName || fullName,
+          subtitle: lead.companyName ? fullName : undefined,
+          status: statusInfo,
+          actions: headerActions,
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "general" && generalContent}
+        {activeTab === "account" && isEditable && accountContent}
+        {activeTab === "contacts" && isEditable && contactsContent}
+        {activeTab === "deals" && isEditable && dealsContent}
+        {activeTab === "installations" && isEditable && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Instalaciones y Dotación</h3>
+              <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
+                <Plus className="h-3 w-3" /> Nueva instalación
+              </Button>
+            </div>
+            {installationsContent}
+          </div>
+        )}
+        {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Archivos adjuntos" />}
+      </EntityDetailLayout>
 
       {/* ── Sticky action bar for editable leads ── */}
       {isEditable && (
