@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CheckSquare,
@@ -135,8 +135,39 @@ export function NoteItem({
   const [togglingReaction, setTogglingReaction] = useState(false);
 
   const isAuthor = note.authorId === ctx.currentUserId;
-  const isAdmin = ctx.currentUserRole === "ADMIN" || ctx.currentUserRole === "SUPER_ADMIN";
+  const roleLC = ctx.currentUserRole.toLowerCase();
+  const isAdmin = roleLC === "owner" || roleLC === "admin";
   const canModify = isAuthor || isAdmin;
+  const [togglingTask, setTogglingTask] = useState(false);
+
+  // ── Task metadata & toggle (before typeConfig so it can reference them) ──
+  const taskMeta = note.noteType === "TASK" && note.metadata ? (note.metadata as { completed?: boolean; completedBy?: string | null; completedAt?: string | null }) : null;
+  const isTaskCompleted = taskMeta?.completed === true;
+
+  const toggleTaskComplete = useCallback(async () => {
+    if (togglingTask) return;
+    setTogglingTask(true);
+    try {
+      const nowCompleted = !isTaskCompleted;
+      await fetch(`/api/notes/${note.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metadata: {
+            ...((note.metadata as Record<string, unknown>) ?? {}),
+            completed: nowCompleted,
+            completedAt: nowCompleted ? new Date().toISOString() : null,
+            completedBy: nowCompleted ? ctx.currentUserId : null,
+          },
+        }),
+      });
+      await ctx.fetchNotes();
+    } catch {
+      toast.error("Error al actualizar tarea");
+    } finally {
+      setTogglingTask(false);
+    }
+  }, [note.id, note.metadata, ctx, isTaskCompleted, togglingTask]);
 
   // ── Note type styling ──
   const typeConfig = {
@@ -152,12 +183,25 @@ export function NoteItem({
       badge: <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">✅ Decisión</span>,
     },
     TASK: {
-      border: "border-l-2 border-l-blue-500",
-      bg: "bg-blue-500/5",
+      border: isTaskCompleted ? "border-l-2 border-l-emerald-400" : "border-l-2 border-l-blue-500",
+      bg: isTaskCompleted ? "bg-emerald-500/5" : "bg-blue-500/5",
       badge: (
-        <span className="inline-flex items-center gap-0.5 rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
-          <CheckSquare className="h-2.5 w-2.5" /> Tarea
-        </span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); void toggleTaskComplete(); }}
+          disabled={togglingTask}
+          className={cn(
+            "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer",
+            isTaskCompleted
+              ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+              : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/25",
+          )}
+          title={isTaskCompleted ? "Marcar como pendiente" : "Marcar como completada"}
+        >
+          <CheckSquare className="h-2.5 w-2.5" />
+          {isTaskCompleted ? "Completada" : "Tarea"}
+          {togglingTask && <Loader2 className="h-2.5 w-2.5 animate-spin ml-0.5" />}
+        </button>
       ),
     },
   };
@@ -245,6 +289,14 @@ export function NoteItem({
     }
   }, [note.id, ctx, togglingReaction]);
 
+  // ── Resolve visible user names for private/group notes ──
+  const visibleUserNames = useMemo(() => {
+    if (note.visibility === "PUBLIC" || !note.visibleToUsers?.length) return [];
+    return note.visibleToUsers
+      .map((uid) => ctx.users.find((u) => u.id === uid)?.name)
+      .filter(Boolean) as string[];
+  }, [note.visibility, note.visibleToUsers, ctx.users]);
+
   return (
     <>
       <div
@@ -281,15 +333,24 @@ export function NoteItem({
               {note.isEdited && (
                 <span className="text-[10px] text-muted-foreground italic">(editada)</span>
               )}
-              {/* Visibility badge */}
+              {/* Visibility badge with participant names */}
               {note.visibility === "PRIVATE" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <Lock className="h-2.5 w-2.5" /> Privada
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500" title={visibleUserNames.length > 0 ? `Privada para: ${visibleUserNames.join(", ")}` : "Privada"}>
+                  <Lock className="h-2.5 w-2.5" />
+                  {visibleUserNames.length > 0 ? visibleUserNames[0] : "Privada"}
                 </span>
               )}
               {note.visibility === "GROUP" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <Users className="h-2.5 w-2.5" /> Grupo
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] text-indigo-400"
+                  title={visibleUserNames.length > 0 ? `Grupo: ${visibleUserNames.join(", ")}` : "Grupo"}
+                >
+                  <Users className="h-2.5 w-2.5" />
+                  {visibleUserNames.length > 0
+                    ? visibleUserNames.length <= 2
+                      ? visibleUserNames.join(", ")
+                      : `${visibleUserNames.slice(0, 2).join(", ")} +${visibleUserNames.length - 2}`
+                    : "Grupo"}
                 </span>
               )}
               {/* Type badge */}
@@ -325,7 +386,10 @@ export function NoteItem({
               </div>
             ) : (
               <>
-                <p className="mt-0.5 text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
+                <p className={cn(
+                  "mt-0.5 text-sm whitespace-pre-wrap break-words leading-relaxed",
+                  isTaskCompleted ? "text-muted-foreground line-through" : "text-foreground/90",
+                )}>
                   {renderContent(note.content, note.entityRefs)}
                 </p>
 

@@ -18,6 +18,7 @@ import { NoteInput } from "./NoteInput";
 /* ─── Filter tabs ─── */
 
 type FilterTab = "all" | "alerts" | "decisions" | "tasks";
+type VisFilterTab = "all" | "public" | "private";
 
 const FILTER_TABS: Array<{ value: FilterTab; label: string; icon?: string }> = [
   { value: "all", label: "Todas" },
@@ -26,11 +27,18 @@ const FILTER_TABS: Array<{ value: FilterTab; label: string; icon?: string }> = [
   { value: "tasks", label: "Tareas", icon: "📋" },
 ];
 
+const VIS_FILTER_TABS: Array<{ value: VisFilterTab; label: string; icon?: string }> = [
+  { value: "all", label: "Todas" },
+  { value: "public", label: "Públicas" },
+  { value: "private", label: "Privadas", icon: "🔒" },
+];
+
 /* ─── Component ─── */
 
 export function NotesPanel() {
   const ctx = useNotesContext();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [visFilter, setVisFilter] = useState<VisFilterTab>("all");
   const [highlightedNoteId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -109,12 +117,18 @@ export function NotesPanel() {
 
   // ── Filter notes ──
   const filteredNotes = ctx.notes.filter((n: NoteData) => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "alerts") return n.noteType === "ALERT";
-    if (activeFilter === "decisions") return n.noteType === "DECISION";
-    if (activeFilter === "tasks") return n.noteType === "TASK";
+    // Type filter
+    if (activeFilter === "alerts" && n.noteType !== "ALERT") return false;
+    if (activeFilter === "decisions" && n.noteType !== "DECISION") return false;
+    if (activeFilter === "tasks" && n.noteType !== "TASK") return false;
+    // Visibility filter
+    if (visFilter === "public" && n.visibility !== "PUBLIC") return false;
+    if (visFilter === "private" && n.visibility === "PUBLIC") return false;
     return true;
   });
+
+  // Check if any private notes exist to show the filter
+  const hasPrivateNotes = ctx.notes.some((n: NoteData) => n.visibility !== "PUBLIC");
 
   if (!ctx.isPanelOpen) return null;
 
@@ -213,6 +227,28 @@ export function NotesPanel() {
               )}
             </button>
           ))}
+          {/* Visibility filter (only show when private notes exist) */}
+          {hasPrivateNotes && (
+            <>
+              <div className="h-3 w-px bg-border/50 mx-1" />
+              {VIS_FILTER_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setVisFilter(tab.value)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap",
+                    visFilter === tab.value
+                      ? "bg-amber-500/10 text-amber-500"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {tab.icon && <span className="text-[10px]">{tab.icon}</span>}
+                  {tab.label}
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
         {/* ── Notes list ── */}

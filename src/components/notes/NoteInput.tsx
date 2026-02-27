@@ -35,6 +35,23 @@ import {
   type NoteUser,
 } from "./NotesProvider";
 
+/* ─── Permission helpers (client-side role checks) ─── */
+
+function isAdminRole(role: string): boolean {
+  const r = role.toLowerCase();
+  return r === "owner" || r === "admin";
+}
+
+function canCreateNoteType(role: string, noteType: NoteTypeValue): boolean {
+  if (noteType === "GENERAL" || noteType === "TASK") return true;
+  // ALERT and DECISION require admin/owner
+  return isAdminRole(role);
+}
+
+function canMentionAll(role: string): boolean {
+  return isAdminRole(role);
+}
+
 /* ─── Types ─── */
 
 type NoteTypeValue = "GENERAL" | "ALERT" | "DECISION" | "TASK";
@@ -121,11 +138,21 @@ export function NoteInput({
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string; type: string; size: number }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Mention options ──
+  // ── Permission-filtered note types ──
+  const availableNoteTypes = useMemo(
+    () => NOTE_TYPES.filter((t) => canCreateNoteType(ctx.currentUserRole, t.value)),
+    [ctx.currentUserRole],
+  );
+
+  // ── Mention options (filter @Todos for non-admins) ──
   const mentionOptions = useMemo(() => {
     const q = mentionQuery.trim().toLowerCase();
+    const allowAll = canMentionAll(ctx.currentUserRole);
     const special = ctx.specialMentions
-      .filter((s) => !q || s.label.toLowerCase().includes(q) || s.token.toLowerCase().includes(q))
+      .filter((s) => {
+        if (!allowAll && s.key === "all") return false;
+        return !q || s.label.toLowerCase().includes(q) || s.token.toLowerCase().includes(q);
+      })
       .map((s) => ({ ...s, kind: "special" as const }));
     const gs = ctx.groups
       .filter((g) => !q || g.name.toLowerCase().includes(q) || g.slug.toLowerCase().includes(q))
@@ -134,7 +161,7 @@ export function NoteInput({
       .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
       .map((u) => ({ ...u, kind: "user" as const }));
     return { special, groups: gs, users: us, all: [...special, ...gs, ...us] as MentionOption[] };
-  }, [mentionQuery, ctx.specialMentions, ctx.groups, ctx.users]);
+  }, [mentionQuery, ctx.specialMentions, ctx.groups, ctx.users, ctx.currentUserRole]);
 
   // ── Auto-resize textarea ──
   const autoResize = useCallback(() => {
@@ -321,6 +348,10 @@ export function NoteInput({
         visibility,
         visibleToUsers: visibility === "PUBLIC" ? [] : visibleToUsers,
       };
+      // Task metadata
+      if (noteType === "TASK") {
+        body.metadata = { completed: false, completedAt: null, completedBy: null };
+      }
       if (parentNoteId) {
         body.parentNoteId = parentNoteId;
       } else {
@@ -364,12 +395,34 @@ export function NoteInput({
     }
   };
 
+  // ── User search for picker ──
+  const [userPickerQuery, setUserPickerQuery] = useState("");
+  const filteredPickerUsers = useMemo(() => {
+    const q = userPickerQuery.trim().toLowerCase();
+    return ctx.users
+      .filter((u) => u.id !== ctx.currentUserId)
+      .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
+  }, [ctx.users, ctx.currentUserId, userPickerQuery]);
+
   // ── Visible-to-users toggle ──
   const toggleVisibleUser = (userId: string) => {
-    setVisibleToUsers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
-    );
+    if (visibility === "PRIVATE") {
+      // PRIVATE: single user — replace selection
+      setVisibleToUsers([userId]);
+    } else {
+      // GROUP: multi-user toggle
+      setVisibleToUsers((prev) =>
+        prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
+      );
+    }
   };
+
+  // ── Resolve selected user names ──
+  const selectedUserNames = useMemo(() => {
+    return visibleToUsers
+      .map((uid) => ctx.users.find((u) => u.id === uid)?.name)
+      .filter(Boolean) as string[];
+  }, [visibleToUsers, ctx.users]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -456,7 +509,7 @@ export function NoteInput({
         {/* Toolbar */}
         <div className="flex items-center gap-0.5 px-1.5 py-1 border-t border-border/30">
           {/* Note type selector */}
-          {!parentNoteId && (
+          {!parentNoteId && availableNoteTypes.length > 1 && (
             <div className="relative">
               <button
                 type="button"
@@ -468,7 +521,7 @@ export function NoteInput({
               </button>
               {showTypeSelector && (
                 <div className="absolute bottom-full mb-1 left-0 z-50 rounded-md border border-border bg-popover shadow-lg py-1 min-w-[130px]">
-                  {NOTE_TYPES.map((t) => (
+                  {availableNoteTypes.map((t) => (
                     <button
                       key={t.value}
                       type="button"
@@ -513,8 +566,16 @@ export function NoteInput({
                         onClick={() => {
                           setVisibility(v.value);
                           setShowVisSelector(false);
-                          if (v.value !== "PUBLIC") setShowUserPicker(true);
-                          else setShowUserPicker(false);
+                          if (v.value === "PUBLIC") {
+                            setShowUserPicker(false);
+                            setVisibleToUsers([]);
+                          } else {
+                            // Reset selection when switching between PRIVATE (single) and GROUP (multi)
+                            if (v.value === "PRIVATE" && visibleToUsers.length > 1) {
+                              setVisibleToUsers(visibleToUsers.slice(0, 1));
+                            }
+                            setShowUserPicker(true);
+                          }
                         }}
                       >
                         <Icon className="h-3 w-3" />
@@ -583,30 +644,77 @@ export function NoteInput({
         </div>
       </div>
 
+      {/* Visibility label */}
+      {visibility !== "PUBLIC" && !parentNoteId && selectedUserNames.length > 0 && (
+        <div className="mt-1 flex items-center gap-1.5 px-2 py-1 rounded bg-muted/50 text-[11px] text-muted-foreground">
+          <Lock className="h-3 w-3 shrink-0" />
+          <span>
+            {visibility === "PRIVATE"
+              ? `Mensaje privado para: ${selectedUserNames[0]}`
+              : `Visible para: ${selectedUserNames.join(", ")}`}
+          </span>
+          <button
+            type="button"
+            className="ml-auto text-muted-foreground hover:text-foreground"
+            onClick={() => { setVisibility("PUBLIC"); setVisibleToUsers([]); setShowUserPicker(false); }}
+            title="Cambiar a pública"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       {/* User picker for PRIVATE/GROUP */}
       {showUserPicker && visibility !== "PUBLIC" && !parentNoteId && (
-        <div className="mt-1.5 rounded-md border border-border bg-popover p-2 max-h-36 overflow-y-auto">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-            {visibility === "PRIVATE" ? "Visible solo para:" : "Visible para el grupo:"}
-          </p>
-          <div className="space-y-0.5">
-            {ctx.users
-              .filter((u) => u.id !== ctx.currentUserId)
-              .map((u) => (
-                <label
-                  key={u.id}
-                  className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleToUsers.includes(u.id)}
-                    onChange={() => toggleVisibleUser(u.id)}
-                    className="rounded border-border"
-                  />
-                  <span>{u.name}</span>
-                  {u.email && <span className="text-muted-foreground text-[10px]">{u.email}</span>}
-                </label>
-              ))}
+        <div className="mt-1.5 rounded-md border border-border bg-popover p-2 max-h-48 overflow-hidden flex flex-col">
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              {visibility === "PRIVATE" ? "Seleccionar destinatario" : "Seleccionar participantes"}
+            </p>
+            <button
+              type="button"
+              className="ml-auto text-muted-foreground hover:text-foreground"
+              onClick={() => setShowUserPicker(false)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          {/* Search input */}
+          <input
+            type="text"
+            value={userPickerQuery}
+            onChange={(e) => setUserPickerQuery(e.target.value)}
+            placeholder="Buscar usuario..."
+            className="w-full rounded border border-border/60 bg-background px-2 py-1 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mb-1.5"
+          />
+          <div className="space-y-0.5 overflow-y-auto">
+            {filteredPickerUsers.map((u) => (
+              <label
+                key={u.id}
+                className={cn(
+                  "flex items-center gap-2 rounded px-2 py-1 text-xs cursor-pointer transition-colors",
+                  visibleToUsers.includes(u.id)
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-accent",
+                )}
+              >
+                <input
+                  type={visibility === "PRIVATE" ? "radio" : "checkbox"}
+                  name="visibleUser"
+                  checked={visibleToUsers.includes(u.id)}
+                  onChange={() => toggleVisibleUser(u.id)}
+                  className="rounded border-border"
+                />
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-medium text-primary shrink-0">
+                  {getInitials(u.name)}
+                </div>
+                <span className="truncate">{u.name}</span>
+                {u.email && <span className="text-muted-foreground text-[10px] truncate">{u.email}</span>}
+              </label>
+            ))}
+            {filteredPickerUsers.length === 0 && (
+              <p className="text-[10px] text-muted-foreground py-2 text-center">Sin resultados</p>
+            )}
           </div>
         </div>
       )}

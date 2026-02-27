@@ -38,17 +38,18 @@ export async function PATCH(
       );
     }
 
-    const content =
-      typeof body.content === "string" && body.content.trim()
-        ? body.content.trim()
-        : note.content;
+    const contentChanged = typeof body.content === "string" && body.content.trim() && body.content.trim() !== note.content;
+    const content = contentChanged ? body.content.trim() : note.content;
+
+    // Only mark as edited if content actually changed (not for metadata-only updates like task toggle)
+    const isEdited = contentChanged ? true : note.isEdited;
 
     const updated = await prisma.note.update({
       where: { id },
       data: {
         content,
         contentHtml: typeof body.contentHtml === "string" ? body.contentHtml : note.contentHtml,
-        isEdited: true,
+        isEdited,
         isPinned: typeof body.isPinned === "boolean" ? body.isPinned : note.isPinned,
         metadata: body.metadata !== undefined ? body.metadata : note.metadata,
         attachments: body.attachments !== undefined ? body.attachments : note.attachments,

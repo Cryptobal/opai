@@ -262,6 +262,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ALERT and DECISION require admin/owner role
+    const isFullAdminForTypes = ctx.userRole === "owner" || ctx.userRole === "admin";
+    if ((noteType === "ALERT" || noteType === "DECISION") && !isFullAdminForTypes) {
+      return NextResponse.json(
+        { success: false, error: `No tienes permisos para crear notas tipo ${noteType}` },
+        { status: 403 },
+      );
+    }
+
     // ── Validate visibility ──
     if (!["PUBLIC", "PRIVATE", "GROUP"].includes(visibility)) {
       return NextResponse.json(
@@ -426,6 +435,20 @@ export async function POST(request: NextRequest) {
       }).catch((err) => console.error("Error sending note notifications:", err));
     }
 
+    // ── ALERT notes: notify ALL followers of this context ──
+    if (noteType === "ALERT" && !parentNoteId) {
+      sendAlertNotifications({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        actorName: note.author.name,
+        contextType,
+        contextId,
+        noteId: note.id,
+        content,
+        alreadyNotified: new Set(mentionResolution.resolvedRecipientIds),
+      }).catch((err) => console.error("Error sending alert notifications:", err));
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -552,4 +575,58 @@ async function sendNoteNotifications(input: {
       ),
     );
   }
+}
+
+/**
+ * ALERT notes → notify ALL followers of this context, except author and already-notified.
+ */
+async function sendAlertNotifications(input: {
+  tenantId: string;
+  actorUserId: string;
+  actorName: string;
+  contextType: NoteContextType;
+  contextId: string;
+  noteId: string;
+  content: string;
+  alreadyNotified: Set<string>;
+}) {
+  const { sendNotificationToUser } = await import("@/lib/notification-service");
+  const link = buildNoteContextLink(input.contextType, input.contextId);
+  const contextLabel = CONTEXT_LABELS[input.contextType] ?? input.contextType;
+
+  // Get all followers of this context
+  const followers = await prisma.entityFollower.findMany({
+    where: {
+      tenantId: input.tenantId,
+      contextType: input.contextType,
+      contextId: input.contextId,
+    },
+    select: { userId: true },
+  });
+
+  const recipients = followers
+    .map((f) => f.userId)
+    .filter((uid) => uid !== input.actorUserId && !input.alreadyNotified.has(uid));
+
+  if (recipients.length === 0) return;
+
+  await Promise.allSettled(
+    recipients.map((targetUserId) =>
+      sendNotificationToUser({
+        tenantId: input.tenantId,
+        type: "note_alert",
+        title: `🚨 Alerta de ${input.actorName} en ${contextLabel}`,
+        message: input.content.slice(0, 220),
+        emailMessage: input.content,
+        link,
+        data: {
+          noteId: input.noteId,
+          entityType: input.contextType,
+          entityId: input.contextId,
+          authorId: input.actorUserId,
+        },
+        targetUserId,
+      }),
+    ),
+  );
 }
