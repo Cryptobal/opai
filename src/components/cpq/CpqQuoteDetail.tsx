@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
 import { QuoteNotesDrawer } from "@/components/cpq/QuoteNotesDrawer";
 import { NotesSection } from "@/components/crm/NotesSection";
@@ -107,6 +107,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -990,24 +991,30 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
           {/* Overflow menu for secondary actions */}
-          <div className="relative group">
-            <Button size="icon" variant="ghost" className="h-7 w-7">
-              <Layers className="h-3.5 w-3.5" />
+          <div className="relative">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
+              <MoreVertical className="h-3.5 w-3.5" />
             </Button>
-            <div className="absolute right-0 top-full mt-1 z-30 hidden group-focus-within:block hover:block min-w-[160px] rounded-md border bg-popover p-1 shadow-md">
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleClone} disabled={cloning}>
-                <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar"}
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={handleSendDotacionToInstallation} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
-                <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={refresh}>
-                <RefreshCw className="h-3.5 w-3.5" /> Refrescar
-              </button>
-              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => setDeleteConfirmOpen(true)} disabled={deleting || isLocked}>
-                <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
-              </button>
-            </div>
+            {overflowMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] rounded-md border bg-popover p-1 shadow-md">
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
+                    <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotización"}
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleSendDotacionToInstallation(); }} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
+                    <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Refrescar
+                  </button>
+                  <div className="my-1 h-px bg-border" />
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setDeleteConfirmOpen(true); }} disabled={deleting || isLocked}>
+                    <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
