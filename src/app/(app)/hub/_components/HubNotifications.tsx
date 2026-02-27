@@ -20,7 +20,7 @@ export function HubNotifications({ notifications }: HubNotificationsProps) {
           <span>Notificaciones</span>
         </h3>
         <Link
-          href="/hub"
+          href="/opai/notificaciones"
           className="text-xs font-medium text-primary hover:underline"
         >
           Ver todas
