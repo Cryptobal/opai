@@ -80,6 +80,7 @@ const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
   { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
+  { key: "personas", href: "/personas/guardias", label: "Personas", icon: Shield, app: "ops" },
   { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
   { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
