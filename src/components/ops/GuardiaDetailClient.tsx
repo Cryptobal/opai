@@ -10,6 +10,22 @@ import {
   Pencil,
   Trash2,
   UserPlus,
+  Info,
+  MapPin,
+  QrCode,
+  FileText,
+  Shield,
+  Receipt,
+  Gavel,
+  Link2,
+  Mail,
+  MessageSquareText,
+  CalendarDays,
+  CalendarPlus,
+  History,
+  Shirt,
+  Landmark,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CrmDetailLayout } from "@/components/crm/CrmDetailLayout";
-import type { RecordAction } from "@/components/crm/RecordActions";
+import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "@/components/crm/EntityDetailLayout";
 import {
   AFP_CHILE,
   getLifecycleTransitions,
@@ -538,257 +553,49 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const guardiaBadgeLabel = formatLifecycleBadgeLabel(guardia.lifecycleStatus);
   const guardiaBadgeVariant = lifecycleBadgeVariant(guardia.lifecycleStatus);
 
-  // ── Sections ──
-  const sections = [
-    /* datos — fixed, first, always open */
-    {
-      key: "datos" as const,
-      label: "Datos personales",
-      action: canManageGuardias ? (
-        <Button size="sm" variant="outline" onClick={openEditPersonal}>
-          <Pencil className="mr-1.5 h-3.5 w-3.5" />
-          Editar
-        </Button>
-      ) : undefined,
-      children: (
-        <DatosPersonalesSection
-          guardiaId={guardia.id}
-          persona={guardia.persona}
-          hiredAt={guardia.hiredAt}
-          availableExtraShifts={guardia.availableExtraShifts}
-          recibeAnticipo={guardia.recibeAnticipo}
-          montoAnticipo={guardia.montoAnticipo}
-          bankAccounts={guardia.bankAccounts}
-          asignaciones={asignaciones}
-          canManageGuardias={canManageGuardias}
-          onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
-        />
-      ),
-    },
-    /* asignacion */
-    {
-      key: "asignacion" as const,
-      children: (
-        <AsignacionSection asignaciones={asignaciones} />
-      ),
-    },
-    /* uniformes asignados */
-    ...(hasInventarioAccess
-      ? [
-          {
-            key: "uniformes" as const,
-            label: "Uniformes asignados",
-            children: (
-              <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />
-            ),
-          },
-        ]
-      : []),
-    /* marcacion */
-    {
-      key: "marcacion" as const,
-      label: "Marcación de asistencia",
-      children: (
-        <MarcacionSection
-          guardiaId={guardia.id}
-          marcacionPin={guardia.marcacionPin}
-          marcacionPinVisible={guardia.marcacionPinVisible}
-          canManageGuardias={canManageGuardias}
-          onPinUpdated={(pin) => {
-            setGuardia((prev) => ({
-              ...prev,
-              marcacionPin: "[configurado]",
-              marcacionPinVisible: pin,
-            }));
-          }}
-        />
-      ),
-    },
-    /* rondas */
-    {
-      key: "rondas" as const,
-      label: "Marcación de rondas",
-      children: (
-        <RondasSection currentInstallation={guardia.currentInstallation} />
-      ),
-    },
-    /* contratos de trabajo */
-    {
-      key: "contratos" as const,
-      label: "Contratos",
-      children: (
-        <GuardContractsTab
-          guardiaId={guardia.id}
-          guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
-          guardiaEmail={guardia.persona.email}
-          guardiaRut={guardia.persona.rut}
-          hiredAt={guardia.hiredAt ?? null}
-          contract={guardia.contractType ? {
-            contractType: guardia.contractType as "plazo_fijo" | "indefinido",
-            contractStartDate: guardia.contractStartDate ?? null,
-            contractPeriod1End: guardia.contractPeriod1End ?? null,
-            contractPeriod2End: guardia.contractPeriod2End ?? null,
-            contractPeriod3End: guardia.contractPeriod3End ?? null,
-            contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
-            contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
-          } : null}
-          linkedDocuments={linkedDocs
-            .filter((item) => item.document.category === "contrato_laboral" || item.document.category === "anexo_contrato")
-            .map((item) => ({
-              id: item.document.id,
-              title: item.document.title,
-              category: item.document.category,
-              signatureStatus: item.document.signatureStatus,
-              expirationDate: item.document.expirationDate ?? null,
-            }))}
-          onDocumentsGenerated={loadDocLinks}
-          canManageDocs={canManageDocs}
-        />
-      ),
-    },
-    /* estructura de sueldo */
-    {
-      key: "estructura-sueldo" as const,
-      label: "Estructura de sueldo",
-      children: (
-        <GuardiaSalaryTab guardiaId={guardia.id} />
-      ),
-    },
-    /* liquidaciones */
-    {
-      key: "liquidaciones" as const,
-      label: "Liquidaciones",
-      children: (
-        <GuardiaLiquidacionesTab guardiaId={guardia.id} />
-      ),
-    },
-    /* eventos laborales */
-    {
-      key: "eventos-laborales" as const,
-      label: "Eventos laborales",
-      children: (
-        <GuardEventsTab
-          guardiaId={guardia.id}
-          guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
-          userRole={userRole}
-          guardContract={guardia.contractType ? {
-            contractType: guardia.contractType as "plazo_fijo" | "indefinido",
-            contractStartDate: guardia.contractStartDate ?? null,
-            contractPeriod1End: guardia.contractPeriod1End ?? null,
-            contractPeriod2End: guardia.contractPeriod2End ?? null,
-            contractPeriod3End: guardia.contractPeriod3End ?? null,
-            contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
-            contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
-          } : null}
-        />
-      ),
-    },
-    /* documentos */
-    {
-      key: "documentos" as const,
-      label: "Ficha de documentos",
-      children: (
-        <DocumentosSection
-          guardiaId={guardia.id}
-          documents={guardia.documents}
-          canManageDocs={canManageDocs}
-          guardiaDocConfig={guardiaDocConfig}
-          onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
-        />
-      ),
-    },
-    /* docs-vinculados */
-    {
-      key: "docs-vinculados" as const,
-      label: "Documentos vinculados (Docs)",
-      children: (
-        <DocsVinculadosSection
-          guardiaId={guardia.id}
-          canManageDocs={canManageDocs}
-          linkedDocs={linkedDocs}
-          availableDocs={availableDocs}
-          loadingDocLinks={loadingDocLinks}
-          onReloadDocLinks={loadDocLinks}
-        />
-      ),
-    },
-    /* communication (comunicaciones) */
-    {
-      key: "communication" as const,
-      label: "Comunicación con guardia",
-      children: (
-        <CommunicationSection
-          guardiaId={guardia.id}
-          email={guardia.persona.email}
-          phoneMobile={guardia.persona.phoneMobile}
-          historyEvents={guardia.historyEvents}
-          onHistoryEventAdded={(event) => {
-            setGuardia((prev) => ({
-              ...prev,
-              historyEvents: [event, ...prev.historyEvents],
-            }));
-          }}
-        />
-      ),
-    },
-    /* comentarios internos con @ mentions */
-    {
-      key: "comentarios" as const,
-      label: "Comentarios internos",
-      children: (
-        <NotesSection
-          entityType="ops_guardia"
-          entityId={guardia.id}
-          currentUserId={currentUserId ?? ""}
-        />
-      ),
-    },
-    /* dias-trabajados */
-    {
-      key: "dias-trabajados" as const,
-      children: (
-        <DiasTrabajadesSection guardiaId={guardia.id} />
-      ),
-    },
-    /* turnos-extra */
-    {
-      key: "turnos-extra" as const,
-      children: (
-        <TurnosExtraSection guardiaId={guardia.id} />
-      ),
-    },
-    /* rendiciones */
-    ...(personaAdminId
-      ? [
-          {
-            key: "rendiciones" as const,
-            label: "Rendiciones de gastos",
-            children: <PersonaRendicionesTab adminId={personaAdminId} />,
-          },
-        ]
-      : []),
-    /* historial */
-    {
-      key: "historial" as const,
-      label: "Historial del guardia",
-      children: (
-        <HistorialSection historyEvents={guardia.historyEvents} />
-      ),
-    },
+  // ── Tabs ──
+  const { activeTab, setActiveTab } = useEntityTabs("datos");
+
+  const tabs: EntityTab[] = [
+    { id: "datos", label: "Datos", icon: <Info className="h-3.5 w-3.5" /> },
+    { id: "asignacion", label: "Asignación", icon: <MapPin className="h-3.5 w-3.5" /> },
+    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: <Shirt className="h-3.5 w-3.5" /> }] : []),
+    { id: "marcacion", label: "Marcación", icon: <QrCode className="h-3.5 w-3.5" /> },
+    { id: "contratos", label: "Contratos", icon: <FileText className="h-3.5 w-3.5" /> },
+    { id: "estructura-sueldo", label: "Sueldo", icon: <Receipt className="h-3.5 w-3.5" /> },
+    { id: "liquidaciones", label: "Liquidaciones", icon: <Landmark className="h-3.5 w-3.5" /> },
+    { id: "eventos-laborales", label: "Eventos", icon: <Gavel className="h-3.5 w-3.5" /> },
+    { id: "documentos", label: "Documentos", icon: <FileText className="h-3.5 w-3.5" /> },
+    { id: "docs-vinculados", label: "Docs vinculados", icon: <Link2 className="h-3.5 w-3.5" /> },
+    { id: "communication", label: "Comunicación", icon: <Mail className="h-3.5 w-3.5" /> },
+    { id: "comentarios", label: "Comentarios", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
+    { id: "dias-trabajados", label: "Días", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+    { id: "turnos-extra", label: "Turnos extra", icon: <CalendarPlus className="h-3.5 w-3.5" /> },
+    ...(personaAdminId ? [{ id: "rendiciones" as const, label: "Rendiciones", icon: <Receipt className="h-3.5 w-3.5" /> }] : []),
+    { id: "historial", label: "Historial", icon: <History className="h-3.5 w-3.5" /> },
   ];
 
   // ── Record actions ──
-  const recordActions: RecordAction[] = [];
   const puedeRecontratar =
     canManageGuardias &&
     guardia.lifecycleStatus === "inactivo" &&
     guardia.terminatedAt;
 
+  const headerActions: EntityHeaderAction[] = [];
+
+  if (canManageGuardias) {
+    headerActions.push({
+      label: "Editar datos",
+      icon: Pencil,
+      onClick: openEditPersonal,
+      primary: true,
+    });
+  }
+
   if (puedeRecontratar) {
-    recordActions.push({
+    headerActions.push({
       label: "Recontratar guardia",
       icon: UserPlus,
-      variant: "default",
       onClick: () => {
         setRecontratarDate(new Date().toISOString().slice(0, 10));
         setRecontratarModalOpen(true);
@@ -797,7 +604,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   }
 
   if (canManageGuardias) {
-    recordActions.push({
+    headerActions.push({
       label: "Eliminar guardia",
       icon: Trash2,
       variant: "destructive",
@@ -805,34 +612,21 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     });
   }
 
-  const actionsToShow: RecordAction[] =
-    recordActions.length > 0
-      ? recordActions
-      : [
-          {
-            label: "Ir a lista de guardias",
-            icon: List,
-            onClick: () => router.push("/personas/guardias"),
-          },
-        ];
-
   return (
     <>
-      <CrmDetailLayout
-        module="guardias"
-        pageType="guardia"
-        fixedSectionKey="datos"
-        title={guardiaTitle}
-        subtitle={guardiaSubtitle}
-        badge={{
-          label: guardiaBadgeLabel + (guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt ? " · Finiquitado" : ""),
-          variant: guardiaBadgeVariant,
-        }}
-        backHref="/personas/guardias"
-        backLabel="Personas"
-        actions={actionsToShow}
-        extra={
-          canChangeLifecycle && getLifecycleTransitions(guardia.lifecycleStatus).length > 0 ? (
+      <EntityDetailLayout
+        breadcrumb={["Personas", "Guardias", guardiaTitle]}
+        breadcrumbHrefs={["/personas/guardias", "/personas/guardias"]}
+        header={{
+          avatar: { initials: guardiaTitle.charAt(0).toUpperCase() },
+          title: guardiaTitle,
+          subtitle: guardiaSubtitle,
+          status: {
+            label: guardiaBadgeLabel + (guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt ? " · Finiquitado" : ""),
+            variant: guardiaBadgeVariant,
+          },
+          actions: headerActions,
+          extra: canChangeLifecycle && getLifecycleTransitions(guardia.lifecycleStatus).length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={lifecycleChanging} className="gap-1.5">
@@ -852,10 +646,160 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null
-        }
-        sections={sections}
-      />
+          ) : null,
+        }}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {activeTab === "datos" && (
+          <DatosPersonalesSection
+            guardiaId={guardia.id}
+            persona={guardia.persona}
+            hiredAt={guardia.hiredAt}
+            availableExtraShifts={guardia.availableExtraShifts}
+            recibeAnticipo={guardia.recibeAnticipo}
+            montoAnticipo={guardia.montoAnticipo}
+            bankAccounts={guardia.bankAccounts}
+            asignaciones={asignaciones}
+            canManageGuardias={canManageGuardias}
+            onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
+          />
+        )}
+        {activeTab === "asignacion" && (
+          <AsignacionSection asignaciones={asignaciones} />
+        )}
+        {activeTab === "uniformes" && hasInventarioAccess && (
+          <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />
+        )}
+        {activeTab === "marcacion" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Marcación de asistencia</h3>
+              <MarcacionSection
+                guardiaId={guardia.id}
+                marcacionPin={guardia.marcacionPin}
+                marcacionPinVisible={guardia.marcacionPinVisible}
+                canManageGuardias={canManageGuardias}
+                onPinUpdated={(pin) => {
+                  setGuardia((prev) => ({
+                    ...prev,
+                    marcacionPin: "[configurado]",
+                    marcacionPinVisible: pin,
+                  }));
+                }}
+              />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium mb-3">Marcación de rondas</h3>
+              <RondasSection currentInstallation={guardia.currentInstallation} />
+            </div>
+          </div>
+        )}
+        {activeTab === "contratos" && (
+          <GuardContractsTab
+            guardiaId={guardia.id}
+            guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
+            guardiaEmail={guardia.persona.email}
+            guardiaRut={guardia.persona.rut}
+            hiredAt={guardia.hiredAt ?? null}
+            contract={guardia.contractType ? {
+              contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+              contractStartDate: guardia.contractStartDate ?? null,
+              contractPeriod1End: guardia.contractPeriod1End ?? null,
+              contractPeriod2End: guardia.contractPeriod2End ?? null,
+              contractPeriod3End: guardia.contractPeriod3End ?? null,
+              contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
+              contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+            } : null}
+            linkedDocuments={linkedDocs
+              .filter((item) => item.document.category === "contrato_laboral" || item.document.category === "anexo_contrato")
+              .map((item) => ({
+                id: item.document.id,
+                title: item.document.title,
+                category: item.document.category,
+                signatureStatus: item.document.signatureStatus,
+                expirationDate: item.document.expirationDate ?? null,
+              }))}
+            onDocumentsGenerated={loadDocLinks}
+            canManageDocs={canManageDocs}
+          />
+        )}
+        {activeTab === "estructura-sueldo" && (
+          <GuardiaSalaryTab guardiaId={guardia.id} />
+        )}
+        {activeTab === "liquidaciones" && (
+          <GuardiaLiquidacionesTab guardiaId={guardia.id} />
+        )}
+        {activeTab === "eventos-laborales" && (
+          <GuardEventsTab
+            guardiaId={guardia.id}
+            guardiaName={`${guardia.persona.firstName} ${guardia.persona.lastName}`}
+            userRole={userRole}
+            guardContract={guardia.contractType ? {
+              contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+              contractStartDate: guardia.contractStartDate ?? null,
+              contractPeriod1End: guardia.contractPeriod1End ?? null,
+              contractPeriod2End: guardia.contractPeriod2End ?? null,
+              contractPeriod3End: guardia.contractPeriod3End ?? null,
+              contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1,
+              contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+            } : null}
+          />
+        )}
+        {activeTab === "documentos" && (
+          <DocumentosSection
+            guardiaId={guardia.id}
+            documents={guardia.documents}
+            canManageDocs={canManageDocs}
+            guardiaDocConfig={guardiaDocConfig}
+            onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
+          />
+        )}
+        {activeTab === "docs-vinculados" && (
+          <DocsVinculadosSection
+            guardiaId={guardia.id}
+            canManageDocs={canManageDocs}
+            linkedDocs={linkedDocs}
+            availableDocs={availableDocs}
+            loadingDocLinks={loadingDocLinks}
+            onReloadDocLinks={loadDocLinks}
+          />
+        )}
+        {activeTab === "communication" && (
+          <CommunicationSection
+            guardiaId={guardia.id}
+            email={guardia.persona.email}
+            phoneMobile={guardia.persona.phoneMobile}
+            historyEvents={guardia.historyEvents}
+            onHistoryEventAdded={(event) => {
+              setGuardia((prev) => ({
+                ...prev,
+                historyEvents: [event, ...prev.historyEvents],
+              }));
+            }}
+          />
+        )}
+        {activeTab === "comentarios" && (
+          <NotesSection
+            entityType="ops_guardia"
+            entityId={guardia.id}
+            currentUserId={currentUserId ?? ""}
+          />
+        )}
+        {activeTab === "dias-trabajados" && (
+          <DiasTrabajadesSection guardiaId={guardia.id} />
+        )}
+        {activeTab === "turnos-extra" && (
+          <TurnosExtraSection guardiaId={guardia.id} />
+        )}
+        {activeTab === "rendiciones" && personaAdminId && (
+          <PersonaRendicionesTab adminId={personaAdminId} />
+        )}
+        {activeTab === "historial" && (
+          <HistorialSection historyEvents={guardia.historyEvents} />
+        )}
+      </EntityDetailLayout>
 
       {/* ── Modal fecha de contrato (al pasar a Contratado) ── */}
       <Dialog open={contractDateModalOpen} onOpenChange={setContractDateModalOpen}>
