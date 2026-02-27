@@ -55,10 +55,6 @@ import {
   Bell,
 } from "lucide-react";
 import {
-  CRM_SECTIONS,
-  MODULE_DETAIL_SECTIONS,
-} from "@/components/crm/CrmModuleIcons";
-import {
   type RolePermissions,
   getDefaultPermissions,
   hasModuleAccess,
@@ -254,68 +250,14 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
 ];
 
-/* ── CRM detail page → section items ── */
-
-const CRM_MODULE_MAP: Record<string, string> = {
-  leads: "leads",
-  accounts: "accounts",
-  contacts: "contacts",
-  deals: "deals",
-  installations: "installations",
-  cotizaciones: "quotes",
-};
-
-/** Abreviaciones para el bottom nav (espacio limitado) */
-const SECTION_SHORT_LABELS: Record<string, string> = {
-  general: "Info",
-  account: "Cuenta",
-  contacts: "Contacto",
-  deals: "Negocio",
-  installations: "Instal.",
-  quotes: "CPQ",
-  followup: "Seguim.",
-  communication: "Correos",
-  notes: "Notas",
-  staffing: "Puestos",
-  dotacion: "Dotación",
-  files: "Archivos",
-};
-
-/**
- * Detecta si el pathname es una página de detalle CRM (ej: /crm/leads/cm7xxx)
- * y devuelve los items de sección para la bottom nav.
- */
-function getCrmDetailSectionItems(pathname: string): BottomNavItem[] | null {
-  // Patrón: /crm/{module}/{id} donde id es un cuid (cm...) u otro identificador
-  const match = pathname.match(
-    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/([^/]+)$/
-  );
-  if (!match) return null;
-
-  const moduleKey = CRM_MODULE_MAP[match[1]];
-  if (!moduleKey) return null;
-
-  const sectionKeys = MODULE_DETAIL_SECTIONS[moduleKey];
-  if (!sectionKeys || sectionKeys.length === 0) return null;
-
-  return sectionKeys.map((key) => {
-    const section = CRM_SECTIONS[key];
-    return {
-      key: `section-${key}`,
-      href: `#section-${key}`,
-      label: SECTION_SHORT_LABELS[key] || section.label,
-      icon: section.icon,
-      isSection: true,
-    };
-  });
-}
-
 /**
  * Devuelve los items del bottom nav según la ruta actual y el rol del usuario.
  *
- * - En detalle CRM: muestra secciones del registro (scroll a anclas)
  * - Dentro de un módulo: muestra subcategorías del módulo
  * - En ruta general: muestra navegación principal
+ *
+ * Nota: las páginas de detalle CRM ya no muestran bottom nav de secciones;
+ * la navegación se hace via ChipTabs inline en la vista.
  *
  * Acepta un role string (usa defaults) o un RolePermissions object.
  */
@@ -328,11 +270,20 @@ export function getBottomNavItems(
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
 
-  // Prioridad 1: páginas de detalle CRM → secciones del registro
-  const sectionItems = getCrmDetailSectionItems(pathname);
-  if (sectionItems) return sectionItems;
+  // Páginas de detalle: no mostramos bottom nav. La navegación de secciones se
+  // hace con ChipTabs inline y el usuario vuelve al listado con breadcrumbs/back.
+  const DETAIL_PATTERNS = [
+    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/[^/]+$/,
+    /^\/personas\/guardias\/[^/]+$/,
+    /^\/payroll\/periodos\/[^/]+$/,
+    /^\/finanzas\/rendiciones\/[^/]+$/,
+    /^\/ops\/(tickets|control-nocturno)\/[^/]+$/,
+    /^\/ops\/inventario\/productos\/[^/]+$/,
+    /^\/opai\/documentos\/(templates\/)?[^/]+$/,
+  ];
+  if (DETAIL_PATTERNS.some((re) => re.test(pathname))) return [];
 
-  // Prioridad 2: módulos → subcategorías
+  // Prioridad 1: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
     if (detection.test(pathname)) {
       const items = detection.getItems(perms);

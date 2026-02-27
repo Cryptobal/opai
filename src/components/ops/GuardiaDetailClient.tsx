@@ -39,6 +39,7 @@ import {
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import { Avatar } from "@/components/opai";
 import { cn } from "@/lib/utils";
+import { ChipTabs } from "@/components/ui/chip-tabs";
 import {
   AFP_CHILE,
   getLifecycleTransitions,
@@ -603,21 +604,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           </DropdownMenu>
         </div>
 
-        {/* ── Tab bar (flex-wrap, never horizontal scroll) ── */}
-        <div className="flex flex-wrap gap-1.5 mt-3" role="tablist">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button key={tab.key} type="button" role="tab" aria-selected={isActive}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                  isActive ? "bg-emerald-500/10 text-emerald-400 font-bold" : "text-[#7a8a9e] hover:text-[#e8edf4] hover:bg-[#111822]")}>
-                <Icon className="h-3.5 w-3.5" />{tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* ── ChipTabs ── */}
+        <ChipTabs
+          tabs={TABS.map((tab) => ({ id: tab.key, label: tab.label, icon: tab.icon }))}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as TabKey)}
+        />
       </div>
 
       {/* ── Tab content ── */}
