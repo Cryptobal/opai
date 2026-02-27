@@ -1781,18 +1781,18 @@ export function CrmInstallationDetailClient({
   const { activeTab, setActiveTab } = useEntityTabs("general");
 
   const tabs: EntityTab[] = [
-    { id: "general", label: "General", icon: <Info className="h-3.5 w-3.5" /> },
-    { id: "account", label: "Cuenta", icon: <AccountIcon className="h-3.5 w-3.5" /> },
-    { id: "deals", label: "Negocios", icon: <Briefcase className="h-3.5 w-3.5" />, count: installation.dealsOfAccount?.length ?? 0 },
-    { id: "quotes", label: "Cotizaciones", icon: <FileText className="h-3.5 w-3.5" />, count: installation.quotesInstalacion?.length ?? 0 },
-    { id: "staffing", label: "Puestos", icon: <Users className="h-3.5 w-3.5" /> },
-    { id: "refuerzos", label: "Refuerzos", icon: <Shield className="h-3.5 w-3.5" />, count: installation.refuerzos?.length ?? 0 },
-    { id: "dotacion", label: "Dotación", icon: <ClipboardList className="h-3.5 w-3.5" /> },
-    { id: "marcacion", label: "Marcación", icon: <QrCode className="h-3.5 w-3.5" /> },
-    { id: "rendiciones", label: "Rendiciones", icon: <Receipt className="h-3.5 w-3.5" /> },
-    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: <Package className="h-3.5 w-3.5" /> }] : []),
-    { id: "notes", label: "Notas", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
-    { id: "files", label: "Archivos", icon: <FileText className="h-3.5 w-3.5" /> },
+    { id: "general", label: "General", icon: Info },
+    { id: "account", label: "Cuenta", icon: AccountIcon },
+    { id: "deals", label: "Negocios", icon: Briefcase, count: installation.dealsOfAccount?.length ?? 0 },
+    { id: "quotes", label: "Cotizaciones", icon: FileText, count: installation.quotesInstalacion?.length ?? 0 },
+    { id: "staffing", label: "Puestos", icon: Users },
+    { id: "refuerzos", label: "Refuerzos", icon: Shield, count: installation.refuerzos?.length ?? 0 },
+    { id: "dotacion", label: "Dotación", icon: ClipboardList },
+    { id: "marcacion", label: "Marcación", icon: QrCode },
+    { id: "rendiciones", label: "Rendiciones", icon: Receipt },
+    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
+    { id: "notes", label: "Notas", icon: MessageSquareText },
+    { id: "files", label: "Archivos", icon: FileText },
   ];
 
   const headerActions: EntityHeaderAction[] = [

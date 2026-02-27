@@ -557,22 +557,22 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const { activeTab, setActiveTab } = useEntityTabs("datos");
 
   const tabs: EntityTab[] = [
-    { id: "datos", label: "Datos", icon: <Info className="h-3.5 w-3.5" /> },
-    { id: "asignacion", label: "Asignación", icon: <MapPin className="h-3.5 w-3.5" /> },
-    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: <Shirt className="h-3.5 w-3.5" /> }] : []),
-    { id: "marcacion", label: "Marcación", icon: <QrCode className="h-3.5 w-3.5" /> },
-    { id: "contratos", label: "Contratos", icon: <FileText className="h-3.5 w-3.5" /> },
-    { id: "estructura-sueldo", label: "Sueldo", icon: <Receipt className="h-3.5 w-3.5" /> },
-    { id: "liquidaciones", label: "Liquidaciones", icon: <Landmark className="h-3.5 w-3.5" /> },
-    { id: "eventos-laborales", label: "Eventos", icon: <Gavel className="h-3.5 w-3.5" /> },
-    { id: "documentos", label: "Documentos", icon: <FileText className="h-3.5 w-3.5" /> },
-    { id: "docs-vinculados", label: "Docs vinculados", icon: <Link2 className="h-3.5 w-3.5" /> },
-    { id: "communication", label: "Comunicación", icon: <Mail className="h-3.5 w-3.5" /> },
-    { id: "comentarios", label: "Comentarios", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
-    { id: "dias-trabajados", label: "Días", icon: <CalendarDays className="h-3.5 w-3.5" /> },
-    { id: "turnos-extra", label: "Turnos extra", icon: <CalendarPlus className="h-3.5 w-3.5" /> },
-    ...(personaAdminId ? [{ id: "rendiciones" as const, label: "Rendiciones", icon: <Receipt className="h-3.5 w-3.5" /> }] : []),
-    { id: "historial", label: "Historial", icon: <History className="h-3.5 w-3.5" /> },
+    { id: "datos", label: "Datos", icon: Info },
+    { id: "asignacion", label: "Asignación", icon: MapPin },
+    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Shirt }] : []),
+    { id: "marcacion", label: "Marcación", icon: QrCode },
+    { id: "contratos", label: "Contratos", icon: FileText },
+    { id: "estructura-sueldo", label: "Sueldo", icon: Receipt },
+    { id: "liquidaciones", label: "Liquidaciones", icon: Landmark },
+    { id: "eventos-laborales", label: "Eventos", icon: Gavel },
+    { id: "documentos", label: "Documentos", icon: FileText },
+    { id: "docs-vinculados", label: "Docs vinculados", icon: Link2 },
+    { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "comentarios", label: "Comentarios", icon: MessageSquareText },
+    { id: "dias-trabajados", label: "Días", icon: CalendarDays },
+    { id: "turnos-extra", label: "Turnos extra", icon: CalendarPlus },
+    ...(personaAdminId ? [{ id: "rendiciones" as const, label: "Rendiciones", icon: Receipt }] : []),
+    { id: "historial", label: "Historial", icon: History },
   ];
 
   // ── Record actions ──
