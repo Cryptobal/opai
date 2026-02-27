@@ -1153,11 +1153,11 @@ export function CrmDealDetailClient({
               actions={
                 <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
                   {dc.role !== "primary" && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" onClick={() => markPrimary(c.id)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" aria-label="Marcar como principal" onClick={() => markPrimary(c.id)}>
                       <Star className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular" onClick={() => removeDealContact(c.id)}>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular contacto" aria-label="Desvincular contacto" onClick={() => removeDealContact(c.id)}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>

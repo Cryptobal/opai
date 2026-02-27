@@ -691,7 +691,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
             <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Más opciones" title="Más opciones">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -750,6 +750,8 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
             className="absolute right-1.5 bottom-1.5 h-7 w-7 text-muted-foreground hover:text-primary"
             onClick={createNote}
             disabled={sending || !newNote.trim()}
+            aria-label="Enviar nota"
+            title="Enviar nota"
           >
             {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
