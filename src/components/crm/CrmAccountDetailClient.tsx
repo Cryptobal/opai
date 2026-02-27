@@ -107,6 +107,7 @@ type InstallationRow = {
 type QuoteRow = {
   id: string;
   code: string;
+  name?: string | null;
   status: string;
   clientName?: string | null;
   monthlyCost: number | string;
