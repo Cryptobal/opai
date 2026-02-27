@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
-import { CrmConfigClient } from "@/components/crm/CrmConfigClient";
+import { CrmConfigTabs } from "@/components/crm/CrmConfigTabs";
 import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
@@ -38,10 +38,10 @@ export default async function CrmConfigPage() {
         backHref="/opai/configuracion"
         backLabel="Configuración"
       />
-      <CrmConfigClient
+      <CrmConfigTabs
         initialStages={stages}
         initialFields={fields}
-        extraSections={<FollowUpConfigSection className="lg:col-span-2" />}
+        followUpSection={<FollowUpConfigSection />}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
-import { OpsConfigClient } from "@/components/ops/OpsConfigClient";
+import { OpsConfigTabs } from "@/components/ops/OpsConfigTabs";
 
 export default async function OpsConfigPage() {
   const session = await auth();
@@ -21,7 +21,7 @@ export default async function OpsConfigPage() {
         backHref="/opai/configuracion"
         backLabel="Configuración"
       />
-      <OpsConfigClient />
+      <OpsConfigTabs />
     </div>
   );
 }

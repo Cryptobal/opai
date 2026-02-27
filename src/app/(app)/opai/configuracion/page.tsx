@@ -23,6 +23,7 @@ import {
   Ticket,
   Shield,
 } from "lucide-react";
+import { ConfigSearch } from "@/components/configuracion/ConfigSearch";
 
 type ConfigItem = {
   submodule: string;
@@ -211,6 +212,8 @@ export default async function ConfiguracionPage() {
       />
 
       <div className="space-y-6 min-w-0">
+        <ConfigSearch />
+
         <div className="rounded-xl border border-border bg-card/70 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2">
             {visibleSections.map((section) => (
