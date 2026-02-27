@@ -118,6 +118,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [financialError, setFinancialError] = useState<string | null>(null);
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [quoteForm, setQuoteForm] = useState({
+    name: "",
     clientName: "",
     validUntil: "",
     notes: "",
@@ -371,6 +372,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   useEffect(() => {
     if (!quote) return;
     setQuoteForm({
+      name: quote.name || "",
       clientName: quote.clientName || "",
       validUntil: formatDateInput(quote.validUntil),
       notes: quote.notes || "",
@@ -548,6 +550,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: quoteForm.name || null,
           clientName: quoteForm.clientName,
           validUntil: quoteForm.validUntil || null,
           notes: quoteForm.notes,
@@ -965,6 +968,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold truncate">{quote.code}</h1>
+            {quote.name && <span className="text-sm font-medium truncate text-foreground/80">— {quote.name}</span>}
             <Badge variant="outline" className="text-[10px] h-5 shrink-0">
               {quote.status}
             </Badge>
@@ -1221,6 +1225,20 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* ── Quote name (optional identifier) ── */}
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
+            <Input
+              value={quoteForm.name}
+              onChange={(e) => {
+                setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
+                setQuoteDirty(true);
+              }}
+              placeholder="Ej: Propuesta guardias planta norte"
+              className="h-8 bg-background text-xs"
+            />
+          </div>
 
           {/* ── Date + Currency in a single compact row ── */}
           <div className="flex items-end gap-2">
@@ -1665,7 +1683,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
                   <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
                   <div className="text-right text-[10px] text-gray-600">
-                    <p className="font-bold text-xs text-black">{quote.code}</p>
+                    <p className="font-bold text-xs text-black">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
                     <p>{quote.clientName || "Cliente"}</p>
                     {(() => {
                       const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;

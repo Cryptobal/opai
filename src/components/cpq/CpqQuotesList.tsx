@@ -68,7 +68,7 @@ export function CpqQuotesList({ quotes, loading }: CpqQuotesListProps) {
           <Card className="flex items-center justify-between gap-3 p-3 hover:bg-muted/20">
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold">{quote.code}</p>
+                <p className="text-sm font-semibold">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
                 <Badge className={`text-xs border ${statusStyle(quote.status)}`}>
                   <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70" />
                   <span className="ml-2">{statusLabel(quote.status)}</span>

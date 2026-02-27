@@ -639,7 +639,7 @@ export function CrmContactDetailClient({
                   <CrmRelatedRecordCard
                     key={q.id}
                     module="quotes"
-                    title={q.code}
+                    title={q.name ? `${q.code} — ${q.name}` : q.code}
                     subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
                     meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
                     badge={{ label: q.status, variant: "secondary" }}

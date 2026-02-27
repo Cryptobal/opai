@@ -706,7 +706,7 @@ export function CrmDealDetailClient({
                   : "sin fecha";
                 return (
                   <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
-                    {`${quoteInfo.code} · ${quoteDateLabel} · ${formatQuoteAmounts(
+                    {`${quoteInfo.code}${quoteInfo.name ? ` — ${quoteInfo.name}` : ""} · ${quoteDateLabel} · ${formatQuoteAmounts(
                       quoteInfo
                     )}`}
                   </SelectItem>
@@ -1056,7 +1056,7 @@ export function CrmDealDetailClient({
             <Label>Cotización</Label>
             <SearchableSelect
               value={selectedQuoteId}
-              options={quotes.map((q) => ({ id: q.id, label: `${q.code} · ${q.clientName || "Sin cliente"}` }))}
+              options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.name ? ` — ${q.name}` : ""} · ${q.clientName || "Sin cliente"}` }))}
               placeholder="Selecciona cotización"
               disabled={linking}
               onChange={setSelectedQuoteId}
@@ -1087,7 +1087,7 @@ export function CrmDealDetailClient({
             <CrmRelatedRecordCard
               key={quote.id}
               module="quotes"
-              title={info?.code || "CPQ"}
+              title={info?.name ? `${info.code} — ${info.name}` : info?.code || "CPQ"}
               subtitle={subtitleParts}
               meta={formatQuoteAmounts(info)}
               badge={{ label: statusLabel, variant: statusVariant as any }}

@@ -67,6 +67,7 @@ export interface CpqQuote {
   id: string;
   tenantId: string;
   code: string;
+  name?: string | null;
   status: CpqQuoteStatus;
   clientName?: string | null;
   validUntil?: string | null;

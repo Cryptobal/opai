@@ -117,6 +117,7 @@ export default async function CrmInstallationDetailPage({
       select: {
         id: true,
         code: true,
+        name: true,
         status: true,
         totalPositions: true,
         totalGuards: true,

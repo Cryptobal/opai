@@ -29,6 +29,7 @@ export default async function CrmCotizacionesPage() {
       select: {
         id: true,
         code: true,
+        name: true,
         status: true,
         clientName: true,
         monthlyCost: true,
@@ -90,6 +91,7 @@ export default async function CrmCotizacionesPage() {
       return {
         id: q.id,
         code: q.code,
+        name: q.name,
         status: q.status,
         clientName: q.clientName,
         monthlyCost: q.monthlyCost,

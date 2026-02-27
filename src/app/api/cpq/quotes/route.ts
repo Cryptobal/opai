@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const tenantId = ctx.tenantId;
     const body = await request.json();
 
+    const name = body?.name?.trim() || null;
     const clientName = body?.clientName?.trim() || null;
     const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
     const notes = body?.notes?.trim() || null;
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId,
             code,
+            name,
             status: "draft",
             clientName,
             validUntil,

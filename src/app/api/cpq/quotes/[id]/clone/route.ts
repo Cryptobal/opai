@@ -64,6 +64,7 @@ export async function POST(
         data: {
           tenantId,
           code,
+          name: source.name ? `${source.name} (copia)` : null,
           status: "draft",
           clientName: source.clientName,
           validUntil: source.validUntil,

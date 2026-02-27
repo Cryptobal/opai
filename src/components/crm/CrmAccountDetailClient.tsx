@@ -845,7 +845,7 @@ export function CrmAccountDetailClient({
                   <CrmRelatedRecordCard
                     key={q.id}
                     module="quotes"
-                    title={q.code}
+                    title={q.name ? `${q.code} — ${q.name}` : q.code}
                     subtitle={q.clientName || undefined}
                     meta={formatCLP(q.monthlyCost)}
                     badge={{ label: q.status, variant: "secondary" }}

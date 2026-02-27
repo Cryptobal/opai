@@ -19,6 +19,7 @@ import { toast } from "sonner";
 type QuoteRow = {
   id: string;
   code: string;
+  name?: string | null;
   status: string;
   clientName?: string | null;
   monthlyCost: string | number;
@@ -90,7 +91,7 @@ export function CrmCotizacionesClient({
         const matchesAccount = quote.clientName?.toLowerCase() === accounts.find((a) => a.id === accountFilter)?.name.toLowerCase();
         if (!matchesAccount) return false;
       }
-      if (q && !`${quote.code} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
+      if (q && !`${quote.code} ${quote.name || ""} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
 
@@ -216,6 +217,7 @@ function QuoteListRow({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium">{quote.code}</span>
+          {quote.name && <span className="text-sm text-foreground truncate">{quote.name}</span>}
           <Badge variant="outline" className={status.className}>
             {status.label}
           </Badge>
@@ -270,8 +272,11 @@ function QuoteCardItem({ quote, ufValue }: { quote: QuoteRow; ufValue: number })
           {status.label}
         </Badge>
       </div>
+      {quote.name && (
+        <p className="text-sm font-medium truncate">{quote.name}</p>
+      )}
       {quote.dealTitle && (
-        <p className="text-sm font-medium truncate">{quote.dealTitle}</p>
+        <p className="text-sm truncate text-foreground">{quote.dealTitle}</p>
       )}
       <p className="text-xs text-muted-foreground truncate">
         {quote.accountName || quote.clientName || "Sin cliente"}

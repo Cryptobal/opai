@@ -786,6 +786,7 @@ model CpqQuote {
   id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId       String    @map("tenant_id")
   code           String    @unique @map("code")
+  name           String?   @map("name")
   status         String    @default("draft")
   clientName     String?   @map("client_name")
   validUntil     DateTime? @map("valid_until") @db.Date

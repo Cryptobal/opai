@@ -66,6 +66,7 @@ export default async function CrmDealDetailPage({
       select: {
         id: true,
         code: true,
+        name: true,
         clientName: true,
         status: true,
         monthlyCost: true,
