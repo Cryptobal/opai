@@ -705,7 +705,14 @@ export function CpqQuoteCosts({
   const holidayTotalFactor = 0.5 * holidayMonthlyFactor * holidayCommercialFactor;
 
   const costForm = loading ? (
-    <div className="text-sm text-muted-foreground">Cargando...</div>
+    <div className="space-y-2 py-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <div className="h-3 w-32 animate-pulse rounded bg-muted/50" />
+          <div className="h-3 w-20 animate-pulse rounded bg-muted/50" />
+        </div>
+      ))}
+    </div>
   ) : (
     <>
       <div className="space-y-2 text-xs">

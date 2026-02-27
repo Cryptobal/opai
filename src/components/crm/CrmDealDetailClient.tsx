@@ -1146,7 +1146,7 @@ export function CrmDealDetailClient({
               key={dc.id}
               module="contacts"
               title={`${c.firstName} ${c.lastName}`.trim()}
-              subtitle={c.roleTitle || "Sin cargo"}
+              subtitle={c.roleTitle || "—"}
               meta={c.email || undefined}
               badge={dc.role === "primary" ? { label: "Principal", variant: "default" } : undefined}
               href={`/crm/contacts/${c.id}`}

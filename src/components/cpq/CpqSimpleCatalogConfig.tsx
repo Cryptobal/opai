@@ -269,8 +269,13 @@ export function CpqSimpleCatalogConfig({
 
         {/* Items list */}
         {loading ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">
-            Cargando...
+          <div className="space-y-2 py-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between px-2">
+                <div className="h-3 w-28 animate-pulse rounded bg-muted/50" />
+                <div className="h-3 w-16 animate-pulse rounded bg-muted/50" />
+              </div>
+            ))}
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">

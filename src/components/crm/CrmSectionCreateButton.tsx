@@ -22,6 +22,7 @@ export function CrmSectionCreateButton({
       variant="ghost"
       className={`h-8 w-8 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border-0 ${className ?? ""}`}
       aria-label="Agregar"
+      title="Agregar"
       {...rest}
     >
       <Plus className="h-4 w-4" />

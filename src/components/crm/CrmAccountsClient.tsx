@@ -211,7 +211,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" title="Nueva cuenta">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Nueva cuenta</span>
               </Button>
@@ -371,7 +371,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           <div className="min-w-0">
                             <p className="font-medium text-sm">{account.name}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
+                              {[account.rut, account.industry].filter(Boolean).join(" · ") || "—"}
                             </p>
                             {account.legalRepresentativeName && (
                               <p className="mt-0.5 text-xs text-muted-foreground">
