@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
@@ -429,17 +430,16 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                 </option>
               ))}
             </select>
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            <SearchableSelect
               value={form.nacionalidad}
-              onChange={(e) => setForm((prev) => ({ ...prev, nacionalidad: e.target.value }))}
-            >
-              {PAISES_AMERICA.map((pais) => (
-                <option key={pais} value={pais}>
-                  {pais}
-                </option>
-              ))}
-            </select>
+              options={PAISES_AMERICA.map((pais) => ({
+                id: pais,
+                label: pais,
+              }))}
+              placeholder="Nacionalidad"
+              emptyText="Sin resultados"
+              onChange={(id) => setForm((prev) => ({ ...prev, nacionalidad: id }))}
+            />
             <select
               className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.afp}
@@ -518,18 +518,16 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
                 />
               </>
             ) : null}
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            <SearchableSelect
               value={form.bankCode}
-              onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-            >
-              <option value="">Banco *</option>
-              {CHILE_BANKS.map((bank) => (
-                <option key={bank.code} value={bank.code}>
-                  {bank.name}
-                </option>
-              ))}
-            </select>
+              options={CHILE_BANKS.map((bank) => ({
+                id: bank.code,
+                label: bank.name,
+              }))}
+              placeholder="Banco *"
+              emptyText="Sin bancos"
+              onChange={(id) => setForm((prev) => ({ ...prev, bankCode: id }))}
+            />
             <select
               className="h-9 rounded-md border border-border bg-background px-3 text-sm"
               value={form.accountType}

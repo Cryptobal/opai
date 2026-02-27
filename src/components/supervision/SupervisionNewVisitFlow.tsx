@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type NearbyInstallation = {
   id: string;
@@ -318,31 +319,24 @@ export function SupervisionNewVisitFlow() {
 
           <div className="space-y-2">
             <Label>Instalación</Label>
-            <Select
+            <SearchableSelect
               value={selectedInstallationId}
-              onValueChange={setSelectedInstallationId}
+              options={installations.map((inst) => ({
+                id: inst.id,
+                label: inst.name,
+                description: inst.distanceM != null ? `${inst.distanceM}m` : undefined,
+              }))}
+              placeholder={
+                loadingInstallations
+                  ? "Cargando instalaciones..."
+                  : installations.length === 0
+                    ? "No tienes instalaciones asignadas"
+                    : "Selecciona instalación"
+              }
+              emptyText="Sin instalaciones"
               disabled={loadingInstallations || installations.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    loadingInstallations
-                      ? "Cargando instalaciones..."
-                      : installations.length === 0
-                        ? "No tienes instalaciones asignadas"
-                        : "Selecciona instalación"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {installations.map((inst) => (
-                  <SelectItem key={inst.id} value={inst.id}>
-                    {inst.name}
-                    {inst.distanceM != null ? ` (${inst.distanceM}m)` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={setSelectedInstallationId}
+            />
             {!loadingInstallations && installations.length === 0 && (
               <p className="text-xs text-amber-600">
                 No tienes instalaciones asignadas. Contacta al administrador para que te asigne instalaciones en Supervisión.
