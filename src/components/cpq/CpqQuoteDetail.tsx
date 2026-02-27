@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Stepper } from "@/components/opai";
+import { QuoteStepIndicator } from "@/components/cpq/QuoteStepIndicator";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
@@ -47,9 +47,13 @@ import {
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
+import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
+import { QuoteNotesDrawer } from "@/components/cpq/QuoteNotesDrawer";
+import { NotesSection } from "@/components/crm/NotesSection";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
+  currentUserId?: string;
 }
 
 type CrmInstallationOption = {
@@ -85,7 +89,7 @@ function roundUpToNice(value: number): number {
   return Math.ceil(value / 100000) * 100000;
 }
 
-export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
+export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) {
   const router = useRouter();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
   const [positions, setPositions] = useState<CpqPosition[]>([]);
@@ -251,7 +255,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   };
 
   const isLocked = quote?.status === "sent";
-  const steps = ["Datos", "Puestos", "Costos", "Resumen", "Documento"];
+  const steps = ["Datos", "Puestos", "Costos", "Resumen", "Enviar"];
   const stepIcons = [FileText, Users, Layers, Calculator, Send];
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
@@ -944,7 +948,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   }
 
   return (
-    <div className="space-y-2 pb-14">
+    <div className="space-y-2 pb-20 lg:pb-14">
       {/* ── Compact header ── */}
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
@@ -1020,34 +1024,23 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         </div>
       </div>
 
-      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} />
+      <QuoteStepIndicator steps={steps} currentStep={activeStep} onStepClick={goToStep} />
 
-      {/* ── KPI strip compacta (sin scroll horizontal) ── */}
-      <div className="grid grid-cols-2 gap-1.5 py-1 sm:grid-cols-5">
-        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-          <p className="text-[10px] uppercase text-muted-foreground">Puestos</p>
-          <p className="text-xs font-bold font-mono">{positions.length}</p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-          <p className="text-[10px] uppercase text-muted-foreground">Guardias</p>
-          <p className="text-xs font-bold font-mono">{stats.totalGuards}</p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-          <p className="text-[10px] uppercase text-muted-foreground">Costo</p>
-          <p className="text-xs font-bold font-mono truncate">{formatCurrency(monthlyTotal)}</p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-          <p className="text-[10px] uppercase text-muted-foreground">Margen</p>
-          <p className="text-xs font-bold font-mono">{formatNumber(marginPct, { minDecimals: 1, maxDecimals: 1 })}%</p>
-        </div>
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 col-span-2 sm:col-span-1">
-          <p className="text-[10px] uppercase text-emerald-600 dark:text-emerald-400">Venta</p>
-          <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">{formatCLP(salePriceMonthly)}</p>
-          {ufValue && ufValue > 0 && (
-            <p className="text-[10px] font-semibold text-emerald-600/70 dark:text-emerald-400/70 truncate">{formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}</p>
-          )}
-        </div>
-      </div>
+      {/* ── 2-column layout: main content + desktop sidebar ── */}
+      <div className="lg:grid lg:grid-cols-[1fr_340px] lg:gap-6">
+      {/* ── Main column ── */}
+      <div className="space-y-2 min-w-0">
+
+      {/* ── KPI bar colapsable (mobile only) ── */}
+      <QuoteKpiBar
+        positionsCount={positions.length}
+        totalGuards={stats.totalGuards}
+        monthlyCost={monthlyTotal}
+        marginPct={marginPct}
+        salePriceMonthly={salePriceMonthly}
+        ufValue={ufValue}
+        className="lg:hidden"
+      />
 
       {activeStep === 0 && (
         <div className="space-y-2">
@@ -1427,6 +1420,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             contractMonths={contractMonths}
             positions={positions}
             monthlyHours={monthlyHours}
+            ufValue={ufValue}
           />
 
           {/* ── Financials: compact 2-col side-by-side ── */}
@@ -1597,39 +1591,9 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         </div>
       )}
 
-      {/* ── Step 5: Documento ── */}
+      {/* ── Step 5: Enviar ── */}
       {activeStep === 4 && (
-        <div className="space-y-2" inert={isLocked}>
-          {/* ── Action bar: PDF + Send (always visible, top) ── */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs px-3"
-              onClick={handleDownloadPdf}
-              disabled={downloadingPdf || !quote}
-            >
-              <Download className="h-3 w-3" />
-              {downloadingPdf ? "Generando..." : "PDF"}
-            </Button>
-            <SendCpqQuoteModal
-              quoteId={quoteId}
-              quoteCode={quote.code}
-              clientName={quote.clientName || undefined}
-              disabled={!quote || positions.length === 0 || quote.status === "sent"}
-              hasAccount={!!crmContext.accountId}
-              hasContact={!!crmContext.contactId}
-              hasDeal={!!crmContext.dealId}
-              contactName={(() => {
-                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-              })()}
-              contactEmail={(() => {
-                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                return c?.email || undefined;
-              })()}
-            />
-          </div>
+        <div className="space-y-3" inert={isLocked}>
 
           {/* ── AI sections as tabs ── */}
           <Card className="p-2.5 space-y-2">
@@ -1826,27 +1790,97 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
             )}
           </div>
+
+          {/* ── Action buttons ── */}
+          <div className="space-y-2 pt-1">
+            <SendCpqQuoteModal
+              quoteId={quoteId}
+              quoteCode={quote.code}
+              clientName={quote.clientName || undefined}
+              disabled={!quote || positions.length === 0 || quote.status === "sent"}
+              hasAccount={!!crmContext.accountId}
+              hasContact={!!crmContext.contactId}
+              hasDeal={!!crmContext.dealId}
+              contactName={(() => {
+                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+              })()}
+              contactEmail={(() => {
+                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                return c?.email || undefined;
+              })()}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-9 gap-1.5 text-xs"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || !quote}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="sticky bottom-0 z-20 -mx-4 border-t border-border/60 bg-background/95 px-4 py-1.5 backdrop-blur">
-        <div className="flex items-center justify-between gap-2">
+      </div>{/* end main column */}
+
+      {/* ── Desktop sidebar (hidden on mobile) ── */}
+      <aside className="hidden lg:block space-y-4 sticky top-16 self-start">
+        {/* KPI bar — always expanded on desktop */}
+        <QuoteKpiBar
+          positionsCount={positions.length}
+          totalGuards={stats.totalGuards}
+          monthlyCost={monthlyTotal}
+          marginPct={marginPct}
+          salePriceMonthly={salePriceMonthly}
+          ufValue={ufValue}
+          alwaysExpanded
+        />
+
+        {/* Notes — shown directly in sidebar on desktop */}
+        {currentUserId && (
+          <div className="rounded-lg border border-border/60 bg-card/50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border/40">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</span>
+            </div>
+            <div className="p-3 max-h-[400px] overflow-y-auto">
+              <NotesSection entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
+            </div>
+          </div>
+        )}
+      </aside>
+
+      </div>{/* end 2-column grid */}
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/95 px-4 py-2 backdrop-blur lg:sticky lg:bottom-0 lg:left-auto lg:right-auto lg:-mx-4">
+        <div className="flex items-center justify-between gap-3 max-w-screen-xl mx-auto">
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1 px-2 text-xs"
+            className="h-9 gap-1 px-3 text-xs"
             onClick={() => void goToStep(activeStep - 1)}
             disabled={activeStep === 0}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Atrás</span>
+            Anterior
           </Button>
-          <span className="text-[11px] text-muted-foreground">
+          {/* Notes drawer button — mobile only (desktop has sidebar) */}
+          {currentUserId ? (
+            <span className="lg:hidden">
+              <QuoteNotesDrawer quoteId={quoteId} currentUserId={currentUserId} />
+            </span>
+          ) : null}
+          <span className={cn("text-[11px] text-muted-foreground", currentUserId ? "hidden lg:inline" : "")}>
             {activeStep + 1}/{steps.length}
           </span>
           <Button
             size="sm"
-            className="h-8 gap-1 px-3 text-xs"
+            className={cn(
+              "h-9 gap-1 px-4 text-xs font-semibold",
+              !isLastStep && "bg-emerald-600 hover:bg-emerald-700 text-white"
+            )}
             onClick={() => {
               if (isLastStep) {
                 router.push("/crm/cotizaciones");

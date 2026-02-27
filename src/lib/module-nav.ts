@@ -292,6 +292,9 @@ function getCrmDetailSectionItems(pathname: string): BottomNavItem[] | null {
   );
   if (!match) return null;
 
+  // Cotizaciones detail uses its own wizard navigation — hide bottom nav
+  if (match[1] === "cotizaciones") return [];
+
   const moduleKey = CRM_MODULE_MAP[match[1]];
   if (!moduleKey) return null;
 
