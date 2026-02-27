@@ -57,10 +57,7 @@ export default function AsignacionSection({ asignaciones }: AsignacionSectionPro
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 p-4 text-center">
-          <p className="text-sm text-amber-400">Sin asignación activa</p>
-          <p className="text-xs text-muted-foreground mt-1">Este guardia no está asignado a ningún puesto.</p>
-        </div>
+        <p className="text-sm text-amber-400 py-1">Sin asignación activa — guardia no asignado a ningún puesto.</p>
       )}
 
       {history.length > 0 && (

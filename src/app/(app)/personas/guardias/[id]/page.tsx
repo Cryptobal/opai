@@ -4,7 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
-import { PageHeader } from "@/components/opai";
 import { GuardiaDetailClient } from "@/components/ops";
 
 export default async function GuardiaDetailPage({
@@ -86,11 +85,7 @@ export default async function GuardiaDetailPage({
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title={`Ficha persona · ${guardia.persona.firstName} ${guardia.persona.lastName}`}
-        description="Datos personales, ficha de documentos (antecedentes, OS-10, cédula, currículum), cuentas bancarias, comunicaciones e historial."
-      />
+    <div className="min-w-0">
       <GuardiaDetailClient
         initialGuardia={JSON.parse(JSON.stringify(enrichedGuardia))}
         asignaciones={JSON.parse(JSON.stringify(asignaciones))}

@@ -46,8 +46,8 @@ export function FilterPills({ options, active, onChange }: FilterPillsProps) {
         </Select>
       </div>
 
-      {/* Desktop: Pills horizontales */}
-      <div className="hidden md:flex gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
+      {/* Desktop: Pills horizontales (flex-wrap, no horizontal scroll) */}
+      <div className="hidden md:flex gap-1.5 flex-wrap shrink-0">
         {options.map((opt) => {
           const Icon = opt.icon;
           const isActive = active === opt.key;
