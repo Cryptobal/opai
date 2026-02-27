@@ -18,6 +18,7 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { Users, AlertTriangle, Building2, TrendingUp } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -186,6 +187,7 @@ export default async function CRMPage() {
           <KpiCard
             title="Leads este mes"
             value={leadsThisMonth}
+            icon={<Users className="h-4 w-4" />}
             trend={leadsMonthDelta > 0 ? 'up' : leadsMonthDelta < 0 ? 'down' : undefined}
             trendValue={leadsMonthDelta !== 0 ? `${leadsMonthDelta > 0 ? '+' : ''}${leadsMonthDelta}%` : undefined}
             description={`${leadsPrevMonth} mes anterior`}
@@ -195,6 +197,7 @@ export default async function CRMPage() {
         <KpiCard
           title="Estado leads"
           value={`${leadsPending + leadsInReview}`}
+          icon={<AlertTriangle className="h-4 w-4" />}
           description={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
           variant="amber"
         />
@@ -202,6 +205,7 @@ export default async function CRMPage() {
           <KpiCard
             title="Portafolio activo"
             value={accountsActive}
+            icon={<Building2 className="h-4 w-4" />}
             description={`${installationsActive} instalaciones`}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
@@ -210,6 +214,7 @@ export default async function CRMPage() {
           <KpiCard
             title="Pipeline abierto"
             value={openDealsCount}
+            icon={<TrendingUp className="h-4 w-4" />}
             description={openDealsAmountFormatted}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
@@ -270,31 +275,30 @@ export default async function CRMPage() {
             <div className="space-y-3">
               {funnel.map((step, i) => {
                 const maxVal = Math.max(1, ...funnel.map((f) => f.value));
-                const widthPct = step.value > 0 ? Math.max(8, (step.value / maxVal) * 100) : 4;
+                const widthPct = step.value > 0 ? Math.max(12, (step.value / maxVal) * 100) : 4;
                 return (
                   <div key={step.label}>
                     <div className="mb-1 flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{step.label}</span>
-                      <div className="flex items-center gap-2">
-                        {step.rate !== null && <span className="text-muted-foreground/50">{step.rate}%</span>}
-                        <span className="font-semibold tabular-nums">{step.value}</span>
-                      </div>
+                      {step.rate !== null && <span className="text-[10px] text-muted-foreground/60 tabular-nums">{step.rate}% conv.</span>}
                     </div>
-                    <div className="h-7 w-full overflow-hidden rounded-md bg-muted/30">
+                    <div className="h-8 w-full overflow-hidden rounded-md bg-muted/30">
                       <div
-                        className="flex h-full items-center rounded-md transition-all"
+                        className="flex h-full items-center rounded-md px-2.5 transition-all"
                         style={{
                           width: `${widthPct}%`,
                           background: i === 0 ? 'rgba(29,185,144,0.2)' : i === 1 ? 'rgba(29,185,144,0.35)' : i === 2 ? 'rgba(29,185,144,0.5)' : 'rgba(29,185,144,0.7)',
                         }}
-                      />
+                      >
+                        <span className="text-xs font-semibold tabular-nums text-foreground">{step.value}</span>
+                      </div>
                     </div>
                   </div>
                 );
               })}
               <div className="mt-4 flex items-center justify-between rounded-lg border border-border/40 px-3 py-2">
                 <span className="text-xs text-muted-foreground">Tasa lead a negocio</span>
-                <span className="text-sm font-semibold text-primary">{leadToDealRate30}%</span>
+                <span className="text-sm font-semibold text-primary tabular-nums">{leadToDealRate30}%</span>
               </div>
             </div>
           </CardContent>
