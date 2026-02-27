@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * DocsClient — Gestión Documental — Refactored
+ *
+ * Desktop: Métricas compactas en fila + table-like rows (~50px)
+ * Mobile: Compact cards (~72px) with tap-to-expand
+ * Filtros: Pills horizontales
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -26,10 +34,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/opai";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
@@ -45,13 +53,35 @@ const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
   renewed: RefreshCw,
 };
 
-function StatusBadge({ status }: { status: string }) {
+/** Dark-mode safe colors per status (the DOC_STATUS_CONFIG ones use light-theme bg/text) */
+const STATUS_COLORS: Record<string, { compact: string; full: string }> = {
+  draft:    { compact: "text-gray-400",    full: "bg-gray-500/15 text-gray-400 border-gray-500/20" },
+  review:   { compact: "text-yellow-400",  full: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20" },
+  approved: { compact: "text-blue-400",    full: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  active:   { compact: "text-emerald-400", full: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  expiring: { compact: "text-orange-400",  full: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
+  expired:  { compact: "text-red-400",     full: "bg-red-500/15 text-red-400 border-red-500/20" },
+  renewed:  { compact: "text-purple-400",  full: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+};
+
+function StatusBadge({ status, compact = false }: { status: string; compact?: boolean }) {
   const config = DOC_STATUS_CONFIG[status];
   if (!config) return <Badge variant="outline">{status}</Badge>;
   const Icon = STATUS_ICONS[status] || FileText;
+  const colors = STATUS_COLORS[status] || { compact: "text-muted-foreground", full: "bg-muted text-muted-foreground border-border" };
+
+  if (compact) {
+    return (
+      <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap ${colors.compact}`}>
+        <Icon className="h-3 w-3" />
+        {config.label}
+      </span>
+    );
+  }
+
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${colors.full}`}
     >
       <Icon className="h-3 w-3" />
       {config.label}
@@ -65,6 +95,13 @@ function getCategoryLabel(module: string, category: string): string {
   const cat = cats.find((c) => c.key === category);
   return cat?.label || category;
 }
+
+const MODULE_FILTER_OPTIONS = [
+  { key: null, label: 'Módulo' },
+  { key: 'crm', label: 'CRM' },
+  { key: 'payroll', label: 'Payroll' },
+  { key: 'legal', label: 'Legal' },
+] as const;
 
 export function DocsClient() {
   const router = useRouter();
@@ -113,10 +150,10 @@ export function DocsClient() {
   const draftCount = statusCounts["draft"] || 0;
 
   const kpis = [
-    { label: "Total", value: totalCount, active: !filterStatus, onClick: () => setFilterStatus(null) },
-    { label: "Activos", value: activeCount, active: filterStatus === "active", onClick: () => setFilterStatus(filterStatus === "active" ? null : "active"), color: "text-emerald-400" },
-    { label: "Por Vencer", value: expiringCount, active: filterStatus === "expiring", onClick: () => setFilterStatus(filterStatus === "expiring" ? null : "expiring"), color: "text-amber-400" },
-    { label: "Borradores", value: draftCount, active: filterStatus === "draft", onClick: () => setFilterStatus(filterStatus === "draft" ? null : "draft"), color: "text-muted-foreground" },
+    { label: "Total", value: totalCount, key: null as string | null, color: "" },
+    { label: "Activos", value: activeCount, key: "active" as string | null, color: "text-emerald-400" },
+    { label: "Por Vencer", value: expiringCount, key: "expiring" as string | null, color: "text-amber-400" },
+    { label: "Borradores", value: draftCount, key: "draft" as string | null, color: "text-muted-foreground" },
   ];
 
   const deleteDocument = async (id: string) => {
@@ -131,24 +168,47 @@ export function DocsClient() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="space-y-4">
+      {/* KPIs — Compact row with separators */}
+      <div className="hidden sm:flex items-stretch rounded-lg border border-border bg-card divide-x divide-border">
         {kpis.map((kpi) => (
           <button
             key={kpi.label}
             type="button"
-            onClick={kpi.onClick}
-            className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
-              kpi.active
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border bg-card hover:border-primary/30"
+            onClick={() => setFilterStatus(filterStatus === kpi.key ? null : kpi.key)}
+            className={`flex-1 py-3 px-4 text-left transition-all hover:bg-accent/30 ${
+              filterStatus === kpi.key
+                ? "bg-primary/5 ring-1 ring-inset ring-primary/30"
+                : ""
             }`}
           >
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               {kpi.label}
             </p>
-            <p className={`text-lg font-semibold font-mono tracking-tight mt-1 ${kpi.color || ""}`}>
+            <p className={`text-2xl font-bold font-mono tracking-tight mt-0.5 ${kpi.color}`}>
+              {kpi.value}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile KPIs */}
+      <div className="sm:hidden grid grid-cols-4 gap-1.5">
+        {kpis.map((kpi) => (
+          <button
+            key={kpi.label}
+            type="button"
+            onClick={() => setFilterStatus(filterStatus === kpi.key ? null : kpi.key)}
+            className={`rounded-lg border py-2.5 px-2 text-center transition-all ${
+              filterStatus === kpi.key
+                ? "border-primary/30 bg-primary/5"
+                : "border-border bg-card"
+            }`}
+          >
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">
+              {kpi.label}
+            </p>
+            <p className={`text-lg font-bold font-mono mt-0.5 ${kpi.color}`}>
               {kpi.value}
             </p>
           </button>
@@ -156,47 +216,34 @@ export function DocsClient() {
       </div>
 
       {/* Actions bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px] max-w-md">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
             type="text"
-            placeholder="Buscar por título, nombre o RUT del guardia..."
+            placeholder="Buscar por título, nombre o RUT..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
           />
         </div>
 
-        {/* Module filter */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Filter className="h-3.5 w-3.5" />
-              {filterModule
-                ? filterModule === "crm"
-                  ? "CRM"
-                  : filterModule === "payroll"
-                  ? "Payroll"
-                  : "Legal"
-                : "Módulo"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setFilterModule(null)}>
-              Todos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterModule("crm")}>
-              CRM
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterModule("payroll")}>
-              Payroll
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterModule("legal")}>
-              Legal
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Module filter pills */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          {MODULE_FILTER_OPTIONS.map((m) => (
+            <button
+              key={m.label}
+              onClick={() => setFilterModule(filterModule === m.key ? null : m.key)}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
+                filterModule === m.key
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50 border border-transparent'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1" />
 
@@ -207,7 +254,7 @@ export function DocsClient() {
           onClick={() => router.push("/opai/documentos/templates")}
         >
           <LayoutTemplate className="h-3.5 w-3.5" />
-          Templates
+          <span className="hidden sm:inline">Templates</span>
         </Button>
 
         <Button
@@ -216,17 +263,18 @@ export function DocsClient() {
           onClick={() => router.push("/opai/documentos/nuevo")}
         >
           <Plus className="h-3.5 w-3.5" />
-          Nuevo Documento
+          <span className="hidden sm:inline">Nuevo Documento</span>
+          <span className="sm:hidden">Nuevo</span>
         </Button>
       </div>
 
       {/* Documents list */}
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
+        <div className="space-y-1">
+          {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="h-20 rounded-lg border border-border bg-card animate-pulse"
+              className="h-12 rounded-md border border-border bg-card animate-pulse"
             />
           ))}
         </div>
@@ -247,83 +295,159 @@ export function DocsClient() {
           }
         />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((doc) => (
-            <div
-              key={doc.id}
-              className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
-              onClick={() => router.push(`/opai/documentos/${doc.id}`)}
-            >
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
+        <>
+          {/* Desktop table header */}
+          <div className="hidden lg:grid lg:grid-cols-[32px_2fr_100px_120px_120px_100px_80px_36px] gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border">
+            <span />
+            <span>Título</span>
+            <span>Módulo</span>
+            <span>Tipo</span>
+            <span>Persona</span>
+            <span>RUT</span>
+            <span>Estado</span>
+            <span />
+          </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold truncate">
-                    {doc.title}
-                  </p>
-                  <StatusBadge status={doc.status} />
-                </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                  <span className="inline-flex items-center gap-1">
-                    <Building2 className="h-3 w-3" />
-                    {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
-                  </span>
-                  {doc.guardiaName && (
-                    <span>
-                      {doc.guardiaName}
-                      {doc.guardiaRut ? ` · RUT ${doc.guardiaRut}` : ""}
-                    </span>
-                  )}
-                  {doc.expirationDate && (
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/opai/documentos/${doc.id}`);
-                    }}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                    Abrir
-                  </DropdownMenuItem>
-                  {canDeleteDocument ? (
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteDocument(doc.id);
-                      }}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Eliminar
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ))}
-        </div>
+          <div className="space-y-[2px] lg:space-y-0">
+            {filtered.map((doc) => (
+              <DocRow
+                key={doc.id}
+                doc={doc}
+                onNavigate={() => router.push(`/opai/documentos/${doc.id}`)}
+                onDelete={() => deleteDocument(doc.id)}
+                canDelete={canDeleteDocument}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────
+   DocRow — Desktop: table row, Mobile: compact card
+   ──────────────────────────────────────────────────────────────── */
+function DocRow({
+  doc,
+  onNavigate,
+  onDelete,
+  canDelete,
+}: {
+  doc: DocDocument;
+  onNavigate: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+}) {
+  return (
+    <>
+      {/* Desktop */}
+      <div
+        className="hidden lg:grid lg:grid-cols-[32px_2fr_100px_120px_120px_100px_80px_36px] gap-3 items-center px-3 py-2.5 rounded-md hover:bg-accent/40 transition-colors duration-150 cursor-pointer group border border-transparent hover:border-border/50"
+        onClick={onNavigate}
+      >
+        <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+          <FileText className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <span className="text-[13px] font-semibold truncate text-foreground" title={doc.title}>
+          {doc.title}
+        </span>
+        <span className="text-[12px] text-muted-foreground uppercase font-mono">
+          {doc.module}
+        </span>
+        <span className="text-[12px] text-muted-foreground truncate">
+          {getCategoryLabel(doc.module, doc.category)}
+        </span>
+        <span className="text-[12px] text-muted-foreground truncate">
+          {doc.guardiaName || '—'}
+        </span>
+        <span className="text-[12px] text-muted-foreground font-mono">
+          {doc.guardiaRut || '—'}
+        </span>
+        <StatusBadge status={doc.status} compact />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="h-7 w-7 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground transition-all"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onNavigate(); }}>
+              <ExternalLink className="h-3.5 w-3.5 mr-2" />
+              Abrir
+            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Eliminar
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Mobile */}
+      <div
+        className="lg:hidden flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card cursor-pointer active:scale-[0.98] transition-transform"
+        onClick={onNavigate}
+      >
+        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <FileText className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-semibold truncate text-foreground">
+              {doc.title}
+            </span>
+            <StatusBadge status={doc.status} compact />
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+            <span className="uppercase font-mono">{doc.module}</span>
+            <span className="text-muted-foreground/30">·</span>
+            <span className="truncate">{getCategoryLabel(doc.module, doc.category)}</span>
+            {doc.guardiaName && (
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span className="truncate">{doc.guardiaName}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/60 shrink-0"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onNavigate(); }}>
+              <ExternalLink className="h-3.5 w-3.5 mr-2" />
+              Abrir
+            </DropdownMenuItem>
+            {canDelete && (
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Eliminar
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
   );
 }

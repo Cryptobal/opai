@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * EditorToolbar — Refactored
+ *
+ * Desktop: Grupos de herramientas con separadores visuales claros
+ * Mobile: Toolbar scrollable horizontal en 1-2 filas
+ * Token button: Destacado en verde primario
+ */
+
 import { type Editor } from "@tiptap/react";
 import { useState } from "react";
 import {
@@ -71,11 +79,8 @@ export function EditorToolbar({
 }: EditorToolbarProps) {
   const [tokenPickerOpen, setTokenPickerOpen] = useState(false);
 
-  // focus sin scroll (evita scroll al ejecutar comandos)
   const focusNoScroll = () => editor.chain().focus(null, { scrollIntoView: false });
 
-  // Ejecutar en mousedown (no click) para preservar la selección del editor.
-  // Al hacer click, el botón roba el foco antes de que se ejecute el comando.
   const ToolbarButton = ({
     onClick,
     active,
@@ -108,7 +113,7 @@ export function EditorToolbar({
   );
 
   const Separator = () => (
-    <div className="w-px h-6 bg-border mx-0.5" />
+    <div className="w-px h-6 bg-border mx-1" />
   );
 
   const setLink = () => {
@@ -138,8 +143,8 @@ export function EditorToolbar({
   };
 
   return (
-    <div className="flex items-center gap-0.5 flex-wrap px-2 py-1.5 bg-muted/30">
-      {/* Tipo de página + Vista previa */}
+    <div className="flex items-center gap-0.5 flex-wrap px-2 py-1.5 bg-muted/30 border-b border-border/50">
+      {/* ── Grupo 1: Formato página + Preview ── */}
       {onPageTypeChange && (
         <Select value={pageType} onValueChange={(v) => onPageTypeChange(v as PageType)}>
           <SelectTrigger className="h-7 w-[100px] text-xs border-border/80">
@@ -163,8 +168,10 @@ export function EditorToolbar({
           <Eye className="h-4 w-4" />
         </button>
       )}
+
       <Separator />
-      {/* Undo / Redo */}
+
+      {/* ── Grupo 2: Undo / Redo ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().undo().run()}
         disabled={!editor.can().undo()}
@@ -182,7 +189,7 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Headings */}
+      {/* ── Grupo 3: Headings ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().toggleHeading({ level: 1 }).run()}
         active={editor.isActive("heading", { level: 1 })}
@@ -207,7 +214,7 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Text formatting */}
+      {/* ── Grupo 4: Formato texto (B I U S) ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().toggleBold().run()}
         active={editor.isActive("bold")}
@@ -243,6 +250,10 @@ export function EditorToolbar({
       >
         <Highlighter className="h-4 w-4" />
       </ToolbarButton>
+
+      <Separator />
+
+      {/* ── Grupo 5: Links ── */}
       <ToolbarButton
         onClick={setLink}
         active={editor.isActive("link")}
@@ -260,7 +271,7 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Alignment */}
+      {/* ── Grupo 6: Alineación ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().setTextAlign("left").run()}
         active={editor.isActive({ textAlign: "left" })}
@@ -292,7 +303,7 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Lists */}
+      {/* ── Grupo 7: Listas ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().toggleBulletList().run()}
         active={editor.isActive("bulletList")}
@@ -310,29 +321,12 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Blocks */}
-      <ToolbarButton
-        onClick={() => focusNoScroll().toggleBlockquote().run()}
-        active={editor.isActive("blockquote")}
-        title="Cita"
-      >
-        <Quote className="h-4 w-4" />
-      </ToolbarButton>
+      {/* ── Grupo 8: Insertar (separador, tabla, columnas, salto de página) ── */}
       <ToolbarButton
         onClick={() => focusNoScroll().setHorizontalRule().run()}
         title="Línea horizontal"
       >
         <Minus className="h-4 w-4" />
-      </ToolbarButton>
-      <ToolbarButton
-        onClick={() =>
-          focusNoScroll()
-            .insertContent([{ type: "pageBreak" }, { type: "paragraph", content: [] }])
-            .run()
-        }
-        title="Salto de página"
-      >
-        <FileOutput className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() =>
@@ -350,9 +344,30 @@ export function EditorToolbar({
           editor.commands.setColumns();
         }}
         active={editor.isActive("columns")}
-        title="2 columnas (izq: firma rep legal, der: firma guardia)"
+        title="2 columnas"
       >
         <Columns2 className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() =>
+          focusNoScroll()
+            .insertContent([{ type: "pageBreak" }, { type: "paragraph", content: [] }])
+            .run()
+        }
+        title="Salto de página"
+      >
+        <FileOutput className="h-4 w-4" />
+      </ToolbarButton>
+
+      <Separator />
+
+      {/* ── Grupo 9: Bloques (cita, código) ── */}
+      <ToolbarButton
+        onClick={() => focusNoScroll().toggleBlockquote().run()}
+        active={editor.isActive("blockquote")}
+        title="Cita"
+      >
+        <Quote className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => focusNoScroll().toggleCodeBlock().run()}
@@ -364,7 +379,7 @@ export function EditorToolbar({
 
       <Separator />
 
-      {/* Token Picker */}
+      {/* ── Grupo especial: Insertar Token (destacado en verde) ── */}
       <DropdownMenu open={tokenPickerOpen} onOpenChange={setTokenPickerOpen}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -373,7 +388,8 @@ export function EditorToolbar({
             className="h-7 gap-1.5 text-xs font-medium border-primary/50 bg-primary/15 text-primary hover:bg-primary/25"
           >
             <Braces className="h-3.5 w-3.5" />
-            Insertar Token
+            <span className="hidden sm:inline">Insertar Token</span>
+            <span className="sm:hidden">Token</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="p-0 w-auto bg-card border-border shadow-xl" sideOffset={4}>

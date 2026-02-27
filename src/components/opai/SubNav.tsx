@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * SubNav — Refactored
+ *
+ * Desktop (sm+): Pills horizontales con iconos
+ * Mobile: Visible (antes estaba oculto con hidden sm:block)
+ * Tab activo: borde verde + fondo sutil
+ */
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -8,7 +16,6 @@ import type { LucideIcon } from "lucide-react";
 export interface SubNavItem {
   href: string;
   label: string;
-  /** Icono opcional — si se pasa, se muestra antes del label */
   icon?: LucideIcon;
 }
 
@@ -17,18 +24,11 @@ interface SubNavProps {
   className?: string;
 }
 
-/**
- * SubNav - Navegación secundaria horizontal reutilizable.
- *
- * Pills scrollables horizontalmente con iconos opcionales.
- * Mobile: oculto (el sidebar drawer maneja la navegación, igual que desktop).
- * Desktop (sm+): visible como pills con icono + label.
- */
 export function SubNav({ items, className }: SubNavProps) {
   const pathname = usePathname();
 
   return (
-    <nav className={cn("mb-6 hidden sm:block", className)}>
+    <nav className={cn("mb-4", className)}>
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
           const isActive =

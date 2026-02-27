@@ -1,10 +1,17 @@
 'use client';
 
 /**
- * Email Status Badge
- * 
- * Muestra el estado actual del email de forma compacta
- * Estados: Delivered, Opened, Clicked, Bounced, Pending
+ * Email Status Badge — Refactored
+ *
+ * Compact mode: inline pill (~20px) for table rows and mobile cards
+ * Full mode: standard badge (~28px) for detail views
+ *
+ * Colores diferenciados:
+ * - Borrador: Gris
+ * - Enviado/Entregado: Verde
+ * - Abierto: Azul
+ * - Clicked: Púrpura
+ * - Bounced: Rojo
  */
 
 import { Mail, MailOpen, MousePointer, AlertCircle, Clock, CheckCircle } from 'lucide-react';
@@ -12,79 +19,87 @@ import { Presentation } from '@prisma/client';
 
 interface EmailStatusBadgeProps {
   presentation: Presentation;
+  compact?: boolean;
 }
 
-export function EmailStatusBadge({ presentation }: EmailStatusBadgeProps) {
-  // Determinar el estado más relevante del email
+export function EmailStatusBadge({ presentation, compact = false }: EmailStatusBadgeProps) {
   const getEmailStatus = () => {
-    // Si rebotó, mostrar error
     if (presentation.status === 'expired') {
       return {
         label: 'Bounced',
         icon: AlertCircle,
-        color: 'bg-red-500/20 text-red-400 border-red-500/30',
-        tooltip: 'Email rebotado',
+        color: compact
+          ? 'text-red-400'
+          : 'bg-red-500/15 text-red-400 border-red-500/20',
       };
     }
 
-    // Si tiene clicks, es el estado más avanzado
     if (presentation.clickCount > 0) {
       return {
         label: 'Clicked',
         icon: MousePointer,
-        color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-        tooltip: `${presentation.clickCount} click${presentation.clickCount > 1 ? 's' : ''} en el email`,
+        color: compact
+          ? 'text-purple-400'
+          : 'bg-purple-500/15 text-purple-400 border-purple-500/20',
       };
     }
 
-    // Si fue abierto
     if (presentation.openCount > 0) {
       return {
         label: 'Abierto',
         icon: MailOpen,
-        color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-        tooltip: `Abierto ${presentation.openCount} vez${presentation.openCount > 1 ? 'es' : ''}`,
+        color: compact
+          ? 'text-blue-400'
+          : 'bg-blue-500/15 text-blue-400 border-blue-500/20',
       };
     }
 
-    // Si fue entregado pero no abierto
     if (presentation.deliveredAt) {
       return {
         label: 'Entregado',
         icon: CheckCircle,
-        color: 'bg-green-500/20 text-green-400 border-green-500/30',
-        tooltip: 'Email entregado',
+        color: compact
+          ? 'text-emerald-400'
+          : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
       };
     }
 
-    // Si fue enviado pero aún no hay confirmación
     if (presentation.emailSentAt) {
       return {
         label: 'Enviado',
         icon: Mail,
-        color: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-        tooltip: 'Email enviado, esperando confirmación',
+        color: compact
+          ? 'text-emerald-400/70'
+          : 'bg-emerald-500/10 text-emerald-400/70 border-emerald-500/15',
       };
     }
 
-    // Draft o no enviado
     return {
       label: 'Borrador',
       icon: Clock,
-      color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      tooltip: 'No enviado',
+      color: compact
+        ? 'text-muted-foreground'
+        : 'bg-muted text-muted-foreground border-border',
     };
   };
 
   const status = getEmailStatus();
   const Icon = status.icon;
 
+  if (compact) {
+    return (
+      <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap ${status.color}`}>
+        <Icon className="w-3 h-3" />
+        {status.label}
+      </span>
+    );
+  }
+
   return (
     <div
-      className={`inline-flex h-9 items-center gap-2 rounded-md border ${status.color} px-3 text-xs font-medium transition-all min-w-[96px] justify-center`}
-      title={status.tooltip}
+      className={`inline-flex h-7 items-center gap-1.5 rounded-md border ${status.color} px-2.5 text-[11px] font-semibold transition-all`}
     >
-      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+      <Icon className="w-3 h-3 flex-shrink-0" />
       <span className="whitespace-nowrap">{status.label}</span>
     </div>
   );
