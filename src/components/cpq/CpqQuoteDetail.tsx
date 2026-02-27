@@ -981,26 +981,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               {changingStatus ? "..." : "Enviada"}
             </Button>
           )}
-          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="PDF">
-            <Download className="h-3.5 w-3.5" />
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="Descargar PDF">
+            {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
-          <SendCpqQuoteModal
-            quoteId={quoteId}
-            quoteCode={quote.code}
-            clientName={quote.clientName || undefined}
-            disabled={!quote || positions.length === 0 || quote.status === "sent"}
-            hasAccount={!!crmContext.accountId}
-            hasContact={!!crmContext.contactId}
-            hasDeal={!!crmContext.dealId}
-            contactName={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-            })()}
-            contactEmail={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c?.email || undefined;
-            })()}
-          />
           {/* Overflow menu for secondary actions */}
           <div className="relative group">
             <Button size="icon" variant="ghost" className="h-7 w-7">
@@ -1791,8 +1774,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             )}
           </div>
 
-          {/* ── Action buttons ── */}
-          <div className="space-y-2 pt-1">
+          {/* ── Action button ── */}
+          <div className="flex pt-2">
             <SendCpqQuoteModal
               quoteId={quoteId}
               quoteCode={quote.code}
@@ -1810,16 +1793,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 return c?.email || undefined;
               })()}
             />
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full h-9 gap-1.5 text-xs"
-              onClick={handleDownloadPdf}
-              disabled={downloadingPdf || !quote}
-            >
-              <Download className="h-3.5 w-3.5" />
-              {downloadingPdf ? "Generando PDF..." : "Descargar PDF"}
-            </Button>
           </div>
         </div>
       )}
