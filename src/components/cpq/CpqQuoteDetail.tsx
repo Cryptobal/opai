@@ -35,6 +35,7 @@ import type {
   CpqQuoteVehicle,
   CpqQuoteInfrastructure,
 } from "@/types/cpq";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -1033,28 +1034,19 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.accountId || "__none__"}
-                  onValueChange={(val) => {
-                    const accountId = val === "__none__" ? "" : val;
-                    const account = crmAccounts.find((a) => a.id === accountId);
-                    saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
+                <SearchableSelect
+                  value={crmContext.accountId || ""}
+                  options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
+                  placeholder="Seleccionar..."
+                  onChange={(val) => {
+                    const account = crmAccounts.find((a) => a.id === val);
+                    saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
                     if (account) {
                       setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
                       setQuoteDirty(true);
                     }
                   }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1063,21 +1055,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.installationId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ installationId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.installationId || ""}
+                  options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmInstallations.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ installationId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1086,21 +1070,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.contactId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ contactId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.contactId || ""}
+                  options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmContacts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ contactId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1109,21 +1085,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <div>
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
               <div className="flex gap-0.5">
-                <Select
-                  value={crmContext.dealId || "__none__"}
-                  onValueChange={(val) => saveCrmContext({ dealId: val === "__none__" ? "" : val })}
+                <SearchableSelect
+                  value={crmContext.dealId || ""}
+                  options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
+                  placeholder="Seleccionar..."
                   disabled={!crmContext.accountId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Seleccionar...</SelectItem>
-                    {crmDeals.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => saveCrmContext({ dealId: val })}
+                />
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
