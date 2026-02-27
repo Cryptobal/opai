@@ -1014,18 +1014,16 @@ function ImportTab({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Cuenta bancaria *</Label>
-              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccionar cuenta..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.bankName} - {a.accountNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedAccount}
+                options={accounts.map((a) => ({
+                  id: a.id,
+                  label: `${a.bankName} - ${a.accountNumber}`,
+                }))}
+                placeholder="Seleccionar cuenta..."
+                emptyText="No se encontraron cuentas"
+                onChange={setSelectedAccount}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Formato</Label>
