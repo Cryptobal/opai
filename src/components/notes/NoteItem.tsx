@@ -39,6 +39,7 @@ import {
   useNotesContext,
   type NoteData,
   type NoteEntityRefItem,
+  type NoteReactionItem,
   type NoteReactionSummary,
 } from "./NotesProvider";
 
