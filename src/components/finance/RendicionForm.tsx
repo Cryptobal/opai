@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   Receipt,
   Car,
@@ -717,36 +718,17 @@ export function RendicionForm({
           ) : (
             <div>
               <Label htmlFor="item">Ítem</Label>
-              <Select value={itemId || "__none__"} onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Seleccionar ítem (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sin asignar</SelectItem>
-                  {(() => {
-                    // Agrupar por categoría
-                    const grouped: Record<string, typeof items> = {};
-                    items.forEach((item) => {
-                      const cat = item.category || "Otros";
-                      if (!grouped[cat]) grouped[cat] = [];
-                      grouped[cat].push(item);
-                    });
-                    return Object.entries(grouped)
-                      .sort(([a], [b]) => a.localeCompare(b, "es"))
-                      .map(([category, categoryItems]) => (
-                        <div key={category}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</div>
-                          {categoryItems.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name}
-                              {item.code && <span className="text-muted-foreground ml-1">({item.code})</span>}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      ));
-                  })()}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={itemId}
+                options={items.map((item) => ({
+                  id: item.id,
+                  label: item.name + (item.code ? ` (${item.code})` : ""),
+                  description: item.category || undefined,
+                }))}
+                placeholder="Seleccionar ítem (opcional)"
+                emptyText="No se encontraron ítems"
+                onChange={(id) => setItemId(id)}
+              />
             </div>
           )}
 
@@ -754,36 +736,17 @@ export function RendicionForm({
           {installations.length > 0 && (
             <div>
               <Label htmlFor="installation">Instalación (centro de costo)</Label>
-              <Select value={installationId || "__none__"} onValueChange={(v) => setInstallationId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Seleccionar instalación (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sin asignar</SelectItem>
-                  {(() => {
-                    // Agrupar por cliente
-                    const grouped: Record<string, InstallationOption[]> = {};
-                    installations.forEach((inst) => {
-                      const key = inst.accountName;
-                      if (!grouped[key]) grouped[key] = [];
-                      grouped[key].push(inst);
-                    });
-                    return Object.entries(grouped)
-                      .sort(([a], [b]) => a.localeCompare(b, "es"))
-                      .map(([accountName, insts]) => (
-                        <div key={accountName}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{accountName}</div>
-                          {insts.map((inst) => (
-                            <SelectItem key={inst.id} value={inst.id}>
-                              {inst.name}
-                              {inst.address && <span className="text-muted-foreground ml-1 text-xs">— {inst.address}</span>}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      ));
-                  })()}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={installationId}
+                options={installations.map((inst) => ({
+                  id: inst.id,
+                  label: inst.name,
+                  description: [inst.accountName, inst.address].filter(Boolean).join(" — "),
+                }))}
+                placeholder="Seleccionar instalación (opcional)"
+                emptyText="No se encontraron instalaciones"
+                onChange={(id) => setInstallationId(id)}
+              />
             </div>
           )}
 

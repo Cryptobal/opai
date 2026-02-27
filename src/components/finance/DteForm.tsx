@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Plus, Trash2, Loader2, Send, Download } from "lucide-react";
 import {
   Dialog,
@@ -551,24 +552,20 @@ export function DteForm({ availableTypes, accounts }: Props) {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Cuenta / Cliente</Label>
-              <Select
+              <SearchableSelect
                 value={importAccountId}
-                onValueChange={(v) => {
+                options={accounts.map((a) => ({
+                  id: a.id,
+                  label: a.name,
+                  description: a.code,
+                }))}
+                placeholder="Seleccione una cuenta"
+                emptyText="No se encontraron cuentas"
+                onChange={(v) => {
                   setImportAccountId(v);
                   fetchPendingItems(v);
                 }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccione una cuenta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.code} - {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
 
             {loadingItems && (

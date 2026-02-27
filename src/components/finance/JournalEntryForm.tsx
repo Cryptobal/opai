@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Plus, Trash2, Loader2, Save, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 
@@ -227,21 +228,17 @@ export function JournalEntryForm({ accounts, periods }: Props) {
                   {lines.map((line, i) => (
                     <tr key={i} className="border-b border-border/60 last:border-0">
                       <td className="px-3 py-2">
-                        <Select
+                        <SearchableSelect
                           value={line.accountId}
-                          onValueChange={(v) => updateLine(i, "accountId", v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Cuenta..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {accounts.map((a) => (
-                              <SelectItem key={a.id} value={a.id}>
-                                {a.code} - {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          options={accounts.map((a) => ({
+                            id: a.id,
+                            label: `${a.code} - ${a.name}`,
+                            description: a.code,
+                          }))}
+                          placeholder="Cuenta..."
+                          emptyText="No se encontraron cuentas"
+                          onChange={(v) => updateLine(i, "accountId", v)}
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <Input
@@ -326,21 +323,17 @@ export function JournalEntryForm({ accounts, periods }: Props) {
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
                 </div>
-                <Select
+                <SearchableSelect
                   value={line.accountId}
-                  onValueChange={(v) => updateLine(i, "accountId", v)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccionar cuenta..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.code} - {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={accounts.map((a) => ({
+                    id: a.id,
+                    label: `${a.code} - ${a.name}`,
+                    description: a.code,
+                  }))}
+                  placeholder="Seleccionar cuenta..."
+                  emptyText="No se encontraron cuentas"
+                  onChange={(v) => updateLine(i, "accountId", v)}
+                />
                 <Input
                   value={line.description}
                   onChange={(e) => updateLine(i, "description", e.target.value)}
