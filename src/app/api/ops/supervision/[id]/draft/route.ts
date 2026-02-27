@@ -9,7 +9,7 @@ type Params = { id: string };
 
 const draftSchema = z.object({
   wizardStep: z.number().int().min(1).max(5).optional(),
-  draftData: z.record(z.unknown()),
+  draftData: z.record(z.string(), z.unknown()),
 });
 
 export async function PATCH(
