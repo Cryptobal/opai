@@ -1000,7 +1000,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             {overflowMenuOpen && (
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] rounded-md border bg-popover p-1 shadow-md">
+                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] max-w-[calc(100vw-2rem)] rounded-md border bg-popover p-1 shadow-md">
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotización"}
                   </button>

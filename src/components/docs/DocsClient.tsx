@@ -369,7 +369,7 @@ function DocRow({
           <DropdownMenuTrigger asChild>
             <button
               onClick={(e) => e.stopPropagation()}
-              className="h-7 w-7 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground transition-all"
+              className="h-7 w-7 flex items-center justify-center rounded-md sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent text-muted-foreground transition-all"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>

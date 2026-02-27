@@ -306,7 +306,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
             onValueChange={setStatus}
             disabled={!isEditable && doc.status !== "approved"}
           >
-            <SelectTrigger className="w-[160px] h-9 text-sm">
+            <SelectTrigger className="w-full max-w-[160px] h-9 text-sm">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>

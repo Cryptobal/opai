@@ -110,6 +110,11 @@ interface NotesContextValue {
   fetchNotes: () => Promise<void>;
   totalNotes: number;
 
+  // Local state mutations (avoid full refetch)
+  updateNoteInState: (noteId: string, updater: (note: NoteData) => NoteData) => void;
+  removeNoteFromState: (noteId: string) => void;
+  addNoteToState: (note: NoteData) => void;
+
   // Unread
   unreadCount: number;
   hasUnreadMentions: boolean;
@@ -191,6 +196,64 @@ export function NotesProvider({
       setLoading(false);
     }
   }, [contextType, contextId]);
+
+  // ── Local state mutations (avoid full refetch on every action) ──
+  const updateNoteInState = useCallback(
+    (noteId: string, updater: (note: NoteData) => NoteData) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id === noteId) return updater(n);
+          if (n.replies?.length) {
+            const updated = n.replies.map((r) => (r.id === noteId ? updater(r) : r));
+            if (updated !== n.replies) return { ...n, replies: updated };
+          }
+          return n;
+        }),
+      );
+    },
+    [],
+  );
+
+  const removeNoteFromState = useCallback((noteId: string) => {
+    setNotes((prev) => {
+      // Check if it's a root note
+      if (prev.some((n) => n.id === noteId)) {
+        setTotalNotes((t) => t - 1);
+        return prev.filter((n) => n.id !== noteId);
+      }
+      // Otherwise remove from replies
+      return prev.map((n) => {
+        if (!n.replies?.some((r) => r.id === noteId)) return n;
+        return {
+          ...n,
+          replies: n.replies.filter((r) => r.id !== noteId),
+          replyCount: n.replyCount - 1,
+        };
+      });
+    });
+  }, []);
+
+  const addNoteToState = useCallback((note: NoteData) => {
+    if (note.parentNoteId) {
+      // Reply — add to parent's replies
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id === note.parentNoteId) {
+            return { ...n, replies: [...(n.replies ?? []), note], replyCount: n.replyCount + 1 };
+          }
+          return n;
+        }),
+      );
+    } else {
+      // Root note — insert after pinned notes
+      setNotes((prev) => {
+        const firstUnpinned = prev.findIndex((n) => !n.isPinned);
+        if (firstUnpinned === -1) return [...prev, note];
+        return [...prev.slice(0, firstUnpinned), note, ...prev.slice(firstUnpinned)];
+      });
+      setTotalNotes((t) => t + 1);
+    }
+  }, []);
 
   // ── Fetch unread counts ──
   const refreshUnreadCounts = useCallback(async () => {
@@ -341,6 +404,9 @@ export function NotesProvider({
       loading,
       fetchNotes,
       totalNotes,
+      updateNoteInState,
+      removeNoteFromState,
+      addNoteToState,
       unreadCount,
       hasUnreadMentions,
       refreshUnreadCounts,
@@ -354,7 +420,7 @@ export function NotesProvider({
     [
       contextType, contextId, contextLabel, currentUserId, currentUserRole,
       isPanelOpen, openPanel, closePanel, togglePanel,
-      notes, loading, fetchNotes, totalNotes,
+      notes, loading, fetchNotes, totalNotes, updateNoteInState, removeNoteFromState, addNoteToState,
       unreadCount, hasUnreadMentions, refreshUnreadCounts, markContextRead,
       isFollowing, toggleFollow,
       users, groups, specialMentions,

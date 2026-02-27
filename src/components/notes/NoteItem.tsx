@@ -39,6 +39,7 @@ import {
   useNotesContext,
   type NoteData,
   type NoteEntityRefItem,
+  type NoteReactionItem,
   type NoteReactionSummary,
 } from "./NotesProvider";
 
@@ -181,19 +182,19 @@ export function NoteItem({
     setTogglingTask(true);
     try {
       const nowCompleted = !isTaskCompleted;
-      await fetch(`/api/notes/${note.id}`, {
+      const newMetadata = {
+        ...((note.metadata as Record<string, unknown>) ?? {}),
+        completed: nowCompleted,
+        completedAt: nowCompleted ? new Date().toISOString() : null,
+        completedBy: nowCompleted ? ctx.currentUserId : null,
+      };
+      const res = await fetch(`/api/notes/${note.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metadata: {
-            ...((note.metadata as Record<string, unknown>) ?? {}),
-            completed: nowCompleted,
-            completedAt: nowCompleted ? new Date().toISOString() : null,
-            completedBy: nowCompleted ? ctx.currentUserId : null,
-          },
-        }),
+        body: JSON.stringify({ metadata: newMetadata }),
       });
-      await ctx.fetchNotes();
+      if (!res.ok) throw new Error("Error");
+      ctx.updateNoteInState(note.id, (n) => ({ ...n, metadata: newMetadata }));
     } catch {
       toast.error("Error al actualizar tarea");
     } finally {
@@ -259,7 +260,12 @@ export function NoteItem({
       if (!res.ok) throw new Error(data?.error || "Error al editar");
       setEditing(false);
       toast.success("Nota actualizada");
-      await ctx.fetchNotes();
+      ctx.updateNoteInState(note.id, (n) => ({
+        ...n,
+        content: editContent.trim(),
+        isEdited: true,
+        updatedAt: new Date().toISOString(),
+      }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo guardar");
     } finally {
@@ -277,7 +283,7 @@ export function NoteItem({
       }
       setDeleteConfirm(false);
       toast.success("Nota eliminada");
-      await ctx.fetchNotes();
+      ctx.removeNoteFromState(note.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo eliminar");
     }
@@ -296,30 +302,77 @@ export function NoteItem({
         throw new Error(data?.error);
       }
       toast.success(note.isPinned ? "Nota desanclada" : "Nota anclada");
-      await ctx.fetchNotes();
+      ctx.updateNoteInState(note.id, (n) => ({ ...n, isPinned: !n.isPinned }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     }
   }, [note.id, note.isPinned, ctx]);
 
-  // ── Reaction toggle ──
+  // ── Reaction toggle (optimistic) ──
   const toggleReaction = useCallback(async (emoji: string) => {
     if (togglingReaction) return;
     setTogglingReaction(true);
+    setShowReactions(false);
+
+    // Capture previous state for rollback
+    const prevSummary = note.reactionSummary;
+    const prevReactions = note.reactions;
+
+    // Optimistic update
+    const isOwn = note.reactionSummary.some(
+      (rs) => rs.emoji === emoji && rs.userIds.includes(ctx.currentUserId),
+    );
+    ctx.updateNoteInState(note.id, (n) => {
+      let newSummary: NoteReactionSummary[];
+      let newReactions: NoteReactionItem[];
+      if (isOwn) {
+        // Remove reaction
+        newSummary = n.reactionSummary
+          .map((rs) =>
+            rs.emoji === emoji
+              ? { ...rs, count: rs.count - 1, userIds: rs.userIds.filter((uid) => uid !== ctx.currentUserId) }
+              : rs,
+          )
+          .filter((rs) => rs.count > 0);
+        newReactions = n.reactions.filter(
+          (r) => !(r.emoji === emoji && r.userId === ctx.currentUserId),
+        );
+      } else {
+        // Add reaction
+        const existing = n.reactionSummary.find((rs) => rs.emoji === emoji);
+        if (existing) {
+          newSummary = n.reactionSummary.map((rs) =>
+            rs.emoji === emoji
+              ? { ...rs, count: rs.count + 1, userIds: [...rs.userIds, ctx.currentUserId] }
+              : rs,
+          );
+        } else {
+          newSummary = [...n.reactionSummary, { emoji, count: 1, userIds: [ctx.currentUserId] }];
+        }
+        newReactions = [...n.reactions, { id: `temp-${Date.now()}`, emoji, userId: ctx.currentUserId }];
+      }
+      return { ...n, reactionSummary: newSummary, reactions: newReactions };
+    });
+
     try {
-      await fetch(`/api/notes/${note.id}/reactions`, {
+      const res = await fetch(`/api/notes/${note.id}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoji }),
       });
-      setShowReactions(false);
-      await ctx.fetchNotes();
+      if (!res.ok) throw new Error("Server error");
     } catch {
+      // Rollback optimistic update
+      ctx.updateNoteInState(note.id, (n) => ({
+        ...n,
+        reactionSummary: prevSummary,
+        reactions: prevReactions,
+      }));
       toast.error("Error al reaccionar");
     } finally {
       setTogglingReaction(false);
     }
-  }, [note.id, ctx]);
+  }, [note.id, note.reactionSummary, note.reactions, ctx]);
 
   // ── Resolve visible user names for private/group notes ──
   const visibleUserNames = useMemo(() => {
@@ -582,7 +635,7 @@ export function NoteItem({
 
           {/* Context menu */}
           {canModify && !editing && (
-            <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Más opciones">

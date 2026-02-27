@@ -73,6 +73,7 @@ export type InstallationDetail = {
   quotesInstalacion?: Array<{
     id: string;
     code: string;
+    name?: string | null;
     status: string;
     totalPositions: number;
     totalGuards: number;
@@ -757,9 +758,9 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
               <Label className="text-xs flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5 text-white" />
                 Fecha de inicio en instalación
-                <span className="relative group">
+                <span className="relative group" tabIndex={0} role="button" aria-label="Más información">
                   <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-56 rounded-md border border-border bg-popover px-3 py-2 text-[10px] text-popover-foreground shadow-md z-50 leading-relaxed">
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block group-focus-within:block w-56 rounded-md border border-border bg-popover px-3 py-2 text-[10px] text-popover-foreground shadow-md z-50 leading-relaxed">
                     Esta fecha es importante: será utilizada en los contratos como fecha de inicio en la nueva instalación y es la fecha base para el cálculo de payroll.
                   </span>
                 </span>

@@ -60,7 +60,7 @@ export function CrmToolbar({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       {/* Search */}
-      <div className="relative flex-1 min-w-[220px] sm:min-w-[280px]">
+      <div className="relative flex-1 min-w-0 sm:min-w-[280px]">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           value={search}

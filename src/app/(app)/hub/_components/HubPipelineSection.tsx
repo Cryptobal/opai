@@ -120,7 +120,7 @@ export function HubPipelineSection({
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
             Engagement de propuestas
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <HubCompactStat label="Enviadas" value={docsSignals.sent30} />
             <HubCompactStat label="Abiertas" value={docsSignals.viewed30} />
             <HubCompactStat label="Tasa apertura" value={`${docsSignals.viewRate30}%`} />

@@ -214,7 +214,7 @@ function DocTemplatesInner() {
                     <DropdownMenuTrigger asChild>
                       <button
                         onClick={(e) => e.stopPropagation()}
-                        className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground transition-all shrink-0"
+                        className="h-6 w-6 flex items-center justify-center rounded sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent text-muted-foreground transition-all shrink-0"
                       >
                         <MoreHorizontal className="h-3.5 w-3.5" />
                       </button>

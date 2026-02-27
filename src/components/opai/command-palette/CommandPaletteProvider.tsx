@@ -40,13 +40,20 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
     return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [handleKeyDown]);
 
-  // Lock body scroll when open
+  // Lock body scroll when open (iOS-safe: position:fixed prevents scroll-through)
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
 

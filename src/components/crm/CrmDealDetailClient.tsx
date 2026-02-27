@@ -81,6 +81,7 @@ function buildReplySubject(subject?: string | null): string {
 type QuoteOption = {
   id: string;
   code: string;
+  name?: string | null;
   clientName?: string | null;
   status: string;
   monthlyCost?: string | number | null;

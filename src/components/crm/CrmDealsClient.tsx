@@ -219,7 +219,7 @@ function DealColumn({
     <div
       ref={setColumnNodeRef}
       className={cn(
-        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2 md:p-2.5 min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors overflow-hidden snap-center",
+        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2 md:p-2.5 min-w-0 sm:min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors overflow-hidden snap-center",
         isOver ? "border-primary/60 bg-primary/5" : "border-border"
       )}
     >

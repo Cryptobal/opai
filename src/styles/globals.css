@@ -265,6 +265,164 @@
 }
 
 /* ============================================
+   Mobile: Prevent horizontal overflow globally
+   html+body guard prevents any child from pushing
+   the document wider than the viewport.
+   ============================================ */
+html {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* ============================================
+   Mobile: Prevent horizontal overflow on dynamic elements
+   Modals, dropdowns, popovers and tables that open dynamically
+   must not exceed the viewport width on small screens.
+   ============================================ */
+@media screen and (max-width: 768px) {
+  /* Modales y overlays */
+  [role="dialog"],
+  .modal,
+  .modal-content {
+    max-width: 100vw !important;
+    max-width: 100dvw !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow-x: hidden;
+  }
+
+  /* Dropdowns y popovers — Radix portals */
+  [data-radix-popper-content-wrapper] {
+    max-width: 100vw !important;
+    max-width: 100dvw !important;
+  }
+
+  /* Generic dropdowns and popovers */
+  .dropdown-menu,
+  [data-radix-menu-content],
+  [class*="popover-content"] {
+    max-width: 100vw !important;
+    max-width: 100dvw !important;
+    overflow-x: hidden;
+  }
+
+  /* Fixed-position panels (sidebars, drawers) must not exceed viewport */
+  .fixed[class*="w-80"],
+  .fixed[class*="w-96"] {
+    max-width: calc(100vw - 3rem) !important;
+  }
+
+  /* Tablas responsivas */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Absolute popover menus — keep within viewport */
+  .absolute[class*="min-w-"] {
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+/* ============================================
+   Mobile: Prevent iOS Safari auto-zoom on inputs
+   iOS Safari zooms in when an input has font-size < 16px.
+   This forces 16px on all interactive form elements on mobile
+   without affecting desktop layout.
+   ============================================ */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input:not([type]),
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+
+  /* Radix UI / shadcn selects and comboboxes */
+  [role="combobox"],
+  [role="searchbox"],
+  [role="listbox"] {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================
+   Touch devices: Improve tap targets and feedback
+   Uses (hover: none) + (pointer: coarse) to target
+   phones/tablets without affecting desktop.
+   ============================================ */
+@media (hover: none) and (pointer: coarse) {
+  /* Minimum touch target for standalone interactive elements.
+     We scope to direct children of common containers so icon
+     buttons inside toolbars keep their compact sizing. */
+  button:not([class*="h-6"]):not([class*="h-5"]):not([class*="h-4"]):not([class*="w-6"]):not([class*="w-5"]):not([class*="w-4"]),
+  a:not([class*="text-\["]),
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Checkboxes and radios get larger tap area via padding */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 20px;
+    min-width: 20px;
+    padding: 12px;
+    margin: 0;
+  }
+
+  /* Active-press feedback for buttons */
+  button:active,
+  [role="button"]:active,
+  a:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: opacity 0.1s ease, transform 0.1s ease;
+  }
+
+  /* Smooth momentum scroll in all scrollable containers */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  [class*="overflow-auto"],
+  [class*="overflow-y-auto"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Modal/sheet inner scroll: prevent close on overscroll */
+  [role="dialog"],
+  [role="dialog"] .overflow-y-auto,
+  [role="dialog"] .overflow-auto {
+    overscroll-behavior: contain;
+  }
+}
+
+/* ============================================
+   Touch devices: Make hover-revealed controls
+   visible by default. On desktop, group-hover
+   still works; on touch, opacity-0 is overridden.
+   ============================================ */
+@media (hover: none) {
+  /* Buttons hidden with opacity-0 group-hover:opacity-100 */
+  .group .opacity-0[class*="group-hover:opacity-100"],
+  .group\/img .opacity-0[class*="group-hover\/img:opacity-100"] {
+    opacity: 1 !important;
+  }
+}
+
+/* ============================================
    Accessibility: Reduced Motion
    ============================================ */
 @media (prefers-reduced-motion: reduce) {

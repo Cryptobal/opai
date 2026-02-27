@@ -743,7 +743,7 @@ export function NotificationListClient() {
                           e.stopPropagation();
                           deleteOne(n.id);
                         }}
-                        className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100"
+                        className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 sm:opacity-0 sm:group-hover:opacity-100"
                         title="Eliminar"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
