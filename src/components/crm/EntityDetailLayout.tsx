@@ -251,19 +251,18 @@ export function EntityDetailLayout({
           </div>
         </div>
 
+        {/* ── ChipTabs (inside sticky container) ── */}
+        <ChipTabs
+          tabs={visibleTabs.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            icon: tab.icon,
+            badge: tab.count,
+          }))}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
       </div>
-
-      {/* ── ChipTabs ── */}
-      <ChipTabs
-        tabs={visibleTabs.map((tab) => ({
-          id: tab.id,
-          label: tab.label,
-          icon: tab.icon,
-          badge: tab.count,
-        }))}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-      />
 
       {/* ── Tab Content ── */}
       <div className="pt-4 sm:pt-5">{children}</div>

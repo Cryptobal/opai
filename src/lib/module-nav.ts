@@ -270,8 +270,10 @@ export function getBottomNavItems(
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
 
-  // CRM detail pages: las secciones ahora se navegan con ChipTabs en la vista,
-  // así que NO mostramos bottom nav de secciones. Se cae al nav de módulo CRM.
+  // CRM detail pages: la navegación de secciones se hace con ChipTabs inline.
+  // No mostramos bottom nav de ningún tipo en vistas de detalle CRM.
+  const isCrmDetail = /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/[^/]+$/.test(pathname);
+  if (isCrmDetail) return [];
 
   // Prioridad 1: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
