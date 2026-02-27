@@ -55,6 +55,8 @@ export interface EntityDetailLayoutProps {
     status?: {
       label: string;
       variant?: "default" | "secondary" | "success" | "warning" | "destructive" | "outline";
+      /** Custom hex color for the badge (overrides variant styling) */
+      color?: string;
     };
     /** Actions shown in the header */
     actions?: EntityHeaderAction[];
@@ -195,10 +197,18 @@ export function EntityDetailLayout({
                   </h1>
                   {header.status && (
                     <Badge
-                      variant={header.status.variant || "secondary"}
+                      variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
                       className="shrink-0"
+                      style={header.status.color ? {
+                        borderColor: `${header.status.color}40`,
+                        color: header.status.color,
+                        backgroundColor: `${header.status.color}15`,
+                      } : undefined}
                     >
-                      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-current mr-1" />
+                      <span
+                        className={cn("inline-flex h-1.5 w-1.5 rounded-full mr-1", !header.status.color && "bg-current")}
+                        style={header.status.color ? { backgroundColor: header.status.color } : undefined}
+                      />
                       {header.status.label}
                     </Badge>
                   )}

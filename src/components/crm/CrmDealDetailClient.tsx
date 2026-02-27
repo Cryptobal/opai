@@ -95,7 +95,7 @@ type QuoteOption = {
 type DealQuote = { id: string; quoteId: string; };
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean; };
 type DealContactRow = { id: string; dealId: string; contactId: string; role: string; contact: ContactRow; };
-type PipelineStageOption = { id: string; name: string; isClosedWon?: boolean; isClosedLost?: boolean; };
+type PipelineStageOption = { id: string; name: string; color?: string | null; isClosedWon?: boolean; isClosedLost?: boolean; };
 type FollowUpConfigState = {
   isActive: boolean;
   firstFollowUpDays: number;
@@ -143,7 +143,7 @@ export type DealDetail = {
     isManual: boolean;
     sentAt: string | null;
   } | null;
-  stage?: { id: string; name: string } | null;
+  stage?: { id: string; name: string; color?: string | null } | null;
   account?: { id: string; name: string; isActive?: boolean } | null;
   primaryContactId?: string | null;
   primaryContact?: { firstName: string; lastName: string; email?: string | null; phone?: string | null } | null;
@@ -586,7 +586,7 @@ export function CrmDealDetailClient({
     if (!nextStage) return;
 
     const snapshot = currentStage;
-    setCurrentStage({ id: nextStage.id, name: nextStage.name });
+    setCurrentStage({ id: nextStage.id, name: nextStage.name, color: nextStage.color });
     setChangingStage(true);
     try {
       const response = await fetch(`/api/crm/deals/${deal.id}/stage`, {
@@ -598,8 +598,8 @@ export function CrmDealDetailClient({
       if (!response.ok) throw new Error(payload?.error || "Error cambiando etapa");
       setCurrentStage(
         payload.data?.stage
-          ? { id: payload.data.stage.id, name: payload.data.stage.name }
-          : { id: nextStage.id, name: nextStage.name }
+          ? { id: payload.data.stage.id, name: payload.data.stage.name, color: payload.data.stage.color || nextStage.color }
+          : { id: nextStage.id, name: nextStage.name, color: nextStage.color }
       );
       if (payload.data?.proposalSentAt) {
         setDealProposalSentAt(payload.data.proposalSentAt);
@@ -625,14 +625,19 @@ export function CrmDealDetailClient({
 
   const subtitle = [
     deal.account?.name || "Sin cliente",
-    currentStage?.name || "Sin etapa",
     formatCLP(activeQuoteIndicators.amountClp),
   ].filter(Boolean).join(" · ");
+
+  const currentStageColor = currentStage?.color
+    || pipelineStages.find((s) => s.id === currentStage?.id)?.color
+    || "#94a3b8";
 
   const statusBadge = deal.status === "won"
     ? { label: "Ganado", variant: "success" as const }
     : deal.status === "lost"
     ? { label: "Perdido", variant: "destructive" as const }
+    : currentStage
+    ? { label: currentStage.name, color: currentStageColor }
     : undefined;
 
   // ── Sections ──
@@ -1068,12 +1073,18 @@ export function CrmDealDetailClient({
           const info = quotesById[quote.quoteId];
           const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
           const statusVariant = info?.status === "approved" ? "success" : info?.status === "rejected" ? "destructive" : info?.status === "sent" ? "default" : "secondary";
+          const quoteDate = info?.status === "sent" && info?.updatedAt
+            ? `Enviada: ${formatDealDate(info.updatedAt)}`
+            : info?.createdAt
+            ? `Creada: ${formatDealDate(info.createdAt)}`
+            : undefined;
+          const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
           return (
             <CrmRelatedRecordCard
               key={quote.id}
               module="quotes"
               title={info?.code || "CPQ"}
-              subtitle={info?.clientName || "Sin cliente"}
+              subtitle={subtitleParts}
               meta={formatQuoteAmounts(info)}
               badge={{ label: statusLabel, variant: statusVariant as any }}
               href={`/crm/cotizaciones/${quote.quoteId}`}
