@@ -73,6 +73,7 @@ export type InstallationDetail = {
   quotesInstalacion?: Array<{
     id: string;
     code: string;
+    name?: string | null;
     status: string;
     totalPositions: number;
     totalGuards: number;
