@@ -182,6 +182,12 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    if (content.length > 10000) {
+      return NextResponse.json(
+        { success: false, error: "El contenido no puede exceder 10,000 caracteres" },
+        { status: 400 },
+      );
+    }
 
     const parentNoteId =
       typeof body.parentNoteId === "string" && body.parentNoteId.trim()
@@ -193,6 +199,7 @@ export async function POST(request: NextRequest) {
     let visibility: NoteVisibility = body.visibility ?? "PUBLIC";
     let visibleToUsers: string[] = Array.isArray(body.visibleToUsers) ? body.visibleToUsers : [];
     let threadDepth = 0;
+    let resolvedParentNoteId: string | null = null;
 
     // ── If reply, inherit context & visibility from parent ──
     if (parentNoteId) {
@@ -207,6 +214,7 @@ export async function POST(request: NextRequest) {
       }
       // Replies always go to the root (max 1 level deep)
       const rootId = parent.parentNoteId ?? parent.id;
+      resolvedParentNoteId = rootId;
       const root = parent.parentNoteId
         ? await prisma.note.findFirst({
             where: { id: rootId, tenantId: ctx.tenantId },
@@ -331,7 +339,8 @@ export async function POST(request: NextRequest) {
         : {};
 
     // ── Create note + mentions + entity refs in transaction ──
-    const rootNoteId = parentNoteId ?? undefined;
+    // For replies, resolvedParentNoteId always points to the root (max 1 level deep)
+    const rootNoteId = resolvedParentNoteId ?? undefined;
     const note = await prisma.$transaction(async (tx) => {
       const created = await tx.note.create({
         data: {

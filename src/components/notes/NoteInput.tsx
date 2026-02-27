@@ -295,17 +295,26 @@ export function NoteInput({
     if (showMentions && mentionOptions.all.length > 0) {
       if (e.key === "ArrowDown") { e.preventDefault(); setSelectedMentionIdx((i) => Math.min(i + 1, mentionOptions.all.length - 1)); }
       else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedMentionIdx((i) => Math.max(i - 1, 0)); }
-      else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMention(mentionOptions.all[selectedMentionIdx]); }
+      else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const clampedIdx = Math.min(selectedMentionIdx, mentionOptions.all.length - 1);
+        insertMention(mentionOptions.all[clampedIdx]);
+      }
       else if (e.key === "Escape") { setShowMentions(false); }
       return;
     }
     if (showEntitySearch) {
       const allItems = entityResults.flatMap((c) => c.items.map((it) => ({ ...it, catKey: c.key })));
+      if (allItems.length === 0) {
+        if (e.key === "Escape") setShowEntitySearch(false);
+        return;
+      }
       if (e.key === "ArrowDown") { e.preventDefault(); setSelectedEntityIdx((i) => Math.min(i + 1, allItems.length - 1)); }
       else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedEntityIdx((i) => Math.max(i - 1, 0)); }
       else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const sel = allItems[selectedEntityIdx];
+        const clampedIdx = Math.min(selectedEntityIdx, allItems.length - 1);
+        const sel = allItems[clampedIdx];
         if (sel) insertEntityRef(sel.catKey, sel);
       }
       else if (e.key === "Escape") { setShowEntitySearch(false); }
@@ -481,7 +490,7 @@ export function NoteInput({
       {parentNoteId && replyToAuthor && (
         <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground bg-muted/40 rounded-t-lg border border-b-0 border-border/60">
           <span>Respondiendo a <strong className="text-foreground">{replyToAuthor}</strong></span>
-          <button type="button" onClick={onCancelReply} className="ml-auto hover:text-foreground">
+          <button type="button" onClick={() => onCancelReply?.()} className="ml-auto hover:text-foreground">
             <X className="h-3 w-3" />
           </button>
         </div>
@@ -692,7 +701,7 @@ export function NoteInput({
             variant="ghost"
             className="h-7 w-7 text-muted-foreground hover:text-primary"
             onClick={handleSend}
-            disabled={sending || uploadingFiles || (!content.trim() && attachments.length === 0)}
+            disabled={sending || uploadingFiles || (!content.trim() && attachments.length === 0) || (!parentNoteId && visibility !== "PUBLIC" && visibleToUsers.length === 0)}
             aria-label="Enviar"
             title="Enviar"
           >

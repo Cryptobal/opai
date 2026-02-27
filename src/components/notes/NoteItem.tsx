@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CheckSquare,
@@ -159,6 +159,13 @@ export function NoteItem({
   const [hoveredReaction, setHoveredReaction] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+  }, []);
+
   const isAuthor = note.authorId === ctx.currentUserId;
   const roleLC = ctx.currentUserRole.toLowerCase();
   const isAdmin = roleLC === "owner" || roleLC === "admin";
@@ -192,7 +199,7 @@ export function NoteItem({
     } finally {
       setTogglingTask(false);
     }
-  }, [note.id, note.metadata, ctx, isTaskCompleted, togglingTask]);
+  }, [note.id, note.metadata, ctx, isTaskCompleted]);
 
   // ── Note type styling ──
   const typeConfig = {
@@ -240,7 +247,7 @@ export function NoteItem({
   };
 
   const saveEdit = useCallback(async () => {
-    if (!editContent.trim()) return;
+    if (!editContent.trim() || savingEdit) return;
     setSavingEdit(true);
     try {
       const res = await fetch(`/api/notes/${note.id}`, {
@@ -258,7 +265,7 @@ export function NoteItem({
     } finally {
       setSavingEdit(false);
     }
-  }, [editContent, note.id, ctx]);
+  }, [editContent, note.id, ctx, savingEdit]);
 
   // ── Delete ──
   const handleDelete = useCallback(async () => {
@@ -312,7 +319,7 @@ export function NoteItem({
     } finally {
       setTogglingReaction(false);
     }
-  }, [note.id, ctx, togglingReaction]);
+  }, [note.id, ctx]);
 
   // ── Resolve visible user names for private/group notes ──
   const visibleUserNames = useMemo(() => {

@@ -19,9 +19,9 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const emoji = typeof body.emoji === "string" ? body.emoji.trim() : "";
 
-    if (!emoji) {
+    if (!emoji || emoji.length > 8) {
       return NextResponse.json(
-        { success: false, error: "emoji es requerido" },
+        { success: false, error: "emoji es requerido y debe ser válido" },
         { status: 400 },
       );
     }

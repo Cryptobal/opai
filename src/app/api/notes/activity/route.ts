@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { CONTEXT_LABELS, buildNoteContextLink, getContextModule } from "@/lib/note-utils";
-import type { NoteContextType, NoteType, Prisma } from "@prisma/client";
+import type { NoteContextType, Prisma } from "@prisma/client";
 
 /* ── Module display labels ── */
 const MODULE_LABELS: Record<string, string> = {
@@ -64,6 +64,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // If no followed contexts AND no mention condition, return empty
+    // (conditions always has at least the mentions entry, so this is effectively unreachable)
     if (conditions.length === 0) {
       return NextResponse.json({
         success: true,
@@ -97,22 +99,25 @@ export async function GET(request: NextRequest) {
       where.noteType = "TASK";
     }
 
-    // Read filter
-    if (readParam === "false") {
-      // Get read statuses for user
-      const readStatuses = await prisma.noteReadStatus.findMany({
-        where: { tenantId: ctx.tenantId, userId: ctx.userId },
-        select: { contextType: true, contextId: true, lastReadAt: true },
-      });
-      const readMap = new Map<string, Date>();
-      for (const rs of readStatuses) {
-        if (rs.contextType && rs.contextId) {
-          readMap.set(`${rs.contextType}:${rs.contextId}`, rs.lastReadAt);
-        }
+    // ── Get read statuses (fetched once, reused for filter + enrichment) ──
+    const readStatuses = await prisma.noteReadStatus.findMany({
+      where: { tenantId: ctx.tenantId, userId: ctx.userId },
+      select: { contextType: true, contextId: true, lastReadAt: true },
+    });
+    const readMap = new Map<string, Date>();
+    for (const rs of readStatuses) {
+      if (rs.contextType && rs.contextId) {
+        readMap.set(`${rs.contextType}:${rs.contextId}`, rs.lastReadAt);
       }
-      // Only show notes newer than lastReadAt
+    }
+
+    // Read filter: only unread notes
+    if (readParam === "false") {
+      // Exclude author's own notes + notes already read
+      where.NOT = { authorId: ctx.userId };
       if (readMap.size > 0) {
         const unreadConditions: Prisma.NoteWhereInput[] = [];
+        // For contexts WITH a read status: only notes newer than lastReadAt
         for (const [key, lastRead] of readMap) {
           const [ct, ci] = key.split(":");
           unreadConditions.push({
@@ -121,23 +126,33 @@ export async function GET(request: NextRequest) {
             createdAt: { gt: lastRead },
           });
         }
-        // Also include contexts with no read status
+        // For contexts WITHOUT a read status: include all notes (they're all unread)
         const readContextKeys = new Set(readMap.keys());
+        const unreadContexts = followers.filter(
+          (f) => !readContextKeys.has(`${f.contextType}:${f.contextId}`),
+        );
+        for (const uc of unreadContexts) {
+          unreadConditions.push({
+            contextType: uc.contextType,
+            contextId: uc.contextId,
+          });
+        }
+        // Also include mentioned notes with no read status
         unreadConditions.push({
-          NOT: {
-            AND: followers
-              .filter((f) => readContextKeys.has(`${f.contextType}:${f.contextId}`))
-              .map((f) => ({
-                contextType: f.contextType,
-                contextId: f.contextId,
-              })),
+          mentions: {
+            some: {
+              OR: [
+                { mentionedUserId: ctx.userId },
+                { mentionType: "ALL" },
+              ],
+            },
           },
-        } as any);
+        });
         where.AND = [{ OR: unreadConditions }];
       }
     }
 
-    // Visibility check
+    // Visibility check — applied BEFORE query so count is accurate
     const isFullAdmin = ctx.userRole === "owner" || ctx.userRole === "admin";
     if (!isFullAdmin) {
       const visFilter: Prisma.NoteWhereInput = {
@@ -172,22 +187,11 @@ export async function GET(request: NextRequest) {
       prisma.note.count({ where }),
     ]);
 
-    // Get read statuses for isRead calculation
-    const readStatusesForEnrich = await prisma.noteReadStatus.findMany({
-      where: { tenantId: ctx.tenantId, userId: ctx.userId },
-      select: { contextType: true, contextId: true, lastReadAt: true },
-    });
-    const enrichReadMap = new Map<string, Date>();
-    for (const rs of readStatusesForEnrich) {
-      if (rs.contextType && rs.contextId) {
-        enrichReadMap.set(`${rs.contextType}:${rs.contextId}`, rs.lastReadAt);
-      }
-    }
-
     // Enrich with context labels, links, module & read state
     const enriched = notes.map((note) => {
       const ctxKey = `${note.contextType}:${note.contextId}`;
-      const lastRead = enrichReadMap.get(ctxKey);
+      const lastRead = readMap.get(ctxKey);
+      // Own notes are always "read"; notes in contexts with no read status are UNREAD
       const isRead = note.authorId === ctx.userId || (lastRead ? note.createdAt <= lastRead : false);
       const moduleName = getContextModule(note.contextType);
       return {
