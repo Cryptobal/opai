@@ -30,7 +30,6 @@ const FAB_GROUPS: FabGroup[] = [
     actions: [
       { label: 'Pauta Diaria', color: '#60a5fa', href: '/ops/pauta-diaria' },
       { label: 'Pauta Mensual', color: '#3b82f6', href: '/ops/pauta-mensual' },
-      { label: 'Turnos Refuerzo', color: '#f59e0b', href: '/ops/refuerzos' },
       { label: 'Aprobar TE', color: '#14b8a6', href: '/ops/turnos-extra' },
     ],
   },
