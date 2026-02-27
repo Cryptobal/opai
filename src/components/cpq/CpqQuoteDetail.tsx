@@ -642,10 +642,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       });
       const data = await response.json();
       if (data.success) {
-        router.push(`/cpq/${data.data.id}`);
+        toast.success(`Cotización clonada: ${data.data.code}`);
+        router.push(`/crm/cotizaciones/${data.data.id}`);
+      } else {
+        toast.error(data.error || "No se pudo clonar la cotización.");
       }
     } catch (error) {
       console.error("Error cloning quote:", error);
+      toast.error("Error al clonar la cotización.");
     } finally {
       setCloning(false);
     }
