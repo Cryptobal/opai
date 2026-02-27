@@ -78,9 +78,13 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       setValidUntil("");
       setNotes("");
       onCreated?.(quoteId, dealQuote);
-      if (quoteId) {
-        // Redirigir a la cotización creada (ruta CRM para consistencia)
+      if (quoteId && !dealId) {
+        // Redirigir a la cotización creada (solo si no viene desde un negocio)
         router.push(`/crm/cotizaciones/${quoteId}`);
+      } else if (quoteId && dealId) {
+        // Cuando se crea desde un negocio, refrescar la página del negocio
+        router.refresh();
+        toast.success("Cotización creada y vinculada al negocio.");
       }
     } catch (err) {
       console.error("Error creating CPQ quote:", err);

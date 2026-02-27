@@ -366,18 +366,18 @@ function DealCard({
 /** Mobile: grouped list by stage instead of horizontal kanban */
 function MobileStageList({
   columns,
-  expandedStageId,
+  expandedStageIds,
   onToggleExpand,
 }: {
   columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[];
-  expandedStageId: string | null;
+  expandedStageIds: Set<string>;
   onToggleExpand: (stageId: string) => void;
 }) {
   return (
     <div className="space-y-3">
       {columns.map((column) => {
         const stageColor = column.stage.color || "#94a3b8";
-        const isExpanded = expandedStageId === column.stage.id;
+        const isExpanded = expandedStageIds.has(column.stage.id);
         const stageTotal = column.deals.reduce(
           (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
           0
@@ -521,7 +521,7 @@ export function CrmDealsClient({
   const [desktopCollapsedStages, setDesktopCollapsedStages] = useState<Set<string>>(
     () => getDefaultDesktopCollapsedStages(stages)
   );
-  const [mobileExpandedStageId, setMobileExpandedStageId] = useState<string | null>(null);
+  const [mobileExpandedStageIds, setMobileExpandedStageIds] = useState<Set<string>>(new Set());
   const [recentMoveRankByDealId, setRecentMoveRankByDealId] = useState<Record<string, number>>({});
   const [hoveredCollapsedDropStageId, setHoveredCollapsedDropStageId] = useState<string | null>(null);
   const moveRankCounterRef = useRef(0);
@@ -860,7 +860,15 @@ export function CrmDealsClient({
   };
 
   const toggleMobileStageExpand = (stageId: string) => {
-    setMobileExpandedStageId((prev) => (prev === stageId ? null : stageId));
+    setMobileExpandedStageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(stageId)) {
+        next.delete(stageId);
+      } else {
+        next.add(stageId);
+      }
+      return next;
+    });
   };
 
   const dropAnimation = {
@@ -1007,7 +1015,7 @@ export function CrmDealsClient({
               <div className="md:hidden">
                 <MobileStageList
                   columns={columns}
-                  expandedStageId={mobileExpandedStageId}
+                  expandedStageIds={mobileExpandedStageIds}
                   onToggleExpand={toggleMobileStageExpand}
                 />
               </div>
