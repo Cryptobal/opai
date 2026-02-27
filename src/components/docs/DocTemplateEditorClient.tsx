@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * DocTemplateEditorClient — Refactored
+ *
+ * Desktop: Campos en 2 filas de 2 columnas (Name 2/3 + Module 1/3, Category 1/3 + Description 2/3)
+ * Mobile: Campos en stack vertical
+ * Toolbar: Agrupación visual mejorada (separadores entre grupos funcionales)
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
@@ -9,7 +17,7 @@ import { DOC_CATEGORIES, DOC_MODULES, WA_USAGE_SLUGS } from "@/lib/docs/token-re
 import { toast } from "sonner";
 
 interface DocTemplateEditorClientProps {
-  templateId?: string; // null = creating new
+  templateId?: string;
 }
 
 export function DocTemplateEditorClient({
@@ -19,7 +27,6 @@ export function DocTemplateEditorClient({
   const [loading, setLoading] = useState(!!templateId);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [module, setModule] = useState("crm");
@@ -44,7 +51,6 @@ export function DocTemplateEditorClient({
     [module]
   );
 
-  // Fetch template if editing
   const fetchTemplate = useCallback(async () => {
     if (!templateId) return;
     try {
@@ -109,7 +115,6 @@ export function DocTemplateEditorClient({
         : "/api/docs/templates";
       const method = templateId ? "PATCH" : "POST";
 
-      // Para WhatsApp la categoría se asigna automáticamente
       const finalCategory = module === "whatsapp"
         ? (usageSlug || "general")
         : category;
@@ -156,6 +161,9 @@ export function DocTemplateEditorClient({
     );
   }
 
+  const inputClass = "mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+  const labelClass = "text-xs font-medium text-muted-foreground";
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -185,91 +193,100 @@ export function DocTemplateEditorClient({
         </Button>
       </div>
 
-      {/* Meta fields */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 rounded-xl border border-border bg-card">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">
-            Nombre del Template *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Contrato de Servicios de Seguridad"
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">
-            Módulo *
-          </label>
-          <select
-            value={module}
-            onChange={(e) => {
-              const next = e.target.value;
-              setModule(next);
-              setCategory("");
-              if (next !== "whatsapp") setUsageSlug("");
-            }}
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {DOC_MODULES.map((m) => (
-              <option key={m.key} value={m.key}>{m.label}</option>
-            ))}
-          </select>
-        </div>
-        {module !== "whatsapp" && (
+      {/* Meta fields — 2 rows x 2 cols on desktop, stack on mobile */}
+      <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+        {/* Row 1: Name (2/3) + Module (1/3) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-2">
+            <label className={labelClass}>
+              Nombre del Template *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Contrato de Servicios de Seguridad"
+              className={inputClass}
+            />
+          </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Categoría *
+            <label className={labelClass}>
+              Módulo *
             </label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              value={module}
+              onChange={(e) => {
+                const next = e.target.value;
+                setModule(next);
+                setCategory("");
+                if (next !== "whatsapp") setUsageSlug("");
+              }}
+              className={inputClass}
             >
-              <option value="">Seleccionar...</option>
-              {categories.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
+              {DOC_MODULES.map((m) => (
+                <option key={m.key} value={m.key}>{m.label}</option>
               ))}
             </select>
           </div>
-        )}
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">
-            Descripción
-          </label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Breve descripción..."
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
         </div>
-        {module === "whatsapp" && (
-          <div className="col-span-full">
-            <label className="text-xs font-medium text-muted-foreground">
-              Uso en el sistema
+
+        {/* Row 2: Category (1/3) + Description (2/3) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {module !== "whatsapp" ? (
+            <div>
+              <label className={labelClass}>
+                Categoría *
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Seleccionar...</option>
+                {categories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className={labelClass}>
+                Uso en el sistema
+              </label>
+              <select
+                value={usageSlug}
+                onChange={(e) => setUsageSlug(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Personalizada</option>
+                {Object.entries(WA_USAGE_SLUGS).map(([slug, { label, usedIn }]) => (
+                  <option key={slug} value={slug} title={usedIn}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="md:col-span-2">
+            <label className={labelClass}>
+              Descripción
             </label>
-            <select
-              value={usageSlug}
-              onChange={(e) => setUsageSlug(e.target.value)}
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="">Plantilla personalizada (elegir desde CRM)</option>
-              {Object.entries(WA_USAGE_SLUGS).map(([slug, { label, usedIn }]) => (
-                <option key={slug} value={slug} title={usedIn}>
-                  {label} — {usedIn}
-                </option>
-              ))}
-            </select>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Si asignas un uso, esta plantilla se usará automáticamente en ese flujo. Vacío = solo para elegir al enviar WhatsApp desde contacto/negocio.
-            </p>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Breve descripción..."
+              className={inputClass}
+            />
           </div>
+        </div>
+
+        {module === "whatsapp" && usageSlug && (
+          <p className="text-[10px] text-muted-foreground">
+            Esta plantilla se usará automáticamente en el flujo: {WA_USAGE_SLUGS[usageSlug]?.usedIn}
+          </p>
         )}
       </div>
 
