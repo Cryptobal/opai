@@ -44,13 +44,34 @@ export async function PATCH(
     // Only mark as edited if content actually changed (not for metadata-only updates like task toggle)
     const isEdited = contentChanged ? true : note.isEdited;
 
+    // ── Pin limit: max 3 pinned notes per context ──
+    let isPinned = typeof body.isPinned === "boolean" ? body.isPinned : note.isPinned;
+    if (isPinned && !note.isPinned) {
+      const pinnedCount = await prisma.note.count({
+        where: {
+          tenantId: ctx.tenantId,
+          contextType: note.contextType,
+          contextId: note.contextId,
+          isPinned: true,
+          deletedAt: null,
+          id: { not: id },
+        },
+      });
+      if (pinnedCount >= 3) {
+        return NextResponse.json(
+          { success: false, error: "Máximo 3 notas fijadas por contexto" },
+          { status: 400 },
+        );
+      }
+    }
+
     const updated = await prisma.note.update({
       where: { id },
       data: {
         content,
         contentHtml: typeof body.contentHtml === "string" ? body.contentHtml : note.contentHtml,
         isEdited,
-        isPinned: typeof body.isPinned === "boolean" ? body.isPinned : note.isPinned,
+        isPinned,
         metadata: body.metadata !== undefined ? body.metadata : note.metadata,
         attachments: body.attachments !== undefined ? body.attachments : note.attachments,
       },

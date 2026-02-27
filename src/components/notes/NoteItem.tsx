@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CheckSquare,
   ChevronDown,
   ChevronUp,
   CornerDownRight,
+  Download,
   ExternalLink,
+  FileSpreadsheet,
+  FileText,
+  Image as ImageIcon,
   Loader2,
   Lock,
   MoreHorizontal,
@@ -17,6 +21,7 @@ import {
   Send,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,9 +62,27 @@ function getInitials(name: string): string {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
+function isImageType(fileType?: string): boolean {
+  return !!fileType && fileType.startsWith("image/");
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(fileType?: string) {
+  if (!fileType) return Paperclip;
+  if (fileType.includes("pdf")) return FileText;
+  if (fileType.includes("spreadsheet") || fileType.includes("excel")) return FileSpreadsheet;
+  if (fileType.includes("word") || fileType.includes("document")) return FileText;
+  return Paperclip;
+}
+
 /** Renders note content highlighting @mentions and #references with entity labels */
 function renderContent(content: string, entityRefs?: NoteEntityRefItem[]): ReactNode {
-  // Build a lookup map: "TYPE:id" → ref data
   const refMap = new Map<string, NoteEntityRefItem>();
   if (entityRefs) {
     for (const ref of entityRefs) {
@@ -67,7 +90,6 @@ function renderContent(content: string, entityRefs?: NoteEntityRefItem[]): React
     }
   }
 
-  // Split on @mentions and #REF:id patterns
   const parts = content.split(/([@＠][\p{L}\p{N}._\- ]+|#[A-Z_]+:[a-f0-9-]+)/gu);
   return parts.map((part, i) => {
     if (/^[@＠]/.test(part)) {
@@ -103,7 +125,7 @@ function renderContent(content: string, entityRefs?: NoteEntityRefItem[]): React
 
 /* ─── Reaction emoji picker ─── */
 
-const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "🤔", "👀"];
+const QUICK_REACTIONS = ["👍", "✅", "👀", "🔥", "❌"];
 
 /* ─── Types ─── */
 
@@ -133,6 +155,9 @@ export function NoteItem({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [togglingReaction, setTogglingReaction] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [hoveredReaction, setHoveredReaction] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isAuthor = note.authorId === ctx.currentUserId;
   const roleLC = ctx.currentUserRole.toLowerCase();
@@ -307,6 +332,15 @@ export function NoteItem({
           !isReply && tc.border && tc.bg && `${tc.border} ${tc.bg} rounded-md pl-3 pr-2 py-2`,
           isHighlighted && "ring-1 ring-primary/40 bg-primary/5",
         )}
+        onTouchStart={() => {
+          longPressTimer.current = setTimeout(() => setShowReactions(true), 500);
+        }}
+        onTouchEnd={() => {
+          if (longPressTimer.current) clearTimeout(longPressTimer.current);
+        }}
+        onTouchMove={() => {
+          if (longPressTimer.current) clearTimeout(longPressTimer.current);
+        }}
       >
         {/* Pinned indicator */}
         {note.isPinned && !isReply && (
@@ -396,19 +430,47 @@ export function NoteItem({
                 {/* Attachments */}
                 {note.attachments && Array.isArray(note.attachments) && note.attachments.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {(note.attachments as Array<{ fileName?: string; fileUrl?: string; fileType?: string }>).map(
-                      (att, i) => (
-                        <a
-                          key={i}
-                          href={att.fileUrl ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Paperclip className="h-2.5 w-2.5" />
-                          {att.fileName ?? "Archivo"}
-                        </a>
-                      ),
+                    {(note.attachments as Array<{ fileName?: string; fileUrl?: string; fileType?: string; fileSize?: number }>).map(
+                      (att, i) => {
+                        if (isImageType(att.fileType)) {
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setLightboxUrl(att.fileUrl ?? null); }}
+                              className="relative group/img rounded-md overflow-hidden border border-border/60 hover:border-primary/40 transition-colors"
+                            >
+                              <img
+                                src={att.fileUrl}
+                                alt={att.fileName ?? "Imagen"}
+                                className="h-16 w-auto max-w-[120px] object-cover"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-white opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                              </div>
+                            </button>
+                          );
+                        }
+                        const DocIcon = getFileIcon(att.fileType);
+                        return (
+                          <a
+                            key={i}
+                            href={att.fileUrl ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+                          >
+                            <DocIcon className="h-3.5 w-3.5 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="truncate max-w-[100px] font-medium">{att.fileName ?? "Archivo"}</p>
+                              {att.fileSize && <p className="text-[9px] text-muted-foreground/60">{formatFileSize(att.fileSize)}</p>}
+                            </div>
+                            <Download className="h-3 w-3 shrink-0 opacity-60" />
+                          </a>
+                        );
+                      },
                     )}
                   </div>
                 )}
@@ -418,21 +480,33 @@ export function NoteItem({
                   <div className="mt-1.5 flex items-center gap-1 flex-wrap">
                     {note.reactionSummary.map((rs: NoteReactionSummary) => {
                       const isOwn = rs.userIds.includes(ctx.currentUserId);
+                      const names = rs.userIds
+                        .map((uid) => ctx.users.find((u) => u.id === uid)?.name ?? (uid === ctx.currentUserId ? "Tú" : ""))
+                        .filter(Boolean);
                       return (
-                        <button
-                          key={rs.emoji}
-                          type="button"
-                          className={cn(
-                            "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors",
-                            isOwn
-                              ? "border-primary/40 bg-primary/10 text-primary"
-                              : "border-border bg-muted/50 text-muted-foreground hover:border-primary/30",
+                        <div key={rs.emoji} className="relative">
+                          <button
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors",
+                              isOwn
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-border bg-muted/50 text-muted-foreground hover:border-primary/30",
+                            )}
+                            onClick={() => toggleReaction(rs.emoji)}
+                            onMouseEnter={() => setHoveredReaction(rs.emoji)}
+                            onMouseLeave={() => setHoveredReaction(null)}
+                          >
+                            <span>{rs.emoji}</span>
+                            <span className="font-medium">{rs.count}</span>
+                          </button>
+                          {/* Tooltip with names */}
+                          {hoveredReaction === rs.emoji && names.length > 0 && (
+                            <div className="absolute z-50 bottom-full mb-1 left-1/2 -translate-x-1/2 rounded-md border border-border bg-popover px-2 py-1 shadow-lg whitespace-nowrap">
+                              <p className="text-[10px] text-foreground">{names.join(", ")}</p>
+                            </div>
                           )}
-                          onClick={() => toggleReaction(rs.emoji)}
-                        >
-                          <span>{rs.emoji}</span>
-                          <span className="font-medium">{rs.count}</span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -468,8 +542,8 @@ export function NoteItem({
                     </button>
                   )}
 
-                  {/* Quick reaction button */}
-                  <div className="relative ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Quick reaction picker (desktop: hover, mobile: long press triggers via note wrapper) */}
+                  <div className="relative ml-auto opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                     <button
                       type="button"
                       className="text-[11px] text-muted-foreground hover:text-foreground"
@@ -478,21 +552,22 @@ export function NoteItem({
                     >
                       😊
                     </button>
-                    {showReactions && (
-                      <div className="absolute z-50 bottom-full mb-1 right-0 flex items-center gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lg">
-                        {QUICK_REACTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-accent transition-colors text-sm"
-                            onClick={() => toggleReaction(emoji)}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
+                  {/* Reaction picker popover */}
+                  {showReactions && (
+                    <div className="absolute z-50 top-0 right-8 flex items-center gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lg">
+                      {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-accent active:scale-110 transition-all text-sm"
+                          onClick={() => toggleReaction(emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -543,6 +618,28 @@ export function NoteItem({
         description="Esta nota y sus respuestas serán eliminadas permanentemente."
         onConfirm={handleDelete}
       />
+
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Vista ampliada"
+            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </>
   );
 }

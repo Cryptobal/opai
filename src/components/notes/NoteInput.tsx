@@ -135,8 +135,12 @@ export function NoteInput({
   const entityRefLabelsRef = useRef<Record<string, { label: string; code?: string | null }>>({});
 
   // File attachments
-  const [attachments, setAttachments] = useState<Array<{ name: string; url: string; type: string; size: number }>>([]);
+  const [attachments, setAttachments] = useState<Array<{ name: string; url: string; type: string; size: number; previewUrl?: string; uploading?: boolean }>>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const MAX_FILES = 5;
 
   // ── Permission-filtered note types ──
   const availableNoteTypes = useMemo(
@@ -320,17 +324,47 @@ export function NoteInput({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} excede 10 MB`);
-        continue;
-      }
-      setAttachments((prev) => [
-        ...prev,
-        { name: file.name, url: URL.createObjectURL(file), type: file.type, size: file.size },
-      ]);
+
+    const remaining = MAX_FILES - attachments.length;
+    if (remaining <= 0) {
+      toast.error(`Máximo ${MAX_FILES} archivos por nota`);
+      e.target.value = "";
+      return;
     }
-    e.target.value = "";
+
+    const toUpload = Array.from(files).slice(0, remaining);
+    const oversized = toUpload.filter((f) => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      toast.error(`${oversized.map((f) => f.name).join(", ")} excede 10 MB`);
+      e.target.value = "";
+      return;
+    }
+
+    // Upload files to server
+    setUploadingFiles(true);
+    try {
+      const formData = new FormData();
+      for (const file of toUpload) {
+        formData.append("files", file);
+      }
+      const res = await fetch("/api/notes/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Error al subir archivo");
+
+      const uploaded = (data.data as Array<{ fileName: string; fileUrl: string; fileType: string; fileSize: number }>).map((f) => ({
+        name: f.fileName,
+        url: f.fileUrl,
+        type: f.fileType,
+        size: f.fileSize,
+        previewUrl: f.fileType.startsWith("image/") ? f.fileUrl : undefined,
+      }));
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al subir archivo");
+    } finally {
+      setUploadingFiles(false);
+      e.target.value = "";
+    }
   };
 
   const removeAttachment = (idx: number) => {
@@ -492,17 +526,27 @@ export function NoteInput({
         />
 
         {/* Attachments preview */}
-        {attachments.length > 0 && (
+        {(attachments.length > 0 || uploadingFiles) && (
           <div className="flex flex-wrap gap-1.5 px-3 pb-1.5">
             {attachments.map((a, i) => (
-              <span key={i} className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                <Paperclip className="h-2.5 w-2.5" />
-                {a.name.length > 20 ? `${a.name.slice(0, 18)}...` : a.name}
-                <button type="button" onClick={() => removeAttachment(i)} className="hover:text-foreground">
+              <span key={i} className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground">
+                {a.previewUrl ? (
+                  <img src={a.previewUrl} alt={a.name} className="h-6 w-6 rounded object-cover shrink-0" />
+                ) : (
+                  <Paperclip className="h-3 w-3 shrink-0" />
+                )}
+                <span className="truncate max-w-[80px]">{a.name}</span>
+                <button type="button" onClick={() => removeAttachment(i)} className="hover:text-foreground ml-0.5">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </span>
             ))}
+            {uploadingFiles && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Subiendo...
+              </span>
+            )}
           </div>
         )}
 
@@ -592,12 +636,25 @@ export function NoteInput({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center rounded px-1.5 py-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Adjuntar archivo"
+            disabled={uploadingFiles || attachments.length >= MAX_FILES}
+            className={cn(
+              "inline-flex items-center rounded px-1.5 py-1 transition-colors",
+              uploadingFiles || attachments.length >= MAX_FILES
+                ? "text-muted-foreground/40 cursor-not-allowed"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+            title={attachments.length >= MAX_FILES ? `Máximo ${MAX_FILES} archivos` : "Adjuntar archivo (10 MB máx.)"}
           >
-            <Paperclip className="h-3.5 w-3.5" />
+            {uploadingFiles ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
           </button>
-          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
 
           {/* Entity search trigger (+ button) */}
           <button
@@ -635,7 +692,7 @@ export function NoteInput({
             variant="ghost"
             className="h-7 w-7 text-muted-foreground hover:text-primary"
             onClick={handleSend}
-            disabled={sending || (!content.trim() && attachments.length === 0)}
+            disabled={sending || uploadingFiles || (!content.trim() && attachments.length === 0)}
             aria-label="Enviar"
             title="Enviar"
           >
