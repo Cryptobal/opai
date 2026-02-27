@@ -13,6 +13,8 @@ interface QuoteKpiBarProps {
   marginPct: number;
   salePriceMonthly: number;
   ufValue: number | null;
+  /** Total of additional lines (pass-through, no margin) */
+  additionalLinesTotal?: number;
   /** Always show expanded (no toggle). Used in desktop sidebar. */
   alwaysExpanded?: boolean;
   className?: string;
@@ -33,14 +35,17 @@ export function QuoteKpiBar({
   marginPct,
   salePriceMonthly,
   ufValue,
+  additionalLinesTotal = 0,
   alwaysExpanded = false,
   className,
 }: QuoteKpiBarProps) {
   const [isExpanded, setIsExpanded] = useState(alwaysExpanded);
 
+  const totalSalePrice = salePriceMonthly + additionalLinesTotal;
+
   const ufDisplay =
     ufValue && ufValue > 0
-      ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
+      ? formatUFSuffix(clpToUf(totalSalePrice, ufValue))
       : null;
 
   const marginLabel = formatNumber(marginPct, {
@@ -74,7 +79,7 @@ export function QuoteKpiBar({
       >
         {/* Sale price */}
         <span className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">
-          {formatCLP(salePriceMonthly)}
+          {formatCLP(totalSalePrice)}
         </span>
 
         {/* UF equivalent */}
@@ -138,6 +143,18 @@ export function QuoteKpiBar({
           </p>
         </div>
       </div>
+
+      {/* Additional lines breakdown */}
+      {isExpanded && additionalLinesTotal > 0 && (
+        <div className="px-3 pb-2">
+          <div className="flex items-center justify-between py-1 border-t border-purple-500/20">
+            <span className="text-[10px] text-purple-400">Serv. adicionales</span>
+            <span className="text-[11px] font-mono font-medium text-purple-400">
+              {formatCurrency(additionalLinesTotal)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

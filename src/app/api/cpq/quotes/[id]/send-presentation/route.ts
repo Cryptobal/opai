@@ -134,6 +134,16 @@ export async function POST(
       if (d) deal = { title: d.title };
     }
 
+    // 3c. Load additional lines
+    const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
+      where: { quoteId: id },
+      orderBy: { orden: "asc" },
+    });
+    const totalAdditionalLines = additionalLines.reduce(
+      (sum, l) => sum + Number(l.precio),
+      0
+    );
+
     // 4. Compute costs & sale prices
     let summary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
     try {
@@ -234,6 +244,13 @@ export async function POST(
         salePriceMonthly,
         positionSalePrices,
         siteUrl,
+        additionalLines: additionalLines.map((l) => ({
+          nombre: l.nombre,
+          descripcion: l.descripcion,
+          precio: Number(l.precio),
+          orden: l.orden,
+        })),
+        totalAdditionalLines,
       },
       sessionId,
       templateSlug
@@ -360,7 +377,7 @@ export async function POST(
           data: {
             proposalLink: presentationUrl,
             proposalSentAt: new Date(),
-            amount: salePriceMonthly,
+            amount: salePriceMonthly + totalAdditionalLines,
             totalPuestos: totalGuards,
           },
         });

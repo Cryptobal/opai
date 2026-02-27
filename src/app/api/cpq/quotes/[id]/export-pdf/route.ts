@@ -57,6 +57,16 @@ export async function POST(
 
     const installationName = quote.installation?.name || '';
 
+    // Load additional lines
+    const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
+      where: { quoteId: id },
+      orderBy: { orden: 'asc' },
+    });
+    const totalAdditionalLines = additionalLines.reduce(
+      (sum, l) => sum + Number(l.precio),
+      0
+    );
+
     // Load deal (negocio) name
     let dealName = '';
     if (quote.dealId) {
@@ -147,6 +157,8 @@ export async function POST(
       totalSalePrice = baseWithMargin + (summary.monthlyFinancial ?? 0) + (summary.monthlyPolicy ?? 0);
     }
 
+    const grandTotal = totalSalePrice + totalAdditionalLines;
+
     const validUntilStr = quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('es-CL') : '';
     const notesEscaped = quote.notes ? String(quote.notes).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '';
     const serviceDetailEscaped = quote.serviceDetail ? String(quote.serviceDetail).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '';
@@ -203,8 +215,15 @@ export async function POST(
   <h2>Puestos de trabajo · ${totalGuards} guardia(s)</h2>
   <table>
     <thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Horario</th><th>Turno</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
-    <tbody>${positionsRows}<tr class="total"><td colspan="6" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
+    <tbody>${positionsRows}${totalAdditionalLines > 0 ? `<tr><td colspan="6" style="text-align:right;font-weight:600">Subtotal guardias</td><td class="num" style="font-weight:600">${formatPrice(totalSalePrice)}</td></tr>` : ''}<tr class="total"><td colspan="6" style="text-align:right">Precio venta mensual</td><td class="num">${grandTotal > 0 ? formatPrice(grandTotal) : 'N/A'}</td></tr></tbody>
   </table>
+
+  ${additionalLines.length > 0 ? `
+  <h2>Servicios y Productos Adicionales</h2>
+  <table>
+    <thead><tr><th>Producto / Servicio</th><th>Descripción</th><th class="num">Valor Mensual</th></tr></thead>
+    <tbody>${additionalLines.map(l => `<tr><td>${String(l.nombre).replace(/</g, '&lt;')}</td><td>${l.descripcion ? String(l.descripcion).replace(/</g, '&lt;') : '-'}</td><td class="num">${formatPrice(Number(l.precio))}</td></tr>`).join('')}<tr class="total"><td colspan="2" style="text-align:right">Subtotal adicionales</td><td class="num">${formatPrice(totalAdditionalLines)}</td></tr></tbody>
+  </table>` : ''}
 
   ${serviceDetailEscaped ? `<div style="margin-top:10px"><h2>Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${serviceDetailEscaped}</p></div>` : ''}
 

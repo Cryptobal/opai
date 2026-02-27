@@ -89,6 +89,16 @@ export async function POST(
     // Installation name
     const installationName = quote.installation?.name || "";
 
+    // Load additional lines
+    const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
+      where: { quoteId: id },
+      orderBy: { orden: "asc" },
+    });
+    const totalAdditionalLines = additionalLines.reduce(
+      (sum, l) => sum + Number(l.precio),
+      0
+    );
+
     // Compute costs
     let monthlyTotal = Number(quote.monthlyCost) || 0;
     try {
@@ -131,7 +141,8 @@ export async function POST(
 ${contextHtml}
 ${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;background:#f9f9f9;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>` : ""}
 <h2>Puestos de trabajo · ${quote.totalGuards} guardia(s)</h2>
-<table><thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Días</th><th>Horario</th><th>Turno</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}<tr class="total"><td colspan="6" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal, "CLP")}</td></tr></tbody></table>
+<table><thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Días</th><th>Horario</th><th>Turno</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}${totalAdditionalLines > 0 ? `<tr><td colspan="6" style="text-align:right;font-weight:600">Subtotal guardias</td><td class="num" style="font-weight:600">${formatCurrency(monthlyTotal, "CLP")}</td></tr>` : ""}<tr class="total"><td colspan="6" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal + totalAdditionalLines, "CLP")}</td></tr></tbody></table>
+${additionalLines.length > 0 ? `<h2>Servicios y Productos Adicionales</h2><table><thead><tr><th>Producto / Servicio</th><th>Descripción</th><th class="num">Valor Mensual</th></tr></thead><tbody>${additionalLines.map(l => `<tr><td>${String(l.nombre).replace(/</g, "&lt;")}</td><td>${l.descripcion ? String(l.descripcion).replace(/</g, "&lt;") : "-"}</td><td class="num">${formatCurrency(Number(l.precio), "CLP")}</td></tr>`).join("")}<tr class="total"><td colspan="2" style="text-align:right">Subtotal adicionales</td><td class="num">${formatCurrency(totalAdditionalLines, "CLP")}</td></tr></tbody></table>` : ""}
 ${serviceDetailHtml}
 <div class="footer">Generado el ${new Date().toLocaleDateString("es-CL")} · www.gard.cl · contacto@gard.cl</div>
 </body></html>`;

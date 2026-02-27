@@ -63,6 +63,15 @@ export interface CpqPosition {
   rol?: CpqRol;
 }
 
+export interface CpqQuoteAdditionalLine {
+  id?: string;
+  quoteId?: string;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  orden: number;
+}
+
 export interface CpqQuote {
   id: string;
   tenantId: string;

@@ -26,6 +26,7 @@ import { clpToUf } from "@/lib/uf-utils";
 import type {
   CpqQuote,
   CpqPosition,
+  CpqQuoteAdditionalLine,
   CpqQuoteCostSummary,
   CpqQuoteParameters,
   CpqQuoteCostItem,
@@ -101,6 +102,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [meals, setMeals] = useState<CpqQuoteMeal[]>([]);
   const [vehicles, setVehicles] = useState<CpqQuoteVehicle[]>([]);
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
+  const [additionalLines, setAdditionalLines] = useState<CpqQuoteAdditionalLine[]>([]);
   const [marginPct, setMarginPct] = useState(13);
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -327,6 +329,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         setMeals(costsData.data.meals || []);
         setVehicles(costsData.data.vehicles || []);
         setInfrastructure(costsData.data.infrastructure || []);
+        setAdditionalLines(costsData.data.additionalLines || []);
       }
     } catch (err) {
       console.error("Error loading CPQ quote:", err);
@@ -847,6 +850,12 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
   }, [costSummary, marginPct]);
 
+  // Additional lines total (pass-through, no margin)
+  const additionalLinesTotal = useMemo(
+    () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
+    [additionalLines]
+  );
+
   // Per-position sale price allocation from final monthly sale price.
   // This keeps every downstream "valor hora" aligned with the real client sale price.
   const positionSalePrices = useMemo(() => {
@@ -1036,6 +1045,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         marginPct={marginPct}
         salePriceMonthly={salePriceMonthly}
         ufValue={ufValue}
+        additionalLinesTotal={additionalLinesTotal}
         className="lg:hidden"
       />
 
@@ -1361,7 +1371,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
       {activeStep === 2 && (
         <div inert={isLocked}>
-          <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} />
+          <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} />
         </div>
       )}
 
@@ -1399,6 +1409,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             positions={positions}
             monthlyHours={monthlyHours}
             ufValue={ufValue}
+            additionalLinesTotal={additionalLinesTotal}
           />
 
           {/* ── Financials: compact 2-col side-by-side ── */}
@@ -1569,225 +1580,263 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </div>
       )}
 
-      {/* ── Step 5: Enviar ── */}
+      {/* ── Step 5: Enviar (2-column layout: preview + config) ── */}
       {activeStep === 4 && (
-        <div className="space-y-3" inert={isLocked}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0" inert={isLocked}>
 
-          {/* ── AI sections as tabs ── */}
-          <Card className="p-2.5 space-y-2">
-            <div className="inline-flex rounded-md border border-border overflow-hidden">
-              <button
-                type="button"
-                className={cn("px-3 py-1.5 text-xs font-medium transition-colors", docAiTab === "description" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
-                onClick={() => setDocAiTab("description")}
-              >
-                Descripción AI
-              </button>
-              <button
-                type="button"
-                className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", docAiTab === "service" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
-                onClick={() => setDocAiTab("service")}
-              >
-                Detalle servicio
-              </button>
-            </div>
-
-            {docAiTab === "description" && (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={aiCustomInstruction}
-                    onChange={(e) => setAiCustomInstruction(e.target.value)}
-                    placeholder="Instrucción AI (opcional)"
-                    className="h-7 text-xs flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1 text-[11px] shrink-0"
-                    onClick={generateAiDescription}
-                    disabled={generatingAi}
-                  >
-                    {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {generatingAi ? "..." : "Generar"}
-                  </Button>
-                </div>
-                <textarea
-                  value={quote.aiDescription ?? ""}
-                  onChange={(e) => {
-                    fetch(`/api/cpq/quotes/${quoteId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ aiDescription: e.target.value }),
-                    }).catch(() => {});
-                  }}
-                  placeholder="Clic en 'Generar' para crear una descripción profesional..."
-                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={4}
-                />
-              </div>
-            )}
-
-            {docAiTab === "service" && (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={serviceDetailInstruction}
-                    onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                    placeholder="Instrucción AI (opcional)"
-                    className="h-7 text-xs flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1 text-[11px] shrink-0"
-                    onClick={generateServiceDetail}
-                    disabled={generatingServiceDetail}
-                  >
-                    {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {generatingServiceDetail ? "..." : "Generar"}
-                  </Button>
-                </div>
-                <textarea
-                  value={quote.serviceDetail ?? ""}
-                  onChange={(e) => {
-                    setQuote({ ...quote, serviceDetail: e.target.value });
-                    fetch(`/api/cpq/quotes/${quoteId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ serviceDetail: e.target.value }),
-                    }).catch(() => {});
-                  }}
-                  placeholder="Clic en 'Generar' para detalle de servicios..."
-                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={4}
-                />
-              </div>
-            )}
-          </Card>
-
-          {/* ── Document Preview: collapsible ── */}
-          <div className="rounded-md border border-border/40 overflow-hidden">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between bg-muted/20 px-3 py-2 hover:bg-muted/30 transition-colors"
-              onClick={() => setDocPreviewOpen(!docPreviewOpen)}
-            >
+          {/* ── Left: Document Preview (always visible) ── */}
+          <div className="border-r border-border/40 md:max-h-[600px] md:overflow-y-auto">
+            <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vista previa</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", docPreviewOpen && "rotate-180")} />
-            </button>
-            {docPreviewOpen && (
-              <div className="p-3 space-y-2 bg-white text-black text-xs" style={{ fontFamily: "Arial, sans-serif" }}>
-                <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
-                  <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
-                  <div className="text-right text-[10px] text-gray-600">
-                    <p className="font-bold text-xs text-black">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
-                    <p>{quote.clientName || "Cliente"}</p>
-                    {(() => {
-                      const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                      return c ? <p>{c.firstName} {c.lastName}</p> : null;
-                    })()}
-                    {(() => {
-                      const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
-                      return inst ? <p>{inst.name}</p> : null;
-                    })()}
-                    {quote.validUntil && <p>Válida hasta: {new Date(quote.validUntil).toLocaleDateString("es-CL")}</p>}
-                  </div>
+            </div>
+            <div className="p-3 space-y-2 bg-white text-black text-xs" style={{ fontFamily: "Arial, sans-serif" }}>
+              <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
+                <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
+                <div className="text-right text-[10px] text-gray-600">
+                  <p className="font-bold text-xs text-black">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
+                  <p>{quote.clientName || "Cliente"}</p>
+                  {(() => {
+                    const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                    return c ? <p>{c.firstName} {c.lastName}</p> : null;
+                  })()}
+                  {(() => {
+                    const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
+                    return inst ? <p>{inst.name}</p> : null;
+                  })()}
+                  {quote.validUntil && <p>Válida hasta: {new Date(quote.validUntil).toLocaleDateString("es-CL")}</p>}
                 </div>
+              </div>
 
-                {(crmContext.dealId || crmContext.installationId) && (
-                  <div className="text-[10px] rounded" style={{ padding: "4px 8px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
-                    {(() => {
-                      const deal = crmContext.dealId ? crmDeals.find((d) => d.id === crmContext.dealId) : null;
-                      return deal ? <span><strong>Negocio:</strong> {deal.title}</span> : null;
-                    })()}
-                    {crmContext.dealId && crmContext.installationId && " · "}
-                    {(() => {
-                      const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
-                      return inst ? <span><strong>Instalación:</strong> {inst.name}</span> : null;
-                    })()}
-                  </div>
-                )}
+              {(crmContext.dealId || crmContext.installationId) && (
+                <div className="text-[10px] rounded" style={{ padding: "4px 8px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
+                  {(() => {
+                    const deal = crmContext.dealId ? crmDeals.find((d) => d.id === crmContext.dealId) : null;
+                    return deal ? <span><strong>Negocio:</strong> {deal.title}</span> : null;
+                  })()}
+                  {crmContext.dealId && crmContext.installationId && " · "}
+                  {(() => {
+                    const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
+                    return inst ? <span><strong>Instalación:</strong> {inst.name}</span> : null;
+                  })()}
+                </div>
+              )}
 
-                {quote.aiDescription && (
-                  <p className="text-[10px] text-gray-600 bg-blue-50 rounded p-1.5 italic">{quote.aiDescription}</p>
-                )}
+              {quote.aiDescription && (
+                <p className="text-[10px] text-gray-600 bg-blue-50 rounded p-1.5 italic">{quote.aiDescription}</p>
+              )}
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr style={{ background: "#eff6ff" }}>
-                        <th className="text-left p-1 font-semibold">Puesto</th>
-                        <th className="text-left p-1 font-semibold">G</th>
-                        <th className="text-left p-1 font-semibold">Cant</th>
-                        <th className="text-left p-1 font-semibold">Días</th>
-                        <th className="text-left p-1 font-semibold">Horario</th>
-                        <th className="text-right p-1 font-semibold">Precio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {positions.map((pos) => {
-                        const clp = positionSalePrices.get(pos.id) ?? Number(pos.monthlyPositionCost);
-                        const formatted =
-                          crmContext.currency === "UF" && ufValue && ufValue > 0
-                            ? formatUFSuffix(clpToUf(clp, ufValue))
-                            : formatCLP(clp);
-                        return (
-                          <tr key={pos.id} className="border-b border-gray-100">
-                            <td className="p-1">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
-                            <td className="p-1">{pos.numGuards}</td>
-                            <td className="p-1">{pos.numPuestos || 1}</td>
-                            <td className="p-1">{formatWeekdaysShort(pos.weekdays)}</td>
-                            <td className="p-1">{pos.startTime}-{pos.endTime}</td>
-                            <td className="p-1 text-right">{formatted}</td>
-                          </tr>
-                        );
-                      })}
-                      <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
-                        <td colSpan={5} className="p-1 text-right">Total</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr style={{ background: "#eff6ff" }}>
+                      <th className="text-left p-1 font-semibold">Puesto</th>
+                      <th className="text-left p-1 font-semibold">G</th>
+                      <th className="text-left p-1 font-semibold">Cant</th>
+                      <th className="text-left p-1 font-semibold">Días</th>
+                      <th className="text-left p-1 font-semibold">Horario</th>
+                      <th className="text-right p-1 font-semibold">Precio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {positions.map((pos) => {
+                      const clp = positionSalePrices.get(pos.id) ?? Number(pos.monthlyPositionCost);
+                      const formatted =
+                        crmContext.currency === "UF" && ufValue && ufValue > 0
+                          ? formatUFSuffix(clpToUf(clp, ufValue))
+                          : formatCLP(clp);
+                      return (
+                        <tr key={pos.id} className="border-b border-gray-100">
+                          <td className="p-1">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
+                          <td className="p-1">{pos.numGuards}</td>
+                          <td className="p-1">{pos.numPuestos || 1}</td>
+                          <td className="p-1">{formatWeekdaysShort(pos.weekdays)}</td>
+                          <td className="p-1">{pos.startTime}-{pos.endTime}</td>
+                          <td className="p-1 text-right">{formatted}</td>
+                        </tr>
+                      );
+                    })}
+                    {additionalLinesTotal > 0 && (
+                      <tr className="font-semibold border-t" style={{ borderColor: "#2563eb" }}>
+                        <td colSpan={5} className="p-1 text-right">Subtotal guardias</td>
                         <td className="p-1 text-right">
                           {crmContext.currency === "UF" && ufValue && ufValue > 0
                             ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
                             : formatCLP(salePriceMonthly)}
                         </td>
                       </tr>
+                    )}
+                    <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
+                      <td colSpan={5} className="p-1 text-right">Total</td>
+                      <td className="p-1 text-right">
+                        {crmContext.currency === "UF" && ufValue && ufValue > 0
+                          ? formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))
+                          : formatCLP(salePriceMonthly + additionalLinesTotal)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Additional lines preview */}
+              {additionalLines.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#6b21a8" }}>Servicios y Productos Adicionales</p>
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr style={{ background: "#faf5ff" }}>
+                        <th className="text-left p-1 font-semibold">Producto / Servicio</th>
+                        <th className="text-left p-1 font-semibold">Descripción</th>
+                        <th className="text-right p-1 font-semibold">Valor Mensual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {additionalLines
+                        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+                        .map((linea, index) => (
+                        <tr key={linea.id || index} className="border-b border-gray-100">
+                          <td className="p-1">{linea.nombre || "—"}</td>
+                          <td className="p-1 text-gray-600">{linea.descripcion || "—"}</td>
+                          <td className="p-1 text-right">{formatCLP(Number(linea.precio))}</td>
+                        </tr>
+                      ))}
+                      <tr className="font-semibold border-t" style={{ background: "#faf5ff" }}>
+                        <td colSpan={2} className="p-1 text-right">Subtotal adicionales</td>
+                        <td className="p-1 text-right">{formatCLP(additionalLinesTotal)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
+              )}
 
-                {quote.serviceDetail && (
-                  <div>
-                    <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#1e3a5f" }}>Detalle del servicio</p>
-                    <div className="text-[10px] text-gray-700 whitespace-pre-line leading-relaxed">{quote.serviceDetail}</div>
-                  </div>
-                )}
-
-                <div className="text-center text-[9px] text-gray-400 border-t pt-1">
-                  Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl
+              {quote.serviceDetail && (
+                <div>
+                  <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#1e3a5f" }}>Detalle del servicio</p>
+                  <div className="text-[10px] text-gray-700 whitespace-pre-line leading-relaxed">{quote.serviceDetail}</div>
                 </div>
+              )}
+
+              <div className="text-center text-[9px] text-gray-400 border-t pt-1">
+                Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl
               </div>
-            )}
+            </div>
           </div>
 
-          {/* ── Action button ── */}
-          <div className="flex pt-2">
-            <SendCpqQuoteModal
-              quoteId={quoteId}
-              quoteCode={quote.code}
-              clientName={quote.clientName || undefined}
-              disabled={!quote || positions.length === 0 || quote.status === "sent"}
-              hasAccount={!!crmContext.accountId}
-              hasContact={!!crmContext.contactId}
-              hasDeal={!!crmContext.dealId}
-              contactName={(() => {
-                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-              })()}
-              contactEmail={(() => {
-                const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                return c?.email || undefined;
-              })()}
-            />
+          {/* ── Right: Config + AI + Send ── */}
+          <div className="p-3 space-y-3 flex flex-col">
+            {/* ── AI sections as tabs ── */}
+            <Card className="p-2.5 space-y-2">
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                <button
+                  type="button"
+                  className={cn("px-3 py-1.5 text-xs font-medium transition-colors", docAiTab === "description" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
+                  onClick={() => setDocAiTab("description")}
+                >
+                  Descripción AI
+                </button>
+                <button
+                  type="button"
+                  className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", docAiTab === "service" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
+                  onClick={() => setDocAiTab("service")}
+                >
+                  Detalle servicio
+                </button>
+              </div>
+
+              {docAiTab === "description" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={aiCustomInstruction}
+                      onChange={(e) => setAiCustomInstruction(e.target.value)}
+                      placeholder="Instrucción AI (opcional)"
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-[11px] shrink-0"
+                      onClick={generateAiDescription}
+                      disabled={generatingAi}
+                    >
+                      {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {generatingAi ? "..." : "Generar"}
+                    </Button>
+                  </div>
+                  <textarea
+                    value={quote.aiDescription ?? ""}
+                    onChange={(e) => {
+                      setQuote({ ...quote, aiDescription: e.target.value });
+                      fetch(`/api/cpq/quotes/${quoteId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ aiDescription: e.target.value }),
+                      }).catch(() => {});
+                    }}
+                    placeholder="Clic en 'Generar' para crear una descripción profesional..."
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    rows={4}
+                  />
+                </div>
+              )}
+
+              {docAiTab === "service" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={serviceDetailInstruction}
+                      onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                      placeholder="Instrucción AI (opcional)"
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-[11px] shrink-0"
+                      onClick={generateServiceDetail}
+                      disabled={generatingServiceDetail}
+                    >
+                      {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {generatingServiceDetail ? "..." : "Generar"}
+                    </Button>
+                  </div>
+                  <textarea
+                    value={quote.serviceDetail ?? ""}
+                    onChange={(e) => {
+                      setQuote({ ...quote, serviceDetail: e.target.value });
+                      fetch(`/api/cpq/quotes/${quoteId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ serviceDetail: e.target.value }),
+                      }).catch(() => {});
+                    }}
+                    placeholder="Clic en 'Generar' para detalle de servicios..."
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    rows={4}
+                  />
+                </div>
+              )}
+            </Card>
+
+            {/* ── Action button ── */}
+            <div className="flex pt-2 mt-auto">
+              <SendCpqQuoteModal
+                quoteId={quoteId}
+                quoteCode={quote.code}
+                clientName={quote.clientName || undefined}
+                disabled={!quote || positions.length === 0 || quote.status === "sent"}
+                hasAccount={!!crmContext.accountId}
+                hasContact={!!crmContext.contactId}
+                hasDeal={!!crmContext.dealId}
+                contactName={(() => {
+                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                  return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+                })()}
+                contactEmail={(() => {
+                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+                  return c?.email || undefined;
+                })()}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1804,6 +1853,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           marginPct={marginPct}
           salePriceMonthly={salePriceMonthly}
           ufValue={ufValue}
+          additionalLinesTotal={additionalLinesTotal}
           alwaysExpanded
         />
 

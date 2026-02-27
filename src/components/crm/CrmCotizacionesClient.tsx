@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
-import { FileText, ChevronRight, Plus, Loader2, MessageSquare } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -31,6 +31,8 @@ type QuoteRow = {
   totalGuards: number;
   createdAt: string;
   updatedAt?: string | null;
+  accountId?: string | null;
+  dealId?: string | null;
   dealTitle?: string | null;
   accountName?: string | null;
 };
@@ -231,10 +233,34 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           </Badge>
         </div>
         {quote.dealTitle && (
-          <p className="mt-0.5 text-sm text-foreground truncate">{quote.dealTitle}</p>
+          <p className="mt-0.5 text-sm truncate">
+            {quote.dealId ? (
+              <Link
+                href={`/crm/deals/${quote.dealId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-blue-400 hover:underline inline-flex items-center gap-1 transition-colors"
+              >
+                {quote.dealTitle}
+                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Link>
+            ) : (
+              <span className="text-foreground">{quote.dealTitle}</span>
+            )}
+          </p>
         )}
         <p className="mt-0.5 text-xs text-muted-foreground truncate">
-          {quote.accountName || quote.clientName || "Sin cliente"} · {quote.totalGuards} guardias · {quote.totalPositions} puestos
+          {quote.accountId ? (
+            <Link
+              href={`/crm/accounts/${quote.accountId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-teal-500 hover:text-green-400 hover:underline transition-colors"
+            >
+              {quote.accountName || quote.clientName || "Sin cliente"}
+            </Link>
+          ) : (
+            <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
+          )}
+          {" · "}{quote.totalGuards} guardias · {quote.totalPositions} puestos
         </p>
         <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-0.5" />
       </div>
@@ -292,10 +318,33 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
         <p className="text-sm font-medium truncate">{quote.name}</p>
       )}
       {quote.dealTitle && (
-        <p className="text-sm truncate text-foreground">{quote.dealTitle}</p>
+        <p className="text-sm truncate">
+          {quote.dealId ? (
+            <Link
+              href={`/crm/deals/${quote.dealId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-blue-400 hover:underline inline-flex items-center gap-1 transition-colors"
+            >
+              {quote.dealTitle}
+              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          ) : (
+            <span className="text-foreground">{quote.dealTitle}</span>
+          )}
+        </p>
       )}
       <p className="text-xs text-muted-foreground truncate">
-        {quote.accountName || quote.clientName || "Sin cliente"}
+        {quote.accountId ? (
+          <Link
+            href={`/crm/accounts/${quote.accountId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-teal-500 hover:text-green-400 hover:underline transition-colors"
+          >
+            {quote.accountName || quote.clientName || "Sin cliente"}
+          </Link>
+        ) : (
+          <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
+        )}
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
         <div>

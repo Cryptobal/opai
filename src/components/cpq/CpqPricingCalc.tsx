@@ -33,6 +33,7 @@ interface CpqPricingCalcProps {
   positions?: CpqPosition[];
   monthlyHours?: number;
   ufValue?: number | null;
+  additionalLinesTotal?: number;
 }
 
 export function CpqPricingCalc({
@@ -55,6 +56,7 @@ export function CpqPricingCalc({
   positions = [],
   monthlyHours = 180,
   ufValue,
+  additionalLinesTotal = 0,
 }: CpqPricingCalcProps) {
   const [localMargin, setLocalMargin] = useState(marginPct);
   const [marginDraft, setMarginDraft] = useState("");
@@ -235,6 +237,17 @@ export function CpqPricingCalc({
           <span className="font-mono text-xs font-semibold">{formatCurrency(marginAmount)}</span>
         </div>
 
+        {/* Additional lines (pass-through) */}
+        {additionalLinesTotal > 0 && (
+          <>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 border-b border-purple-500/20 pb-0.5 mb-0.5 mt-1.5">Servicios adicionales</div>
+            <div className="flex justify-between items-center py-0.5 text-purple-700 dark:text-purple-400">
+              <span className="text-[11px]">Líneas adicionales</span>
+              <span className="font-mono text-[11px]">{formatCurrency(additionalLinesTotal)}</span>
+            </div>
+          </>
+        )}
+
         {/* Sale price highlight — prominent block */}
         <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
           <div className="flex items-center justify-between">
@@ -242,13 +255,19 @@ export function CpqPricingCalc({
               Venta mensual
             </span>
             <span className="font-mono text-base font-bold text-emerald-700 dark:text-emerald-400">
-              {formatCLP(salePriceMonthly)}
+              {formatCLP(salePriceMonthly + additionalLinesTotal)}
             </span>
           </div>
+          {additionalLinesTotal > 0 && (
+            <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+              <span>Guardias: {formatCLP(salePriceMonthly)}</span>
+              <span>Adicionales: {formatCLP(additionalLinesTotal)}</span>
+            </div>
+          )}
           {ufValue && ufValue > 0 && (
             <div className="mt-0.5 text-right">
               <span className="font-mono text-[11px] font-semibold text-emerald-600/70 dark:text-emerald-400/60">
-                {formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}
+                {formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))}
               </span>
             </div>
           )}

@@ -103,7 +103,7 @@ export function CpqPositionCard({
   const compactBadge = "h-5 rounded-full border px-1.5 text-[10px] font-medium leading-none truncate max-w-[120px]";
 
   return (
-    <Card className="overflow-hidden border border-muted/40">
+    <Card className="overflow-hidden border border-muted/40 group">
       {/* ── Row 1: Title + badges + actions ── */}
       <div className="flex items-center gap-2 px-2.5 py-1.5">
         <div
@@ -129,7 +129,10 @@ export function CpqPositionCard({
             <Badge variant="outline" className={cn(compactBadge, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
               {position.numGuards}x{position.numPuestos || 1}
             </Badge>
-            <Badge variant="outline" className={cn(compactBadge, "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400")}>
+            <Badge variant="outline" className={cn(compactBadge, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
+              {(position.weekdays?.length ?? 7) >= 6 ? "6x1" : (position.weekdays?.length ?? 5) === 5 ? "5x2" : `${position.weekdays?.length ?? 0}x${7 - (position.weekdays?.length ?? 0)}`}
+            </Badge>
+            <Badge variant="outline" className={cn(compactBadge, "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400")}>
               {formatWeekdaysShort(position.weekdays)}
             </Badge>
             <Badge
@@ -147,7 +150,7 @@ export function CpqPositionCard({
           </div>
         </div>
         {!readOnly && (
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0 rounded-md border border-transparent group-hover:border-border/40 group-hover:bg-muted/20 p-0.5 transition-colors">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOpenEdit(true)} title="Editar">
               <Pencil className="h-3 w-3" />
             </Button>
