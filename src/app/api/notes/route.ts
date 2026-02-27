@@ -106,6 +106,15 @@ export async function GET(request: NextRequest) {
                   mentionedRole: true,
                 },
               },
+              entityRefs: {
+                select: {
+                  id: true,
+                  referencedEntityType: true,
+                  referencedEntityId: true,
+                  referencedEntityLabel: true,
+                  referencedEntityCode: true,
+                },
+              },
             },
           },
           reactions: {
@@ -117,6 +126,15 @@ export async function GET(request: NextRequest) {
               mentionType: true,
               mentionedUserId: true,
               mentionedRole: true,
+            },
+          },
+          entityRefs: {
+            select: {
+              id: true,
+              referencedEntityType: true,
+              referencedEntityId: true,
+              referencedEntityLabel: true,
+              referencedEntityCode: true,
             },
           },
         },
@@ -297,6 +315,11 @@ export async function POST(request: NextRequest) {
 
     // ── Extract entity references ──
     const entityRefs = extractEntityReferences(content);
+    // Client may provide labels: { "ACCOUNT:uuid": { label: "Acme", code: "RUT" } }
+    const entityRefLabels: Record<string, { label?: string; code?: string | null }> =
+      typeof body.entityRefLabels === "object" && body.entityRefLabels !== null
+        ? body.entityRefLabels
+        : {};
 
     // ── Create note + mentions + entity refs in transaction ──
     const rootNoteId = parentNoteId ?? undefined;
@@ -349,13 +372,18 @@ export async function POST(request: NextRequest) {
       // Create NoteEntityReference rows
       if (entityRefs.length > 0) {
         await tx.noteEntityReference.createMany({
-          data: entityRefs.map((ref) => ({
-            tenantId: ctx.tenantId,
-            noteId: created.id,
-            referencedEntityType: ref.type,
-            referencedEntityId: ref.id,
-            referencedEntityLabel: CONTEXT_LABELS[ref.type] ?? ref.type,
-          })),
+          data: entityRefs.map((ref) => {
+            const key = `${ref.type}:${ref.id}`;
+            const clientLabel = entityRefLabels[key];
+            return {
+              tenantId: ctx.tenantId,
+              noteId: created.id,
+              referencedEntityType: ref.type,
+              referencedEntityId: ref.id,
+              referencedEntityLabel: clientLabel?.label || CONTEXT_LABELS[ref.type] || ref.type,
+              referencedEntityCode: clientLabel?.code ?? null,
+            };
+          }),
         });
       }
 

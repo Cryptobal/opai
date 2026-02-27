@@ -47,6 +47,14 @@ export type NoteMentionItem = {
   mentionedRole?: string | null;
 };
 
+export type NoteEntityRefItem = {
+  id: string;
+  referencedEntityType: string;
+  referencedEntityId: string;
+  referencedEntityLabel: string;
+  referencedEntityCode?: string | null;
+};
+
 export type NoteData = {
   id: string;
   tenantId: string;
@@ -71,6 +79,7 @@ export type NoteData = {
   replies: NoteData[];
   reactions: NoteReactionItem[];
   mentions: NoteMentionItem[];
+  entityRefs?: NoteEntityRefItem[];
   replyCount: number;
   reactionSummary: NoteReactionSummary[];
 };

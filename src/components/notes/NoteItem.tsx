@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   CheckSquare,
   ChevronDown,
@@ -27,10 +28,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { buildNoteContextLink, CONTEXT_LABELS, isValidContextType } from "@/lib/note-utils";
 import { toast } from "sonner";
 import {
   useNotesContext,
   type NoteData,
+  type NoteEntityRefItem,
   type NoteReactionSummary,
 } from "./NotesProvider";
 
@@ -54,28 +57,44 @@ function getInitials(name: string): string {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-/** Renders note content highlighting @mentions and #references */
-function renderContent(content: string): ReactNode {
+/** Renders note content highlighting @mentions and #references with entity labels */
+function renderContent(content: string, entityRefs?: NoteEntityRefItem[]): ReactNode {
+  // Build a lookup map: "TYPE:id" → ref data
+  const refMap = new Map<string, NoteEntityRefItem>();
+  if (entityRefs) {
+    for (const ref of entityRefs) {
+      refMap.set(`${ref.referencedEntityType}:${ref.referencedEntityId}`, ref);
+    }
+  }
+
   // Split on @mentions and #REF:id patterns
   const parts = content.split(/([@＠][\p{L}\p{N}._\- ]+|#[A-Z_]+:[a-f0-9-]+)/gu);
   return parts.map((part, i) => {
     if (/^[@＠]/.test(part)) {
       return (
-        <span key={i} className="text-primary font-medium">
+        <span key={i} className="inline-flex items-center rounded bg-emerald-500/15 border border-emerald-500/20 px-1 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
           {part}
         </span>
       );
     }
     const refMatch = part.match(/^#([A-Z_]+):([a-f0-9-]+)$/);
     if (refMatch) {
+      const type = refMatch[1];
+      const id = refMatch[2];
+      const key = `${type}:${id}`;
+      const refData = refMap.get(key);
+      const label = refData?.referencedEntityLabel || CONTEXT_LABELS[type as keyof typeof CONTEXT_LABELS] || type;
+      const href = isValidContextType(type) ? buildNoteContextLink(type as any, id) : "#";
       return (
-        <span
+        <Link
           key={i}
-          className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[11px] font-medium text-primary cursor-pointer hover:bg-primary/10 transition-colors"
+          href={href}
+          className="inline-flex items-center gap-0.5 rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors no-underline"
+          onClick={(e) => e.stopPropagation()}
         >
-          <ExternalLink className="h-2.5 w-2.5" />
-          {refMatch[1]}
-        </span>
+          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          {label}
+        </Link>
       );
     }
     return <span key={i}>{part}</span>;
@@ -307,7 +326,7 @@ export function NoteItem({
             ) : (
               <>
                 <p className="mt-0.5 text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
-                  {renderContent(note.content)}
+                  {renderContent(note.content, note.entityRefs)}
                 </p>
 
                 {/* Attachments */}

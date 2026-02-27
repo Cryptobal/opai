@@ -10,12 +10,19 @@ import {
 } from "react";
 import {
   AtSign,
+  Building2,
+  Contact,
+  FileText,
   Hash,
   Loader2,
   Lock,
   Globe,
+  MapPin,
   Paperclip,
+  Plus,
   Send,
+  Shield,
+  TrendingUp,
   Users,
   X,
 } from "lucide-react";
@@ -107,6 +114,9 @@ export function NoteInput({
   const [entitySearching, setEntitySearching] = useState(false);
   const [selectedEntityIdx, setSelectedEntityIdx] = useState(0);
 
+  // Entity ref labels map: "TYPE:uuid" → { label, code }
+  const entityRefLabelsRef = useRef<Record<string, { label: string; code?: string | null }>>({});
+
   // File attachments
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string; type: string; size: number }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -156,10 +166,10 @@ export function NoteInput({
       return;
     }
 
-    // Check for #entity trigger
+    // Check for #entity trigger (show dropdown immediately on # or /)
     const hashMatch = before.match(/(?:^|\s)[#/]([\p{L}\p{N}\s._-]*)$/u);
-    if (hashMatch && (hashMatch[1] || "").length >= 2) {
-      setEntityQuery(hashMatch[1].trim());
+    if (hashMatch) {
+      setEntityQuery((hashMatch[1] || "").trim());
       setShowEntitySearch(true);
       setShowMentions(false);
       setSelectedEntityIdx(0);
@@ -227,7 +237,7 @@ export function NoteInput({
   }, [content]);
 
   // ── Insert #entity reference ──
-  const insertEntityRef = useCallback((catKey: string, item: { id: string; label: string }) => {
+  const insertEntityRef = useCallback((catKey: string, item: { id: string; label: string; code?: string | null }) => {
     const el = textareaRef.current;
     if (!el) return;
     const cursor = el.selectionStart ?? content.length;
@@ -239,6 +249,8 @@ export function NoteInput({
     const ref = `#${catKey}:${item.id}`;
     const after = content.slice(cursor);
     setContent(`${content.slice(0, Math.max(0, hashIndex))}${ref} ${after}`);
+    // Store label for this entity ref
+    entityRefLabelsRef.current[`${catKey}:${item.id}`] = { label: item.label, code: item.code };
     setShowEntitySearch(false);
     setTimeout(() => {
       const pos = Math.max(0, hashIndex) + ref.length + 1;
@@ -323,6 +335,10 @@ export function NoteInput({
           fileSize: a.size,
         }));
       }
+      // Include entity ref labels for backend storage
+      if (Object.keys(entityRefLabelsRef.current).length > 0) {
+        body.entityRefLabels = entityRefLabelsRef.current;
+      }
 
       const res = await fetch("/api/notes", {
         method: "POST",
@@ -337,6 +353,7 @@ export function NoteInput({
       setNoteType("GENERAL");
       setVisibility("PUBLIC");
       setVisibleToUsers([]);
+      entityRefLabelsRef.current = {};
       toast.success(parentNoteId ? "Respuesta enviada" : "Nota agregada");
       await ctx.fetchNotes();
       onSent?.();
@@ -521,7 +538,7 @@ export function NoteInput({
           </button>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
 
-          {/* Entity search trigger */}
+          {/* Entity search trigger (+ button) */}
           <button
             type="button"
             onClick={() => {
@@ -539,9 +556,9 @@ export function NoteInput({
               }
             }}
             className="inline-flex items-center rounded px-1.5 py-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Vincular entidad (#)"
+            title="Vincular una entidad"
           >
-            <Hash className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5" />
           </button>
 
           <div className="flex-1" />
@@ -674,6 +691,16 @@ function MentionDropdown({
   );
 }
 
+const ENTITY_CATEGORY_META: Record<string, { emoji: string; icon: typeof Building2; color: string }> = {
+  QUOTATION: { emoji: "📋", icon: FileText, color: "text-blue-500" },
+  INSTALLATION: { emoji: "🏢", icon: MapPin, color: "text-emerald-500" },
+  ACCOUNT: { emoji: "👥", icon: Building2, color: "text-violet-500" },
+  CONTACT: { emoji: "👤", icon: Contact, color: "text-sky-500" },
+  DEAL: { emoji: "💼", icon: TrendingUp, color: "text-amber-500" },
+  GUARD: { emoji: "🛡️", icon: Shield, color: "text-orange-500" },
+  DOCUMENT: { emoji: "📄", icon: FileText, color: "text-rose-500" },
+};
+
 function EntitySearchDropdown({
   categories,
   searching,
@@ -685,46 +712,76 @@ function EntitySearchDropdown({
   searching: boolean;
   query: string;
   selectedIdx: number;
-  onSelect: (catKey: string, item: { id: string; label: string }) => void;
+  onSelect: (catKey: string, item: { id: string; label: string; code?: string | null }) => void;
 }) {
   let cursor = 0;
+  const hasResults = categories.length > 0;
   return (
-    <div className="absolute z-[100] bottom-full mb-1 left-0 w-80 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+    <div className="absolute z-[100] bottom-full mb-1 left-0 w-80 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-popover border-b border-border/60 px-3 py-1.5">
+        <p className="text-[10px] text-muted-foreground">
+          {query.length < 2
+            ? "Escribe para buscar entidades..."
+            : searching
+              ? "Buscando..."
+              : `Resultados para "${query}"`}
+        </p>
+      </div>
+
       {searching && (
-        <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
+        <div className="flex items-center justify-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando...
         </div>
       )}
-      {!searching && categories.length === 0 && query.length >= 2 && (
-        <div className="px-3 py-3 text-xs text-muted-foreground text-center">
-          Sin resultados para "{query}"
+
+      {!searching && !hasResults && query.length >= 2 && (
+        <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+          Sin resultados para &ldquo;{query}&rdquo;
         </div>
       )}
-      {categories.map((cat) => (
-        <div key={cat.key}>
-          <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">{cat.label}</p>
-          {cat.items.map((item) => {
-            const idx = cursor++;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                  idx === selectedIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
-                )}
-                onMouseDown={(e) => { e.preventDefault(); onSelect(cat.key, item); }}
-              >
-                <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{item.label}</p>
-                  {item.subtitle && <p className="truncate text-[10px] text-muted-foreground">{item.subtitle}</p>}
-                </div>
-              </button>
-            );
-          })}
+
+      {!searching && !hasResults && query.length < 2 && (
+        <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+          Escribe al menos 2 caracteres
         </div>
-      ))}
+      )}
+
+      {categories.map((cat) => {
+        const meta = ENTITY_CATEGORY_META[cat.key];
+        const CatIcon = meta?.icon ?? Hash;
+        return (
+          <div key={cat.key}>
+            <p className="flex items-center gap-1.5 px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              {meta?.emoji && <span>{meta.emoji}</span>}
+              {cat.label}
+            </p>
+            {cat.items.map((item) => {
+              const idx = cursor++;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors",
+                    idx === selectedIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
+                  )}
+                  onMouseDown={(e) => { e.preventDefault(); onSelect(cat.key, item); }}
+                >
+                  <CatIcon className={cn("h-3.5 w-3.5 shrink-0", meta?.color ?? "text-muted-foreground")} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{item.label}</p>
+                    {item.subtitle && <p className="truncate text-[10px] text-muted-foreground">{item.subtitle}</p>}
+                  </div>
+                  {item.code && (
+                    <span className="shrink-0 text-[10px] text-muted-foreground font-mono">{item.code}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
