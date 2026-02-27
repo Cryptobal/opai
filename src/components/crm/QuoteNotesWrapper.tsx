@@ -2,7 +2,7 @@
 
 import { MessageSquareText } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { NotesSection } from "./NotesSection";
+import { NotesPanel } from "@/components/notes";
 
 interface QuoteNotesWrapperProps {
   quoteId: string;
@@ -17,7 +17,7 @@ export function QuoteNotesWrapper({ quoteId, currentUserId }: QuoteNotesWrapperP
         title="Notas"
         defaultOpen
       >
-        <NotesSection entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
+        <NotesPanel entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
       </CollapsibleSection>
     </div>
   );

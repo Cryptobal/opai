@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { NotesSection } from "./NotesSection";
+import { NotesPanel } from "@/components/notes";
 import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
@@ -603,7 +603,7 @@ export function CrmContactDetailClient({
           </div>
         )}
 
-        {activeTab === "notes" && <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />}
+        {activeTab === "notes" && <NotesPanel entityType="contact" entityId={contact.id} currentUserId={currentUserId} />}
 
         {activeTab === "files" && <FileAttachments entityType="contact" entityId={contact.id} title="Archivos" />}
       </EntityDetailLayout>

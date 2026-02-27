@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/opai";
-import { NotesSection } from "@/components/crm/NotesSection";
+import { NotesPanel } from "@/components/notes";
 import {
   Dialog,
   DialogContent,
@@ -1993,7 +1993,7 @@ export function OpsPautaMensualClient({
       {installationId && currentUserId && (
         <Card>
           <CardContent className="pt-3 pb-3">
-            <NotesSection
+            <NotesPanel
               entityType="installation_pauta"
               entityId={`${installationId}_${year}-${String(month).padStart(2, "0")}`}
               currentUserId={currentUserId}

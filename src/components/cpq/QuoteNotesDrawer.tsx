@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MessageSquareText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NotesSection } from "@/components/crm/NotesSection";
+import { NotesPanel } from "@/components/notes";
 
 interface QuoteNotesDrawerProps {
   quoteId: string;
@@ -117,7 +117,7 @@ export function QuoteNotesDrawer({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
           {isOpen && (
-            <NotesSection
+            <NotesPanel
               entityType="quote"
               entityId={quoteId}
               currentUserId={currentUserId}

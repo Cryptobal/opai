@@ -45,7 +45,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
-import { NotesSection } from "./NotesSection";
+import { NotesPanel } from "@/components/notes";
 import { FileAttachments } from "./FileAttachments";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -1208,7 +1208,7 @@ export function CrmDealDetailClient({
 
   const notesSection = {
     key: "notes",
-    children: <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />,
+    children: <NotesPanel entityType="deal" entityId={deal.id} currentUserId={currentUserId} />,
   };
 
   const filesSection = {
