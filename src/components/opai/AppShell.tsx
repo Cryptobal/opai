@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Menu, RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
-import { CommandPalette } from './CommandPalette';
+import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
 import { ThemeToggle } from './ThemeToggle';
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
@@ -104,6 +104,7 @@ export function AppShell({
     : sidebar;
 
   return (
+    <CommandPaletteProvider>
     <div className="relative min-h-screen overflow-x-hidden">
       {/* ── Mobile topbar ── */}
       {sidebar && (
@@ -236,5 +237,6 @@ export function AppShell({
       {/* ── Asistente IA ── */}
       <AiHelpChatWidget />
     </div>
+    </CommandPaletteProvider>
   );
 }
