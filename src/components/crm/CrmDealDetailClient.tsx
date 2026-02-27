@@ -1055,7 +1055,7 @@ export function CrmDealDetailClient({
             <Label>Cotización</Label>
             <SearchableSelect
               value={selectedQuoteId}
-              options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.name ? ` — ${q.name}` : ""} · ${q.clientName || "Sin cliente"}` }))}
+              options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.clientName ? ` — ${q.clientName}` : ""} · ${q.clientName || "Sin cliente"}` }))}
               placeholder="Selecciona cotización"
               disabled={linking}
               onChange={setSelectedQuoteId}
@@ -1086,7 +1086,7 @@ export function CrmDealDetailClient({
             <CrmRelatedRecordCard
               key={quote.id}
               module="quotes"
-              title={info?.name ? `${info.code} — ${info.name}` : info?.code || "CPQ"}
+              title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
               subtitle={subtitleParts}
               meta={formatQuoteAmounts(info)}
               badge={{ label: statusLabel, variant: statusVariant as any }}

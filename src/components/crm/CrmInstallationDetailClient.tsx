@@ -1504,7 +1504,7 @@ function StaffingSection({
           <p className="text-xs font-medium text-muted-foreground">Cotizaciones asociadas</p>
           <div className="space-y-2">
             {installation.quotesInstalacion.map((quote) => (
-              <CrmRelatedRecordCard key={quote.id} module="quotes" title={quote.name ? `${quote.code} — ${quote.name}` : quote.code} subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`} badge={{ label: quote.status, variant: "secondary" }} meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")} href={`/crm/cotizaciones/${quote.id}`} />
+              <CrmRelatedRecordCard key={quote.id} module="quotes" title={quote.code} subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`} badge={{ label: quote.status, variant: "secondary" }} meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")} href={`/crm/cotizaciones/${quote.id}`} />
             ))}
           </div>
         </div>
@@ -2055,7 +2055,7 @@ export function CrmInstallationDetailClient({
             <CrmRelatedRecordCard
               key={q.id}
               module="quotes"
-              title={q.name ? `${q.code} — ${q.name}` : q.code}
+              title={q.code}
               subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
               meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
               badge={{ label: q.status, variant: "secondary" }}
