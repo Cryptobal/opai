@@ -69,9 +69,6 @@ const TYPE_ICONS: Record<string, string> = {
   followup_scheduled: "⏰",
   followup_failed: "❌",
   mention: "💬",
-  mention_direct: "📌",
-  mention_group: "👥",
-  note_thread_reply: "🧵",
   ticket_created: "🎫",
   ticket_approved: "✅",
   ticket_rejected: "❌",
@@ -82,24 +79,15 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TYPE_LABELS: Record<string, string> = {
   mention: "Mención",
-  mention_direct: "Mención directa",
-  mention_group: "Mención grupal",
-  note_thread_reply: "Respuesta de hilo",
 };
 
-type NotificationFilter = "all" | "mention_direct" | "mention_group" | "note_thread_reply";
+type NotificationFilter = "all";
 const FILTER_TO_TYPES: Record<NotificationFilter, string[]> = {
   all: [],
-  mention_direct: ["mention", "mention_direct"],
-  mention_group: ["mention_group"],
-  note_thread_reply: ["note_thread_reply"],
 };
 
 const NON_SYSTEM_TYPES = new Set([
   "mention",
-  "mention_direct",
-  "mention_group",
-  "note_thread_reply",
   "ticket_mention",
 ]);
 
@@ -107,9 +95,6 @@ const TYPE_MODULE_FALLBACK: Record<string, string> = {
   new_lead: "lead",
   lead_approved: "lead",
   mention: "crm",
-  mention_direct: "crm",
-  mention_group: "crm",
-  note_thread_reply: "crm",
   email_opened: "negocio",
   email_clicked: "negocio",
   email_bounced: "negocio",
@@ -418,7 +403,7 @@ export function NotificationListClient() {
   };
 
   const canReplyInline = (n: NotificationItem) => {
-    if (!["mention", "mention_direct", "mention_group", "note_thread_reply"].includes(n.type)) return false;
+    if (!["mention"].includes(n.type)) return false;
     const payload = getNotePayload(n);
     return Boolean(payload.noteId && payload.entityType && payload.entityId);
   };
@@ -528,39 +513,43 @@ export function NotificationListClient() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <div>
-          <h3 className="text-lg font-semibold">Tus notificaciones</h3>
-          <p className="text-sm text-muted-foreground">
-            {activeUnreadCount > 0
-              ? `${activeUnreadCount} sin leer`
-              : "Todas leídas"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeUnreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={markAllRead}
-              disabled={actionLoading}
-            >
-              <CheckCheck className="h-4 w-4 mr-1.5" />
-              Marcar todas leídas
-            </Button>
-          )}
-          {notifications.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={deleteAll}
-              disabled={actionLoading}
-            >
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Eliminar todas
-            </Button>
-          )}
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Tus notificaciones</h3>
+            <p className="text-sm text-muted-foreground">
+              {activeUnreadCount > 0
+                ? `${activeUnreadCount} sin leer`
+                : "Todas leídas"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeUnreadCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllRead}
+                disabled={actionLoading}
+              >
+                <CheckCheck className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Marcar todas leídas</span>
+                <span className="sm:hidden">Leídas</span>
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={deleteAll}
+                disabled={actionLoading}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Eliminar todas</span>
+                <span className="sm:hidden">Eliminar</span>
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -568,27 +557,6 @@ export function NotificationListClient() {
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>
               Todas
-            </Button>
-            <Button
-              size="sm"
-              variant={filter === "mention_direct" ? "default" : "outline"}
-              onClick={() => setFilter("mention_direct")}
-            >
-              Menciones directas
-            </Button>
-            <Button
-              size="sm"
-              variant={filter === "mention_group" ? "default" : "outline"}
-              onClick={() => setFilter("mention_group")}
-            >
-              Menciones grupales
-            </Button>
-            <Button
-              size="sm"
-              variant={filter === "note_thread_reply" ? "default" : "outline"}
-              onClick={() => setFilter("note_thread_reply")}
-            >
-              Respuestas en hilos
             </Button>
           </div>
 

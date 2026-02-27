@@ -8,6 +8,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
+import { NotesProvider } from "@/components/notes";
 
 export default async function CrmAccountDetailPage({
   params,
@@ -79,12 +80,18 @@ export default async function CrmAccountDetailPage({
       : "client_inactive";
 
   return (
-    <>
+    <NotesProvider
+      contextType="ACCOUNT"
+      contextId={id}
+      contextLabel={account.name || "Cuenta"}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
       <CrmAccountDetailClient
         account={data}
         quotes={data.quotes || []}
         currentUserId={session.user.id}
       />
-    </>
+    </NotesProvider>
   );
 }

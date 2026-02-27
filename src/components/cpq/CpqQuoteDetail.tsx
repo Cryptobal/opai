@@ -49,8 +49,6 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
-import { QuoteNotesDrawer } from "@/components/cpq/QuoteNotesDrawer";
-import { NotesSection } from "@/components/crm/NotesSection";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -1809,17 +1807,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           alwaysExpanded
         />
 
-        {/* Notes — shown directly in sidebar on desktop */}
-        {currentUserId && (
-          <div className="rounded-lg border border-border/60 bg-card/50 overflow-hidden">
-            <div className="px-3 py-2 border-b border-border/40">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</span>
-            </div>
-            <div className="p-3 max-h-[400px] overflow-y-auto">
-              <NotesSection entityType="quote" entityId={quoteId} currentUserId={currentUserId} />
-            </div>
-          </div>
-        )}
       </aside>
 
       </div>{/* end 2-column grid */}
@@ -1836,13 +1823,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             <ChevronLeft className="h-3.5 w-3.5" />
             Anterior
           </Button>
-          {/* Notes drawer button — mobile only (desktop has sidebar) */}
-          {currentUserId ? (
-            <span className="lg:hidden">
-              <QuoteNotesDrawer quoteId={quoteId} currentUserId={currentUserId} />
-            </span>
-          ) : null}
-          <span className={cn("text-[11px] text-muted-foreground", currentUserId ? "hidden lg:inline" : "")}>
+          <span className="text-[11px] text-muted-foreground">
             {activeStep + 1}/{steps.length}
           </span>
           <Button

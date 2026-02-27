@@ -57,10 +57,11 @@ import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, Clock3, FileText } from "lucide-react";
+import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, Clock3, FileText, MessageSquare } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
+import { useUnreadNoteIds } from "@/lib/hooks";
 
 type DealFormState = {
   title: string;
@@ -182,6 +183,7 @@ type DealCardProps = {
   deal: CrmDeal;
   isOverlay?: boolean;
   onOpenSheet?: () => void;
+  hasUnreadNotes?: boolean;
 };
 
 type DealColumnProps = {
@@ -267,6 +269,7 @@ function DealCard({
   deal,
   isOverlay = false,
   onOpenSheet,
+  hasUnreadNotes = false,
 }: DealCardProps) {
   const {
     attributes,
@@ -300,13 +303,21 @@ function DealCard({
           className="flex-1 min-w-0 cursor-pointer md:cursor-auto"
           onClick={() => !isOverlay && onOpenSheet?.()}
         >
-          <Link
-            href={`/crm/deals/${deal.id}`}
-            className="text-[13px] font-medium text-foreground hover:underline line-clamp-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {deal.title}
-          </Link>
+          <span className="flex items-center gap-1">
+            <Link
+              href={`/crm/deals/${deal.id}`}
+              className="text-[13px] font-medium text-foreground hover:underline line-clamp-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {deal.title}
+            </Link>
+            {hasUnreadNotes && (
+              <span className="relative shrink-0" title="Notas no leídas">
+                <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+              </span>
+            )}
+          </span>
           <p className="text-[11px] text-muted-foreground truncate mt-0.5">
             {deal.account?.name}
           </p>
@@ -368,9 +379,11 @@ function MobileStageList({
   columns,
   expandedStageIds,
   onToggleExpand,
+  unreadNoteIds,
 }: {
   columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[];
   expandedStageIds: Set<string>;
+  unreadNoteIds?: Set<string>;
   onToggleExpand: (stageId: string) => void;
 }) {
   return (
@@ -419,7 +432,15 @@ function MobileStageList({
                       className="flex items-center gap-3 rounded-md border border-border bg-card p-2.5 transition-colors hover:bg-accent/30 group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium truncate">{deal.title}</p>
+                        <span className="flex items-center gap-1">
+                          <p className="text-[13px] font-medium truncate">{deal.title}</p>
+                          {unreadNoteIds?.has(deal.id) && (
+                            <span className="relative shrink-0" title="Notas no leídas">
+                              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+                            </span>
+                          )}
+                        </span>
                         <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                           {deal.account?.name}
                         </p>
@@ -514,6 +535,7 @@ export function CrmDealsClient({
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
+  const unreadNoteIds = useUnreadNoteIds("DEAL");
   const [view, setView] = useLocalStorage<"kanban" | "list">("crm-deals-view", "kanban");
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -1017,6 +1039,7 @@ export function CrmDealsClient({
                   columns={columns}
                   expandedStageIds={mobileExpandedStageIds}
                   onToggleExpand={toggleMobileStageExpand}
+                  unreadNoteIds={unreadNoteIds}
                 />
               </div>
 
@@ -1066,6 +1089,7 @@ export function CrmDealsClient({
                                   key={deal.id}
                                   deal={deal}
                                   onOpenSheet={() => setSheetDealId(deal.id)}
+                                  hasUnreadNotes={unreadNoteIds.has(deal.id)}
                                 />
                               ))}
                             </div>

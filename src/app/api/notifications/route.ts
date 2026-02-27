@@ -524,12 +524,11 @@ function visibleNotificationsWhere(
   options?: { unreadOnly?: boolean; read?: boolean; ids?: string[]; types?: string[] }
 ): Prisma.NotificationWhereInput {
   const { unreadOnly = false, read, ids, types } = options || {};
+  // Note-related types (mention_direct, mention_group, note_thread_reply, note_alert)
+  // are handled exclusively by the Activity feed, not legacy Notificaciones.
   const baseExclusions = roleExcludedTypes.filter(
     (type) =>
-      type !== "mention" &&
-      type !== "mention_direct" &&
-      type !== "mention_group" &&
-      type !== "note_thread_reply"
+      type !== "mention"
   );
   // Types that use targeted delivery (only visible to specific users via data.targetUserId)
   const targetedTypes = [
@@ -537,9 +536,6 @@ function visibleNotificationsWhere(
     "ticket_rejected",
     "refuerzo_solicitud_created",
     "mention",
-    "mention_direct",
-    "mention_group",
-    "note_thread_reply",
     "ticket_mention",
     "ticket_created",
   ];
@@ -568,13 +564,12 @@ function visibleNotificationsWhere(
 
   // Targeted notifications: solo visibles para el usuario destinatario.
   // Si tienen data.targetUserId, solo ese usuario las ve. Si no lo tienen (legacy), se muestran a todos.
+  // Note: mention_direct, mention_group, note_thread_reply, note_alert are excluded —
+  // they are handled by the Activity feed module, not legacy Notificaciones.
   for (const targetedType of [
     "ticket_approved",
     "ticket_rejected",
     "refuerzo_solicitud_created",
-    "mention_direct",
-    "mention_group",
-    "note_thread_reply",
     "ticket_mention",
     "ticket_created",
   ]) {

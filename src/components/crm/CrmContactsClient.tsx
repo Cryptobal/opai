@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone } from "lucide-react";
+import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone, MessageSquare } from "lucide-react";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -25,6 +25,7 @@ import type { ViewMode } from "@/components/shared/ViewToggle";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useUnreadNoteIds } from "@/lib/hooks";
 
 type ContactRow = {
   id: string;
@@ -79,6 +80,7 @@ export function CrmContactsClient({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const unreadNoteIds = useUnreadNoteIds("CONTACT");
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
@@ -429,6 +431,12 @@ export function CrmContactsClient({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
+                        {unreadNoteIds.has(contact.id) && (
+                          <span className="relative shrink-0" title="Notas no leídas">
+                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                          </span>
+                        )}
                         {contact.isPrimary && (
                           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
                         )}
@@ -460,7 +468,15 @@ export function CrmContactsClient({
                     <Link href={`/crm/contacts/${contact.id}`} className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
+                            {unreadNoteIds.has(contact.id) && (
+                              <span className="relative shrink-0" title="Notas no leídas">
+                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-muted-foreground">{contact.roleTitle || "Sin cargo"}</p>
                         </div>
                         {contact.isPrimary && (

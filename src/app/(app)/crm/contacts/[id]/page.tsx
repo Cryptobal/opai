@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { CrmContactDetailClient } from "@/components/crm/CrmContactDetailClient";
+import { NotesProvider } from "@/components/notes";
 
 export default async function CrmContactDetailPage({
   params,
@@ -153,7 +154,13 @@ export default async function CrmContactDetailPage({
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
   return (
-    <>
+    <NotesProvider
+      contextType="CONTACT"
+      contextId={id}
+      contextLabel={fullName || "Contacto"}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
       <CrmContactDetailClient
         contact={data}
         deals={initialDeals}
@@ -166,6 +173,6 @@ export default async function CrmContactDetailPage({
         initialEmailCount={initialEmailCount}
         currentUserId={session.user.id}
       />
-    </>
+    </NotesProvider>
   );
 }

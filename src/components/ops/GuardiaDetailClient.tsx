@@ -56,7 +56,6 @@ import { GuardEventsTab } from "@/components/ops/guard-events";
 import { GuardContractsTab } from "@/components/ops/guard-contracts";
 import { GuardiaSalaryTab } from "@/components/ops/GuardiaSalaryTab";
 import { GuardiaLiquidacionesTab } from "@/components/payroll/GuardiaLiquidacionesTab";
-import { NotesSection } from "@/components/crm/NotesSection";
 import { InventarioGuardiaAssignmentsSection } from "@/components/inventario/InventarioGuardiaAssignmentsSection";
 import DatosPersonalesSection from "@/components/ops/guardia-sections/DatosPersonalesSection";
 import AsignacionSection from "@/components/ops/guardia-sections/AsignacionSection";
@@ -519,9 +518,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 phoneMobile={guardia.persona.phoneMobile} historyEvents={guardia.historyEvents}
                 onHistoryEventAdded={(event) => setGuardia((prev) => ({ ...prev, historyEvents: [event, ...prev.historyEvents] }))}
               />
-            </CollapsibleSection>
-            <CollapsibleSection title="Comentarios internos" defaultOpen={false}>
-              <NotesSection entityType="ops_guardia" entityId={guardia.id} currentUserId={currentUserId ?? ""} />
             </CollapsibleSection>
             <CollapsibleSection title="Días trabajados" defaultOpen={false}>
               <DiasTrabajadesSection guardiaId={guardia.id} />

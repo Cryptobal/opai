@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
-import { FileText, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
+import { useUnreadNoteIds } from "@/lib/hooks";
 
 type QuoteRow = {
   id: string;
@@ -62,6 +63,7 @@ export function CrmCotizacionesClient({
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
   const [creating, setCreating] = useState(false);
+  const unreadNoteIds = useUnreadNoteIds("QUOTATION");
 
   const createQuote = async () => {
     if (creating) return;
@@ -188,13 +190,13 @@ export function CrmCotizacionesClient({
           ) : viewMode === "list" ? (
             <div className="space-y-2 min-w-0">
               {filteredQuotes.map((quote) => (
-                <QuoteListRow key={quote.id} quote={quote} ufValue={ufValue} />
+                <QuoteListRow key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
               ))}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredQuotes.map((quote) => (
-                <QuoteCardItem key={quote.id} quote={quote} ufValue={ufValue} />
+                <QuoteCardItem key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
               ))}
             </div>
           )}
@@ -205,7 +207,7 @@ export function CrmCotizacionesClient({
 }
 
 /* ── List row ── */
-function QuoteListRow({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) {
+function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
   const salePriceClp = Number(quote.salePriceMonthly);
   const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
@@ -218,6 +220,12 @@ function QuoteListRow({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) 
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium">{quote.code}</span>
           {quote.name && <span className="text-sm text-foreground truncate">{quote.name}</span>}
+          {hasUnreadNotes && (
+            <span className="relative shrink-0" title="Notas no leídas">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+            </span>
+          )}
           <Badge variant="outline" className={status.className}>
             {status.label}
           </Badge>
@@ -257,7 +265,7 @@ function QuoteListRow({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) 
 }
 
 /* ── Card item ── */
-function QuoteCardItem({ quote, ufValue }: { quote: QuoteRow; ufValue: number }) {
+function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
   const salePriceClp = Number(quote.salePriceMonthly);
   const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
@@ -267,7 +275,15 @@ function QuoteCardItem({ quote, ufValue }: { quote: QuoteRow; ufValue: number })
       className="block rounded-lg border p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="font-mono text-sm font-medium truncate">{quote.code}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="font-mono text-sm font-medium truncate">{quote.code}</span>
+          {hasUnreadNotes && (
+            <span className="relative shrink-0" title="Notas no leídas">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+            </span>
+          )}
+        </span>
         <Badge variant="outline" className={`shrink-0 ${status.className}`}>
           {status.label}
         </Badge>
