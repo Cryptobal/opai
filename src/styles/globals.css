@@ -265,6 +265,38 @@
 }
 
 /* ============================================
+   Mobile: Prevent iOS Safari auto-zoom on inputs
+   iOS Safari zooms in when an input has font-size < 16px.
+   This forces 16px on all interactive form elements on mobile
+   without affecting desktop layout.
+   ============================================ */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input:not([type]),
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+
+  /* Radix UI / shadcn selects and comboboxes */
+  [role="combobox"],
+  [role="searchbox"],
+  [role="listbox"] {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================
    Accessibility: Reduced Motion
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
