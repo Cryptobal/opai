@@ -41,6 +41,8 @@ import {
   ChevronRight,
   Info,
   Building2,
+  MapPin,
+  DollarSign,
   MessageSquareText,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +50,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
+import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -120,12 +123,32 @@ type PipelineStageOption = {
   isClosedLost?: boolean;
 };
 
+type InstallationRow = {
+  id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  commune?: string | null;
+  isActive?: boolean;
+};
+
+type QuoteRow = {
+  id: string;
+  code: string;
+  status: string;
+  totalPositions: number;
+  totalGuards: number;
+  updatedAt: string;
+};
+
 type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmContactDetailClient({
   contact: initialContact,
   deals,
+  installations = [],
+  quotes = [],
   pipelineStages,
   gmailConnected = false,
   docTemplatesMail = [],
@@ -135,6 +158,8 @@ export function CrmContactDetailClient({
 }: {
   contact: ContactDetail;
   deals: DealRow[];
+  installations?: InstallationRow[];
+  quotes?: QuoteRow[];
   pipelineStages: PipelineStageOption[];
   gmailConnected?: boolean;
   docTemplatesMail?: DocTemplateMail[];
@@ -423,7 +448,9 @@ export function CrmContactDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "account", label: "Cuenta", icon: Building2 },
+    { id: "installations", label: "Instalaciones", icon: MapPin, count: installations.length },
     { id: "deals", label: "Negocios", icon: Briefcase, count: contactDeals.length },
+    { id: "quotes", label: "Cotizaciones", icon: DollarSign, count: quotes.length },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
     { id: "notes", label: "Notas", icon: MessageSquareText },
     { id: "files", label: "Archivos", icon: FileText },
@@ -505,6 +532,35 @@ export function CrmContactDetailClient({
           )
         )}
 
+        {activeTab === "installations" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Instalaciones</h3>
+            </div>
+            {installations.length === 0 ? (
+              <EmptyState icon={<MapPin className="h-8 w-8" />} title="Sin instalaciones" description="No hay instalaciones vinculadas a la cuenta de este contacto." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {installations.map((inst) => (
+                  <CrmRelatedRecordCard
+                    key={inst.id}
+                    module="installations"
+                    title={inst.name}
+                    subtitle={[inst.commune, inst.city].filter(Boolean).join(", ") || undefined}
+                    meta={inst.address || undefined}
+                    badge={
+                      inst.isActive
+                        ? { label: "Activa", variant: "success" }
+                        : { label: "Inactiva", variant: "warning" }
+                    }
+                    href={`/crm/installations/${inst.id}`}
+                  />
+                ))}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
         {activeTab === "deals" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -559,6 +615,37 @@ export function CrmContactDetailClient({
                     />
                   );
                 })}
+              </CrmRelatedRecordGrid>
+            )}
+          </div>
+        )}
+
+        {activeTab === "quotes" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Cotizaciones</h3>
+              {contact.account?.id && (
+                <CreateQuoteModal
+                  defaultClientName={contact.account.name}
+                  accountId={contact.account.id}
+                />
+              )}
+            </div>
+            {quotes.length === 0 ? (
+              <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
+            ) : (
+              <CrmRelatedRecordGrid>
+                {quotes.map((q) => (
+                  <CrmRelatedRecordCard
+                    key={q.id}
+                    module="quotes"
+                    title={q.code}
+                    subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+                    meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+                    badge={{ label: q.status, variant: "secondary" }}
+                    href={`/crm/cotizaciones/${q.id}`}
+                  />
+                ))}
               </CrmRelatedRecordGrid>
             )}
           </div>
