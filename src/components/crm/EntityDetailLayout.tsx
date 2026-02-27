@@ -110,192 +110,189 @@ export function EntityDetailLayout({
 
   return (
     <div className={cn("min-w-0 -mt-3 sm:-mt-4 lg:-mt-5", className)}>
-      {/* ── Sticky Header ── */}
+      {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
       <div
         className={cn(
-          "sticky top-0 lg:top-12 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-          "-mx-2 px-4 py-4 sm:-mx-3 sm:px-6",
-          "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
-          "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
-          "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
-        )}
-      >
-        {/* Breadcrumb */}
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap"
-        >
-          {breadcrumb.map((segment, i) => {
-            const isLast = i === breadcrumb.length - 1;
-            const href = breadcrumbHrefs?.[i];
-
-            return (
-              <span key={i} className="flex items-center gap-1">
-                {i > 0 && (
-                  <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-                )}
-                {isLast || !href ? (
-                  <span
-                    className={cn(
-                      "truncate max-w-[200px]",
-                      isLast
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {segment}
-                  </span>
-                ) : (
-                  <Link
-                    href={href}
-                    className="hover:text-foreground transition-colors truncate max-w-[200px]"
-                  >
-                    {segment}
-                  </Link>
-                )}
-              </span>
-            );
-          })}
-        </nav>
-
-        {/* Title row + actions */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            {/* Avatar */}
-            {header.avatar && (
-              <div
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold",
-                  header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
-                    ? "text-white"
-                    : header.avatar.color || "bg-primary/10 text-primary"
-                )}
-                style={
-                  header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
-                    ? { backgroundColor: header.avatar.color }
-                    : undefined
-                }
-              >
-                {AvatarIcon ? (
-                  <AvatarIcon className="h-5 w-5" />
-                ) : (
-                  header.avatar.initials || "?"
-                )}
-              </div>
-            )}
-
-            {/* Info */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-lg font-semibold tracking-tight truncate">
-                  {header.title}
-                </h1>
-                {header.status && (
-                  <Badge
-                    variant={header.status.variant || "secondary"}
-                    className="shrink-0"
-                  >
-                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-current mr-1" />
-                    {header.status.label}
-                  </Badge>
-                )}
-              </div>
-              {header.subtitle && (
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                  {header.subtitle}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {header.extra}
-            {/* Primary actions as visible buttons (hidden on mobile if >1) */}
-            {primaryActions.map((action, i) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={action.onClick}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                    primaryActions.length > 1 ? "hidden sm:inline-flex" : "",
-                    action.variant === "destructive"
-                      ? "border-destructive/30 text-destructive hover:bg-destructive/10"
-                      : "border-border hover:bg-muted text-foreground"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline">{action.label}</span>
-                </button>
-              );
-            })}
-            {/* Secondary actions in dropdown */}
-            {secondaryActions.length > 0 && (
-              <RecordActions
-                actions={secondaryActions.map((a) => ({
-                  label: a.label,
-                  icon: a.icon,
-                  onClick: a.onClick,
-                  variant: a.variant,
-                  hidden: a.hidden,
-                }))}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Tab Bar (flex-wrap, NEVER horizontal scroll) ── */}
-      <div
-        className={cn(
-          "sticky top-[113px] lg:top-[161px] z-[9] border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+          "sticky top-0 lg:top-12 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
           "-mx-2 px-4 sm:-mx-3 sm:px-6",
           "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
           "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
           "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
         )}
-        role="tablist"
-        aria-label="Secciones"
       >
-        <div className="flex flex-wrap gap-0.5 py-1">
-          {visibleTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+        {/* ── Header ── */}
+        <div className="pt-4 pb-3 border-b border-border">
+          {/* Breadcrumb */}
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap"
+          >
+            {breadcrumb.map((segment, i) => {
+              const isLast = i === breadcrumb.length - 1;
+              const href = breadcrumbHrefs?.[i];
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => onTabChange(tab.id)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors whitespace-nowrap",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              return (
+                <span key={i} className="flex items-center gap-1">
+                  {i > 0 && (
+                    <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                  )}
+                  {isLast || !href ? (
+                    <span
+                      className={cn(
+                        "truncate max-w-[200px]",
+                        isLast
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {segment}
+                    </span>
+                  ) : (
+                    <Link
+                      href={href}
+                      className="hover:text-foreground transition-colors truncate max-w-[200px]"
+                    >
+                      {segment}
+                    </Link>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+
+          {/* Title row + actions */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              {/* Avatar */}
+              {header.avatar && (
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold",
+                    header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
+                      ? "text-white"
+                      : header.avatar.color || "bg-primary/10 text-primary"
+                  )}
+                  style={
+                    header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
+                      ? { backgroundColor: header.avatar.color }
+                      : undefined
+                  }
+                >
+                  {AvatarIcon ? (
+                    <AvatarIcon className="h-5 w-5" />
+                  ) : (
+                    header.avatar.initials || "?"
+                  )}
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-lg font-semibold tracking-tight truncate">
+                    {header.title}
+                  </h1>
+                  {header.status && (
+                    <Badge
+                      variant={header.status.variant || "secondary"}
+                      className="shrink-0"
+                    >
+                      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-current mr-1" />
+                      {header.status.label}
+                    </Badge>
+                  )}
+                </div>
+                {header.subtitle && (
+                  <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                    {header.subtitle}
+                  </p>
                 )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 shrink-0">
+              {header.extra}
+              {/* Primary actions as visible buttons (hidden on mobile if >1) */}
+              {primaryActions.map((action, i) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={action.onClick}
                     className={cn(
-                      "ml-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums",
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted text-muted-foreground"
+                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                      primaryActions.length > 1 ? "hidden sm:inline-flex" : "",
+                      action.variant === "destructive"
+                        ? "border-destructive/30 text-destructive hover:bg-destructive/10"
+                        : "border-border hover:bg-muted text-foreground"
                     )}
                   >
-                    {tab.count > 99 ? "99+" : tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline">{action.label}</span>
+                  </button>
+                );
+              })}
+              {/* Secondary actions in dropdown */}
+              {secondaryActions.length > 0 && (
+                <RecordActions
+                  actions={secondaryActions.map((a) => ({
+                    label: a.label,
+                    icon: a.icon,
+                    onClick: a.onClick,
+                    variant: a.variant,
+                    hidden: a.hidden,
+                  }))}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tab Bar (flex-wrap, NEVER horizontal scroll) ── */}
+        <div
+          className="border-b border-border"
+          role="tablist"
+          aria-label="Secciones"
+        >
+          <div className="flex flex-wrap gap-0.5 py-1">
+            {visibleTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => onTabChange(tab.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors whitespace-nowrap",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span
+                      className={cn(
+                        "ml-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums",
+                        isActive
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {tab.count > 99 ? "99+" : tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

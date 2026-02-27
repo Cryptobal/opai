@@ -1541,6 +1541,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   return (
     <>
       <EntityDetailLayout
+        className={isEditable ? "pb-28" : undefined}
         breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
         breadcrumbHrefs={["/crm", "/crm/leads"]}
         header={{

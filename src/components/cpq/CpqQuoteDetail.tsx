@@ -1604,11 +1604,12 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           <div className="flex gap-2">
             <Button
               size="sm"
-              className="flex-1 h-9 gap-1.5 text-xs"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs px-3"
               onClick={handleDownloadPdf}
               disabled={downloadingPdf || !quote}
             >
-              <Download className="h-3.5 w-3.5" />
+              <Download className="h-3 w-3" />
               {downloadingPdf ? "Generando..." : "PDF"}
             </Button>
             <SendCpqQuoteModal
