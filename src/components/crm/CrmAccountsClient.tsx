@@ -17,13 +17,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, ChevronRight, Globe } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Globe, MessageSquare } from "lucide-react";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
+import { useUnreadNoteIds } from "@/lib/hooks";
 
 type AccountFormState = {
   name: string;
@@ -101,6 +102,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
+  const unreadNoteIds = useUnreadNoteIds("ACCOUNT");
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -369,7 +371,15 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             </div>
                           )}
                           <div className="min-w-0">
-                            <p className="font-medium text-sm">{account.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm">{account.name}</p>
+                              {unreadNoteIds.has(account.id) && (
+                                <span className="relative shrink-0" title="Notas no leídas">
+                                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                                </span>
+                              )}
+                            </div>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
                             </p>
@@ -436,7 +446,15 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             </div>
                           )}
                           <div className="min-w-0">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors">{account.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm group-hover:text-primary transition-colors">{account.name}</p>
+                              {unreadNoteIds.has(account.id) && (
+                                <span className="relative shrink-0" title="Notas no leídas">
+                                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-muted-foreground">{account.industry || "Sin industria"}</p>
                           </div>
                         </div>

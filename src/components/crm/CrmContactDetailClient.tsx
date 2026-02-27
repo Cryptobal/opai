@@ -41,11 +41,9 @@ import {
   ChevronRight,
   Info,
   Building2,
-  MessageSquareText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
@@ -425,7 +423,6 @@ export function CrmContactDetailClient({
     { id: "account", label: "Cuenta", icon: Building2 },
     { id: "deals", label: "Negocios", icon: Briefcase, count: contactDeals.length },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
-    { id: "notes", label: "Notas", icon: MessageSquareText },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -602,8 +599,6 @@ export function CrmContactDetailClient({
             />
           </div>
         )}
-
-        {activeTab === "notes" && <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />}
 
         {activeTab === "files" && <FileAttachments entityType="contact" entityId={contact.id} title="Archivos" />}
       </EntityDetailLayout>

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, MessageSquareText, CalendarClock } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -45,7 +45,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
-import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -1217,11 +1216,6 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const notesSection = {
-    key: "notes",
-    children: <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />,
-  };
-
   const filesSection = {
     key: "files",
     label: "Archivos",
@@ -1238,7 +1232,6 @@ export function CrmDealDetailClient({
     { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotesSection.count },
     { id: "followup", label: "Seguimiento", icon: CalendarClock },
     { id: "communication", label: "Comunicación", icon: Mail },
-    { id: "notes", label: "Notas", icon: MessageSquareText },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -1302,7 +1295,6 @@ export function CrmDealDetailClient({
           </div>
         )}
         {activeTab === "communication" && communicationSection.children}
-        {activeTab === "notes" && notesSection.children}
         {activeTab === "files" && filesSection.children}
       </EntityDetailLayout>
 

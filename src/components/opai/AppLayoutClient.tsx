@@ -38,6 +38,7 @@ import {
   Package,
   GitCompareArrows,
   BookText,
+  Inbox,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem, type NavSubItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -60,18 +61,25 @@ export function AppLayoutClient({
   const isAdmin = userRole === 'owner' || userRole === 'admin';
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
+  const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
+  const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
 
   const fetchUnreadCounters = useCallback(() => {
     Promise.all([
       fetch('/api/notifications?limit=1').then((r) => r.json()),
       fetch('/api/notifications?limit=1&types=mention,mention_direct,mention_group').then((r) => r.json()),
+      fetch('/api/notes/unread-counts', { cache: 'no-store' }).then((r) => r.json()),
     ])
-      .then(([allData, noteData]) => {
+      .then(([allData, noteData, unreadCounts]) => {
         if (allData?.success && typeof allData?.meta?.unreadCount === 'number') {
           setNotificationUnreadCount(allData.meta.unreadCount);
         }
         if (noteData?.success && typeof noteData?.meta?.unreadCount === 'number') {
           setUnreadMentionNotesCount(noteData.meta.unreadCount);
+        }
+        if (unreadCounts?.success && unreadCounts?.data?.byModule) {
+          setNotesByModule(unreadCounts.data.byModule);
+          setActivityUnreadTotal(typeof unreadCounts.data.total === 'number' ? unreadCounts.data.total : 0);
         }
       })
       .catch(() => {});
@@ -90,12 +98,27 @@ export function AppLayoutClient({
     };
   }, [fetchUnreadCounters]);
 
+  // Compute per-module unread note totals for parent sidebar badges
+  const crmNotesBadge = (notesByModule.account || 0) + (notesByModule.contact || 0) + (notesByModule.deal || 0) + (notesByModule.installation || 0) + (notesByModule.lead || 0) + (notesByModule.quotation || 0);
+  const opsNotesBadge = (notesByModule.ticket || 0) + (notesByModule.operation || 0) + (notesByModule.supervision_visit || 0);
+  const payrollNotesBadge = notesByModule.payroll_record || 0;
+  const docsNotesBadge = notesByModule.document || 0;
+  const financeNotesBadge = notesByModule.rendicion || 0;
+  const personasNotesBadge = notesByModule.guard || 0;
+
   const navItems: NavItem[] = useMemo(() => [
     {
       href: '/hub',
       label: 'Inicio',
       icon: Grid3x3,
       show: hasModuleAccess(permissions, 'hub'),
+    },
+    {
+      href: '/opai/actividad',
+      label: 'Actividad',
+      icon: Inbox,
+      show: true,
+      badge: activityUnreadTotal,
     },
     {
       href: '/opai/notificaciones',
@@ -109,9 +132,10 @@ export function AppLayoutClient({
       label: 'Documentos',
       icon: FileText,
       show: hasModuleAccess(permissions, 'docs'),
+      badge: docsNotesBadge,
       children: [
         { href: '/opai/inicio', label: 'Envíos', icon: FileText },
-        { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen },
+        { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
       ],
     },
     {
@@ -119,14 +143,14 @@ export function AppLayoutClient({
       label: 'Comercial',
       icon: Building2,
       show: hasModuleAccess(permissions, 'crm'),
-      badge: unreadMentionNotesCount,
+      badge: crmNotesBadge || unreadMentionNotesCount,
       children: [
-        canView(permissions, 'crm', 'leads') && { href: '/crm/leads', label: 'Leads', icon: Users },
-        canView(permissions, 'crm', 'accounts') && { href: '/crm/accounts', label: 'Cuentas', icon: Building2 },
-        canView(permissions, 'crm', 'installations') && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin },
-        canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp },
-        canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact },
-        canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign },
+        canView(permissions, 'crm', 'leads') && { href: '/crm/leads', label: 'Leads', icon: Users, badge: notesByModule.lead },
+        canView(permissions, 'crm', 'accounts') && { href: '/crm/accounts', label: 'Cuentas', icon: Building2, badge: notesByModule.account },
+        canView(permissions, 'crm', 'installations') && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin, badge: notesByModule.installation },
+        canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp, badge: notesByModule.deal },
+        canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact, badge: notesByModule.contact },
+        canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign, badge: notesByModule.quotation },
       ].filter(Boolean) as NavItem['children'],
     },
     {
@@ -134,8 +158,9 @@ export function AppLayoutClient({
       label: 'Payroll',
       icon: Calculator,
       show: hasModuleAccess(permissions, 'payroll'),
+      badge: payrollNotesBadge,
       children: [
-        { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays },
+        { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays, badge: notesByModule.payroll_record },
         { href: '/payroll/anticipos', label: 'Anticipos', icon: Wallet },
         { href: '/payroll/simulator', label: 'Simulador', icon: Calculator },
         { href: '/payroll/parameters', label: 'Parámetros', icon: FileText },
@@ -146,6 +171,7 @@ export function AppLayoutClient({
       label: 'Operaciones',
       icon: ClipboardList,
       show: hasModuleAccess(permissions, 'ops'),
+      badge: opsNotesBadge,
       children: [
         canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
         canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
@@ -166,8 +192,8 @@ export function AppLayoutClient({
             { href: '/ops/rondas/reportes', label: 'Reportes', icon: Route },
           ],
         },
-        canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon },
-        canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket },
+        canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon, badge: notesByModule.operation },
+        canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
         canView(permissions, 'ops', 'inventario') && {
           href: '/ops/inventario',
           label: 'Inventario',
@@ -185,6 +211,7 @@ export function AppLayoutClient({
           href: '/ops/supervision',
           label: 'Supervisión',
           icon: ClipboardCheck,
+          badge: notesByModule.supervision_visit,
           children: [
             { href: '/ops/supervision', label: 'Dashboard', icon: ClipboardCheck },
             { href: '/ops/supervision/mis-visitas', label: 'Mis Visitas', icon: ClipboardCheck },
@@ -199,8 +226,9 @@ export function AppLayoutClient({
       label: 'Personas',
       icon: Shield,
       show: hasModuleAccess(permissions, 'ops'),
+      badge: personasNotesBadge,
       children: [
-        { href: '/personas/guardias', label: 'Listado', icon: Shield },
+        { href: '/personas/guardias', label: 'Listado', icon: Shield, badge: notesByModule.guard },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
       ],
     },
@@ -209,6 +237,7 @@ export function AppLayoutClient({
       label: 'Finanzas',
       icon: Receipt,
       show: hasModuleAccess(permissions, 'finance'),
+      badge: financeNotesBadge,
       children: [
         (canView(permissions, 'finance', 'reportes') || hasCapability(permissions, 'rendicion_view_all')) && { href: '/finanzas', label: 'Inicio', icon: Grid3x3 },
         (
@@ -220,7 +249,7 @@ export function AppLayoutClient({
           label: 'Rendiciones',
           icon: Receipt,
           children: [
-            canView(permissions, 'finance', 'rendiciones') && { href: '/finanzas/rendiciones', label: 'Rendiciones', icon: Receipt },
+            canView(permissions, 'finance', 'rendiciones') && { href: '/finanzas/rendiciones', label: 'Rendiciones', icon: Receipt, badge: notesByModule.rendicion },
             canView(permissions, 'finance', 'aprobaciones') && hasCapability(permissions, 'rendicion_approve') && { href: '/finanzas/aprobaciones', label: 'Aprobaciones', icon: CheckCircle2 },
             canView(permissions, 'finance', 'pagos') && hasCapability(permissions, 'rendicion_pay') && { href: '/finanzas/pagos', label: 'Pagos', icon: Wallet },
           ].filter(Boolean) as NavItem['children'],
@@ -313,7 +342,7 @@ export function AppLayoutClient({
         return configChildren;
       })(),
     },
-  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount]);
+  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, activityUnreadTotal]);
 
   return (
     <AppShell

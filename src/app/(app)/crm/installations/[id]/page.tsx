@@ -8,6 +8,7 @@ import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmInstallationDetailClient } from "@/components/crm";
+import { NotesProvider } from "@/components/notes";
 
 export default async function CrmInstallationDetailPage({
   params,
@@ -209,7 +210,13 @@ export default async function CrmInstallationDetailPage({
   const canForceDeletePuesto = ["owner", "admin"].includes(session.user.role ?? "");
 
   return (
-    <>
+    <NotesProvider
+      contextType="INSTALLATION"
+      contextId={id}
+      contextLabel={data.name || "Instalación"}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
       <CrmInstallationDetailClient
         installation={data}
         canEditDotacion={canEditDotacion}
@@ -217,6 +224,6 @@ export default async function CrmInstallationDetailPage({
         hasInventarioAccess={hasInventarioAccess}
         currentUserId={session.user.id ?? ""}
       />
-    </>
+    </NotesProvider>
   );
 }

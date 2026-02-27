@@ -12,6 +12,7 @@ export interface NavSubItem {
   label: string;
   icon?: LucideIcon;
   children?: NavSubItem[];
+  badge?: number;
 }
 
 export interface NavItem {
@@ -465,6 +466,9 @@ export function AppSidebar({
                               />
                             )}
                             <span className="truncate">{child.label}</span>
+                            {child.badge != null && child.badge > 0 && (
+                              <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-destructive" />
+                            )}
                           </Link>
                         );
                       })}
@@ -574,6 +578,9 @@ export function AppSidebar({
                           />
                         )}
                         <span>{child.label}</span>
+                        {child.badge != null && child.badge > 0 && (
+                          <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-destructive" />
+                        )}
                       </Link>
                     );
                   })}
