@@ -4,6 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { TicketDetailClient } from "@/components/ops/tickets";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { NotesProvider } from "@/components/notes";
 import { prisma } from "@/lib/prisma";
 
 export default async function TicketDetailPage({
@@ -28,18 +29,26 @@ export default async function TicketDetailPage({
   const userGroupIds = memberships.map((m) => m.groupId);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Detalle de ticket"
-        description="Seguimiento, comentarios y gestión del ticket."
-      />
-      <OpsGlobalSearch className="w-full sm:max-w-xs" />
-      <TicketDetailClient
-        ticketId={id}
-        userRole={session.user.role}
-        userId={session.user.id}
-        userGroupIds={userGroupIds}
-      />
-    </div>
+    <NotesProvider
+      contextType="TICKET"
+      contextId={id}
+      contextLabel="Ticket"
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
+      <div className="space-y-6 min-w-0">
+        <PageHeader
+          title="Detalle de ticket"
+          description="Seguimiento, comentarios y gestión del ticket."
+        />
+        <OpsGlobalSearch className="w-full sm:max-w-xs" />
+        <TicketDetailClient
+          ticketId={id}
+          userRole={session.user.role}
+          userId={session.user.id}
+          userGroupIds={userGroupIds}
+        />
+      </div>
+    </NotesProvider>
   );
 }

@@ -10,7 +10,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import type { NoteContextType } from "@prisma/client";
+import { NotesFloatingButton } from "./NotesFloatingButton";
+import { NotesPanel } from "./NotesPanel";
 
 /* ─── Types ─── */
 
@@ -143,7 +146,9 @@ export function NotesProvider({
   currentUserRole,
   children,
 }: NotesProviderProps) {
+  const searchParams = useSearchParams();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const didAutoOpen = useRef(false);
   const [notes, setNotes] = useState<NoteData[]>([]);
   const [totalNotes, setTotalNotes] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -297,6 +302,14 @@ export function NotesProvider({
     return () => clearInterval(iv);
   }, [refreshUnreadCounts]);
 
+  // ── Auto-open when ?openNotes=true ──
+  useEffect(() => {
+    if (!didAutoOpen.current && searchParams.get("openNotes") === "true") {
+      didAutoOpen.current = true;
+      setIsPanelOpen(true);
+    }
+  }, [searchParams]);
+
   // ── Cleanup abort on unmount ──
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -339,5 +352,11 @@ export function NotesProvider({
     ],
   );
 
-  return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
+  return (
+    <NotesContext.Provider value={value}>
+      {children}
+      <NotesFloatingButton />
+      <NotesPanel />
+    </NotesContext.Provider>
+  );
 }

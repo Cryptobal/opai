@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { GuardiaDetailClient } from "@/components/ops";
+import { NotesProvider } from "@/components/notes";
 
 export default async function GuardiaDetailPage({
   params,
@@ -85,16 +86,24 @@ export default async function GuardiaDetailPage({
   };
 
   return (
-    <div className="min-w-0">
-      <GuardiaDetailClient
-        initialGuardia={JSON.parse(JSON.stringify(enrichedGuardia))}
-        asignaciones={JSON.parse(JSON.stringify(asignaciones))}
-        userRole={session.user.role}
-        personaAdminId={personaAdminId}
-        currentUserId={session.user.id}
-        guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
-        hasInventarioAccess={hasInventarioAccess}
-      />
-    </div>
+    <NotesProvider
+      contextType="GUARD"
+      contextId={id}
+      contextLabel={`${guardia.persona.firstName ?? ""} ${guardia.persona.lastName ?? ""}`.trim() || "Guardia"}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
+      <div className="min-w-0">
+        <GuardiaDetailClient
+          initialGuardia={JSON.parse(JSON.stringify(enrichedGuardia))}
+          asignaciones={JSON.parse(JSON.stringify(asignaciones))}
+          userRole={session.user.role}
+          personaAdminId={personaAdminId}
+          currentUserId={session.user.id}
+          guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
+          hasInventarioAccess={hasInventarioAccess}
+        />
+      </div>
+    </NotesProvider>
   );
 }

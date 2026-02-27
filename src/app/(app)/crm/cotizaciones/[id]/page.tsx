@@ -10,6 +10,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
+import { NotesProvider } from "@/components/notes";
 import { z } from "zod";
 
 const uuidSchema = z.string().uuid();
@@ -48,7 +49,13 @@ export default async function CrmCotizacionDetailPage({
   }
 
   return (
-    <>
+    <NotesProvider
+      contextType="QUOTATION"
+      contextId={quote.id}
+      contextLabel={`Cotización ${quote.code || ""}`}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
+    >
       <Breadcrumb
         items={[
           { label: "CRM", href: "/crm" },
@@ -61,6 +68,6 @@ export default async function CrmCotizacionDetailPage({
         <CpqIndicators />
       </div>
       <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} />
-    </>
+    </NotesProvider>
   );
 }

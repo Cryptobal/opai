@@ -35,12 +35,10 @@ import {
   Briefcase,
   FileText,
   Mail,
-  MessageSquareText,
   Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -621,7 +619,6 @@ export function CrmAccountDetailClient({
     { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotes.length },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "rendiciones", label: "Rendiciones", icon: Receipt },
-    { id: "notes", label: "Notas", icon: MessageSquareText },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -866,7 +863,6 @@ export function CrmAccountDetailClient({
           />
         )}
 
-        {activeTab === "notes" && <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />}
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
       </EntityDetailLayout>

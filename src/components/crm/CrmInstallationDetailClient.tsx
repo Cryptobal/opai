@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, MessageSquareText } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAct
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { NotesSection } from "./NotesSection";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
@@ -1791,7 +1790,6 @@ export function CrmInstallationDetailClient({
     { id: "marcacion", label: "Marcación", icon: QrCode },
     { id: "rendiciones", label: "Rendiciones", icon: Receipt },
     ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
-    { id: "notes", label: "Notas", icon: MessageSquareText },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -2073,9 +2071,6 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "uniformes" && hasInventarioAccess && (
           <InventarioInstallationSection installationId={installation.id} />
-        )}
-        {activeTab === "notes" && (
-          <NotesSection entityType="installation" entityId={installation.id} currentUserId={currentUserId} />
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />

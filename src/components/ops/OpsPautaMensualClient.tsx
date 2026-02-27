@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/opai";
-import { NotesSection } from "@/components/crm/NotesSection";
 import {
   Dialog,
   DialogContent,
@@ -1989,18 +1988,6 @@ export function OpsPautaMensualClient({
       </Card>
       )}
 
-      {/* Notas de la pauta */}
-      {installationId && currentUserId && (
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <NotesSection
-              entityType="installation_pauta"
-              entityId={`${installationId}_${year}-${String(month).padStart(2, "0")}`}
-              currentUserId={currentUserId}
-            />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Serie painting modal */}
       <Dialog open={serieModalOpen} onOpenChange={setSerieModalOpen}>
