@@ -53,14 +53,26 @@ const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
   renewed: RefreshCw,
 };
 
+/** Dark-mode safe colors per status (the DOC_STATUS_CONFIG ones use light-theme bg/text) */
+const STATUS_COLORS: Record<string, { compact: string; full: string }> = {
+  draft:    { compact: "text-gray-400",    full: "bg-gray-500/15 text-gray-400 border-gray-500/20" },
+  review:   { compact: "text-yellow-400",  full: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20" },
+  approved: { compact: "text-blue-400",    full: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  active:   { compact: "text-emerald-400", full: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  expiring: { compact: "text-orange-400",  full: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
+  expired:  { compact: "text-red-400",     full: "bg-red-500/15 text-red-400 border-red-500/20" },
+  renewed:  { compact: "text-purple-400",  full: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+};
+
 function StatusBadge({ status, compact = false }: { status: string; compact?: boolean }) {
   const config = DOC_STATUS_CONFIG[status];
   if (!config) return <Badge variant="outline">{status}</Badge>;
   const Icon = STATUS_ICONS[status] || FileText;
+  const colors = STATUS_COLORS[status] || { compact: "text-muted-foreground", full: "bg-muted text-muted-foreground border-border" };
 
   if (compact) {
     return (
-      <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap ${config.color}`}>
+      <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap ${colors.compact}`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </span>
@@ -69,7 +81,7 @@ function StatusBadge({ status, compact = false }: { status: string; compact?: bo
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${colors.full}`}
     >
       <Icon className="h-3 w-3" />
       {config.label}
