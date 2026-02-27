@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/components/cpq/utils";
-import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
+import { clpToUf } from "@/lib/uf-utils";
 import type { CpqPosition, CpqQuoteCostSummary } from "@/types/cpq";
 
 interface CpqPricingCalcProps {
@@ -31,6 +32,7 @@ interface CpqPricingCalcProps {
   contractMonths?: number;
   positions?: CpqPosition[];
   monthlyHours?: number;
+  ufValue?: number | null;
 }
 
 export function CpqPricingCalc({
@@ -52,6 +54,7 @@ export function CpqPricingCalc({
   contractMonths,
   positions = [],
   monthlyHours = 180,
+  ufValue,
 }: CpqPricingCalcProps) {
   const [localMargin, setLocalMargin] = useState(marginPct);
   const [marginDraft, setMarginDraft] = useState("");
@@ -232,10 +235,23 @@ export function CpqPricingCalc({
           <span className="font-mono text-xs font-semibold">{formatCurrency(marginAmount)}</span>
         </div>
 
-        {/* Sale price highlight */}
-        <div className="flex justify-between items-center border-t-2 border-emerald-500/50 pt-1.5 mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-400">
-          <span>Venta mensual</span>
-          <span className="font-mono">{formatCurrency(salePriceMonthly)}</span>
+        {/* Sale price highlight — prominent block */}
+        <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Venta mensual
+            </span>
+            <span className="font-mono text-base font-bold text-emerald-700 dark:text-emerald-400">
+              {formatCLP(salePriceMonthly)}
+            </span>
+          </div>
+          {ufValue && ufValue > 0 && (
+            <div className="mt-0.5 text-right">
+              <span className="font-mono text-[11px] font-semibold text-emerald-600/70 dark:text-emerald-400/60">
+                {formatUFSuffix(clpToUf(salePriceMonthly, ufValue))}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Hourly rate per position - collapsible */}

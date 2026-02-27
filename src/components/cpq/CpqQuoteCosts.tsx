@@ -2804,307 +2804,44 @@ export function CpqQuoteCosts({
       {isInline && <div className="space-y-2">{costForm}</div>}
 
       {summary ? (
-        <div className="space-y-3">
-          <div className="grid gap-1.5 grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 [&>*]:min-h-[60px]">
-            <KpiCard
-              title="Uniformes"
-              value={formatCurrency(summary.monthlyUniforms)}
-              variant="blue"
-              size="sm"
-              titleInfoTooltip={
-                <div className="space-y-1">
-                  <div className="font-semibold">Cálculo</div>
-                  <p className="text-muted-foreground">
-                    Se suma el costo de cada ítem de uniforme activo (precio mensual). Total = (costo del set × recambios por año ÷ 12) × número de guardias.
-                  </p>
-                </div>
-              }
-              tooltip={
-              <div className="space-y-1.5">
-                <div className="font-semibold">Ítems activos:</div>
-                {uniforms
-                  .filter((item) => item.active)
-                  .map((item) => {
-                    const price = item.unitPriceOverride
-                      ? Number(item.unitPriceOverride)
-                      : Number(item.catalogItem?.basePrice ?? 0);
-                    return (
-                      <div key={item.catalogItemId} className="text-xs">
-                        • {item.catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                      </div>
-                    );
-                  })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
-                  <div>Guardias: {summary.totalGuards}</div>
-                  <div>Cambios/año: {parameters.uniformChangesPerYear}</div>
-                </div>
-              </div>
-            }
-            />
-            <KpiCard
-              title="Ajuste feriados"
-              value={formatCurrency(summary.monthlyHolidayAdjustment)}
-              variant="teal"
-              size="sm"
-              titleInfoTooltip={
-                <div className="space-y-1">
-                  <div className="font-semibold">Cálculo</div>
-                  <p className="text-muted-foreground">
-                    Se calcula sobre costo empresa mensual: (costo empresa/30) × 50% × (feriados/año ÷ 12) × factor comercial.
-                  </p>
-                </div>
-              }
-              tooltip={
-                <div className="space-y-1.5 text-xs">
-                  <div>Guardias: {summary.totalGuards}</div>
-                  <div>Feriados/año: {formatNumber(holidayAnnualCount, { minDecimals: 0, maxDecimals: 2 })}</div>
-                  <div>Factor mensual: {formatNumber(holidayMonthlyFactor, { minDecimals: 3, maxDecimals: 3 })}</div>
-                  <div>Holgura comercial: {formatNumber(holidayCommercialBufferPct, { minDecimals: 2, maxDecimals: 2 })}%</div>
-                  <div>Factor comercial: {formatNumber(holidayCommercialFactor, { minDecimals: 3, maxDecimals: 3 })}</div>
-                  <div className="border-t border-border/60 pt-1.5 font-medium">
-                    Factor total costo empresa/30: {formatNumber(holidayTotalFactor, { minDecimals: 4, maxDecimals: 4 })}
-                  </div>
-                </div>
-              }
-            />
-            <KpiCard
-              title="Exámenes"
-              value={formatCurrency(summary.monthlyExams)}
-              variant="indigo"
-              size="sm"
-              titleInfoTooltip={
-                <div className="space-y-1">
-                  <div className="font-semibold">Cálculo</div>
-                  <p className="text-muted-foreground">
-                    Se suma el costo de cada ítem de examen activo. La frecuencia anual es el mayor entre (12 ÷ meses de estadía) y los recambios de uniforme por año. Total = (costo del set × frecuencia anual ÷ 12) × número de guardias.
-                  </p>
-                </div>
-              }
-              tooltip={
-              <div className="space-y-1.5">
-                <div className="font-semibold">Ítems activos:</div>
-                {exams
-                  .filter((item) => item.active)
-                  .map((item) => {
-                    const price = item.unitPriceOverride
-                      ? Number(item.unitPriceOverride)
-                      : Number(item.catalogItem?.basePrice ?? 0);
-                    return (
-                      <div key={item.catalogItemId} className="text-xs">
-                        • {item.catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                      </div>
-                    );
-                  })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
-                  <div>Guardias: {summary.totalGuards}</div>
-                  <div>Meses estadía: {parameters.avgStayMonths}</div>
-                </div>
-              </div>
-            }
-            />
-            <KpiCard
-              title="Alimentación"
-              value={formatCurrency(summary.monthlyMeals)}
-              variant="sky"
-              size="sm"
-              titleInfoTooltip={
-                <div className="space-y-1">
-                  <div className="font-semibold">Cálculo</div>
-                  <p className="text-muted-foreground">
-                    Por cada tipo de comida activo: precio unitario × comidas por día × días de servicio. El total es la suma de todos (precios normalizados a mensual según la unidad del catálogo).
-                  </p>
-                </div>
-              }
-              tooltip={
-              <div className="space-y-1.5">
-                <div className="font-semibold">Ítems activos:</div>
-                {meals
-                  .filter((meal) => meal.isEnabled)
-                  .map((meal) => {
-                    const catalogItem = mealCatalog.find(
-                      (item) => item.name.toLowerCase() === meal.mealType.toLowerCase()
-                    );
-                    const price = meal.priceOverride
-                      ? Number(meal.priceOverride)
-                      : Number(catalogItem?.basePrice ?? 0);
-                    return (
-                      <div key={meal.mealType} className="text-xs">
-                        • {meal.mealType}: {formatCurrency(price)} × {meal.mealsPerDay}/día × {meal.daysOfService} días
-                        {meal.priceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                      </div>
-                    );
-                  })}
-              </div>
-            }
-            />
-            <KpiCard
-              title="Equipo operativo"
-              value={formatCurrency(sumCostItemsByType(["phone", "radio", "flashlight"]))}
-              variant="emerald"
-              size="sm"
-            tooltip={
-              <div className="space-y-1.5">
-                <div className="font-semibold">Ítems activos:</div>
-                {costItems
-                  .filter((item) => {
-                    const catalogItem = catalogById.get(item.catalogItemId);
-                    return catalogItem && ["phone", "radio", "flashlight"].includes(catalogItem.type) && item.isEnabled;
-                  })
-                  .map((item) => {
-                    const catalogItem = catalogById.get(item.catalogItemId);
-                    const price = item.unitPriceOverride
-                      ? Number(item.unitPriceOverride)
-                      : Number(catalogItem?.basePrice ?? 0);
-                    return (
-                      <div key={item.catalogItemId} className="text-xs">
-                        • {catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                      </div>
-                    );
-                  })}
-                <div className="mt-2 border-t border-border/60 pt-2 text-xs">
-                  <div>Guardias: {summary.totalGuards}</div>
-                </div>
-              </div>
-            }
-            />
-            <KpiCard
-              title="Transporte"
-              value={formatCurrency(sumCostItemsByType(TRANSPORT_TYPES))}
-              variant="sky"
-              size="sm"
-              tooltip={
-                <div className="space-y-1.5">
-                  <div className="font-semibold">Ítems activos:</div>
-                  {costItems
-                    .filter((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      return catalogItem && TRANSPORT_TYPES.includes(catalogItem.type) && item.isEnabled;
-                    })
-                    .map((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      const price = item.unitPriceOverride
-                        ? Number(item.unitPriceOverride)
-                        : Number(catalogItem?.basePrice ?? 0);
-                      return (
-                        <div key={item.catalogItemId} className="text-xs">
-                          • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                        </div>
-                      );
-                    })}
-                </div>
-              }
-            />
-            <KpiCard
-              title="Vehículos"
-              value={formatCurrency(sumCostItemsByType(VEHICLE_TYPES))}
-              variant="indigo"
-              size="sm"
-              tooltip={
-                <div className="space-y-1.5">
-                  <div className="font-semibold">Ítems activos:</div>
-                  {costItems
-                    .filter((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      return catalogItem && VEHICLE_TYPES.includes(catalogItem.type) && item.isEnabled;
-                    })
-                    .map((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      const price = item.unitPriceOverride
-                        ? Number(item.unitPriceOverride)
-                        : Number(catalogItem?.basePrice ?? 0);
-                      return (
-                        <div key={item.catalogItemId} className="text-xs">
-                          • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                        </div>
-                      );
-                    })}
-                </div>
-              }
-            />
-            <KpiCard
-              title="Infraestructura"
-              value={formatCurrency(sumCostItemsByType(INFRA_TYPES))}
-              variant="teal"
-              size="sm"
-              tooltip={
-                <div className="space-y-1.5">
-                  <div className="font-semibold">Ítems activos:</div>
-                  {costItems
-                    .filter((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      return catalogItem && INFRA_TYPES.includes(catalogItem.type) && item.isEnabled;
-                    })
-                    .map((item) => {
-                      const catalogItem = catalogById.get(item.catalogItemId);
-                      const price = item.unitPriceOverride
-                        ? Number(item.unitPriceOverride)
-                        : Number(catalogItem?.basePrice ?? 0);
-                      return (
-                        <div key={item.catalogItemId} className="text-xs">
-                          • {catalogItem?.name}: {formatCurrency(price)}
-                          {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                        </div>
-                      );
-                    })}
-                </div>
-              }
-            />
-            <KpiCard
-              title="Sistemas"
-              value={formatCurrency(sumCostItemsByType(["system"]))}
-              variant="purple"
-              size="sm"
-            tooltip={
-              <div className="space-y-1.5">
-                <div className="font-semibold">Ítems activos:</div>
-                {costItems
-                  .filter((item) => {
-                    const catalogItem = catalogById.get(item.catalogItemId);
-                    return catalogItem?.type === "system" && item.isEnabled;
-                  })
-                  .map((item) => {
-                    const catalogItem = catalogById.get(item.catalogItemId);
-                    const price = item.unitPriceOverride
-                      ? Number(item.unitPriceOverride)
-                      : Number(catalogItem?.basePrice ?? 0);
-                    return (
-                      <div key={item.catalogItemId} className="text-xs">
-                        • {catalogItem?.name}: {formatCurrency(price)}
-                        {item.unitPriceOverride && <span className="text-emerald-700 dark:text-emerald-400"> (override)</span>}
-                      </div>
-                    );
-                  })}
-              </div>
-            }
-            />
-            {showFinancial && (
-              <KpiCard
-                title="Gastos financieros"
-                value={formatCurrency(summary.monthlyFinancial + summary.monthlyPolicy)}
-                variant="amber"
-                size="sm"
-                tooltip={
-                  <div className="space-y-1.5">
-                    <div className="font-semibold">Desglose:</div>
-                    <div className="text-xs">Costo financiero: {formatCurrency(summary.monthlyFinancial)}</div>
-                    <div className="text-xs">Póliza: {formatCurrency(summary.monthlyPolicy)}</div>
-                  </div>
-                }
-              />
-            )}
-          </div>
-          <div className="flex justify-end">
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
-              <div className="text-xs text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total adicionales</div>
-              <div className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                {formatCurrency(summary.monthlyExtras)}
-              </div>
+        <div className="space-y-1">
+          {/* ── Cost summary list ── */}
+          {[
+            { label: "Uniformes", value: summary.monthlyUniforms, section: "direct" },
+            { label: "Ajuste feriados", value: summary.monthlyHolidayAdjustment, section: "direct" },
+            { label: "Exámenes", value: summary.monthlyExams, section: "direct" },
+            { label: "Alimentación", value: summary.monthlyMeals, section: "direct" },
+            { label: "Equipo operativo", value: sumCostItemsByType(["phone", "radio", "flashlight"]), section: "indirect" },
+            { label: "Transporte", value: sumCostItemsByType(TRANSPORT_TYPES), section: "indirect" },
+            { label: "Vehículos", value: sumCostItemsByType(VEHICLE_TYPES), section: "indirect" },
+            { label: "Infraestructura", value: sumCostItemsByType(INFRA_TYPES), section: "indirect" },
+            { label: "Sistemas", value: sumCostItemsByType(["system"]), section: "indirect" },
+            ...(showFinancial ? [{ label: "Gastos financieros", value: summary.monthlyFinancial + summary.monthlyPolicy, section: "financial" as const }] : []),
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              className={cn(
+                "flex items-center justify-between py-1 px-1",
+                value > 0 ? "opacity-100" : "opacity-35"
+              )}
+            >
+              <span className="text-[11px] text-muted-foreground">{label}</span>
+              <span
+                className={cn(
+                  "font-mono text-[11px] tabular-nums",
+                  value > 0 ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground/40"
+                )}
+              >
+                {formatCurrency(value)}
+              </span>
             </div>
+          ))}
+          {/* ── Total ── */}
+          <div className="mt-1 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-2.5 py-2 flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total adicionales</span>
+            <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">
+              {formatCurrency(summary.monthlyExtras)}
+            </span>
           </div>
         </div>
       ) : (

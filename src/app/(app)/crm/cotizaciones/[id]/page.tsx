@@ -10,7 +10,6 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
-import { QuoteNotesWrapper } from "@/components/crm/QuoteNotesWrapper";
 import { z } from "zod";
 
 const uuidSchema = z.string().uuid();
@@ -61,8 +60,7 @@ export default async function CrmCotizacionDetailPage({
       <div className="mb-4">
         <CpqIndicators />
       </div>
-      <CpqQuoteDetail quoteId={id} />
-      <QuoteNotesWrapper quoteId={id} currentUserId={session.user.id} />
+      <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} />
     </>
   );
 }
