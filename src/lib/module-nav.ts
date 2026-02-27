@@ -270,10 +270,18 @@ export function getBottomNavItems(
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
 
-  // CRM detail pages: la navegación de secciones se hace con ChipTabs inline.
-  // No mostramos bottom nav de ningún tipo en vistas de detalle CRM.
-  const isCrmDetail = /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/[^/]+$/.test(pathname);
-  if (isCrmDetail) return [];
+  // Páginas de detalle: no mostramos bottom nav. La navegación de secciones se
+  // hace con ChipTabs inline y el usuario vuelve al listado con breadcrumbs/back.
+  const DETAIL_PATTERNS = [
+    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/[^/]+$/,
+    /^\/personas\/guardias\/[^/]+$/,
+    /^\/payroll\/periodos\/[^/]+$/,
+    /^\/finanzas\/rendiciones\/[^/]+$/,
+    /^\/ops\/(tickets|control-nocturno)\/[^/]+$/,
+    /^\/ops\/inventario\/productos\/[^/]+$/,
+    /^\/opai\/documentos\/(templates\/)?[^/]+$/,
+  ];
+  if (DETAIL_PATTERNS.some((re) => re.test(pathname))) return [];
 
   // Prioridad 1: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
