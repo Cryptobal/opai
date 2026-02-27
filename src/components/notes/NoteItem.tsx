@@ -634,7 +634,7 @@ export function NoteItem({
 
           {/* Context menu */}
           {canModify && !editing && (
-            <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Más opciones">

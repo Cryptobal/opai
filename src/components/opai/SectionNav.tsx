@@ -476,7 +476,7 @@ function VerticalSectionNav({
                 )}
               </button>
               {!isExpanded && (
-                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1 text-xs text-popover-foreground shadow-md group-hover/tip:block z-50">
+                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1 text-xs text-popover-foreground shadow-md group-hover/tip:block group-focus-within/tip:block z-50">
                   {tooltipLabel}
                 </span>
               )}

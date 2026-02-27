@@ -529,6 +529,10 @@ export function NoteInput({
           value={content}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => {
+            // On mobile, wait for virtual keyboard to appear, then scroll into view
+            setTimeout(() => textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 350);
+          }}
           placeholder={parentNoteId ? "Escribe una respuesta..." : "Escribe una nota... usa @ o # para vincular"}
           className={cn(
             "w-full resize-none bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none",

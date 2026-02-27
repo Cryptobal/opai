@@ -57,7 +57,7 @@ const DialogContent = React.forwardRef<
       }}
       className={cn(
         // Mobile: bottom sheet style
-        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto",
+        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto overscroll-contain",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",

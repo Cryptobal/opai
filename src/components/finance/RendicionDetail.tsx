@@ -508,7 +508,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                       <FileText className="h-8 w-8 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <p className="text-xs text-white">Ver</p>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate px-1 py-0.5">

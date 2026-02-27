@@ -359,6 +359,70 @@ html {
 }
 
 /* ============================================
+   Touch devices: Improve tap targets and feedback
+   Uses (hover: none) + (pointer: coarse) to target
+   phones/tablets without affecting desktop.
+   ============================================ */
+@media (hover: none) and (pointer: coarse) {
+  /* Minimum touch target for standalone interactive elements.
+     We scope to direct children of common containers so icon
+     buttons inside toolbars keep their compact sizing. */
+  button:not([class*="h-6"]):not([class*="h-5"]):not([class*="h-4"]):not([class*="w-6"]):not([class*="w-5"]):not([class*="w-4"]),
+  a:not([class*="text-\["]),
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Checkboxes and radios get larger tap area via padding */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 20px;
+    min-width: 20px;
+    padding: 12px;
+    margin: 0;
+  }
+
+  /* Active-press feedback for buttons */
+  button:active,
+  [role="button"]:active,
+  a:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: opacity 0.1s ease, transform 0.1s ease;
+  }
+
+  /* Smooth momentum scroll in all scrollable containers */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  [class*="overflow-auto"],
+  [class*="overflow-y-auto"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Modal/sheet inner scroll: prevent close on overscroll */
+  [role="dialog"],
+  [role="dialog"] .overflow-y-auto,
+  [role="dialog"] .overflow-auto {
+    overscroll-behavior: contain;
+  }
+}
+
+/* ============================================
+   Touch devices: Make hover-revealed controls
+   visible by default. On desktop, group-hover
+   still works; on touch, opacity-0 is overridden.
+   ============================================ */
+@media (hover: none) {
+  /* Buttons hidden with opacity-0 group-hover:opacity-100 */
+  .group .opacity-0[class*="group-hover:opacity-100"],
+  .group\/img .opacity-0[class*="group-hover\/img:opacity-100"] {
+    opacity: 1 !important;
+  }
+}
+
+/* ============================================
    Accessibility: Reduced Motion
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
