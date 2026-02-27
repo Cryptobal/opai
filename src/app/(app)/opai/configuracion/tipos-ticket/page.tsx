@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
-import { TicketTypesConfigClient } from "@/components/config/TicketTypesConfigClient";
+import { TicketTypesConfigTabs } from "@/components/config/TicketTypesConfigTabs";
 
 export default async function TiposTicketConfigPage() {
   const session = await auth();
@@ -21,7 +21,7 @@ export default async function TiposTicketConfigPage() {
         backHref="/opai/configuracion"
         backLabel="Configuración"
       />
-      <TicketTypesConfigClient userRole={role} />
+      <TicketTypesConfigTabs userRole={role} />
     </div>
   );
 }
