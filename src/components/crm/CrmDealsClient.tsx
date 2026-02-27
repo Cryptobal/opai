@@ -893,7 +893,7 @@ export function CrmDealsClient({
         actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" title="Nuevo negocio">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Nuevo negocio</span>
               </Button>

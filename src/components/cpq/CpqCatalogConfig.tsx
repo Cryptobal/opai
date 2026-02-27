@@ -701,7 +701,11 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
       })}
 
       {loading && (
-        <div className="text-xs text-muted-foreground">Cargando catálogo...</div>
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-3 animate-pulse rounded bg-muted/50" style={{ width: `${60 + i * 15}%` }} />
+          ))}
+        </div>
       )}
 
       <Dialog open={!!deleteConfirmItem} onOpenChange={(open) => !open && setDeleteConfirmItem(null)}>

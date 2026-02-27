@@ -246,7 +246,7 @@ export function CrmContactsClient({
         actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" title="Nuevo contacto">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Nuevo contacto</span>
               </Button>
@@ -466,7 +466,7 @@ export function CrmContactsClient({
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
-                          <p className="text-[11px] text-muted-foreground">{contact.roleTitle || "Sin cargo"}</p>
+                          {contact.roleTitle && <p className="text-[11px] text-muted-foreground">{contact.roleTitle}</p>}
                         </div>
                         {contact.isPrimary && (
                           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary shrink-0">Principal</Badge>

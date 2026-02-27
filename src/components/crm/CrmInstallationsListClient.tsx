@@ -187,7 +187,7 @@ export function CrmInstallationsListClient({
           {/* ── Botón + crear instalación ── */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" title="Nueva instalación">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Nueva instalación</span>
               </Button>

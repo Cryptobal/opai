@@ -103,7 +103,7 @@ export function CrmDetailLayout({
       fixedSectionKey={fixedSectionKey}
       defaultCollapsedSectionKeys={defaultCollapsedSectionKeys}
       sections={mappedSections}
-      className={cn("-mt-3 sm:-mt-4 lg:-mt-5", className)}
+      className={cn("-mt-3 sm:-mt-4 lg:-mt-5 pb-20", className)}
       header={
         <CrmRecordHeader
           module={module}

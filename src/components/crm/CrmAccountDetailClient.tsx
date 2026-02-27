@@ -731,7 +731,7 @@ export function CrmAccountDetailClient({
               key={contact.id}
               module="contacts"
               title={`${contact.firstName} ${contact.lastName}`.trim()}
-              subtitle={contact.roleTitle || "Sin cargo"}
+              subtitle={contact.roleTitle || "—"}
               meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
               badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
               href={`/crm/contacts/${contact.id}`}

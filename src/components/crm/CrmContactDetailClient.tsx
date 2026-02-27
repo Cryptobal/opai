@@ -411,8 +411,8 @@ export function CrmContactDetailClient({
 
   const subtitle = [
     contact.account?.name || "Sin cuenta",
-    contact.roleTitle || "Sin cargo",
-  ].join(" · ");
+    contact.roleTitle,
+  ].filter(Boolean).join(" · ");
 
   // ── Sections ──
   const sections: DetailSection[] = [

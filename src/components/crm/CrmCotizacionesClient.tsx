@@ -157,6 +157,7 @@ export function CrmCotizacionesClient({
             className="h-9 w-9 shrink-0"
             onClick={createQuote}
             disabled={creating}
+            title="Nueva cotización"
           >
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             <span className="sr-only">Nueva cotización</span>

@@ -1305,7 +1305,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs font-semibold flex-1">Instalación {instIdx + 1}</span>
                 {installations.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeInstallation(inst._key)}>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeInstallation(inst._key)} title="Eliminar instalación" aria-label="Eliminar instalación">
                     <X className="h-3 w-3" />
                   </Button>
                 )}
@@ -1366,7 +1366,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                           <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2 gap-1" onClick={() => cloneDotacionInInst(inst._key, dotIdx)}>
                             <Copy className="h-3 w-3" /> Clonar
                           </Button>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => removeDotacionFromInst(inst._key, dotIdx)}>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => removeDotacionFromInst(inst._key, dotIdx)} title="Eliminar dotación" aria-label="Eliminar dotación">
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>

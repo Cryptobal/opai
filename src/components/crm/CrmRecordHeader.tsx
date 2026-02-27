@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CRM_MODULES, type CrmModuleKey } from "./CrmModuleIcons";
@@ -69,14 +69,24 @@ export function CrmRecordHeader({
         className
       )}
     >
-      {/* Volver — min 44px touch target */}
-      <Link
-        href={backHref}
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 -ml-2 rounded-md p-2 min-h-[44px] sm:min-h-0 sm:p-0 sm:ml-0"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        <span>Volver a {resolvedBackLabel}</span>
-      </Link>
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="mb-3 -ml-1 sm:ml-0">
+        <ol className="flex items-center gap-1 text-xs text-muted-foreground">
+          <li>
+            <Link href="/crm" className="hover:text-foreground transition-colors rounded px-1 py-0.5 min-h-[44px] sm:min-h-0 inline-flex items-center">
+              CRM
+            </Link>
+          </li>
+          <li aria-hidden="true"><ChevronRight className="h-3 w-3" /></li>
+          <li>
+            <Link href={backHref} className="hover:text-foreground transition-colors rounded px-1 py-0.5 inline-flex items-center">
+              {resolvedBackLabel}
+            </Link>
+          </li>
+          <li aria-hidden="true"><ChevronRight className="h-3 w-3" /></li>
+          <li className="text-foreground font-medium truncate max-w-[200px]" aria-current="page">{title}</li>
+        </ol>
+      </nav>
 
       {/* Título + acciones */}
       <div className="flex items-start justify-between gap-4">
