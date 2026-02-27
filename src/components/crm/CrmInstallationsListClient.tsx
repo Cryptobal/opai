@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { MapPin, Search, ChevronRight, Plus, Loader2, Moon, ShieldAlert, Users } from "lucide-react";
+import { MapPin, Search, ChevronRight, Plus, Loader2, Moon, ShieldAlert, Users, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ import { CrmDates } from "@/components/crm/CrmDates";
 import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useUnreadNoteIds } from "@/lib/hooks";
 
 export type InstallationRow = {
   id: string;
@@ -77,6 +78,7 @@ export function CrmInstallationsListClient({
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const unreadNoteIds = useUnreadNoteIds("INSTALLATION");
 
   // Create form state
   const [open, setOpen] = useState(false);
@@ -307,6 +309,12 @@ export function CrmInstallationsListClient({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{inst.name}</p>
+                        {unreadNoteIds.has(inst.id) && (
+                          <span className="relative shrink-0" title="Notas no leídas">
+                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                          </span>
+                        )}
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             inst.isActive === true
@@ -373,6 +381,12 @@ export function CrmInstallationsListClient({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{inst.name}</p>
+                            {unreadNoteIds.has(inst.id) && (
+                              <span className="relative shrink-0" title="Notas no leídas">
+                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                              </span>
+                            )}
                             <span
                               className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                 inst.isActive === true
