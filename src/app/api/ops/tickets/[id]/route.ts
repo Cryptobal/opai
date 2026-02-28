@@ -15,7 +15,7 @@ const ticketDetailIncludes = {
     select: {
       id: true,
       code: true,
-      persona: { select: { firstName: true, lastName: true } },
+      persona: { select: { firstName: true, lastName: true, rut: true } },
     },
   },
   approvals: { orderBy: { stepOrder: "asc" as const } },
@@ -70,6 +70,8 @@ function mapTicketDetail(t: any): Ticket {
     sourceGuardEventId: t.sourceGuardEventId,
     guardiaId: t.guardiaId,
     guardiaName,
+    guardiaRut: t.guardia?.persona?.rut ?? null,
+    guardiaCode: t.guardia?.code ?? null,
     reportedBy: t.reportedBy,
     slaDueAt: t.slaDueAt instanceof Date ? t.slaDueAt.toISOString() : t.slaDueAt,
     slaBreached: t.slaBreached,

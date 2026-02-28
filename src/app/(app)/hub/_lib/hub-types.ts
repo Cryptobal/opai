@@ -185,10 +185,23 @@ export interface HubNotification {
 /* Tickets                                                            */
 /* ------------------------------------------------------------------ */
 
+export interface TicketUrgentItem {
+  id: string;
+  code: string;
+  title: string;
+  priority: string;
+  status: string;
+  slaDueAt: string | null;
+}
+
 export interface TicketMetrics {
   openCount: number;
   inProgressCount: number;
   resolvedTodayCount: number;
+  breachedCount: number;
+  p1PendingCount: number;
+  unassignedCount: number;
+  urgentTickets: TicketUrgentItem[];
   moduleActive: boolean;
 }
 

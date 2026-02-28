@@ -858,9 +858,18 @@ export async function getTicketMetrics(
   const todayStr = getTodayChile();
   const todayDate = new Date(todayStr);
   const tomorrowDate = new Date(todayDate.getTime() + 24 * 60 * 60 * 1000);
+  const now = new Date();
 
   try {
-    const [openCount, inProgressCount, resolvedTodayCount] = await Promise.all([
+    const [
+      openCount,
+      inProgressCount,
+      resolvedTodayCount,
+      breachedCount,
+      p1PendingCount,
+      unassignedCount,
+      urgentTickets,
+    ] = await Promise.all([
       prisma.opsTicket.count({
         where: { tenantId, status: 'open' },
       }),
@@ -874,11 +883,79 @@ export async function getTicketMetrics(
           resolvedAt: { gte: todayDate, lt: tomorrowDate },
         },
       }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          status: { in: ['open', 'in_progress', 'waiting'] },
+          OR: [
+            { slaBreached: true },
+            { slaDueAt: { lt: now } },
+          ],
+        },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          priority: 'p1',
+          status: { in: ['open', 'in_progress', 'waiting'] },
+        },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId,
+          assignedTo: null,
+          status: { in: ['open', 'in_progress', 'waiting'] },
+        },
+      }),
+      prisma.opsTicket.findMany({
+        where: {
+          tenantId,
+          status: { in: ['open', 'in_progress', 'waiting'] },
+        },
+        orderBy: [
+          { priority: 'asc' },
+          { slaDueAt: 'asc' },
+        ],
+        take: 5,
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          priority: true,
+          status: true,
+          slaDueAt: true,
+        },
+      }),
     ]);
 
-    return { openCount, inProgressCount, resolvedTodayCount, moduleActive: true };
+    return {
+      openCount,
+      inProgressCount,
+      resolvedTodayCount,
+      breachedCount,
+      p1PendingCount,
+      unassignedCount,
+      urgentTickets: urgentTickets.map((t) => ({
+        id: t.id,
+        code: t.code,
+        title: t.title,
+        priority: t.priority,
+        status: t.status,
+        slaDueAt: t.slaDueAt?.toISOString() ?? null,
+      })),
+      moduleActive: true,
+    };
   } catch {
-    return { openCount: 0, inProgressCount: 0, resolvedTodayCount: 0, moduleActive: false };
+    return {
+      openCount: 0,
+      inProgressCount: 0,
+      resolvedTodayCount: 0,
+      breachedCount: 0,
+      p1PendingCount: 0,
+      unassignedCount: 0,
+      urgentTickets: [],
+      moduleActive: false,
+    };
   }
 }
 

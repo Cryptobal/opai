@@ -13,7 +13,7 @@ const ticketListIncludes = {
     select: {
       id: true,
       code: true,
-      persona: { select: { firstName: true, lastName: true } },
+      persona: { select: { firstName: true, lastName: true, rut: true } },
     },
   },
   _count: { select: { comments: true, approvals: true } },
@@ -21,11 +21,15 @@ const ticketListIncludes = {
 
 /* ── Mapper ──────────────────────────────────────────────────── */
 
-function mapTicket(t: any): Ticket {
+function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
   const guardiaName =
     t.guardia?.persona
       ? `${t.guardia.persona.firstName} ${t.guardia.persona.lastName}`
       : null;
+
+  const assignedToName = t.assignedTo && assigneeMap
+    ? (assigneeMap.get(t.assignedTo) ?? null)
+    : (t.assignedToName ?? null);
 
   return {
     id: t.id,
@@ -40,12 +44,15 @@ function mapTicket(t: any): Ticket {
     description: t.description,
     assignedTeam: t.assignedTeam,
     assignedTo: t.assignedTo,
+    assignedToName,
     installationId: t.installationId,
     source: t.source,
     sourceLogId: null,
     sourceGuardEventId: t.sourceGuardEventId,
     guardiaId: t.guardiaId,
     guardiaName,
+    guardiaRut: t.guardia?.persona?.rut ?? null,
+    guardiaCode: t.guardia?.code ?? null,
     reportedBy: t.reportedBy,
     slaDueAt: t.slaDueAt instanceof Date ? t.slaDueAt.toISOString() : t.slaDueAt,
     slaBreached: t.slaBreached,
@@ -107,7 +114,18 @@ export async function GET(request: NextRequest) {
       prisma.opsTicket.count({ where }),
     ]);
 
-    const items: Ticket[] = rows.map(mapTicket);
+    // Resolve assignee names
+    const assigneeIds = [...new Set(rows.map((r) => r.assignedTo).filter(Boolean))] as string[];
+    let assigneeMap = new Map<string, string>();
+    if (assigneeIds.length > 0) {
+      const admins = await prisma.admin.findMany({
+        where: { id: { in: assigneeIds } },
+        select: { id: true, name: true, email: true },
+      });
+      assigneeMap = new Map(admins.map((a) => [a.id, a.name || a.email]));
+    }
+
+    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap));
 
     return NextResponse.json({
       success: true,

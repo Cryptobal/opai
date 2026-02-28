@@ -1,17 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronRight,
   Clock,
   Loader2,
   MessageSquare,
   Send,
+  Shield,
   Trash2,
   User,
+  UserCircle,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,11 +38,15 @@ import {
   TICKET_TEAM_CONFIG,
   TICKET_SOURCE_CONFIG,
   getSlaRemaining,
+  getSlaPercentage,
+  getSlaColor,
+  getSlaTextColor,
   isSlaBreached,
   canTransitionTo,
   isPendingMyApproval,
 } from "@/lib/tickets";
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
+import { SlaBar } from "./TicketsClient";
 
 interface TicketDetailClientProps {
   ticketId: string;
@@ -53,6 +63,18 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+
+  // Assignee state
+  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [assigningUser, setAssigningUser] = useState(false);
+
+  // Mention autocomplete state
+  const [showMentionList, setShowMentionList] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+
+  // Delete state
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchTicket = useCallback(async () => {
     setLoading(true);
@@ -74,7 +96,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
-  // Fetch admins for @mention autocomplete
+  // Fetch admins for @mention and assignee
   useEffect(() => {
     fetch("/api/ops/admins")
       .then((r) => r.json())
@@ -84,15 +106,19 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             d.data.map((u: { id: string; name: string | null; email: string }) => ({
               id: u.id,
               name: u.name || u.email,
-            }))
+            })),
           );
         }
       })
       .catch(() => {});
   }, []);
 
+  // Optimistic status transition
   async function handleTransition(newStatus: TicketStatus) {
     if (!ticket) return;
+    const prevTicket = ticket;
+    // Optimistic update
+    setTicket((prev) => prev ? { ...prev, status: newStatus } : null);
     setTransitioning(true);
     try {
       const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
@@ -102,35 +128,45 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      // Use the full ticket returned by the API so all fields (resolvedAt, closedAt, etc.) are current
-      if (data.data) {
-        setTicket(data.data);
-      } else {
-        setTicket((prev) => prev ? { ...prev, status: newStatus } : null);
-      }
-      toast.success(`Ticket actualizado a "${TICKET_STATUS_CONFIG[newStatus].label}"`);
+      if (data.data) setTicket(data.data);
+      toast.success(`Estado: "${TICKET_STATUS_CONFIG[newStatus].label}"`);
     } catch {
+      setTicket(prevTicket); // revert
       toast.error("Error al cambiar estado");
     } finally {
       setTransitioning(false);
     }
   }
 
+  // Optimistic comment
   async function handleAddComment() {
     if (!newComment.trim()) return;
+    const tempId = `temp-${Date.now()}`;
+    const tempComment: TicketComment = {
+      id: tempId,
+      ticketId,
+      userId,
+      userName: "Tú",
+      body: newComment.trim(),
+      isInternal: false,
+      createdAt: new Date().toISOString(),
+    };
+    setComments((prev) => [...prev, tempComment]);
+    setNewComment("");
     setSendingComment(true);
     try {
       const res = await fetch(`/api/ops/tickets/${ticketId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: newComment.trim() }),
+        body: JSON.stringify({ body: tempComment.body }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      if (data.data) setComments((prev) => [...prev, data.data]);
-      setNewComment("");
-      toast.success("Comentario agregado");
+      if (data.data) {
+        setComments((prev) => prev.map((c) => (c.id === tempId ? data.data : c)));
+      }
     } catch {
+      setComments((prev) => prev.filter((c) => c.id !== tempId));
       toast.error("Error al agregar comentario");
     } finally {
       setSendingComment(false);
@@ -140,12 +176,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   function handleCommentChange(e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
     setNewComment(value);
-
-    // Detect @ trigger for mention autocomplete
     const lastAtIndex = value.lastIndexOf("@");
     if (lastAtIndex >= 0) {
       const afterAt = value.slice(lastAtIndex + 1);
-      // Show dropdown if typing a name after @ (up to 2 words)
       if (!afterAt.includes("  ") && afterAt.split(" ").length <= 2) {
         setMentionFilter(afterAt.toLowerCase());
         setShowMentionList(true);
@@ -161,6 +194,29 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       setNewComment(newComment.slice(0, lastAtIndex) + `@${userName} `);
     }
     setShowMentionList(false);
+  }
+
+  // Assign user
+  async function handleAssignUser(targetUserId: string) {
+    if (!ticket) return;
+    const prevTicket = ticket;
+    const user = availableUsers.find((u) => u.id === targetUserId);
+    // Optimistic
+    setTicket((prev) => prev ? { ...prev, assignedTo: targetUserId, assignedToName: user?.name ?? null } : null);
+    setAssigningUser(false);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedTo: targetUserId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success(`Asignado a ${user?.name ?? "usuario"}`);
+    } catch {
+      setTicket(prevTicket);
+      toast.error("Error al asignar responsable");
+    }
   }
 
   async function handleApproveTicket(approvalId: string, comment?: string) {
@@ -194,14 +250,6 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       toast.error("Error al rechazar");
     }
   }
-
-  // Mention autocomplete state
-  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string }>>([]);
-  const [showMentionList, setShowMentionList] = useState(false);
-  const [mentionFilter, setMentionFilter] = useState("");
-
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const canDelete =
     userRole === "owner" || userRole === "admin" || (ticket && ticket.reportedBy === userId);
@@ -246,10 +294,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           <ArrowLeft className="h-3.5 w-3.5" />
           Volver a tickets
         </button>
-        <div className="rounded-md border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Ticket no encontrado. Los datos estarán disponibles cuando se conecte la base de datos.
-          </p>
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>
         </div>
       </div>
     );
@@ -262,13 +308,12 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
 
-  // Available transitions
   const availableTransitions = (Object.keys(TICKET_STATUS_CONFIG) as TicketStatus[]).filter(
     (s) => canTransitionTo(ticket.status, s),
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-24">
       {/* Back */}
       <button
         type="button"
@@ -279,12 +324,13 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         Volver a tickets
       </button>
 
-      {/* Header */}
-      <div>
+      {/* ── CARD: Header ── */}
+      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached ? "border-red-500/40" : "border-border"}`}>
+        {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
-          <span className={`text-xs font-medium ${priorityCfg.color}`}>
+          <span className={`text-xs font-semibold ${priorityCfg.color}`}>
             {ticket.priority.toUpperCase()}
           </span>
           {breached && (
@@ -308,81 +354,192 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                 ) : (
                   <Trash2 className="h-3 w-3" />
                 )}
-                {confirmDelete ? "Confirmar eliminar" : "Eliminar"}
+                {confirmDelete ? "Confirmar" : ""}
               </Button>
             </div>
           )}
         </div>
-        <h2 className="mt-1 text-base font-semibold">{ticket.title}</h2>
-      </div>
 
-      {/* Info grid */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoField label="Tipo" value={ticket.ticketType?.name ?? ticket.category?.name ?? "—"} />
-        <InfoField label="Equipo" value={teamCfg?.label ?? ticket.assignedTeam} />
-        <InfoField label="Origen" value={sourceCfg?.label ?? ticket.source} />
-        {ticket.assignedToName && <InfoField label="Asignado a" value={ticket.assignedToName} />}
-        {ticket.installationName && <InfoField label="Instalación" value={ticket.installationName} />}
-        {slaText && (
-          <InfoField
-            label="SLA restante"
-            value={slaText}
-            className={breached ? "text-red-500" : ""}
-          />
-        )}
-        <InfoField label="Reportado por" value={ticket.reportedByName ?? "—"} />
-        <InfoField
-          label="Creado"
-          value={new Date(ticket.createdAt).toLocaleString("es-CL")}
-        />
-      </div>
+        {/* Title */}
+        <h2 className="text-base font-semibold leading-snug">{ticket.title}</h2>
 
-      {/* Description */}
-      {ticket.description && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Descripción</p>
-          <p className="rounded-md bg-muted/50 p-3 text-sm whitespace-pre-wrap">
-            {ticket.description}
-          </p>
-        </div>
-      )}
-
-      {/* Tags */}
-      {ticket.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {ticket.tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-[10px]">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Status transitions */}
-      {availableTransitions.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="text-xs text-muted-foreground mr-1">Cambiar estado:</span>
-          {availableTransitions.map((status) => {
-            const cfg = TICKET_STATUS_CONFIG[status];
-            return (
-              <Button
-                key={status}
-                size="sm"
-                variant={status === "resolved" ? "default" : "outline"}
-                disabled={transitioning}
-                onClick={() => handleTransition(status)}
-                className="h-7 text-xs"
+        {/* Tags */}
+        {ticket.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {ticket.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
               >
-                {cfg.label}
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Guard badge */}
+        {ticket.guardiaName && (
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+              Guardia asociado
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (ticket.guardiaId) router.push(`/personas/guardias/${ticket.guardiaId}`);
+              }}
+              className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-3 py-2 transition-colors hover:bg-blue-500/20"
+            >
+              <Shield className="h-4 w-4 text-blue-400" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-blue-400">{ticket.guardiaName}</p>
+                <p className="text-[10px] text-blue-400/60">
+                  {[ticket.guardiaRut, ticket.guardiaCode].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <ChevronRight className="ml-auto h-3.5 w-3.5 text-blue-400/50" />
+            </button>
+          </div>
+        )}
+
+        {/* Responsible */}
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+            Responsable
+          </p>
+          {assigningUser ? (
+            <div className="space-y-2">
+              <Select
+                value=""
+                onValueChange={(v) => {
+                  if (v) handleAssignUser(v);
+                }}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Seleccionar responsable..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setAssigningUser(false)}
+              >
+                Cancelar
               </Button>
-            );
-          })}
+            </div>
+          ) : ticket.assignedToName ? (
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary">
+                {ticket.assignedToName
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((w) => w[0])
+                  .join("")
+                  .toUpperCase()}
+              </div>
+              <span className="text-sm font-medium">{ticket.assignedToName}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground ml-auto"
+                onClick={() => setAssigningUser(true)}
+              >
+                Reasignar
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAssigningUser(true)}
+              className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-sm text-yellow-500 transition-colors hover:bg-yellow-500/10"
+            >
+              <UserCircle className="h-4 w-4" />
+              <span className="font-medium">Sin asignar</span>
+              <span className="text-xs text-yellow-500/60 ml-auto">Asignar</span>
+            </button>
+          )}
+        </div>
+
+        {/* Info grid — 2 columns */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <InfoField label="Tipo" value={ticket.ticketType?.name ?? "—"} />
+          <InfoField label="Equipo" value={teamCfg?.label ?? ticket.assignedTeam} />
+          <InfoField label="Origen" value={sourceCfg?.label ?? ticket.source} />
+          <InfoField
+            label="Creado"
+            value={new Date(ticket.createdAt).toLocaleString("es-CL", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          />
+        </div>
+
+        {/* SLA Bar */}
+        {ticket.slaDueAt && (
+          <div className="pt-1">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+              SLA restante
+            </p>
+            <SlaBar
+              slaDueAt={ticket.slaDueAt}
+              createdAt={ticket.createdAt}
+              status={ticket.status}
+              resolvedAt={ticket.resolvedAt}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── CARD: Description ── */}
+      {ticket.description && (
+        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Descripción
+          </p>
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{ticket.description}</p>
         </div>
       )}
 
-      {/* Approval chain */}
+      {/* ── CARD: Change Status ── */}
+      {availableTransitions.length > 0 && (
+        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Cambiar estado
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {availableTransitions.map((status) => {
+              const cfg = TICKET_STATUS_CONFIG[status];
+              const isResolve = status === "resolved";
+              return (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant={isResolve ? "default" : "outline"}
+                  disabled={transitioning}
+                  onClick={() => handleTransition(status)}
+                  className="h-8 text-xs rounded-lg"
+                >
+                  {cfg.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── CARD: Approval chain ── */}
       {ticket.approvals && ticket.approvals.length > 0 && (
-        <div className="border-t border-border pt-3 space-y-2">
+        <div className="rounded-xl border border-border bg-[#161b22] p-4">
           <TicketApprovalTimeline
             approvals={ticket.approvals}
             currentStep={ticket.currentApprovalStep}
@@ -395,71 +552,75 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
       )}
 
-      {/* Resolution notes */}
+      {/* ── CARD: Resolution notes ── */}
       {ticket.resolutionNotes && (
-        <div className="space-y-1 border-t border-border pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Notas de resolución</p>
-          <p className="rounded-md bg-emerald-500/5 border border-emerald-500/20 p-3 text-sm">
-            {ticket.resolutionNotes}
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400">
+            Notas de resolución
           </p>
+          <p className="text-sm whitespace-pre-wrap">{ticket.resolutionNotes}</p>
         </div>
       )}
 
-      {/* Comments */}
-      <div className="border-t border-border pt-3 space-y-3">
+      {/* ── CARD: Activity Timeline ── */}
+      <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <h4 className="text-sm font-medium">Comentarios ({comments.length})</h4>
+          <h4 className="text-sm font-medium">Actividad</h4>
+          <span className="text-xs text-muted-foreground">({comments.length})</span>
         </div>
 
-        {comments.length > 0 && (
-          <div className="space-y-2">
-            {comments.map((comment) => (
-              <div
-                key={comment.id}
-                className={`rounded-md border p-3 ${
-                  comment.isInternal
-                    ? "border-amber-500/30 bg-amber-500/5"
-                    : "border-border bg-card"
-                }`}
-              >
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />
-                  <span className="font-medium">{comment.userName ?? "Usuario"}</span>
-                  <span>{new Date(comment.createdAt).toLocaleString("es-CL")}</span>
-                  {comment.isInternal && (
-                    <Badge variant="outline" className="text-[9px]">
-                      Interno
-                    </Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-sm whitespace-pre-wrap">{comment.body}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Timeline */}
+        <div className="relative space-y-0">
+          {/* Timeline line */}
+          {comments.length > 0 && (
+            <div className="absolute left-[11px] top-4 bottom-4 w-px bg-border" />
+          )}
 
-        {/* New comment */}
-        <div className="flex items-start gap-2">
+          {/* Ticket creation event */}
+          <TimelineEvent
+            icon={<Check className="h-3 w-3" />}
+            iconBg="bg-primary/20 text-primary"
+            user={ticket.reportedByName ?? "Usuario"}
+            time={ticket.createdAt}
+            content="Creó el ticket"
+          />
+
+          {/* Comments */}
+          {comments.map((comment) => (
+            <TimelineEvent
+              key={comment.id}
+              icon={<User className="h-3 w-3" />}
+              iconBg={comment.isInternal ? "bg-amber-500/20 text-amber-500" : "bg-muted text-muted-foreground"}
+              user={comment.userName ?? "Usuario"}
+              time={comment.createdAt}
+              content={comment.body}
+              isInternal={comment.isInternal}
+              isSending={comment.id.startsWith("temp-")}
+            />
+          ))}
+        </div>
+
+        {/* New comment input */}
+        <div className="flex items-start gap-2 pt-2 border-t border-border">
           <div className="relative flex-1">
             <Input
               value={newComment}
               onChange={handleCommentChange}
-              placeholder="Agregar comentario... (usa @ para mencionar)"
-              className="text-sm"
+              placeholder="Agregar comentario... (@ para mencionar)"
+              className="text-[16px] pr-10"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !showMentionList) {
                   e.preventDefault();
                   handleAddComment();
                 }
-                if (e.key === "Escape") {
-                  setShowMentionList(false);
-                }
+                if (e.key === "Escape") setShowMentionList(false);
               }}
               onBlur={() => setTimeout(() => setShowMentionList(false), 200)}
             />
+            {/* Mention dropdown */}
             {showMentionList && (
-              <div className="absolute bottom-full left-0 mb-1 w-full max-h-40 overflow-y-auto rounded-md border border-border bg-popover shadow-md z-50">
+              <div className="absolute bottom-full left-0 mb-1 w-full max-h-40 overflow-y-auto rounded-xl border border-border bg-popover shadow-md z-50">
                 {availableUsers
                   .filter((u) => u.name.toLowerCase().includes(mentionFilter))
                   .slice(0, 8)
@@ -467,7 +628,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                     <button
                       key={u.id}
                       type="button"
-                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center gap-2"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         insertMention(u.name);
@@ -488,7 +649,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             variant="outline"
             onClick={handleAddComment}
             disabled={!newComment.trim() || sendingComment}
-            className="h-9 w-9 shrink-0"
+            className="h-10 w-10 shrink-0 rounded-lg"
           >
             {sendingComment ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -502,11 +663,70 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  TIMELINE EVENT
+// ═══════════════════════════════════════════════════════════════
+
+function TimelineEvent({
+  icon,
+  iconBg,
+  user,
+  time,
+  content,
+  isInternal,
+  isSending,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  user: string;
+  time: string;
+  content: string;
+  isInternal?: boolean;
+  isSending?: boolean;
+}) {
+  const timeStr = new Date(time).toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div className={`relative flex gap-3 py-2 ${isSending ? "opacity-60" : ""}`}>
+      {/* Icon */}
+      <div className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
+        {icon}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-medium">{user}</span>
+          <span className="text-muted-foreground">{timeStr}</span>
+          {isInternal && (
+            <Badge variant="outline" className="text-[9px]">
+              Interno
+            </Badge>
+          )}
+          {isSending && (
+            <span className="text-[10px] text-muted-foreground italic">Enviando...</span>
+          )}
+        </div>
+        <p className="mt-0.5 text-sm whitespace-pre-wrap leading-relaxed">{content}</p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INFO FIELD
+// ═══════════════════════════════════════════════════════════════
+
 function InfoField({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div>
       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-sm ${className ?? ""}`}>{value}</p>
+      <p className={`text-[13px] font-medium ${className ?? ""}`}>{value}</p>
     </div>
   );
 }
