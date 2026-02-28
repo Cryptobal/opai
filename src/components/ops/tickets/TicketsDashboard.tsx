@@ -187,8 +187,8 @@ export function TicketsDashboard() {
                     borderRadius: "8px",
                     fontSize: "12px",
                   }}
-                  labelFormatter={(t: string) =>
-                    (TICKET_TEAM_CONFIG as Record<string, { label: string }>)[t]?.label ?? t
+                  labelFormatter={(t) =>
+                    (TICKET_TEAM_CONFIG as Record<string, { label: string }>)[String(t)]?.label ?? String(t)
                   }
                 />
                 <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} name="Tickets" />
