@@ -46,6 +46,8 @@ import {
 } from "@/lib/tickets";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { SearchableOption } from "@/components/ui/SearchableSelect";
+import { TicketsDashboard } from "./TicketsDashboard";
+import { TicketsKanban } from "./TicketsKanban";
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPES
@@ -58,6 +60,8 @@ interface TicketsClientProps {
 type ViewState = { view: "list" } | { view: "create" };
 
 type ListMode = "list" | "cards";
+
+type ModuleView = "dashboard" | "list" | "kanban";
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
@@ -82,6 +86,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterPriorities, setFilterPriorities] = useState<Set<TicketPriority>>(new Set());
   const [originTab, setOriginTab] = useState<"all" | "internal" | "guard">("all");
   const [listMode, setListMode] = useState<ListMode>("list");
+  const [moduleView, setModuleView] = useState<ModuleView>("list");
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -185,6 +190,62 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </p>
       </div>
 
+      {/* Module view switcher: Dashboard / Lista / Kanban */}
+      <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+        {([
+          { value: "dashboard" as const, label: "Dashboard" },
+          { value: "list" as const, label: "Lista" },
+          { value: "kanban" as const, label: "Kanban" },
+        ]).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setModuleView(tab.value)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              moduleView === tab.value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dashboard view */}
+      {moduleView === "dashboard" && <TicketsDashboard />}
+
+      {/* Kanban view */}
+      {moduleView === "kanban" && (
+        <TicketsKanban
+          tickets={filteredTickets}
+          loading={loading}
+          onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
+          onStatusChange={async (ticketId, newStatus) => {
+            // Optimistic update
+            setTickets((prev) =>
+              prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)),
+            );
+            try {
+              const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              toast.success(`Estado actualizado`);
+            } catch {
+              fetchTickets(); // revert
+              toast.error("Error al cambiar estado");
+            }
+          }}
+        />
+      )}
+
+      {/* List view (only when moduleView = "list") */}
+      {moduleView === "list" && (
+        <>
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -332,6 +393,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             />
           ))}
         </div>
+      )}
+        </>
       )}
 
       {/* FAB - New ticket */}

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { ArrowUp, ArrowDown, Minus, Info } from 'lucide-react';
 
 export type TrendType = 'up' | 'down' | 'neutral';
-export type KpiVariant = 'default' | 'blue' | 'emerald' | 'purple' | 'amber' | 'indigo' | 'sky' | 'teal';
+export type KpiVariant = 'default' | 'blue' | 'emerald' | 'purple' | 'amber' | 'red' | 'indigo' | 'sky' | 'teal';
 
 export interface KpiCardProps {
   title: string;
@@ -57,6 +57,7 @@ export function KpiCard({
     emerald: 'border-emerald-500/25 bg-emerald-500/10',
     purple: 'border-purple-500/25 bg-purple-500/10',
     amber: 'border-amber-500/25 bg-amber-500/10',
+    red: 'border-red-500/25 bg-red-500/10',
     indigo: 'border-indigo-500/25 bg-indigo-500/10',
     sky: 'border-sky-500/25 bg-sky-500/10',
     teal: 'border-primary/25 bg-primary/10',
@@ -68,6 +69,7 @@ export function KpiCard({
     emerald: 'p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400',
     purple: 'p-1.5 rounded-lg bg-purple-500/15 text-purple-400',
     amber: 'p-1.5 rounded-lg bg-amber-500/15 text-amber-400',
+    red: 'p-1.5 rounded-lg bg-red-500/15 text-red-400',
     indigo: 'p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400',
     sky: 'p-1.5 rounded-lg bg-sky-500/15 text-sky-400',
     teal: 'p-1.5 rounded-lg bg-primary/15 text-primary',
@@ -79,6 +81,7 @@ export function KpiCard({
     emerald: 'text-emerald-400',
     purple: 'text-purple-400',
     amber: 'text-amber-400',
+    red: 'text-red-400',
     indigo: 'text-indigo-400',
     sky: 'text-sky-400',
     teal: 'text-primary',
