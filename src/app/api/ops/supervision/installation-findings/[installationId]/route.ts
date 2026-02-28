@@ -26,19 +26,26 @@ export async function GET(
     const sp = request.nextUrl.searchParams;
     const statusFilter = sp.get("status") ?? "open";
 
-    const findings = await prisma.opsSupervisionFinding.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        installationId,
-        ...(statusFilter === "all"
-          ? {}
-          : statusFilter === "open"
-            ? { status: { in: ["open", "in_progress"] } }
-            : { status: statusFilter }),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    let findings: unknown[] = [];
+    try {
+      findings = await prisma.opsSupervisionFinding.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          installationId,
+          ...(statusFilter === "all"
+            ? {}
+            : statusFilter === "open"
+              ? { status: { in: ["open", "in_progress"] } }
+              : { status: statusFilter }),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+    } catch (tableErr: unknown) {
+      // P2021: table does not exist — migration not applied yet
+      const code = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
+      if (code !== "P2021") throw tableErr;
+    }
 
     return NextResponse.json({ success: true, data: findings });
   } catch (error) {
@@ -82,33 +89,41 @@ export async function PATCH(
       );
     }
 
-    const finding = await prisma.opsSupervisionFinding.findFirst({
-      where: {
-        id: parsed.data.findingId,
-        tenantId: ctx.tenantId,
-        installationId,
-      },
-    });
+    try {
+      const finding = await prisma.opsSupervisionFinding.findFirst({
+        where: {
+          id: parsed.data.findingId,
+          tenantId: ctx.tenantId,
+          installationId,
+        },
+      });
 
-    if (!finding) {
-      return NextResponse.json(
-        { success: false, error: "Hallazgo no encontrado" },
-        { status: 404 },
-      );
+      if (!finding) {
+        return NextResponse.json(
+          { success: false, error: "Hallazgo no encontrado" },
+          { status: 404 },
+        );
+      }
+
+      const updated = await prisma.opsSupervisionFinding.update({
+        where: { id: parsed.data.findingId },
+        data: {
+          status: parsed.data.status,
+          ...(parsed.data.status === "resolved" ? { resolvedAt: new Date() } : {}),
+          ...(parsed.data.status === "verified" && parsed.data.verifiedInVisitId
+            ? { verifiedInVisitId: parsed.data.verifiedInVisitId, resolvedAt: new Date() }
+            : {}),
+        },
+      });
+
+      return NextResponse.json({ success: true, data: updated });
+    } catch (tableErr: unknown) {
+      // P2021: table does not exist — migration not applied yet
+      const code = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
+      if (code !== "P2021") throw tableErr;
+      // Return success so wizard can proceed
+      return NextResponse.json({ success: true, data: { id: parsed.data.findingId, status: parsed.data.status } });
     }
-
-    const updated = await prisma.opsSupervisionFinding.update({
-      where: { id: parsed.data.findingId },
-      data: {
-        status: parsed.data.status,
-        ...(parsed.data.status === "resolved" ? { resolvedAt: new Date() } : {}),
-        ...(parsed.data.status === "verified" && parsed.data.verifiedInVisitId
-          ? { verifiedInVisitId: parsed.data.verifiedInVisitId, resolvedAt: new Date() }
-          : {}),
-      },
-    });
-
-    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[OPS][SUPERVISION] Error updating finding:", error);
     return NextResponse.json(

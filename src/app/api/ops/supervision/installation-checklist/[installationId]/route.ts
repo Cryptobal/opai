@@ -23,23 +23,31 @@ export async function GET(
 
     const { installationId } = await params;
 
-    const items = await prisma.opsInstallationChecklistItem.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        installationId,
-        isActive: true,
-      },
-      orderBy: { sortOrder: "asc" },
-    });
+    const defaults = [
+      { id: "default-directiva", name: "Directiva de funcionamiento", category: "documents", isMandatory: true, sortOrder: 0 },
+      { id: "default-contrato", name: "Contrato de guardias al día", category: "documents", isMandatory: true, sortOrder: 1 },
+      { id: "default-os10", name: "OS10 de los guardias", category: "documents", isMandatory: true, sortOrder: 2 },
+      { id: "default-libro", name: "Libro de novedades", category: "documents", isMandatory: true, sortOrder: 3 },
+    ];
 
-    // If no custom items, return defaults
+    let items: unknown[] = [];
+    try {
+      items = await prisma.opsInstallationChecklistItem.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          installationId,
+          isActive: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      });
+    } catch (tableErr: unknown) {
+      // P2021: table does not exist — migration not applied yet, use defaults
+      const code = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
+      if (code !== "P2021") throw tableErr;
+    }
+
+    // If no custom items or table doesn't exist, return defaults
     if (items.length === 0) {
-      const defaults = [
-        { id: "default-directiva", name: "Directiva de funcionamiento", category: "documents", isMandatory: true, sortOrder: 0 },
-        { id: "default-contrato", name: "Contrato de guardias al día", category: "documents", isMandatory: true, sortOrder: 1 },
-        { id: "default-os10", name: "OS10 de los guardias", category: "documents", isMandatory: true, sortOrder: 2 },
-        { id: "default-libro", name: "Libro de novedades", category: "documents", isMandatory: true, sortOrder: 3 },
-      ];
       return NextResponse.json({ success: true, data: defaults, isDefault: true });
     }
 
