@@ -200,13 +200,14 @@ export async function POST(request: NextRequest) {
     // Use select (not include) to avoid RETURNING new columns that may
     // not exist before the supervision_module_refactor migration is applied.
     let visit;
+    const now = new Date();
     try {
       visit = await prisma.opsVisitaSupervision.create({
         data: {
           tenantId: ctx.tenantId,
           supervisorId: ctx.userId,
           installationId: body.installationId,
-          checkInAt: new Date(),
+          checkInAt: now,
           checkInLat: body.lat,
           checkInLng: body.lng,
           checkInGeoValidada,
@@ -219,34 +220,35 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch {
-      // Fallback: create with only safe column selection
-      visit = await prisma.opsVisitaSupervision.create({
-        data: {
-          tenantId: ctx.tenantId,
-          supervisorId: ctx.userId,
-          installationId: body.installationId,
-          checkInAt: new Date(),
-          checkInLat: body.lat,
-          checkInLng: body.lng,
-          checkInGeoValidada,
-          checkInDistanciaM,
-          status: "in_progress",
-          startedVia: body.startedVia ?? "ops_supervision",
-        },
-        select: {
-          id: true,
-          tenantId: true,
-          supervisorId: true,
-          installationId: true,
-          checkInAt: true,
-          checkInGeoValidada: true,
-          checkInDistanciaM: true,
-          status: true,
-          startedVia: true,
-          createdAt: true,
-          installation: { select: { id: true, name: true, address: true } },
-        },
-      });
+      // Prisma's INSERT references new columns with @default (client_contacted,
+      // wizard_step, etc.) even when not in data. Use raw SQL as fallback.
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        INSERT INTO "ops"."visitas_supervision"
+          ("id", "tenant_id", "supervisor_id", "installation_id",
+           "check_in_at", "check_in_lat", "check_in_lng",
+           "check_in_geo_validada", "check_in_distancia_m",
+           "status", "started_via", "created_at", "updated_at")
+        VALUES
+          (uuid_generate_v4(), ${ctx.tenantId}, ${ctx.userId}, ${body.installationId},
+           ${now}, ${body.lat}, ${body.lng},
+           ${checkInGeoValidada}, ${checkInDistanciaM},
+           'in_progress', ${body.startedVia ?? "ops_supervision"}, ${now}, ${now})
+        RETURNING "id"
+      `;
+      const newId = rows[0].id;
+      visit = {
+        id: newId,
+        tenantId: ctx.tenantId,
+        supervisorId: ctx.userId,
+        installationId: body.installationId,
+        checkInAt: now,
+        checkInGeoValidada,
+        checkInDistanciaM,
+        status: "in_progress",
+        startedVia: body.startedVia ?? "ops_supervision",
+        createdAt: now,
+        installation: { id: installation.id, name: installation.name, address: null },
+      };
     }
 
     return NextResponse.json({ success: true, data: visit }, { status: 201 });
