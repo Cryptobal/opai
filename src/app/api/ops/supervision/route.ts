@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { haversineDistance } from "@/lib/marcacion";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
@@ -223,9 +222,10 @@ export async function POST(request: NextRequest) {
       // Fallback: migration 20260401000000_supervision_module_refactor not applied.
       // Prisma generates INSERT with all schema columns (incl. client_contacted, wizard_step, etc.)
       // which don't exist yet. Use raw SQL with only pre-migration columns.
+      // $queryRawUnsafe + $N::uuid: Prisma.sql/CAST no funcionan bien con params en Vercel.
       const now = new Date();
       const startedVia = body.startedVia ?? "ops_supervision";
-      const rows = await prisma.$queryRaw<
+      const rows = await prisma.$queryRawUnsafe<
         Array<{
           id: string;
           tenant_id: string;
@@ -239,23 +239,27 @@ export async function POST(request: NextRequest) {
           created_at: Date;
         }>
       >(
-        Prisma.sql`
-          INSERT INTO ops.visitas_supervision (
-            tenant_id, supervisor_id, installation_id,
-            check_in_at, check_in_lat, check_in_lng,
-            check_in_geo_validada, check_in_distancia_m,
-            status, started_via, created_at, updated_at
-          )
-          VALUES (
-            ${ctx.tenantId}, ${ctx.userId}, CAST(${body.installationId} AS uuid),
-            ${now}, ${body.lat}, ${body.lng},
-            ${checkInGeoValidada}, ${checkInDistanciaM},
-            'in_progress', ${startedVia}, ${now}, ${now}
-          )
-          RETURNING id, tenant_id, supervisor_id, installation_id,
-            check_in_at, check_in_geo_validada, check_in_distancia_m,
-            status, started_via, created_at
-        `,
+        `INSERT INTO ops.visitas_supervision (
+          tenant_id, supervisor_id, installation_id,
+          check_in_at, check_in_lat, check_in_lng,
+          check_in_geo_validada, check_in_distancia_m,
+          status, started_via, created_at, updated_at
+        )
+        VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, 'in_progress', $9, $10, $11)
+        RETURNING id, tenant_id, supervisor_id, installation_id,
+          check_in_at, check_in_geo_validada, check_in_distancia_m,
+          status, started_via, created_at`,
+        ctx.tenantId,
+        ctx.userId,
+        body.installationId,
+        now,
+        body.lat,
+        body.lng,
+        checkInGeoValidada,
+        checkInDistanciaM,
+        startedVia,
+        now,
+        now,
       );
       const row = rows[0];
       if (!row) throw new Error("INSERT returned no rows");
