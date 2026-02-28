@@ -219,34 +219,69 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch {
-      // Fallback: create with only safe column selection
-      visit = await prisma.opsVisitaSupervision.create({
-        data: {
-          tenantId: ctx.tenantId,
-          supervisorId: ctx.userId,
-          installationId: body.installationId,
-          checkInAt: new Date(),
-          checkInLat: body.lat,
-          checkInLng: body.lng,
-          checkInGeoValidada,
-          checkInDistanciaM,
-          status: "in_progress",
-          startedVia: body.startedVia ?? "ops_supervision",
-        },
-        select: {
-          id: true,
-          tenantId: true,
-          supervisorId: true,
-          installationId: true,
-          checkInAt: true,
-          checkInGeoValidada: true,
-          checkInDistanciaM: true,
-          status: true,
-          startedVia: true,
-          createdAt: true,
-          installation: { select: { id: true, name: true, address: true } },
-        },
+      // Fallback: migration 20260401000000_supervision_module_refactor not applied.
+      // Prisma generates INSERT with all schema columns (incl. client_contacted, wizard_step, etc.)
+      // which don't exist yet. Use raw SQL with only pre-migration columns.
+      // $queryRawUnsafe + $N::uuid: Prisma.sql/CAST no funcionan bien con params en Vercel.
+      const now = new Date();
+      const startedVia = body.startedVia ?? "ops_supervision";
+      const rows = await prisma.$queryRawUnsafe<
+        Array<{
+          id: string;
+          tenant_id: string;
+          supervisor_id: string;
+          installation_id: string;
+          check_in_at: Date;
+          check_in_geo_validada: boolean;
+          check_in_distancia_m: number | null;
+          status: string;
+          started_via: string | null;
+          created_at: Date;
+        }>
+      >(
+        `INSERT INTO ops.visitas_supervision (
+          tenant_id, supervisor_id, installation_id,
+          check_in_at, check_in_lat, check_in_lng,
+          check_in_geo_validada, check_in_distancia_m,
+          status, started_via, created_at, updated_at
+        )
+        VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, 'in_progress', $9, $10, $11)
+        RETURNING id, tenant_id, supervisor_id, installation_id,
+          check_in_at, check_in_geo_validada, check_in_distancia_m,
+          status, started_via, created_at`,
+        ctx.tenantId,
+        ctx.userId,
+        body.installationId,
+        now,
+        body.lat,
+        body.lng,
+        checkInGeoValidada,
+        checkInDistanciaM,
+        startedVia,
+        now,
+        now,
+      );
+      const row = rows[0];
+      if (!row) throw new Error("INSERT returned no rows");
+
+      const installation = await prisma.crmInstallation.findFirst({
+        where: { id: body.installationId, tenantId: ctx.tenantId },
+        select: { id: true, name: true, address: true },
       });
+
+      visit = {
+        id: row.id,
+        tenantId: row.tenant_id,
+        supervisorId: row.supervisor_id,
+        installationId: row.installation_id,
+        checkInAt: row.check_in_at,
+        checkInGeoValidada: row.check_in_geo_validada,
+        checkInDistanciaM: row.check_in_distancia_m,
+        status: row.status,
+        startedVia: row.started_via,
+        createdAt: row.created_at,
+        installation: installation ?? { id: body.installationId, name: "", address: null },
+      };
     }
 
     return NextResponse.json({ success: true, data: visit }, { status: 201 });
