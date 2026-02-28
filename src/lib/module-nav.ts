@@ -22,6 +22,7 @@ import {
   BarChart3,
   Landmark,
   BookText,
+  ClipboardCheck,
   // CRM
   Users,
   MapPin,
@@ -107,6 +108,7 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
+  { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];

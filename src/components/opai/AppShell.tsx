@@ -231,7 +231,7 @@ export function AppShell({
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
         <main className="flex-1 min-w-0 w-full overflow-x-hidden">
-          <div className="w-full max-w-full py-6 pb-24 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-2 lg:pr-8 xl:pl-3 xl:pr-10 2xl:pl-4 2xl:pr-12" role="region">
+          <div className="w-full max-w-full py-6 pb-28 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-2 lg:pr-8 xl:pl-3 xl:pr-10 2xl:pl-4 2xl:pr-12" role="region">
             {children}
           </div>
         </main>
