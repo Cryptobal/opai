@@ -1290,6 +1290,10 @@ model CrmInstallation {
   inventoryAssetAssignments       InventoryAssetAssignment[]
   inventoryMovements              InventoryMovement[]
   inventoryGuardiaAssignments     InventoryGuardiaAssignment[]
+  protocolSections                OpsProtocolSection[]             @relation("protocol_sections_installation")
+  protocolVersions                OpsProtocolVersion[]             @relation("protocol_versions_installation")
+  protocolDocuments               OpsProtocolDocument[]            @relation("protocol_documents_installation")
+  exams                           OpsExam[]                        @relation("exams_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1918,6 +1922,7 @@ model OpsGuardia {
   inventoryMovements          InventoryMovement[]
   supervisionEvaluations      OpsSupervisionGuardEvaluation[] @relation("supervision_guard_evaluation_guard")
   supervisionFindings         OpsSupervisionFinding[]         @relation("supervision_finding_guard")
+  examAssignments             OpsExamAssignment[]             @relation("exam_assignments_guard")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -3197,6 +3202,158 @@ model OpsTicketComment {
 
   @@index([ticketId], map: "idx_ops_ticket_comments_ticket")
   @@map("ops_ticket_comments")
+  @@schema("ops")
+}
+
+// ============================================
+// PROTOCOL & EXAM SYSTEM
+// ============================================
+
+model OpsProtocolSection {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  title          String
+  icon           String?  // emoji or icon code
+  order          Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation    @relation("protocol_sections_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  items        OpsProtocolItem[]
+
+  @@index([tenantId], map: "idx_ops_protocol_sections_tenant")
+  @@index([installationId], map: "idx_ops_protocol_sections_installation")
+  @@map("ops_protocol_sections")
+  @@schema("ops")
+}
+
+model OpsProtocolItem {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  sectionId   String   @map("section_id") @db.Uuid
+  title       String
+  description String?  @db.Text
+  order       Int      @default(0)
+  createdBy   String?  @map("created_by") // admin user id who created it
+  source      String   @default("manual") // 'manual' | 'ai_generated' | 'ai_from_pdf'
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  section OpsProtocolSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId], map: "idx_ops_protocol_items_section")
+  @@index([tenantId], map: "idx_ops_protocol_items_tenant")
+  @@map("ops_protocol_items")
+  @@schema("ops")
+}
+
+model OpsProtocolVersion {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  installationId String    @map("installation_id") @db.Uuid
+  versionNumber  Int       @map("version_number")
+  status         String    @default("draft") // 'draft' | 'published' | 'archived'
+  snapshot       Json      @db.JsonB // full protocol snapshot at this version
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+  publishedBy    String?   @map("published_by") // admin user id
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation("protocol_versions_installation", fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_protocol_versions_tenant")
+  @@index([installationId], map: "idx_ops_protocol_versions_installation")
+  @@index([installationId, versionNumber], map: "idx_ops_protocol_versions_install_version")
+  @@map("ops_protocol_versions")
+  @@schema("ops")
+}
+
+model OpsProtocolDocument {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  fileName       String   @map("file_name")
+  fileUrl        String   @map("file_url")
+  fileSize       Int      @default(0) @map("file_size") // bytes
+  processed      Boolean  @default(false)
+  uploadedBy     String?  @map("uploaded_by") // admin user id
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation("protocol_documents_installation", fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_protocol_documents_tenant")
+  @@index([installationId], map: "idx_ops_protocol_documents_installation")
+  @@map("ops_protocol_documents")
+  @@schema("ops")
+}
+
+model OpsExam {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  installationId  String   @map("installation_id") @db.Uuid
+  title           String
+  type            String   @default("protocol") // 'protocol' | 'security_general'
+  status          String   @default("draft") // 'draft' | 'active' | 'archived'
+  scheduleType    String   @default("manual") @map("schedule_type") // 'manual' | 'on_assignment' | 'recurring'
+  recurringMonths Int?     @map("recurring_months") // e.g. 1, 2, 3, 6
+  createdBy       String?  @map("created_by") // admin user id
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation    @relation("exams_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  questions    OpsExamQuestion[]
+  assignments  OpsExamAssignment[]
+
+  @@index([tenantId], map: "idx_ops_exams_tenant")
+  @@index([installationId], map: "idx_ops_exams_installation")
+  @@index([installationId, type], map: "idx_ops_exams_installation_type")
+  @@index([status], map: "idx_ops_exams_status")
+  @@map("ops_exams")
+  @@schema("ops")
+}
+
+model OpsExamQuestion {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  examId           String   @map("exam_id") @db.Uuid
+  questionText     String   @map("question_text") @db.Text
+  questionType     String   @default("multiple_choice") @map("question_type") // 'multiple_choice' | 'true_false' | 'open_ended'
+  options          Json?    @db.JsonB // array of option strings for multiple_choice
+  correctAnswer    String?  @map("correct_answer") // index for MC, "true"/"false" for T/F
+  sectionReference String?  @map("section_reference") // which protocol section this covers
+  source           String   @default("manual") // 'manual' | 'ai_generated'
+  order            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam OpsExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId], map: "idx_ops_exam_questions_exam")
+  @@map("ops_exam_questions")
+  @@schema("ops")
+}
+
+model OpsExamAssignment {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  examId           String    @map("exam_id") @db.Uuid
+  guardId          String    @map("guard_id") @db.Uuid
+  status           String    @default("sent") // 'sent' | 'opened' | 'completed' | 'expired'
+  sentAt           DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
+  openedAt         DateTime? @map("opened_at") @db.Timestamptz(6)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  score            Decimal?  @db.Decimal(5, 2) // percentage 0-100
+  answers          Json?     @db.JsonB // guard's answers
+  timeTakenSeconds Int?      @map("time_taken_seconds")
+  attemptNumber    Int       @default(1) @map("attempt_number")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam  OpsExam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  guard OpsGuardia @relation("exam_assignments_guard", fields: [guardId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_exam_assignments_tenant")
+  @@index([examId], map: "idx_ops_exam_assignments_exam")
+  @@index([guardId], map: "idx_ops_exam_assignments_guard")
+  @@index([guardId, status], map: "idx_ops_exam_assignments_guard_status")
+  @@map("ops_exam_assignments")
   @@schema("ops")
 }
 
