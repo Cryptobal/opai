@@ -46,13 +46,18 @@ export async function POST(
 
     const { id } = await params;
     const canViewAll = hasCapability(perms, "supervision_view_all");
+
+    // Use select to only read pre-migration columns + installation geo
     const visit = await prisma.opsVisitaSupervision.findFirst({
       where: {
         id,
         tenantId: ctx.tenantId,
         ...(canViewAll ? {} : { supervisorId: ctx.userId }),
       },
-      include: {
+      select: {
+        id: true,
+        checkInAt: true,
+        status: true,
         installation: {
           select: { lat: true, lng: true, geoRadiusM: true },
         },
@@ -99,36 +104,54 @@ export async function POST(
     const durationMinutes = Math.round((checkOutAt.getTime() - checkInAt.getTime()) / 60000);
     const isExpressFlagged = durationMinutes < EXPRESS_MIN_MINUTES;
 
-    const updated = await prisma.opsVisitaSupervision.update({
-      where: { id: visit.id },
-      data: {
-        checkOutAt,
-        checkOutLat: body.lat,
-        checkOutLng: body.lng,
-        checkOutGeoValidada,
-        checkOutDistanciaM,
-        status: "completed",
-        completedVia: body.completedVia ?? "ops_supervision",
-        durationMinutes,
-        isExpressFlagged,
-        draftData: Prisma.DbNull, // Clear draft on completion
-        wizardStep: 5,
-        // Save additional wizard data if provided
-        ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
-        ...(body.installationState !== undefined ? { installationState: body.installationState } : {}),
-        ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
-        ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
-        ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
-        ...(body.bookLastEntryDate !== undefined
-          ? { bookLastEntryDate: body.bookLastEntryDate ? new Date(body.bookLastEntryDate) : null }
-          : {}),
-        ...(body.bookNotes !== undefined ? { bookNotes: body.bookNotes } : {}),
-        ...(body.clientContacted !== undefined ? { clientContacted: body.clientContacted } : {}),
-        ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
-        ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
-        ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
-      },
-    });
+    // Safe data (pre-migration columns only)
+    const safeData = {
+      checkOutAt,
+      checkOutLat: body.lat,
+      checkOutLng: body.lng,
+      checkOutGeoValidada,
+      checkOutDistanciaM,
+      status: "completed" as const,
+      completedVia: body.completedVia ?? "ops_supervision",
+      ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
+      ...(body.installationState !== undefined ? { installationState: body.installationState } : {}),
+    };
+
+    // Full data includes new columns
+    const fullData = {
+      ...safeData,
+      durationMinutes,
+      isExpressFlagged,
+      draftData: Prisma.DbNull,
+      wizardStep: 5,
+      ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
+      ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
+      ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
+      ...(body.bookLastEntryDate !== undefined
+        ? { bookLastEntryDate: body.bookLastEntryDate ? new Date(body.bookLastEntryDate) : null }
+        : {}),
+      ...(body.bookNotes !== undefined ? { bookNotes: body.bookNotes } : {}),
+      ...(body.clientContacted !== undefined ? { clientContacted: body.clientContacted } : {}),
+      ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
+      ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
+      ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
+    };
+
+    let updated;
+    try {
+      updated = await prisma.opsVisitaSupervision.update({
+        where: { id: visit.id },
+        data: fullData,
+        select: { id: true, status: true },
+      });
+    } catch {
+      // New columns may not exist — update only safe fields
+      updated = await prisma.opsVisitaSupervision.update({
+        where: { id: visit.id },
+        data: safeData,
+        select: { id: true, status: true },
+      });
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

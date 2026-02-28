@@ -39,6 +39,7 @@ export async function GET(
         tenantId: ctx.tenantId,
         ...(canViewAll ? {} : { supervisorId: ctx.userId }),
       },
+      select: { id: true, installationId: true },
     });
 
     if (!visit) {
@@ -88,6 +89,7 @@ export async function POST(
         tenantId: ctx.tenantId,
         ...(canViewAll ? {} : { supervisorId: ctx.userId }),
       },
+      select: { id: true, installationId: true },
     });
 
     if (!visit) {

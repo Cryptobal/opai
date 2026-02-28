@@ -45,6 +45,7 @@ export async function GET(
         tenantId: ctx.tenantId,
         ...(canViewAll ? {} : { supervisorId: ctx.userId }),
       },
+      select: { id: true },
     });
 
     if (!visit) {
@@ -94,6 +95,7 @@ export async function POST(
         tenantId: ctx.tenantId,
         ...(canViewAll ? {} : { supervisorId: ctx.userId }),
       },
+      select: { id: true },
     });
 
     if (!visit) {
@@ -152,6 +154,7 @@ export async function POST(
             protocolo: Math.round(avgProtocol * 10) / 10,
           },
         },
+        select: { id: true },
       });
     }
 
