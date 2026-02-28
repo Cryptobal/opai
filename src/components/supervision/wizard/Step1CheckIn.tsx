@@ -48,9 +48,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
         const json = await res.json();
         if (res.ok && json.success && Array.isArray(json.data)) {
           setInstallations(json.data);
-          if (json.data.length > 0 && !selectedInstallationId) {
-            setSelectedInstallationId(json.data[0].id);
-          }
+          // Don't auto-select; let user choose or wait for GPS to suggest nearest
         } else {
           setInstallations([]);
         }
@@ -222,7 +220,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
     [installations],
   );
 
-  const showDirectList = !loadingInstallations && installations.length > 0 && installations.length <= 10;
+  const showDirectList = !loadingInstallations && installations.length > 0 && installations.length <= 10 && !location;
 
   return (
     <Card>
@@ -248,54 +246,64 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
         </Button>
 
         {/* GPS Result Indicator */}
-        {location && selectedInstallation && (
-          <div
-            className={`flex items-center gap-3 rounded-lg border-2 p-3 ${
-              selectedInstallation.distanceM == null
-                ? "border-border bg-muted/30"
-                : selectedInstallation.insideGeofence
-                  ? "border-emerald-500/50 bg-emerald-500/10"
-                  : "border-amber-500/50 bg-amber-500/10"
-            }`}
-          >
-            <Navigation className={`h-5 w-5 flex-shrink-0 ${
-              selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
-            }`} />
-            <div className="flex-1">
-              {selectedInstallation.distanceM != null ? (
-                <>
-                  <p className="text-sm font-medium">
-                    Distancia: {selectedInstallation.distanceM}m
-                  </p>
-                  <p className={`text-xs ${
-                    selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
-                  }`}>
-                    {selectedInstallation.insideGeofence
-                      ? `Dentro del rango (${selectedInstallation.geoRadiusM}m)`
-                      : `Fuera del rango (radio: ${selectedInstallation.geoRadiusM}m)`}
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                </p>
-              )}
+        {location && (
+          <div className="space-y-2">
+            {/* Check-in position */}
+            <div className="flex items-center gap-2 rounded-lg bg-muted/30 p-2 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              <span>Tu ubicacion: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}</span>
             </div>
-            {selectedInstallation.distanceM != null && (
-              selectedInstallation.insideGeofence ? (
-                <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-emerald-400" />
-              ) : (
-                <AlertTriangle className="h-6 w-6 flex-shrink-0 text-amber-400" />
-              )
+
+            {/* Distance to installation */}
+            {selectedInstallation && (
+              <div
+                className={`flex items-center gap-3 rounded-lg border-2 p-3 ${
+                  selectedInstallation.distanceM == null
+                    ? "border-border bg-muted/30"
+                    : selectedInstallation.insideGeofence
+                      ? "border-emerald-500/50 bg-emerald-500/10"
+                      : "border-amber-500/50 bg-amber-500/10"
+                }`}
+              >
+                <Navigation className={`h-5 w-5 flex-shrink-0 ${
+                  selectedInstallation.distanceM != null && selectedInstallation.insideGeofence
+                    ? "text-emerald-400"
+                    : "text-amber-400"
+                }`} />
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedInstallation.name}
+                    {selectedInstallation.address ? ` — ${selectedInstallation.address}` : ""}
+                  </p>
+                  {selectedInstallation.distanceM != null ? (
+                    <>
+                      <p className="text-sm font-medium">
+                        Distancia: {selectedInstallation.distanceM}m
+                      </p>
+                      <p className={`text-xs ${
+                        selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
+                      }`}>
+                        {selectedInstallation.insideGeofence
+                          ? `Dentro del rango (${selectedInstallation.geoRadiusM}m)`
+                          : `Fuera del rango (radio: ${selectedInstallation.geoRadiusM}m)`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-amber-400">
+                      Obtene ubicacion para calcular distancia
+                    </p>
+                  )}
+                </div>
+                {selectedInstallation.distanceM != null && (
+                  selectedInstallation.insideGeofence ? (
+                    <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="h-6 w-6 flex-shrink-0 text-amber-400" />
+                  )
+                )}
+              </div>
             )}
           </div>
-        )}
-
-        {/* GPS only coordinates when no installation selected */}
-        {location && !selectedInstallation && (
-          <p className="text-xs text-muted-foreground">
-            GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-          </p>
         )}
 
         {/* Geofence reason (when outside) */}
@@ -335,7 +343,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
         </div>
 
         {/* Direct list for few installations */}
-        {showDirectList && !location && (
+        {showDirectList && (
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Instalaciones asignadas</p>
             <div className="space-y-1">

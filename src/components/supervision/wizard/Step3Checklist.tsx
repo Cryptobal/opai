@@ -9,6 +9,7 @@ import {
   Clock,
   Camera,
   X,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import type { ChecklistItem, ChecklistResult, Finding, VisitData } from "./types";
+import type {
+  ChecklistItem,
+  ChecklistResult,
+  Finding,
+  VisitData,
+  InstalacionDocumentType,
+  DocumentCheckResult,
+} from "./types";
 import { FindingModal } from "./FindingModal";
 
 type Props = {
@@ -29,6 +37,8 @@ type Props = {
   bookNotes: string;
   bookPhotoFile: File | null;
   bookPhotoPreview: string | null;
+  documentTypes: InstalacionDocumentType[];
+  documentResults: DocumentCheckResult[];
   onChecklistChange: (results: ChecklistResult[]) => void;
   onBookChange: (data: {
     bookUpToDate: boolean | null;
@@ -36,6 +46,7 @@ type Props = {
     bookNotes: string;
   }) => void;
   onBookPhotoChange: (file: File | null, preview: string | null) => void;
+  onDocumentResultsChange: (results: DocumentCheckResult[]) => void;
   onFindingCreated: (finding: Finding) => void;
   onFindingStatusChange: (findingId: string, status: string) => void;
   onNext: () => void;
@@ -51,11 +62,13 @@ export function Step3Checklist({
   bookUpToDate,
   bookLastEntryDate,
   bookNotes,
-  bookPhotoFile,
   bookPhotoPreview,
+  documentTypes,
+  documentResults,
   onChecklistChange,
   onBookChange,
   onBookPhotoChange,
+  onDocumentResultsChange,
   onFindingCreated,
   onFindingStatusChange,
   onNext,
@@ -64,6 +77,8 @@ export function Step3Checklist({
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
   const bookPhotoInputRef = useRef<HTMLInputElement>(null);
+  const docPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [activeDocCode, setActiveDocCode] = useState<string | null>(null);
 
   function toggleChecklistItem(itemId: string) {
     const existing = checklistResults.find((r) => r.checklistItemId === itemId);
@@ -85,9 +100,46 @@ export function Step3Checklist({
     return checklistResults.find((r) => r.checklistItemId === itemId)?.isChecked ?? false;
   }
 
-  // Compliance calculation
-  const totalItems = checklistItems.length;
-  const checkedCount = checklistItems.filter((item) => getItemChecked(item.id)).length;
+  // Document type handlers
+  function toggleDocument(code: string) {
+    onDocumentResultsChange(
+      documentResults.map((dr) =>
+        dr.code === code ? { ...dr, isChecked: !dr.isChecked } : dr,
+      ),
+    );
+  }
+
+  function handleDocPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !activeDocCode) return;
+    onDocumentResultsChange(
+      documentResults.map((dr) => {
+        if (dr.code !== activeDocCode) return dr;
+        if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
+        return { ...dr, photoFile: file, photoPreview: URL.createObjectURL(file) };
+      }),
+    );
+    if (docPhotoInputRef.current) docPhotoInputRef.current.value = "";
+    setActiveDocCode(null);
+  }
+
+  function removeDocPhoto(code: string) {
+    onDocumentResultsChange(
+      documentResults.map((dr) => {
+        if (dr.code !== code) return dr;
+        if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
+        return { ...dr, photoFile: null, photoPreview: null };
+      }),
+    );
+  }
+
+  // Compliance calculation (checklist + documents combined)
+  const totalChecklistItems = checklistItems.length;
+  const checkedChecklistCount = checklistItems.filter((item) => getItemChecked(item.id)).length;
+  const totalDocItems = documentTypes.length;
+  const checkedDocCount = documentResults.filter((dr) => dr.isChecked).length;
+  const totalItems = totalChecklistItems + totalDocItems;
+  const checkedCount = checkedChecklistCount + checkedDocCount;
   const compliancePct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
   const complianceColor =
     compliancePct >= 80 ? "text-emerald-400" : compliancePct >= 50 ? "text-amber-400" : "text-red-400";
@@ -104,7 +156,6 @@ export function Step3Checklist({
   function handleBookPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Revoke old preview
     if (bookPhotoPreview) URL.revokeObjectURL(bookPhotoPreview);
     const preview = URL.createObjectURL(file);
     onBookPhotoChange(file, preview);
@@ -129,19 +180,106 @@ export function Step3Checklist({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Dynamic checklist */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              Checklist de instalacion
-              {totalItems > 0 && (
-                <span className="text-xs text-muted-foreground">({totalItems} items)</span>
-              )}
-            </Label>
-            {checklistItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No hay items de checklist configurados.
-              </p>
-            ) : (
+          {/* Document types from configuration */}
+          {documentTypes.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4" />
+                Documentos de instalacion ({documentTypes.length})
+              </Label>
+              <input
+                ref={docPhotoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleDocPhotoCapture}
+              />
+              <div className="space-y-2">
+                {documentTypes.map((doc) => {
+                  const result = documentResults.find((dr) => dr.code === doc.code);
+                  const isChecked = result?.isChecked ?? false;
+                  return (
+                    <div
+                      key={doc.code}
+                      className={`rounded-lg border p-3 transition ${
+                        isChecked
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <label className="flex flex-1 cursor-pointer items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleDocument(doc.code)}
+                            className="h-5 w-5 rounded border-border accent-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm">{doc.label}</span>
+                            {doc.required && (
+                              <span className="ml-2 text-[10px] text-amber-400">(obligatorio)</span>
+                            )}
+                          </div>
+                        </label>
+                        {isChecked ? (
+                          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowFindingModal(true)}
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-400 hover:bg-amber-500/10"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Photo for this document */}
+                      <div className="mt-2 flex items-center gap-2">
+                        {result?.photoPreview ? (
+                          <div className="relative">
+                            <img
+                              src={result.photoPreview}
+                              alt={doc.label}
+                              className="h-14 w-14 rounded-md object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeDocPhoto(doc.code)}
+                              className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveDocCode(doc.code);
+                            docPhotoInputRef.current?.click();
+                          }}
+                          className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40"
+                        >
+                          <Camera className="h-3 w-3" />
+                          {result?.photoPreview ? "Retomar" : "Foto"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Additional checklist items */}
+          {checklistItems.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                Checklist adicional
+                <span className="text-xs text-muted-foreground">({checklistItems.length} items)</span>
+              </Label>
               <div className="space-y-2">
                 {checklistItems.map((item) => {
                   const isChecked = getItemChecked(item.id);
@@ -184,16 +322,18 @@ export function Step3Checklist({
                     </div>
                   );
                 })}
-
-                {/* Compliance indicator */}
-                <div className={`rounded-lg border p-3 text-center ${complianceBg}`}>
-                  <p className={`text-sm font-medium ${complianceColor}`}>
-                    Cumplimiento: {checkedCount}/{totalItems} ({compliancePct}%)
-                  </p>
-                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Compliance indicator */}
+          {totalItems > 0 && (
+            <div className={`rounded-lg border p-3 text-center ${complianceBg}`}>
+              <p className={`text-sm font-medium ${complianceColor}`}>
+                Cumplimiento: {checkedCount}/{totalItems} ({compliancePct}%)
+              </p>
+            </div>
+          )}
 
           {/* Logbook section */}
           <div className="rounded-lg border p-3 space-y-3">
@@ -267,10 +407,7 @@ export function Step3Checklist({
 
             {/* Book photo */}
             <div className="space-y-2">
-              <Label className="text-xs">
-                Foto del libro de novedades
-                {bookUpToDate === true && <span className="ml-1 text-amber-400">(obligatorio)</span>}
-              </Label>
+              <Label className="text-xs">Foto del libro de novedades</Label>
               <input
                 ref={bookPhotoInputRef}
                 type="file"
@@ -320,7 +457,7 @@ export function Step3Checklist({
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm font-medium">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
-              Hallazgos pendientes en esta instalacion ({openFindings.length})
+              Hallazgos pendientes ({openFindings.length})
             </Label>
             {openFindings.length === 0 ? (
               <div className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
@@ -329,10 +466,7 @@ export function Step3Checklist({
             ) : (
               <div className="space-y-2">
                 {openFindings.map((finding) => (
-                  <div
-                    key={finding.id}
-                    className="rounded-lg border p-3"
-                  >
+                  <div key={finding.id} className="rounded-lg border p-3">
                     <div className="mb-2">
                       <div className="flex items-center gap-2">
                         <Badge

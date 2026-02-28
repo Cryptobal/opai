@@ -79,7 +79,10 @@ export async function POST(
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const categoryId = (formData.get("categoryId") as string | null) ?? null;
+    const rawCategoryId = (formData.get("categoryId") as string | null) ?? null;
+    // Default category IDs (e.g. "default-puesto") are not valid UUIDs — set to null
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const categoryId = rawCategoryId && UUID_RE.test(rawCategoryId) ? rawCategoryId : null;
     const categoryName = (formData.get("categoryName") as string | null) ?? null;
     const gpsLat = formData.get("gpsLat") as string | null;
     const gpsLng = formData.get("gpsLng") as string | null;

@@ -106,6 +106,19 @@ export type SurveyData = {
   npsScore: number | null;
 };
 
+export type InstalacionDocumentType = {
+  code: string;
+  label: string;
+  required: boolean;
+};
+
+export type DocumentCheckResult = {
+  code: string;
+  isChecked: boolean;
+  photoFile: File | null;
+  photoPreview: string | null;
+};
+
 export const FINDING_CATEGORIES = [
   { value: "personal", label: "Personal (uniforme, credencial, actitud)" },
   { value: "infrastructure", label: "Infraestructura (cámaras, alarmas, extintores)" },

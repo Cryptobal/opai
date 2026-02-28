@@ -20,6 +20,8 @@ import type {
   CapturedPhoto,
   VisitData,
   SurveyData,
+  InstalacionDocumentType,
+  DocumentCheckResult,
 } from "./types";
 
 export function SupervisionVisitWizard() {
@@ -48,6 +50,8 @@ export function SupervisionVisitWizard() {
   const [bookNotes, setBookNotes] = useState("");
   const [bookPhotoFile, setBookPhotoFile] = useState<File | null>(null);
   const [bookPhotoPreview, setBookPhotoPreview] = useState<string | null>(null);
+  const [documentTypes, setDocumentTypes] = useState<InstalacionDocumentType[]>([]);
+  const [documentResults, setDocumentResults] = useState<DocumentCheckResult[]>([]);
 
   // Step 4: Photos
   const [photoCategories, setPhotoCategories] = useState<PhotoCategory[]>([]);
@@ -95,6 +99,7 @@ export function SupervisionVisitWizard() {
     void fetchChecklistItems(visitData.installationId);
     void fetchPhotoCategories(visitData.installationId);
     void fetchOpenFindings(visitData.installationId);
+    void fetchDocumentTypes();
   }
 
   async function fetchChecklistItems(installationId: string) {
@@ -133,30 +138,60 @@ export function SupervisionVisitWizard() {
     }
   }
 
+  async function fetchDocumentTypes() {
+    try {
+      const res = await fetch("/api/ops/supervision/document-types");
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setDocumentTypes(json.data);
+        // Initialize results
+        setDocumentResults(
+          json.data.map((d: InstalacionDocumentType) => ({
+            code: d.code,
+            isChecked: false,
+            photoFile: null,
+            photoPreview: null,
+          })),
+        );
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
+
   // Step 2 → 3: Save evaluations
   async function handleStep2Next() {
     if (!visit) return;
     setSaving(true);
     try {
       // Save evaluations
-      await fetch(`/api/ops/supervision/${visit.id}/evaluations`, {
+      const evalRes = await fetch(`/api/ops/supervision/${visit.id}/evaluations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ evaluations }),
       });
+      if (!evalRes.ok) {
+        const err = await evalRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al guardar evaluaciones");
+      }
 
       // Save installation state
-      await fetch(`/api/ops/supervision/${visit.id}`, {
+      const stateRes = await fetch(`/api/ops/supervision/${visit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ installationState, wizardStep: 3 }),
       });
+      if (!stateRes.ok) {
+        const err = await stateRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al guardar estado de instalación");
+      }
 
       setCurrentStep(3);
       setMaxReachedStep((prev) => Math.max(prev, 3) as WizardStep);
       toast.success("Evaluaciones guardadas");
-    } catch {
-      toast.error("Error al guardar evaluaciones");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al guardar evaluaciones";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -170,11 +205,15 @@ export function SupervisionVisitWizard() {
       // Save checklist results (only non-default items)
       const itemsToSave = checklistResults.filter((r) => !r.checklistItemId.startsWith("default-"));
       if (itemsToSave.length > 0) {
-        await fetch(`/api/ops/supervision/${visit.id}/checklist`, {
+        const clRes = await fetch(`/api/ops/supervision/${visit.id}/checklist`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ results: itemsToSave }),
         });
+        if (!clRes.ok) {
+          const err = await clRes.json().catch(() => ({}));
+          throw new Error(err.error ?? "Error al guardar checklist");
+        }
       }
 
       // Upload book photo if present
@@ -188,8 +227,26 @@ export function SupervisionVisitWizard() {
           body: formData,
         });
         const photoJson = await photoRes.json();
-        if (photoRes.ok && photoJson.success) {
-          bookPhotoUrl = photoJson.data.photoUrl;
+        if (!photoRes.ok || !photoJson.success) {
+          throw new Error(photoJson.error ?? "Error al subir foto del libro");
+        }
+        bookPhotoUrl = photoJson.data.photoUrl;
+      }
+
+      // Upload document photos
+      for (const dr of documentResults) {
+        if (dr.photoFile) {
+          const formData = new FormData();
+          formData.append("file", dr.photoFile);
+          formData.append("categoryName", `Documento: ${dr.code}`);
+          const docPhotoRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!docPhotoRes.ok) {
+            const err = await docPhotoRes.json().catch(() => ({}));
+            throw new Error(err.error ?? `Error al subir foto de documento: ${dr.code}`);
+          }
         }
       }
 
@@ -200,8 +257,15 @@ export function SupervisionVisitWizard() {
           (r) => r.checklistItemId === item.id && r.isChecked,
         );
       }
+      // Also include document type results
+      for (const dr of documentResults) {
+        const dt = documentTypes.find((d) => d.code === dr.code);
+        if (dt) {
+          documentChecklist[dt.label] = dr.isChecked;
+        }
+      }
 
-      await fetch(`/api/ops/supervision/${visit.id}`, {
+      const saveRes = await fetch(`/api/ops/supervision/${visit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -213,12 +277,17 @@ export function SupervisionVisitWizard() {
           wizardStep: 4,
         }),
       });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al guardar verificación");
+      }
 
       setCurrentStep(4);
       setMaxReachedStep((prev) => Math.max(prev, 4) as WizardStep);
-      toast.success("Verificacion guardada");
-    } catch {
-      toast.error("Error al guardar verificacion");
+      toast.success("Verificación guardada");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al guardar verificación";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -249,13 +318,14 @@ export function SupervisionVisitWizard() {
           body: formData,
         });
         const json = await res.json();
-        if (res.ok && json.success) {
-          setCapturedPhotos((prev) =>
-            prev.map((p, idx) =>
-              idx === i ? { ...p, uploaded: true, uploadedId: json.data.id } : p,
-            ),
-          );
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? `Error al subir foto ${i + 1}`);
         }
+        setCapturedPhotos((prev) =>
+          prev.map((p, idx) =>
+            idx === i ? { ...p, uploaded: true, uploadedId: json.data.id } : p,
+          ),
+        );
 
         // Also upload to legacy images table for backward compat
         const legacyForm = new FormData();
@@ -264,20 +334,25 @@ export function SupervisionVisitWizard() {
         await fetch(`/api/ops/supervision/${visit.id}/images`, {
           method: "POST",
           body: legacyForm,
-        });
+        }).catch(() => { /* legacy upload failure is non-critical */ });
       }
 
-      await fetch(`/api/ops/supervision/${visit.id}`, {
+      const stepRes = await fetch(`/api/ops/supervision/${visit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wizardStep: 5 }),
       });
+      if (!stepRes.ok) {
+        const err = await stepRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al avanzar al paso 5");
+      }
 
       setCurrentStep(5);
       setMaxReachedStep((prev) => Math.max(prev, 5) as WizardStep);
       toast.success("Fotos subidas");
-    } catch {
-      toast.error("Error al subir fotos");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al subir fotos";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -305,9 +380,10 @@ export function SupervisionVisitWizard() {
           body: formData,
         });
         const uploadJson = await uploadRes.json();
-        if (uploadRes.ok && uploadJson.success) {
-          clientValidationUrl = uploadJson.data.photoUrl;
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error ?? "Error al subir firma del cliente");
         }
+        clientValidationUrl = uploadJson.data.photoUrl;
       } else if (validationType === "photo" && validationPhotoFile) {
         const formData = new FormData();
         formData.append("file", validationPhotoFile);
@@ -317,9 +393,10 @@ export function SupervisionVisitWizard() {
           body: formData,
         });
         const uploadJson = await uploadRes.json();
-        if (uploadRes.ok && uploadJson.success) {
-          clientValidationUrl = uploadJson.data.photoUrl;
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error ?? "Error al subir foto de validación");
         }
+        clientValidationUrl = uploadJson.data.photoUrl;
       }
 
       // Calculate survey average
@@ -390,7 +467,7 @@ export function SupervisionVisitWizard() {
   async function handleFindingStatusChange(findingId: string, status: string) {
     if (!visit) return;
     try {
-      await fetch(`/api/ops/supervision/installation-findings/${visit.installationId}`, {
+      const findingRes = await fetch(`/api/ops/supervision/installation-findings/${visit.installationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -399,6 +476,10 @@ export function SupervisionVisitWizard() {
           verifiedInVisitId: visit.id,
         }),
       });
+      if (!findingRes.ok) {
+        const err = await findingRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al actualizar hallazgo");
+      }
       setOpenFindings((prev) => prev.filter((f) => f.id !== findingId));
       toast.success(status === "verified" ? "Hallazgo marcado como resuelto" : "Estado actualizado");
     } catch {
@@ -417,6 +498,86 @@ export function SupervisionVisitWizard() {
       if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
+  }
+
+  // Save draft
+  async function handleSaveDraft() {
+    if (!visit) return;
+    setSaving(true);
+    try {
+      const draftPayload: Record<string, unknown> = {
+        generalComments: generalComments || null,
+        installationState,
+        bookUpToDate,
+        bookLastEntryDate: bookLastEntryDate || null,
+        bookNotes: bookNotes || null,
+        clientContacted,
+        clientContactName: clientContactName || null,
+        wizardStep: currentStep,
+        draftData: {
+          currentStep,
+          evaluationsCount: evaluations.filter(
+            (e) => e.presentationScore !== null,
+          ).length,
+          checklistCount: checklistResults.filter((r) => r.isChecked).length,
+          photosCount: capturedPhotos.length,
+        },
+      };
+
+      const draftRes = await fetch(`/api/ops/supervision/${visit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draftPayload),
+      });
+      if (!draftRes.ok) {
+        const err = await draftRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al guardar borrador");
+      }
+
+      // Save evaluations if any
+      if (evaluations.some((e) => e.presentationScore !== null)) {
+        const evalDraftRes = await fetch(`/api/ops/supervision/${visit.id}/evaluations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ evaluations }),
+        });
+        if (!evalDraftRes.ok) {
+          const err = await evalDraftRes.json().catch(() => ({}));
+          throw new Error(err.error ?? "Error al guardar evaluaciones del borrador");
+        }
+      }
+
+      toast.success("Borrador guardado");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al guardar borrador";
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Cancel visit
+  async function handleCancelVisit() {
+    if (!visit) return;
+    setSaving(true);
+    try {
+      const cancelRes = await fetch(`/api/ops/supervision/${visit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (!cancelRes.ok) {
+        const err = await cancelRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error al cancelar visita");
+      }
+      toast.success("Visita cancelada");
+      router.push("/ops/supervision/mis-visitas");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al cancelar visita";
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Navigate to step (only if reachable)
@@ -462,6 +623,28 @@ export function SupervisionVisitWizard() {
         stepAlerts={stepAlerts}
       />
 
+      {/* Draft / Cancel buttons */}
+      {visit && (
+        <div className="flex gap-2 px-2">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={saving}
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition disabled:opacity-50"
+          >
+            {saving ? "Guardando..." : "Guardar borrador"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelVisit}
+            disabled={saving}
+            className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition disabled:opacity-50"
+          >
+            Cancelar visita
+          </button>
+        </div>
+      )}
+
       {/* Step content */}
       {currentStep === 1 && <Step1CheckIn onCheckedIn={handleCheckedIn} />}
 
@@ -492,6 +675,8 @@ export function SupervisionVisitWizard() {
           bookNotes={bookNotes}
           bookPhotoFile={bookPhotoFile}
           bookPhotoPreview={bookPhotoPreview}
+          documentTypes={documentTypes}
+          documentResults={documentResults}
           onChecklistChange={setChecklistResults}
           onBookChange={(data) => {
             setBookUpToDate(data.bookUpToDate);
@@ -502,6 +687,7 @@ export function SupervisionVisitWizard() {
             setBookPhotoFile(file);
             setBookPhotoPreview(preview);
           }}
+          onDocumentResultsChange={setDocumentResults}
           onFindingCreated={handleFindingCreated}
           onFindingStatusChange={handleFindingStatusChange}
           onNext={handleStep3Next}
