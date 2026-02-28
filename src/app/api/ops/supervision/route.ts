@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
             status, started_via, created_at, updated_at
           )
           VALUES (
-            ${ctx.tenantId}, ${ctx.userId}, ${body.installationId},
+            ${ctx.tenantId}, ${ctx.userId}, CAST(${body.installationId} AS uuid),
             ${now}, ${body.lat}, ${body.lng},
             ${checkInGeoValidada}, ${checkInDistanciaM},
             'in_progress', ${startedVia}, ${now}, ${now}
