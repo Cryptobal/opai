@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, GraduationCap } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,6 @@ import { InstallationExpensesSection } from "@/components/finance/InstallationEx
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
 import { OpsRefuerzosClient } from "@/components/ops";
 import { ProtocolTab } from "@/components/ops/protocols";
-import { ExamListClient } from "@/components/ops/exams";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -1835,7 +1834,6 @@ export function CrmInstallationDetailClient({
     { id: "rendiciones", label: "Rendiciones", icon: Receipt },
     ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
-    { id: "examenes", label: "Exámenes", icon: GraduationCap },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -2163,9 +2161,6 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "protocolo" && (
           <ProtocolTab installationId={installation.id} installationName={installation.name} />
-        )}
-        {activeTab === "examenes" && (
-          <ExamListClient installationId={installation.id} />
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />

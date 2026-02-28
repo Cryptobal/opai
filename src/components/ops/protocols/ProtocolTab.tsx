@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ProtocolEditorClient } from "./ProtocolEditorClient";
 import { ProtocolCreationWizard } from "./ProtocolCreationWizard";
 import { Loader2 } from "lucide-react";
@@ -8,6 +9,10 @@ import { Loader2 } from "lucide-react";
 interface ProtocolTabProps {
   installationId: string;
   installationName: string;
+}
+
+interface SectionSummary {
+  id: string;
 }
 
 /**
@@ -32,6 +37,24 @@ export function ProtocolTab({ installationId, installationName }: ProtocolTabPro
     checkProtocol();
   }, [checkProtocol, key]);
 
+  const handleRecreate = async () => {
+    // Delete all sections, then switch to wizard
+    try {
+      const res = await fetch(`/api/ops/protocols?installationId=${installationId}`);
+      const json = await res.json();
+      if (json.success) {
+        for (const section of json.data as SectionSummary[]) {
+          await fetch(`/api/ops/protocols/${section.id}`, { method: "DELETE" });
+        }
+      }
+      setHasProtocol(false);
+      setKey((k) => k + 1);
+      toast.success("Protocolo eliminado. Crea uno nuevo.");
+    } catch {
+      toast.error("Error al eliminar protocolo");
+    }
+  };
+
   if (hasProtocol === null) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -54,6 +77,7 @@ export function ProtocolTab({ installationId, installationName }: ProtocolTabPro
       key={key}
       installationId={installationId}
       installationName={installationName}
+      onRecreate={handleRecreate}
     />
   );
 }
