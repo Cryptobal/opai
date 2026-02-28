@@ -12,7 +12,6 @@ import {
   FileUp,
   GripVertical,
   Loader2,
-  Paperclip,
   Plus,
   RefreshCw,
   Save,
@@ -26,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ExamSubTab } from "@/components/ops/exams/ExamSubTab";
+import { ClientReportView } from "./ClientReportView";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -1244,15 +1244,7 @@ export function ProtocolEditorClient({
       )}
 
       {activeTab === "vista-cliente" && (
-        <div className="text-center py-12 space-y-2">
-          <Paperclip className="h-8 w-8 mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Vista Cliente — Próximamente
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Aquí se mostrará el protocolo tal como lo verán los guardias y el cliente.
-          </p>
-        </div>
+        <ClientReportView installationId={installationId} />
       )}
     </div>
   );

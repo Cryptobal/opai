@@ -90,7 +90,10 @@ export type PortalSection =
   | "marcaciones"
   | "turnos-extra"
   | "documentos"
-  | "perfil";
+  | "perfil"
+  | "protocolo"
+  | "examen"
+  | "resultados";
 
 export interface PortalNavItem {
   key: PortalSection;
@@ -108,6 +111,9 @@ export const PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "turnos-extra", label: "Turnos Extra", icon: "Clock", description: "Horas extra y pagos" },
   { key: "documentos", label: "Documentos", icon: "FileText", description: "Mis documentos" },
   { key: "perfil", label: "Perfil", icon: "User", description: "Mis datos personales" },
+  { key: "protocolo", label: "Mi Protocolo", icon: "ClipboardList", description: "Protocolo de mi instalación" },
+  { key: "examen", label: "Examen", icon: "FileEdit", description: "Responder examen" },
+  { key: "resultados", label: "Mis Resultados", icon: "BarChart3", description: "Historial de exámenes" },
 ];
 
 // Bottom nav: only 4 items for mobile
