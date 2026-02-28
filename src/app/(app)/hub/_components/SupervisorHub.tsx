@@ -61,7 +61,10 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
           tenantId,
           supervisorId: userId,
         },
-        include: {
+        select: {
+          id: true,
+          checkInAt: true,
+          status: true,
           installation: {
             select: { id: true, name: true },
           },
