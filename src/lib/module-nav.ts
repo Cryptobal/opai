@@ -43,6 +43,8 @@ import {
   Warehouse,
   Layers,
   Smartphone,
+  BookOpen,
+  GraduationCap,
   // TE
   CheckCircle2,
   Banknote,
@@ -108,6 +110,8 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-protocolos", href: "/ops/protocolos", label: "Protocolos", icon: BookOpen, subKey: "protocolos" },
+  { key: "ops-examenes", href: "/ops/examenes", label: "Exámenes", icon: GraduationCap, subKey: "examenes" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
