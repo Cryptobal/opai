@@ -10,6 +10,7 @@ import {
   Camera,
   X,
   FileText,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,11 +101,11 @@ export function Step3Checklist({
     return checklistResults.find((r) => r.checklistItemId === itemId)?.isChecked ?? false;
   }
 
-  // Document type handlers
-  function toggleDocument(code: string) {
+  // Document type handlers — Sí/No toggle
+  function setDocumentChecked(code: string, checked: boolean) {
     onDocumentResultsChange(
       documentResults.map((dr) =>
-        dr.code === code ? { ...dr, isChecked: !dr.isChecked } : dr,
+        dr.code === code ? { ...dr, isChecked: checked } : dr,
       ),
     );
   }
@@ -133,13 +134,13 @@ export function Step3Checklist({
     );
   }
 
-  // Compliance calculation (checklist + documents combined)
-  const totalChecklistItems = checklistItems.length;
-  const checkedChecklistCount = checklistItems.filter((item) => getItemChecked(item.id)).length;
+  // Compliance calculation (documents + custom checklist)
   const totalDocItems = documentTypes.length;
   const checkedDocCount = documentResults.filter((dr) => dr.isChecked).length;
-  const totalItems = totalChecklistItems + totalDocItems;
-  const checkedCount = checkedChecklistCount + checkedDocCount;
+  const totalChecklistItems = checklistItems.length;
+  const checkedChecklistCount = checklistItems.filter((item) => getItemChecked(item.id)).length;
+  const totalItems = totalDocItems + totalChecklistItems;
+  const checkedCount = checkedDocCount + checkedChecklistCount;
   const compliancePct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
   const complianceColor =
     compliancePct >= 80 ? "text-emerald-400" : compliancePct >= 50 ? "text-amber-400" : "text-red-400";
@@ -180,12 +181,12 @@ export function Step3Checklist({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Document types from configuration */}
+          {/* Document types from configuration — Sí/No buttons */}
           {documentTypes.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
-                Documentos de instalacion ({documentTypes.length})
+                Documentos de la instalacion
               </Label>
               <input
                 ref={docPhotoInputRef}
@@ -195,45 +196,68 @@ export function Step3Checklist({
                 className="hidden"
                 onChange={handleDocPhotoCapture}
               />
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {documentTypes.map((doc) => {
                   const result = documentResults.find((dr) => dr.code === doc.code);
                   const isChecked = result?.isChecked ?? false;
+                  const isNo = result !== undefined && !isChecked && result.isChecked === false;
+                  const isAnswered = isChecked || isNo;
                   return (
                     <div
                       key={doc.code}
                       className={`rounded-lg border p-3 transition ${
                         isChecked
                           ? "border-emerald-500/30 bg-emerald-500/5"
-                          : "border-border"
+                          : isNo
+                            ? "border-red-500/30 bg-red-500/5"
+                            : "border-border"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <label className="flex flex-1 cursor-pointer items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleDocument(doc.code)}
-                            className="h-5 w-5 rounded border-border accent-emerald-500"
-                          />
-                          <div className="flex-1">
-                            <span className="text-sm">{doc.label}</span>
-                            {doc.required && (
-                              <span className="ml-2 text-[10px] text-amber-400">(obligatorio)</span>
-                            )}
-                          </div>
-                        </label>
-                        {isChecked ? (
-                          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-400" />
-                        ) : (
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{doc.label}</span>
+                          {doc.required && (
+                            <span className="ml-2 text-[10px] text-amber-400">(obligatorio)</span>
+                          )}
+                        </div>
+                        {!isAnswered && (
                           <button
                             type="button"
                             onClick={() => setShowFindingModal(true)}
                             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-400 hover:bg-amber-500/10"
+                            title="Registrar hallazgo"
                           >
                             <AlertTriangle className="h-3 w-3" />
                           </button>
                         )}
+                      </div>
+
+                      {/* Sí / No buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDocumentChecked(doc.code, true)}
+                          className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
+                            isChecked
+                              ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                              : "border-border text-muted-foreground hover:border-emerald-500/50"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          Si
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDocumentChecked(doc.code, false)}
+                          className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
+                            isNo
+                              ? "border-red-500 bg-red-500/20 text-red-400"
+                              : "border-border text-muted-foreground hover:border-red-500/50"
+                          }`}
+                        >
+                          <XCircle className="h-4 w-4" />
+                          No
+                        </button>
                       </div>
 
                       {/* Photo for this document */}
@@ -263,7 +287,7 @@ export function Step3Checklist({
                           className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40"
                         >
                           <Camera className="h-3 w-3" />
-                          {result?.photoPreview ? "Retomar" : "Foto"}
+                          {result?.photoPreview ? "Retomar foto" : "Tomar foto"}
                         </button>
                       </div>
                     </div>
@@ -273,7 +297,7 @@ export function Step3Checklist({
             </div>
           )}
 
-          {/* Additional checklist items */}
+          {/* Additional checklist items (only shown if custom items exist from DB) */}
           {checklistItems.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm font-medium">

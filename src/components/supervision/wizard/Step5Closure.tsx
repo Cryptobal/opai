@@ -63,43 +63,52 @@ type Props = {
   saving: boolean;
 };
 
-const SURVEY_QUESTIONS = [
+// GARD Client Survey — 9 questions
+const SURVEY_QUESTIONS: {
+  key: "serviceQuality" | "scheduleCompliance" | "personalPresentation" | "professionalism" | "supervisionPresence" | "incidentResponse";
+  question: string;
+  labels: string[];
+}[] = [
   {
-    key: "serviceQuality" as const,
+    key: "serviceQuality",
     question: "Como califica el servicio de guardias en general?",
-    lowLabel: "Malo",
-    highLabel: "Excelente",
+    labels: ["Muy deficiente", "Deficiente", "Regular", "Bueno", "Excelente"],
   },
   {
-    key: "scheduleCompliance" as const,
+    key: "scheduleCompliance",
     question: "Los guardias cumplen con los horarios establecidos?",
-    lowLabel: "Nunca",
-    highLabel: "Siempre",
+    labels: ["Nunca", "Rara vez", "A veces", "Casi siempre", "Siempre"],
   },
   {
-    key: "personalPresentation" as const,
+    key: "personalPresentation",
     question: "Como califica la presentacion personal de los guardias?",
-    lowLabel: "Malo",
-    highLabel: "Excelente",
+    labels: ["Muy mala", "Mala", "Regular", "Buena", "Excelente"],
   },
   {
-    key: "professionalism" as const,
+    key: "professionalism",
     question: "Los guardias atienden con profesionalismo y cortesia?",
-    lowLabel: "Nunca",
-    highLabel: "Siempre",
+    labels: ["Nunca", "Rara vez", "A veces", "Casi siempre", "Siempre"],
+  },
+  {
+    key: "supervisionPresence",
+    question: "Percibe presencia y supervision adecuada por parte de GARD?",
+    labels: ["Muy insuficiente", "Insuficiente", "Aceptable", "Buena", "Excelente"],
+  },
+  {
+    key: "incidentResponse",
+    question: "Cuando ocurre un problema o incidente, la respuesta de GARD es oportuna y eficaz?",
+    labels: ["Muy deficiente", "Deficiente", "Regular", "Buena", "Excelente"],
   },
 ];
 
 function SurveyRating({
   value,
   onChange,
-  lowLabel,
-  highLabel,
+  labels,
 }: {
   value: number | null;
   onChange: (v: number) => void;
-  lowLabel: string;
-  highLabel: string;
+  labels: string[];
 }) {
   return (
     <div className="space-y-1">
@@ -124,8 +133,8 @@ function SurveyRating({
         ))}
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>{lowLabel}</span>
-        <span>{highLabel}</span>
+        <span>{labels[0]}</span>
+        <span>{labels[4]}</span>
       </div>
     </div>
   );
@@ -155,8 +164,8 @@ function NpsRating({ value, onChange }: { value: number | null; onChange: (v: nu
         ))}
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>Improbable</span>
-        <span>Seguro</span>
+        <span>Nada probable</span>
+        <span>Totalmente probable</span>
       </div>
     </div>
   );
@@ -222,31 +231,35 @@ export function Step5Closure({
   ).length;
 
   const newFindings = findings.filter((f) => f.status === "open");
-  const verifiedFindings = openFindings.length; // were verified during this visit
 
   const guardsOk =
     visit.guardsExpected === null ||
     visit.guardsFound === null ||
     visit.guardsExpected === visit.guardsFound;
 
-  // Survey average
+  // Survey average (Q1-Q6, scale 1-5)
   const surveyScores = [
     surveyData.serviceQuality,
     surveyData.scheduleCompliance,
     surveyData.personalPresentation,
     surveyData.professionalism,
+    surveyData.supervisionPresence,
+    surveyData.incidentResponse,
   ].filter((s): s is number => s !== null);
   const surveyAvg =
     surveyScores.length > 0
       ? surveyScores.reduce((a, b) => a + b, 0) / surveyScores.length
       : null;
 
-  // Validation: if contacted, needs all questions + validation
+  // Validation: if contacted, needs all 6 rating questions + NPS + validation
   const surveyComplete =
     surveyData.serviceQuality !== null &&
     surveyData.scheduleCompliance !== null &&
     surveyData.personalPresentation !== null &&
     surveyData.professionalism !== null &&
+    surveyData.supervisionPresence !== null &&
+    surveyData.incidentResponse !== null &&
+    surveyData.hasUrgentRisk !== null &&
     surveyData.npsScore !== null;
   const hasValidation = validationType === "signature" ? !!signatureDataUrl : validationType === "photo" ? !!validationPhotoPreview : false;
   const canFinalize = !clientContacted || (
@@ -260,6 +273,7 @@ export function Step5Closure({
   if (isExpress) tags.push({ label: "Express (<15 min)", color: "text-amber-400 bg-amber-500/10" });
   if (!guardsOk) tags.push({ label: "Discrepancia dotacion", color: "text-amber-400 bg-amber-500/10" });
   if (newFindings.length > 0) tags.push({ label: `${newFindings.length} hallazgo(s) nuevo(s)`, color: "text-red-400 bg-red-500/10" });
+  if (surveyData.hasUrgentRisk) tags.push({ label: "Riesgo urgente", color: "text-red-400 bg-red-500/10" });
 
   function updateSurveyField<K extends keyof SurveyData>(key: K, value: SurveyData[K]) {
     onSurveyDataChange({ ...surveyData, [key]: value });
@@ -273,6 +287,27 @@ export function Step5Closure({
     onValidationPhotoChange(file, preview);
     onValidationTypeChange("photo");
     if (validationPhotoInputRef.current) validationPhotoInputRef.current.value = "";
+  }
+
+  function resetSurvey() {
+    onClientContactedChange(false);
+    onClientContactNameChange("");
+    onClientContactRoleChange("");
+    onSurveyDataChange({
+      serviceQuality: null,
+      scheduleCompliance: null,
+      personalPresentation: null,
+      professionalism: null,
+      supervisionPresence: null,
+      incidentResponse: null,
+      hasUrgentRisk: null,
+      urgentRiskDetail: "",
+      npsScore: null,
+      additionalComments: "",
+    });
+    onSignatureChange(null);
+    onValidationPhotoChange(null, null);
+    onValidationTypeChange(null);
   }
 
   return (
@@ -304,7 +339,7 @@ export function Step5Closure({
 
         {/* Client survey section */}
         <div className="rounded-lg border p-3 space-y-3">
-          <p className="text-sm font-medium">Encuesta cliente (opcional)</p>
+          <p className="text-sm font-medium">Encuesta cliente GARD</p>
 
           <div className="space-y-2">
             <Label className="text-xs">Contacto al cliente?</Label>
@@ -322,22 +357,7 @@ export function Step5Closure({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onClientContactedChange(false);
-                  onClientContactNameChange("");
-                  onClientContactRoleChange("");
-                  onSurveyDataChange({
-                    serviceQuality: null,
-                    scheduleCompliance: null,
-                    personalPresentation: null,
-                    professionalism: null,
-                    complaintsSuggestions: "",
-                    npsScore: null,
-                  });
-                  onSignatureChange(null);
-                  onValidationPhotoChange(null, null);
-                  onValidationTypeChange(null);
-                }}
+                onClick={resetSurvey}
                 className={`flex-1 rounded-lg border-2 p-2 text-center text-sm font-medium transition ${
                   !clientContacted
                     ? "border-muted-foreground/50 bg-muted/50 text-muted-foreground"
@@ -373,7 +393,7 @@ export function Step5Closure({
                 </div>
               </div>
 
-              {/* Survey questions */}
+              {/* Survey questions Q1-Q6 */}
               <div className="space-y-4 pt-2">
                 {SURVEY_QUESTIONS.map((q, idx) => (
                   <div key={q.key} className="space-y-1">
@@ -383,34 +403,81 @@ export function Step5Closure({
                     <SurveyRating
                       value={surveyData[q.key]}
                       onChange={(v) => updateSurveyField(q.key, v)}
-                      lowLabel={q.lowLabel}
-                      highLabel={q.highLabel}
+                      labels={q.labels}
                     />
                   </div>
                 ))}
 
-                {/* Free text */}
-                <div className="space-y-1">
+                {/* Q7: Urgent risk — Sí/No */}
+                <div className="space-y-2">
                   <Label className="text-xs">
-                    5. Tiene algun reclamo, sugerencia o solicitud?
+                    7. Existe actualmente algun riesgo o preocupacion relevante que debamos abordar de inmediato?
                   </Label>
-                  <Textarea
-                    value={surveyData.complaintsSuggestions}
-                    onChange={(e) => updateSurveyField("complaintsSuggestions", e.target.value)}
-                    placeholder="Comentarios del cliente..."
-                    rows={2}
-                    className="text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateSurveyField("hasUrgentRisk", true)}
+                      className={`flex-1 rounded-lg border-2 p-2.5 text-center text-sm font-medium transition ${
+                        surveyData.hasUrgentRisk === true
+                          ? "border-red-500 bg-red-500/20 text-red-400"
+                          : "border-border text-muted-foreground hover:border-red-500/50"
+                      }`}
+                    >
+                      Si
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateSurveyField("hasUrgentRisk", false);
+                        updateSurveyField("urgentRiskDetail", "");
+                      }}
+                      className={`flex-1 rounded-lg border-2 p-2.5 text-center text-sm font-medium transition ${
+                        surveyData.hasUrgentRisk === false
+                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                          : "border-border text-muted-foreground hover:border-emerald-500/50"
+                      }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                  {surveyData.hasUrgentRisk && (
+                    <div className="space-y-1">
+                      <Textarea
+                        value={surveyData.urgentRiskDetail}
+                        onChange={(e) => updateSurveyField("urgentRiskDetail", e.target.value)}
+                        placeholder="Describe el riesgo o preocupacion..."
+                        rows={2}
+                        className="text-sm"
+                      />
+                      <p className="text-[10px] text-amber-400">
+                        Se creara un hallazgo critico al finalizar la visita
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* NPS */}
+                {/* Q8: NPS */}
                 <div className="space-y-1">
                   <Label className="text-xs">
-                    6. Recomendaria nuestro servicio? (NPS)
+                    8. Recomendaria nuestro servicio? (NPS)
                   </Label>
                   <NpsRating
                     value={surveyData.npsScore}
                     onChange={(v) => updateSurveyField("npsScore", v)}
+                  />
+                </div>
+
+                {/* Q9: Additional comments */}
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    9. Comentarios adicionales del cliente
+                  </Label>
+                  <Textarea
+                    value={surveyData.additionalComments}
+                    onChange={(e) => updateSurveyField("additionalComments", e.target.value)}
+                    placeholder="Comentarios adicionales..."
+                    rows={2}
+                    className="text-sm"
                   />
                 </div>
               </div>
@@ -604,8 +671,7 @@ export function Step5Closure({
                       ? "text-emerald-400"
                       : "text-amber-400"
                   }`}>
-                    ({mandatoryPhotosFulfilled}/{mandatoryPhotos.length} oblig.
-                    {mandatoryPhotosFulfilled === mandatoryPhotos.length && " ✓"})
+                    ({mandatoryPhotosFulfilled}/{mandatoryPhotos.length} oblig.)
                   </span>
                 )}
               </span>

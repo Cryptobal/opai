@@ -70,9 +70,11 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
       }
       setLoadingDotacion(true);
       try {
-        const today = new Date().toISOString().slice(0, 10);
+        const now = new Date();
+        const today = now.toISOString().slice(0, 10);
+        const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         const res = await fetch(
-          `/api/ops/supervision/installation-dotacion/${selectedInstallationId}?date=${today}`,
+          `/api/ops/supervision/installation-dotacion/${selectedInstallationId}?date=${today}&time=${currentTime}`,
         );
         const json = await res.json();
         if (res.ok && json.success) {

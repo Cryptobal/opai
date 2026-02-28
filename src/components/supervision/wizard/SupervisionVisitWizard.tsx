@@ -67,8 +67,12 @@ export function SupervisionVisitWizard() {
     scheduleCompliance: null,
     personalPresentation: null,
     professionalism: null,
-    complaintsSuggestions: "",
+    supervisionPresence: null,
+    incidentResponse: null,
+    hasUrgentRisk: null,
+    urgentRiskDetail: "",
     npsScore: null,
+    additionalComments: "",
   });
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [validationPhotoFile, setValidationPhotoFile] = useState<File | null>(null);
@@ -107,7 +111,10 @@ export function SupervisionVisitWizard() {
       const res = await fetch(`/api/ops/supervision/installation-checklist/${installationId}`);
       const json = await res.json();
       if (res.ok && json.success) {
-        setChecklistItems(json.data);
+        // Skip default items — document types from settings already cover them
+        if (!json.isDefault) {
+          setChecklistItems(json.data);
+        }
       }
     } catch {
       // Use defaults if fetch fails
@@ -399,17 +406,33 @@ export function SupervisionVisitWizard() {
         clientValidationUrl = uploadJson.data.photoUrl;
       }
 
-      // Calculate survey average
+      // Calculate survey average (Q1-Q6, all 1-5 scale)
       const surveyScores = [
         surveyData.serviceQuality,
         surveyData.scheduleCompliance,
         surveyData.personalPresentation,
         surveyData.professionalism,
+        surveyData.supervisionPresence,
+        surveyData.incidentResponse,
       ].filter((s): s is number => s !== null);
       const clientSatisfaction =
         surveyScores.length > 0
           ? Math.round((surveyScores.reduce((a, b) => a + b, 0) / surveyScores.length) * 100) / 100
           : null;
+
+      // Create ticket if urgent risk reported (Q7)
+      if (surveyData.hasUrgentRisk && surveyData.urgentRiskDetail.trim()) {
+        await fetch(`/api/ops/supervision/${visit.id}/findings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guardId: null,
+            category: "operational",
+            severity: "critical",
+            description: `[Riesgo urgente reportado por cliente] ${surveyData.urgentRiskDetail.trim()}`,
+          }),
+        }).catch(() => { /* non-blocking */ });
+      }
 
       const res = await fetch(`/api/ops/supervision/${visit.id}/checkout`, {
         method: "POST",
@@ -428,7 +451,7 @@ export function SupervisionVisitWizard() {
           clientContacted,
           clientContactName: clientContactName || null,
           clientSatisfaction,
-          clientComment: surveyData.complaintsSuggestions || null,
+          clientComment: surveyData.additionalComments || null,
           ...(clientValidationUrl ? { clientValidationUrl } : {}),
         }),
       });
