@@ -8,6 +8,7 @@ export type NearbyInstallation = {
   address: string | null;
   commune: string | null;
   city: string | null;
+  clientName: string | null;
   geoRadiusM: number;
   distanceM: number | null;
   insideGeofence: boolean | null;
@@ -94,6 +95,15 @@ export type VisitData = {
   clientSatisfaction: number | null;
   clientComment: string | null;
   draftData: Record<string, unknown> | null;
+};
+
+export type SurveyData = {
+  serviceQuality: number | null;
+  scheduleCompliance: number | null;
+  personalPresentation: number | null;
+  professionalism: number | null;
+  complaintsSuggestions: string;
+  npsScore: number | null;
 };
 
 export const FINDING_CATEGORIES = [

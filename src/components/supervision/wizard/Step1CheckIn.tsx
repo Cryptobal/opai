@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, AlertTriangle, CheckCircle2, Users, Shield } from "lucide-react";
+import { MapPin, AlertTriangle, CheckCircle2, Users, Shield, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { NearbyInstallation, DotacionGuard, VisitData } from "./types";
@@ -28,12 +29,15 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
   });
   const [loadingDotacion, setLoadingDotacion] = useState(false);
   const [guardsPresent, setGuardsPresent] = useState<string>("");
+  const [geofenceReason, setGeofenceReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const selectedInstallation = useMemo(
     () => installations.find((i) => i.id === selectedInstallationId) ?? null,
     [installations, selectedInstallationId],
   );
+
+  const isOutsideGeofence = selectedInstallation?.insideGeofence === false;
 
   // Fetch assigned installations
   useEffect(() => {
@@ -101,17 +105,18 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
       const nextLocation = { lat: coords.latitude, lng: coords.longitude };
       setLocation(nextLocation);
 
-      // Update installations with distance
+      // Update installations with distance and auto-suggest nearest
       const res = await fetch(
         `/api/ops/supervision/nearby?lat=${nextLocation.lat}&lng=${nextLocation.lng}&maxDistanceM=30000`,
       );
       const json = await res.json();
       if (res.ok && json.success && json.data.length > 0) {
         setInstallations(json.data);
+        // Auto-select nearest installation
         setSelectedInstallationId(json.data[0].id);
       }
     } catch {
-      setError("No se pudo obtener tu ubicación actual.");
+      setError("No se pudo obtener tu ubicacion actual.");
     } finally {
       setLoadingLocation(false);
     }
@@ -119,7 +124,11 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
 
   async function handleStartVisit() {
     if (!location || !selectedInstallationId) {
-      setError("Debes obtener ubicación y seleccionar una instalación.");
+      setError("Debes obtener ubicacion y seleccionar una instalacion.");
+      return;
+    }
+    if (isOutsideGeofence && !geofenceReason.trim()) {
+      setError("Debes indicar un motivo para check-in fuera de geocerca.");
       return;
     }
     setSubmitting(true);
@@ -144,15 +153,23 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
       const guardsExpected = dotacion.totalExpected;
       const guardsFound = guardsPresent ? Number(guardsPresent) : null;
 
+      // Build patch data
+      const patchData: Record<string, unknown> = {
+        guardsExpected,
+        guardsFound,
+        wizardStep: 2,
+      };
+
+      // If outside geofence, store the reason in draft
+      if (isOutsideGeofence) {
+        patchData.draftData = { geofenceReason: geofenceReason.trim() };
+      }
+
       // Update visit with guards data
       await fetch(`/api/ops/supervision/${json.data.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          guardsExpected,
-          guardsFound,
-          wizardStep: 2,
-        }),
+        body: JSON.stringify(patchData),
       });
 
       const allGuards = [...dotacion.regular, ...dotacion.reinforcement];
@@ -174,6 +191,39 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
     dotacion.totalExpected > 0 &&
     Number(guardsPresent) !== dotacion.totalExpected;
 
+  // Build searchable options with searchText including client name, address, commune
+  const installationOptions = useMemo(
+    () =>
+      installations.map((inst) => {
+        const parts = [inst.name];
+        if (inst.clientName) parts.push(inst.clientName);
+        if (inst.address) parts.push(inst.address);
+        if (inst.commune) parts.push(inst.commune);
+        if (inst.city) parts.push(inst.city);
+
+        let description = "";
+        if (inst.distanceM != null) {
+          description = `${inst.distanceM}m`;
+          if (inst.clientName) description += ` - ${inst.clientName}`;
+        } else if (inst.clientName) {
+          description = inst.clientName;
+          if (inst.commune) description += ` - ${inst.commune}`;
+        } else if (inst.commune) {
+          description = inst.commune;
+        }
+
+        return {
+          id: inst.id,
+          label: inst.name,
+          description: description || undefined,
+          searchText: parts.join(" "),
+        };
+      }),
+    [installations],
+  );
+
+  const showDirectList = !loadingInstallations && installations.length > 0 && installations.length <= 10;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -194,31 +244,89 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
           size="lg"
         >
           <MapPin className="mr-2 h-4 w-4" />
-          {loadingLocation ? "Obteniendo ubicación..." : "Obtener ubicación"}
+          {loadingLocation ? "Obteniendo ubicacion..." : location ? "Actualizar ubicacion" : "Obtener ubicacion"}
         </Button>
 
-        {location && (
+        {/* GPS Result Indicator */}
+        {location && selectedInstallation && (
+          <div
+            className={`flex items-center gap-3 rounded-lg border-2 p-3 ${
+              selectedInstallation.distanceM == null
+                ? "border-border bg-muted/30"
+                : selectedInstallation.insideGeofence
+                  ? "border-emerald-500/50 bg-emerald-500/10"
+                  : "border-amber-500/50 bg-amber-500/10"
+            }`}
+          >
+            <Navigation className={`h-5 w-5 flex-shrink-0 ${
+              selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
+            }`} />
+            <div className="flex-1">
+              {selectedInstallation.distanceM != null ? (
+                <>
+                  <p className="text-sm font-medium">
+                    Distancia: {selectedInstallation.distanceM}m
+                  </p>
+                  <p className={`text-xs ${
+                    selectedInstallation.insideGeofence ? "text-emerald-400" : "text-amber-400"
+                  }`}>
+                    {selectedInstallation.insideGeofence
+                      ? `Dentro del rango (${selectedInstallation.geoRadiusM}m)`
+                      : `Fuera del rango (radio: ${selectedInstallation.geoRadiusM}m)`}
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                </p>
+              )}
+            </div>
+            {selectedInstallation.distanceM != null && (
+              selectedInstallation.insideGeofence ? (
+                <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="h-6 w-6 flex-shrink-0 text-amber-400" />
+              )
+            )}
+          </div>
+        )}
+
+        {/* GPS only coordinates when no installation selected */}
+        {location && !selectedInstallation && (
           <p className="text-xs text-muted-foreground">
             GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
           </p>
         )}
 
+        {/* Geofence reason (when outside) */}
+        {isOutsideGeofence && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-xs text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              Motivo de check-in fuera de geocerca (obligatorio)
+            </Label>
+            <Textarea
+              value={geofenceReason}
+              onChange={(e) => setGeofenceReason(e.target.value)}
+              placeholder="Indica por que realizas check-in fuera del rango..."
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+        )}
+
         {/* Installation selector */}
         <div className="space-y-2">
-          <Label>Instalación</Label>
+          <Label>Instalacion</Label>
           <SearchableSelect
             value={selectedInstallationId}
-            options={installations.map((inst) => ({
-              id: inst.id,
-              label: inst.name,
-              description: inst.distanceM != null ? `${inst.distanceM}m` : inst.commune ?? undefined,
-            }))}
+            options={installationOptions}
             placeholder={
               loadingInstallations
                 ? "Cargando instalaciones..."
                 : installations.length === 0
                   ? "No tienes instalaciones asignadas"
-                  : "Selecciona instalación"
+                  : "Buscar por nombre, cliente, direccion..."
             }
             emptyText="Sin instalaciones"
             disabled={loadingInstallations || installations.length === 0}
@@ -226,28 +334,47 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
           />
         </div>
 
+        {/* Direct list for few installations */}
+        {showDirectList && !location && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Instalaciones asignadas</p>
+            <div className="space-y-1">
+              {installations.map((inst) => (
+                <button
+                  key={inst.id}
+                  type="button"
+                  onClick={() => setSelectedInstallationId(inst.id)}
+                  className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition ${
+                    selectedInstallationId === inst.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-muted/40"
+                  }`}
+                >
+                  <MapPin className={`h-4 w-4 flex-shrink-0 ${
+                    selectedInstallationId === inst.id ? "text-primary" : "text-muted-foreground"
+                  }`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{inst.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[inst.clientName, inst.commune].filter(Boolean).join(" - ") || inst.address || ""}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Installation info card */}
         {selectedInstallation && (
           <div className="rounded-lg border p-3 text-sm">
             <p className="font-medium">{selectedInstallation.name}</p>
-            <p className="text-muted-foreground">{selectedInstallation.address ?? "Sin dirección"}</p>
-            {selectedInstallation.distanceM != null && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs">
-                  Distancia: {selectedInstallation.distanceM}m
-                </span>
-                {selectedInstallation.insideGeofence ? (
-                  <Badge variant="success" className="text-[10px]">
-                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                    Dentro del radio
-                  </Badge>
-                ) : (
-                  <Badge variant="warning" className="text-[10px]">
-                    <AlertTriangle className="mr-1 h-3 w-3" />
-                    Fuera del radio ({selectedInstallation.geoRadiusM}m)
-                  </Badge>
-                )}
-              </div>
+            {selectedInstallation.clientName && (
+              <p className="text-xs text-muted-foreground">Cliente: {selectedInstallation.clientName}</p>
+            )}
+            <p className="text-muted-foreground">{selectedInstallation.address ?? "Sin direccion"}</p>
+            {selectedInstallation.commune && (
+              <p className="text-xs text-muted-foreground">{selectedInstallation.commune}</p>
             )}
           </div>
         )}
@@ -257,18 +384,18 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
           <div className="rounded-lg border p-3">
             <p className="mb-2 flex items-center gap-2 text-sm font-medium">
               <Users className="h-4 w-4" />
-              Dotación del día
+              Dotacion del dia
             </p>
 
             {loadingDotacion ? (
-              <p className="text-xs text-muted-foreground">Cargando dotación...</p>
+              <p className="text-xs text-muted-foreground">Cargando dotacion...</p>
             ) : (
               <>
                 {/* Regular guards */}
                 {dotacion.regular.length > 0 && (
                   <div className="mb-2">
                     <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      Dotación regular ({dotacion.regular.length})
+                      Dotacion regular ({dotacion.regular.length})
                     </p>
                     <div className="space-y-1">
                       {dotacion.regular.map((g) => (
@@ -304,7 +431,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
 
                 {dotacion.regular.length === 0 && dotacion.reinforcement.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No hay guardias asignados para esta instalación hoy.
+                    No hay guardias asignados para esta instalacion hoy.
                   </p>
                 )}
 
@@ -331,7 +458,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
           {guardsMismatch && (
             <div className="flex items-center gap-2 rounded-md bg-amber-500/10 p-2 text-xs text-amber-400">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              Discrepancia: esperados {dotacion.totalExpected}, encontrados {guardsPresent}
+              Discrepancia de dotacion: esperados {dotacion.totalExpected}, encontrados {guardsPresent}
             </div>
           )}
         </div>
@@ -339,7 +466,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
         {/* Start button */}
         <Button
           onClick={handleStartVisit}
-          disabled={submitting || !location || !selectedInstallationId || installations.length === 0}
+          disabled={submitting || !location || !selectedInstallationId || installations.length === 0 || (isOutsideGeofence && !geofenceReason.trim())}
           className="w-full"
           size="lg"
         >

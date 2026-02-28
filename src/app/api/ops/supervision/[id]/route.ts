@@ -32,6 +32,7 @@ const updateVisitSchema = z.object({
   clientComment: z.string().max(2000).optional().nullable(),
   clientValidationUrl: z.string().url().optional().nullable(),
   wizardStep: z.number().int().min(1).max(5).optional(),
+  draftData: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 type Params = { id: string };
@@ -249,6 +250,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
       ...(body.clientValidationUrl !== undefined ? { clientValidationUrl: body.clientValidationUrl } : {}),
       ...(body.wizardStep !== undefined ? { wizardStep: body.wizardStep } : {}),
+      ...(body.draftData !== undefined
+        ? { draftData: body.draftData === null ? Prisma.DbNull : (body.draftData as Prisma.InputJsonValue) }
+        : {}),
     };
 
     // Pre-migration-safe data (only old columns)

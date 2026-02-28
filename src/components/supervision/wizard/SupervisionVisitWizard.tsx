@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { WizardProgress } from "./WizardProgress";
@@ -19,6 +19,7 @@ import type {
   PhotoCategory,
   CapturedPhoto,
   VisitData,
+  SurveyData,
 } from "./types";
 
 export function SupervisionVisitWizard() {
@@ -45,6 +46,8 @@ export function SupervisionVisitWizard() {
   const [bookUpToDate, setBookUpToDate] = useState<boolean | null>(null);
   const [bookLastEntryDate, setBookLastEntryDate] = useState("");
   const [bookNotes, setBookNotes] = useState("");
+  const [bookPhotoFile, setBookPhotoFile] = useState<File | null>(null);
+  const [bookPhotoPreview, setBookPhotoPreview] = useState<string | null>(null);
 
   // Step 4: Photos
   const [photoCategories, setPhotoCategories] = useState<PhotoCategory[]>([]);
@@ -54,8 +57,19 @@ export function SupervisionVisitWizard() {
   const [generalComments, setGeneralComments] = useState("");
   const [clientContacted, setClientContacted] = useState(false);
   const [clientContactName, setClientContactName] = useState("");
-  const [clientSatisfaction, setClientSatisfaction] = useState<number | null>(null);
-  const [clientComment, setClientComment] = useState("");
+  const [clientContactRole, setClientContactRole] = useState("");
+  const [surveyData, setSurveyData] = useState<SurveyData>({
+    serviceQuality: null,
+    scheduleCompliance: null,
+    personalPresentation: null,
+    professionalism: null,
+    complaintsSuggestions: "",
+    npsScore: null,
+  });
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [validationPhotoFile, setValidationPhotoFile] = useState<File | null>(null);
+  const [validationPhotoPreview, setValidationPhotoPreview] = useState<string | null>(null);
+  const [validationType, setValidationType] = useState<"signature" | "photo" | null>(null);
 
   // Step 1 callback: after check-in
   function handleCheckedIn(visitData: VisitData, dotacion: DotacionGuard[], guardsExpected: number) {
@@ -141,14 +155,14 @@ export function SupervisionVisitWizard() {
       setCurrentStep(3);
       setMaxReachedStep((prev) => Math.max(prev, 3) as WizardStep);
       toast.success("Evaluaciones guardadas");
-    } catch (e) {
+    } catch {
       toast.error("Error al guardar evaluaciones");
     } finally {
       setSaving(false);
     }
   }
 
-  // Step 3 → 4: Save checklist + book
+  // Step 3 → 4: Save checklist + book + upload book photo
   async function handleStep3Next() {
     if (!visit) return;
     setSaving(true);
@@ -161,6 +175,22 @@ export function SupervisionVisitWizard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ results: itemsToSave }),
         });
+      }
+
+      // Upload book photo if present
+      let bookPhotoUrl: string | null = null;
+      if (bookPhotoFile) {
+        const formData = new FormData();
+        formData.append("file", bookPhotoFile);
+        formData.append("categoryName", "Libro de novedades");
+        const photoRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
+          method: "POST",
+          body: formData,
+        });
+        const photoJson = await photoRes.json();
+        if (photoRes.ok && photoJson.success) {
+          bookPhotoUrl = photoJson.data.photoUrl;
+        }
       }
 
       // Save book data + legacy document checklist
@@ -178,6 +208,7 @@ export function SupervisionVisitWizard() {
           bookUpToDate,
           bookLastEntryDate: bookLastEntryDate || null,
           bookNotes: bookNotes || null,
+          ...(bookPhotoUrl ? { bookPhotoUrl } : {}),
           documentChecklist,
           wizardStep: 4,
         }),
@@ -185,9 +216,9 @@ export function SupervisionVisitWizard() {
 
       setCurrentStep(4);
       setMaxReachedStep((prev) => Math.max(prev, 4) as WizardStep);
-      toast.success("Verificación guardada");
-    } catch (e) {
-      toast.error("Error al guardar verificación");
+      toast.success("Verificacion guardada");
+    } catch {
+      toast.error("Error al guardar verificacion");
     } finally {
       setSaving(false);
     }
@@ -245,7 +276,7 @@ export function SupervisionVisitWizard() {
       setCurrentStep(5);
       setMaxReachedStep((prev) => Math.max(prev, 5) as WizardStep);
       toast.success("Fotos subidas");
-    } catch (e) {
+    } catch {
       toast.error("Error al subir fotos");
     } finally {
       setSaving(false);
@@ -258,6 +289,50 @@ export function SupervisionVisitWizard() {
     setSaving(true);
     try {
       const location = await getCurrentLocation();
+
+      // Upload validation image (signature or photo) if present
+      let clientValidationUrl: string | null = null;
+      if (validationType === "signature" && signatureDataUrl) {
+        // Convert base64 to File
+        const response = await fetch(signatureDataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], "firma-cliente.png", { type: "image/png" });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("categoryName", "Firma cliente");
+        const uploadRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
+          method: "POST",
+          body: formData,
+        });
+        const uploadJson = await uploadRes.json();
+        if (uploadRes.ok && uploadJson.success) {
+          clientValidationUrl = uploadJson.data.photoUrl;
+        }
+      } else if (validationType === "photo" && validationPhotoFile) {
+        const formData = new FormData();
+        formData.append("file", validationPhotoFile);
+        formData.append("categoryName", "Foto con cliente");
+        const uploadRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
+          method: "POST",
+          body: formData,
+        });
+        const uploadJson = await uploadRes.json();
+        if (uploadRes.ok && uploadJson.success) {
+          clientValidationUrl = uploadJson.data.photoUrl;
+        }
+      }
+
+      // Calculate survey average
+      const surveyScores = [
+        surveyData.serviceQuality,
+        surveyData.scheduleCompliance,
+        surveyData.personalPresentation,
+        surveyData.professionalism,
+      ].filter((s): s is number => s !== null);
+      const clientSatisfaction =
+        surveyScores.length > 0
+          ? Math.round((surveyScores.reduce((a, b) => a + b, 0) / surveyScores.length) * 100) / 100
+          : null;
 
       const res = await fetch(`/api/ops/supervision/${visit.id}/checkout`, {
         method: "POST",
@@ -276,7 +351,8 @@ export function SupervisionVisitWizard() {
           clientContacted,
           clientContactName: clientContactName || null,
           clientSatisfaction,
-          clientComment: clientComment || null,
+          clientComment: surveyData.complaintsSuggestions || null,
+          ...(clientValidationUrl ? { clientValidationUrl } : {}),
         }),
       });
 
@@ -350,6 +426,32 @@ export function SupervisionVisitWizard() {
     }
   }
 
+  // Count alerts for stepper
+  const stepAlerts: Record<number, boolean> = {};
+  if (visit) {
+    // Step 1: geofence issue or dotation mismatch
+    if (visit.guardsExpected != null && visit.guardsFound != null && visit.guardsExpected !== visit.guardsFound) {
+      stepAlerts[1] = true;
+    }
+    // Step 2: low evaluation
+    const ratedEvals = evaluations.filter(
+      (e) => e.presentationScore !== null && e.orderScore !== null && e.protocolScore !== null,
+    );
+    if (ratedEvals.some((e) => {
+      const avg = ((e.presentationScore ?? 0) + (e.orderScore ?? 0) + (e.protocolScore ?? 0)) / 3;
+      return avg < 3;
+    })) {
+      stepAlerts[2] = true;
+    }
+    // Step 3: low compliance
+    if (checklistItems.length > 0) {
+      const checked = checklistItems.filter((item) =>
+        checklistResults.some((r) => r.checklistItemId === item.id && r.isChecked),
+      ).length;
+      if (checked / checklistItems.length < 0.8) stepAlerts[3] = true;
+    }
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       {/* Progress indicator */}
@@ -357,6 +459,7 @@ export function SupervisionVisitWizard() {
         currentStep={currentStep}
         maxReachedStep={maxReachedStep}
         onStepClick={visit ? goToStep : undefined}
+        stepAlerts={stepAlerts}
       />
 
       {/* Step content */}
@@ -387,11 +490,17 @@ export function SupervisionVisitWizard() {
           bookUpToDate={bookUpToDate}
           bookLastEntryDate={bookLastEntryDate}
           bookNotes={bookNotes}
+          bookPhotoFile={bookPhotoFile}
+          bookPhotoPreview={bookPhotoPreview}
           onChecklistChange={setChecklistResults}
           onBookChange={(data) => {
             setBookUpToDate(data.bookUpToDate);
             setBookLastEntryDate(data.bookLastEntryDate);
             setBookNotes(data.bookNotes);
+          }}
+          onBookPhotoChange={(file, preview) => {
+            setBookPhotoFile(file);
+            setBookPhotoPreview(preview);
           }}
           onFindingCreated={handleFindingCreated}
           onFindingStatusChange={handleFindingStatusChange}
@@ -421,19 +530,29 @@ export function SupervisionVisitWizard() {
           checklistItems={checklistItems}
           checklistResults={checklistResults}
           findings={findings}
+          openFindings={openFindings}
           capturedPhotos={capturedPhotos}
+          photoCategories={photoCategories}
           generalComments={generalComments}
           clientContacted={clientContacted}
           clientContactName={clientContactName}
-          clientSatisfaction={clientSatisfaction}
-          clientComment={clientComment}
+          clientContactRole={clientContactRole}
+          surveyData={surveyData}
+          signatureDataUrl={signatureDataUrl}
+          validationPhotoPreview={validationPhotoPreview}
+          validationType={validationType}
+          bookUpToDate={bookUpToDate}
           onGeneralCommentsChange={setGeneralComments}
-          onClientDataChange={(data) => {
-            setClientContacted(data.clientContacted);
-            setClientContactName(data.clientContactName);
-            setClientSatisfaction(data.clientSatisfaction);
-            setClientComment(data.clientComment);
+          onClientContactedChange={setClientContacted}
+          onClientContactNameChange={setClientContactName}
+          onClientContactRoleChange={setClientContactRole}
+          onSurveyDataChange={setSurveyData}
+          onSignatureChange={setSignatureDataUrl}
+          onValidationPhotoChange={(file, preview) => {
+            setValidationPhotoFile(file);
+            setValidationPhotoPreview(preview);
           }}
+          onValidationTypeChange={setValidationType}
           onFinalize={handleFinalize}
           onPrev={() => setCurrentStep(4)}
           saving={saving}

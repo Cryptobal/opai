@@ -70,6 +70,9 @@ export async function GET(request: NextRequest) {
         lat: true,
         lng: true,
         geoRadiusM: true,
+        account: {
+          select: { name: true },
+        },
       },
       take: 300,
     });
@@ -79,7 +82,15 @@ export async function GET(request: NextRequest) {
       .map((inst) => {
         const distanceM = Math.round(haversineDistance(lat, lng, inst.lat!, inst.lng!));
         return {
-          ...inst,
+          id: inst.id,
+          name: inst.name,
+          address: inst.address,
+          commune: inst.commune,
+          city: inst.city,
+          clientName: inst.account?.name ?? null,
+          geoRadiusM: inst.geoRadiusM,
+          lat: inst.lat,
+          lng: inst.lng,
           distanceM,
           insideGeofence: distanceM <= inst.geoRadiusM,
         };
