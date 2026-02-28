@@ -115,13 +115,14 @@ export function AppShell({
   return (
     <CommandPaletteProvider>
     <div className="relative min-h-screen overflow-x-hidden">
-      {/* ── Mobile topbar ── */}
+      {/* ── Mobile topbar (fixed como la barra inferior) ── */}
       {sidebar && (
         <header
-          className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-border/60 bg-card/95 py-2 shadow-sm backdrop-blur lg:hidden"
+          className="fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between border-b border-border/60 bg-card/95 py-2 shadow-sm backdrop-blur lg:hidden"
           style={{
             paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
             paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
+            paddingTop: 'env(safe-area-inset-top)',
           }}
         >
           <Link href="/hub" className="flex shrink-0 items-center gap-2 hover:opacity-80">
@@ -222,6 +223,7 @@ export function AppShell({
       <div
         className={cn(
           'transition-[padding] duration-200 ease-out min-w-0 w-full',
+          'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
           isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
           className
         )}
