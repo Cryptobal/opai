@@ -17,6 +17,27 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+async function downloadPdf(installationId: string) {
+  const res = await fetch(
+    `/api/ops/protocols/client-report/pdf?installationId=${installationId}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Error al descargar" }));
+    throw new Error(err.error ?? "Error al descargar PDF");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download =
+    res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ??
+    "reporte.pdf";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Types ───────────────────────────────────────────────────
 
 interface ClientReportData {
@@ -54,6 +75,7 @@ interface ClientReportViewProps {
 export function ClientReportView({ installationId }: ClientReportViewProps) {
   const [data, setData] = useState<ClientReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const fetchReport = useCallback(async () => {
     try {
@@ -120,10 +142,27 @@ export function ClientReportView({ installationId }: ClientReportViewProps) {
             size="sm"
             variant="secondary"
             className="h-7 text-xs"
-            onClick={() => toast.info("Exportar PDF — próximamente")}
+            disabled={downloadingPdf}
+            onClick={async () => {
+              try {
+                setDownloadingPdf(true);
+                await downloadPdf(installationId);
+                toast.success("PDF descargado");
+              } catch (err: unknown) {
+                toast.error(
+                  err instanceof Error ? err.message : "Error al descargar PDF",
+                );
+              } finally {
+                setDownloadingPdf(false);
+              }
+            }}
           >
-            <Download className="h-3 w-3 mr-1" />
-            Exportar PDF
+            {downloadingPdf ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : (
+              <Download className="h-3 w-3 mr-1" />
+            )}
+            {downloadingPdf ? "Generando..." : "Exportar PDF"}
           </Button>
         </div>
       </div>

@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
 
@@ -16,6 +17,11 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para editar protocolos" }, { status: 403 });
+    }
 
     const { id: installationId } = await params;
     const body = await request.json();

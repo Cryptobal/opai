@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canView, canEdit } from "@/lib/permissions";
 
 type Params = { id: string };
 
@@ -18,6 +19,11 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canView(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para ver protocolos" }, { status: 403 });
+    }
 
     const { id } = await params;
 
@@ -50,6 +56,11 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para editar protocolos" }, { status: 403 });
+    }
 
     const { id } = await params;
 
@@ -92,6 +103,11 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para eliminar protocolos" }, { status: 403 });
+    }
 
     const { id } = await params;
 

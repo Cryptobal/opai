@@ -10,7 +10,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 import {
   generateExamQuestions,
   generateSecurityGeneralQuestions,
@@ -26,6 +27,11 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Solo administradores pueden generar preguntas" }, { status: 403 });
+    }
 
     const { id } = await params;
     const body = await request.json();

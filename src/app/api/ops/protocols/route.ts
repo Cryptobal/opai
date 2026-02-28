@@ -6,12 +6,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canView, canEdit } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canView(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para ver protocolos" }, { status: 403 });
+    }
 
     const installationId = request.nextUrl.searchParams.get("installationId");
     if (!installationId) {
@@ -41,6 +47,11 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para editar protocolos" }, { status: 403 });
+    }
 
     const body = await request.json();
     const { installationId, title, icon, order } = body;

@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { hasCapability } from "@/lib/permissions";
 import { clearAiConfigCache } from "@/lib/ai-service";
 
 export async function PUT(
@@ -15,6 +16,11 @@ export async function PUT(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!hasCapability(perms, "manage_settings")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para gestionar configuración de IA" }, { status: 403 });
+    }
 
     const { id } = await params;
 

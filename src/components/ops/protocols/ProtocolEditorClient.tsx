@@ -116,6 +116,7 @@ export function ProtocolEditorClient({
   // Document upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [downloadingProtocolPdf, setDownloadingProtocolPdf] = useState(false);
 
   // AI config check
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
@@ -621,6 +622,50 @@ export function ProtocolEditorClient({
             >
               <Clock className="h-3 w-3 mr-1" />
               Historial
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              disabled={downloadingProtocolPdf || sections.length === 0}
+              onClick={async () => {
+                try {
+                  setDownloadingProtocolPdf(true);
+                  const res = await fetch(
+                    `/api/ops/protocols/pdf?installationId=${installationId}`,
+                  );
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error ?? "Error al generar PDF");
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download =
+                    res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ??
+                    "protocolo.pdf";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("PDF descargado");
+                } catch (err: unknown) {
+                  toast.error(
+                    err instanceof Error ? err.message : "Error al descargar PDF",
+                  );
+                } finally {
+                  setDownloadingProtocolPdf(false);
+                }
+              }}
+            >
+              {downloadingProtocolPdf ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <FileDown className="h-3 w-3 mr-1" />
+              )}
+              PDF
             </Button>
 
             <Button

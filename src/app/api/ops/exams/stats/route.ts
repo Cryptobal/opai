@@ -7,12 +7,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canView } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canView(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Sin permisos para ver estadísticas" }, { status: 403 });
+    }
 
     const installationId = request.nextUrl.searchParams.get("installationId");
     if (!installationId) {

@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 
 type Params = { id: string; questionId: string };
 
@@ -17,6 +18,11 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Solo administradores pueden editar preguntas" }, { status: 403 });
+    }
 
     const { id, questionId } = await params;
 
@@ -73,6 +79,11 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "ops")) {
+      return NextResponse.json({ success: false, error: "Solo administradores pueden eliminar preguntas" }, { status: 403 });
+    }
 
     const { id, questionId } = await params;
 
