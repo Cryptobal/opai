@@ -134,6 +134,8 @@ export interface Ticket {
   sourceGuardEventId: string | null;
   guardiaId: string | null;
   guardiaName?: string | null;
+  guardiaRut?: string | null;
+  guardiaCode?: string | null;
   reportedBy: string;
   reportedByName?: string | null;
   slaDueAt: string | null;
@@ -204,12 +206,12 @@ export const APPROVAL_STATUS_CONFIG: Record<
 
 export const TICKET_PRIORITY_CONFIG: Record<
   TicketPriority,
-  { label: string; color: string; description: string }
+  { label: string; shortLabel: string; color: string; bg: string; border: string; description: string }
 > = {
-  p1: { label: "P1 — Crítica", color: "text-red-500", description: "Requiere atención inmediata" },
-  p2: { label: "P2 — Alta", color: "text-orange-500", description: "Resolver dentro de SLA" },
-  p3: { label: "P3 — Media", color: "text-yellow-500", description: "Planificable" },
-  p4: { label: "P4 — Baja", color: "text-muted-foreground", description: "Cuando sea posible" },
+  p1: { label: "P1 — Crítica", shortLabel: "P1", color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/30", description: "Requiere atención inmediata" },
+  p2: { label: "P2 — Alta", shortLabel: "P2", color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/30", description: "Resolver dentro de SLA" },
+  p3: { label: "P3 — Media", shortLabel: "P3", color: "text-yellow-500", bg: "bg-yellow-500/10", border: "border-yellow-500/30", description: "Planificable" },
+  p4: { label: "P4 — Baja", shortLabel: "P4", color: "text-muted-foreground", bg: "bg-muted/10", border: "border-muted/30", description: "Cuando sea posible" },
 };
 
 export const TICKET_TEAM_CONFIG: Record<TicketTeam, { label: string }> = {
@@ -585,4 +587,57 @@ export function getOriginLabel(origin: TicketOrigin): string {
     both: "Ambos",
   };
   return labels[origin];
+}
+
+/**
+ * Get SLA percentage remaining (0-100).
+ * Returns null for tickets without SLA or in terminal states.
+ */
+export function getSlaPercentage(
+  slaDueAt: string | null,
+  createdAt: string,
+  status?: TicketStatus,
+  resolvedAt?: string | null,
+): number | null {
+  if (!slaDueAt) return null;
+  const terminalStatuses: TicketStatus[] = ["resolved", "closed", "rejected", "cancelled"];
+  if (status && terminalStatuses.includes(status)) return null;
+
+  const due = new Date(slaDueAt).getTime();
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  const total = due - created;
+  if (total <= 0) return 0;
+  const remaining = due - now;
+  if (remaining <= 0) return 0;
+  return Math.min(100, Math.round((remaining / total) * 100));
+}
+
+/** Get color class for SLA bar based on percentage */
+export function getSlaColor(percentage: number | null): string {
+  if (percentage === null) return "bg-muted-foreground/30";
+  if (percentage <= 0) return "bg-red-500";
+  if (percentage < 30) return "bg-red-500";
+  if (percentage < 60) return "bg-yellow-500";
+  return "bg-emerald-500";
+}
+
+/** Get text color class for SLA */
+export function getSlaTextColor(percentage: number | null): string {
+  if (percentage === null) return "text-muted-foreground";
+  if (percentage <= 0) return "text-red-500";
+  if (percentage < 30) return "text-red-500";
+  if (percentage < 60) return "text-yellow-500";
+  return "text-emerald-500";
+}
+
+/** Get border-left color class for priority */
+export function getPriorityBorderColor(priority: TicketPriority): string {
+  const map: Record<TicketPriority, string> = {
+    p1: "border-l-red-500",
+    p2: "border-l-orange-500",
+    p3: "border-l-yellow-500",
+    p4: "border-l-muted-foreground/30",
+  };
+  return map[priority];
 }
