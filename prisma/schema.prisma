@@ -331,6 +331,45 @@ model Setting {
   @@schema("public")
 }
 
+model AiProvider {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String    // "Anthropic", "OpenAI", "Google AI"
+  providerType String    @unique @map("provider_type") // 'anthropic', 'openai', 'google'
+  apiKey       String?   @map("api_key") // encrypted with AES-256
+  baseUrl      String?   @map("base_url") // default API URL, overridable
+  isActive     Boolean   @default(false) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  models AiModel[]
+
+  @@index([providerType], map: "idx_ai_providers_type")
+  @@index([isActive], map: "idx_ai_providers_active")
+  @@map("ai_providers")
+  @@schema("public")
+}
+
+model AiModel {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  providerId  String   @map("provider_id") @db.Uuid
+  modelId     String   @map("model_id") // API model ID e.g. "claude-haiku-4-5-20251001"
+  displayName String   @map("display_name") // "Claude Haiku 4.5 (Económico)"
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default") // currently selected for OPAI
+  costTier    String   @default("low") @map("cost_tier") // 'low', 'medium', 'high'
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId], map: "idx_ai_models_provider")
+  @@index([isDefault], map: "idx_ai_models_default")
+  @@index([modelId], map: "idx_ai_models_model_id")
+  @@map("ai_models")
+  @@schema("public")
+}
+
 model AiChatConversation {
   id        String   @id @default(cuid())
   tenantId  String

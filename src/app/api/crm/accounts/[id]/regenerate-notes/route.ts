@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
@@ -71,14 +71,10 @@ Requisitos:
 
 Responde SOLO con el texto de la descripción, sin comillas ni prefijos.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 400,
+    const newSummary = (await aiGenerate(prompt, {
+      maxTokens: 400,
       temperature: 0.5,
-    });
-
-    const newSummary = completion.choices[0]?.message?.content?.trim() || "";
+    })).trim();
 
     if (!newSummary) {
       return NextResponse.json(

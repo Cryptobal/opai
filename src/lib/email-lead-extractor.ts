@@ -3,7 +3,7 @@
  * (solicitudes de servicio de seguridad en Chile).
  */
 
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 
 export type ExtractedLeadData = {
   companyName: string | null;
@@ -28,66 +28,6 @@ export type ExtractedLeadData = {
   summary: string | null;
   industry: string | null;
   website: string | null;
-};
-
-const EXTRACTOR_SCHEMA = {
-  type: "json_schema" as const,
-  json_schema: {
-    name: "extracted_lead_data",
-    strict: true,
-    schema: {
-      type: "object",
-      properties: {
-        companyName: { type: "string", description: "Nombre comercial de la empresa solicitante" },
-        rut: { type: "string", description: "RUT de la empresa (formato XX.XXX.XXX-X o sin puntos)" },
-        legalName: { type: "string", description: "Razón social / nombre legal de la empresa" },
-        businessActivity: { type: "string", description: "Giro o actividad comercial de la empresa" },
-        legalRepresentativeName: { type: "string", description: "Nombre del representante legal" },
-        contactFirstName: { type: "string", description: "Nombre de pila del contacto que solicita" },
-        contactLastName: { type: "string", description: "Apellido del contacto que solicita" },
-        contactEmail: { type: "string", description: "Email del contacto" },
-        contactPhone: { type: "string", description: "Teléfono o celular del contacto" },
-        contactRole: { type: "string", description: "Cargo o rol del contacto (ej. Encargado de Adquisiciones, Jefe de Prevención)" },
-        address: { type: "string", description: "Dirección de la instalación o sede donde se requiere el servicio" },
-        city: { type: "string", description: "Ciudad" },
-        commune: { type: "string", description: "Comuna (Chile)" },
-        serviceType: { type: "string", description: "Tipo de servicio (ej. guardias, seguridad 24x7, resguardo de obra)" },
-        serviceDuration: { type: "string", description: "Duración estimada del servicio (ej. 6 meses, indefinido)" },
-        coverageDetails: { type: "string", description: "Detalles de cobertura (turnos, 24x7, fines de semana, festivos)" },
-        guardsPerShift: { type: "string", description: "Cantidad de guardias por turno o total solicitados" },
-        numberOfLocations: { type: "string", description: "Cantidad de puntos/instalaciones a cubrir" },
-        startDate: { type: "string", description: "Fecha estimada de inicio del servicio (ej. 02 de marzo, inmediato)" },
-        summary: { type: "string", description: "Resumen ejecutivo de la solicitud en 2-4 oraciones" },
-        industry: { type: "string", description: "Industria o rubro del cliente (construcción, minería, retail, inmobiliaria, etc.)" },
-        website: { type: "string", description: "Sitio web de la empresa solicitante (URL encontrada en firma, cuerpo del correo o datos de contacto, ej. www.empresa.cl)" },
-      },
-      required: [
-        "companyName",
-        "rut",
-        "legalName",
-        "businessActivity",
-        "legalRepresentativeName",
-        "contactFirstName",
-        "contactLastName",
-        "contactEmail",
-        "contactPhone",
-        "contactRole",
-        "address",
-        "city",
-        "commune",
-        "serviceType",
-        "serviceDuration",
-        "coverageDetails",
-        "guardsPerShift",
-        "numberOfLocations",
-        "startDate",
-        "summary",
-        "industry",
-        "website",
-      ],
-      additionalProperties: false,
-    },
-  },
 };
 
 const SYSTEM_PROMPT = `Eres un asistente que extrae datos estructurados de correos electrónicos dirigidos a una empresa de seguridad privada en Chile (Gard Security).
@@ -175,24 +115,24 @@ export async function extractLeadFromEmail(params: {
     return emptyResult(params.fromEmail || null, "Correo sin contenido extraíble.");
   }
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content },
-    ],
-    response_format: EXTRACTOR_SCHEMA,
-    max_tokens: 800,
+  const raw = await aiGenerate(content, {
+    system: SYSTEM_PROMPT + "\n\nResponde SOLO con un objeto JSON válido que contenga todas las claves especificadas. Si un dato no aparece, usa cadena vacía \"\".",
+    maxTokens: 800,
     temperature: 0.2,
   });
 
-  const raw = completion.choices[0]?.message?.content;
-  if (!raw) {
+  if (!raw.trim()) {
     return emptyResult(params.fromEmail || null, "No se pudo extraer información.");
   }
 
   try {
-    const parsed = JSON.parse(raw) as Record<string, string>;
+    // Strip markdown code fences if present
+    let clean = raw.trim();
+    if (clean.startsWith("```json")) clean = clean.slice(7);
+    else if (clean.startsWith("```")) clean = clean.slice(3);
+    if (clean.endsWith("```")) clean = clean.slice(0, -3);
+    clean = clean.trim();
+    const parsed = JSON.parse(clean) as Record<string, string>;
     const str = (key: string) => parsed[key]?.trim() || null;
     return {
       companyName: str("companyName"),

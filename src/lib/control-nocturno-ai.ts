@@ -1,11 +1,11 @@
 /**
  * Genera un resumen AI del reporte de control nocturno.
  *
- * Usa gpt-4o-mini para analizar la eficiencia de las rondas,
+ * Usa el servicio centralizado de IA para analizar la eficiencia de las rondas,
  * detectar desviaciones y generar un párrafo ejecutivo.
  */
 
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 import { prisma } from "@/lib/prisma";
 
 interface ReportData {
@@ -48,21 +48,13 @@ export async function generateControlNocturnoSummary(
     // Build the analysis prompt
     const prompt = buildPrompt(reportData, history);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Eres un analista de operaciones de seguridad. Generas resúmenes ejecutivos breves y accionables sobre el cumplimiento de rondas nocturnas. Responde siempre en español chileno, de forma directa y profesional. Máximo 4 oraciones.",
-        },
-        { role: "user", content: prompt },
-      ],
+    const result = await aiGenerate(prompt, {
+      system: "Eres un analista de operaciones de seguridad. Generas resúmenes ejecutivos breves y accionables sobre el cumplimiento de rondas nocturnas. Responde siempre en español chileno, de forma directa y profesional. Máximo 4 oraciones.",
       temperature: 0.3,
-      max_tokens: 300,
+      maxTokens: 300,
     });
 
-    return response.choices[0]?.message?.content?.trim() || null;
+    return result.trim() || null;
   } catch (error) {
     console.warn("[AI] Could not generate control nocturno summary:", error);
     return null;

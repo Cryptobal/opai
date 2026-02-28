@@ -2,10 +2,10 @@
  * AI helpers for the Protocol & Exam system.
  *
  * Contains prompt templates and orchestration functions that call
- * the Anthropic client to generate protocol content and exam questions.
+ * the centralized AI service to generate protocol content and exam questions.
  */
 
-import { anthropicJson, type AnthropicContentBlock } from "./anthropic";
+import { aiGenerateJson, aiExtractFromPdf } from "./ai-service";
 
 // ────────────────────────────────────────────────────────────
 //  TYPES
@@ -90,10 +90,10 @@ Responde con este formato JSON exacto:
 
 Secciones típicas incluyen: Control de Acceso, Rondas de Seguridad, Procedimientos de Emergencia, Apertura y Cierre, Registro de Visitas, Control Vehicular, Procedimientos Nocturnos, etc. Adapta según el tipo de instalación.`;
 
-  return anthropicJson<AiProtocolResult>(
-    [{ role: "user", content: prompt }],
-    { system: SYSTEM_PROMPT, maxTokens: 4096 },
-  );
+  return aiGenerateJson<AiProtocolResult>(prompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 4096,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -104,18 +104,7 @@ export async function extractProtocolFromPdf(
   pdfBase64: string,
   fileName: string,
 ): Promise<AiProtocolResult> {
-  const content: AnthropicContentBlock[] = [
-    {
-      type: "document",
-      source: {
-        type: "base64",
-        media_type: "application/pdf",
-        data: pdfBase64,
-      },
-    },
-    {
-      type: "text",
-      text: `Analiza el documento "${fileName}" y extrae un protocolo de seguridad estructurado.
+  const textPrompt = `Analiza el documento "${fileName}" y extrae un protocolo de seguridad estructurado.
 
 Identifica las secciones principales y los procedimientos/ítems dentro de cada sección.
 Si el documento no es un protocolo de seguridad, extrae la información relevante que pueda ser útil para un guardia de seguridad.
@@ -134,14 +123,12 @@ Responde con este formato JSON exacto:
       ]
     }
   ]
-}`,
-    },
-  ];
+}`;
 
-  return anthropicJson<AiProtocolResult>(
-    [{ role: "user", content }],
-    { system: SYSTEM_PROMPT, maxTokens: 4096 },
-  );
+  return aiExtractFromPdf<AiProtocolResult>(pdfBase64, fileName, textPrompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 4096,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -168,10 +155,10 @@ Responde con este formato JSON exacto:
   "description": "Descripción detallada del procedimiento."
 }`;
 
-  return anthropicJson<{ title: string; description: string }>(
-    [{ role: "user", content: prompt }],
-    { system: SYSTEM_PROMPT, maxTokens: 1024 },
-  );
+  return aiGenerateJson<{ title: string; description: string }>(prompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 1024,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -203,10 +190,10 @@ Responde con este formato JSON exacto:
   ]
 }`;
 
-  return anthropicJson<AiProtocolSection>(
-    [{ role: "user", content: prompt }],
-    { system: SYSTEM_PROMPT, maxTokens: 2048 },
-  );
+  return aiGenerateJson<AiProtocolSection>(prompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 2048,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -255,10 +242,11 @@ Responde con este formato JSON exacto:
 Para selección múltiple, correctAnswer es el índice (0-3) de la opción correcta.
 Para verdadero/falso, correctAnswer es "true" o "false".`;
 
-  return anthropicJson<AiExamResult>(
-    [{ role: "user", content: prompt }],
-    { system: SYSTEM_PROMPT, maxTokens: 4096, temperature: 0.7 },
-  );
+  return aiGenerateJson<AiExamResult>(prompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 4096,
+    temperature: 0.7,
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -291,8 +279,9 @@ Responde con este formato JSON exacto:
 Para selección múltiple, correctAnswer es el índice (0-3) de la opción correcta.
 Para verdadero/falso, correctAnswer es "true" o "false".`;
 
-  return anthropicJson<AiExamResult>(
-    [{ role: "user", content: prompt }],
-    { system: SYSTEM_PROMPT, maxTokens: 4096, temperature: 0.7 },
-  );
+  return aiGenerateJson<AiExamResult>(prompt, {
+    system: SYSTEM_PROMPT,
+    maxTokens: 4096,
+    temperature: 0.7,
+  });
 }
