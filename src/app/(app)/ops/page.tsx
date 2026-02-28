@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, hasModuleAccess } from "@/lib/permissions-server";
+import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, KpiCard, KpiGrid, ModuleCard } from "@/components/opai";
@@ -18,6 +18,7 @@ import {
   Building2,
   Ticket,
   Package,
+  ClipboardCheck,
 } from "lucide-react";
 
 export default async function OpsDashboardPage() {
@@ -132,6 +133,17 @@ export default async function OpsDashboardPage() {
       icon: Package,
       count: null,
     },
+    ...(canView(perms, "ops", "supervision")
+      ? [
+          {
+            href: "/ops/supervision",
+            title: "Supervisión",
+            description: "Visitas de supervisión en terreno, check-in y reportes.",
+            icon: ClipboardCheck,
+            count: null,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -170,8 +182,8 @@ export default async function OpsDashboardPage() {
         />
       </KpiGrid>
 
-      {/* -- Módulos -- */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* -- Módulos: compactos en mobile para ver más sin scroll -- */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((item) => (
           <ModuleCard
             key={item.href}
@@ -180,6 +192,7 @@ export default async function OpsDashboardPage() {
             icon={item.icon}
             href={item.href}
             count={item.count ?? undefined}
+            compactOnMobile
           />
         ))}
       </div>
