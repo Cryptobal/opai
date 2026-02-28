@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         installationId,
         versionNumber: nextVersion,
         status: "published",
-        snapshot: sections as unknown as Record<string, unknown>[],
+        snapshot: JSON.parse(JSON.stringify(sections)),
         publishedAt: new Date(),
         publishedBy: ctx.userId,
       },
