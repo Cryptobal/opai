@@ -8,6 +8,7 @@ export type NearbyInstallation = {
   address: string | null;
   commune: string | null;
   city: string | null;
+  clientName: string | null;
   geoRadiusM: number;
   distanceM: number | null;
   insideGeofence: boolean | null;
@@ -94,6 +95,32 @@ export type VisitData = {
   clientSatisfaction: number | null;
   clientComment: string | null;
   draftData: Record<string, unknown> | null;
+};
+
+export type SurveyData = {
+  serviceQuality: number | null;       // Q1: 1-5
+  scheduleCompliance: number | null;   // Q2: 1-5
+  personalPresentation: number | null; // Q3: 1-5
+  professionalism: number | null;      // Q4: 1-5
+  supervisionPresence: number | null;  // Q5: 1-5
+  incidentResponse: number | null;     // Q6: 1-5
+  hasUrgentRisk: boolean | null;       // Q7: Sí/No
+  urgentRiskDetail: string;            // Q7 detail (if Sí)
+  npsScore: number | null;            // Q8: 0-10
+  additionalComments: string;         // Q9: Open text
+};
+
+export type InstalacionDocumentType = {
+  code: string;
+  label: string;
+  required: boolean;
+};
+
+export type DocumentCheckResult = {
+  code: string;
+  isChecked: boolean;
+  photoFile: File | null;
+  photoPreview: string | null;
 };
 
 export const FINDING_CATEGORIES = [

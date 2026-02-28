@@ -51,13 +51,20 @@ export async function GET(
       );
     }
 
-    const results = await prisma.opsSupervisionChecklistResult.findMany({
-      where: { visitId: id, tenantId: ctx.tenantId },
-      include: {
-        checklistItem: true,
-      },
-      orderBy: { checklistItem: { sortOrder: "asc" } },
-    });
+    let results: unknown[] = [];
+    try {
+      results = await prisma.opsSupervisionChecklistResult.findMany({
+        where: { visitId: id, tenantId: ctx.tenantId },
+        include: {
+          checklistItem: true,
+        },
+        orderBy: { checklistItem: { sortOrder: "asc" } },
+      });
+    } catch (tableErr: unknown) {
+      // P2021: table does not exist — migration not applied yet
+      const code = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
+      if (code !== "P2021") throw tableErr;
+    }
 
     return NextResponse.json({ success: true, data: results });
   } catch (error) {
@@ -114,21 +121,31 @@ export async function POST(
     }
 
     // Delete and recreate (wizard upsert pattern)
-    await prisma.opsSupervisionChecklistResult.deleteMany({
-      where: { visitId: id, tenantId: ctx.tenantId },
-    });
+    // Table may not exist before migration — skip gracefully
+    let savedCount = 0;
+    try {
+      await prisma.opsSupervisionChecklistResult.deleteMany({
+        where: { visitId: id, tenantId: ctx.tenantId },
+      });
 
-    const created = await prisma.opsSupervisionChecklistResult.createMany({
-      data: parsed.data.results.map((r) => ({
-        tenantId: ctx.tenantId,
-        visitId: id,
-        checklistItemId: r.checklistItemId,
-        isChecked: r.isChecked,
-        findingId: r.findingId ?? null,
-      })),
-    });
+      const created = await prisma.opsSupervisionChecklistResult.createMany({
+        data: parsed.data.results.map((r) => ({
+          tenantId: ctx.tenantId,
+          visitId: id,
+          checklistItemId: r.checklistItemId,
+          isChecked: r.isChecked,
+          findingId: r.findingId ?? null,
+        })),
+      });
+      savedCount = created.count;
+    } catch (tableErr: unknown) {
+      // P2021: table does not exist — checklist data is also saved in documentChecklist JSONB
+      const code = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
+      if (code !== "P2021") throw tableErr;
+      console.warn("[OPS][SUPERVISION] supervision_checklist_results table not found, data saved via documentChecklist JSONB");
+    }
 
-    return NextResponse.json({ success: true, data: { count: created.count } }, { status: 201 });
+    return NextResponse.json({ success: true, data: { count: savedCount } }, { status: 201 });
   } catch (error) {
     console.error("[OPS][SUPERVISION] Error saving checklist results:", error);
     return NextResponse.json(

@@ -53,6 +53,9 @@ export async function GET() {
         lat: true,
         lng: true,
         geoRadiusM: true,
+        account: {
+          select: { name: true },
+        },
       },
       orderBy: { name: "asc" },
       take: 300,
@@ -64,6 +67,7 @@ export async function GET() {
       address: inst.address,
       commune: inst.commune,
       city: inst.city,
+      clientName: inst.account?.name ?? null,
       geoRadiusM: inst.geoRadiusM,
       distanceM: null as number | null,
       insideGeofence: null as boolean | null,

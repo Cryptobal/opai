@@ -482,6 +482,31 @@ export const TICKET_TYPE_SEEDS: TicketTypeSeed[] = [
     approvalChainGroupSlugs: ["operaciones", "finanzas"],
     onApprovalAction: "create_turno_extra",
   },
+  // ── Hallazgo de supervisión ──
+  {
+    slug: "hallazgo_supervision",
+    name: "Hallazgo de supervisión",
+    description: "Observación o riesgo detectado durante visita de supervisión en terreno",
+    origin: "internal",
+    requiresApproval: false,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "AlertTriangle",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "hallazgo_supervision_critico",
+    name: "Hallazgo crítico de supervisión",
+    description: "Riesgo crítico o urgente detectado durante visita de supervisión (requiere acción inmediata)",
+    origin: "internal",
+    requiresApproval: false,
+    assignedTeam: "ops",
+    defaultPriority: "p1",
+    slaHours: 4,
+    icon: "ShieldAlert",
+    approvalChainGroupSlugs: [],
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════

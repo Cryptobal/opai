@@ -24,7 +24,8 @@ export async function GET(
     const { installationId } = await params;
     const sp = request.nextUrl.searchParams;
     const dateStr = sp.get("date") ?? new Date().toISOString().slice(0, 10);
-    const date = new Date(`${dateStr}T00:00:00.000Z`);
+    // Optional time filter: only return guards whose shift covers this time (HH:MM)
+    const timeStr = sp.get("time") ?? null;
 
     // 1. Get regular guard assignments (active dotación)
     const asignaciones = await prisma.opsAsignacionGuardia.findMany({
@@ -75,8 +76,30 @@ export async function GET(
       orderBy: { startAt: "asc" },
     });
 
-    // Format response
-    const regularGuards = asignaciones.map((a) => ({
+    // Helper: check if time (in minutes from midnight) falls within a shift
+    function isTimeInShift(nowMinutes: number, startStr: string | null, endStr: string | null): boolean {
+      if (!startStr || !endStr) return true; // No shift times defined → include
+      const sParts = startStr.split(":");
+      const eParts = endStr.split(":");
+      const startMin = parseInt(sParts[0], 10) * 60 + parseInt(sParts[1], 10);
+      const endMin = parseInt(eParts[0], 10) * 60 + parseInt(eParts[1], 10);
+      if (startMin <= endMin) {
+        // Day shift (e.g. 08:00–20:00)
+        return nowMinutes >= startMin && nowMinutes < endMin;
+      }
+      // Night shift crossing midnight (e.g. 20:00–08:00)
+      return nowMinutes >= startMin || nowMinutes < endMin;
+    }
+
+    // Parse time filter (HH:MM → minutes)
+    let currentMinutes: number | null = null;
+    if (timeStr) {
+      const parts = timeStr.split(":");
+      currentMinutes = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    }
+
+    // Format regular guards
+    const allRegularGuards = asignaciones.map((a) => ({
       id: a.id,
       type: "regular" as const,
       guardId: a.guardia.id,
@@ -88,7 +111,13 @@ export async function GET(
       shiftEnd: a.puesto.shiftEnd,
     }));
 
-    const reinforcementGuards = refuerzos.map((r) => ({
+    // Filter by shift time if provided
+    const regularGuards = currentMinutes !== null
+      ? allRegularGuards.filter((g) => isTimeInShift(currentMinutes!, g.shiftStart, g.shiftEnd))
+      : allRegularGuards;
+
+    // Format reinforcement guards
+    const allReinforcementGuards = refuerzos.map((r) => ({
       id: r.id,
       type: "reinforcement" as const,
       guardId: r.guardia.id,
@@ -99,6 +128,14 @@ export async function GET(
       shiftStart: r.startAt.toISOString(),
       shiftEnd: r.endAt.toISOString(),
     }));
+
+    // Filter reinforcement by time (they use full ISO timestamps)
+    const reinforcementGuards = currentMinutes !== null
+      ? allReinforcementGuards.filter((r) => {
+          const now = new Date();
+          return now >= new Date(r.shiftStart) && now <= new Date(r.shiftEnd);
+        })
+      : allReinforcementGuards;
 
     return NextResponse.json({
       success: true,

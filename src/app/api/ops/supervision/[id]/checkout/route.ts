@@ -24,8 +24,9 @@ const checkoutSchema = z.object({
   bookNotes: z.string().max(2000).optional().nullable(),
   clientContacted: z.boolean().optional(),
   clientContactName: z.string().max(200).optional().nullable(),
-  clientSatisfaction: z.number().int().min(1).max(5).optional().nullable(),
+  clientSatisfaction: z.number().optional().nullable(),
   clientComment: z.string().max(2000).optional().nullable(),
+  clientValidationUrl: z.string().max(500).optional().nullable(),
 });
 
 export async function POST(
@@ -135,6 +136,7 @@ export async function POST(
       ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
       ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
       ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
+      ...(body.clientValidationUrl !== undefined ? { clientValidationUrl: body.clientValidationUrl } : {}),
     };
 
     let updated;

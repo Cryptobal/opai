@@ -26,6 +26,14 @@ type Props = {
   saving: boolean;
 };
 
+const RATING_LABELS: Record<number, string> = {
+  1: "Deficiente",
+  2: "Insuficiente",
+  3: "Aceptable",
+  4: "Bueno",
+  5: "Excelente",
+};
+
 function RatingButtons({
   value,
   onChange,
@@ -36,29 +44,67 @@ function RatingButtons({
   label: string;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(n)}
-            className={`flex h-11 w-11 items-center justify-center rounded-lg border-2 text-sm font-bold transition-all ${
-              value === n
-                ? n >= 4
-                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                  : n === 3
-                    ? "border-amber-500 bg-amber-500/20 text-amber-400"
-                    : "border-red-500 bg-red-500/20 text-red-400"
-                : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
-            }`}
-          >
-            {n}
-          </button>
-        ))}
+        {[1, 2, 3, 4, 5].map((n) => {
+          const isSelected = value === n;
+          const colorClass = isSelected
+            ? n >= 4
+              ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+              : n === 3
+                ? "border-amber-500 bg-amber-500/20 text-amber-400"
+                : "border-red-500 bg-red-500/20 text-red-400"
+            : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50";
+
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onChange(n)}
+              className={`flex h-12 min-w-[48px] flex-1 flex-col items-center justify-center rounded-lg border-2 text-sm font-bold transition-all ${colorClass}`}
+            >
+              <span className="text-base">{n}</span>
+            </button>
+          );
+        })}
       </div>
+      {value !== null && (
+        <p className={`text-[10px] text-center ${
+          value >= 4 ? "text-emerald-400" : value === 3 ? "text-amber-400" : "text-red-400"
+        }`}>
+          {RATING_LABELS[value]}
+        </p>
+      )}
     </div>
+  );
+}
+
+function getGuardAverage(e: GuardEvaluation): number | null {
+  if (e.presentationScore === null || e.orderScore === null || e.protocolScore === null) return null;
+  return (e.presentationScore + e.orderScore + e.protocolScore) / 3;
+}
+
+function GuardResultBadge({ avg }: { avg: number | null }) {
+  if (avg === null) return null;
+  if (avg >= 4) {
+    return (
+      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+        Bien
+      </Badge>
+    );
+  }
+  if (avg >= 3) {
+    return (
+      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+        Regular
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">
+      Deficiente
+    </Badge>
   );
 }
 
@@ -94,13 +140,46 @@ export function Step2Evaluation({
     return findings.filter((f) => f.guardId === guardId);
   }
 
+  // Calculate per-category averages
+  const fullyRatedEvals = evaluations.filter(
+    (e) => e.presentationScore !== null && e.orderScore !== null && e.protocolScore !== null,
+  );
+
+  const avgPresentation =
+    fullyRatedEvals.length > 0
+      ? fullyRatedEvals.reduce((s, e) => s + (e.presentationScore ?? 0), 0) / fullyRatedEvals.length
+      : null;
+  const avgOrder =
+    fullyRatedEvals.length > 0
+      ? fullyRatedEvals.reduce((s, e) => s + (e.orderScore ?? 0), 0) / fullyRatedEvals.length
+      : null;
+  const avgProtocol =
+    fullyRatedEvals.length > 0
+      ? fullyRatedEvals.reduce((s, e) => s + (e.protocolScore ?? 0), 0) / fullyRatedEvals.length
+      : null;
+  const avgGeneral =
+    avgPresentation !== null && avgOrder !== null && avgProtocol !== null
+      ? (avgPresentation + avgOrder + avgProtocol) / 3
+      : null;
+
+  function formatAvg(v: number | null): string {
+    return v !== null ? v.toFixed(1) : "—";
+  }
+
+  function avgColor(v: number | null): string {
+    if (v === null) return "text-muted-foreground";
+    if (v >= 4) return "text-emerald-400";
+    if (v >= 3) return "text-amber-400";
+    return "text-red-400";
+  }
+
   return (
     <>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4 text-primary" />
-            Evaluación
+            Evaluacion
             <Badge variant="outline" className="ml-auto text-xs">
               Paso 2/5
             </Badge>
@@ -109,7 +188,7 @@ export function Step2Evaluation({
         <CardContent className="space-y-4">
           {/* Installation state */}
           <div className="space-y-2">
-            <Label>Estado general de la instalación</Label>
+            <Label>Estado general de la instalacion</Label>
             <Select value={installationState} onValueChange={onInstallationStateChange}>
               <SelectTrigger className="h-12">
                 <SelectValue />
@@ -133,10 +212,15 @@ export function Step2Evaluation({
             <div className="space-y-4">
               {evaluations.map((evaluation, index) => {
                 const guardFindings = getGuardFindings(evaluation.guardId);
+                const guardAvg = getGuardAverage(evaluation);
+                const isLowRating = guardAvg !== null && guardAvg < 3;
+
                 return (
                   <div
                     key={evaluation.guardId ?? index}
-                    className="rounded-lg border p-3 transition-colors"
+                    className={`rounded-lg border p-3 transition-colors ${
+                      isLowRating ? "border-red-500/30 bg-red-500/5" : ""
+                    }`}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <div>
@@ -150,16 +234,19 @@ export function Step2Evaluation({
                           )}
                         </p>
                       </div>
-                      {guardFindings.length > 0 && (
-                        <Badge variant="warning" className="text-[10px]">
-                          {guardFindings.length} hallazgo(s)
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {guardFindings.length > 0 && (
+                          <Badge variant="warning" className="text-[10px]">
+                            {guardFindings.length} hallazgo(s)
+                          </Badge>
+                        )}
+                        <GuardResultBadge avg={guardAvg} />
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-3">
                       <RatingButtons
-                        label="Presentación"
+                        label="Presentacion"
                         value={evaluation.presentationScore}
                         onChange={(v) => updateEvaluation(index, "presentationScore", v)}
                       />
@@ -177,7 +264,7 @@ export function Step2Evaluation({
 
                     <div className="mt-3 space-y-2">
                       <Textarea
-                        placeholder="Observación (opcional)"
+                        placeholder="Observacion (opcional)"
                         value={evaluation.observation}
                         onChange={(e) => updateEvaluation(index, "observation", e.target.value)}
                         rows={2}
@@ -202,34 +289,44 @@ export function Step2Evaluation({
             </div>
           )}
 
-          {/* Average summary */}
+          {/* Findings counter */}
+          {findings.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-400">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              {findings.length} hallazgo(s) registrado(s)
+            </div>
+          )}
+
+          {/* Per-category average summary */}
           {hasAtLeastOneRated && (
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Promedio instalación</p>
-              <div className="flex items-center gap-3 text-sm">
-                {(() => {
-                  const rated = evaluations.filter(
-                    (e) =>
-                      e.presentationScore !== null &&
-                      e.orderScore !== null &&
-                      e.protocolScore !== null,
-                  );
-                  if (rated.length === 0) return <span className="text-muted-foreground">—</span>;
-                  const avg =
-                    rated.reduce(
-                      (s, e) =>
-                        s +
-                        ((e.presentationScore ?? 0) + (e.orderScore ?? 0) + (e.protocolScore ?? 0)) /
-                          3,
-                      0,
-                    ) / rated.length;
-                  return (
-                    <span className="flex items-center gap-1 font-medium">
-                      <Star className="h-4 w-4 text-amber-400" />
-                      {avg.toFixed(1)} / 5.0
-                    </span>
-                  );
-                })()}
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Promedio instalacion</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Presentacion:</span>
+                  <span className={`font-medium ${avgColor(avgPresentation)}`}>
+                    {formatAvg(avgPresentation)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Orden:</span>
+                  <span className={`font-medium ${avgColor(avgOrder)}`}>
+                    {formatAvg(avgOrder)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Protocolo:</span>
+                  <span className={`font-medium ${avgColor(avgProtocol)}`}>
+                    {formatAvg(avgProtocol)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">General:</span>
+                  <span className={`flex items-center gap-1 font-bold ${avgColor(avgGeneral)}`}>
+                    <Star className="h-3 w-3" />
+                    {formatAvg(avgGeneral)}
+                  </span>
+                </div>
               </div>
             </div>
           )}
