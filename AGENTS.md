@@ -17,7 +17,7 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 
 1. Start PostgreSQL (see above).
 2. `npx prisma db push --accept-data-loss` — syncs schema directly (migration files have ordering issues; use `db push` for local dev).
-3. `npx prisma db seed` — creates tenant "gard", admin user (`carlos.irigoyen@gard.cl` / `GardSecurity2026!`), and reference data.
+3. `npx prisma db seed` — creates tenant "gard", admin user (`[REDACTED]` / `GardSecurity2026!`), and reference data.
 
 ### Key commands
 
@@ -34,8 +34,9 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 ### Gotchas
 
 - **`npm install` needs `DATABASE_URL`**: The `postinstall` hook runs `prisma generate`, which requires `DATABASE_URL` in `.env.local`. Create `.env.local` before running `npm install`.
+- **`db push` needs `DIRECT_DATABASE_URL`**: Prisma requires this for `db push` and `migrate deploy`. For local Docker, set it equal to `DATABASE_URL` in `.env.local`.
 - **Migrations have ordering issues**: Some migrations reference tables created in later migrations. For local dev, use `npx prisma db push` instead of `prisma migrate deploy`.
 - **pgvector required**: The `AiDocChunk` model uses a `vector(1536)` column. The Docker image must include pgvector (`pgvector/pgvector:pg16`).
 - **ESLint not in original devDependencies**: If eslint is needed, install `eslint` and `eslint-config-next@15.4.11` (match the Next.js version). Create `.eslintrc.json` with `{"extends": "next/core-web-vitals"}`.
 - **`npm run dev` vs `npm run dev:watch`**: Use `dev:watch` for development. The `dev` script runs `build && start` which fails due to pre-existing lint errors caught by `next build`.
-- **Login credentials (seeded)**: `carlos.irigoyen@gard.cl` / `GardSecurity2026!` (owner role).
+- **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
