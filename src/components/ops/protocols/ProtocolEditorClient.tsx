@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ExamListClient } from "@/components/ops/exams/ExamListClient";
+import { ExamSubTab } from "@/components/ops/exams/ExamSubTab";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -1240,7 +1240,7 @@ export function ProtocolEditorClient({
       )}
 
       {activeTab === "examenes" && (
-        <ExamListClient installationId={installationId} />
+        <ExamSubTab installationId={installationId} />
       )}
 
       {activeTab === "vista-cliente" && (
