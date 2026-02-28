@@ -54,22 +54,65 @@ export async function GET(request: NextRequest) {
       where.supervisorId = ctx.userId;
     }
 
-    const visitas = await prisma.opsVisitaSupervision.findMany({
-      where,
-      include: {
-        installation: {
-          select: { id: true, name: true, address: true, commune: true },
+    // Use explicit select to avoid referencing columns that may not exist
+    // before migration 20260401000000_supervision_module_refactor is applied.
+    const safeVisitSelect = {
+      id: true,
+      tenantId: true,
+      supervisorId: true,
+      installationId: true,
+      checkInAt: true,
+      checkInLat: true,
+      checkInLng: true,
+      checkInGeoValidada: true,
+      checkInDistanciaM: true,
+      checkOutAt: true,
+      status: true,
+      generalComments: true,
+      guardsCounted: true,
+      installationState: true,
+      ratings: true,
+      startedVia: true,
+      createdAt: true,
+      updatedAt: true,
+    } as const;
+
+    let visitas;
+    try {
+      visitas = await prisma.opsVisitaSupervision.findMany({
+        where,
+        include: {
+          installation: {
+            select: { id: true, name: true, address: true, commune: true },
+          },
+          supervisor: {
+            select: { id: true, name: true, email: true },
+          },
+          _count: {
+            select: { images: true },
+          },
         },
-        supervisor: {
-          select: { id: true, name: true, email: true },
+        orderBy: [{ checkInAt: "desc" }],
+        take: 200,
+      });
+    } catch {
+      // Fallback: use select with only pre-migration columns
+      const safe = await prisma.opsVisitaSupervision.findMany({
+        where,
+        select: {
+          ...safeVisitSelect,
+          installation: {
+            select: { id: true, name: true, address: true, commune: true },
+          },
+          supervisor: {
+            select: { id: true, name: true, email: true },
+          },
         },
-        _count: {
-          select: { images: true },
-        },
-      },
-      orderBy: [{ checkInAt: "desc" }],
-      take: 200,
-    });
+        orderBy: [{ checkInAt: "desc" }],
+        take: 200,
+      });
+      visitas = safe.map((v) => ({ ...v, _count: { images: 0 } }));
+    }
 
     return NextResponse.json({ success: true, data: visitas });
   } catch (error) {
@@ -154,23 +197,57 @@ export async function POST(request: NextRequest) {
       checkInGeoValidada = checkInDistanciaM <= installation.geoRadiusM;
     }
 
-    const visit = await prisma.opsVisitaSupervision.create({
-      data: {
-        tenantId: ctx.tenantId,
-        supervisorId: ctx.userId,
-        installationId: body.installationId,
-        checkInAt: new Date(),
-        checkInLat: body.lat,
-        checkInLng: body.lng,
-        checkInGeoValidada,
-        checkInDistanciaM,
-        status: "in_progress",
-        startedVia: body.startedVia ?? "ops_supervision",
-      },
-      include: {
-        installation: { select: { id: true, name: true, address: true } },
-      },
-    });
+    // Use select (not include) to avoid RETURNING new columns that may
+    // not exist before the supervision_module_refactor migration is applied.
+    let visit;
+    try {
+      visit = await prisma.opsVisitaSupervision.create({
+        data: {
+          tenantId: ctx.tenantId,
+          supervisorId: ctx.userId,
+          installationId: body.installationId,
+          checkInAt: new Date(),
+          checkInLat: body.lat,
+          checkInLng: body.lng,
+          checkInGeoValidada,
+          checkInDistanciaM,
+          status: "in_progress",
+          startedVia: body.startedVia ?? "ops_supervision",
+        },
+        include: {
+          installation: { select: { id: true, name: true, address: true } },
+        },
+      });
+    } catch {
+      // Fallback: create with only safe column selection
+      visit = await prisma.opsVisitaSupervision.create({
+        data: {
+          tenantId: ctx.tenantId,
+          supervisorId: ctx.userId,
+          installationId: body.installationId,
+          checkInAt: new Date(),
+          checkInLat: body.lat,
+          checkInLng: body.lng,
+          checkInGeoValidada,
+          checkInDistanciaM,
+          status: "in_progress",
+          startedVia: body.startedVia ?? "ops_supervision",
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          supervisorId: true,
+          installationId: true,
+          checkInAt: true,
+          checkInGeoValidada: true,
+          checkInDistanciaM: true,
+          status: true,
+          startedVia: true,
+          createdAt: true,
+          installation: { select: { id: true, name: true, address: true } },
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, data: visit }, { status: 201 });
   } catch (error) {

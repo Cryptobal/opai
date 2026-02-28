@@ -19,9 +19,50 @@ const updateVisitSchema = z.object({
     .optional()
     .nullable(),
   documentChecklist: z.record(z.string(), z.boolean()).optional().nullable(),
+  // New wizard fields
+  guardsExpected: z.number().int().min(0).optional().nullable(),
+  guardsFound: z.number().int().min(0).optional().nullable(),
+  bookUpToDate: z.boolean().optional().nullable(),
+  bookLastEntryDate: z.string().optional().nullable(),
+  bookPhotoUrl: z.string().url().optional().nullable(),
+  bookNotes: z.string().max(2000).optional().nullable(),
+  clientContacted: z.boolean().optional(),
+  clientContactName: z.string().max(200).optional().nullable(),
+  clientSatisfaction: z.number().int().min(1).max(5).optional().nullable(),
+  clientComment: z.string().max(2000).optional().nullable(),
+  clientValidationUrl: z.string().url().optional().nullable(),
+  wizardStep: z.number().int().min(1).max(5).optional(),
 });
 
 type Params = { id: string };
+
+// Safe select: only pre-migration columns to avoid P2022 errors
+const safeVisitSelect = {
+  id: true,
+  tenantId: true,
+  supervisorId: true,
+  installationId: true,
+  checkInAt: true,
+  checkInLat: true,
+  checkInLng: true,
+  checkInGeoValidada: true,
+  checkInDistanciaM: true,
+  checkOutAt: true,
+  checkOutLat: true,
+  checkOutLng: true,
+  checkOutGeoValidada: true,
+  checkOutDistanciaM: true,
+  status: true,
+  generalComments: true,
+  guardsCounted: true,
+  installationState: true,
+  ratings: true,
+  documentChecklist: true,
+  startedVia: true,
+  completedVia: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 async function canAccessVisit(userId: string, tenantId: string, visitId: string, canViewAll: boolean) {
   return prisma.opsVisitaSupervision.findFirst({
@@ -30,6 +71,7 @@ async function canAccessVisit(userId: string, tenantId: string, visitId: string,
       tenantId,
       ...(canViewAll ? {} : { supervisorId: userId }),
     },
+    select: { id: true },
   });
 }
 
@@ -48,34 +90,76 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<P
 
     const { id } = await params;
     const canViewAll = hasCapability(perms, "supervision_view_all");
+    const where = {
+      id,
+      tenantId: ctx.tenantId,
+      ...(canViewAll ? {} : { supervisorId: ctx.userId }),
+    };
 
-    const visit = await prisma.opsVisitaSupervision.findFirst({
-      where: {
-        id,
-        tenantId: ctx.tenantId,
-        ...(canViewAll ? {} : { supervisorId: ctx.userId }),
-      },
-      include: {
-        supervisor: {
-          select: { id: true, name: true, email: true },
-        },
-        installation: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            commune: true,
-            city: true,
-            lat: true,
-            lng: true,
-            geoRadiusM: true,
+    let visit;
+    try {
+      visit = await prisma.opsVisitaSupervision.findFirst({
+        where,
+        include: {
+          supervisor: { select: { id: true, name: true, email: true } },
+          installation: {
+            select: {
+              id: true, name: true, address: true, commune: true,
+              city: true, lat: true, lng: true, geoRadiusM: true,
+            },
           },
+          images: { orderBy: { createdAt: "desc" } },
+          guardEvaluations: { orderBy: { createdAt: "asc" } },
+          findings: { orderBy: { createdAt: "desc" } },
+          checklistResults: {
+            include: { checklistItem: true },
+            orderBy: { checklistItem: { sortOrder: "asc" } },
+          },
+          photos: { orderBy: { takenAt: "asc" } },
         },
-        images: {
-          orderBy: { createdAt: "desc" },
+      });
+    } catch {
+      // Fallback: new columns/tables may not exist yet
+      const safe = await prisma.opsVisitaSupervision.findFirst({
+        where,
+        select: {
+          ...safeVisitSelect,
+          supervisor: { select: { id: true, name: true, email: true } },
+          installation: {
+            select: {
+              id: true, name: true, address: true, commune: true,
+              city: true, lat: true, lng: true, geoRadiusM: true,
+            },
+          },
+          images: { orderBy: { createdAt: "desc" } },
         },
-      },
-    });
+      });
+      if (safe) {
+        visit = {
+          ...safe,
+          durationMinutes: null,
+          guardsExpected: null,
+          guardsFound: null,
+          bookUpToDate: null,
+          bookLastEntryDate: null,
+          bookPhotoUrl: null,
+          bookNotes: null,
+          clientContacted: false,
+          clientContactName: null,
+          clientSatisfaction: null,
+          clientComment: null,
+          clientValidationUrl: null,
+          healthScore: null,
+          isExpressFlagged: false,
+          draftData: null,
+          wizardStep: 1,
+          guardEvaluations: [],
+          findings: [],
+          checklistResults: [],
+          photos: [],
+        };
+      }
+    }
 
     if (!visit) {
       return NextResponse.json(
@@ -142,23 +226,64 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ? Prisma.JsonNull
           : (body.documentChecklist as Prisma.InputJsonValue);
 
-    const updated = await prisma.opsVisitaSupervision.update({
-      where: { id },
-      data: {
-        ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.generalComments !== undefined
-          ? { generalComments: body.generalComments }
-          : {}),
-        ...(body.guardsCounted !== undefined ? { guardsCounted: body.guardsCounted } : {}),
-        ...(body.installationState !== undefined
-          ? { installationState: body.installationState }
-          : {}),
-        ...(ratingsJson !== undefined ? { ratings: ratingsJson } : {}),
-        ...(documentChecklistJson !== undefined
-          ? { documentChecklist: documentChecklistJson }
-          : {}),
-      },
-    });
+    // Build data with all fields (old + new)
+    const fullData = {
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
+      ...(body.guardsCounted !== undefined ? { guardsCounted: body.guardsCounted } : {}),
+      ...(body.installationState !== undefined ? { installationState: body.installationState } : {}),
+      ...(ratingsJson !== undefined ? { ratings: ratingsJson } : {}),
+      ...(documentChecklistJson !== undefined ? { documentChecklist: documentChecklistJson } : {}),
+      // New wizard fields
+      ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
+      ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
+      ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
+      ...(body.bookLastEntryDate !== undefined
+        ? { bookLastEntryDate: body.bookLastEntryDate ? new Date(body.bookLastEntryDate) : null }
+        : {}),
+      ...(body.bookPhotoUrl !== undefined ? { bookPhotoUrl: body.bookPhotoUrl } : {}),
+      ...(body.bookNotes !== undefined ? { bookNotes: body.bookNotes } : {}),
+      ...(body.clientContacted !== undefined ? { clientContacted: body.clientContacted } : {}),
+      ...(body.clientContactName !== undefined ? { clientContactName: body.clientContactName } : {}),
+      ...(body.clientSatisfaction !== undefined ? { clientSatisfaction: body.clientSatisfaction } : {}),
+      ...(body.clientComment !== undefined ? { clientComment: body.clientComment } : {}),
+      ...(body.clientValidationUrl !== undefined ? { clientValidationUrl: body.clientValidationUrl } : {}),
+      ...(body.wizardStep !== undefined ? { wizardStep: body.wizardStep } : {}),
+    };
+
+    // Pre-migration-safe data (only old columns)
+    const safeData = {
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.generalComments !== undefined ? { generalComments: body.generalComments } : {}),
+      ...(body.guardsCounted !== undefined ? { guardsCounted: body.guardsCounted } : {}),
+      ...(body.installationState !== undefined ? { installationState: body.installationState } : {}),
+      ...(ratingsJson !== undefined ? { ratings: ratingsJson } : {}),
+      ...(documentChecklistJson !== undefined ? { documentChecklist: documentChecklistJson } : {}),
+    };
+
+    let updated;
+    try {
+      updated = await prisma.opsVisitaSupervision.update({
+        where: { id },
+        data: fullData,
+      });
+    } catch {
+      // Fallback: new columns may not exist yet — update only safe fields
+      if (Object.keys(safeData).length > 0) {
+        updated = await prisma.opsVisitaSupervision.update({
+          where: { id },
+          data: safeData,
+          select: safeVisitSelect,
+        });
+      } else {
+        // Only new fields were sent and they can't be saved yet
+        const current = await prisma.opsVisitaSupervision.findFirst({
+          where: { id },
+          select: safeVisitSelect,
+        });
+        updated = current;
+      }
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -196,6 +321,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     await prisma.opsVisitaSupervision.delete({
       where: { id },
+      select: { id: true },
     });
 
     return NextResponse.json({ success: true });

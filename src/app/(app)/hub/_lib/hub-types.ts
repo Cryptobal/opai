@@ -24,6 +24,7 @@ export interface HubPerms {
   canManageRefuerzos: boolean;
   canApproveRendicion: boolean;
   canMarkAttendance: boolean;
+  hasSupervision: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -299,4 +300,28 @@ export interface HubNotificationsProps {
 
 export interface HubTicketsSectionProps {
   ticketMetrics: TicketMetrics;
+}
+
+/* ------------------------------------------------------------------ */
+/* Supervision metrics                                                 */
+/* ------------------------------------------------------------------ */
+
+export interface SupervisionRecentVisit {
+  id: string;
+  installationName: string;
+  checkInAt: Date;
+  status: string;
+  installationState: string | null;
+}
+
+export interface SupervisionMetrics {
+  visitasMonth: number;
+  visitasCompleted: number;
+  criticas: number;
+  avgRating: number | null;
+  openFindings: number;
+  overdueFindingsCount: number;
+  coveragePct: number;
+  installationsSinVisita: number;
+  recentVisits: SupervisionRecentVisit[];
 }
