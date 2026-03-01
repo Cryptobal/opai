@@ -279,7 +279,7 @@ export function RondasConfiguracionClient({
       <ChipTabs
         tabs={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onTabChange={setActiveTab}
       />
 
       {loading && <p className="text-sm text-muted-foreground py-4">Cargando...</p>}
