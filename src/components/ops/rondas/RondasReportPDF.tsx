@@ -232,7 +232,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64 }: P
         </View>
 
         {pages[0].map((row, i) => (
-          <View key={i} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
+          <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]}>
             <Text style={[styles.tdCell, styles.colDate]}>
               {new Date(row.scheduledAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}
             </Text>
@@ -270,7 +270,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64 }: P
           </View>
 
           {pageRows.map((row, i) => (
-            <View key={i} style={[styles.tableRow, i % 2 === 1 && styles.tableRowAlt]}>
+            <View key={i} style={[styles.tableRow, ...(i % 2 === 1 ? [styles.tableRowAlt] : [])]}>
               <Text style={[styles.tdCell, styles.colDate]}>
                 {new Date(row.scheduledAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}
               </Text>
