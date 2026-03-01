@@ -54,6 +54,7 @@ import {
   // Config
   Plug,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import {
   type RolePermissions,
@@ -188,6 +189,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, subKey: "cpq" },
   { key: "config-ops", href: "/opai/configuracion/ops", label: "Ops", icon: ClipboardList, subKey: "ops" },
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
+  { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "IA", icon: Sparkles, subKey: "inteligencia_artificial" },
 ];
 
 /* ── Module detection ── */

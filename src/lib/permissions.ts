@@ -241,6 +241,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.ops", module: "config", submodule: "ops", label: "Operaciones", href: "/opai/configuracion/ops" },
   { key: "config.tipos_ticket", module: "config", submodule: "tipos_ticket", label: "Tipos de ticket", href: "/opai/configuracion/tipos-ticket" },
   { key: "config.finanzas", module: "config", submodule: "finanzas", label: "Finanzas", href: "/opai/configuracion/finanzas" },
+  { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
 ];
 
 export const CAPABILITY_META: CapabilityMeta[] = [
@@ -794,6 +795,7 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/ops")) return { module: "config", submodule: "ops" };
   if (pathname.startsWith("/opai/configuracion/tipos-ticket")) return { module: "config", submodule: "tipos_ticket" };
   if (pathname.startsWith("/opai/configuracion/finanzas")) return { module: "config", submodule: "finanzas" };
+  if (pathname.startsWith("/opai/configuracion/inteligencia-artificial")) return { module: "config", submodule: "inteligencia_artificial" };
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
   // Finance submodules

@@ -47,6 +47,7 @@ model Tenant {
   inventoryGuardiaAssignments InventoryGuardiaAssignment[]
   inventoryAssets             InventoryAsset[]
   inventoryAssetAssignments   InventoryAssetAssignment[]
+  aiProviders                 AiProvider[]
 
   @@index([slug])
   @@index([active])
@@ -377,6 +378,46 @@ model AiDocChunk {
   updatedAt   DateTime                     @updatedAt @map("updated_at")
 
   @@index([sourcePath], map: "idx_ai_doc_chunk_source")
+  @@schema("public")
+}
+
+// ── AI Providers & Models ──
+
+model AiProvider {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  name         String
+  providerType String    @unique @map("provider_type")
+  apiKey       String?   @map("api_key") @db.Text
+  baseUrl      String?   @map("base_url")
+  isActive     Boolean   @default(false) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  models AiModel[]
+
+  @@index([tenantId], map: "idx_ai_provider_tenant")
+  @@map("ai_providers")
+  @@schema("public")
+}
+
+model AiModel {
+  id          String   @id @default(cuid())
+  providerId  String   @map("provider_id")
+  modelId     String   @map("model_id")
+  displayName String   @map("display_name")
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  costTier    String   @map("cost_tier")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId], map: "idx_ai_model_provider")
+  @@map("ai_models")
   @@schema("public")
 }
 
