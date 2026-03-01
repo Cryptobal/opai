@@ -1,4 +1,4 @@
--- Supervision Module Refactor: New tables and columns for the enhanced supervision wizard
+-- Supervision Module Refactor (idempotent for retry after failed deploy)
 
 -- 1. ALTER visitas_supervision to add new fields
 ALTER TABLE "ops"."visitas_supervision"
@@ -20,7 +20,7 @@ ALTER TABLE "ops"."visitas_supervision"
   ADD COLUMN IF NOT EXISTS "wizard_step" INTEGER DEFAULT 1;
 
 -- 2. Individual guard evaluations per visit
-CREATE TABLE "ops"."supervision_guard_evaluations" (
+CREATE TABLE IF NOT EXISTS "ops"."supervision_guard_evaluations" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "visit_id" UUID NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE "ops"."supervision_guard_evaluations" (
 );
 
 -- 3. Supervision findings (linked to tickets)
-CREATE TABLE "ops"."supervision_findings" (
+CREATE TABLE IF NOT EXISTS "ops"."supervision_findings" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "visit_id" UUID NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE "ops"."supervision_findings" (
 );
 
 -- 4. Dynamic checklist items per installation
-CREATE TABLE "ops"."installation_checklist_items" (
+CREATE TABLE IF NOT EXISTS "ops"."installation_checklist_items" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "installation_id" UUID NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE "ops"."installation_checklist_items" (
 );
 
 -- 5. Checklist results per visit
-CREATE TABLE "ops"."supervision_checklist_results" (
+CREATE TABLE IF NOT EXISTS "ops"."supervision_checklist_results" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "visit_id" UUID NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE "ops"."supervision_checklist_results" (
 );
 
 -- 6. Photo categories per installation
-CREATE TABLE "ops"."installation_photo_categories" (
+CREATE TABLE IF NOT EXISTS "ops"."installation_photo_categories" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "installation_id" UUID NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE "ops"."installation_photo_categories" (
 );
 
 -- 7. Categorized photos per visit
-CREATE TABLE "ops"."supervision_photos" (
+CREATE TABLE IF NOT EXISTS "ops"."supervision_photos" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "visit_id" UUID NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE "ops"."supervision_photos" (
 );
 
 -- 8. Health score cache per installation
-CREATE TABLE "ops"."installation_health_scores" (
+CREATE TABLE IF NOT EXISTS "ops"."installation_health_scores" (
   "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
   "tenant_id" TEXT NOT NULL,
   "installation_id" UUID NOT NULL,
@@ -129,133 +129,117 @@ CREATE TABLE "ops"."installation_health_scores" (
   CONSTRAINT "installation_health_scores_pkey" PRIMARY KEY ("id")
 );
 
--- INDEXES
+-- INDEXES (idempotent)
+CREATE INDEX IF NOT EXISTS "idx_supervision_guard_eval_tenant" ON "ops"."supervision_guard_evaluations" ("tenant_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_guard_eval_visit" ON "ops"."supervision_guard_evaluations" ("visit_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_guard_eval_guard" ON "ops"."supervision_guard_evaluations" ("guard_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_findings_tenant" ON "ops"."supervision_findings" ("tenant_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_findings_visit" ON "ops"."supervision_findings" ("visit_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_findings_installation" ON "ops"."supervision_findings" ("installation_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_findings_status" ON "ops"."supervision_findings" ("status");
+CREATE INDEX IF NOT EXISTS "idx_supervision_findings_guard" ON "ops"."supervision_findings" ("guard_id");
+CREATE INDEX IF NOT EXISTS "idx_installation_checklist_items_tenant" ON "ops"."installation_checklist_items" ("tenant_id");
+CREATE INDEX IF NOT EXISTS "idx_installation_checklist_items_installation" ON "ops"."installation_checklist_items" ("installation_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_checklist_results_visit" ON "ops"."supervision_checklist_results" ("visit_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_checklist_results_item" ON "ops"."supervision_checklist_results" ("checklist_item_id");
+CREATE INDEX IF NOT EXISTS "idx_installation_photo_categories_installation" ON "ops"."installation_photo_categories" ("installation_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_photos_visit" ON "ops"."supervision_photos" ("visit_id");
+CREATE INDEX IF NOT EXISTS "idx_supervision_photos_category" ON "ops"."supervision_photos" ("category_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_installation_health_scores_installation" ON "ops"."installation_health_scores" ("installation_id");
+CREATE INDEX IF NOT EXISTS "idx_installation_health_scores_tenant" ON "ops"."installation_health_scores" ("tenant_id");
+CREATE INDEX IF NOT EXISTS "idx_installation_health_scores_score" ON "ops"."installation_health_scores" ("score");
 
--- Guard evaluations
-CREATE INDEX "idx_supervision_guard_eval_tenant" ON "ops"."supervision_guard_evaluations" ("tenant_id");
-CREATE INDEX "idx_supervision_guard_eval_visit" ON "ops"."supervision_guard_evaluations" ("visit_id");
-CREATE INDEX "idx_supervision_guard_eval_guard" ON "ops"."supervision_guard_evaluations" ("guard_id");
+-- FOREIGN KEYS (add only if constraint does not exist)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_guard_evaluations_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_guard_evaluations" ADD CONSTRAINT "supervision_guard_evaluations_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_guard_evaluations_visit_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_guard_evaluations" ADD CONSTRAINT "supervision_guard_evaluations_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_guard_evaluations_guard_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_guard_evaluations" ADD CONSTRAINT "supervision_guard_evaluations_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "ops"."guardias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Findings
-CREATE INDEX "idx_supervision_findings_tenant" ON "ops"."supervision_findings" ("tenant_id");
-CREATE INDEX "idx_supervision_findings_visit" ON "ops"."supervision_findings" ("visit_id");
-CREATE INDEX "idx_supervision_findings_installation" ON "ops"."supervision_findings" ("installation_id");
-CREATE INDEX "idx_supervision_findings_status" ON "ops"."supervision_findings" ("status");
-CREATE INDEX "idx_supervision_findings_guard" ON "ops"."supervision_findings" ("guard_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_visit_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_installation_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_guard_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "ops"."guardias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_ticket_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_ticket_id_fkey" FOREIGN KEY ("ticket_id") REFERENCES "ops"."ops_tickets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_findings_verified_visit_fkey') THEN
+    ALTER TABLE "ops"."supervision_findings" ADD CONSTRAINT "supervision_findings_verified_visit_fkey" FOREIGN KEY ("verified_in_visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Installation checklist items
-CREATE INDEX "idx_installation_checklist_items_tenant" ON "ops"."installation_checklist_items" ("tenant_id");
-CREATE INDEX "idx_installation_checklist_items_installation" ON "ops"."installation_checklist_items" ("installation_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_checklist_items_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."installation_checklist_items" ADD CONSTRAINT "installation_checklist_items_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_checklist_items_installation_id_fkey') THEN
+    ALTER TABLE "ops"."installation_checklist_items" ADD CONSTRAINT "installation_checklist_items_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Checklist results
-CREATE INDEX "idx_supervision_checklist_results_visit" ON "ops"."supervision_checklist_results" ("visit_id");
-CREATE INDEX "idx_supervision_checklist_results_item" ON "ops"."supervision_checklist_results" ("checklist_item_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_checklist_results_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_checklist_results" ADD CONSTRAINT "supervision_checklist_results_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_checklist_results_visit_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_checklist_results" ADD CONSTRAINT "supervision_checklist_results_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_checklist_results_item_fkey') THEN
+    ALTER TABLE "ops"."supervision_checklist_results" ADD CONSTRAINT "supervision_checklist_results_item_fkey" FOREIGN KEY ("checklist_item_id") REFERENCES "ops"."installation_checklist_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_checklist_results_finding_fkey') THEN
+    ALTER TABLE "ops"."supervision_checklist_results" ADD CONSTRAINT "supervision_checklist_results_finding_fkey" FOREIGN KEY ("finding_id") REFERENCES "ops"."supervision_findings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Photo categories
-CREATE INDEX "idx_installation_photo_categories_installation" ON "ops"."installation_photo_categories" ("installation_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_photo_categories_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."installation_photo_categories" ADD CONSTRAINT "installation_photo_categories_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_photo_categories_installation_id_fkey') THEN
+    ALTER TABLE "ops"."installation_photo_categories" ADD CONSTRAINT "installation_photo_categories_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Supervision photos
-CREATE INDEX "idx_supervision_photos_visit" ON "ops"."supervision_photos" ("visit_id");
-CREATE INDEX "idx_supervision_photos_category" ON "ops"."supervision_photos" ("category_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_photos_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_photos" ADD CONSTRAINT "supervision_photos_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_photos_visit_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_photos" ADD CONSTRAINT "supervision_photos_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supervision_photos_category_id_fkey') THEN
+    ALTER TABLE "ops"."supervision_photos" ADD CONSTRAINT "supervision_photos_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "ops"."installation_photo_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- Health scores
-CREATE UNIQUE INDEX "uq_installation_health_scores_installation" ON "ops"."installation_health_scores" ("installation_id");
-CREATE INDEX "idx_installation_health_scores_tenant" ON "ops"."installation_health_scores" ("tenant_id");
-CREATE INDEX "idx_installation_health_scores_score" ON "ops"."installation_health_scores" ("score");
-
--- FOREIGN KEYS
-
--- Guard evaluations
-ALTER TABLE "ops"."supervision_guard_evaluations"
-  ADD CONSTRAINT "supervision_guard_evaluations_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_guard_evaluations"
-  ADD CONSTRAINT "supervision_guard_evaluations_visit_id_fkey"
-  FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_guard_evaluations"
-  ADD CONSTRAINT "supervision_guard_evaluations_guard_id_fkey"
-  FOREIGN KEY ("guard_id") REFERENCES "ops"."guardias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Findings
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_visit_id_fkey"
-  FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_installation_id_fkey"
-  FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_guard_id_fkey"
-  FOREIGN KEY ("guard_id") REFERENCES "ops"."guardias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_ticket_id_fkey"
-  FOREIGN KEY ("ticket_id") REFERENCES "ops"."ops_tickets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_findings"
-  ADD CONSTRAINT "supervision_findings_verified_visit_fkey"
-  FOREIGN KEY ("verified_in_visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Installation checklist items
-ALTER TABLE "ops"."installation_checklist_items"
-  ADD CONSTRAINT "installation_checklist_items_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."installation_checklist_items"
-  ADD CONSTRAINT "installation_checklist_items_installation_id_fkey"
-  FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- Checklist results
-ALTER TABLE "ops"."supervision_checklist_results"
-  ADD CONSTRAINT "supervision_checklist_results_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_checklist_results"
-  ADD CONSTRAINT "supervision_checklist_results_visit_id_fkey"
-  FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_checklist_results"
-  ADD CONSTRAINT "supervision_checklist_results_item_fkey"
-  FOREIGN KEY ("checklist_item_id") REFERENCES "ops"."installation_checklist_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_checklist_results"
-  ADD CONSTRAINT "supervision_checklist_results_finding_fkey"
-  FOREIGN KEY ("finding_id") REFERENCES "ops"."supervision_findings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Photo categories
-ALTER TABLE "ops"."installation_photo_categories"
-  ADD CONSTRAINT "installation_photo_categories_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."installation_photo_categories"
-  ADD CONSTRAINT "installation_photo_categories_installation_id_fkey"
-  FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- Supervision photos
-ALTER TABLE "ops"."supervision_photos"
-  ADD CONSTRAINT "supervision_photos_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_photos"
-  ADD CONSTRAINT "supervision_photos_visit_id_fkey"
-  FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."supervision_photos"
-  ADD CONSTRAINT "supervision_photos_category_id_fkey"
-  FOREIGN KEY ("category_id") REFERENCES "ops"."installation_photo_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Health scores
-ALTER TABLE "ops"."installation_health_scores"
-  ADD CONSTRAINT "installation_health_scores_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "ops"."installation_health_scores"
-  ADD CONSTRAINT "installation_health_scores_installation_id_fkey"
-  FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_health_scores_tenant_id_fkey') THEN
+    ALTER TABLE "ops"."installation_health_scores" ADD CONSTRAINT "installation_health_scores_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'installation_health_scores_installation_id_fkey') THEN
+    ALTER TABLE "ops"."installation_health_scores" ADD CONSTRAINT "installation_health_scores_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "crm"."installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
