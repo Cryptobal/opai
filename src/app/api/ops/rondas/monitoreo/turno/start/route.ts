@@ -23,7 +23,7 @@ export async function POST() {
       data: {
         tenantId: ctx.tenantId,
         operatorId: ctx.userId,
-        operatorName: ctx.userName ?? null,
+        operatorName: ctx.userEmail ?? null,
         status: "active",
       },
     });
