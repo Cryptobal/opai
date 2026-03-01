@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
 import { OpsRefuerzosClient } from "@/components/ops";
+import { ProtocolTab, type ProtocolSubTabId } from "./protocol/ProtocolTab";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -1819,6 +1820,7 @@ export function CrmInstallationDetailClient({
 
   // ── Tabs ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
+  const [protocolSubTab, setProtocolSubTab] = useState<ProtocolSubTabId>("sections");
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
@@ -1832,6 +1834,7 @@ export function CrmInstallationDetailClient({
     { id: "marcacion", label: "Marcación", icon: QrCode },
     { id: "rendiciones", label: "Rendiciones", icon: Receipt },
     ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
+    { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -2091,6 +2094,41 @@ export function CrmInstallationDetailClient({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        subTabs={
+          activeTab === "protocolo" ? (
+            <div className="flex items-center justify-between px-4 py-2 border-t border-border/30">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {(["sections", "documents", "exams", "client"] as const).map((id) => {
+                  const labels: Record<string, string> = { sections: "📋 Secciones", documents: "📄 Documentos", exams: "📝 Exámenes", client: "👤 Vista Cliente" };
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setProtocolSubTab(id)}
+                      className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                        protocolSubTab === id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      {labels[id]}
+                    </button>
+                  );
+                })}
+              </div>
+              {protocolSubTab === "exams" && (
+                <button
+                  onClick={() => {
+                    const btn = document.querySelector<HTMLButtonElement>('[data-action="create-exam"]');
+                    btn?.click();
+                  }}
+                  className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+                >
+                  + Crear examen
+                </button>
+              )}
+            </div>
+          ) : null
+        }
       >
         {activeTab === "general" && generalContent}
         {activeTab === "account" && accountContent}
@@ -2156,6 +2194,14 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "uniformes" && hasInventarioAccess && (
           <InventarioInstallationSection installationId={installation.id} />
+        )}
+        {activeTab === "protocolo" && (
+          <ProtocolTab
+            installationId={installation.id}
+            installationName={installation.name}
+            activeSubTab={protocolSubTab}
+            onSubTabChange={setProtocolSubTab}
+          />
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />

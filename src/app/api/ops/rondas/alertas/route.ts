@@ -17,8 +17,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const onlyOpen = request.nextUrl.searchParams.get("open") !== "false";
+    const isAcknowledged = request.nextUrl.searchParams.get("isAcknowledged");
+    const severidad = request.nextUrl.searchParams.get("severidad");
     const rows = await prisma.opsAlertaRonda.findMany({
-      where: { tenantId: ctx.tenantId, ...(onlyOpen ? { resuelta: false } : {}) },
+      where: {
+        tenantId: ctx.tenantId,
+        ...(onlyOpen ? { resuelta: false } : {}),
+        ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
+        ...(severidad ? { severidad } : {}),
+      },
       include: {
         installation: { select: { id: true, name: true } },
         ejecucion: {

@@ -6,6 +6,7 @@ import { computeMarcacionHash } from "@/lib/marcacion";
 import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
+import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
       where: {
         tenantId: execution.tenantId,
         installationId: execution.rondaTemplate.installationId,
-        qrCode: parsed.data.checkpointQrCode,
         isActive: true,
+        ...(parsed.data.checkpointId
+          ? { id: parsed.data.checkpointId }
+          : { qrCode: parsed.data.checkpointQrCode }),
       },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true },
+      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
     });
     if (!checkpoint) {
       return NextResponse.json({ success: false, error: "Checkpoint inválido" }, { status: 404 });
@@ -103,8 +106,13 @@ export async function POST(request: NextRequest) {
           speedFromPrevKmh: speed,
           timeFromPrevSec: prev ? elapsedSec : null,
           fotoEvidenciaUrl: parsed.data.fotoEvidenciaUrl ?? null,
+          audioUrl: parsed.data.audioUrl ?? null,
+          note: parsed.data.note ?? null,
           hashIntegridad: hash,
           anomalias: anomalies as never,
+          status: "COMPLETED",
+          verificationMethod: parsed.data.verificationMethod ?? (parsed.data.checkpointId ? "GEOFENCE" : "QR"),
+          isOfflineSync: parsed.data.isOfflineSync ?? false,
         },
       });
 
@@ -155,6 +163,25 @@ export async function POST(request: NextRequest) {
 
       return mark;
     });
+
+    // Evaluate post-mark alerts asynchronously (don't block response)
+    evaluatePostMarkAlerts({
+      tenantId: execution.tenantId,
+      ejecucionId: execution.id,
+      installationId: execution.rondaTemplate.installationId,
+      guardiaId,
+      checkpointId: checkpoint.id,
+      checkpointName: checkpoint.name,
+      templateOrderMode: execution.rondaTemplate.orderMode ?? "flexible",
+      marcacion: {
+        lat: parsed.data.lat,
+        lng: parsed.data.lng,
+        verificationMethod: parsed.data.verificationMethod ?? "QR",
+        geoDistanciaM: geo.distanceM,
+        checkpointRadius: checkpoint.geoRadiusM,
+        timestamp: now,
+      },
+    }).catch(err => console.error("[RONDAS] evaluatePostMarkAlerts error:", err));
 
     return NextResponse.json({
       success: true,

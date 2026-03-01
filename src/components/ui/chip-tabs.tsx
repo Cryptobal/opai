@@ -18,6 +18,8 @@ export interface ChipTabsProps {
   onTabChange: (tabId: string) => void;
   /** Center chips when ≤5 tabs. Default: true */
   centered?: boolean;
+  /** When tabs > this value, use flex-wrap (2 rows) instead of horizontal scroll. Default: 8 */
+  wrapThreshold?: number;
 }
 
 /* ── Component ── */
@@ -27,10 +29,12 @@ export function ChipTabs({
   activeTab,
   onTabChange,
   centered = true,
+  wrapThreshold = 8,
 }: ChipTabsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const useWrap = tabs.length > wrapThreshold;
 
-  // Auto-scroll active chip into view
+  // Auto-scroll active chip into view (vertical when wrap, horizontal when scroll)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -42,9 +46,9 @@ export function ChipTabs({
     activeEl.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
-      inline: "center",
+      inline: useWrap ? "nearest" : "center",
     });
-  }, [activeTab]);
+  }, [activeTab, useWrap]);
 
   const shouldCenter = centered && tabs.length <= 5;
 
@@ -52,9 +56,10 @@ export function ChipTabs({
     <div
       ref={containerRef}
       className={cn(
-        "chip-tabs-container flex gap-2 overflow-x-auto px-4 py-3",
+        "chip-tabs-container flex gap-2 px-4 py-3",
         "border-b border-white/[0.06]",
-        shouldCenter ? "justify-center" : "justify-start"
+        useWrap ? "flex-wrap" : "overflow-x-auto",
+        useWrap ? "justify-start" : shouldCenter ? "justify-center" : "justify-start"
       )}
       role="tablist"
       aria-label="Secciones"

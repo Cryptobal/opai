@@ -31,6 +31,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
+  if (pathname.startsWith('/patrullaje/')) return true; // Patrullaje standalone (auth propia con PIN)
   if (pathname.startsWith('/portal/')) return true; // Portal del guardia (auth propia con PIN)
 
   // API (rutas reales en /api/)
@@ -45,6 +46,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/cron')) return true; // Cron jobs (protegidos por CRON_SECRET)
   if (pathname.startsWith('/api/fx/sync')) return true; // FX sync cron (protegido por CRON_SECRET)
   if (pathname.startsWith('/api/public')) return true;
+  if (pathname.startsWith('/api/patrol')) return true; // Patrol API (auth propia con PIN)
   if (pathname.startsWith('/api/portal')) return true; // Portal del guardia (auth propia con PIN)
   // Firma electrónica pública: GET/POST por token sin sesión
   if (pathname.startsWith('/api/docs/sign')) return true;

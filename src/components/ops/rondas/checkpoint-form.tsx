@@ -14,6 +14,9 @@ export interface CheckpointFormValue {
   lat?: number;
   lng?: number;
   geoRadiusM: number;
+  verificationType?: string;
+  isCritical?: boolean;
+  sortOrder?: number;
 }
 
 export function CheckpointForm({
@@ -36,6 +39,9 @@ export function CheckpointForm({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [geoRadiusM, setGeoRadiusM] = useState(30);
+  const [verificationType, setVerificationType] = useState("GEOFENCE");
+  const [isCritical, setIsCritical] = useState(false);
+  const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [geoModalOpen, setGeoModalOpen] = useState(false);
   const [geoDraft, setGeoDraft] = useState<AddressResult | null>(null);
@@ -60,12 +66,18 @@ export function CheckpointForm({
             lat: lat ? Number(lat) : undefined,
             lng: lng ? Number(lng) : undefined,
             geoRadiusM,
+            verificationType,
+            isCritical,
+            sortOrder,
           });
           setName("");
           setDescription("");
           setLat("");
           setLng("");
           setGeoRadiusM(30);
+          setVerificationType("GEOFENCE");
+          setIsCritical(false);
+          setSortOrder(0);
         } finally {
           setSaving(false);
         }
@@ -91,6 +103,26 @@ export function CheckpointForm({
         value={String(geoRadiusM)}
         onChange={(e) => setGeoRadiusM(Number(e.target.value))}
         placeholder="Radio metros"
+        className="h-9"
+        type="number"
+      />
+      <select
+        value={verificationType}
+        onChange={(e) => setVerificationType(e.target.value)}
+        className="h-9 rounded border border-border bg-background px-2 text-sm"
+      >
+        <option value="GEOFENCE">📍 Geocerca</option>
+        <option value="QR">🔲 QR</option>
+        <option value="BOTH">📍🔲 Ambos</option>
+      </select>
+      <label className="flex items-center gap-2 text-sm h-9">
+        <input type="checkbox" checked={isCritical} onChange={(e) => setIsCritical(e.target.checked)} className="rounded" />
+        ⚠ Crítico
+      </label>
+      <Input
+        value={String(sortOrder)}
+        onChange={(e) => setSortOrder(Number(e.target.value))}
+        placeholder="Orden"
         className="h-9"
         type="number"
       />

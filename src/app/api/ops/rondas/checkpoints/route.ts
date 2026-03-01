@@ -26,6 +26,38 @@ export async function GET(request: NextRequest) {
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
     });
 
+    const withStats = request.nextUrl.searchParams.get("withStats") === "true";
+    if (withStats) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const enriched = await Promise.all(
+        checkpoints.map(async (cp) => {
+          const [markCount, lastMark, totalRounds] = await Promise.all([
+            prisma.opsMarcacionCheckpoint.count({
+              where: { checkpointId: cp.id, status: "COMPLETED", timestamp: { gte: thirtyDaysAgo } },
+            }),
+            prisma.opsMarcacionCheckpoint.findFirst({
+              where: { checkpointId: cp.id, status: "COMPLETED" },
+              orderBy: { timestamp: "desc" },
+              select: { timestamp: true },
+            }),
+            prisma.opsRondaEjecucion.count({
+              where: {
+                rondaTemplate: { installationId: cp.installationId },
+                status: "completada",
+                completedAt: { gte: thirtyDaysAgo },
+              },
+            }),
+          ]);
+          return {
+            ...cp,
+            coveragePercent: totalRounds > 0 ? Math.round((markCount / totalRounds) * 100) : 0,
+            lastMarkedAt: lastMark?.timestamp ?? null,
+          };
+        }),
+      );
+      return NextResponse.json({ success: true, data: enriched });
+    }
+
     return NextResponse.json({ success: true, data: checkpoints });
   } catch (error) {
     console.error("[RONDAS] GET checkpoints", error);
@@ -53,7 +85,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Instalación no encontrada" }, { status: 404 });
     }
 
-    const qrCode = parsed.data.qrCode ?? generateMarcacionCode();
+    const needsQr = parsed.data.verificationType === "QR" || parsed.data.verificationType === "BOTH";
+    const qrCode = parsed.data.qrCode ?? (needsQr ? generateMarcacionCode() : generateMarcacionCode());
     const created = await prisma.opsCheckpoint.create({
       data: {
         tenantId: ctx.tenantId,
@@ -64,6 +97,9 @@ export async function POST(request: NextRequest) {
         lat: parsed.data.lat ?? null,
         lng: parsed.data.lng ?? null,
         geoRadiusM: parsed.data.geoRadiusM,
+        verificationType: parsed.data.verificationType,
+        isCritical: parsed.data.isCritical,
+        sortOrder: parsed.data.sortOrder,
         isActive: parsed.data.isActive ?? true,
         createdBy: ctx.userId,
       },

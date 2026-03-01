@@ -71,6 +71,8 @@ export interface EntityDetailLayoutProps {
   onTabChange: (tabId: string) => void;
   /** Content of the active tab */
   children: ReactNode;
+  /** Sub-tabs rendered inside sticky, below ChipTabs */
+  subTabs?: ReactNode;
   /** Additional class on the root container */
   className?: string;
 }
@@ -100,6 +102,7 @@ export function EntityDetailLayout({
   activeTab,
   onTabChange,
   children,
+  subTabs,
   className,
 }: EntityDetailLayoutProps) {
   const visibleTabs = tabs.filter((t) => !t.hidden);
@@ -116,7 +119,7 @@ export function EntityDetailLayout({
       {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
       <div
         className={cn(
-          "sticky top-0 lg:top-12 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+          "sticky top-0 lg:top-12 z-10 bg-background",
           "-mx-2 px-4 sm:-mx-3 sm:px-6",
           "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
           "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
@@ -272,10 +275,13 @@ export function EntityDetailLayout({
           activeTab={activeTab}
           onTabChange={onTabChange}
         />
+
+        {/* ── Sub-tabs (inside sticky) ── */}
+        {subTabs}
       </div>
 
-      {/* ── Tab Content ── */}
-      <div className="pt-4 sm:pt-5">{children}</div>
+      {/* ── Tab Content (extra top padding when sub-tabs are present to clear sticky) ── */}
+      <div className={subTabs ? "pt-14 sm:pt-16" : "pt-4 sm:pt-5"}>{children}</div>
     </div>
   );
 }
