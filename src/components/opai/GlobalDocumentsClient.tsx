@@ -244,7 +244,7 @@ export function GlobalDocumentsClient() {
         title="Eliminar documento"
         description="El documento será eliminado permanentemente. Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
-        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onConfirm={() => { if (deleteId) handleDelete(deleteId); }}
       />
     </div>
   );

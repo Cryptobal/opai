@@ -381,7 +381,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
         title="Eliminar documento"
         description="El documento será eliminado permanentemente."
         confirmLabel="Eliminar"
-        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onConfirm={() => { if (deleteId) handleDelete(deleteId); }}
       />
     </div>
   );
