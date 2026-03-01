@@ -3,8 +3,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
-import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { RondasAlertasClient } from "@/components/ops/rondas";
 
 export default async function RondasAlertasPage() {
@@ -15,20 +13,35 @@ export default async function RondasAlertasPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const rows = await prisma.opsAlertaRonda.findMany({
-    where: { tenantId, resuelta: false },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+
+  const [rows, installations] = await Promise.all([
+    prisma.opsAlertaRonda.findMany({
+      where: { tenantId },
+      include: {
+        installation: { select: { id: true, name: true } },
+        ejecucion: {
+          select: {
+            id: true,
+            status: true,
+            rondaTemplate: { select: { name: true } },
+            guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+          },
+        },
+      },
+      orderBy: [{ resuelta: "asc" }, { createdAt: "desc" }],
+      take: 500,
+    }),
+    prisma.crmInstallation.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Alertas de rondas"
-        description="Alertas automáticas por geolocalización, secuencia y comportamiento anómalo."
-      />
-      <OpsGlobalSearch className="w-full sm:max-w-xs" />
-      <RondasAlertasClient initialRows={JSON.parse(JSON.stringify(rows))} />
-    </div>
+    <RondasAlertasClient
+      initialRows={JSON.parse(JSON.stringify(rows))}
+      installations={JSON.parse(JSON.stringify(installations))}
+    />
   );
 }

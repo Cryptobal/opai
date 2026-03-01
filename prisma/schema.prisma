@@ -47,6 +47,8 @@ model Tenant {
   inventoryGuardiaAssignments InventoryGuardiaAssignment[]
   inventoryAssets             InventoryAsset[]
   inventoryAssetAssignments   InventoryAssetAssignment[]
+  aiProviders                 AiProvider[]
+  globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
 
   @@index([slug])
   @@index([active])
@@ -377,6 +379,46 @@ model AiDocChunk {
   updatedAt   DateTime                     @updatedAt @map("updated_at")
 
   @@index([sourcePath], map: "idx_ai_doc_chunk_source")
+  @@schema("public")
+}
+
+// ── AI Providers & Models ──
+
+model AiProvider {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  name         String
+  providerType String    @unique @map("provider_type")
+  apiKey       String?   @map("api_key") @db.Text
+  baseUrl      String?   @map("base_url")
+  isActive     Boolean   @default(false) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  models AiModel[]
+
+  @@index([tenantId], map: "idx_ai_provider_tenant")
+  @@map("ai_providers")
+  @@schema("public")
+}
+
+model AiModel {
+  id          String   @id @default(cuid())
+  providerId  String   @map("provider_id")
+  modelId     String   @map("model_id")
+  displayName String   @map("display_name")
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  costTier    String   @map("cost_tier")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId], map: "idx_ai_model_provider")
+  @@map("ai_models")
   @@schema("public")
 }
 
@@ -1290,6 +1332,13 @@ model CrmInstallation {
   inventoryAssetAssignments       InventoryAssetAssignment[]
   inventoryMovements              InventoryMovement[]
   inventoryGuardiaAssignments     InventoryGuardiaAssignment[]
+  protocolSections                ProtocolSection[]
+  protocolDocuments               ProtocolDocument[]
+  protocolVersions                ProtocolVersion[]
+  exams                           Exam[]
+  opsRondaEjecuciones             OpsRondaEjecucion[]              @relation("ejecucionInstallation")
+  opsDispositivosInstalacion      OpsDispositivoInstalacion[]
+  opsPatrullajeSesiones           OpsPatrullajeSesion[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1795,6 +1844,149 @@ model CrmEmailSignature {
   @@schema("crm")
 }
 
+// ── Installation Protocols ──
+
+model ProtocolSection {
+  id             String   @id @default(cuid())
+  installationId String   @map("installation_id") @db.Uuid
+  title          String
+  icon           String   @default("📋")
+  order          Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  items        ProtocolItem[]
+
+  @@index([installationId], map: "idx_protocol_section_installation")
+  @@map("protocol_sections")
+  @@schema("crm")
+}
+
+model ProtocolItem {
+  id          String   @id @default(cuid())
+  sectionId   String   @map("section_id")
+  title       String
+  description String   @db.Text
+  order       Int      @default(0)
+  source      String   @default("manual") // manual | ai_generated | ai_from_pdf
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  section ProtocolSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId], map: "idx_protocol_item_section")
+  @@map("protocol_items")
+  @@schema("crm")
+}
+
+model ProtocolDocument {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  installationId String?  @map("installation_id") @db.Uuid
+  scope          String   @default("installation") // "global" | "installation"
+  fileName       String   @map("file_name")
+  fileUrl        String   @map("file_url")
+  storageKey     String?  @map("storage_key")
+  fileSize       Int?     @map("file_size")
+  processed      Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant           @relation("protocol_document_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, scope], map: "idx_protocol_document_tenant_scope")
+  @@index([installationId], map: "idx_protocol_document_installation")
+  @@map("protocol_documents")
+  @@schema("crm")
+}
+
+model ProtocolVersion {
+  id             String    @id @default(cuid())
+  installationId String    @map("installation_id") @db.Uuid
+  versionNumber  Int       @map("version_number")
+  status         String    @default("draft") // draft | published | archived
+  snapshot       Json      @db.JsonB
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
+  publishedBy    String?   @map("published_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([installationId], map: "idx_protocol_version_installation")
+  @@index([installationId, versionNumber], map: "idx_protocol_version_number")
+  @@map("protocol_versions")
+  @@schema("crm")
+}
+
+// ── Installation Exams ──
+
+model Exam {
+  id              String   @id @default(cuid())
+  installationId  String   @map("installation_id") @db.Uuid
+  title           String
+  type            String   @default("protocol") // protocol | security_general
+  status          String   @default("draft") // draft | active | archived
+  scheduleType    String   @default("manual") @map("schedule_type") // manual | on_assignment | recurring
+  recurringMonths Int?     @map("recurring_months")
+  passingScore    Int      @default(60) @map("passing_score")
+  createdBy       String   @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  questions    ExamQuestion[]
+  assignments  ExamAssignment[]
+
+  @@index([installationId], map: "idx_exam_installation")
+  @@index([installationId, status], map: "idx_exam_installation_status")
+  @@map("exams")
+  @@schema("crm")
+}
+
+model ExamQuestion {
+  id           String   @id @default(cuid())
+  examId       String   @map("exam_id")
+  questionText String   @map("question_text") @db.Text
+  questionType String   @default("multiple_choice") @map("question_type") // multiple_choice | true_false
+  options      Json     @db.JsonB
+  correctAnswer Int     @map("correct_answer")
+  sectionRef   String?  @map("section_ref")
+  source       String   @default("manual") // manual | ai_generated
+  order        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId], map: "idx_exam_question_exam")
+  @@map("exam_questions")
+  @@schema("crm")
+}
+
+model ExamAssignment {
+  id            String    @id @default(cuid())
+  examId        String    @map("exam_id")
+  guardId       String    @map("guard_id") @db.Uuid
+  status        String    @default("sent") // sent | opened | completed | expired
+  sentAt        DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
+  openedAt      DateTime? @map("opened_at") @db.Timestamptz(6)
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(6)
+  score         Float?
+  answers       Json?     @db.JsonB
+  timeTakenSecs Int?      @map("time_taken_secs")
+  attemptNumber Int       @default(1) @map("attempt_number")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  exam  Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  guard OpsGuardia @relation(fields: [guardId], references: [id], onDelete: Cascade)
+
+  @@index([examId], map: "idx_exam_assignment_exam")
+  @@index([guardId], map: "idx_exam_assignment_guard")
+  @@index([examId, guardId], map: "idx_exam_assignment_exam_guard")
+  @@map("exam_assignments")
+  @@schema("crm")
+}
+
 // ============================================
 // OPS MODULE (Operaciones, TE, Personas)
 // ============================================
@@ -1918,6 +2110,9 @@ model OpsGuardia {
   inventoryMovements          InventoryMovement[]
   supervisionEvaluations      OpsSupervisionGuardEvaluation[] @relation("supervision_guard_evaluation_guard")
   supervisionFindings         OpsSupervisionFinding[]         @relation("supervision_finding_guard")
+  examAssignments             ExamAssignment[]
+  rondaAlertas                OpsAlertaRonda[]                @relation("alertaGuardia")
+  patrolSessions              OpsPatrullajeSesion[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2757,11 +2952,14 @@ model OpsCheckpoint {
   qrCode         String   @map("qr_code")
   lat            Float?
   lng            Float?
-  geoRadiusM     Int      @default(30) @map("geo_radius_m")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdBy      String?  @map("created_by")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  geoRadiusM         Int      @default(30) @map("geo_radius_m")
+  verificationType   String   @default("GEOFENCE") @map("verification_type")
+  isCritical         Boolean  @default(false) @map("is_critical")
+  sortOrder          Int      @default(0) @map("sort_order")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdBy          String?  @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation CrmInstallation          @relation(fields: [installationId], references: [id], onDelete: Cascade)
   rondaLinks   OpsRondaCheckpoint[]
@@ -2863,6 +3061,12 @@ model OpsRondaEjecucion {
   checkpointsCompletados Int       @default(0) @map("checkpoints_completados")
   porcentajeCompletado   Float     @default(0) @map("porcentaje_completado")
   trustScore             Int       @default(0) @map("trust_score")
+  trustBreakdown         Json?     @map("trust_breakdown") @db.JsonB
+  durationMinutes        Int?      @map("duration_minutes")
+  isOfflineSync          Boolean   @default(false) @map("is_offline_sync")
+  syncedAt               DateTime? @map("synced_at") @db.Timestamptz(6)
+  notes                  String?
+  installationId         String?   @map("installation_id") @db.Uuid
   deviceInfo             Json?     @map("device_info") @db.JsonB
   alertas                Json?     @db.JsonB
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -2871,6 +3075,7 @@ model OpsRondaEjecucion {
   rondaTemplate OpsRondaTemplate         @relation(fields: [rondaTemplateId], references: [id], onDelete: Cascade)
   programacion  OpsRondaProgramacion?    @relation(fields: [programacionId], references: [id], onDelete: SetNull)
   guardia       OpsGuardia?              @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  installation  CrmInstallation?         @relation("ejecucionInstallation", fields: [installationId], references: [id], onDelete: SetNull)
   marcaciones   OpsMarcacionCheckpoint[]
   alertasRows   OpsAlertaRonda[]
   incidentes    OpsRondaIncidente[]
@@ -2881,6 +3086,8 @@ model OpsRondaEjecucion {
   @@index([guardiaId], map: "idx_ops_ronda_ejecuciones_guardia")
   @@index([scheduledAt], map: "idx_ops_ronda_ejecuciones_scheduled_at")
   @@index([status], map: "idx_ops_ronda_ejecuciones_status")
+  @@index([installationId, status], map: "idx_ops_ronda_ejecuciones_inst_status")
+  @@index([guardiaId, status], map: "idx_ops_ronda_ejecuciones_guardia_status")
   @@map("ronda_ejecuciones")
   @@schema("ops")
 }
@@ -2900,10 +3107,15 @@ model OpsMarcacionCheckpoint {
   motionData       Json?    @map("motion_data") @db.JsonB
   speedFromPrevKmh Float?   @map("speed_from_prev_kmh")
   timeFromPrevSec  Int?     @map("time_from_prev_sec")
-  fotoEvidenciaUrl String?  @map("foto_evidencia_url")
-  hashIntegridad   String   @map("hash_integridad")
-  anomalias        Json?    @db.JsonB
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  fotoEvidenciaUrl   String?  @map("foto_evidencia_url")
+  audioUrl           String?  @map("audio_url")
+  note               String?
+  hashIntegridad     String   @map("hash_integridad")
+  anomalias          Json?    @db.JsonB
+  status             String   @default("COMPLETED")
+  verificationMethod String   @default("QR") @map("verification_method")
+  isOfflineSync      Boolean  @default(false) @map("is_offline_sync")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ejecucion  OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
   checkpoint OpsCheckpoint     @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
@@ -2914,32 +3126,41 @@ model OpsMarcacionCheckpoint {
   @@index([checkpointId], map: "idx_ops_marcacion_checkpoint_checkpoint")
   @@index([guardiaId], map: "idx_ops_marcacion_checkpoint_guardia")
   @@index([timestamp], map: "idx_ops_marcacion_checkpoint_timestamp")
+  @@index([ejecucionId, checkpointId], map: "idx_ops_marcacion_cp_ej_cp")
   @@map("marcacion_checkpoints")
   @@schema("ops")
 }
 
 model OpsAlertaRonda {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  ejecucionId    String    @map("ejecucion_id") @db.Uuid
-  installationId String    @map("installation_id") @db.Uuid
-  tipo           String
-  severidad      String    @default("warning") // "info" | "warning" | "critical"
-  mensaje        String
-  data           Json?     @db.JsonB
-  resuelta       Boolean   @default(false)
-  resueltaPor    String?   @map("resuelta_por")
-  resueltaAt     DateTime? @map("resuelta_at") @db.Timestamptz(6)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  ejecucionId      String    @map("ejecucion_id") @db.Uuid
+  installationId   String    @map("installation_id") @db.Uuid
+  guardiaId        String?   @map("guardia_id") @db.Uuid
+  tipo             String
+  severidad        String    @default("warning") // "info" | "warning" | "critical"
+  mensaje          String
+  data             Json?     @db.JsonB
+  resuelta         Boolean   @default(false)
+  resueltaPor      String?   @map("resuelta_por")
+  resueltaAt       DateTime? @map("resuelta_at") @db.Timestamptz(6)
+  isAcknowledged   Boolean   @default(false) @map("is_acknowledged")
+  acknowledgedBy   String?   @map("acknowledged_by")
+  acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ejecucion    OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
   installation CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  guardia      OpsGuardia?       @relation("alertaGuardia", fields: [guardiaId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_alerta_ronda_tenant")
   @@index([ejecucionId], map: "idx_ops_alerta_ronda_ejecucion")
   @@index([installationId], map: "idx_ops_alerta_ronda_installation")
   @@index([severidad], map: "idx_ops_alerta_ronda_severidad")
   @@index([resuelta], map: "idx_ops_alerta_ronda_resuelta")
+  @@index([installationId, isAcknowledged], map: "idx_ops_alerta_ronda_inst_ack")
+  @@index([severidad, isAcknowledged], map: "idx_ops_alerta_ronda_sev_ack")
+  @@index([createdAt], map: "idx_ops_alerta_ronda_created")
   @@map("alertas_ronda")
   @@schema("ops")
 }
@@ -3069,6 +3290,76 @@ model OpsControlNocturnoRonda {
   @@unique([controlInstalacionId, rondaNumber], map: "uq_ops_cn_ronda_inst_number")
   @@index([controlInstalacionId], map: "idx_ops_cn_ronda_instalacion")
   @@map("control_nocturno_rondas")
+  @@schema("ops")
+}
+
+// ============================================
+// OPS — RONDAS 2.0: DISPOSITIVOS, SESIONES, MONITOREO
+// ============================================
+
+model OpsDispositivoInstalacion {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  installationId String    @map("installation_id") @db.Uuid
+  deviceId       String    @map("device_id")
+  deviceName     String?   @map("device_name")
+  isAuthorized   Boolean   @default(true) @map("is_authorized")
+  lastAccessAt   DateTime? @map("last_access_at") @db.Timestamptz(6)
+  registeredAt   DateTime  @default(now()) @map("registered_at") @db.Timestamptz(6)
+  registeredBy   String?   @map("registered_by")
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@unique([installationId, deviceId], map: "uq_ops_dispositivo_inst_device")
+  @@index([tenantId], map: "idx_ops_dispositivos_tenant")
+  @@index([installationId], map: "idx_ops_dispositivos_installation")
+  @@map("dispositivos_instalacion")
+  @@schema("ops")
+}
+
+model OpsPatrullajeSesion {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  guardiaId      String    @map("guardia_id") @db.Uuid
+  installationId String    @map("installation_id") @db.Uuid
+  deviceId       String?   @map("device_id")
+  loginAt        DateTime  @default(now()) @map("login_at") @db.Timestamptz(6)
+  logoutAt       DateTime? @map("logout_at") @db.Timestamptz(6)
+  loginMethod    String    @default("RUT_PIN") @map("login_method")
+  isActive       Boolean   @default(true) @map("is_active")
+  ipAddress      String?   @map("ip_address")
+
+  guardia      OpsGuardia      @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_patrullaje_sesion_tenant")
+  @@index([guardiaId, isActive], map: "idx_ops_patrullaje_sesion_guardia_active")
+  @@index([installationId, isActive], map: "idx_ops_patrullaje_sesion_inst_active")
+  @@map("patrullaje_sesiones")
+  @@schema("ops")
+}
+
+model OpsMonitoreoTurno {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId              String    @map("tenant_id")
+  operatorId            String    @map("operator_id")
+  operatorName          String?   @map("operator_name")
+  installationIds       Json      @default("[]") @map("installation_ids") @db.JsonB
+  startedAt             DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt               DateTime? @map("ended_at") @db.Timestamptz(6)
+  status                String    @default("active") // "active" | "completed"
+  totalRoundsMonitored  Int       @default(0) @map("total_rounds_monitored")
+  totalAlertsHandled    Int       @default(0) @map("total_alerts_handled")
+  aiSummary             String?   @map("ai_summary") @db.Text
+  operatorComments      String?   @map("operator_comments") @db.Text
+  emailSentTo           Json?     @map("email_sent_to") @db.JsonB
+  emailSentAt           DateTime? @map("email_sent_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_ops_monitoreo_turno_tenant")
+  @@index([operatorId, status], map: "idx_ops_monitoreo_turno_operator_status")
+  @@map("monitoreo_turnos")
   @@schema("ops")
 }
 

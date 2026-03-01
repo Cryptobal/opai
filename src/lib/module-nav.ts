@@ -54,6 +54,8 @@ import {
   // Config
   Plug,
   Bell,
+  Sparkles,
+  Brain,
 } from "lucide-react";
 import {
   type RolePermissions,
@@ -117,8 +119,9 @@ const RONDAS_ITEMS: BottomNavItem[] = [
   { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
   { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
   { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
-  { key: "rondas-checkpoints", href: "/ops/rondas/checkpoints", label: "Puntos", icon: MapPin },
-  { key: "rondas-config", href: "/ops/rondas/templates", label: "Config", icon: Settings },
+  { key: "rondas-config", href: "/ops/rondas/configuracion", label: "Config", icon: Settings },
+  { key: "rondas-reportes", href: "/ops/rondas/reportes", label: "Reportes", icon: BarChart3 },
+  { key: "rondas-ia", href: "/ops/rondas/centro-ia", label: "Centro IA", icon: Brain },
 ];
 
 const INVENTARIO_ITEMS: BottomNavItem[] = [
@@ -188,6 +191,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, subKey: "cpq" },
   { key: "config-ops", href: "/opai/configuracion/ops", label: "Ops", icon: ClipboardList, subKey: "ops" },
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
+  { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "IA", icon: Sparkles, subKey: "inteligencia_artificial" },
 ];
 
 /* ── Module detection ── */

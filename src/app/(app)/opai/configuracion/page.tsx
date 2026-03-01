@@ -22,6 +22,8 @@ import {
   Receipt,
   Ticket,
   Shield,
+  Sparkles,
+  FileText,
 } from "lucide-react";
 import { ConfigSearch } from "@/components/configuracion/ConfigSearch";
 
@@ -96,6 +98,22 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Asistente IA",
         description: "Control de roles, acceso y alcance del chat",
         icon: Bot,
+        adminOnly: true,
+      },
+      {
+        submodule: "inteligencia_artificial",
+        href: "/opai/configuracion/inteligencia-artificial",
+        title: "Inteligencia Artificial",
+        description: "Proveedor de IA, API key y modelo para funciones inteligentes",
+        icon: Sparkles,
+        adminOnly: true,
+      },
+      {
+        submodule: "inteligencia_artificial",
+        href: "/opai/configuracion/documentos-globales",
+        title: "Documentos Globales",
+        description: "PDFs compartidos en todas las instalaciones (OS10, manuales de seguridad)",
+        icon: FileText,
         adminOnly: true,
       },
       {

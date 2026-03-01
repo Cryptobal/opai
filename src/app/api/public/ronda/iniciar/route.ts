@@ -50,6 +50,18 @@ export async function POST(req: NextRequest) {
         id: true,
         guardiaId: true,
         alertas: true,
+        rondaTemplate: {
+          select: {
+            checkpoints: {
+              include: {
+                checkpoint: {
+                  select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true, qrCode: true },
+                },
+              },
+              orderBy: { orderIndex: "asc" as const },
+            },
+          },
+        },
       },
     });
     if (!execution) {
@@ -66,6 +78,7 @@ export async function POST(req: NextRequest) {
         status: "en_curso",
         startedAt: new Date(),
         guardiaId: persona.guardia.id,
+        installationId: installation.id,
         deviceInfo: (deviceInfo ?? null) as never,
         alertas: {
           ...previousAlertData,
@@ -79,7 +92,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    const checkpointData = execution.rondaTemplate?.checkpoints?.map((tc: any) => ({
+      id: tc.checkpoint.id,
+      name: tc.checkpoint.name,
+      lat: tc.checkpoint.lat,
+      lng: tc.checkpoint.lng,
+      radius: tc.checkpoint.geoRadiusM,
+      verificationType: tc.checkpoint.verificationType,
+      qrCode: tc.checkpoint.qrCode,
+      order: tc.orderIndex,
+      isRequired: tc.isRequired,
+    })) ?? [];
+
+    return NextResponse.json({
+      success: true,
+      data: { checkpoints: checkpointData },
+    });
   } catch (error) {
     console.error("[RONDAS] public iniciar", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });

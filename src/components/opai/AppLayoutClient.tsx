@@ -39,6 +39,7 @@ import {
   GitCompareArrows,
   BookText,
   Inbox,
+  Sparkles,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem, type NavSubItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -314,6 +315,7 @@ export function AppLayoutClient({
           canView(permissions, 'config', 'integraciones') && { href: '/opai/configuracion/integraciones', label: 'Integraciones', icon: Plug },
           canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/notificaciones', label: 'Notificaciones', icon: Bell },
           isAdmin && canView(permissions, 'config', 'notificaciones') && { href: '/opai/configuracion/asistente-ia', label: 'Asistente IA', icon: Bot },
+          isAdmin && { href: '/opai/configuracion/inteligencia-artificial', label: 'Inteligencia Artificial', icon: Sparkles },
           isAdmin && canView(permissions, 'config', 'usuarios') && { href: '/opai/configuracion/auditoria', label: 'Auditoría', icon: ClipboardCheck },
         ].filter(Boolean) as NavSubItem[];
         if (generalItems.length > 0) {
