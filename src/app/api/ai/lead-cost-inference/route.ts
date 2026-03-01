@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 const VALID_GROUP_IDS = new Set([
@@ -111,14 +111,10 @@ Reglas:
 - Si menciona sistema, software, monitoreo: incluye system.
 - Responde SOLO con el array JSON, sin explicación. Ejemplo: ["uniform","exam","equipment","system"]`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 200,
+    const raw = await aiGenerate(prompt, {
+      maxTokens: 200,
       temperature: 0.2,
     });
-
-    const raw = completion.choices[0]?.message?.content?.trim() || "";
     let groupIds = parseGroupIdsFromContent(raw);
     if (groupIds.length === 0) {
       groupIds = ["uniform", "exam"];

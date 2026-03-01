@@ -44,6 +44,8 @@ import {
   Warehouse,
   Layers,
   Smartphone,
+  BookOpen,
+  GraduationCap,
   // TE
   CheckCircle2,
   Banknote,
@@ -54,6 +56,7 @@ import {
   // Config
   Plug,
   Bell,
+  Brain,
 } from "lucide-react";
 import {
   type RolePermissions,
@@ -110,6 +113,8 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-protocolos", href: "/ops/protocolos", label: "Protocolos", icon: BookOpen, subKey: "protocolos" },
+  { key: "ops-examenes", href: "/ops/examenes", label: "Exámenes", icon: GraduationCap, subKey: "examenes" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
@@ -188,6 +193,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, subKey: "cpq" },
   { key: "config-ops", href: "/opai/configuracion/ops", label: "Ops", icon: ClipboardList, subKey: "ops" },
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
+  { key: "config-ai", href: "/opai/configuracion/inteligencia-artificial", label: "IA", icon: Brain, subKey: "ia" },
 ];
 
 /* ── Module detection ── */

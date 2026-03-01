@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
@@ -206,14 +206,10 @@ El servicio contempla:
         : ""
     }`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 600,
+    const serviceDetail = await aiGenerate(prompt, {
+      maxTokens: 600,
       temperature: 0.5,
     });
-
-    const serviceDetail = completion.choices[0]?.message?.content?.trim() || "";
 
     // Save to quote
     await prisma.cpqQuote.update({

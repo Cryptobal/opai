@@ -9,7 +9,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 
 type ExtractedWebData = {
   websiteNormalized: string;
@@ -492,34 +492,23 @@ async function enrichCompanyWithAi(
     .filter(Boolean)
     .join("\n");
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.1,
-    max_tokens: 700,
-    messages: [
-      {
-        role: "system",
-        content:
-          "Eres analista comercial B2B. Responde SOLO JSON válido, sin texto adicional. Nunca inventes datos: si falta información usa exactamente 'Not Available'.",
-      },
-      {
-        role: "user",
-        content:
-          `Devuelve un objeto JSON con las claves exactas:\n` +
-          `companyNameDetected, summary, industry, segment, legalName, companyRut, legalRepresentativeName, legalRepresentativeRut.\n\n` +
-          `Reglas:\n` +
-          `- companyNameDetected: nombre comercial/empresa corto (ej: "Steak"), o 'Not Available'.\n` +
-          `- summary: 4-6 líneas en español sobre qué hace la empresa y foco comercial.\n` +
-          `- industry y segment: clasificaciones comerciales en español, o 'Not Available'.\n` +
-          `- legalName: razón social, o 'Not Available'.\n` +
-          `- companyRut y legalRepresentativeRut: formato RUT chileno si existe; si no, 'Not Available'.\n` +
-          `- legalRepresentativeName: nombre completo o 'Not Available'.\n\n` +
-          `Información extraída:\n${sourceText}`,
-      },
-    ],
-  });
+  const userPrompt =
+    `Devuelve un objeto JSON con las claves exactas:\n` +
+    `companyNameDetected, summary, industry, segment, legalName, companyRut, legalRepresentativeName, legalRepresentativeRut.\n\n` +
+    `Reglas:\n` +
+    `- companyNameDetected: nombre comercial/empresa corto (ej: "Steak"), o 'Not Available'.\n` +
+    `- summary: 4-6 líneas en español sobre qué hace la empresa y foco comercial.\n` +
+    `- industry y segment: clasificaciones comerciales en español, o 'Not Available'.\n` +
+    `- legalName: razón social, o 'Not Available'.\n` +
+    `- companyRut y legalRepresentativeRut: formato RUT chileno si existe; si no, 'Not Available'.\n` +
+    `- legalRepresentativeName: nombre completo o 'Not Available'.\n\n` +
+    `Información extraída:\n${sourceText}`;
 
-  const raw = completion.choices[0]?.message?.content?.trim() || "";
+  const raw = await aiGenerate(userPrompt, {
+    system: "Eres analista comercial B2B. Responde SOLO JSON válido, sin texto adicional. Nunca inventes datos: si falta información usa exactamente 'Not Available'.",
+    temperature: 0.1,
+    maxTokens: 700,
+  });
   const parsed = JSON.parse(extractJsonObject(raw)) as Partial<CompanyAiEnrichment>;
 
   const regexRut = extractFirstRut(sourceText);

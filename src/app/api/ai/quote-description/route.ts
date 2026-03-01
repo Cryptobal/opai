@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { aiGenerate } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { formatCurrency } from "@/lib/utils";
@@ -160,14 +160,10 @@ Estructura ideal:
         : ""
     }`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 500,
+    const description = await aiGenerate(prompt, {
+      maxTokens: 500,
       temperature: 0.7,
     });
-
-    const description = completion.choices[0]?.message?.content?.trim() || "";
 
     // Save to quote
     await prisma.cpqQuote.update({

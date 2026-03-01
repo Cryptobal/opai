@@ -40,6 +40,14 @@ import {
   TICKET_STATUS_CONFIG,
   type TicketStatus,
 } from "@/lib/tickets";
+import {
+  ProtocoloSection,
+  ExamenSection,
+  ResultadosSection,
+  GuardProtocolCard,
+  GuardPendingExamCard,
+  GuardResultsCard,
+} from "./GuardProtocolExamSections";
 
 // ═══════════════════════════════════════════════════════════════
 //  ICON MAP for bottom nav
@@ -118,6 +126,15 @@ export function GuardPortalClient() {
         {activeSection === "pauta" && <PautaSection session={session} />}
         {activeSection === "perfil" && (
           <PerfilSection session={session} onLogout={handleLogout} />
+        )}
+        {activeSection === "protocolo" && (
+          <ProtocoloSection session={session} onNavigate={setActiveSection} />
+        )}
+        {activeSection === "examen" && (
+          <ExamenSection session={session} onNavigate={setActiveSection} />
+        )}
+        {activeSection === "resultados" && (
+          <ResultadosSection session={session} onNavigate={setActiveSection} />
         )}
       </main>
 
@@ -378,6 +395,13 @@ function InicioSection({
             Solicitudes
           </p>
         </div>
+      </div>
+
+      {/* Protocolo, Exámenes y Resultados */}
+      <div className="space-y-3">
+        <GuardProtocolCard session={session} onNavigate={onNavigate} />
+        <GuardPendingExamCard session={session} onNavigate={onNavigate} />
+        <GuardResultsCard session={session} onNavigate={onNavigate} />
       </div>
 
       {/* Acciones rápidas */}
