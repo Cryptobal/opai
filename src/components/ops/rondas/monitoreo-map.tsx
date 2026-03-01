@@ -115,9 +115,10 @@ export function MonitoreoMap({
 
     const w = window as unknown as GWindow;
     if (!w.google?.maps) return;
+    const gm = w.google.maps;
 
     const defaultCenter = center || { lat: -33.45, lng: -70.65 };
-    mapRef.current = new w.google.maps.Map(containerRef.current, {
+    mapRef.current = new gm.Map(containerRef.current, {
       center: defaultCenter,
       zoom: 15,
       mapTypeId: "roadmap",
@@ -131,7 +132,7 @@ export function MonitoreoMap({
       disableDefaultUI: true,
       zoomControl: true,
       mapTypeControl: true,
-      mapTypeControlOptions: { position: w.google.maps.ControlPosition.TOP_RIGHT },
+      mapTypeControlOptions: { position: gm.ControlPosition.TOP_RIGHT },
     });
   }, [ready, center]);
 
@@ -141,6 +142,7 @@ export function MonitoreoMap({
 
     const w = window as unknown as GWindow;
     if (!w.google?.maps) return;
+    const gm = w.google.maps;
 
     markersRef.current.forEach((m) => m.setMap(null));
     circlesRef.current.forEach((c) => c.setMap(null));
@@ -151,12 +153,12 @@ export function MonitoreoMap({
 
     checkpoints.forEach((cp) => {
       const color = STATUS_COLORS[cp.status] ?? STATUS_COLORS["pending"];
-      const marker = new w.google.maps.Marker({
+      const marker = new gm.Marker({
         position: { lat: cp.lat, lng: cp.lng },
         map,
         title: cp.name,
         icon: {
-          path: w.google.maps.SymbolPath.CIRCLE,
+          path: gm.SymbolPath.CIRCLE,
           scale: 8,
           fillColor: color,
           fillOpacity: 0.9,
@@ -166,7 +168,7 @@ export function MonitoreoMap({
       });
       markersRef.current.push(marker);
 
-      const circle = new w.google.maps.Circle({
+      const circle = new gm.Circle({
         center: { lat: cp.lat, lng: cp.lng },
         radius: cp.radiusM,
         map,
@@ -180,12 +182,12 @@ export function MonitoreoMap({
     });
 
     guards.forEach((g) => {
-      const marker = new w.google.maps.Marker({
+      const marker = new gm.Marker({
         position: { lat: g.lat, lng: g.lng },
         map,
         title: g.label,
         icon: {
-          path: w.google.maps.SymbolPath.CIRCLE,
+          path: gm.SymbolPath.CIRCLE,
           scale: 12,
           fillColor: g.hasAlert ? "#ef4444" : "#22c55e",
           fillOpacity: 1,
@@ -195,14 +197,14 @@ export function MonitoreoMap({
         zIndex: 100,
       });
 
-      const infoWindow = new w.google.maps.InfoWindow({ content: `<div style="color:#000;font-size:12px;font-weight:600">${g.label}</div>` });
+      const infoWindow = new gm.InfoWindow({ content: `<div style="color:#000;font-size:12px;font-weight:600">${g.label}</div>` });
       marker.addListener("click", () => infoWindow.open(map, marker));
       markersRef.current.push(marker);
     });
 
     routes.forEach((route) => {
       if (route.length < 2) return;
-      const polyline = new w.google.maps.Polyline({
+      const polyline = new gm.Polyline({
         path: route.map((p) => ({ lat: p.lat, lng: p.lng })),
         map,
         strokeColor: "#3b82f6",
