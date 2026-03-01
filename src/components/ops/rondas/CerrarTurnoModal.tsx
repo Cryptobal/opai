@@ -58,7 +58,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Cerrar turno de monitoreo</DialogTitle>
@@ -103,7 +103,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
                 placeholder="email@ejemplo.cl"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addEmail())}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }}
               />
               <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={addEmail}>
                 + Agregar

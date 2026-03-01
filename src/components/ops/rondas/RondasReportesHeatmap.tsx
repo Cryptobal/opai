@@ -77,10 +77,12 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<unknown>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<Array<{ setMap: (m: unknown) => void }>>([]);
   const circlesRef = useRef<Array<{ setMap: (m: unknown) => void }>>([]);
-  const infoRef = useRef<{ close: () => void; open: (m: unknown, a: unknown) => void } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const infoRef = useRef<any>(null);
 
   useEffect(() => {
     loadGoogleMaps()
@@ -113,18 +115,20 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
   useEffect(() => {
     if (!mapReady || !containerRef.current || points.length === 0) return;
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     const w = window as unknown as {
       google?: {
         maps?: {
-          Map: new (...a: unknown[]) => unknown;
-          Marker: new (...a: unknown[]) => unknown;
-          Circle: new (...a: unknown[]) => unknown;
-          InfoWindow: new (...a: unknown[]) => unknown;
-          LatLngBounds: new () => { extend: (p: unknown) => void };
+          Map: new (...a: any[]) => any;
+          Marker: new (...a: any[]) => any;
+          Circle: new (...a: any[]) => any;
+          InfoWindow: new (...a: any[]) => any;
+          LatLngBounds: new () => { extend: (p: unknown) => void; isEmpty?: () => boolean };
           SymbolPath: { CIRCLE: number };
         };
       };
     };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     if (!w.google?.maps) return;
     const gmaps = w.google.maps;
 
@@ -154,7 +158,7 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
     const bounds = new gmaps.LatLngBounds();
 
     if (!infoRef.current) {
-      infoRef.current = new gmaps.InfoWindow({ content: "" }) as { close: () => void; open: (m: unknown, a: unknown) => void };
+      infoRef.current = new gmaps.InfoWindow({ content: "" });
     }
 
     for (const pt of points) {
@@ -172,7 +176,7 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
         strokeOpacity: 0.5,
         strokeWeight: 1,
       });
-      circlesRef.current.push(circle as { setMap: (m: unknown) => void });
+      circlesRef.current.push(circle);
 
       const marker = new gmaps.Marker({
         map,
@@ -187,7 +191,7 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
           strokeWeight: 2,
         },
       });
-      markersRef.current.push(marker as { setMap: (m: unknown) => void });
+      markersRef.current.push(marker);
 
       const lastStr = pt.lastMarkedAt
         ? new Date(pt.lastMarkedAt).toLocaleDateString("es-CL", {
@@ -198,10 +202,10 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
           })
         : "Nunca";
 
-      (marker as { addListener: (e: string, cb: () => void) => void }).addListener("click", () => {
+      marker.addListener("click", () => {
         const info = infoRef.current;
         if (!info) return;
-        (info as unknown as { setContent: (c: string) => void }).setContent(`
+        info.setContent(`
           <div style="color:#e2e8f0;background:#1e293b;padding:8px 12px;border-radius:8px;font-size:12px;min-width:180px">
             <p style="font-weight:600;margin-bottom:4px">${pt.name}</p>
             <p>Cobertura: <strong>${pt.coveragePercent}%</strong> (${pt.totalMarks}/${pt.totalRounds})</p>

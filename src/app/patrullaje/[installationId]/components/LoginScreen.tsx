@@ -105,7 +105,7 @@ export function LoginScreen({ installationName, installationId, onLogin }: Props
               value={pin}
               onChange={(e) => setPin(e.target.value.slice(0, 6))}
               maxLength={6}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
             />
           </div>
         </div>

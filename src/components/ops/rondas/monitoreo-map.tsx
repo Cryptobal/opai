@@ -35,6 +35,24 @@ export interface MonitoreoMapProps {
   isFullscreen?: boolean;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type GMapInstance = { panTo: (c: { lat: number; lng: number }) => void; setZoom: (z: number) => void };
+type GMarker = { setMap: (m: unknown) => void; addListener: (e: string, cb: () => void) => void };
+type GCircle = { setMap: (m: unknown) => void };
+type GPolyline = { setMap: (m: unknown) => void };
+type GInfoWindow = { open: (m: unknown, a: unknown) => void; close: () => void };
+type GMaps = {
+  Map: new (...a: any[]) => GMapInstance;
+  Marker: new (...a: any[]) => GMarker;
+  Circle: new (...a: any[]) => GCircle;
+  Polyline: new (...a: any[]) => GPolyline;
+  InfoWindow: new (...a: any[]) => GInfoWindow;
+  SymbolPath: { CIRCLE: number };
+  ControlPosition: { TOP_RIGHT: number };
+};
+type GWindow = { google?: { maps?: GMaps } };
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 const STATUS_COLORS: Record<string, string> = {
   completed: "#22c55e",
   active: "#3b82f6",
@@ -78,10 +96,10 @@ export function MonitoreoMap({
   isFullscreen,
 }: MonitoreoMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<{ panTo: (c: { lat: number; lng: number }) => void; setZoom: (z: number) => void } | null>(null);
-  const markersRef = useRef<{ setMap: (m: unknown) => void }[]>([]);
-  const circlesRef = useRef<{ setMap: (m: unknown) => void }[]>([]);
-  const polylinesRef = useRef<{ setMap: (m: unknown) => void }[]>([]);
+  const mapRef = useRef<GMapInstance | null>(null);
+  const markersRef = useRef<GMarker[]>([]);
+  const circlesRef = useRef<GCircle[]>([]);
+  const polylinesRef = useRef<GPolyline[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,7 +113,7 @@ export function MonitoreoMap({
     if (!ready || !containerRef.current) return;
     if (mapRef.current) return;
 
-    const w = window as unknown as { google?: { maps?: { Map: new (...a: unknown[]) => unknown; Marker: new (...a: unknown[]) => unknown; Circle: new (...a: unknown[]) => unknown; Polyline: new (...a: unknown[]) => unknown; InfoWindow: new (...a: unknown[]) => unknown; SymbolPath: { CIRCLE: number }; ControlPosition: { TOP_RIGHT: number } } } };
+    const w = window as unknown as GWindow;
     if (!w.google?.maps) return;
 
     const defaultCenter = center || { lat: -33.45, lng: -70.65 };
@@ -121,7 +139,7 @@ export function MonitoreoMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const w = window as unknown as { google?: { maps?: { Map: new (...a: unknown[]) => unknown; Marker: new (...a: unknown[]) => unknown; Circle: new (...a: unknown[]) => unknown; Polyline: new (...a: unknown[]) => unknown; InfoWindow: new (...a: unknown[]) => unknown; SymbolPath: { CIRCLE: number }; ControlPosition: { TOP_RIGHT: number } } } };
+    const w = window as unknown as GWindow;
     if (!w.google?.maps) return;
 
     markersRef.current.forEach((m) => m.setMap(null));
