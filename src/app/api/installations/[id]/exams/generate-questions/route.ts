@@ -50,7 +50,7 @@ export async function POST(
       }>;
     };
 
-    let result: QuestionResult;
+    let result: QuestionResult = { questions: [] };
 
     if (type === "security_general") {
       const whereClause = documentIds && documentIds.length > 0
