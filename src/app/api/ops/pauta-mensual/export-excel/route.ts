@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import {
   buildExecutionMap,
+  createOpsAuditLog,
   ensureOpsAccess,
   getMonthDateRange,
   toDateKeyUTC,
@@ -261,6 +262,14 @@ export async function GET(request: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = `PautaMensual_${installation.name.replace(/\s+/g, "_")}_${year}-${String(month).padStart(2, "0")}.xlsx`;
+
+    // Audit: log export access
+    await createOpsAuditLog(ctx, "ops.pauta.export_excel", "ops_pauta", installationId, {
+      month,
+      year,
+      installationName: installation.name,
+      rowCount: matrix.length,
+    });
 
     return new NextResponse(buffer, {
       status: 200,
