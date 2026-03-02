@@ -4,7 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsPpcClient } from "@/components/ops";
+import { OpsPpcClient, PautasSubnav } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsPpcPage() {
   const session = await auth();
@@ -42,6 +42,7 @@ export default async function OpsPpcPage() {
         title="Puestos por cubrir (PPC)"
         description="Brechas de cobertura: puestos sin guardia asignado o con vacaciones/licencia/permiso."
       />
+      <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPpcClient initialClients={JSON.parse(JSON.stringify(clients))} />
     </div>

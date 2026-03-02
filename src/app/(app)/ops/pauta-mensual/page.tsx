@@ -4,7 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsPautaMensualClient } from "@/components/ops";
+import { OpsPautaMensualClient, PautasSubnav } from "@/components/ops";
 
 export default async function OpsPautaMensualPage() {
   const session = await auth();
@@ -43,6 +43,7 @@ export default async function OpsPautaMensualPage() {
         title="Pauta mensual"
         description="Genera el plan del mes y asigna guardias por puesto y día."
       />
+      <PautasSubnav />
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
         currentUserId={session.user.id}
