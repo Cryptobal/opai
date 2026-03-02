@@ -16,6 +16,7 @@ export interface DetectAnomaliesInput {
   prevBatteryLevel?: number | null;
   sameGeoAsPrev?: boolean;
   speedThresholdKmh?: number;
+  elapsedMinutes?: number;
 }
 
 export function detectCheckpointAnomalies(input: DetectAnomaliesInput): RondaAnomalyCode[] {
@@ -27,10 +28,12 @@ export function detectCheckpointAnomalies(input: DetectAnomaliesInput): RondaAno
   if ((input.movementScore ?? 0) < 0.05) anomalies.push("sin_movimiento");
 
   if ((input.batteryLevel ?? 100) <= 10) anomalies.push("bateria_baja");
+  // Only flag static battery if >10 minutes elapsed between checkpoints
   if (
     input.batteryLevel != null &&
     input.prevBatteryLevel != null &&
-    input.batteryLevel === input.prevBatteryLevel
+    input.batteryLevel === input.prevBatteryLevel &&
+    (input.elapsedMinutes ?? 0) > 10
   ) {
     anomalies.push("bateria_estatica");
   }
