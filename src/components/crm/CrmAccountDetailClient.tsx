@@ -36,6 +36,7 @@ import {
   FileText,
   Mail,
   Receipt,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
