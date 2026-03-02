@@ -1175,7 +1175,6 @@ export function CrmDealDetailClient({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>
           {linkedQuotes.length === 0 ? (
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
           ) : (
