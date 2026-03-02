@@ -136,6 +136,8 @@ type AccountDetail = {
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
@@ -808,6 +810,8 @@ export function CrmAccountDetailClient({
               label="Fecha término"
               value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
             />
+            <DetailField label="Fecha creación" value={account.createdAt ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+            <DetailField label="Última modificación" value={account.updatedAt ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
           </DetailFieldGrid>
 
           {/* ── Información empresa (web + IA) ── */}

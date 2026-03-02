@@ -152,6 +152,8 @@ export type DealDetail = {
   quotes?: DealQuote[];
   proposalLink?: string | null;
   proposalSentAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 type InstallationRow = { id: string; name: string; address?: string | null; city?: string | null; commune?: string | null; isActive?: boolean };
@@ -783,6 +785,8 @@ export function CrmDealDetailClient({
             label="Flujo seguimiento"
             value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
           />
+          <DetailField label="Fecha creación" value={deal.createdAt ? new Date(deal.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+          <DetailField label="Última modificación" value={deal.updatedAt ? new Date(deal.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         </DetailFieldGrid>
       </div>
     ),

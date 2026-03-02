@@ -113,6 +113,8 @@ type GuardiaDetail = {
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   availableExtraShifts?: boolean;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
@@ -425,6 +427,16 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
               />
+              <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/40">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fecha creación</p>
+                  <p className="text-sm">{guardia.createdAt ? new Date(guardia.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Última modificación</p>
+                  <p className="text-sm">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+                </div>
+              </div>
             </CollapsibleSection>
           </div>
         );

@@ -640,6 +640,8 @@ export function CrmContactDetailClient({
               <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
             ) : "Secundario"}
           />
+          <DetailField label="Fecha creación" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+          <DetailField label="Última modificación" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         </DetailFieldGrid>
   );
 

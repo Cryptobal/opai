@@ -158,6 +158,8 @@ export type InstallationDetail = {
     roleTitle?: string | null;
     isPrimary?: boolean;
   }>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 /* ── Lifecycle colors (shared) ── */
@@ -1872,6 +1874,8 @@ export function CrmInstallationDetailClient({
                 fullWidth
               />
             )}
+            <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+            <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
             {/* Control Nocturno toggle */}
             <div className="col-span-full">
               <button
