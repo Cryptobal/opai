@@ -119,6 +119,13 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
         tenantId: session.tenantId,
       });
       const res = await fetch(`/api/portal/rondas/mis-rondas?${params.toString()}`);
+      if (!res.ok) {
+        setError(res.status === 401 || res.status === 403
+          ? "Sesión expirada. Vuelva a ingresar."
+          : `Error del servidor (${res.status})`);
+        setRondas([]);
+        return;
+      }
       const json = await res.json();
 
       if (!json.success) {
@@ -322,7 +329,7 @@ function RondaCard({
         </span>
 
         {/* Estimated duration */}
-        {ronda.estimatedDurationMin && (
+        {ronda.estimatedDurationMin != null && ronda.estimatedDurationMin > 0 && (
           <span className={isCompleted ? "text-gray-600" : "text-gray-500"}>
             ~{ronda.estimatedDurationMin} min
           </span>
@@ -330,7 +337,7 @@ function RondaCard({
       </div>
 
       {/* Completed: checkmark row */}
-      {isCompleted && ronda.startedAt && (
+      {isCompleted && (
         <div className="flex items-center gap-2 text-green-500">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -343,7 +350,7 @@ function RondaCard({
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
           <span className="text-sm">
-            Completada a las {formatTime(ronda.startedAt)}
+            Completada — programada {formatTime(ronda.scheduledAt)}
           </span>
         </div>
       )}
