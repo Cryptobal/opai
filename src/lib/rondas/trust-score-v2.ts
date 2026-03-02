@@ -32,11 +32,16 @@ export function calculateRondaTrustScore(input: {
   // 2. TIME (20%)
   const expectedMin = template.estimatedDurationMin || (total * 8);
   let durationMin = 0;
+  let timeScore: number;
   if (ejecucion.startedAt && ejecucion.completedAt) {
     durationMin = (new Date(ejecucion.completedAt).getTime() - new Date(ejecucion.startedAt).getTime()) / 60000;
+    const timeDeviation = expectedMin > 0 ? Math.abs(durationMin - expectedMin) / expectedMin : 0;
+    timeScore = Math.round(Math.max(0, 100 - timeDeviation * 50));
+  } else if (ejecucion.startedAt && !ejecucion.completedAt) {
+    timeScore = 30; // Started but not completed — partial penalty
+  } else {
+    timeScore = 0; // Never started
   }
-  const timeDeviation = expectedMin > 0 ? Math.abs(durationMin - expectedMin) / expectedMin : 0;
-  const timeScore = Math.round(Math.max(0, 100 - timeDeviation * 100));
 
   // 3. SPEED CONSISTENCY (20%)
   const sorted = completedMarks
@@ -53,8 +58,9 @@ export function calculateRondaTrustScore(input: {
     }
     const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
     const variance = intervals.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / intervals.length;
-    const cv = avg > 0 ? variance / (avg * avg) : 0;
-    speedScore = Math.round(Math.max(0, 100 - cv * 200));
+    const stddev = Math.sqrt(variance);
+    const coefficientOfVariation = avg > 0 ? stddev / avg : 0;
+    speedScore = Math.round(Math.max(0, 100 - coefficientOfVariation * 100));
   }
 
   // 4. SEQUENCE (15%)
