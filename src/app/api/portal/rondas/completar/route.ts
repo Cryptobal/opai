@@ -41,7 +41,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate guardiaId matches if execution already has one
+    // Validate guardiaId matches — also handles null guardiaId case
+    const effectiveGuardiaId = execution.guardiaId ?? guardiaId;
+    if (!effectiveGuardiaId) {
+      return NextResponse.json(
+        { success: false, error: "No se pudo determinar el guardia" },
+        { status: 400 },
+      );
+    }
     if (execution.guardiaId && execution.guardiaId !== guardiaId) {
       return NextResponse.json(
         { success: false, error: "guardiaId no coincide con la ejecución" },
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
         tenantId: execution.tenantId,
         ejecucionId: execution.id,
         checkpointId: tc.checkpointId,
-        guardiaId: execution.guardiaId!,
+        guardiaId: effectiveGuardiaId,
         timestamp: now,
         lat: 0,
         lng: 0,
@@ -96,8 +103,7 @@ export async function POST(request: NextRequest) {
     ];
 
     const completedCount = execution.marcaciones.filter(
-      (m) =>
-        m.status === "COMPLETED" || !m.status || m.status === "COMPLETED",
+      (m) => m.status === "COMPLETED" || !m.status,
     ).length;
     const missedPercent =
       total > 0 ? (missedData.length / total) * 100 : 0;
@@ -133,7 +139,7 @@ export async function POST(request: NextRequest) {
         trustScore: trustResult.score,
         trustBreakdown: trustResult.breakdown as any,
         durationMinutes,
-        notes: notes ?? null,
+        notes: notes?.slice(0, 2000) ?? null,
       },
     });
 

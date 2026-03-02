@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
         where: { id: execution.id },
         data: { guardiaId: bodyGuardiaId },
       });
+    } else if (guardiaId !== bodyGuardiaId) {
+      return NextResponse.json(
+        { success: false, error: "guardiaId no coincide con la ejecución" },
+        { status: 403 },
+      );
     }
 
     const checkpoint = await prisma.opsCheckpoint.findFirst({
