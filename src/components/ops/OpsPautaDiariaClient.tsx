@@ -111,6 +111,21 @@ function toDateInput(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+const DATE_INPUT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Parsea "YYYY-MM-DD" como fecha local (medianoche local). Si el string no es válido, devuelve hoy. */
+function parseDateLocal(dateStr: string): Date {
+  if (!dateStr || !DATE_INPUT_REGEX.test(dateStr)) {
+    return new Date();
+  }
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) {
+    return new Date();
+  }
+  return date;
+}
+
 function isDayShift(shiftStart: string): boolean {
   const match = shiftStart.match(/^(\d{1,2})/);
   const hour = match ? parseInt(match[1], 10) : 12;
@@ -346,44 +361,48 @@ export function OpsPautaDiariaClient({
           {/* Date navigation — always visible */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 flex-1">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-10 sm:h-9 sm:w-9 shrink-0"
+                className="inline-flex items-center justify-center rounded-md border border-input bg-transparent h-9 w-10 sm:h-9 sm:w-9 shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => {
-                  const d = new Date(date);
-                  d.setUTCDate(d.getUTCDate() - 1);
-                  setDate(toDateInput(d));
+                  setDate((prev) => {
+                    const d = parseDateLocal(prev);
+                    d.setDate(d.getDate() - 1);
+                    return toDateInput(d);
+                  });
                 }}
+                aria-label="Día anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
-              </Button>
+              </button>
               <input
+                key={date}
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-10 sm:h-9 sm:w-9 shrink-0"
+                className="inline-flex items-center justify-center rounded-md border border-input bg-transparent h-9 w-10 sm:h-9 sm:w-9 shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => {
-                  const d = new Date(date);
-                  d.setUTCDate(d.getUTCDate() + 1);
-                  setDate(toDateInput(d));
+                  setDate((prev) => {
+                    const d = parseDateLocal(prev);
+                    d.setDate(d.getDate() + 1);
+                    return toDateInput(d);
+                  });
                 }}
+                aria-label="Día siguiente"
               >
                 <ChevronRight className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
             <div className="flex items-center gap-2 ml-2">
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
+                disabled={loading}
                 onClick={() => {
                   const params = new URLSearchParams({
                     from: date,
@@ -395,15 +414,10 @@ export function OpsPautaDiariaClient({
               >
                 Exportar HE día
               </Button>
-              {loading ? (
-                <div className="flex items-center gap-1.5 text-sm text-emerald-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="hidden sm:inline">Cargando…</span>
-                </div>
-              ) : items.length > 0 ? (
-                <div className="flex items-center gap-1.5 text-sm text-emerald-400">
-                  <CalendarCheck2 className="h-4 w-4 text-white" />
-                </div>
+              {!loading && items.length > 0 ? (
+                <span className="text-emerald-400" title="Pauta cargada">
+                  <CalendarCheck2 className="h-4 w-4" aria-hidden />
+                </span>
               ) : null}
               <Button
                 variant="ghost"
@@ -469,7 +483,14 @@ export function OpsPautaDiariaClient({
       )}
 
       {/* Content grouped by installation */}
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card>
+          <CardContent className="pt-8 pb-8 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">Cargando pauta…</p>
+          </CardContent>
+        </Card>
+      ) : items.length === 0 ? (
         <Card>
           <CardContent className="pt-5">
             <EmptyState
@@ -481,7 +502,8 @@ export function OpsPautaDiariaClient({
           </CardContent>
         </Card>
       ) : (
-        grouped.map(([instId, group]) => (
+        <div className={loading ? "opacity-80 transition-opacity" : "opacity-100 transition-opacity"}>
+        {grouped.map(([instId, group]) => (
           <Card key={instId} className="overflow-visible">
             <CardContent className="pt-4 pb-3 space-y-3 overflow-visible">
               <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wide">
@@ -894,7 +916,8 @@ export function OpsPautaDiariaClient({
               </div>
             </CardContent>
           </Card>
-        ))
+        ))}
+        </div>
       )}
 
       {/* Modal detalle marcación */}
