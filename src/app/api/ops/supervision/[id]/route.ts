@@ -305,7 +305,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
 
-    if (!canDelete(perms, "ops", "supervision") && !hasCapability(perms, "supervision_view_all")) {
+    if (!canDelete(perms, "ops", "supervision")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para eliminar visitas de supervisión" },
         { status: 403 },

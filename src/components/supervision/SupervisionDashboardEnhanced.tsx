@@ -21,16 +21,15 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Cell,
 } from "recharts";
 import {
   AlertTriangle,
   Clock,
-  TrendingUp,
-  TrendingDown,
   Minus,
   Star,
   Shield,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 
 type DashboardData = {

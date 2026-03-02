@@ -33,7 +33,7 @@ export default async function OpsSupervisionPage({
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const canViewAll = hasCapability(perms, "supervision_view_all");
   const userCanEdit = canEdit(perms, "ops", "supervision");
-  const userCanDelete = canDelete(perms, "ops", "supervision") || canViewAll;
+  const userCanDelete = canDelete(perms, "ops", "supervision");
 
   const where = {
     tenantId,
