@@ -81,7 +81,14 @@ export function LoginScreen({ onLogin }: Props) {
     // This requires auth data from the previous step — stored temporarily
     const authDataStr = sessionStorage.getItem("rondas_portal_auth_temp");
     if (!authDataStr || !installationId) return;
-    const authData = JSON.parse(authDataStr);
+    let authData: { guardiaId: string; tenantId: string; nombre: string };
+    try {
+      authData = JSON.parse(authDataStr);
+    } catch {
+      setError("Error al recuperar datos de sesión");
+      setStep("credentials");
+      return;
+    }
     const inst = installations.find(i => i.id === installationId);
     if (!inst) return;
 
@@ -112,10 +119,11 @@ export function LoginScreen({ onLogin }: Props) {
         )}
 
         {step === "credentials" ? (
-          <div className="space-y-5">
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-5">
             <div>
-              <label className="mb-2 block text-base text-gray-300">RUT</label>
+              <label htmlFor="rondas-rut" className="mb-2 block text-base text-gray-300">RUT</label>
               <input
+                id="rondas-rut"
                 type="text"
                 inputMode="numeric"
                 value={rut}
@@ -126,8 +134,9 @@ export function LoginScreen({ onLogin }: Props) {
               />
             </div>
             <div>
-              <label className="mb-2 block text-base text-gray-300">PIN</label>
+              <label htmlFor="rondas-pin" className="mb-2 block text-base text-gray-300">PIN</label>
               <input
+                id="rondas-pin"
                 type="password"
                 inputMode="numeric"
                 value={pin}
@@ -138,13 +147,13 @@ export function LoginScreen({ onLogin }: Props) {
               />
             </div>
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={loading}
               className="w-full rounded-xl bg-teal-600 py-4 text-xl font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-50"
             >
               {loading ? "Verificando..." : "Ingresar"}
             </button>
-          </div>
+          </form>
         ) : (
           <div className="space-y-5">
             <label className="mb-2 block text-base text-gray-300">Seleccione instalación</label>

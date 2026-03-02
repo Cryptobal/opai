@@ -18,13 +18,20 @@ export function RondasPortalClient() {
   const [screen, setScreen] = useState<RondasScreen>("login");
   const [session, setSession] = useState<RondasSession | null>(null);
 
-  // Restore session from sessionStorage on mount
+  // Restore session from sessionStorage on mount (with 12h TTL)
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem("rondas_portal_session");
       if (stored) {
         const parsed = JSON.parse(stored) as RondasSession;
         if (parsed.guardiaId && parsed.tenantId && parsed.installationId) {
+          const elapsed = Date.now() - new Date(parsed.authenticatedAt).getTime();
+          const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
+          if (elapsed > MAX_SESSION_MS) {
+            sessionStorage.removeItem("rondas_portal_session");
+            sessionStorage.removeItem("rondas_portal_auth_temp");
+            return;
+          }
           setSession(parsed);
           setScreen("mis-rondas");
         }
