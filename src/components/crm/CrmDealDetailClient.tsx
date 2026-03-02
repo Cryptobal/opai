@@ -172,8 +172,9 @@ export function CrmDealDetailClient({
   canConfigureCrm?: boolean;
   currentUserId?: string;
 }) {
-  // ── Quote linking state ──
+  // ── Quote linking & creation state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [linkedQuotes, setLinkedQuotes] = useState<DealQuote[]>(deal.quotes || []);
   const [activeQuotationId, setActiveQuotationId] = useState<string | null>(
@@ -1076,7 +1077,7 @@ export function CrmDealDetailClient({
       content: dealContacts.length === 0 ? (
         <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
       ) : (
-        <CrmRelatedRecordGrid>
+        <CrmRelatedRecordGrid className="!grid-cols-1">
           {dealContacts.map((dc) => {
             const c = dc.contact;
             return (
@@ -1134,28 +1135,29 @@ export function CrmDealDetailClient({
       label: "Cotizaciones",
       icon: QuotesIcon,
       count: linkedQuotes.length,
-      onAdd: () => {/* handled by CreateQuoteModal inside content */},
+      onAdd: () => setQuoteCreateOpen(true),
       content: (
         <div className="space-y-3">
           <div className="flex items-center gap-1.5">
-            <CreateQuoteModal
-              defaultClientName={deal.account?.name ?? undefined}
-              defaultDealName={deal.title}
-              accountId={deal.account?.id}
-              dealId={deal.id}
-              onCreated={(_quoteId, dealQuote) => {
-                if (dealQuote) {
-                  setLinkedQuotes((prev) => [...prev, dealQuote]);
-                }
-                router.refresh();
-              }}
-            />
-            <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                  <Link2 className="h-3 w-3" /> Vincular
-                </Button>
-              </DialogTrigger>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setQuoteDialogOpen(true)}>
+              <Link2 className="h-3 w-3" /> Vincular existente
+            </Button>
+          </div>
+          <CreateQuoteModal
+            defaultClientName={deal.account?.name ?? undefined}
+            defaultDealName={deal.title}
+            accountId={deal.account?.id}
+            dealId={deal.id}
+            open={quoteCreateOpen}
+            onOpenChange={setQuoteCreateOpen}
+            onCreated={(_quoteId, dealQuote) => {
+              if (dealQuote) {
+                setLinkedQuotes((prev) => [...prev, dealQuote]);
+              }
+              router.refresh();
+            }}
+          />
+          <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
                 <div className="space-y-2">
@@ -1177,7 +1179,7 @@ export function CrmDealDetailClient({
           {linkedQuotes.length === 0 ? (
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
           ) : (
-            <CrmRelatedRecordGrid>
+            <CrmRelatedRecordGrid className="!grid-cols-1">
               {linkedQuotes.map((quote) => {
                 const info = quotesById[quote.quoteId];
                 const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
