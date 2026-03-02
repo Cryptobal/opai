@@ -1,60 +1,57 @@
+import { getChileDayOfWeek, parseChileHour } from "./timezone";
+
 export interface NextSlotsInput {
-  from: Date;
-  to: Date;
-  diasSemana: number[]; // 0..6
-  horaInicio: string; // HH:MM
-  horaFin: string; // HH:MM
+  from: Date; // UTC
+  to: Date; // UTC
+  diasSemana: number[]; // 0=Sun .. 6=Sat (Chile local days)
+  horaInicio: string; // "HH:mm" in Chile time
+  horaFin: string; // "HH:mm" in Chile time
   frecuenciaMinutos: number;
 }
 
-function parseTime(hhmm: string): { h: number; m: number } {
-  const [h, m] = hhmm.split(":").map(Number);
-  return { h, m };
-}
-
+/**
+ * Generate UTC schedule slots for the given range.
+ * Hours are interpreted as Chile local time (America/Santiago) and converted to UTC.
+ * Days of week are checked in Chile local time.
+ * Handles DST transitions correctly via date-fns-tz.
+ */
 export function buildScheduleSlots(input: NextSlotsInput): Date[] {
+  if (input.frecuenciaMinutos <= 0) return [];
+
   const slots: Date[] = [];
-  const cursor = new Date(input.from);
-  const start = parseTime(input.horaInicio);
-  const end = parseTime(input.horaFin);
+  const maxDays =
+    Math.ceil(
+      (input.to.getTime() - input.from.getTime()) / (24 * 60 * 60 * 1000)
+    ) + 1;
 
-  while (cursor <= input.to) {
-    const day = cursor.getUTCDay();
-    if (input.diasSemana.includes(day)) {
-      const startTs = new Date(Date.UTC(
-        cursor.getUTCFullYear(),
-        cursor.getUTCMonth(),
-        cursor.getUTCDate(),
-        start.h,
-        start.m,
-        0,
-        0,
-      ));
+  for (let d = 0; d < maxDays && d < 366; d++) {
+    const dayDate = new Date(
+      input.from.getTime() + d * 24 * 60 * 60 * 1000
+    );
+    const dayOfWeek = getChileDayOfWeek(dayDate);
 
-      let endTs = new Date(Date.UTC(
-        cursor.getUTCFullYear(),
-        cursor.getUTCMonth(),
-        cursor.getUTCDate(),
-        end.h,
-        end.m,
-        0,
-        0,
-      ));
-      if (endTs <= startTs) {
-        endTs = new Date(endTs.getTime() + 24 * 60 * 60 * 1000);
-      }
+    if (!input.diasSemana.includes(dayOfWeek)) continue;
 
-      for (
-        let ts = startTs.getTime();
-        ts <= endTs.getTime();
-        ts += input.frecuenciaMinutos * 60 * 1000
-      ) {
-        const at = new Date(ts);
-        if (at >= input.from && at <= input.to) slots.push(at);
-      }
+    // Parse start/end hours as Chile local time for this day, returned as UTC
+    const windowStart = parseChileHour(input.horaInicio, dayDate);
+    let windowEnd = parseChileHour(input.horaFin, dayDate);
+
+    // Handle overnight shifts (e.g., 22:00 to 06:00)
+    if (windowEnd <= windowStart) {
+      windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    // Generate slots within the window (exclusive of end to allow completion time)
+    for (
+      let ts = windowStart.getTime();
+      ts < windowEnd.getTime();
+      ts += input.frecuenciaMinutos * 60 * 1000
+    ) {
+      const slotTime = new Date(ts);
+      if (slotTime >= input.from && slotTime <= input.to) {
+        slots.push(slotTime);
+      }
+    }
   }
 
   return slots;
