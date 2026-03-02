@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     const needsQr = parsed.data.verificationType === "QR" || parsed.data.verificationType === "BOTH";
-    const qrCode = parsed.data.qrCode ?? (needsQr ? generateMarcacionCode() : generateMarcacionCode());
+    const qrCode = parsed.data.qrCode ?? (needsQr ? generateMarcacionCode() : null);
     const created = await prisma.opsCheckpoint.create({
       data: {
         tenantId: ctx.tenantId,
