@@ -204,6 +204,15 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
   return monthDays.slice(startIdx, endIdx);
 }
 
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "hace unos segundos";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `hace ${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `hace ${hours}h`;
+}
+
 /* ── main component ────────────────────────────── */
 
 export function OpsPautaMensualClient({
@@ -346,6 +355,15 @@ export function OpsPautaMensualClient({
   // Puestos contraíbles: Set de puestoIds colapsados
   const [collapsedPuestos, setCollapsedPuestos] = useState<Set<string>>(new Set());
 
+  // Último sync exitoso + tick para refrescar timeAgo
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [, setSyncTick] = useState(0);
+  useEffect(() => {
+    if (!lastSyncAt) return;
+    const id = setInterval(() => setSyncTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [lastSyncAt]);
+
   // Long-press en móvil: emular clic derecho → eliminar (evitar que el tap abra pintar)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTargetRef = useRef<{ puestoId: string; slotNumber: number; dateKey: string } | null>(null);
@@ -414,6 +432,7 @@ export function OpsPautaMensualClient({
 
           if (genRes.ok && genPayload.success && genPayload.data?.created > 0) {
             // Auto-generación exitosa → re-fetch
+            toast.success(`Pauta generada automáticamente (${genPayload.data.created} registros)`);
             const res2 = await fetch(
               `/api/ops/pauta-mensual?installationId=${installationId}&month=${month}&year=${year}`,
               { cache: "no-store" }
@@ -426,6 +445,7 @@ export function OpsPautaMensualClient({
               if (d2.asignaciones) setSlotAsignaciones(d2.asignaciones as SlotAsignacion[]);
               setExecutionByCell((d2.executionByCell || {}) as Record<string, ExecutionCell>);
               if (d2.allPuestos) setAllPuestos(d2.allPuestos as PuestoInfo[]);
+              setLastSyncAt(new Date());
               setLoading(false);
               return;
             }
@@ -454,6 +474,7 @@ export function OpsPautaMensualClient({
           setSlotAsignaciones(data.asignaciones as SlotAsignacion[]);
         }
         setExecutionByCell((data.executionByCell || {}) as Record<string, ExecutionCell>);
+        setLastSyncAt(new Date());
       }
     } catch (error) {
       console.error(error);
@@ -742,12 +763,42 @@ export function OpsPautaMensualClient({
     const totalRequiredSlots = validSlotKeys.size;
     const totalAssignedSlots = assignedSlotKeys.size;
 
+    // Breakdown por tipo de turno
+    const puestoShiftType = new Map<string, ShiftType>();
+    for (const row of matrix) {
+      if (!puestoShiftType.has(row.puestoId)) {
+        const h = parseInt(row.shiftStart.split(":")[0], 10);
+        const baseType: ShiftType = h >= 18 || h < 6 ? "night" : "day";
+        puestoShiftType.set(row.puestoId, row.isRotativo ? "rotativo" : baseType);
+      }
+    }
+
+    const byType: Record<ShiftType, { required: number; assigned: number }> = {
+      day: { required: 0, assigned: 0 },
+      night: { required: 0, assigned: 0 },
+      rotativo: { required: 0, assigned: 0 },
+    };
+
+    for (const puesto of allPuestos) {
+      const st = puestoShiftType.get(puesto.id) ?? "day";
+      byType[st].required += puesto.requiredGuards;
+    }
+
+    for (const asignacion of slotAsignaciones) {
+      const key = `${asignacion.puestoId}|${asignacion.slotNumber}`;
+      if (validSlotKeys.has(key)) {
+        const st = puestoShiftType.get(asignacion.puestoId) ?? "day";
+        byType[st].assigned++;
+      }
+    }
+
     return {
       totalRequiredSlots,
       totalAssignedSlots,
       totalVacantes: Math.max(0, totalRequiredSlots - totalAssignedSlots),
+      byType,
     };
-  }, [allPuestos, slotAsignaciones]);
+  }, [allPuestos, slotAsignaciones, matrix]);
 
   const daySectionIds = useMemo(
     () => groupedByShiftType.day.map((g) => g.puestoId),
@@ -1375,9 +1426,16 @@ export function OpsPautaMensualClient({
                   Cargando…
                 </div>
               ) : items.length > 0 ? (
-                <div className="flex items-center gap-1 text-xs text-emerald-400">
-                  <CalendarDays className="h-3.5 w-3.5 text-white" />
-                  {items.length} registros
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <CalendarDays className="h-3.5 w-3.5 text-white" />
+                    {items.length} registros
+                  </span>
+                  {lastSyncAt && (
+                    <span className="text-[10px] text-muted-foreground/60">
+                      Actualizado {timeAgo(lastSyncAt)}
+                    </span>
+                  )}
                 </div>
               ) : null}
               <div className="flex items-center gap-1.5 ml-auto">
@@ -1515,9 +1573,42 @@ export function OpsPautaMensualClient({
             </div>
           ) : (
             <>
-              <div className="mb-3 rounded-md border border-border bg-muted/10 px-3 py-2 text-[11px] sm:text-[10px]">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <span className="font-medium text-foreground">Total cobertura</span>
+              {/* ── Resumen por tipo de turno ── */}
+              <div className="mb-3 space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {([
+                    { key: "day" as ShiftType, label: "Diurnos", icon: Sun, borderCls: "border-amber-500/30", iconCls: "text-amber-400", bgCls: "bg-amber-500/10" },
+                    { key: "rotativo" as ShiftType, label: "Rotativos", icon: RotateCw, borderCls: "border-violet-500/30", iconCls: "text-violet-400", bgCls: "bg-violet-500/10" },
+                    { key: "night" as ShiftType, label: "Nocturnos", icon: Moon, borderCls: "border-indigo-500/30", iconCls: "text-indigo-400", bgCls: "bg-indigo-500/10" },
+                  ] as const)
+                    .filter((s) => shiftSummary.byType[s.key].required > 0)
+                    .map((s) => {
+                      const data = shiftSummary.byType[s.key];
+                      const vacantes = Math.max(0, data.required - data.assigned);
+                      const SIcon = s.icon;
+                      return (
+                        <div key={s.key} className={`rounded-md border ${s.borderCls} ${s.bgCls} px-3 py-2`}>
+                          <div className="flex items-center gap-1.5 text-[11px] sm:text-[10px]">
+                            <SIcon className={`h-3.5 w-3.5 ${s.iconCls}`} />
+                            <span className="font-medium text-foreground">{s.label}</span>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-2 text-[11px] sm:text-[10px]">
+                            <span className="text-muted-foreground">
+                              {data.assigned}/{data.required} guardias
+                            </span>
+                            <span className={`font-medium ${vacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                              {vacantes > 0
+                                ? `${vacantes} vacante${vacantes !== 1 ? "s" : ""}`
+                                : "Completo"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                {/* Total general compacto */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-muted/10 px-3 py-1.5 text-[11px] sm:text-[10px]">
+                  <span className="font-medium text-foreground">Total</span>
                   <span className="text-muted-foreground">
                     {shiftSummary.totalAssignedSlots}/{shiftSummary.totalRequiredSlots} guardias
                   </span>
@@ -1762,7 +1853,7 @@ export function OpsPautaMensualClient({
                                   >
                                     {hasCell ? (
                                       <div
-                                        className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-7 sm:h-6 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
+                                        className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
                                           isEmpty
                                             ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
                                             : colorClass
@@ -1834,7 +1925,7 @@ export function OpsPautaMensualClient({
                                         {displayCode}
                                         {displayBadge ? (
                                           <span
-                                            className={`absolute -top-1 -right-1 rounded px-0.5 py-[1px] text-[8px] leading-none font-semibold ${
+                                            className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${
                                               displayBadge === "N"
                                                 ? "bg-indigo-700 text-indigo-100"
                                                 : "bg-amber-600 text-amber-50"
@@ -1845,7 +1936,7 @@ export function OpsPautaMensualClient({
                                         ) : null}
                                         {executionBadge ? (
                                           <span
-                                            className={`absolute -bottom-0.5 -right-0.5 rounded px-1 py-px text-[9px] leading-none font-bold shadow-sm ${executionBadgeClass}`}
+                                            className={`absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm ${executionBadgeClass}`}
                                             title={
                                               execution?.state === "asistio"
                                                 ? "Asistió"
@@ -1862,7 +1953,7 @@ export function OpsPautaMensualClient({
                                       </div>
                                     ) : (
                                       <div
-                                        className="inline-flex items-center justify-center w-9 h-8 sm:w-7 sm:h-6 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
+                                        className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-7 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
                                         onClick={() =>
                                           openPintarOpcionesModal({
                                             puestoId: clickPuestoId,
@@ -1969,10 +2060,10 @@ export function OpsPautaMensualClient({
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:text-[10px] text-muted-foreground">
                 <span>Segunda capa (asistencia):</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-emerald-600 text-emerald-50 text-[9px] font-semibold">ASI</span> Asistió</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-rose-600 text-rose-50 text-[9px] font-semibold">TE</span> Turno extra</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-amber-500 text-amber-950 text-[9px] font-semibold">SC</span> Sin cobertura</span>
-                <span className="flex items-center gap-1"><span className="rounded px-0.5 py-px bg-zinc-600 text-zinc-100 text-[9px] font-semibold">PPC</span> Slot PPC</span>
+                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-emerald-600 text-emerald-50 text-[10px] font-semibold">ASI</span> Asistió</span>
+                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-rose-600 text-rose-50 text-[10px] font-semibold">TE</span> Turno extra</span>
+                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-amber-500 text-amber-950 text-[10px] font-semibold">SC</span> Sin cobertura</span>
+                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-zinc-600 text-zinc-100 text-[10px] font-semibold">PPC</span> Slot PPC</span>
               </div>
               <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
                 <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
