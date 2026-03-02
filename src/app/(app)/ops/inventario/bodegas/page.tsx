@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioBodegasClient } from "@/components/inventario/InventarioBodegasClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioBodegasPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioBodegasPage() {
       <PageHeader
         title="Bodegas"
         description="Bodegas virtuales: central, supervisores, instalaciones."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioBodegasClient />
     </div>
   );

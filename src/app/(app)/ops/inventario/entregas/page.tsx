@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioEntregasClient } from "@/components/inventario/InventarioEntregasClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioEntregasPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioEntregasPage() {
       <PageHeader
         title="Entregas a guardias"
         description="Registrar entrega de uniformes a un guardia. Descuenta stock de la bodega."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioEntregasClient />
     </div>
   );

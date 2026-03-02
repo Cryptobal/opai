@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioProductosClient } from "@/components/inventario/InventarioProductosClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioProductosPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioProductosPage() {
       <PageHeader
         title="Productos"
         description="Catálogo de uniformes y activos. Define tallas por producto."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioProductosClient />
     </div>
   );

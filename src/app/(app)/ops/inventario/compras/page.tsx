@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioComprasClient } from "@/components/inventario/InventarioComprasClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioComprasPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioComprasPage() {
       <PageHeader
         title="Compras"
         description="Registrar ingresos de uniformes y activos. Asocia a factura más adelante."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioComprasClient />
     </div>
   );

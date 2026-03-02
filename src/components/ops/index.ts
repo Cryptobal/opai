@@ -16,3 +16,5 @@ export * from "./OpsControlNocturnoDetailClient";
 export * from "./OpsGlobalSearch";
 export * from "./rondas";
 export * from "./RondasSubnav";
+export * from "./TicketsSubnav";
+export * from "./InventarioSubnav";

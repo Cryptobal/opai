@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioStockPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioStockPage() {
       <PageHeader
         title="Stock"
         description="Stock actual por bodega y variante."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioStockClient />
     </div>
   );

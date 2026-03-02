@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { InventarioActivosClient } from "@/components/inventario/InventarioActivosClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioActivosPage() {
   const session = await auth();
@@ -19,9 +20,8 @@ export default async function InventarioActivosPage() {
       <PageHeader
         title="Activos"
         description="Celulares, radios y equipos. Asignación a instalaciones y estado."
-        backHref="/ops/inventario"
-        backLabel="Inventario"
       />
+      <InventarioSubnav />
       <InventarioActivosClient />
     </div>
   );

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { InventarioProductoSizesClient } from "@/components/inventario/InventarioProductoSizesClient";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 
 export default async function InventarioProductoPage({
   params,
@@ -38,6 +39,7 @@ export default async function InventarioProductoPage({
 
   return (
     <div className="space-y-6 min-w-0">
+      <InventarioSubnav />
       <div className="flex items-center gap-2">
         <Link href="/ops/inventario/productos">
           <Button variant="ghost" size="icon">

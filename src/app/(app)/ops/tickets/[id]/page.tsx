@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { TicketDetailClient } from "@/components/ops/tickets";
-import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
+import { TicketsSubnav } from "@/components/ops/TicketsSubnav";
 import { NotesProvider } from "@/components/notes";
 import { prisma } from "@/lib/prisma";
 
@@ -41,7 +41,7 @@ export default async function TicketDetailPage({
           title="Detalle de ticket"
           description="Seguimiento, comentarios y gestión del ticket."
         />
-        <OpsGlobalSearch className="w-full sm:max-w-xs" />
+        <TicketsSubnav />
         <TicketDetailClient
           ticketId={id}
           userRole={session.user.role}

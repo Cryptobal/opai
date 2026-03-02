@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader, ModuleCard } from "@/components/opai";
 import { InventarioKpisCard } from "@/components/inventario/InventarioKpisCard";
+import { InventarioSubnav } from "@/components/ops/InventarioSubnav";
 import {
   Warehouse,
   ShoppingCart,
@@ -71,9 +72,8 @@ export default async function InventarioPage() {
       <PageHeader
         title="Inventario"
         description="Gestión de uniformes, activos y teléfonos por instalación."
-        backHref="/hub"
-        backLabel="Inicio"
       />
+      <InventarioSubnav />
       <InventarioKpisCard />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">

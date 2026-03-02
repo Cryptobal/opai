@@ -182,12 +182,22 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div>
-        <h2 className="text-base font-semibold">Tickets</h2>
-        <p className="text-xs text-muted-foreground">
-          Solicitudes, incidentes y requerimientos internos
-        </p>
+      {/* Header + Nuevo ticket */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Tickets</h2>
+          <p className="text-xs text-muted-foreground">
+            Solicitudes, incidentes y requerimientos internos
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => setViewState({ view: "create" })}
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo ticket
+        </Button>
       </div>
 
       {/* Module view switcher: Dashboard / Lista / Kanban */}
