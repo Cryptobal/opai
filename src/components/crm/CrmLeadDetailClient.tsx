@@ -44,7 +44,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
-import { CrmDates } from "@/components/crm/CrmDates";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
@@ -53,7 +52,6 @@ import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
-import { LeadContactActions } from "./LeadContactActions";
 import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
 
@@ -999,13 +997,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
   // === TAB: General ===
   const generalContent = (
-      <div className="space-y-4">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
         <DetailFieldGrid columns={3}>
           <DetailField label="Empresa" value={lead.companyName} />
           <DetailField label="Contacto" value={fullName} />
           <DetailField label="Email" value={lead.email} copyable />
           <DetailField label="Teléfono" value={lead.phone} mono copyable />
-          <DetailField label="Fuente" value={getSourceLabel(lead.source)} />
           <DetailField label="Industria" value={lead.industry} />
           {((lead as any).address || (lead as any).commune || (lead as any).city) && (() => {
             const addressText = [(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ");
@@ -1037,12 +1034,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           )}
         </DetailFieldGrid>
 
-        {/* Contact actions + dates */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <CrmDates createdAt={lead.createdAt} updatedAt={lead.updatedAt} showTime />
-          <LeadContactActions phone={lead.phone} email={lead.email} />
-          <LeadSourceBadge source={lead.source} />
-        </div>
+        <DetailFieldGrid columns={3}>
+          <DetailField label="Fecha creación" value={lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+          <DetailField label="Última modificación" value={lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+          <DetailField label="Fuente" value={<LeadSourceBadge source={lead.source} />} />
+        </DetailFieldGrid>
 
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
@@ -1193,7 +1189,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Account
     const accountContent = (
-        <div className="space-y-4">
+        <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
           {conflictAlerts}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
@@ -1264,7 +1260,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Contacts
     const contactsContent = (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-lg border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
             <Label className="text-xs">Nombre *</Label>
             <Input value={approveForm.contactFirstName} onChange={(e) => updateApproveForm("contactFirstName", e.target.value)} placeholder="Nombre" className={inputClassName} />
@@ -1290,7 +1286,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Deals
     const dealsContent = (
-        <div className="space-y-3">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
           <div className="space-y-1.5">
             <Label className="text-xs">Título del negocio</Label>
             <Input value={approveForm.dealTitle} onChange={(e) => updateApproveForm("dealTitle", e.target.value)} placeholder="Oportunidad para..." className={inputClassName} />
@@ -1299,7 +1295,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <Label className="text-xs">Notas iniciales</Label>
             <textarea value={approveForm.notes} onChange={(e) => updateApproveForm("notes", e.target.value)}
               placeholder="Notas sobre este negocio (se copiarán al negocio y cotización)..."
-              className={`w-full min-h-[64px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={2} />
+              className={`w-full min-h-[120px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={5} />
             <p className="text-[10px] text-muted-foreground">Estas notas se agregarán al negocio y a las cotizaciones creadas.</p>
           </div>
         </div>
@@ -1307,7 +1303,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Installations & Dotación
     const installationsContent = (
-        <div className="space-y-4 pb-40 lg:pb-32">
+        <div className="space-y-4 pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
