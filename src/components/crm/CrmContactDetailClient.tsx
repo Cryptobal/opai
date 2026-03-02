@@ -188,6 +188,8 @@ export function CrmContactDetailClient({
 
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
+  const [dealCreateOpen, setDealCreateOpen] = useState(false);
+  const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -518,13 +520,12 @@ export function CrmContactDetailClient({
       label: "Negocios",
       icon: Briefcase,
       count: contactDeals.length,
+      onAdd: contact.account?.id ? () => setDealCreateOpen(true) : undefined,
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-end">
-            {contact.account?.id && (
-              <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} />
-            )}
-          </div>
+          {contact.account?.id && (
+            <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} open={dealCreateOpen} onOpenChange={setDealCreateOpen} />
+          )}
           {contactDeals.length === 0 ? (
             <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
           ) : (
@@ -581,16 +582,12 @@ export function CrmContactDetailClient({
       label: "Cotizaciones",
       icon: DollarSign,
       count: quotes.length,
+      onAdd: contact.account?.id ? () => setQuoteCreateOpen(true) : undefined,
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-end">
-            {contact.account?.id && (
-              <CreateQuoteModal
-                defaultClientName={contact.account.name}
-                accountId={contact.account.id}
-              />
-            )}
-          </div>
+          {contact.account?.id && (
+            <CreateQuoteModal defaultClientName={contact.account.name} accountId={contact.account.id} open={quoteCreateOpen} onOpenChange={setQuoteCreateOpen} />
+          )}
           {quotes.length === 0 ? (
             <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
           ) : (

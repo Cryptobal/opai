@@ -202,6 +202,8 @@ export function CrmAccountDetailClient({
 
   // ── New contact state ──
   const [newContactOpen, setNewContactOpen] = useState(false);
+  const [dealCreateOpen, setDealCreateOpen] = useState(false);
+  const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
   const [creatingContact, setCreatingContact] = useState(false);
 
@@ -639,14 +641,10 @@ export function CrmAccountDetailClient({
       onAdd: () => setNewContactOpen(true),
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Contactos</h3>
-            <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
-          </div>
           {account.contacts.length === 0 ? (
             <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
           ) : (
-            <CrmRelatedRecordGrid>
+            <CrmRelatedRecordGrid className="!grid-cols-1">
               {account.contacts.map((contact) => (
                 <CrmRelatedRecordCard
                   key={contact.id}
@@ -671,10 +669,6 @@ export function CrmAccountDetailClient({
       onAdd: () => createInstallationRef.current?.open(),
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Instalaciones</h3>
-            <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
-          </div>
           <CrmInstallationsClient
             accountId={account.id}
             accountIsActive={account.isActive}
@@ -689,16 +683,14 @@ export function CrmAccountDetailClient({
       label: "Negocios",
       icon: DealsIcon,
       count: account.deals.length,
+      onAdd: () => setDealCreateOpen(true),
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Negocios</h3>
-            <CreateDealModal accountId={account.id} accountName={account.name} />
-          </div>
+          <CreateDealModal accountId={account.id} accountName={account.name} open={dealCreateOpen} onOpenChange={setDealCreateOpen} />
           {account.deals.length === 0 ? (
             <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
           ) : (
-            <CrmRelatedRecordGrid>
+            <CrmRelatedRecordGrid className="!grid-cols-1">
               {account.deals.map((deal) => (
                 <CrmRelatedRecordCard
                   key={deal.id}
@@ -726,16 +718,14 @@ export function CrmAccountDetailClient({
       label: "Cotizaciones",
       icon: QuotesIcon,
       count: quotes.length,
+      onAdd: () => setQuoteCreateOpen(true),
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Cotizaciones</h3>
-            <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
-          </div>
+          <CreateQuoteModal defaultClientName={account.name} accountId={account.id} open={quoteCreateOpen} onOpenChange={setQuoteCreateOpen} />
           {quotes.length === 0 ? (
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
           ) : (
-            <CrmRelatedRecordGrid>
+            <CrmRelatedRecordGrid className="!grid-cols-1">
               {quotes.map((q) => (
                 <CrmRelatedRecordCard
                   key={q.id}
