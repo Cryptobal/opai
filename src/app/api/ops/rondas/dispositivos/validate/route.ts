@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canView } from "@/lib/permissions";
 
 const schema = z.object({
   installationId: z.string().uuid(),
@@ -9,6 +11,13 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const perms = await resolveApiPerms(ctx);
+    if (!canView(perms, "ops", "rondas")) {
+      return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
@@ -17,27 +26,21 @@ export async function POST(request: NextRequest) {
 
     const device = await prisma.opsDispositivoInstalacion.findFirst({
       where: {
+        tenantId: ctx.tenantId,
         installationId: parsed.data.installationId,
         deviceId: parsed.data.deviceId,
       },
     });
 
-    if (device) {
-      await prisma.opsDispositivoInstalacion.update({
-        where: { id: device.id },
-        data: { lastAccessAt: new Date() },
-      });
-    }
-
     return NextResponse.json({
       success: true,
       data: {
+        valid: !!device,
         isAuthorized: device?.isAuthorized ?? false,
-        device: device ?? null,
       },
     });
-  } catch (error) {
-    console.error("[RONDAS] POST dispositivos validate", error);
+  } catch (err) {
+    console.error("[DISPOSITIVOS_VALIDATE]", err);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }
 }
