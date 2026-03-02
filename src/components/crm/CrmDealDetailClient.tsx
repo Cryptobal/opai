@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -642,29 +642,29 @@ export function CrmDealDetailClient({
     key: "general",
     label: "Resumen del negocio",
     children: (
-      <div className="space-y-4">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-emerald-400/70">
               Monto CLP
             </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">
+            <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-400">
               {formatCLP(activeQuoteIndicators.amountClp)}
             </p>
           </div>
-          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-blue-400/70">
               Monto UF
             </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">
+            <p className="mt-1 text-lg font-semibold tabular-nums text-blue-400">
               {formatUFSuffix(activeQuoteIndicators.amountUf)}
             </p>
           </div>
-          <div className="rounded-md border border-border/70 bg-card px-3 py-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-amber-400/70">
               Guardias
             </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">
+            <p className="mt-1 text-lg font-semibold tabular-nums text-amber-400">
               {activeQuoteIndicators.totalGuards.toLocaleString("es-CL")}
             </p>
           </div>
@@ -1134,9 +1134,10 @@ export function CrmDealDetailClient({
       label: "Cotizaciones",
       icon: QuotesIcon,
       count: linkedQuotes.length,
+      onAdd: () => {/* handled by CreateQuoteModal inside content */},
       content: (
         <div className="space-y-3">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <CreateQuoteModal
               defaultClientName={deal.account?.name ?? undefined}
               defaultDealName={deal.title}
@@ -1151,7 +1152,9 @@ export function CrmDealDetailClient({
             />
             <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="ghost">Vincular</Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                  <Link2 className="h-3 w-3" /> Vincular
+                </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
@@ -1159,7 +1162,7 @@ export function CrmDealDetailClient({
                   <Label>Cotización</Label>
                   <SearchableSelect
                     value={selectedQuoteId}
-                    options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.clientName ? ` — ${q.clientName}` : ""} · ${q.clientName || "Sin cliente"}` }))}
+                    options={quotes.map((q) => ({ id: q.id, label: `${q.code} — ${q.name || q.clientName || "Sin nombre"}` }))}
                     placeholder="Selecciona cotización"
                     disabled={linking}
                     onChange={setSelectedQuoteId}
@@ -1250,7 +1253,7 @@ export function CrmDealDetailClient({
       >
         {activeTab === "general" && generalSection.children}
         {activeTab === "followup" && (
-          <div className="space-y-3">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">Seguimiento automático</h3>
               {followUpSection.action}
@@ -1258,8 +1261,8 @@ export function CrmDealDetailClient({
             {followUpSection.children}
           </div>
         )}
-        {activeTab === "communication" && communicationSection.children}
-        {activeTab === "files" && filesSection.children}
+        {activeTab === "communication" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{communicationSection.children}</div>}
+        {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
       </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}
