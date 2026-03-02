@@ -1337,6 +1337,7 @@ model CrmInstallation {
   protocolVersions                ProtocolVersion[]
   exams                           Exam[]
   opsRondaEjecuciones             OpsRondaEjecucion[]              @relation("ejecucionInstallation")
+  rondaIncidentes                 OpsRondaIncidente[]              @relation("IncidenteInstallation")
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
 
@@ -2477,7 +2478,7 @@ model OpsSupervisionFinding {
   resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
   verifiedInVisitId String?  @map("verified_in_visit_id") @db.Uuid
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   visit           OpsVisitaSupervision @relation("supervision_finding_visit", fields: [visitId], references: [id], onDelete: Cascade)
@@ -3073,7 +3074,7 @@ model OpsRondaEjecucion {
   notes                  String?
   installationId         String?   @map("installation_id") @db.Uuid
   deviceInfo             Json?     @map("device_info") @db.JsonB
-  alertas                Json?     @db.JsonB
+  alertas                Json?     @db.JsonB  // DEPRECATED: use alertasRows relation instead (still read by public/ronda/iniciar)
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -3081,9 +3082,10 @@ model OpsRondaEjecucion {
   programacion  OpsRondaProgramacion?    @relation(fields: [programacionId], references: [id], onDelete: SetNull)
   guardia       OpsGuardia?              @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
   installation  CrmInstallation?         @relation("ejecucionInstallation", fields: [installationId], references: [id], onDelete: SetNull)
-  marcaciones   OpsMarcacionCheckpoint[]
-  alertasRows   OpsAlertaRonda[]
-  incidentes    OpsRondaIncidente[]
+  marcaciones           OpsMarcacionCheckpoint[]
+  alertasRows           OpsAlertaRonda[]
+  incidentes            OpsRondaIncidente[]
+  controlNocturnoRondas OpsControlNocturnoRonda[] @relation("ControlNocturnoRonda")
 
   @@index([tenantId], map: "idx_ops_ronda_ejecuciones_tenant")
   @@index([rondaTemplateId], map: "idx_ops_ronda_ejecuciones_template")
@@ -3131,7 +3133,7 @@ model OpsMarcacionCheckpoint {
   @@index([checkpointId], map: "idx_ops_marcacion_checkpoint_checkpoint")
   @@index([guardiaId], map: "idx_ops_marcacion_checkpoint_guardia")
   @@index([timestamp], map: "idx_ops_marcacion_checkpoint_timestamp")
-  @@index([ejecucionId, checkpointId], map: "idx_ops_marcacion_cp_ej_cp")
+  @@unique([ejecucionId, checkpointId], map: "uq_ops_marcacion_cp_ej_cp")
   @@map("marcacion_checkpoints")
   @@schema("ops")
 }
@@ -3166,6 +3168,7 @@ model OpsAlertaRonda {
   @@index([installationId, isAcknowledged], map: "idx_ops_alerta_ronda_inst_ack")
   @@index([severidad, isAcknowledged], map: "idx_ops_alerta_ronda_sev_ack")
   @@index([createdAt], map: "idx_ops_alerta_ronda_created")
+  @@index([guardiaId], map: "idx_ops_alerta_ronda_guardia")
   @@map("alertas_ronda")
   @@schema("ops")
 }
@@ -3177,6 +3180,7 @@ model OpsRondaIncidente {
   rondaTemplateId String?  @map("ronda_template_id") @db.Uuid
   checkpointId    String?  @map("checkpoint_id") @db.Uuid
   guardiaId       String   @map("guardia_id") @db.Uuid
+  installationId  String?  @map("installation_id") @db.Uuid
   tipo            String
   descripcion     String
   fotoUrl         String?  @map("foto_url")
@@ -3190,10 +3194,12 @@ model OpsRondaIncidente {
   rondaTemplate OpsRondaTemplate?  @relation(fields: [rondaTemplateId], references: [id], onDelete: SetNull)
   checkpoint    OpsCheckpoint?     @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
   guardia       OpsGuardia         @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+  installation  CrmInstallation?   @relation("IncidenteInstallation", fields: [installationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_ronda_incidente_tenant")
   @@index([ejecucionId], map: "idx_ops_ronda_incidente_ejecucion")
   @@index([guardiaId], map: "idx_ops_ronda_incidente_guardia")
+  @@index([installationId], map: "idx_ops_ronda_incidente_installation")
   @@index([status], map: "idx_ops_ronda_incidente_status")
   @@map("ronda_incidentes")
   @@schema("ops")
@@ -3286,11 +3292,12 @@ model OpsControlNocturnoRonda {
   horaEsperada         String   @map("hora_esperada") // "20:00", "21:00"...
   horaMarcada          String?  @map("hora_marcada") // hora real
   status               String   @default("pendiente") // pendiente, completada, omitida, no_aplica
-  ejecucionRondaId     String?  @map("ejecucion_ronda_id") @db.Uuid
+  ejecucionRondaId     String?              @map("ejecucion_ronda_id") @db.Uuid
   notes                String?
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   controlInstalacion OpsControlNocturnoInstalacion @relation(fields: [controlInstalacionId], references: [id], onDelete: Cascade)
+  ejecucionRonda     OpsRondaEjecucion?           @relation("ControlNocturnoRonda", fields: [ejecucionRondaId], references: [id], onDelete: SetNull)
 
   @@unique([controlInstalacionId, rondaNumber], map: "uq_ops_cn_ronda_inst_number")
   @@index([controlInstalacionId], map: "idx_ops_cn_ronda_instalacion")
