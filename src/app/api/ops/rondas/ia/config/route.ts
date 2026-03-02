@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit, canView } from "@/lib/permissions";
+import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { getAlertConfig, saveAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
 
 export async function GET() {
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
-    if (!canEdit(perms, "ops", "rondas")) {
+    if (!canEdit(perms, "ops", "rondas") || !hasCapability(perms, "rondas_configure")) {
       return NextResponse.json({ success: false, error: "Sin permisos de edición" }, { status: 403 });
     }
 

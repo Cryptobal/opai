@@ -1,4 +1,5 @@
 import type { RondaAnomalyCode } from "@/lib/rondas/anomaly-detection";
+import { DEFAULT_SPEED_THRESHOLD_KMH } from "./ia-config";
 
 export interface CheckpointTrustInput {
   geoValidada: boolean;
@@ -7,6 +8,7 @@ export interface CheckpointTrustInput {
   sameDevice: boolean;
   batteryLevel?: number | null;
   speedFromPrevKmh?: number | null;
+  speedThresholdKmh?: number;
 }
 
 export function computeCheckpointTrustScore(input: CheckpointTrustInput): number {
@@ -15,7 +17,7 @@ export function computeCheckpointTrustScore(input: CheckpointTrustInput): number
   score += input.hasMovement ? 15 : 0;
   score += input.hasPhoto ? 15 : 0;
   score += input.sameDevice ? 10 : 0;
-  score += (input.speedFromPrevKmh ?? 0) <= 15 ? 20 : 0;
+  score += (input.speedFromPrevKmh ?? 0) <= (input.speedThresholdKmh ?? DEFAULT_SPEED_THRESHOLD_KMH) ? 20 : 0;
   score += (input.batteryLevel ?? 100) > 10 ? 10 : 0;
   return Math.max(0, Math.min(100, score));
 }

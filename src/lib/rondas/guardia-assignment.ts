@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { startOfDayChile, endOfDayChile, toChileTime } from "./timezone";
 
 type AssignmentSource = "asistencia_actual" | "asistencia_reemplazo" | "asistencia_planificada" | "asignacion_guardia";
 
@@ -7,22 +8,13 @@ export interface GuardiaAssignmentResult {
   source: AssignmentSource | null;
 }
 
-function startOfDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function endOfDay(date: Date): Date {
-  const start = startOfDay(date);
-  return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
-}
-
 export async function resolveOnDutyGuardiaForInstallation(input: {
   tenantId: string;
   installationId: string;
   scheduledAt: Date;
 }): Promise<GuardiaAssignmentResult> {
-  const dayStart = startOfDay(input.scheduledAt);
-  const dayEnd = endOfDay(input.scheduledAt);
+  const dayStart = startOfDayChile(input.scheduledAt);
+  const dayEnd = endOfDayChile(input.scheduledAt);
 
   const attendanceRows = await prisma.opsAsistenciaDiaria.findMany({
     where: {
@@ -40,7 +32,21 @@ export async function resolveOnDutyGuardiaForInstallation(input: {
     orderBy: [{ checkInAt: "desc" }, { slotNumber: "asc" }],
   });
 
-  for (const row of attendanceRows) {
+  // Filter attendance by shift that covers scheduledAt
+  const scheduledHour = toChileTime(input.scheduledAt).getHours();
+  const relevantAttendance = attendanceRows.filter((row) => {
+    if (!row.checkInAt) return false;
+    const checkInHour = toChileTime(row.checkInAt).getHours();
+    // Simple heuristic: day shift = checkIn before 14:00, night shift = checkIn after 14:00
+    const isNightShift = checkInHour >= 14;
+    const isNightRonda = scheduledHour >= 14 || scheduledHour < 6;
+    return isNightShift === isNightRonda;
+  });
+
+  // Use filtered list, fall back to full list if no match
+  const effectiveRows = relevantAttendance.length > 0 ? relevantAttendance : attendanceRows;
+
+  for (const row of effectiveRows) {
     if (row.actualGuardiaId) return { guardiaId: row.actualGuardiaId, source: "asistencia_actual" };
     if (row.replacementGuardiaId) return { guardiaId: row.replacementGuardiaId, source: "asistencia_reemplazo" };
     if (row.plannedGuardiaId) return { guardiaId: row.plannedGuardiaId, source: "asistencia_planificada" };
@@ -58,6 +64,9 @@ export async function resolveOnDutyGuardiaForInstallation(input: {
     orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
-  if (!fallback?.guardiaId) return { guardiaId: null, source: null };
+  if (!fallback?.guardiaId) {
+    console.warn(`[GUARDIA_ASSIGNMENT] No guard found for installation=${input.installationId} at ${input.scheduledAt.toISOString()}`);
+    return { guardiaId: null, source: null };
+  }
   return { guardiaId: fallback.guardiaId, source: "asignacion_guardia" };
 }
