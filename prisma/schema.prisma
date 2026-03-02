@@ -2989,6 +2989,7 @@ model OpsRondaTemplate {
   description          String?
   orderMode            String   @default("flexible") @map("order_mode") // "strict" | "flexible"
   estimatedDurationMin Int?     @map("estimated_duration_min")
+  qrRequerido          Boolean  @default(false) @map("qr_requerido")
   isActive             Boolean  @default(true) @map("is_active")
   createdBy            String?  @map("created_by")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

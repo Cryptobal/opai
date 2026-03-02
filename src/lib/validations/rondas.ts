@@ -22,6 +22,7 @@ export const rondaTemplateSchema = z.object({
   description: z.string().trim().max(500).optional().nullable(),
   orderMode: z.enum(["strict", "flexible"]).default("flexible"),
   estimatedDurationMin: z.number().int().min(1).max(720).optional().nullable(),
+  qrRequerido: z.boolean().default(false),
   checkpointIds: z.array(z.string().uuid()).min(1),
 });
 
