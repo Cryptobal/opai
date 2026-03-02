@@ -80,6 +80,13 @@ export async function POST(request: NextRequest) {
     const persona = withGuardia[0];
     const guardia = persona.guardia!;
 
+    if (guardia.isBlacklisted) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no habilitado" },
+        { status: 403 },
+      );
+    }
+
     const storedPin = guardia.marcacionPin;
     const visiblePin = guardia.marcacionPinVisible;
 
