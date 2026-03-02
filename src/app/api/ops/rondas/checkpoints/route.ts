@@ -85,8 +85,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Instalación no encontrada" }, { status: 404 });
     }
 
-    const needsQr = parsed.data.verificationType === "QR" || parsed.data.verificationType === "BOTH";
-    const qrCode = parsed.data.qrCode ?? (needsQr ? generateMarcacionCode() : null);
+    const qrCode = parsed.data.qrCode ?? generateMarcacionCode();
     const created = await prisma.opsCheckpoint.create({
       data: {
         tenantId: ctx.tenantId,
