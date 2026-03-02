@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
+/** Default speed threshold in km/h — used by anomaly detection and trust scoring */
+export const DEFAULT_SPEED_THRESHOLD_KMH = 15;
+
 const SETTING_KEY = "rondas_ia_config";
 const SETTING_CATEGORY = "ops";
 
