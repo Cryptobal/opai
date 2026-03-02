@@ -305,6 +305,28 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: true,
   },
+
+  // ── CRM - Portal Cliente ──
+  {
+    key: "portal_cliente_access_granted",
+    label: "Acceso portal cliente",
+    description: "Cuando se habilita el acceso al portal de un contacto de cliente",
+    module: "crm",
+    submodule: "accounts",
+    category: "CRM - Portal Cliente",
+    defaultBell: true,
+    defaultEmail: false,
+  },
+  {
+    key: "portal_cliente_access_revoked",
+    label: "Acceso portal revocado",
+    description: "Cuando se revoca el acceso al portal de un contacto de cliente",
+    module: "crm",
+    submodule: "accounts",
+    category: "CRM - Portal Cliente",
+    defaultBell: true,
+    defaultEmail: false,
+  },
 ];
 
 export const NOTIFICATION_TYPE_MAP = new Map(

@@ -99,7 +99,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [form, setForm] = useState<AccountFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<"all" | "prospect" | "client">("all");
+  const [typeFilter, setTypeFilter] = useState<"client_active" | "prospect" | "client_inactive" | "all">("client_active");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
@@ -122,8 +122,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
     const q = search.trim().toLowerCase();
     let result = accounts.filter((a) => {
       const lifecycle = getLifecycle(a);
+      if (typeFilter === "client_active" && lifecycle !== "client_active") return false;
       if (typeFilter === "prospect" && lifecycle !== "prospect") return false;
-      if (typeFilter === "client" && lifecycle === "prospect") return false;
+      if (typeFilter === "client_inactive" && lifecycle !== "client_inactive") return false;
       if (q && !`${a.name} ${a.rut || ""} ${a.industry || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -147,8 +148,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
 
   const counts = useMemo(() => {
     const prospects = accounts.filter((a) => getLifecycle(a) === "prospect").length;
-    const clients = accounts.filter((a) => getLifecycle(a) !== "prospect").length;
-    return { prospects, clients, total: accounts.length };
+    const clientActive = accounts.filter((a) => getLifecycle(a) === "client_active").length;
+    const clientInactive = accounts.filter((a) => getLifecycle(a) === "client_inactive").length;
+    return { prospects, clientActive, clientInactive, total: accounts.length };
   }, [accounts]);
 
   const updateForm = (key: keyof AccountFormState, value: string) => {
@@ -191,9 +193,10 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   };
 
   const typeFilters = [
-    { key: "all" as const, label: "Todos", count: counts.total },
+    { key: "client_active" as const, label: "Clientes activos", count: counts.clientActive },
     { key: "prospect" as const, label: "Prospectos", count: counts.prospects },
-    { key: "client" as const, label: "Clientes", count: counts.clients },
+    { key: "client_inactive" as const, label: "Clientes inactivos", count: counts.clientInactive },
+    { key: "all" as const, label: "Todos", count: counts.total },
   ];
 
   return (
@@ -205,7 +208,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         searchPlaceholder="Buscar por nombre, RUT o industria..."
         filters={typeFilters}
         activeFilter={typeFilter}
-        onFilterChange={(k) => setTypeFilter(k as "all" | "prospect" | "client")}
+        onFilterChange={(k) => setTypeFilter(k as "client_active" | "prospect" | "client_inactive" | "all")}
         activeSort={sort}
         onSortChange={setSort}
         viewModes={["list", "cards"]}
@@ -385,10 +388,10 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                               </p>
                             )}
                             {account.website && (
-                              <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                              <span role="link" tabIndex={0} className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px] cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}>
                                 <Globe className="h-3 w-3 shrink-0" />
                                 {account.website}
-                              </a>
+                              </span>
                             )}
                             <CrmDates createdAt={account.createdAt} updatedAt={account.updatedAt} className="mt-0.5" />
                           </div>
@@ -470,10 +473,10 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           <span className="flex items-center gap-1"><CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}</span>
                           {account.rut && <span>{account.rut}</span>}
                           {account.website && (
-                            <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px]" onClick={(e) => e.stopPropagation()}>
+                            <span role="link" tabIndex={0} className="flex items-center gap-1 text-primary hover:underline truncate max-w-[140px] cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}>
                               <Globe className="h-3 w-3 shrink-0" />
                               Web
-                            </a>
+                            </span>
                           )}
                         </div>
                       </Link>

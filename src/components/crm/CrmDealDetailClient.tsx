@@ -47,6 +47,7 @@ import { SearchableSelect, type SearchableOption } from "@/components/ui/Searcha
 import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
+import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -624,11 +625,6 @@ export function CrmDealDetailClient({
   const QuotesIcon = CRM_MODULES.quotes.icon;
   const FollowUpIcon = Clock3;
 
-  const subtitle = [
-    deal.account?.name || "Sin cliente",
-    formatCLP(activeQuoteIndicators.amountClp),
-  ].filter(Boolean).join(" · ");
-
   const currentStageColor = currentStage?.color
     || pipelineStages.find((s) => s.id === currentStage?.id)?.color
     || "#94a3b8";
@@ -1028,163 +1024,6 @@ export function CrmDealDetailClient({
     ),
   };
 
-  const quotesSection = {
-    key: "quotes",
-    label: "Cotizaciones",
-    count: linkedQuotes.length,
-    action: (
-      <div className="flex items-center gap-1">
-        <CreateQuoteModal
-          defaultClientName={deal.account?.name ?? undefined}
-          defaultDealName={deal.title}
-          accountId={deal.account?.id}
-          dealId={deal.id}
-          onCreated={(_quoteId, dealQuote) => {
-            if (dealQuote) {
-              setLinkedQuotes((prev) => [...prev, dealQuote]);
-            }
-            router.refresh();
-          }}
-        />
-        <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="ghost">Vincular</Button>
-          </DialogTrigger>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
-          <div className="space-y-2">
-            <Label>Cotización</Label>
-            <SearchableSelect
-              value={selectedQuoteId}
-              options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.clientName ? ` — ${q.clientName}` : ""} · ${q.clientName || "Sin cliente"}` }))}
-              placeholder="Selecciona cotización"
-              disabled={linking}
-              onChange={setSelectedQuoteId}
-            />
-          </div>
-          <DialogFooter>
-            <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      </div>
-    ),
-    children: linkedQuotes.length === 0 ? (
-      <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
-    ) : (
-      <CrmRelatedRecordGrid>
-        {linkedQuotes.map((quote) => {
-          const info = quotesById[quote.quoteId];
-          const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
-          const statusVariant = info?.status === "approved" ? "success" : info?.status === "rejected" ? "destructive" : info?.status === "sent" ? "default" : "secondary";
-          const quoteDate = info?.status === "sent" && info?.updatedAt
-            ? `Enviada: ${formatDealDate(info.updatedAt)}`
-            : info?.createdAt
-            ? `Creada: ${formatDealDate(info.createdAt)}`
-            : undefined;
-          const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
-          return (
-            <CrmRelatedRecordCard
-              key={quote.id}
-              module="quotes"
-              title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
-              subtitle={subtitleParts}
-              meta={formatQuoteAmounts(info)}
-              badge={{ label: statusLabel, variant: statusVariant as any }}
-              href={`/crm/cotizaciones/${quote.quoteId}`}
-            />
-          );
-        })}
-      </CrmRelatedRecordGrid>
-    ),
-  };
-
-  const installationsSection = {
-    key: "installations",
-    label: "Instalaciones de la cuenta",
-    count: accountInstallations.length,
-    keepMounted: true,
-    action: deal.account?.id ? (
-      <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
-    ) : undefined,
-    children: deal.account?.id ? (
-      <CrmInstallationsClient
-        accountId={deal.account.id}
-        accountIsActive={deal.account.isActive ?? true}
-        initialInstallations={accountInstallations}
-        createRef={createInstallationRef}
-      />
-    ) : (
-      <EmptyState
-        icon={<MapPin className="h-8 w-8" />}
-        title="Sin cuenta"
-        description="Vincula este negocio a una cuenta para crear instalaciones."
-        compact
-      />
-    ),
-  };
-
-  const contactsSection = {
-    key: "contacts",
-    label: "Contactos del negocio",
-    count: dealContacts.length,
-    action: availableContacts.length > 0 ? (
-      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
-        <DialogTrigger asChild>
-          <CrmSectionCreateButton />
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
-          <div className="space-y-2">
-            <Label>Contacto</Label>
-            <SearchableSelect
-              value={selectedContactId}
-              options={availableContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || "Sin email" }))}
-              placeholder="Selecciona contacto"
-              disabled={addingContact}
-              onChange={setSelectedContactId}
-            />
-          </div>
-          <DialogFooter>
-            <Button onClick={addDealContact} disabled={addingContact}>{addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    ) : undefined,
-    children: dealContacts.length === 0 ? (
-      <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
-    ) : (
-      <CrmRelatedRecordGrid>
-        {dealContacts.map((dc) => {
-          const c = dc.contact;
-          return (
-            <CrmRelatedRecordCard
-              key={dc.id}
-              module="contacts"
-              title={`${c.firstName} ${c.lastName}`.trim()}
-              subtitle={c.roleTitle || "Sin cargo"}
-              meta={c.email || undefined}
-              badge={dc.role === "primary" ? { label: "Principal", variant: "default" } : undefined}
-              href={`/crm/contacts/${c.id}`}
-              actions={
-                <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
-                  {dc.role !== "primary" && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" aria-label="Marcar como principal" onClick={() => markPrimary(c.id)}>
-                      <Star className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular contacto" aria-label="Desvincular contacto" onClick={() => removeDealContact(c.id)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              }
-            />
-          );
-        })}
-      </CrmRelatedRecordGrid>
-    ),
-  };
-
   const communicationSection = {
     key: "communication",
     action: (
@@ -1228,14 +1067,148 @@ export function CrmDealDetailClient({
     children: <FileAttachments entityType="deal" entityId={deal.id} title="Archivos" />,
   };
 
+  const associatedSections: AssociatedSection[] = [
+    {
+      id: "contacts",
+      label: "Contactos del negocio",
+      icon: ContactsIcon,
+      count: dealContacts.length,
+      content: dealContacts.length === 0 ? (
+        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
+      ) : (
+        <CrmRelatedRecordGrid>
+          {dealContacts.map((dc) => {
+            const c = dc.contact;
+            return (
+              <CrmRelatedRecordCard
+                key={dc.id}
+                module="contacts"
+                title={`${c.firstName} ${c.lastName}`.trim()}
+                subtitle={c.roleTitle || "Sin cargo"}
+                meta={c.email || undefined}
+                badge={dc.role === "primary" ? { label: "Principal", variant: "default" } : undefined}
+                href={`/crm/contacts/${c.id}`}
+                actions={
+                  <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
+                    {dc.role !== "primary" && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" aria-label="Marcar como principal" onClick={() => markPrimary(c.id)}>
+                        <Star className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular contacto" aria-label="Desvincular contacto" onClick={() => removeDealContact(c.id)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                }
+              />
+            );
+          })}
+        </CrmRelatedRecordGrid>
+      ),
+      onAdd: availableContacts.length > 0 ? () => setAddContactOpen(true) : undefined,
+    },
+    {
+      id: "installations",
+      label: "Instalaciones de la cuenta",
+      icon: InstallationsIcon,
+      count: accountInstallations.length,
+      content: deal.account?.id ? (
+        <CrmInstallationsClient
+          accountId={deal.account.id}
+          accountIsActive={deal.account.isActive ?? true}
+          initialInstallations={accountInstallations}
+          createRef={createInstallationRef}
+        />
+      ) : (
+        <EmptyState
+          icon={<MapPin className="h-8 w-8" />}
+          title="Sin cuenta"
+          description="Vincula este negocio a una cuenta para crear instalaciones."
+          compact
+        />
+      ),
+      onAdd: deal.account?.id ? () => createInstallationRef.current?.open() : undefined,
+    },
+    {
+      id: "quotes",
+      label: "Cotizaciones",
+      icon: QuotesIcon,
+      count: linkedQuotes.length,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center gap-1">
+            <CreateQuoteModal
+              defaultClientName={deal.account?.name ?? undefined}
+              defaultDealName={deal.title}
+              accountId={deal.account?.id}
+              dealId={deal.id}
+              onCreated={(_quoteId, dealQuote) => {
+                if (dealQuote) {
+                  setLinkedQuotes((prev) => [...prev, dealQuote]);
+                }
+                router.refresh();
+              }}
+            />
+            <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="ghost">Vincular</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
+                <div className="space-y-2">
+                  <Label>Cotización</Label>
+                  <SearchableSelect
+                    value={selectedQuoteId}
+                    options={quotes.map((q) => ({ id: q.id, label: `${q.code}${q.clientName ? ` — ${q.clientName}` : ""} · ${q.clientName || "Sin cliente"}` }))}
+                    placeholder="Selecciona cotización"
+                    disabled={linking}
+                    onChange={setSelectedQuoteId}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          {linkedQuotes.length === 0 ? (
+            <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {linkedQuotes.map((quote) => {
+                const info = quotesById[quote.quoteId];
+                const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
+                const statusVariant = info?.status === "approved" ? "success" : info?.status === "rejected" ? "destructive" : info?.status === "sent" ? "default" : "secondary";
+                const quoteDate = info?.status === "sent" && info?.updatedAt
+                  ? `Enviada: ${formatDealDate(info.updatedAt)}`
+                  : info?.createdAt
+                  ? `Creada: ${formatDealDate(info.createdAt)}`
+                  : undefined;
+                const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
+                return (
+                  <CrmRelatedRecordCard
+                    key={quote.id}
+                    module="quotes"
+                    title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
+                    subtitle={subtitleParts}
+                    meta={formatQuoteAmounts(info)}
+                    badge={{ label: statusLabel, variant: statusVariant as any }}
+                    href={`/crm/cotizaciones/${quote.quoteId}`}
+                  />
+                );
+              })}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   // ── Tab state & definitions ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "contacts", label: "Contactos", icon: Users, count: contactsSection.count },
-    { id: "installations", label: "Instalaciones", icon: MapPin },
-    { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotesSection.count },
     { id: "followup", label: "Seguimiento", icon: CalendarClock },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "files", label: "Archivos", icon: FileText },
@@ -1255,42 +1228,15 @@ export function CrmDealDetailClient({
         header={{
           avatar: { initials: dealTitle.charAt(0).toUpperCase() },
           title: dealTitle,
-          subtitle,
           status: statusBadge,
           actions: headerActions,
         }}
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && generalSection.children}
-        {activeTab === "contacts" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Contactos del negocio</h3>
-              {contactsSection.action}
-            </div>
-            {contactsSection.children}
-          </div>
-        )}
-        {activeTab === "installations" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Instalaciones</h3>
-              {installationsSection.action}
-            </div>
-            {installationsSection.children}
-          </div>
-        )}
-        {activeTab === "quotes" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Cotizaciones</h3>
-              {quotesSection.action}
-            </div>
-            {quotesSection.children}
-          </div>
-        )}
         {activeTab === "followup" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -1387,6 +1333,26 @@ export function CrmDealDetailClient({
               {savingDeal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Contact Dialog (opened via panel onAdd) ── */}
+      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
+          <div className="space-y-2">
+            <Label>Contacto</Label>
+            <SearchableSelect
+              value={selectedContactId}
+              options={availableContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || "Sin email" }))}
+              placeholder="Selecciona contacto"
+              disabled={addingContact}
+              onChange={setSelectedContactId}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={addDealContact} disabled={addingContact}>{addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

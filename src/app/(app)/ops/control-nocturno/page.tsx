@@ -4,7 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { OpsControlNocturnoListClient } from "@/components/ops/OpsControlNocturnoListClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-
 export default async function OpsControlNocturnoPage() {
   const session = await auth();
   if (!session?.user) {

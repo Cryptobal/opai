@@ -17,6 +17,8 @@ export interface SubNavItem {
   href: string;
   label: string;
   icon?: LucideIcon;
+  /** When true, tab is active only on exact path match (useful for "Dashboard"/"Inicio" items) */
+  exactMatch?: boolean;
 }
 
 interface SubNavProps {
@@ -31,8 +33,9 @@ export function SubNav({ items, className }: SubNavProps) {
     <nav className={cn("mb-4", className)}>
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname?.startsWith(item.href + "/");
+          const isActive = item.exactMatch
+            ? pathname === item.href
+            : pathname === item.href || pathname?.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
             <Link

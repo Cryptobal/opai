@@ -20,6 +20,8 @@ export interface ChipTabsProps {
   centered?: boolean;
   /** When tabs > this value, use flex-wrap (2 rows) instead of horizontal scroll. Default: 8 */
   wrapThreshold?: number;
+  /** Reduced vertical padding for tight headers */
+  compact?: boolean;
 }
 
 /* ── Component ── */
@@ -30,6 +32,7 @@ export function ChipTabs({
   onTabChange,
   centered = true,
   wrapThreshold = 8,
+  compact = false,
 }: ChipTabsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const useWrap = tabs.length > wrapThreshold;
@@ -56,7 +59,8 @@ export function ChipTabs({
     <div
       ref={containerRef}
       className={cn(
-        "chip-tabs-container flex gap-2 px-4 py-3",
+        "chip-tabs-container flex gap-2 px-0",
+        compact ? "py-1.5" : "py-3",
         "border-b border-white/[0.06]",
         useWrap ? "flex-wrap" : "overflow-x-auto",
         useWrap ? "justify-start" : shouldCenter ? "justify-center" : "justify-start"

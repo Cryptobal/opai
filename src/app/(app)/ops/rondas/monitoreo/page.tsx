@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
 import { RondasMonitoreoClient } from "@/components/ops/rondas";
 
 export default async function RondasMonitoreoPage() {
@@ -46,12 +45,14 @@ export default async function RondasMonitoreoPage() {
   ]);
 
   return (
-    <RondasMonitoreoClient
+    <div className="space-y-6 min-w-0">
+      <RondasMonitoreoClient
       initialRows={JSON.parse(JSON.stringify(activeRows))}
       installations={JSON.parse(JSON.stringify(installations))}
       alertCount={alerts}
       userId={session.user.id ?? ""}
       userName={session.user.name ?? ""}
     />
+    </div>
   );
 }

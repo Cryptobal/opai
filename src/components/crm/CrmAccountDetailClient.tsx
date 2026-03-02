@@ -44,6 +44,8 @@ import { AccountExpensesSection } from "@/components/finance/AccountExpensesSect
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
+import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
+import { AccountPortalSection } from "./AccountPortalSection";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -579,12 +581,6 @@ export function CrmAccountDetailClient({
       ? { label: "Cliente activo", variant: "success" as const }
       : { label: "Ex cliente", variant: "destructive" as const };
 
-  const lifecycleSubtitle = [
-    lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente activo" : "Ex cliente",
-    account.industry || null,
-    account.segment || null,
-  ].filter(Boolean).join(" · ");
-
   // ── Extra actions (lifecycle toggles) ──
   const extraActions = (
     <div className="flex items-center gap-2">
@@ -614,13 +610,134 @@ export function CrmAccountDetailClient({
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "contacts", label: "Contactos", icon: Users, count: account.contacts.length },
-    { id: "installations", label: "Instalaciones", icon: MapPin, count: account.installations.length },
-    { id: "deals", label: "Negocios", icon: Briefcase, count: account.deals.length },
-    { id: "quotes", label: "Cotizaciones", icon: FileText, count: quotes.length },
     { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "portal", label: "Portal", icon: Shield },
     { id: "rendiciones", label: "Rendiciones", icon: Receipt },
     { id: "files", label: "Archivos", icon: FileText },
+  ];
+
+  const associatedSections: AssociatedSection[] = [
+    {
+      id: "contacts",
+      label: "Contactos",
+      icon: ContactsIcon,
+      count: account.contacts.length,
+      onAdd: () => setNewContactOpen(true),
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">Contactos</h3>
+            <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
+          </div>
+          {account.contacts.length === 0 ? (
+            <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {account.contacts.map((contact) => (
+                <CrmRelatedRecordCard
+                  key={contact.id}
+                  module="contacts"
+                  title={`${contact.firstName} ${contact.lastName}`.trim()}
+                  subtitle={contact.roleTitle || "Sin cargo"}
+                  meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
+                  badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+                  href={`/crm/contacts/${contact.id}`}
+                />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "installations",
+      label: "Instalaciones",
+      icon: MapPin,
+      count: account.installations.length,
+      onAdd: () => createInstallationRef.current?.open(),
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">Instalaciones</h3>
+            <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
+          </div>
+          <CrmInstallationsClient
+            accountId={account.id}
+            accountIsActive={account.isActive}
+            initialInstallations={account.installations}
+            createRef={createInstallationRef}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "deals",
+      label: "Negocios",
+      icon: DealsIcon,
+      count: account.deals.length,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">Negocios</h3>
+            <CreateDealModal accountId={account.id} accountName={account.name} />
+          </div>
+          {account.deals.length === 0 ? (
+            <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {account.deals.map((deal) => (
+                <CrmRelatedRecordCard
+                  key={deal.id}
+                  module="deals"
+                  title={deal.title}
+                  subtitle={deal.stage?.name || "Sin etapa"}
+                  meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+                  badge={
+                    deal.status === "won"
+                      ? { label: "Ganado", variant: "success" }
+                      : deal.status === "lost"
+                      ? { label: "Perdido", variant: "destructive" }
+                      : undefined
+                  }
+                  href={`/crm/deals/${deal.id}`}
+                />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "quotes",
+      label: "Cotizaciones",
+      icon: QuotesIcon,
+      count: quotes.length,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium">Cotizaciones</h3>
+            <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
+          </div>
+          {quotes.length === 0 ? (
+            <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {quotes.map((q) => (
+                <CrmRelatedRecordCard
+                  key={q.id}
+                  module="quotes"
+                  title={q.name ? `${q.code} — ${q.name}` : q.code}
+                  subtitle={q.clientName || undefined}
+                  meta={formatCLP(q.monthlyCost)}
+                  badge={{ label: q.status, variant: "secondary" }}
+                  href={`/crm/cotizaciones/${q.id}`}
+                />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const headerActions: EntityHeaderAction[] = [
@@ -745,7 +862,6 @@ export function CrmAccountDetailClient({
         header={{
           avatar: { initials: account.name.charAt(0).toUpperCase() },
           title: account.name,
-          subtitle: lifecycleSubtitle,
           status: lifecycleBadge,
           actions: headerActions,
           extra: extraActions,
@@ -753,109 +869,20 @@ export function CrmAccountDetailClient({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && generalContent}
 
-        {activeTab === "contacts" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Contactos</h3>
-              <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
-            </div>
-            {account.contacts.length === 0 ? (
-              <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Esta cuenta no tiene contactos registrados." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {account.contacts.map((contact) => (
-                  <CrmRelatedRecordCard
-                    key={contact.id}
-                    module="contacts"
-                    title={`${contact.firstName} ${contact.lastName}`.trim()}
-                    subtitle={contact.roleTitle || "Sin cargo"}
-                    meta={[contact.email, contact.phone].filter(Boolean).join(" · ") || undefined}
-                    badge={contact.isPrimary ? { label: "Principal", variant: "default" } : undefined}
-                    href={`/crm/contacts/${contact.id}`}
-                  />
-                ))}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
-
-        {activeTab === "installations" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Instalaciones</h3>
-              <CrmSectionCreateButton onClick={() => createInstallationRef.current?.open()} />
-            </div>
-            <CrmInstallationsClient
-              accountId={account.id}
-              accountIsActive={account.isActive}
-              initialInstallations={account.installations}
-              createRef={createInstallationRef}
-            />
-          </div>
-        )}
-
-        {activeTab === "deals" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Negocios</h3>
-              <CreateDealModal accountId={account.id} accountName={account.name} />
-            </div>
-            {account.deals.length === 0 ? (
-              <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {account.deals.map((deal) => (
-                  <CrmRelatedRecordCard
-                    key={deal.id}
-                    module="deals"
-                    title={deal.title}
-                    subtitle={deal.stage?.name || "Sin etapa"}
-                    meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-                    badge={
-                      deal.status === "won"
-                        ? { label: "Ganado", variant: "success" }
-                        : deal.status === "lost"
-                        ? { label: "Perdido", variant: "destructive" }
-                        : undefined
-                    }
-                    href={`/crm/deals/${deal.id}`}
-                  />
-                ))}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
-
-        {activeTab === "quotes" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Cotizaciones</h3>
-              <CreateQuoteModal defaultClientName={account.name} accountId={account.id} />
-            </div>
-            {quotes.length === 0 ? (
-              <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {quotes.map((q) => (
-                  <CrmRelatedRecordCard
-                    key={q.id}
-                    module="quotes"
-                    title={q.name ? `${q.code} — ${q.name}` : q.code}
-                    subtitle={q.clientName || undefined}
-                    meta={formatCLP(q.monthlyCost)}
-                    badge={{ label: q.status, variant: "secondary" }}
-                    href={`/crm/cotizaciones/${q.id}`}
-                  />
-                ))}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
-
         {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
+
+        {activeTab === "portal" && (
+          <AccountPortalSection
+            contacts={account.contacts}
+            accountStatus={account.status ?? (account.isActive ? "client_active" : "prospect")}
+            accountIsActive={account.isActive}
+            onRefresh={() => router.refresh()}
+          />
+        )}
 
         {activeTab === "rendiciones" && (
           <AccountExpensesSection

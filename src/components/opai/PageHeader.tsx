@@ -34,7 +34,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className={cn(
-      "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-6",
+      "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 lg:hidden",
       className
     )}>
       <div className="min-w-0">

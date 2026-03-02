@@ -3,7 +3,7 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, RefreshCw, Search, X } from 'lucide-react';
+import { Menu, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
@@ -46,7 +46,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
@@ -125,10 +125,19 @@ export function AppShell({
             paddingTop: 'env(safe-area-inset-top)',
           }}
         >
-          <Link href="/hub" className="flex shrink-0 items-center gap-2 hover:opacity-80">
-            <ThemeLogo width={28} height={28} className="h-7 w-7" />
-            <span className="text-sm font-semibold tracking-tight">OPAI</span>
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/hub" className="flex items-center gap-2 hover:opacity-80">
+              <ThemeLogo width={28} height={28} className="h-7 w-7" />
+              <span className="text-sm font-semibold tracking-tight">OPAI</span>
+            </Link>
+            <Link
+              href="/hub?create=true"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              aria-label="Crear nuevo"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Link>
+          </div>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
             <ThemeToggle compact />
             <button
@@ -163,7 +172,7 @@ export function AppShell({
         </header>
       )}
 
-      {/* ── Desktop sidebar (siempre visible: expandida o colapsada con iconos) ── */}
+      {/* ── Desktop sidebar (solo iconos, colapsado permanente) ── */}
       {sidebar && (
         <div className="hidden lg:block">
           {isValidElement(sidebar)
@@ -173,8 +182,7 @@ export function AppShell({
                   isSidebarOpen?: boolean;
                 }>,
                 {
-                  onToggleSidebar: () => setIsSidebarOpen((o) => !o),
-                  isSidebarOpen,
+                  isSidebarOpen: false,
                 }
               )
             : sidebar}
@@ -229,11 +237,11 @@ export function AppShell({
         )}
       >
         {/* Topbar actions desktop — búsqueda + tema + avatar */}
-        <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center justify-end gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 shrink-0">
+        <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0">
           <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
         </div>
-        <main className="flex-1 min-w-0 w-full overflow-x-hidden">
-          <div className="w-full max-w-full py-6 pb-28 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-2 lg:pr-8 xl:pl-3 xl:pr-10 2xl:pl-4 2xl:pr-12" role="region">
+        <main className="flex-1 min-w-0 w-full">
+          <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
             {children}
           </div>
         </main>

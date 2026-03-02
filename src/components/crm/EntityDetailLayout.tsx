@@ -49,7 +49,7 @@ export interface EntityDetailLayoutProps {
     };
     /** Main title */
     title: string;
-    /** Subtitle (RUT, cargo, code, etc.) */
+    /** Subtitle — shown only on mobile (desktop hides it, info goes in General tab) */
     subtitle?: string;
     /** Status badge */
     status?: {
@@ -73,6 +73,8 @@ export interface EntityDetailLayoutProps {
   children: ReactNode;
   /** Sub-tabs rendered inside sticky, below ChipTabs */
   subTabs?: ReactNode;
+  /** Right panel for associated records (desktop: sidebar, mobile: accordion below content) */
+  rightPanel?: ReactNode;
   /** Additional class on the root container */
   className?: string;
 }
@@ -103,6 +105,7 @@ export function EntityDetailLayout({
   onTabChange,
   children,
   subTabs,
+  rightPanel,
   className,
 }: EntityDetailLayoutProps) {
   const visibleTabs = tabs.filter((t) => !t.hidden);
@@ -115,23 +118,23 @@ export function EntityDetailLayout({
   const AvatarIcon = header.avatar?.icon;
 
   return (
-    <div className={cn("min-w-0 -mt-3 sm:-mt-4 lg:-mt-5", className)}>
+    <div className={cn("min-w-0 -mt-3 sm:-mt-4 lg:mt-0", className)}>
       {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
       <div
         className={cn(
           "sticky top-0 lg:top-12 z-10 bg-background",
           "-mx-2 px-4 sm:-mx-3 sm:px-6",
-          "lg:-ml-2 lg:-mr-8 lg:pl-4 lg:pr-8",
-          "xl:-ml-3 xl:-mr-10 xl:pl-6 xl:pr-10",
-          "2xl:-ml-4 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
+          "lg:-ml-4 lg:-mr-8 lg:pl-4 lg:pr-8",
+          "xl:-ml-5 xl:-mr-10 xl:pl-5 xl:pr-10",
+          "2xl:-ml-6 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
         )}
       >
         {/* ── Header ── */}
-        <div className="pt-4 pb-3 border-b border-border">
-          {/* Breadcrumb */}
+        <div className="pt-4 lg:pt-3 pb-3 border-b border-border">
+          {/* Breadcrumb (hidden on desktop — sidebar provides context) */}
           <nav
             aria-label="Breadcrumb"
-            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap"
+            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap lg:hidden"
           >
             {breadcrumb.map((segment, i) => {
               const isLast = i === breadcrumb.length - 1;
@@ -217,7 +220,7 @@ export function EntityDetailLayout({
                   )}
                 </div>
                 {header.subtitle && (
-                  <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                  <p className="text-sm text-muted-foreground mt-0.5 truncate lg:hidden">
                     {header.subtitle}
                   </p>
                 )}
@@ -235,16 +238,16 @@ export function EntityDetailLayout({
                     key={i}
                     type="button"
                     onClick={action.onClick}
+                    title={action.label}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex items-center justify-center rounded-md border h-8 w-8 transition-colors",
                       primaryActions.length > 1 ? "hidden sm:inline-flex" : "",
                       action.variant === "destructive"
                         ? "border-destructive/30 text-destructive hover:bg-destructive/10"
                         : "border-border hover:bg-muted text-foreground"
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span className="hidden md:inline">{action.label}</span>
+                    <Icon className="h-4 w-4" />
                   </button>
                 );
               })}
@@ -280,8 +283,11 @@ export function EntityDetailLayout({
         {subTabs}
       </div>
 
-      {/* ── Tab Content (extra top padding when sub-tabs are present to clear sticky) ── */}
-      <div className={subTabs ? "pt-14 sm:pt-16" : "pt-4 sm:pt-5"}>{children}</div>
+      {/* ── Content area: main + optional right panel ── */}
+      <div className={cn("lg:flex", subTabs ? "pt-14 sm:pt-16" : "pt-4 sm:pt-5")}>
+        <div className="flex-1 min-w-0">{children}</div>
+        {rightPanel}
+      </div>
     </div>
   );
 }

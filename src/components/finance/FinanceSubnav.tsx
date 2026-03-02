@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { SubNav, type SubNavItem } from "@/components/opai/SubNav";
 import { usePermissions } from "@/lib/permissions-context";
 import { canView, hasCapability, type RolePermissions } from "@/lib/permissions";
 import {
@@ -11,14 +9,25 @@ import {
   CheckCircle2,
   Wallet,
   BarChart3,
+  FileText,
+  Building2,
+  Landmark,
+  BookText,
 } from "lucide-react";
 
-const FINANCE_ITEMS = [
-  { href: "/finanzas", label: "Inicio", icon: LayoutDashboard, subKey: null, capability: null },
-  { href: "/finanzas/rendiciones", label: "Rendiciones", icon: Receipt, subKey: "rendiciones" as const, capability: null },
-  { href: "/finanzas/aprobaciones", label: "Aprobaciones", icon: CheckCircle2, subKey: "aprobaciones" as const, capability: "rendicion_approve" as const },
-  { href: "/finanzas/pagos", label: "Pagos", icon: Wallet, subKey: "pagos" as const, capability: "rendicion_pay" as const },
-  { href: "/finanzas/reportes", label: "Reportes", icon: BarChart3, subKey: "reportes" as const, capability: null },
+const FINANCE_ITEMS: (SubNavItem & {
+  subKey?: string;
+  capability?: string;
+})[] = [
+  { href: "/finanzas", label: "Inicio", icon: LayoutDashboard, exactMatch: true },
+  { href: "/finanzas/rendiciones", label: "Rendiciones", icon: Receipt, subKey: "rendiciones" },
+  { href: "/finanzas/aprobaciones", label: "Aprobaciones", icon: CheckCircle2, subKey: "aprobaciones", capability: "rendicion_approve" },
+  { href: "/finanzas/pagos", label: "Pagos", icon: Wallet, subKey: "pagos", capability: "rendicion_pay" },
+  { href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
+  { href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
+  { href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
+  { href: "/finanzas/contabilidad", label: "Contabilidad", icon: BookText, subKey: "contabilidad" },
+  { href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
 ];
 
 function filterByPermissions(perms: RolePermissions) {
@@ -30,37 +39,8 @@ function filterByPermissions(perms: RolePermissions) {
   });
 }
 
-export function FinanceSubnav({ className }: { className?: string } = {}) {
-  const pathname = usePathname();
+export function FinanceSubnav() {
   const permissions = usePermissions();
   const visibleItems = filterByPermissions(permissions);
-
-  return (
-    <nav className={cn("mb-6", className)}>
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-        {visibleItems.map((item) => {
-          const isActive =
-            item.href === "/finanzas"
-              ? pathname === "/finanzas"
-              : pathname === item.href || pathname?.startsWith(item.href + "/");
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0",
-                isActive
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
+  return <SubNav items={visibleItems} />;
 }

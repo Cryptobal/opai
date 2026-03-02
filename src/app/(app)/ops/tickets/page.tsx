@@ -5,7 +5,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { TicketsClient } from "@/components/ops/tickets";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-
 export default async function OpsTicketsPage() {
   const session = await auth();
   if (!session?.user) {

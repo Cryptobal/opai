@@ -2,10 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, LogOut, Settings, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Building2,
+  Contact,
+  FileText,
+  LogOut,
+  Plus,
+  Receipt,
+  Settings,
+  Shield,
+  Ticket,
+  TrendingUp,
+  User,
+  Users,
+} from "lucide-react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "./Avatar";
+import { QuickCreateModal, type QuickCreateType } from "./QuickCreateModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,16 +37,17 @@ interface TopbarActionsProps {
   className?: string;
 }
 
-/**
- * TopbarActions — Acciones globales del usuario en topbar (estilo HubSpot/Salesforce).
- *
- * Muestra:
- * - Buscador global
- * - Toggle de tema
- * - Avatar con dropdown: Perfil, Configuración, Cerrar sesión
- *
- * Patrón de apps de nivel mundial: acciones globales + usuario en topbar derecho.
- */
+const QUICK_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof TrendingUp; navigateHref?: string }[] = [
+  { label: "Nuevo Lead", type: "lead", icon: TrendingUp },
+  { label: "Nueva Cuenta", type: "account", icon: Building2 },
+  { label: "Nuevo Contacto", type: "contact", icon: Contact },
+  { label: "Nuevo Negocio", type: "deal", icon: Users },
+  { label: "Nuevo Ticket", type: "ticket", icon: Ticket },
+  { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
+  { label: "Nueva Persona", type: "persona", icon: Shield },
+  { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
+];
+
 export function TopbarActions({
   userName = "Usuario",
   userEmail,
@@ -39,20 +55,71 @@ export function TopbarActions({
   className,
 }: TopbarActionsProps) {
   const [mounted, setMounted] = useState(false);
+  const [quickCreateType, setQuickCreateType] = useState<QuickCreateType>(null);
+  const router = useRouter();
   useEffect(() => setMounted(true), []);
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      {/* Buscador global (CRM) — Cmd+K abre el Command Palette */}
+    <div className={cn("flex items-center gap-2 w-full", className)}>
+      {/* Left: Search */}
       <GlobalSearch compact className="w-72" />
 
-      {/* Separator */}
-      <div className="h-6 w-px bg-border/60 shrink-0" />
+      {/* Quick Create "+" button */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+            aria-label="Crear nuevo"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          {QUICK_CREATE_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <DropdownMenuItem
+                key={item.label}
+                onClick={() => {
+                  if (item.navigateHref) {
+                    router.push(item.navigateHref);
+                  } else if (item.type) {
+                    setQuickCreateType(item.type);
+                  }
+                }}
+                className="cursor-pointer"
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {item.label}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      {/* Toggle tema claro/oscuro */}
+      {quickCreateType && (
+        <QuickCreateModal
+          type={quickCreateType}
+          onClose={() => setQuickCreateType(null)}
+        />
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Right: Settings gear */}
+      <Link
+        href="/opai/configuracion"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="Configuración"
+      >
+        <Settings className="h-4 w-4" />
+      </Link>
+
       <ThemeToggle />
 
-      {/* Avatar + User Menu — renderizar solo tras montaje para evitar hydration mismatch (Radix IDs) */}
+      {/* Avatar + User Menu */}
       {!mounted ? (
         <button
           type="button"
@@ -65,60 +132,48 @@ export function TopbarActions({
           </span>
         </button>
       ) : (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent"
-            aria-label="Menú de usuario"
-          >
-            <Avatar name={userName} size="sm" />
-            <span className="hidden xl:inline text-sm font-medium truncate max-w-[120px]">
-              {userName}
-            </span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <Avatar name={userName} size="sm" />
-            <div className="flex flex-col min-w-0">
-              <p className="text-sm font-medium truncate">{userName}</p>
-              {userEmail && (
-                <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-              )}
-            </div>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/opai/perfil" className="cursor-pointer">
-              <User className="h-4 w-4 mr-2" />
-              Mi perfil
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/opai/perfil/notificaciones" className="cursor-pointer">
-              <Bell className="h-4 w-4 mr-2" />
-              Mis notificaciones
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/opai/configuracion" className="cursor-pointer">
-              <Settings className="h-4 w-4 mr-2" />
-              Configuración
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link
-              href="/api/auth/signout?callbackUrl=/opai/login"
-              className="cursor-pointer text-destructive focus:text-destructive"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent"
+              aria-label="Menú de usuario"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar sesión
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <Avatar name={userName} size="sm" />
+              <span className="hidden xl:inline text-sm font-medium truncate max-w-[120px]">
+                {userName}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <Avatar name={userName} size="sm" />
+              <div className="flex flex-col min-w-0">
+                <p className="text-sm font-medium truncate">{userName}</p>
+                {userEmail && (
+                  <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                )}
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/opai/perfil" className="cursor-pointer">
+                <User className="h-4 w-4 mr-2" />
+                Mi perfil
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link
+                href="/api/auth/signout?callbackUrl=/opai/login"
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar sesión
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );

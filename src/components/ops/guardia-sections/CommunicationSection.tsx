@@ -87,14 +87,11 @@ export default function CommunicationSection({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-border p-4 space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Envío con plantillas predefinidas por canal. Los envíos quedan registrados en la ficha.
-        </p>
-        <div className="grid gap-3 md:grid-cols-3">
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <div className="flex gap-2">
           <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs"
             value={commForm.channel}
             onChange={(e) => {
               const nextChannel = e.target.value;
@@ -105,68 +102,53 @@ export default function CommunicationSection({
             <option value="email">Email</option>
             <option value="whatsapp">WhatsApp</option>
           </select>
-
           <select
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs"
             value={commForm.templateId}
             onChange={(e) => setCommForm((prev) => ({ ...prev, templateId: e.target.value }))}
           >
             {availableTemplates.map((tpl) => (
-              <option key={tpl.id} value={tpl.id}>
-                {tpl.name}
-              </option>
+              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
             ))}
           </select>
-
-          <Button onClick={handleSendCommunication} disabled={sendingComm || !commForm.templateId}>
-            <Send className="h-4 w-4 mr-1" />
-            {sendingComm ? "Enviando..." : "Enviar comunicación"}
-          </Button>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>Email: {email || "No registrado"}</span>
-          <span>·</span>
-          <span>Celular: {phoneMobile ? `+56 ${phoneMobile}` : "No registrado"}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={async () => {
-              await navigator.clipboard.writeText(`${window.location.origin}/personas/guardias/${guardiaId}`);
-              toast.success("Link copiado");
-            }}
-          >
-            <Copy className="h-3.5 w-3.5 mr-1" />
-            Copiar link autogestión
-          </Button>
-        </div>
+        <Button size="sm" className="w-full h-8 text-xs" onClick={handleSendCommunication} disabled={sendingComm || !commForm.templateId}>
+          <Send className="h-3.5 w-3.5 mr-1" />
+          {sendingComm ? "Enviando..." : "Enviar"}
+        </Button>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Envíos registrados</p>
-        {communicationHistory.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aún no hay envíos.</p>
-        ) : (
-          communicationHistory.map((event) => {
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{email ? email.split("@")[0] + "@..." : "Sin email"}</span>
+        <button
+          type="button"
+          className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          onClick={async () => {
+            await navigator.clipboard.writeText(`${window.location.origin}/personas/guardias/${guardiaId}`);
+            toast.success("Link copiado");
+          }}
+        >
+          <Copy className="h-3 w-3 inline mr-0.5" />Link
+        </button>
+      </div>
+
+      {communicationHistory.length > 0 && (
+        <div className="space-y-1.5 pt-1 border-t border-border/40">
+          <p className="text-[11px] font-medium text-muted-foreground">Últimos envíos</p>
+          {communicationHistory.slice(0, 3).map((event) => {
             const payload = (event.newValue || {}) as Record<string, unknown>;
             const channel = String(payload.channel || "");
-            const status = String(payload.status || "");
             const templateName = String(payload.templateName || payload.templateId || "");
             return (
-              <div key={event.id} className="rounded-md border border-border p-3 flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-sm">
-                  {channel === "whatsapp" ? <MessageCircle className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                  <span className="font-medium">{templateName || "Comunicación"}</span>
-                  <span className="text-xs text-muted-foreground">· {status || "registrado"}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString("es-CL")}</p>
+              <div key={event.id} className="flex items-center gap-1.5 text-[11px]">
+                {channel === "whatsapp" ? <MessageCircle className="h-3 w-3 shrink-0" /> : <Mail className="h-3 w-3 shrink-0" />}
+                <span className="truncate">{templateName || "Comunicación"}</span>
+                <span className="text-muted-foreground shrink-0 ml-auto">{new Date(event.createdAt).toLocaleDateString("es-CL")}</span>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

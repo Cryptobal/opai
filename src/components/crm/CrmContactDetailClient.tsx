@@ -24,6 +24,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
@@ -437,20 +438,18 @@ export function CrmContactDetailClient({
   const AccountIcon = CRM_MODULES.accounts.icon;
   const DealsIcon = CRM_MODULES.deals.icon;
 
-  const subtitle = [
-    contact.account?.name || "Sin cuenta",
-    contact.roleTitle || "Sin cargo",
-  ].join(" · ");
+  const phoneBase = contact.phone
+    ? (() => {
+        const digits = contact.phone.replace(/\D/g, "").replace(/^0/, "");
+        return digits.startsWith("56") ? digits : `56${digits}`;
+      })()
+    : null;
 
   // ── Tab state & definitions ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "account", label: "Cuenta", icon: Building2 },
-    { id: "installations", label: "Instalaciones", icon: MapPin, count: installations.length },
-    { id: "deals", label: "Negocios", icon: Briefcase, count: contactDeals.length },
-    { id: "quotes", label: "Cotizaciones", icon: DollarSign, count: quotes.length },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
     { id: "files", label: "Archivos", icon: FileText },
   ];
@@ -460,6 +459,160 @@ export function CrmContactDetailClient({
     { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
     { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+  ];
+
+  const associatedSections: AssociatedSection[] = [
+    {
+      id: "account",
+      label: "Cuenta",
+      icon: Building2,
+      count: contact.account ? 1 : 0,
+      defaultOpen: true,
+      content: contact.account ? (
+        <CrmRelatedRecordCard
+          module="accounts"
+          title={contact.account.name}
+          subtitle={contact.account.industry || undefined}
+          badge={
+            contact.account.type === "client"
+              ? { label: "Cliente", variant: "success" }
+              : { label: "Prospecto", variant: "warning" }
+          }
+          href={`/crm/accounts/${contact.account.id}`}
+        />
+      ) : (
+        <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
+      ),
+    },
+    {
+      id: "installations",
+      label: "Instalaciones",
+      icon: MapPin,
+      count: installations.length,
+      content: (
+        <div className="space-y-3">
+          {installations.length === 0 ? (
+            <EmptyState icon={<MapPin className="h-8 w-8" />} title="Sin instalaciones" description="No hay instalaciones vinculadas a la cuenta de este contacto." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {installations.map((inst) => (
+                <CrmRelatedRecordCard
+                  key={inst.id}
+                  module="installations"
+                  title={inst.name}
+                  subtitle={[inst.commune, inst.city].filter(Boolean).join(", ") || undefined}
+                  meta={inst.address || undefined}
+                  badge={
+                    inst.isActive
+                      ? { label: "Activa", variant: "success" }
+                      : { label: "Inactiva", variant: "warning" }
+                  }
+                  href={`/crm/installations/${inst.id}`}
+                />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "deals",
+      label: "Negocios",
+      icon: Briefcase,
+      count: contactDeals.length,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-end">
+            {contact.account?.id && (
+              <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} />
+            )}
+          </div>
+          {contactDeals.length === 0 ? (
+            <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {contactDeals.map((deal) => {
+                const hasCurrentStage = deal.stage?.id
+                  ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
+                  : false;
+                return (
+                  <CrmRelatedRecordCard
+                    key={deal.id}
+                    module="deals"
+                    title={deal.title}
+                    subtitle={deal.stage?.name || "Sin etapa"}
+                    meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+                    badge={
+                      deal.status === "won"
+                        ? { label: "Ganado", variant: "success" }
+                        : deal.status === "lost"
+                        ? { label: "Perdido", variant: "destructive" }
+                        : undefined
+                    }
+                    href={`/crm/deals/${deal.id}`}
+                    actions={
+                      <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
+                        <select
+                          className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
+                          value={deal.stage?.id || ""}
+                          onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
+                          disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
+                          aria-label={`Cambiar etapa de ${deal.title}`}
+                        >
+                          {deal.stage?.id && !hasCurrentStage && (
+                            <option value={deal.stage.id}>{deal.stage.name}</option>
+                          )}
+                          {pipelineStages.map((stage) => (
+                            <option key={stage.id} value={stage.id}>{stage.name}</option>
+                          ))}
+                          {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
+                        </select>
+                      </div>
+                    }
+                  />
+                );
+              })}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "quotes",
+      label: "Cotizaciones",
+      icon: DollarSign,
+      count: quotes.length,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-end">
+            {contact.account?.id && (
+              <CreateQuoteModal
+                defaultClientName={contact.account.name}
+                accountId={contact.account.id}
+              />
+            )}
+          </div>
+          {quotes.length === 0 ? (
+            <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
+          ) : (
+            <CrmRelatedRecordGrid>
+              {quotes.map((q) => (
+                <CrmRelatedRecordCard
+                  key={q.id}
+                  module="quotes"
+                  title={q.name ? `${q.code} — ${q.name}` : q.code}
+                  subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+                  meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+                  badge={{ label: q.status, variant: "secondary" }}
+                  href={`/crm/cotizaciones/${q.id}`}
+                />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </div>
+      ),
+    },
   ];
 
   // ── Tab content: General ──
@@ -503,152 +656,33 @@ export function CrmContactDetailClient({
         header={{
           avatar: { initials: fullName.charAt(0).toUpperCase() },
           title: fullName,
-          subtitle,
           status: contact.isPrimary ? { label: "Principal", variant: "default" } : undefined,
           actions: headerActions,
+          extra: phoneBase ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={`tel:+${phoneBase}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <Phone className="h-3.5 w-3.5" /> Llamar
+              </a>
+              <a
+                href={`https://wa.me/${phoneBase}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-green-600/30 bg-green-600/15 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-600/25 transition-colors"
+              >
+                <MessageSquareText className="h-3.5 w-3.5" /> WhatsApp
+              </a>
+            </div>
+          ) : undefined,
         }}
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && generalContent}
-
-        {activeTab === "account" && (
-          contact.account ? (
-            <CrmRelatedRecordCard
-              module="accounts"
-              title={contact.account.name}
-              subtitle={contact.account.industry || undefined}
-              badge={
-                contact.account.type === "client"
-                  ? { label: "Cliente", variant: "success" }
-                  : { label: "Prospecto", variant: "warning" }
-              }
-              href={`/crm/accounts/${contact.account.id}`}
-            />
-          ) : (
-            <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Este contacto no está asociado a una cuenta." compact />
-          )
-        )}
-
-        {activeTab === "installations" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Instalaciones</h3>
-            </div>
-            {installations.length === 0 ? (
-              <EmptyState icon={<MapPin className="h-8 w-8" />} title="Sin instalaciones" description="No hay instalaciones vinculadas a la cuenta de este contacto." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {installations.map((inst) => (
-                  <CrmRelatedRecordCard
-                    key={inst.id}
-                    module="installations"
-                    title={inst.name}
-                    subtitle={[inst.commune, inst.city].filter(Boolean).join(", ") || undefined}
-                    meta={inst.address || undefined}
-                    badge={
-                      inst.isActive
-                        ? { label: "Activa", variant: "success" }
-                        : { label: "Inactiva", variant: "warning" }
-                    }
-                    href={`/crm/installations/${inst.id}`}
-                  />
-                ))}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
-
-        {activeTab === "deals" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Negocios</h3>
-              {contact.account?.id && (
-                <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} />
-              )}
-            </div>
-            {contactDeals.length === 0 ? (
-              <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {contactDeals.map((deal) => {
-                  const hasCurrentStage = deal.stage?.id
-                    ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
-                    : false;
-                  return (
-                    <CrmRelatedRecordCard
-                      key={deal.id}
-                      module="deals"
-                      title={deal.title}
-                      subtitle={deal.stage?.name || "Sin etapa"}
-                      meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-                      badge={
-                        deal.status === "won"
-                          ? { label: "Ganado", variant: "success" }
-                          : deal.status === "lost"
-                          ? { label: "Perdido", variant: "destructive" }
-                          : undefined
-                      }
-                      href={`/crm/deals/${deal.id}`}
-                      actions={
-                        <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
-                          <select
-                            className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-                            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
-                            value={deal.stage?.id || ""}
-                            onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
-                            disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
-                            aria-label={`Cambiar etapa de ${deal.title}`}
-                          >
-                            {deal.stage?.id && !hasCurrentStage && (
-                              <option value={deal.stage.id}>{deal.stage.name}</option>
-                            )}
-                            {pipelineStages.map((stage) => (
-                              <option key={stage.id} value={stage.id}>{stage.name}</option>
-                            ))}
-                            {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
-                          </select>
-                        </div>
-                      }
-                    />
-                  );
-                })}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
-
-        {activeTab === "quotes" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Cotizaciones</h3>
-              {contact.account?.id && (
-                <CreateQuoteModal
-                  defaultClientName={contact.account.name}
-                  accountId={contact.account.id}
-                />
-              )}
-            </div>
-            {quotes.length === 0 ? (
-              <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
-            ) : (
-              <CrmRelatedRecordGrid>
-                {quotes.map((q) => (
-                  <CrmRelatedRecordCard
-                    key={q.id}
-                    module="quotes"
-                    title={q.name ? `${q.code} — ${q.name}` : q.code}
-                    subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
-                    meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
-                    badge={{ label: q.status, variant: "secondary" }}
-                    href={`/crm/cotizaciones/${q.id}`}
-                  />
-                ))}
-              </CrmRelatedRecordGrid>
-            )}
-          </div>
-        )}
 
         {activeTab === "communication" && (
           <div className="space-y-3">

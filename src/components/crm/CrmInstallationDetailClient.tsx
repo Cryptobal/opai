@@ -33,6 +33,7 @@ import { ProtocolTab, type ProtocolSubTabId } from "./protocol/ProtocolTab";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
+import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { toast } from "sonner";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -1780,6 +1781,8 @@ export function CrmInstallationDetailClient({
 
   // ── New contact state ──
   const [newContactOpen, setNewContactOpen] = useState(false);
+  const [dealModalOpen, setDealModalOpen] = useState(false);
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "" });
   const [savingContact, setSavingContact] = useState(false);
 
@@ -1813,27 +1816,13 @@ export function CrmInstallationDetailClient({
   const DealsIcon = CRM_MODULES.deals.icon;
   const QuotesIcon = CRM_MODULES.quotes.icon;
 
-  const subtitle = [
-    installation.account?.name,
-    [installation.commune, installation.city].filter(Boolean).join(", "),
-  ].filter(Boolean).join(" · ") || "Sin ubicación";
-
   // ── Tabs ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
   const [protocolSubTab, setProtocolSubTab] = useState<ProtocolSubTabId>("sections");
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "account", label: "Cuenta", icon: AccountIcon },
-    { id: "contacts", label: "Contactos", icon: UserCircle, count: installation.contactsOfAccount?.length ?? 0 },
-    { id: "deals", label: "Negocios", icon: Briefcase, count: installation.dealsOfAccount?.length ?? 0 },
-    { id: "quotes", label: "Cotizaciones", icon: FileText, count: installation.quotesInstalacion?.length ?? 0 },
     { id: "staffing", label: "Puestos", icon: Users },
-    { id: "refuerzos", label: "Refuerzos", icon: Shield, count: installation.refuerzos?.length ?? 0 },
-    { id: "dotacion", label: "Dotación", icon: ClipboardList },
-    { id: "marcacion", label: "Marcación", icon: QrCode },
-    { id: "rendiciones", label: "Rendiciones", icon: Receipt },
-    ...(hasInventarioAccess ? [{ id: "uniformes" as const, label: "Uniformes", icon: Package }] : []),
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "files", label: "Archivos", icon: FileText },
   ];
@@ -1956,10 +1945,6 @@ export function CrmInstallationDetailClient({
         <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
   );
 
-  const contactsAction = installation.account?.id ? (
-    <CrmSectionCreateButton onClick={() => setNewContactOpen(true)} />
-  ) : undefined;
-
   const contactsContent = !installation.account ? (
         <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
       ) : !installation.contactsOfAccount?.length ? (
@@ -1989,13 +1974,6 @@ export function CrmInstallationDetailClient({
           ))}
         </CrmRelatedRecordGrid>
   );
-
-  const dealsAction = installation.account?.id ? (
-    <CreateDealModal
-      accountId={installation.account.id}
-      accountName={installation.account.name}
-    />
-  ) : undefined;
 
   const dealsContent = !installation.account ? (
         <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
@@ -2033,14 +2011,6 @@ export function CrmInstallationDetailClient({
         </CrmRelatedRecordGrid>
   );
 
-  const quotesAction = installation.account?.id ? (
-    <CreateQuoteModal
-      defaultClientName={installation.account.name}
-      accountId={installation.account.id}
-      installationId={installation.id}
-    />
-  ) : undefined;
-
   const quotesContent = !installation.quotesInstalacion?.length ? (
         <EmptyState
           icon={<QuotesIcon className="h-8 w-8" />}
@@ -2069,6 +2039,90 @@ export function CrmInstallationDetailClient({
         </CrmRelatedRecordGrid>
   );
 
+  const associatedSections: AssociatedSection[] = [
+    {
+      id: "account",
+      label: "Cuenta",
+      icon: AccountIcon,
+      content: accountContent,
+    },
+    {
+      id: "contacts",
+      label: "Contactos",
+      icon: UserCircle,
+      count: installation.contactsOfAccount?.length ?? 0,
+      content: contactsContent,
+      onAdd: installation.account?.id ? () => setNewContactOpen(true) : undefined,
+    },
+    {
+      id: "deals",
+      label: "Negocios",
+      icon: DealsIcon,
+      count: installation.dealsOfAccount?.length ?? 0,
+      content: dealsContent,
+      onAdd: installation.account?.id ? () => setDealModalOpen(true) : undefined,
+    },
+    {
+      id: "quotes",
+      label: "Cotizaciones",
+      icon: QuotesIcon,
+      count: installation.quotesInstalacion?.length ?? 0,
+      content: quotesContent,
+      onAdd: installation.account?.id ? () => setQuoteModalOpen(true) : undefined,
+    },
+    {
+      id: "refuerzos",
+      label: "Refuerzos",
+      icon: Shield,
+      count: installation.refuerzos?.length ?? 0,
+      content: (
+        <OpsRefuerzosClient
+          initialItems={(installation.refuerzos ?? []) as any}
+          defaultInstallationId={installation.id}
+        />
+      ),
+    },
+    {
+      id: "dotacion",
+      label: "Dotación",
+      icon: ClipboardList,
+      content: <DotacionSection installation={installation} canEdit={canEditDotacion} />,
+    },
+    {
+      id: "marcacion",
+      label: "Marcación",
+      icon: QrCode,
+      content: (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-medium mb-3">Marcación asistencia</h3>
+            <MarcacionAsistenciaSection installation={installation} />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium mb-3">Marcación rondas</h3>
+            <MarcacionRondasSection installation={installation} />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "rendiciones",
+      label: "Rendiciones",
+      icon: Receipt,
+      content: <InstallationExpensesSection installationId={installation.id} />,
+    },
+    ...(hasInventarioAccess
+      ? [
+          {
+            id: "uniformes",
+            label: "Uniformes",
+            icon: Package,
+            content: <InventarioInstallationSection installationId={installation.id} />,
+          } as AssociatedSection,
+        ]
+      : []),
+  ];
+
   return (
     <>
       <EntityDetailLayout
@@ -2077,7 +2131,6 @@ export function CrmInstallationDetailClient({
         header={{
           avatar: { initials: installation.name.charAt(0).toUpperCase() },
           title: installation.name,
-          subtitle,
           status: isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" },
           actions: headerActions,
           extra: (
@@ -2094,6 +2147,7 @@ export function CrmInstallationDetailClient({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
         subTabs={
           activeTab === "protocolo" ? (
             <div className="flex items-center justify-between px-4 py-2 border-t border-border/30">
@@ -2131,34 +2185,6 @@ export function CrmInstallationDetailClient({
         }
       >
         {activeTab === "general" && generalContent}
-        {activeTab === "account" && accountContent}
-        {activeTab === "contacts" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Contactos</h3>
-              {contactsAction}
-            </div>
-            {contactsContent}
-          </div>
-        )}
-        {activeTab === "deals" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Negocios</h3>
-              {dealsAction}
-            </div>
-            {dealsContent}
-          </div>
-        )}
-        {activeTab === "quotes" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Cotizaciones</h3>
-              {quotesAction}
-            </div>
-            {quotesContent}
-          </div>
-        )}
         {activeTab === "staffing" && (
           <StaffingSection
             installation={installation}
@@ -2167,33 +2193,6 @@ export function CrmInstallationDetailClient({
             sourceUpdatedAt={sourceUpdatedAt}
             canForceDelete={canForceDeletePuesto}
           />
-        )}
-        {activeTab === "refuerzos" && (
-          <OpsRefuerzosClient
-            initialItems={(installation.refuerzos ?? []) as any}
-            defaultInstallationId={installation.id}
-          />
-        )}
-        {activeTab === "dotacion" && (
-          <DotacionSection installation={installation} canEdit={canEditDotacion} />
-        )}
-        {activeTab === "marcacion" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-medium mb-3">Marcación asistencia</h3>
-              <MarcacionAsistenciaSection installation={installation} />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium mb-3">Marcación rondas</h3>
-              <MarcacionRondasSection installation={installation} />
-            </div>
-          </div>
-        )}
-        {activeTab === "rendiciones" && (
-          <InstallationExpensesSection installationId={installation.id} />
-        )}
-        {activeTab === "uniformes" && hasInventarioAccess && (
-          <InventarioInstallationSection installationId={installation.id} />
         )}
         {activeTab === "protocolo" && (
           <ProtocolTab
@@ -2207,6 +2206,24 @@ export function CrmInstallationDetailClient({
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />
         )}
       </EntityDetailLayout>
+
+      {installation.account?.id && (
+        <>
+          <CreateDealModal
+            accountId={installation.account.id}
+            accountName={installation.account.name}
+            open={dealModalOpen}
+            onOpenChange={setDealModalOpen}
+          />
+          <CreateQuoteModal
+            defaultClientName={installation.account.name}
+            accountId={installation.account.id}
+            installationId={installation.id}
+            open={quoteModalOpen}
+            onOpenChange={setQuoteModalOpen}
+          />
+        </>
+      )}
 
       {/* ── Edit Dialog ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

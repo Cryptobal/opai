@@ -74,7 +74,6 @@ export default async function InventarioPage() {
         backHref="/hub"
         backLabel="Inicio"
       />
-
       <InventarioKpisCard />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">

@@ -27,11 +27,17 @@ interface CreateQuoteModalProps {
   dealId?: string;
   /** Instalación para vincular la cotización (cuando se crea desde vista de instalación). */
   installationId?: string;
+  /** Controlled mode: when provided, use these instead of internal state (no trigger rendered) */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId }: CreateQuoteModalProps) {
+export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CreateQuoteModalProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && controlledOnOpenChange !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? controlledOnOpenChange! : setInternalOpen;
   const [quoteName, setQuoteName] = useState("");
   const [clientName, setClientName] = useState(defaultClientName ?? "");
   const [dealName, setDealName] = useState("");
@@ -128,9 +134,11 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <CrmSectionCreateButton />
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <CrmSectionCreateButton />
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Nueva Cotización</DialogTitle>

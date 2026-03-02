@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsPpcClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-
 export default async function OpsPpcPage() {
   const session = await auth();
   if (!session?.user) {

@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsMarcacionesClient } from "@/components/ops/OpsMarcacionesClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-
 export default async function OpsMarcacionesPage() {
   const session = await auth();
   if (!session?.user) {

@@ -20,15 +20,23 @@ interface CreateDealModalProps {
   accountId: string;
   accountName: string;
   onCreated?: (dealId: string) => void;
+  /** Controlled mode: when provided, use these instead of internal state (no trigger rendered) */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function CreateDealModal({
   accountId,
   accountName,
   onCreated,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: CreateDealModalProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && controlledOnOpenChange !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -64,9 +72,11 @@ export function CreateDealModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <CrmSectionCreateButton />
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <CrmSectionCreateButton />
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Nuevo negocio</DialogTitle>

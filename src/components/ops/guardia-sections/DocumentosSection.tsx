@@ -272,9 +272,6 @@ export default function DocumentosSection({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => void handleSaveDocument(doc)} disabled={savingDocId === doc.id}>
-                        Guardar cambios
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-red-400 focus:text-red-400"
                         onClick={() => void handleDeleteDocument(doc)}

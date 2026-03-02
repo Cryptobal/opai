@@ -39,9 +39,11 @@ export default async function RondasAlertasPage() {
   ]);
 
   return (
-    <RondasAlertasClient
+    <div className="space-y-6 min-w-0">
+      <RondasAlertasClient
       initialRows={JSON.parse(JSON.stringify(rows))}
       installations={JSON.parse(JSON.stringify(installations))}
     />
+    </div>
   );
 }

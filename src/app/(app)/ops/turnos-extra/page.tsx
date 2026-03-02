@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { TeTurnosClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-
 export default async function OpsTurnosExtraPage() {
   const session = await auth();
   if (!session?.user) {
