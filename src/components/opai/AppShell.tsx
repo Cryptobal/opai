@@ -3,15 +3,33 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Menu, Plus, RefreshCw, Search, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
 import { ThemeToggle } from './ThemeToggle';
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
+import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
 import { BottomNav } from './BottomNav';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const MOBILE_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof TrendingUp; navigateHref?: string }[] = [
+  { label: "Nuevo Lead", type: "lead", icon: TrendingUp },
+  { label: "Nueva Cuenta", type: "account", icon: Building2 },
+  { label: "Nuevo Contacto", type: "contact", icon: Contact },
+  { label: "Nuevo Negocio", type: "deal", icon: Users },
+  { label: "Nuevo Ticket", type: "ticket", icon: Ticket },
+  { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
+  { label: "Nueva Persona", type: "persona", icon: Shield },
+  { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
+];
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -49,6 +67,7 @@ export function AppShell({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [mobileCreateType, setMobileCreateType] = useState<QuickCreateType>(null);
 
   // Auto-close mobile search overlay on route change (safety net)
   const prevPathnameRef = useRef(pathname);
@@ -130,13 +149,38 @@ export function AppShell({
               <ThemeLogo width={28} height={28} className="h-7 w-7" />
               <span className="text-sm font-semibold tracking-tight">OPAI</span>
             </Link>
-            <Link
-              href="/hub?create=true"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
-              aria-label="Crear nuevo"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                  aria-label="Crear nuevo"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {MOBILE_CREATE_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={item.label}
+                      onClick={() => {
+                        if (item.navigateHref) {
+                          router.push(item.navigateHref);
+                        } else if (item.type) {
+                          setMobileCreateType(item.type);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-1.5">
             <ThemeToggle compact />
@@ -255,6 +299,11 @@ export function AppShell({
 
       {/* ── Asistente IA ── */}
       <AiHelpChatWidget />
+
+      {/* ── Mobile Quick Create Modal ── */}
+      {mobileCreateType && (
+        <QuickCreateModal type={mobileCreateType} onClose={() => setMobileCreateType(null)} />
+      )}
     </div>
     </CommandPaletteProvider>
   );

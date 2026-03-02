@@ -8,7 +8,6 @@
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HubGreeting } from './HubGreeting';
 import { HubNotifications } from './HubNotifications';
-import { HubFabSpeedDial } from './HubFabSpeedDial';
 import { HubPipelineSection } from './HubPipelineSection';
 import { HubOperationsSection } from './HubOperationsSection';
 import { HubSupervisionSection } from './HubSupervisionSection';
@@ -112,8 +111,6 @@ export function HubClientWrapper({
         </Card>
       )}
 
-      {/* FAB Speed Dial */}
-      <HubFabSpeedDial />
     </div>
   );
 }
