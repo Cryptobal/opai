@@ -34,7 +34,7 @@ function filterByPermissions(perms: RolePermissions) {
   return FINANCE_ITEMS.filter((item) => {
     if (!item.subKey) return true;
     if (!canView(perms, "finance", item.subKey)) return false;
-    if (item.capability && !hasCapability(perms, item.capability)) return false;
+    if (item.capability && !hasCapability(perms, item.capability as Parameters<typeof hasCapability>[1])) return false;
     return true;
   });
 }
