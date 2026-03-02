@@ -122,7 +122,7 @@ export function EntityDetailLayout({
       {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
       <div
         className={cn(
-          "sticky top-0 lg:top-12 z-10 bg-background",
+          "sticky top-0 z-10 bg-background",
           "-mx-2 px-4 sm:-mx-3 sm:px-6",
           "lg:-ml-4 lg:-mr-8 lg:pl-4 lg:pr-8",
           "xl:-ml-5 xl:-mr-10 xl:pl-5 xl:pr-10",
@@ -277,6 +277,7 @@ export function EntityDetailLayout({
           }))}
           activeTab={activeTab}
           onTabChange={onTabChange}
+          compact
         />
 
         {/* ── Sub-tabs (inside sticky) ── */}
