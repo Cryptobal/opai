@@ -51,6 +51,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     });
     if (!current) return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
 
+    // Validate all checkpoints belong to this template's installation
+    if (parsed.data.checkpointIds) {
+      const validCheckpoints = await prisma.opsCheckpoint.findMany({
+        where: {
+          id: { in: parsed.data.checkpointIds },
+          tenantId: ctx.tenantId,
+          installationId: current.installationId,
+        },
+        select: { id: true },
+      });
+      const validIds = new Set(validCheckpoints.map((c) => c.id));
+      const invalidIds = parsed.data.checkpointIds.filter((cpId) => !validIds.has(cpId));
+      if (invalidIds.length > 0) {
+        return NextResponse.json(
+          { success: false, error: `Checkpoints no pertenecen a la instalación: ${invalidIds.join(", ")}` },
+          { status: 400 },
+        );
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.opsRondaTemplate.update({
         where: { id },
