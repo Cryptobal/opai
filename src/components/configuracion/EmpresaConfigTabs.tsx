@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, FileSignature, Loader2, Mail, Save } from "lucide-react";
+import { Building, FileSignature, Globe, Loader2, Mail, Phone, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,15 +15,32 @@ const FIELDS = [
   { key: "empresa.direccion", label: "Dirección", placeholder: "Ej: Av. Providencia 1234, Of. 501" },
   { key: "empresa.comuna", label: "Comuna", placeholder: "Ej: Providencia" },
   { key: "empresa.ciudad", label: "Ciudad", placeholder: "Ej: Santiago" },
-  { key: "empresa.telefono", label: "Teléfono", placeholder: "Ej: +56 2 1234 5678" },
+  { key: "empresa.telefono", label: "Teléfono empresa", placeholder: "Ej: +56 2 1234 5678" },
   { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Jorge Andrés Montenegro Fuenzalida" },
   { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 13.051.246-1" },
+];
+
+const BRAND_FIELDS = [
+  { key: "empresa.companyName", label: "Nombre corto (razón social)", placeholder: "Ej: Gard SpA", help: "Para documentos legales y correos." },
+  { key: "empresa.commercialName", label: "Nombre comercial / marca", placeholder: "Ej: Gard Security", help: "Para presentaciones, PDFs y comunicaciones." },
+  { key: "empresa.brandNameUpper", label: "Marca (mayúsculas)", placeholder: "Ej: GARD", help: "Para headers y logos en mayúscula." },
+  { key: "empresa.website", label: "Sitio web", placeholder: "Ej: www.gard.cl" },
+  { key: "empresa.logoUrl", label: "URL del logo", placeholder: "https://...", help: "URL pública del logo de la empresa." },
+];
+
+const CONTACT_FIELDS = [
+  { key: "empresa.email", label: "Email comercial principal", placeholder: "Ej: comercial@gard.cl", help: "Email principal que se muestra en presentaciones y PDFs." },
+  { key: "empresa.emailOps", label: "Email operaciones", placeholder: "Ej: operaciones@gard.cl", help: "Recibe reportes de control nocturno y alertas operacionales." },
+  { key: "empresa.emailContact", label: "Email contacto / general", placeholder: "Ej: contacto@gard.cl", help: "Email genérico para footer de cotizaciones." },
+  { key: "empresa.phone", label: "Teléfono comercial", placeholder: "Ej: +56 98 230 7771", help: "Con formato, para mostrar en documentos." },
+  { key: "empresa.phoneRaw", label: "Teléfono WhatsApp (sin formato)", placeholder: "Ej: 56982307771", help: "Sin +, espacios ni guiones. Para links wa.me." },
+  { key: "empresa.whatsappLink", label: "Link WhatsApp", placeholder: "Ej: https://wa.me/56982307771", help: "Se deriva automáticamente del teléfono si no se configura." },
 ];
 
 const EMAIL_FIELDS = [
   { key: "empresa.emailFromName", label: "Nombre del remitente", placeholder: "Ej: OPAI", help: "El nombre que aparece en el email (ej: 'OPAI')" },
   { key: "empresa.emailFrom", label: "Correo de envío (From)", placeholder: "Ej: opai@gard.cl", help: "Dirección desde la cual se envían los correos. Debe estar verificada en Resend." },
-  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "comercial@gard.cl", help: "Las respuestas siempre llegan a comercial@gard.cl (valor fijo).", disabled: true },
+  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@gard.cl", help: "Dirección a la que llegan las respuestas de los clientes." },
 ];
 
 export function EmpresaConfigTabs() {
@@ -51,7 +68,6 @@ export function EmpresaConfigTabs() {
     setSaving(true);
     try {
       const payload = { ...form };
-      payload["empresa.emailReplyTo"] = "comercial@gard.cl";
       const res = await fetch("/api/configuracion/empresa", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -123,13 +139,81 @@ export function EmpresaConfigTabs() {
     </div>
   );
 
+  const brandTab = (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Globe className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Marca y sitio web</h3>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Estos valores se usan en presentaciones, PDFs, cotizaciones y emails.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {BRAND_FIELDS.map((field) => (
+            <div key={field.key} className={field.key.includes("logoUrl") ? "sm:col-span-2" : ""}>
+              <Label className="text-xs mb-1.5">{field.label}</Label>
+              <Input
+                value={form[field.key] ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="text-sm"
+              />
+              {"help" in field && <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="pt-2">
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar marca
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const contactTab = (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Phone className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Contacto y emails operacionales</h3>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Emails y teléfonos que se usan en los distintos módulos (CRM, Ops, etc.).
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {CONTACT_FIELDS.map((field) => (
+            <div key={field.key}>
+              <Label className="text-xs mb-1.5">{field.label}</Label>
+              <Input
+                value={form[field.key] ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="text-sm"
+              />
+              {"help" in field && <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="pt-2">
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar contacto
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   const correoTab = (
     <div className="max-w-2xl">
       <div className="rounded-lg border border-border p-6 space-y-4">
         <div>
           <div className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">Correo electrónico</h3>
+            <h3 className="text-sm font-semibold">Correo electrónico (envío OPAI)</h3>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             Configura desde qué dirección se envían los correos de OPAI (notificaciones, invitaciones, alertas) y a qué dirección llegan las respuestas.
@@ -141,11 +225,10 @@ export function EmpresaConfigTabs() {
             <div key={field.key}>
               <Label className="text-xs mb-1.5">{field.label}</Label>
               <Input
-                value={field.key === "empresa.emailReplyTo" ? "comercial@gard.cl" : (form[field.key] ?? "")}
+                value={form[field.key] ?? ""}
                 onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
                 className="text-sm"
-                disabled={"disabled" in field && field.disabled}
               />
               <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>
             </div>
@@ -282,6 +365,18 @@ export function EmpresaConfigTabs() {
       label: "Datos Generales",
       icon: Building,
       content: datosTab,
+    },
+    {
+      id: "marca",
+      label: "Marca y Web",
+      icon: Globe,
+      content: brandTab,
+    },
+    {
+      id: "contacto",
+      label: "Contacto",
+      icon: Phone,
+      content: contactTab,
     },
     {
       id: "correo",

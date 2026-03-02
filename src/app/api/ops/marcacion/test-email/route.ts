@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { sendMarcacionComprobante, sendAvisoMarcaManual } from "@/lib/marcacion-email";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
 
     const results: { type: string; status: string; error?: string }[] = [];
     const now = new Date();
+    const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
 
     // ── Test: Comprobante digital ──
     if (type === "digital" || type === "both") {
@@ -62,8 +64,8 @@ export async function POST(request: NextRequest) {
           guardiaEmail: targetEmail,
           guardiaRut: "12.345.678-9",
           installationName: "Instalación Test — Camino Lo Boza",
-          empresaName: "Gard SpA",
-          empresaRut: "77.840.623-3",
+          empresaName: tenantCfg.companyName,
+          empresaRut: tenantCfg.rut,
           tipo: "entrada",
           fechaMarca: now.toISOString().slice(0, 10),
           horaMarca: now.toLocaleTimeString("es-CL", {

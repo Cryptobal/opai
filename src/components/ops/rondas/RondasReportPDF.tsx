@@ -27,6 +27,7 @@ interface Props {
   rows: PdfRow[];
   dateRange: string;
   chartImageBase64?: string | null;
+  companyName?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64 }: Props) {
+export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64, companyName }: Props) {
   const pageRows = 28;
   const pages: PdfRow[][] = [];
   for (let i = 0; i < rows.length; i += pageRows) {
@@ -250,7 +251,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64 }: P
         ))}
 
         <View style={styles.footer} fixed>
-          <Text>OPAI — Gard Security</Text>
+          <Text>OPAI — {companyName || "Gard Security"}</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
@@ -288,7 +289,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64 }: P
           ))}
 
           <View style={styles.footer} fixed>
-            <Text>OPAI — Gard Security</Text>
+            <Text>OPAI — {companyName || "Gard Security"}</Text>
             <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
           </View>
         </Page>

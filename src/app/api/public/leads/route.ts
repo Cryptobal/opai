@@ -11,8 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { resend } from "@/lib/resend";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -30,8 +31,6 @@ const SERVICIO_LABELS: Record<string, string> = {
   consultoria: "Consultoría en Seguridad",
   otro: "Otro servicio",
 };
-
-const WHATSAPP_COMERCIAL = "56982307771"; // +56 98 230 7771
 
 // Validation schema for the incoming form data
 const publicLeadSchema = z.object({
@@ -89,6 +88,7 @@ export async function POST(request: NextRequest) {
 
     const totalGuards = data.dotacion?.reduce((sum, d) => sum + d.cantidad, 0) || 0;
     const tenantId = await getDefaultTenantId();
+    const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     let leadId: string | null = null;
     if (!emailOnly) {
@@ -203,9 +203,9 @@ export async function POST(request: NextRequest) {
     const waUrlComercial = `https://wa.me/${waNumCliente}?text=${encodeURIComponent(whatsappMsgComercial)}`;
 
     const waMsgCliente = tplCliente;
-    const waUrlCliente = `https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(waMsgCliente)}`;
+    const waUrlCliente = `https://wa.me/${tenantCfg.phoneRaw}?text=${encodeURIComponent(waMsgCliente)}`;
 
-    // Send email notification to comercial@gard.cl
+    // Send email notification to tenant commercial contact
     try {
       const dotacionHtml = data.dotacion?.length
         ? `
@@ -239,19 +239,19 @@ export async function POST(request: NextRequest) {
 
       const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
-      const logoUrl = `${baseUrl}/Logo%20Gard%20Blanco.png`;
+      const logoUrl = tenantCfg.logoUrl || `${baseUrl}/Logo%20Gard%20Blanco.png`;
       const headerBg = "#0f2847"; // azul oscuro Gard
       const ctaBg = "#0f2847"; // mismo azul Gard para CTA (sin verde)
 
       await resend.emails.send({
-        from: EMAIL_CONFIG.from,
-        to: "comercial@gard.cl",
+        from: tenantCfg.emailFrom,
+        to: tenantCfg.emailContact,
         replyTo: data.email,
         subject: `🔔 Nuevo lead: ${data.empresa} — ${data.nombre} ${data.apellido}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0 20px; color-scheme: light;">
             <div style="background: ${headerBg}; padding: 24px 24px; border-radius: 12px 12px 0 0; text-align: center;">
-              <img src="${logoUrl}" alt="Gard Security" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
+              <img src="${logoUrl}" alt="${tenantCfg.commercialName}" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
             </div>
             <div style="background: #ffffff; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <h2 style="color: #0f172a; margin: 0 0 20px; font-size: 18px; font-weight: 600;">${data.empresa}</h2>
@@ -282,13 +282,13 @@ export async function POST(request: NextRequest) {
 
       // Email de confirmación al cliente
       await resend.emails.send({
-        from: EMAIL_CONFIG.from,
+        from: tenantCfg.emailFrom,
         to: data.email,
-        subject: `Tu solicitud fue recibida — Gard Security te contactará pronto`,
+        subject: `Tu solicitud fue recibida — ${tenantCfg.commercialName} te contactará pronto`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0 20px; color-scheme: light;">
             <div style="background: ${headerBg}; padding: 24px 24px; border-radius: 12px 12px 0 0; text-align: center;">
-              <img src="${logoUrl}" alt="Gard Security" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
+              <img src="${logoUrl}" alt="${tenantCfg.commercialName}" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
             </div>
             <div style="background: #ffffff; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <p style="color: #0f172a; margin: 0 0 16px; font-size: 16px; line-height: 1.6;">Hola${data.nombre ? ` ${data.nombre}` : ""},</p>
@@ -322,11 +322,11 @@ export async function POST(request: NextRequest) {
               <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Nuestro equipo comercial te contactará en menos de 12 horas hábiles. Si necesitas más información antes, puedes escribirnos o llamarnos:</p>
               <div style="margin: 24px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
                 <p style="margin: 0 0 12px;">
-                  <a href="${waUrlCliente}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir a Gard por WhatsApp</a>
+                  <a href="${waUrlCliente}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir a ${tenantCfg.commercialName} por WhatsApp</a>
                 </p>
-                <p style="color: #475569; font-size: 14px; margin: 0;">O llámanos al <a href="tel:+56982307771" style="color: ${headerBg}; font-weight: 500;">+56 98 230 7771</a></p>
+                <p style="color: #475569; font-size: 14px; margin: 0;">O llámanos al <a href="tel:${tenantCfg.phoneRaw}" style="color: ${headerBg}; font-weight: 500;">${tenantCfg.phone}</a></p>
               </div>
-              <p style="color: #64748b; font-size: 13px; margin: 0;"><a href="http://gard.cl" style="color: ${headerBg};">http://gard.cl</a></p>
+              <p style="color: #64748b; font-size: 13px; margin: 0;"><a href="https://${tenantCfg.website}" style="color: ${headerBg};">${tenantCfg.website}</a></p>
             </div>
           </div>
         `,

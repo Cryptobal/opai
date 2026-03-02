@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { clearTenantEmailConfigCache } from "@/lib/resend";
+import { clearTenantCompanyConfigCache } from "@/lib/tenant-config";
 
 const EMPRESA_KEYS = [
   "empresa.razonSocial",
@@ -17,6 +18,18 @@ const EMPRESA_KEYS = [
   "empresa.emailFrom",
   "empresa.emailFromName",
   "empresa.emailReplyTo",
+  // Nuevos campos para multi-tenant
+  "empresa.companyName",
+  "empresa.commercialName",
+  "empresa.brandNameUpper",
+  "empresa.website",
+  "empresa.logoUrl",
+  "empresa.email",
+  "empresa.emailOps",
+  "empresa.emailContact",
+  "empresa.phone",
+  "empresa.phoneRaw",
+  "empresa.whatsappLink",
 ];
 
 function settingKey(tenantId: string, key: string): string {
@@ -97,6 +110,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     clearTenantEmailConfigCache(ctx.tenantId);
+    clearTenantCompanyConfigCache(ctx.tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

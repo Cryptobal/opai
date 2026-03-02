@@ -15,20 +15,28 @@ import { motion } from 'framer-motion';
 
 interface Section28CierreProps {
   data: Section28_Cierre;
-}
-
-interface Section28CierrePropsExtended {
-  data: Section28_Cierre;
+  /** Tenant commercial email */
   contactEmail?: string;
+  /** Tenant phone (formatted for display) */
   contactPhone?: string;
+  /** Tenant phone raw digits for wa.me link (e.g. "56982307771") */
+  contactPhoneRaw?: string;
+  /** Tenant website */
+  website?: string;
 }
 
-export function Section28Cierre({ data, contactEmail = 'comercial@gard.cl', contactPhone = '+56982307771' }: Section28CierrePropsExtended) {
+export function Section28Cierre({
+  data,
+  contactEmail = '',
+  contactPhone = '',
+  contactPhoneRaw = '',
+  website = '',
+}: Section28CierreProps) {
   const theme = useThemeClasses();
   const pdfMode = usePdfMode();
-  
-  // WhatsApp link para hablar con quien envió la propuesta
-  const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent('Hola, vi la propuesta y me gustaría conversar')}`;
+
+  // WhatsApp link from tenant phone
+  const whatsappLink = contactPhoneRaw ? `https://wa.me/${contactPhoneRaw}?text=${encodeURIComponent('Hola, vi la propuesta y me gustaría conversar')}` : '';
   
   return (
     <SectionWrapper id="s28-cierre" animation="scale" className="relative overflow-hidden">
@@ -99,7 +107,7 @@ export function Section28Cierre({ data, contactEmail = 'comercial@gard.cl', cont
                     </div>
                     <div>
                       <div className="text-sm text-white/50 font-medium">Web</div>
-                      <div className="text-lg font-bold text-white">www.gard.cl</div>
+                      <div className="text-lg font-bold text-white">{website}</div>
                     </div>
                   </div>
                 </div>
@@ -145,7 +153,8 @@ export function Section28Cierre({ data, contactEmail = 'comercial@gard.cl', cont
                   <ArrowRight className="w-5 h-5 text-teal-400 group-hover:translate-x-2 transition-transform relative z-10" />
                 </motion.a>
                 
-                {/* CTA 2: WhatsApp */}
+                {/* CTA 2: WhatsApp (solo si hay teléfono configurado) */}
+                {whatsappLink && (
                 <motion.a
                   href={whatsappLink}
                   target="_blank"
@@ -153,8 +162,8 @@ export function Section28Cierre({ data, contactEmail = 'comercial@gard.cl', cont
                   initial={{ opacity: 0, x: 100, scale: 0.8 }}
                   whileInView={{ opacity: 1, x: 0, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ 
-                    delay: 0.5, 
+                  transition={{
+                    delay: 0.5,
                     duration: 0.8,
                     type: 'spring',
                     stiffness: 100
@@ -166,6 +175,7 @@ export function Section28Cierre({ data, contactEmail = 'comercial@gard.cl', cont
                   <MessageCircle className="w-6 h-6 text-green-400 group-hover:scale-110 transition-transform relative z-10" />
                   <span className="relative z-10">Hablar por WhatsApp</span>
                 </motion.a>
+                )}
               </div>
               
               {/* Trust indicators - RESPONSIVE */}

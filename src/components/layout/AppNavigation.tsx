@@ -47,15 +47,15 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
           <Link href="/opai/inicio" className="flex items-center gap-2 sm:gap-3">
-            <Image 
-              src="/logo escudo blanco.png" 
-              alt="Gard Security" 
-              width={32} 
+            <Image
+              src="/logo escudo blanco.png"
+              alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
+              width={32}
               height={32}
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
             />
                 <span className="text-base sm:text-lg font-bold text-white">
-                  Gard Security
+                  {process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
                 </span>
           </Link>
 

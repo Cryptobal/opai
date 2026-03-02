@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { clientName, quoteNumber, pricing, quoteDate, contactEmail, contactPhone } = body;
+    const { clientName, quoteNumber, pricing, quoteDate, contactEmail, contactPhone, companyName, website } = body;
     
     if (!pricing) {
       return NextResponse.json(
@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
         pricing,
         contactEmail,
         contactPhone,
+        companyName,
+        website,
       })
     );
     

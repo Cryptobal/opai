@@ -49,6 +49,7 @@ interface Props {
   initialDailyCompliance: DailyPoint[];
   installations: Installation[];
   guardias: GuardiaOption[];
+  companyName?: string;
 }
 
 const TABS = [
@@ -78,6 +79,7 @@ export function RondasReportesClient({
   initialDailyCompliance,
   installations,
   guardias,
+  companyName,
 }: Props) {
   const [rows, setRows] = useState<ReporteRow[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
@@ -224,7 +226,7 @@ export function RondasReportesClient({
       const dateRange = `${new Date(dateFrom).toLocaleDateString("es-CL")} — ${new Date(dateTo).toLocaleDateString("es-CL")}`;
 
       const blob = await pdf(
-        <PdfDoc totals={totals} rows={rows} dateRange={dateRange} chartImageBase64={chartImage} />,
+        <PdfDoc totals={totals} rows={rows} dateRange={dateRange} chartImageBase64={chartImage} companyName={companyName} />,
       ).toBlob();
 
       const url = URL.createObjectURL(blob);

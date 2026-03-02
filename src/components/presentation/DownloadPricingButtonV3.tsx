@@ -17,6 +17,8 @@ interface DownloadPricingButtonV3Props {
   pricing: PricingData;
   contactEmail?: string;
   contactPhone?: string;
+  companyName?: string;
+  website?: string;
   className?: string;
 }
 
@@ -27,6 +29,8 @@ export function DownloadPricingButtonV3({
   pricing,
   contactEmail,
   contactPhone,
+  companyName,
+  website,
   className
 }: DownloadPricingButtonV3Props) {
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +53,8 @@ export function DownloadPricingButtonV3({
           pricing,
           contactEmail,
           contactPhone,
+          companyName,
+          website,
         }),
       });
 

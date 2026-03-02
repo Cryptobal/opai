@@ -14,6 +14,7 @@ import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
 import { getUfValue } from "@/lib/uf";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PresentationEmail } from "@/emails/PresentationEmail";
 import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
@@ -222,8 +223,10 @@ export async function POST(
 
     // 7. Map CPQ data to PresentationPayload
     const sessionId = `cpq_${nanoid(16)}`;
-    const ufValue =
-      quote.currency === "UF" ? await getUfValue() : undefined;
+    const [ufValue, tenantCfg] = await Promise.all([
+      quote.currency === "UF" ? getUfValue() : Promise.resolve(undefined),
+      getTenantCompanyConfig(ctx.tenantId),
+    ]);
     const payload = mapCpqDataToPresentation(
       {
         ufValue,
@@ -253,6 +256,7 @@ export async function POST(
         totalAdditionalLines,
       },
       sessionId,
+      tenantCfg,
       templateSlug
     );
 

@@ -18,6 +18,8 @@ interface DownloadPricingButtonProps {
   pricing: PricingData;
   contactEmail?: string;
   contactPhone?: string;
+  companyName?: string;
+  website?: string;
   className?: string;
 }
 
@@ -28,6 +30,8 @@ export function DownloadPricingButton({
   pricing,
   contactEmail,
   contactPhone,
+  companyName,
+  website,
   className
 }: DownloadPricingButtonProps) {
   const fileName = `Propuesta_${clientName.replace(/\s+/g, '_')}_${quoteNumber}.pdf`;
@@ -42,6 +46,8 @@ export function DownloadPricingButton({
           pricing={pricing}
           contactEmail={contactEmail}
           contactPhone={contactPhone}
+          companyName={companyName}
+          website={website}
         />
       }
       fileName={fileName}

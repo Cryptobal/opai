@@ -470,6 +470,14 @@ export interface PresentationPayload {
   _installationName?: string;
   _cpqQuoteId?: string;
 
+  // Branding del tenant (populated by cpq-mapper / zoho-mapper)
+  _tenantBrand?: {
+    brandNameUpper: string;   // "GARD" | "ACME SECURITY"
+    commercialName: string;   // "Gard Security" | "Acme Security"
+    website: string;          // "www.gard.cl"
+    logoUrl?: string;         // override de assets.logo
+  };
+
   // Datos del cliente y cotización
   client: ClientData;
   quote: QuoteData;

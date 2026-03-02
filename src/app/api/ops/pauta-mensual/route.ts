@@ -3,11 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { upsertPautaItemSchema } from "@/lib/validations/ops";
 import {
+  buildExecutionMap,
   createOpsAuditLog,
   ensureOpsAccess,
+  generateSerieForMonth,
   getMonthDateRange,
   listDatesBetween,
   parseDateOnly,
+  toDateKeyUTC,
 } from "@/lib/ops";
 
 export async function GET(request: NextRequest) {
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
           gte: start,
           lte: end,
         },
-        puesto: { active: true },
+        puesto: { tenantId: ctx.tenantId, active: true },
       },
       include: {
         puesto: {
@@ -134,7 +137,7 @@ export async function GET(request: NextRequest) {
           tenantId: ctx.tenantId,
           installationId,
           date: { gte: start, lte: end },
-          puesto: { active: true },
+          puesto: { tenantId: ctx.tenantId, active: true },
         },
         include: {
           puesto: {
@@ -154,6 +157,141 @@ export async function GET(request: NextRequest) {
       });
       pauta.length = 0;
       pauta.push(...refetched);
+    }
+
+    // ── Auto-project active series to unpainted cells ──
+    // If a serie is active but cells still have shiftCode=null, project the pattern.
+    // This enables auto-continuation: when a user opens a new month, series from
+    // previous months are automatically projected without manual re-painting.
+    const puestoIdsForSeries = [...new Set(activePuestos.map((p) => p.id))];
+    if (puestoIdsForSeries.length > 0) {
+      // Fetch active series for all puestos in this installation
+      const activeSeries = await prisma.opsSerieAsignacion.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          puestoId: { in: puestoIdsForSeries },
+          isActive: true,
+        },
+        select: {
+          puestoId: true,
+          slotNumber: true,
+          guardiaId: true,
+          patternWork: true,
+          patternOff: true,
+          startDate: true,
+          startPosition: true,
+        },
+      });
+
+      // Fetch active guard assignments to know who works each slot
+      const activeAsignaciones = await prisma.opsAsignacionGuardia.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          puestoId: { in: puestoIdsForSeries },
+          isActive: true,
+        },
+        select: {
+          puestoId: true,
+          slotNumber: true,
+          guardiaId: true,
+          startDate: true,
+        },
+      });
+
+      // Build lookup: puestoId|slotNumber → asignacion
+      const asignacionMap = new Map<string, { guardiaId: string; startDate: Date }>();
+      for (const a of activeAsignaciones) {
+        asignacionMap.set(`${a.puestoId}|${a.slotNumber}`, {
+          guardiaId: a.guardiaId,
+          startDate: a.startDate,
+        });
+      }
+
+      // Build set of cells that already have a shiftCode (manual edits or previous painting)
+      const paintedKeys = new Set<string>();
+      for (const p of pauta) {
+        if (p.shiftCode != null) {
+          paintedKeys.add(`${p.puestoId}|${p.slotNumber}|${p.date.toISOString().slice(0, 10)}`);
+        }
+      }
+
+      // For each active serie, project pattern onto unpainted cells
+      const updates: Promise<unknown>[] = [];
+      for (const serie of activeSeries) {
+        const entries = generateSerieForMonth(
+          serie.startDate,
+          serie.startPosition,
+          serie.patternWork,
+          serie.patternOff,
+          monthDates
+        );
+
+        const asig = asignacionMap.get(`${serie.puestoId}|${serie.slotNumber}`);
+
+        for (const entry of entries) {
+          const dateKey = toDateKeyUTC(entry.date);
+          const cellKey = `${serie.puestoId}|${serie.slotNumber}|${dateKey}`;
+
+          // Only update cells that have no shiftCode (don't overwrite manual edits)
+          if (paintedKeys.has(cellKey)) continue;
+
+          // Determine plannedGuardiaId: use asignacion guardia on work days
+          let plannedGuardiaId: string | null = null;
+          if (entry.shiftCode === "T" && asig && entry.date >= asig.startDate) {
+            plannedGuardiaId = asig.guardiaId;
+          }
+
+          // Use updateMany to avoid errors if row doesn't exist yet
+          updates.push(
+            prisma.opsPautaMensual.updateMany({
+              where: {
+                tenantId: ctx.tenantId,
+                puestoId: serie.puestoId,
+                slotNumber: serie.slotNumber,
+                date: entry.date,
+                shiftCode: null, // Double-check: only update if still null
+              },
+              data: {
+                shiftCode: entry.shiftCode,
+                plannedGuardiaId,
+              },
+            })
+          );
+          // Mark as painted so we don't double-process
+          paintedKeys.add(cellKey);
+        }
+      }
+
+      if (updates.length > 0) {
+        await Promise.all(updates);
+
+        // Re-fetch pauta to include the updated shiftCodes
+        const refetched = await prisma.opsPautaMensual.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            installationId,
+            date: { gte: start, lte: end },
+            puesto: { tenantId: ctx.tenantId, active: true },
+          },
+          include: {
+            puesto: {
+              select: {
+                id: true, name: true, shiftStart: true, shiftEnd: true,
+                weekdays: true, requiredGuards: true,
+              },
+            },
+            plannedGuardia: {
+              select: {
+                id: true, code: true, status: true,
+                persona: { select: { firstName: true, lastName: true, rut: true } },
+              },
+            },
+          },
+          orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
+        });
+        pauta.length = 0;
+        pauta.push(...refetched);
+      }
     }
 
     // Also get active series for this installation
@@ -290,44 +428,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Normalizar fecha a YYYY-MM-DD en UTC para evitar desajustes por zona horaria
-    const toDateKey = (d: Date) => {
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
-
-    // ASI = solo planificado que asistió. TE = reemplazo/turno extra. SC = sin cobertura. PPC = slot sin planificar.
-    const executionByCell: Record<
-      string,
-      { state: "asistio" | "te" | "sin_cobertura" | "ppc"; teStatus?: string }
-    > = {};
-    for (const row of asistencia) {
-      const key = `${row.puestoId}|${row.slotNumber}|${toDateKey(row.date)}`;
-      if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
-        executionByCell[key] = {
-          state: "te",
-          teStatus: row.turnosExtra[0]?.status,
-        };
-      } else if (row.attendanceStatus === "asistio") {
-        // ASI solo si el planificado asistió. Reemplazo/TE no son asistencia.
-        const tieneReemplazo = Boolean(row.replacementGuardiaId);
-        const esOtroGuardia = row.plannedGuardiaId != null && row.actualGuardiaId != null && row.actualGuardiaId !== row.plannedGuardiaId;
-        const esPlanificadoQueAsistio =
-          !tieneReemplazo &&
-          !esOtroGuardia &&
-          (row.actualGuardiaId === row.plannedGuardiaId || (row.plannedGuardiaId == null && row.actualGuardiaId != null));
-        executionByCell[key] = esPlanificadoQueAsistio ? { state: "asistio" } : {
-          state: "te",
-          teStatus: row.turnosExtra[0]?.status,
-        };
-      } else if (row.attendanceStatus === "no_asistio") {
-        executionByCell[key] = { state: "sin_cobertura" };
-      } else if (row.attendanceStatus === "ppc") {
-        executionByCell[key] = { state: "ppc" };
-      }
-    }
+    // Lógica canónica de ejecución compartida (ops.ts)
+    const executionByCell = buildExecutionMap(asistencia);
 
     return NextResponse.json({
       success: true,

@@ -5,12 +5,17 @@ import { chromium } from "playwright-core";
 import chromiumPkg from "@sparticuz/chromium";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureOpsAccess, getMonthDateRange } from "@/lib/ops";
+import {
+  buildExecutionMap,
+  ensureOpsAccess,
+  getMonthDateRange,
+  toDateKeyUTC,
+  type ExecutionState,
+} from "@/lib/ops";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 
 const WEEKDAY_SHORT: Record<number, string> = {
   0: "Dom",
@@ -36,15 +41,6 @@ const MESES = [
   "Noviembre",
   "Diciembre",
 ];
-
-function toDateKey(date: Date | string): string {
-  if (typeof date === "string") return date.slice(0, 10);
-  const d = date as Date;
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function daysInMonth(year: number, month: number): Date[] {
   const days: Date[] = [];
@@ -137,6 +133,7 @@ export async function GET(request: NextRequest) {
           plannedGuardiaId: true,
           actualGuardiaId: true,
           replacementGuardiaId: true,
+          turnosExtra: { select: { id: true, status: true } },
         },
       }),
     ]);
@@ -148,26 +145,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ASI = solo planificado que asistió. TE = reemplazo. Misma lógica que API pauta-mensual.
-    const executionByCell: Record<string, ExecutionState> = {};
-    for (const row of asistencia) {
-      const key = `${row.puestoId}|${row.slotNumber}|${toDateKey(row.date)}`;
-      if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
-        executionByCell[key] = "te";
-      } else if (row.attendanceStatus === "asistio") {
-        const tieneReemplazo = Boolean(row.replacementGuardiaId);
-        const esOtroGuardia = row.plannedGuardiaId != null && row.actualGuardiaId != null && row.actualGuardiaId !== row.plannedGuardiaId;
-        const esPlanificadoQueAsistio =
-          !tieneReemplazo &&
-          !esOtroGuardia &&
-          (row.actualGuardiaId === row.plannedGuardiaId || (row.plannedGuardiaId == null && row.actualGuardiaId != null));
-        executionByCell[key] = esPlanificadoQueAsistio ? "asistio" : "te";
-      } else if (row.attendanceStatus === "no_asistio") {
-        executionByCell[key] = "sin_cobertura";
-      } else if (row.attendanceStatus === "ppc") {
-        executionByCell[key] = "ppc";
-      }
-    }
+    // Lógica canónica de ejecución compartida (ops.ts)
+    const executionMap = buildExecutionMap(asistencia);
 
     const rows = new Map<
       string,
@@ -194,7 +173,7 @@ export async function GET(request: NextRequest) {
           cells: new Map(),
         });
       }
-      rows.get(key)?.cells.set(toDateKey(item.date), item.shiftCode || "");
+      rows.get(key)?.cells.set(toDateKeyUTC(item.date), item.shiftCode || "");
     }
 
     for (const a of asignaciones) {
@@ -209,9 +188,18 @@ export async function GET(request: NextRequest) {
     });
     const monthDays = daysInMonth(year, month);
 
-    const logoSvgPath = path.join(process.cwd(), "public", "logo-gard.svg");
-    const logoSvg = await readFile(logoSvgPath, "utf-8");
-    const logoDataUrl = `data:image/svg+xml;base64,${Buffer.from(logoSvg).toString("base64")}`;
+    // Tenant branding
+    const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
+    let logoDataUrl: string;
+    if (tenantCfg.logoUrl) {
+      // Tenant has a custom logo URL configured
+      logoDataUrl = tenantCfg.logoUrl;
+    } else {
+      // Fallback: read default SVG from public dir
+      const logoSvgPath = path.join(process.cwd(), "public", "logo-gard.svg");
+      const logoSvg = await readFile(logoSvgPath, "utf-8");
+      logoDataUrl = `data:image/svg+xml;base64,${Buffer.from(logoSvg).toString("base64")}`;
+    }
 
     const shiftClass = (code: string) => {
       if (code === "T") return "shift-t";
@@ -241,9 +229,9 @@ export async function GET(request: NextRequest) {
       .map((row) => {
         const dayCells = monthDays
           .map((d) => {
-            const dateKey = toDateKey(d);
+            const dateKey = toDateKeyUTC(d);
             const code = row.cells.get(dateKey) || "·";
-            const exec = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
+            const exec = executionMap[`${row.puestoId}|${row.slotNumber}|${dateKey}`]?.state;
             return `<td><div class="cell ${shiftClass(code)}"><span>${escapeHtml(code)}</span>${execBadge(exec)}</div></td>`;
           })
           .join("");
@@ -303,7 +291,7 @@ export async function GET(request: NextRequest) {
 <body>
   <div class="header">
     <div class="header-left">
-      <img src="${logoDataUrl}" alt="Gard" />
+      <img src="${logoDataUrl}" alt="${escapeHtml(tenantCfg.brandNameUpper)}" />
       <h1 class="title">Pauta Mensual Operativa</h1>
       <div class="subtitle">Cliente: ${escapeHtml(installation.account?.name ?? "N/A")} · Instalación: ${escapeHtml(installation.name)}</div>
     </div>
@@ -342,7 +330,7 @@ export async function GET(request: NextRequest) {
       <div class="legend-row"><span class="badge badge-ppc" style="position:static">PPC</span>Slot PPC sin planificación</div>
     </div>
   </div>
-  <div class="foot">Documento operativo GARD · Uso cliente</div>
+  <div class="foot">Documento operativo ${escapeHtml(tenantCfg.brandNameUpper)} · Uso cliente</div>
 </body>
 </html>`;
 

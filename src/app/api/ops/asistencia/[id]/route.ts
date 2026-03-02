@@ -476,13 +476,15 @@ export async function PATCH(
               if (!p.email) {
                 console.warn(`[OPS] Guardia ${p.firstName} ${p.lastName} no tiene email — no se envía aviso de marca manual`);
               } else {
+                const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+                const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
                 const emailPayload = {
                   guardiaName: `${p.firstName} ${p.lastName}`,
                   guardiaEmail: p.email,
                   guardiaRut: p.rut ?? "",
                   installationName: result?.installation?.name ?? "Instalación",
-                  empresaName: "Gard SpA",
-                  empresaRut: "77.840.623-3",
+                  empresaName: tenantCfg.companyName,
+                  empresaRut: tenantCfg.rut,
                   tipo: "entrada" as const,
                   fechaMarca: dateStr,
                   horaMarca: shiftStart + ":00",

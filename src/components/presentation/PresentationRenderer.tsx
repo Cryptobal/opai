@@ -157,6 +157,17 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
   const dealName: string = payloadAny._dealName || '';
   const installationName: string = payloadAny._installationName || payload.service?.sites?.[0]?.name || '';
 
+  // Tenant brand defaults (fallback to Gard values for legacy presentations)
+  const brand = payload._tenantBrand ?? {
+    brandNameUpper: 'GARD',
+    commercialName: 'Gard Security',
+    website: 'www.gard.cl',
+  };
+
+  // Contact info from payload (already tenant-aware via cpq-mapper)
+  const contactEmail = contact?.email || cta?.email || '';
+  const contactPhone = contact?.phone || cta?.phone || '';
+
   return (
     <PdfModeProvider value={pdfMode}>
       <ThemeProvider variant={theme}>
@@ -182,6 +193,7 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             dealName={dealName}
             installationName={installationName}
             showTokens={showTokens}
+            website={brand.website}
           />
         )}
         
@@ -296,8 +308,10 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             clientName={payload.client.company_name}
             quoteNumber={payload.quote.number}
             quoteDate={payload.quote.date}
-            contactEmail="comercial@gard.cl"
-            contactPhone="+56 9 8230 7771"
+            contactEmail={contactEmail}
+            contactPhone={contactPhone}
+            companyName={brand.commercialName}
+            website={brand.website}
             dealName={dealName}
             installationName={installationName}
           />
@@ -306,7 +320,11 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
           <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />
           
           {/* S25 - Comparación Competitiva (incluido en PDF: diferenciación) */}
-          <Section25Comparacion data={sections.s25_comparacion} />
+          <Section25Comparacion
+            data={sections.s25_comparacion}
+            brandNameUpper={brand.brandNameUpper}
+            contactEmail={contactEmail}
+          />
           
           {/* S26 - Por Qué Nos Eligen (solo web) */}
           {!pdfMode && <Section26PorqueEligen data={sections.s26_porque_eligen} />}
@@ -315,10 +333,12 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
           <Section27Implementacion data={sections.s27_implementacion} />
           
           {/* S28 - Cierre + CTA (incluido en PDF: contacto) */}
-          <Section28Cierre 
+          <Section28Cierre
             data={sections.s28_cierre}
-            contactEmail="comercial@gard.cl"
-            contactPhone="+56 9 8230 7771"
+            contactEmail={contactEmail}
+            contactPhone={contactPhone}
+            contactPhoneRaw={cta?.whatsapp_link?.replace('https://wa.me/', '') || ''}
+            website={brand.website}
           />
           
           {/* S29 - Contacto ELIMINADO (redundante con Footer) */}
@@ -326,13 +346,13 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
         
         {/* Footer - oculto en PDF */}
         {!pdfMode && (
-          <PresentationFooter 
+          <PresentationFooter
             logo={assets.logo}
             contact={{
-              name: 'Equipo Comercial',
-              email: 'comercial@gard.cl',
-              phone: '+56 9 8230 7771',
-              position: 'Gerente Comercial'
+              name: contact?.name || 'Equipo Comercial',
+              email: contactEmail,
+              phone: contactPhone,
+              position: contact?.position || 'Gerente Comercial'
             }}
             address={sections.s29_contacto.address}
             website={sections.s29_contacto.website}
