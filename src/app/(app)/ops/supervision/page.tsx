@@ -7,6 +7,7 @@ import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/
 import { PageHeader } from "@/components/opai";
 import { Button } from "@/components/ui/button";
 import { SupervisionDashboardEnhanced } from "@/components/supervision/SupervisionDashboardEnhanced";
+import { ClipboardList, FileBarChart, Plus } from "lucide-react";
 
 import { getPeriodBounds, PERIOD_OPTIONS } from "@/lib/supervision-periods";
 
@@ -91,24 +92,31 @@ export default async function OpsSupervisionPage({
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Supervisión"
-        description="Control de visitas en terreno, reportes y KPIs."
-        actions={
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link href="/ops/supervision/mis-visitas">Mis visitas</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/ops/supervision/reportes">Reportes</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/ops/supervision/nueva-visita">Nueva visita</Link>
-            </Button>
-          </div>
-        }
-      />
+    <div className="space-y-4 min-w-0">
+      <PageHeader title="Supervisión" description="Control de visitas en terreno, reportes y KPIs." />
+
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/ops/supervision/mis-visitas">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Mis visitas</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/ops/supervision/reportes">
+              <FileBarChart className="h-4 w-4" />
+              <span className="hidden sm:inline">Reportes</span>
+            </Link>
+          </Button>
+          <Button asChild size="sm" className="gap-1.5">
+            <Link href="/ops/supervision/nueva-visita">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nueva visita</span>
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       <SupervisionDashboardEnhanced
         visitas={visitas.map((v) => ({
