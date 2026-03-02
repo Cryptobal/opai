@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(request: NextRequest) {
+  try {
+    const guardiaId = request.nextUrl.searchParams.get("guardiaId");
+    const installationId = request.nextUrl.searchParams.get("installationId");
+    const tenantId = request.nextUrl.searchParams.get("tenantId");
+
+    if (!guardiaId || !installationId || !tenantId) {
+      return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
+    }
+
+    // Get active templates for this installation
+    const templates = await prisma.opsRondaTemplate.findMany({
+      where: { tenantId, installationId, isActive: true },
+      include: {
+        checkpoints: {
+          include: { checkpoint: { select: { id: true, name: true, qrCode: true, lat: true, lng: true, geoRadiusM: true, verificationType: true } } },
+          orderBy: { orderIndex: "asc" },
+        },
+        programaciones: { where: { isActive: true } },
+      },
+    });
+
+    // Get today's ejecuciones for this guard
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const ejecuciones = await prisma.opsRondaEjecucion.findMany({
+      where: {
+        tenantId,
+        rondaTemplateId: { in: templates.map(t => t.id) },
+        scheduledAt: { gte: startOfDay, lte: endOfDay },
+        OR: [
+          { guardiaId },
+          { guardiaId: null, status: "pendiente" },
+        ],
+      },
+      include: {
+        marcaciones: {
+          select: { checkpointId: true, status: true, timestamp: true },
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+
+    const result = ejecuciones.map(ej => {
+      const template = templates.find(t => t.id === ej.rondaTemplateId);
+      return {
+        ejecucionId: ej.id,
+        templateId: ej.rondaTemplateId,
+        templateName: template?.name ?? "Ronda",
+        status: ej.status,
+        scheduledAt: ej.scheduledAt.toISOString(),
+        startedAt: ej.startedAt?.toISOString() ?? null,
+        checkpointsTotal: ej.checkpointsTotal,
+        checkpointsCompletados: ej.checkpointsCompletados,
+        qrRequerido: template?.qrRequerido ?? false,
+        orderMode: template?.orderMode ?? "flexible",
+        estimatedDurationMin: template?.estimatedDurationMin ?? null,
+        checkpoints: template?.checkpoints.map(tc => ({
+          id: tc.checkpoint.id,
+          name: tc.checkpoint.name,
+          qrCode: tc.checkpoint.qrCode,
+          lat: tc.checkpoint.lat,
+          lng: tc.checkpoint.lng,
+          geoRadiusM: tc.checkpoint.geoRadiusM,
+          verificationType: tc.checkpoint.verificationType,
+          orderIndex: tc.orderIndex,
+          isRequired: tc.isRequired,
+          completed: ej.marcaciones.some(m => m.checkpointId === tc.checkpointId && m.status === "COMPLETED"),
+        })) ?? [],
+      };
+    });
+
+    return NextResponse.json({ success: true, data: result });
+  } catch (error) {
+    console.error("[Portal Rondas] Mis rondas error:", error);
+    return NextResponse.json({ success: false, error: "Error al obtener rondas" }, { status: 500 });
+  }
+}
