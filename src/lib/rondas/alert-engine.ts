@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { getAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
+import { formatChileTime } from "./timezone";
 
 export async function evaluatePostMarkAlerts(input: {
   tenantId: string;
@@ -149,50 +150,77 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
     },
   });
 
-  let alertsCreated = 0;
+  if (activeProgramaciones.length === 0) return { alertsCreated: 0 };
 
+  // Build a tolerance map: programacionId -> cutoff Date
+  const toleranceMap = new Map<string, number>();
   for (const prog of activeProgramaciones) {
     const toleranceMs = (prog.toleranciaMinutos || config.roundNotStartedMinutes) * 60 * 1000;
-
-    const pendingEjecuciones = await prisma.opsRondaEjecucion.findMany({
-      where: {
-        tenantId,
-        programacionId: prog.id,
-        status: "pendiente",
-        scheduledAt: { lte: new Date(now.getTime() - toleranceMs) },
-      },
-      select: { id: true, scheduledAt: true },
-    });
-
-    for (const ej of pendingEjecuciones) {
-      const existingAlert = await prisma.opsAlertaRonda.findFirst({
-        where: {
-          ejecucionId: ej.id,
-          tipo: "ronda_no_iniciada",
-        },
-        select: { id: true },
-      });
-
-      if (!existingAlert) {
-        await prisma.opsAlertaRonda.create({
-          data: {
-            tenantId,
-            ejecucionId: ej.id,
-            installationId: prog.rondaTemplate.installationId,
-            tipo: "ronda_no_iniciada",
-            severidad: "critical",
-            mensaje: `Ronda "${prog.rondaTemplate.name}" no iniciada. Programada: ${ej.scheduledAt.toLocaleTimeString("es-CL")}`,
-            data: {
-              scheduledAt: ej.scheduledAt.toISOString(),
-              toleranciaMinutos: prog.toleranciaMinutos,
-              templateName: prog.rondaTemplate.name,
-            } as never,
-          },
-        });
-        alertsCreated++;
-      }
-    }
+    toleranceMap.set(prog.id, toleranceMs);
   }
 
-  return { alertsCreated };
+  // 1. Fetch all pending ejecuciones across all programaciones in one query
+  //    Use the minimum tolerance to capture all possibly-overdue ejecuciones
+  const minToleranceMs = Math.min(...Array.from(toleranceMap.values()));
+  const allPendingEjecuciones = await prisma.opsRondaEjecucion.findMany({
+    where: {
+      tenantId,
+      status: "pendiente",
+      scheduledAt: { lte: new Date(now.getTime() - minToleranceMs) },
+      programacionId: { in: activeProgramaciones.map((p: any) => p.id) },
+    },
+    include: {
+      rondaTemplate: { select: { name: true, installationId: true } },
+    },
+  });
+
+  if (allPendingEjecuciones.length === 0) return { alertsCreated: 0 };
+
+  // Filter by per-programacion tolerance in JS
+  const overdueEjecuciones = allPendingEjecuciones.filter((ej: any) => {
+    const toleranceMs = ej.programacionId ? toleranceMap.get(ej.programacionId) ?? 0 : 0;
+    return ej.scheduledAt.getTime() <= now.getTime() - toleranceMs;
+  });
+
+  if (overdueEjecuciones.length === 0) return { alertsCreated: 0 };
+
+  // 2. Fetch all existing "ronda_no_iniciada" alerts for these ejecuciones in one query
+  const existingAlerts = await prisma.opsAlertaRonda.findMany({
+    where: {
+      tenantId,
+      tipo: "ronda_no_iniciada",
+      ejecucionId: { in: overdueEjecuciones.map((e: any) => e.id) },
+    },
+    select: { ejecucionId: true },
+  });
+  const alreadyAlerted = new Set(existingAlerts.map((a: any) => a.ejecucionId));
+
+  // Build programacion lookup for data field
+  const progMap = new Map<string, any>(activeProgramaciones.map((p: any) => [p.id, p]));
+
+  // 3. Create missing alerts in bulk
+  const newAlerts = overdueEjecuciones
+    .filter((ej: any) => !alreadyAlerted.has(ej.id))
+    .map((ej: any) => {
+      const prog = ej.programacionId ? progMap.get(ej.programacionId) : undefined;
+      return {
+        tenantId,
+        ejecucionId: ej.id,
+        installationId: ej.rondaTemplate.installationId,
+        tipo: "ronda_no_iniciada",
+        severidad: "critical",
+        mensaje: `Ronda "${ej.rondaTemplate.name}" no iniciada. Programada: ${formatChileTime(ej.scheduledAt)}`,
+        data: {
+          scheduledAt: ej.scheduledAt.toISOString(),
+          toleranciaMinutos: prog?.toleranciaMinutos,
+          templateName: ej.rondaTemplate.name,
+        } as never,
+      };
+    });
+
+  if (newAlerts.length > 0) {
+    await prisma.opsAlertaRonda.createMany({ data: newAlerts });
+  }
+
+  return { alertsCreated: newAlerts.length };
 }
