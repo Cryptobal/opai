@@ -878,7 +878,7 @@ export function CrmAccountDetailClient({
 
         {activeTab === "portal" && (
           <AccountPortalSection
-            contacts={account.contacts}
+            contacts={account.contacts.map(c => ({ ...c, email: c.email ?? null, phone: c.phone ?? null, isPrimary: c.isPrimary ?? false }))}
             accountStatus={account.status ?? (account.isActive ? "client_active" : "prospect")}
             accountIsActive={account.isActive}
             onRefresh={() => router.refresh()}
