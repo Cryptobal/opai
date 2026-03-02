@@ -627,7 +627,6 @@ export function CrmAccountDetailClient({
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "portal", label: "Portal", icon: Shield },
-    { id: "rendiciones", label: "Rendiciones", icon: Receipt },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -753,6 +752,17 @@ export function CrmAccountDetailClient({
         </div>
       ),
     },
+    {
+      id: "rendiciones",
+      label: "Rendiciones",
+      icon: Receipt,
+      content: (
+        <AccountExpensesSection
+          accountId={account.id}
+          installationIds={account.installations?.map((i) => i.id) || []}
+        />
+      ),
+    },
   ];
 
   const headerActions: EntityHeaderAction[] = [
@@ -762,7 +772,7 @@ export function CrmAccountDetailClient({
 
   // ── Tab content: General ──
   const generalContent = (
-        <div className="space-y-6">
+        <div className="space-y-6 rounded-lg border border-border bg-card p-4 sm:p-5">
           <DetailFieldGrid columns={3}>
             <DetailField
               label="Tipo"
@@ -898,14 +908,6 @@ export function CrmAccountDetailClient({
             onRefresh={() => router.refresh()}
           />
         )}
-
-        {activeTab === "rendiciones" && (
-          <AccountExpensesSection
-            accountId={account.id}
-            installationIds={account.installations?.map((i) => i.id) || []}
-          />
-        )}
-
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
       </EntityDetailLayout>

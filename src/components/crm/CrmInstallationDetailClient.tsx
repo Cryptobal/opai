@@ -1823,6 +1823,7 @@ export function CrmInstallationDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "staffing", label: "Puestos", icon: Users },
+    { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "files", label: "Archivos", icon: FileText },
   ];
@@ -1833,7 +1834,7 @@ export function CrmInstallationDetailClient({
   ];
 
   const generalContent = (
-        <div className="flex flex-col lg:flex-row lg:gap-6">
+        <div className="flex flex-col lg:flex-row lg:gap-6 rounded-lg border border-border bg-card p-4 sm:p-5">
           <DetailFieldGrid columns={3} className="flex-1">
             <DetailField
               label="Dirección"
@@ -2083,12 +2084,6 @@ export function CrmInstallationDetailClient({
       ),
     },
     {
-      id: "dotacion",
-      label: "Dotación",
-      icon: ClipboardList,
-      content: <DotacionSection installation={installation} canEdit={canEditDotacion} />,
-    },
-    {
       id: "marcacion",
       label: "Marcación",
       icon: QrCode,
@@ -2193,6 +2188,9 @@ export function CrmInstallationDetailClient({
             sourceUpdatedAt={sourceUpdatedAt}
             canForceDelete={canForceDeletePuesto}
           />
+        )}
+        {activeTab === "dotacion" && (
+          <DotacionSection installation={installation} canEdit={canEditDotacion} />
         )}
         {activeTab === "protocolo" && (
           <ProtocolTab

@@ -130,7 +130,7 @@ export function EntityDetailLayout({
         )}
       >
         {/* ── Header ── */}
-        <div className="pt-4 lg:pt-3 pb-3 border-b border-border">
+        <div className="pt-4 lg:pt-3 pb-2">
           {/* Breadcrumb (hidden on desktop — sidebar provides context) */}
           <nav
             aria-label="Breadcrumb"
@@ -176,7 +176,7 @@ export function EntityDetailLayout({
               {header.avatar && (
                 <div
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
                     header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
                       ? "text-white"
                       : header.avatar.color || "bg-primary/10 text-primary"
@@ -278,6 +278,7 @@ export function EntityDetailLayout({
           activeTab={activeTab}
           onTabChange={onTabChange}
           compact
+          centered={false}
         />
 
         {/* ── Sub-tabs (inside sticky) ── */}
