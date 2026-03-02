@@ -3,7 +3,9 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/opai";
 import { RondasMonitoreoClient } from "@/components/ops/rondas";
+import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasMonitoreoPage() {
   const session = await auth();
@@ -46,6 +48,11 @@ export default async function RondasMonitoreoPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <PageHeader
+        title="Monitoreo en tiempo real"
+        description="Rondas activas y posición de guardias."
+      />
+      <RondasSubnav />
       <RondasMonitoreoClient
       initialRows={JSON.parse(JSON.stringify(activeRows))}
       installations={JSON.parse(JSON.stringify(installations))}

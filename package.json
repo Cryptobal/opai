@@ -10,7 +10,7 @@
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",
-    "postinstall": "prisma generate",
+    "postinstall": "node scripts/postinstall.js",
     "generate-icons": "node scripts/generate-gard-icons.mjs",
     "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
     "db:migrate": "prisma migrate deploy"

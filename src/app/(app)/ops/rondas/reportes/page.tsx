@@ -5,6 +5,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { RondasReportesClient } from "@/components/ops/rondas";
+import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasReportesPage() {
   const session = await auth();
@@ -142,6 +143,7 @@ export default async function RondasReportesPage() {
         title="Reportes de rondas"
         description="Cumplimiento, cobertura y confiabilidad por instalación y guardia."
       />
+      <RondasSubnav />
       <RondasReportesClient
         initialRows={mapped}
         initialTotals={totals}

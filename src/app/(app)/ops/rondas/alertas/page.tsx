@@ -3,7 +3,9 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/opai";
 import { RondasAlertasClient } from "@/components/ops/rondas";
+import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasAlertasPage() {
   const session = await auth();
@@ -40,6 +42,11 @@ export default async function RondasAlertasPage() {
 
   return (
     <div className="space-y-6 min-w-0">
+      <PageHeader
+        title="Alertas de rondas"
+        description="Alertas y anomalías detectadas en las rondas."
+      />
+      <RondasSubnav />
       <RondasAlertasClient
       initialRows={JSON.parse(JSON.stringify(rows))}
       installations={JSON.parse(JSON.stringify(installations))}

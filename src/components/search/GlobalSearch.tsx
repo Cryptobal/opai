@@ -14,6 +14,7 @@ import {
   FileText,
   ShieldUser,
   File,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,8 @@ type SearchResult = {
     | "quote"
     | "installation"
     | "guardia"
-    | "document";
+    | "document"
+    | "pauta_mensual";
   title: string;
   subtitle: string;
   href: string;
@@ -92,6 +94,13 @@ const TYPE_CONFIG: Record<
     icon: File,
     color: "text-orange-400",
     bgColor: "bg-orange-400/10",
+  },
+  pauta_mensual: {
+    label: "Pauta mensual",
+    groupLabel: "Pautas mensuales",
+    icon: CalendarDays,
+    color: "text-teal-400",
+    bgColor: "bg-teal-400/10",
   },
 };
 

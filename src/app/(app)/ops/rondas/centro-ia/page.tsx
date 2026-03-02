@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { RondasCentroIaClient } from "@/components/ops/rondas/RondasCentroIaClient";
+import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasCentroIaPage() {
   const session = await auth();
@@ -17,6 +18,7 @@ export default async function RondasCentroIaPage() {
         title="Centro de Inteligencia Artificial"
         description="Detección de anomalías, recomendaciones y análisis predictivo."
       />
+      <RondasSubnav />
       <RondasCentroIaClient />
     </div>
   );

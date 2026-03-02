@@ -5,6 +5,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { RondasConfiguracionClient } from "@/components/ops/rondas/RondasConfiguracionClient";
+import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
 export default async function RondasConfiguracionPage() {
   const session = await auth();
@@ -26,6 +27,7 @@ export default async function RondasConfiguracionPage() {
         title="Configuración de rondas"
         description="Gestiona checkpoints, plantillas y programación por instalación."
       />
+      <RondasSubnav />
       <RondasConfiguracionClient
         installations={JSON.parse(JSON.stringify(installations))}
       />

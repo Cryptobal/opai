@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, ShieldUser } from "lucide-react";
+import { Search, Loader2, ShieldUser, CalendarDays, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SearchResult = {
   id: string;
-  type: "guardia";
+  type: "guardia" | "pauta_mensual";
   title: string;
   subtitle?: string;
   href: string;
@@ -23,6 +23,13 @@ const TYPE_CONFIG: Record<
     icon: ShieldUser,
     color: "text-sky-400",
     bgColor: "bg-sky-400/10",
+  },
+  pauta_mensual: {
+    label: "Pauta mensual",
+    groupLabel: "Pautas mensuales",
+    icon: CalendarDays,
+    color: "text-teal-400",
+    bgColor: "bg-teal-400/10",
   },
 };
 
@@ -126,7 +133,7 @@ export function OpsGlobalSearch({ className }: { className?: string }) {
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => query.trim().length >= 2 && setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar guardia (nombre, código, RUT)..."
+          placeholder="Buscar guardia, RUT o instalación..."
           className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {loading && (
@@ -162,7 +169,7 @@ export function OpsGlobalSearch({ className }: { className?: string }) {
                   const globalIdx = results.indexOf(result);
                   return (
                     <button
-                      key={result.id}
+                      key={`${result.type}-${result.id}`}
                       type="button"
                       onClick={() => selectResult(result)}
                       className={cn(
@@ -178,7 +185,9 @@ export function OpsGlobalSearch({ className }: { className?: string }) {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{result.title}</p>
                         {result.subtitle && (
-                          <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {result.subtitle}
+                          </p>
                         )}
                       </div>
                       <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium", config.bgColor, config.color)}>

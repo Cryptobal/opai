@@ -1,6 +1,7 @@
 /**
  * GET /api/ops/search
- * Búsqueda global en Ops: guardias por nombre, código o RUT.
+ * Búsqueda global en Ops: guardias por nombre, código o RUT,
+ * e instalaciones → enlace a pauta mensual activa.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 
-const LIMIT = 10;
+const GUARDIA_LIMIT = 8;
+const INSTALLATION_LIMIT = 5;
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +27,7 @@ export async function GET(request: NextRequest) {
     const contains = { contains: q, mode: "insensitive" as const };
     const searchNorm = q.replace(/[.\s-]/g, "");
 
+    // ── Guardias (nombre, código, RUT) ──
     const guardias = await prisma.opsGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
@@ -35,7 +38,7 @@ export async function GET(request: NextRequest) {
           { code: contains },
         ],
       },
-      take: LIMIT,
+      take: GUARDIA_LIMIT,
       select: {
         id: true,
         code: true,
@@ -46,17 +49,88 @@ export async function GET(request: NextRequest) {
             rut: true,
           },
         },
+        currentInstallation: {
+          select: { name: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const data = guardias.map((g) => ({
-      id: g.id,
-      type: "guardia" as const,
-      title: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
-      subtitle: g.code ? `Cód. ${g.code}` : g.persona.rut ?? undefined,
-      href: `/personas/guardias/${g.id}`,
-    }));
+    const data: {
+      id: string;
+      type: "guardia" | "pauta_mensual";
+      title: string;
+      subtitle?: string;
+      href: string;
+    }[] = [];
+
+    for (const g of guardias) {
+      // Formato: "Apellido(s), PrimerNombre"
+      const primerNombre = g.persona.firstName?.trim().split(/\s+/)[0] ?? "";
+      const apellidos = g.persona.lastName?.trim() ?? "";
+      const title = apellidos
+        ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}`
+        : (g.persona.firstName ?? "").trim() || "Guardia";
+
+      // Subtitle: instalación actual · RUT
+      const subtitleParts = [
+        g.currentInstallation?.name,
+        g.persona.rut ?? "",
+      ].filter(Boolean);
+
+      data.push({
+        id: g.id,
+        type: "guardia" as const,
+        title,
+        subtitle: subtitleParts.join(" · ") || undefined,
+        href: `/personas/guardias/${g.id}`,
+      });
+    }
+
+    // ── Instalaciones → Pauta mensual del mes en curso ──
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentYear = now.getFullYear();
+    const MESES = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ];
+
+    const installations = await prisma.crmInstallation.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        isActive: true,
+        OR: [
+          { name: contains },
+          { address: contains },
+          { commune: contains },
+          { city: contains },
+        ],
+      },
+      take: INSTALLATION_LIMIT,
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        account: { select: { name: true } },
+      },
+    });
+
+    for (const inst of installations) {
+      data.push({
+        id: `pauta-${inst.id}`,
+        type: "pauta_mensual" as const,
+        title: `Pauta mensual · ${inst.name}`,
+        subtitle: [
+          `${MESES[currentMonth - 1]} ${currentYear}`,
+          inst.account?.name,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: `/ops/pauta-mensual?installationId=${inst.id}`,
+      });
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

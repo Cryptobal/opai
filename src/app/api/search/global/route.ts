@@ -12,7 +12,7 @@ import { ensureOpsAccess } from "@/lib/ops";
 
 export type GlobalSearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document";
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual";
   title: string;
   subtitle: string;
   href: string;
@@ -219,15 +219,15 @@ export async function GET(request: NextRequest) {
       const quoteDeals =
         quoteDealIds.length > 0
           ? await prisma.crmDeal.findMany({
-              where: {
-                tenantId,
-                id: { in: quoteDealIds },
-              },
-              select: {
-                id: true,
-                title: true,
-              },
-            })
+            where: {
+              tenantId,
+              id: { in: quoteDealIds },
+            },
+            select: {
+              id: true,
+              title: true,
+            },
+          })
           : [];
       const quoteDealTitleById = new Map(quoteDeals.map((deal) => [deal.id, deal.title]));
 
@@ -247,6 +247,14 @@ export async function GET(request: NextRequest) {
           href: `/crm/cotizaciones/${quote.id}`,
         });
       }
+      const MESES_GLOBAL = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+      ];
+      const now = new Date();
+      const curMonth = now.getMonth() + 1;
+      const curYear = now.getFullYear();
+
       for (const inst of installations) {
         results.push({
           id: inst.id,
@@ -254,6 +262,16 @@ export async function GET(request: NextRequest) {
           title: inst.name,
           subtitle: [inst.address, inst.account?.name].filter(Boolean).join(" · "),
           href: `/crm/installations/${inst.id}`,
+        });
+        results.push({
+          id: `pauta-${inst.id}`,
+          type: "pauta_mensual",
+          title: `Pauta mensual · ${inst.name}`,
+          subtitle: [
+            `${MESES_GLOBAL[curMonth - 1]} ${curYear}`,
+            inst.account?.name,
+          ].filter(Boolean).join(" · "),
+          href: `/ops/pauta-mensual?installationId=${inst.id}`,
         });
       }
     }
@@ -280,16 +298,24 @@ export async function GET(request: NextRequest) {
             persona: {
               select: { firstName: true, lastName: true, rut: true },
             },
+            currentInstallation: { select: { name: true } },
           },
           orderBy: { createdAt: "desc" },
         });
 
         for (const g of guardias) {
+          const primerNombre = g.persona.firstName?.trim().split(/\s+/)[0] ?? "";
+          const apellidos = g.persona.lastName?.trim() ?? "";
+          const title = apellidos ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}` : (g.persona.firstName ?? "").trim() || "Guardia";
+          const subtitleParts = [
+            g.currentInstallation?.name,
+            g.persona.rut ?? "",
+          ].filter(Boolean);
           results.push({
             id: g.id,
             type: "guardia",
-            title: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
-            subtitle: g.code ? `Cód. ${g.code}` : g.persona.rut ?? "",
+            title,
+            subtitle: subtitleParts.join(" · "),
             href: `/personas/guardias/${g.id}`,
           });
         }
