@@ -90,27 +90,28 @@ const EXTRACTOR_SCHEMA = {
   },
 };
 
-const SYSTEM_PROMPT = `Eres un asistente que extrae datos estructurados de correos electrónicos dirigidos a una empresa de seguridad privada en Chile (Gard Security).
+function buildSystemPrompt(companyName: string, domain: string): string {
+  return `Eres un asistente que extrae datos estructurados de correos electrónicos dirigidos a una empresa de seguridad privada en Chile (${companyName}).
 
 CONTEXTO CRÍTICO:
-- Gard Security (gard.cl) es la empresa que RECIBE estas solicitudes. NUNCA extraigas "Gard Security" ni datos de empleados de gard.cl como la empresa o contacto solicitante.
-- Estos correos suelen ser REENVIADOS por un empleado de Gard (ej. carlos.irigoyen@gard.cl) a un buzón interno. El cliente real que solicita el servicio está en el CUERPO del correo (dentro del mensaje reenviado).
+- ${companyName} (${domain}) es la empresa que RECIBE estas solicitudes. NUNCA extraigas "${companyName}" ni datos de empleados de ${domain} como la empresa o contacto solicitante.
+- Estos correos suelen ser REENVIADOS por un empleado de ${companyName} (ej. usuario@${domain}) a un buzón interno. El cliente real que solicita el servicio está en el CUERPO del correo (dentro del mensaje reenviado).
 - Busca patrones de reenvío como "---------- Forwarded message ----------", "De:", "From:", "Mensaje reenviado", firmas con logos de otras empresas, etc.
-- Si ves datos de Gard Security / gard.cl (nombre, dirección, teléfono, firma), IGNÓRALOS completamente; son del empleado que reenvía, no del cliente.
+- Si ves datos de ${companyName} / ${domain} (nombre, dirección, teléfono, firma), IGNÓRALOS completamente; son del empleado que reenvía, no del cliente.
 
 El correo suele contener solicitudes de servicio de seguridad (guardias, vigilancia, resguardo de obras/instalaciones). Puede incluir datos de la empresa solicitante, del contacto, datos legales/facturación, y requerimientos del servicio.
 
-Extrae TODO lo que encuentres DEL CLIENTE SOLICITANTE (no de Gard). Si un dato no aparece en el texto, usa una cadena vacía "" para ese campo.
+Extrae TODO lo que encuentres DEL CLIENTE SOLICITANTE (no de ${companyName}). Si un dato no aparece en el texto, usa una cadena vacía "" para ese campo.
 
 Campos a extraer:
-- companyName: nombre comercial de la empresa SOLICITANTE (la que pide el servicio, NUNCA "Gard Security")
+- companyName: nombre comercial de la empresa SOLICITANTE (la que pide el servicio, NUNCA "${companyName}")
 - rut: RUT de la empresa solicitante (formato chileno, ej. 77.985.438-8)
 - legalName: razón social de la empresa solicitante
 - businessActivity: giro o actividad comercial de la empresa solicitante
 - legalRepresentativeName: nombre del representante legal de la empresa solicitante
-- contactFirstName/contactLastName: nombre de la persona que SOLICITA el servicio (no del empleado de Gard que reenvía)
-- contactEmail: email del contacto solicitante (NO usar emails @gard.cl)
-- contactPhone: teléfono del contacto solicitante (NO usar teléfonos de empleados Gard)
+- contactFirstName/contactLastName: nombre de la persona que SOLICITA el servicio (no del empleado de ${companyName} que reenvía)
+- contactEmail: email del contacto solicitante (NO usar emails @${domain})
+- contactPhone: teléfono del contacto solicitante (NO usar teléfonos de empleados ${companyName})
 - contactRole: cargo del contacto solicitante
 - address: dirección de la instalación o sede donde se requiere el servicio
 - city: ciudad
@@ -123,7 +124,8 @@ Campos a extraer:
 - startDate: fecha estimada de inicio (ej. "02 de marzo", "inmediato", "a definir")
 - summary: resumen ejecutivo en 2-4 oraciones con lo más relevante de la solicitud
 - industry: rubro del cliente solicitante (construcción, minería, retail, inmobiliaria, energía, etc.)
-- website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de Gard (gard.cl). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")`;
+- website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de ${companyName} (${domain}). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")`;
+}
 
 function stripHtml(html: string): string {
   return html
@@ -148,13 +150,16 @@ export async function extractLeadFromEmail(params: {
   htmlBody?: string | null;
   textBody?: string | null;
   fromEmail?: string | null;
-  /** Dominio propio de Gard (ej. "gard.cl") para que la IA lo ignore como empresa solicitante */
+  /** Dominio propio de la empresa (ej. "gard.cl") para que la IA lo ignore como empresa solicitante */
   ownDomain?: string | null;
+  /** Nombre de la empresa propia (ej. "Gard Security") para contexto del prompt de IA */
+  ownCompanyName?: string | null;
 }): Promise<ExtractedLeadData> {
   const textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
 
-  // Detectar si el remitente es interno (reenvío desde Gard)
-  const ownDomain = params.ownDomain || "gard.cl";
+  // Detectar si el remitente es interno (reenvío desde la empresa propia)
+  const ownDomain = params.ownDomain || process.env.TENANT_DOMAIN || "gard.cl";
+  const ownCompanyName = params.ownCompanyName || process.env.TENANT_NAME || "Gard Security";
   const isForwarded = params.fromEmail
     ? params.fromEmail.toLowerCase().includes(`@${ownDomain.toLowerCase()}`)
     : false;
@@ -164,7 +169,7 @@ export async function extractLeadFromEmail(params: {
     // Solo incluir "De:" si NO es un reenvío interno; si es reenvío, la IA debe buscar al cliente en el cuerpo
     !isForwarded && params.fromEmail ? `De: ${params.fromEmail}` : "",
     isForwarded
-      ? "[NOTA: Este correo fue REENVIADO por un empleado de Gard Security. El remitente real (el cliente que solicita el servicio) está en el cuerpo del correo. IGNORA los datos de Gard Security, gard.cl y del empleado que reenvía.]"
+      ? `[NOTA: Este correo fue REENVIADO por un empleado de ${ownCompanyName}. El remitente real (el cliente que solicita el servicio) está en el cuerpo del correo. IGNORA los datos de ${ownCompanyName}, ${ownDomain} y del empleado que reenvía.]`
       : "",
     textBody,
   ]
@@ -178,7 +183,7 @@ export async function extractLeadFromEmail(params: {
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(ownCompanyName, ownDomain) },
       { role: "user", content },
     ],
     response_format: EXTRACTOR_SCHEMA,

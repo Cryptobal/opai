@@ -17,7 +17,7 @@ Estamos preparando una propuesta personalizada para ti. Si tienes alguna duda en
 
 Servicio: {servicio} | Dotación: {dotacion}
 
-http://gard.cl`,
+{pagina_web}`,
     tokens: [
       "{nombre}",
       "{apellido}",
@@ -35,7 +35,7 @@ http://gard.cl`,
     ],
   },
   lead_client: {
-    name: "Nuevo lead — Cliente a Gard",
+    name: "Nuevo lead — Cliente a empresa",
     body: `Hola, soy {nombre} {apellido} de la empresa {empresa}, les solicité una cotización por la página.
 
 {maps_link}`,
@@ -43,7 +43,7 @@ http://gard.cl`,
   },
   proposal_sent: {
     name: "Propuesta enviada",
-    body: `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:
+    body: `Hola {contactName}, te envío la propuesta para {companyName}:
 
 {proposalUrl}`,
     tokens: ["{contactName}", "{companyName}", "{proposalUrl}"],

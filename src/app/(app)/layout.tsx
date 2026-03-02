@@ -10,8 +10,8 @@ import { PermissionsProvider } from '@/lib/permissions-context';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "OPAI Suite - Gard Security",
-  description: "Suite de aplicaciones inteligentes para Gard Security",
+  title: "OPAI Suite",
+  description: "Suite de aplicaciones inteligentes",
 };
 
 /**

@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureOpsAccess, getMonthDateRange } from "@/lib/ops";
-
-type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
+import {
+  buildExecutionMap,
+  ensureOpsAccess,
+  getMonthDateRange,
+  toDateKeyUTC,
+  type ExecutionState,
+} from "@/lib/ops";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 const SHIFT_LABELS: Record<string, string> = {
   T: "T",
@@ -28,11 +33,6 @@ const EXEC_BADGE: Record<ExecutionState, string> = {
   sin_cobertura: "SC",
   ppc: "PPC",
 };
-
-function toDateKey(date: Date | string): string {
-  if (typeof date === "string") return date.slice(0, 10);
-  return date.toISOString().slice(0, 10);
-}
 
 function daysInMonth(year: number, month: number): Date[] {
   const days: Date[] = [];
@@ -114,7 +114,10 @@ export async function GET(request: NextRequest) {
           slotNumber: true,
           date: true,
           attendanceStatus: true,
+          plannedGuardiaId: true,
+          actualGuardiaId: true,
           replacementGuardiaId: true,
+          turnosExtra: { select: { id: true, status: true } },
         },
       }),
     ]);
@@ -126,19 +129,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const executionByCell: Record<string, ExecutionState> = {};
-    for (const row of asistencia) {
-      const key = `${row.puestoId}|${row.slotNumber}|${toDateKey(row.date)}`;
-      if (row.attendanceStatus === "reemplazo" && row.replacementGuardiaId) {
-        executionByCell[key] = "te";
-      } else if (row.attendanceStatus === "asistio") {
-        executionByCell[key] = "asistio";
-      } else if (row.attendanceStatus === "no_asistio") {
-        executionByCell[key] = "sin_cobertura";
-      } else if (row.attendanceStatus === "ppc") {
-        executionByCell[key] = "ppc";
-      }
-    }
+    // Tenant branding
+    const cfg = await getTenantCompanyConfig(ctx.tenantId);
+
+    // Lógica canónica de ejecución compartida (ops.ts)
+    const executionMap = buildExecutionMap(asistencia);
 
     const rows = new Map<
       string,
@@ -165,7 +160,7 @@ export async function GET(request: NextRequest) {
           cells: new Map(),
         });
       }
-      rows.get(key)?.cells.set(toDateKey(item.date), item.shiftCode || "");
+      rows.get(key)?.cells.set(toDateKeyUTC(item.date), item.shiftCode || "");
     }
 
     for (const a of asignaciones) {
@@ -187,7 +182,7 @@ export async function GET(request: NextRequest) {
 
     const totalColumns = 4 + monthDays.length;
     sheet.mergeCells(1, 1, 1, totalColumns);
-    sheet.getCell(1, 1).value = "GARD · PAUTA MENSUAL";
+    sheet.getCell(1, 1).value = `${cfg.brandNameUpper} · PAUTA MENSUAL`;
     sheet.getCell(1, 1).font = { bold: true, size: 16 };
     sheet.getCell(1, 1).alignment = { horizontal: "center" };
 
@@ -217,9 +212,10 @@ export async function GET(request: NextRequest) {
         row.guardiaName ?? "Sin asignar",
       ];
       monthDays.forEach((d) => {
-        const dateKey = toDateKey(d);
+        const dateKey = toDateKeyUTC(d);
         const shiftCode = row.cells.get(dateKey) || "";
-        const exec = executionByCell[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
+        const execResult = executionMap[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
+        const exec = execResult?.state;
         const displayShift = SHIFT_LABELS[shiftCode] ?? shiftCode;
         data.push(exec ? `${displayShift || "·"} ${EXEC_BADGE[exec]}`.trim() : (displayShift || "·"));
       });
@@ -237,7 +233,7 @@ export async function GET(request: NextRequest) {
     for (let r = 5; r < 5 + matrix.length; r += 1) {
       for (let c = 5; c <= totalColumns; c += 1) {
         const dayIndex = c - 5;
-        const dateKey = toDateKey(monthDays[dayIndex]);
+        const dateKey = toDateKeyUTC(monthDays[dayIndex]);
         const rowData = matrix[r - 5];
         const shiftCode = rowData.cells.get(dateKey) || "";
         const fillColor = SHIFT_FILLS[shiftCode];

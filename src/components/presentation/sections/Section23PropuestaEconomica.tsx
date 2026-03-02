@@ -21,8 +21,14 @@ interface Section23PropuestaEconomicaProps {
   clientName?: string;
   quoteNumber?: string;
   quoteDate?: string;
+  /** Tenant commercial email (from payload.contact.email) */
   contactEmail?: string;
+  /** Tenant phone (from payload.contact.phone) */
   contactPhone?: string;
+  /** Tenant commercial name for PDF footer */
+  companyName?: string;
+  /** Tenant website for PDF footer */
+  website?: string;
   dealName?: string;
   installationName?: string;
 }
@@ -33,8 +39,10 @@ export function Section23PropuestaEconomica({
   clientName = 'Cliente',
   quoteNumber = 'COT-000',
   quoteDate = new Date().toLocaleDateString('es-CL'),
-  contactEmail = 'comercial@gard.cl',
-  contactPhone = '+56 98 230 7771',
+  contactEmail = '',
+  contactPhone = '',
+  companyName,
+  website,
   dealName = '',
   installationName = '',
 }: Section23PropuestaEconomicaProps) {
@@ -295,7 +303,7 @@ export function Section23PropuestaEconomica({
         <div className="text-center space-y-4 pdf-hide">
           <p className="text-white/60">¿Preguntas sobre la propuesta?</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <DownloadPricingButtonV3 clientName={clientName} quoteNumber={quoteNumber} pricing={pricing} quoteDate={quoteDate} contactEmail={contactEmail} contactPhone={contactPhone} />
+            <DownloadPricingButtonV3 clientName={clientName} quoteNumber={quoteNumber} pricing={pricing} quoteDate={quoteDate} contactEmail={contactEmail} contactPhone={contactPhone} companyName={companyName} website={website} />
             <a href="https://calendar.app.google/MfyKXvYxURJSnUBe9" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-bold text-white glass-card border-2 border-white/30 hover:bg-white/10 hover:border-white/50 shadow-xl transition-all duration-300 hover:scale-105">
               <FileText className="w-5 h-5" />

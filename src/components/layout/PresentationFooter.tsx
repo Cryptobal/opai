@@ -16,6 +16,8 @@ interface PresentationFooterProps {
   contact: ContactInfo;
   address?: string;
   website?: string;
+  mapsLink?: string;
+  companyName?: string;
   social_media?: {
     linkedin?: string;
     instagram?: string;
@@ -25,18 +27,18 @@ interface PresentationFooterProps {
   className?: string;
 }
 
-export function PresentationFooter({ 
+export function PresentationFooter({
   logo = '/Logo%20Gard%20Blanco.png',
   contact,
   address,
   website,
+  mapsLink = 'https://www.google.com/maps/place/Gard+Security/@-33.3829252,-70.5343354,1028m/data=!3m2!1e3!4b1!4m6!3m5!1s0xad000dfe016a150d:0x3fcad00015b6e4bd!8m2!3d-33.3829252!4d-70.5317605!16s%2Fg%2F11vsbpgym7?entry=ttu&g_ep=EgoyMDI2MDIwMS4wIKXMDSoKLDEwMDc5MjA2N0gBUAM%3D',
+  companyName = 'Gard Security',
   social_media,
-  className 
+  className
 }: PresentationFooterProps) {
   const currentYear = new Date().getFullYear();
-  
-  // Google Maps link directo a Gard Security
-  const googleMapsLink = 'https://www.google.com/maps/place/Gard+Security/@-33.3829252,-70.5343354,1028m/data=!3m2!1e3!4b1!4m6!3m5!1s0xad000dfe016a150d:0x3fcad00015b6e4bd!8m2!3d-33.3829252!4d-70.5317605!16s%2Fg%2F11vsbpgym7?entry=ttu&g_ep=EgoyMDI2MDIwMS4wIKXMDSoKLDEwMDc5MjA2N0gBUAM%3D';
+  const googleMapsLink = mapsLink;
   
   return (
     <footer className={cn('relative overflow-hidden', className)}>
@@ -53,7 +55,7 @@ export function PresentationFooter({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="inline-block group">
+            <a href={website ? `https://${website}` : '#'} target="_blank" rel="noopener noreferrer" className="inline-block group">
               <div className="w-40 h-16 mb-6 transition-transform group-hover:scale-110 flex items-center">
                 <img
                   src={logo}
@@ -200,7 +202,7 @@ export function PresentationFooter({
         {/* Copyright */}
         <div className="pt-8 border-t border-white/10 text-center">
           <p className="text-sm text-white/50">
-            © {currentYear} Gard Security. Todos los derechos reservados.
+            © {currentYear} {companyName}. Todos los derechos reservados.
           </p>
         </div>
       </div>

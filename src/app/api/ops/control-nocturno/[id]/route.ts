@@ -437,6 +437,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         aiSummary,
         ...(snapshot ? { snapshot } : {}),
         baseUrl,
+        tenantId: ctx.tenantId,
       };
 
       // Send email — MUST await: Vercel serverless kills fire-and-forget on return

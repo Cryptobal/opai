@@ -1,0 +1,214 @@
+/**
+ * Tenant Company Configuration
+ *
+ * Helper centralizado para leer la configuración de empresa por tenant.
+ * Lee desde la tabla Setting con cache de 5 min para no repetir queries.
+ *
+ * Uso:
+ *   const cfg = await getTenantCompanyConfig(tenantId);
+ *   cfg.companyName     // "Gard SpA"
+ *   cfg.commercialName  // "Gard Security"
+ *   cfg.email           // "comercial@gard.cl"
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface TenantCompanyConfig {
+  /* Datos Generales */
+  razonSocial: string;
+  rut: string;
+  direccion: string;
+  comuna: string;
+  ciudad: string;
+  telefono: string;
+  repLegalNombre: string;
+  repLegalRut: string;
+
+  /* Nombre comercial / branding */
+  companyName: string;       // razón social corta: "Gard SpA"
+  commercialName: string;    // marca comercial: "Gard Security"
+  brandNameUpper: string;    // para headers: "GARD"
+  website: string;           // "www.gard.cl"
+  logoUrl: string;           // URL del logo
+
+  /* Contacto comercial */
+  email: string;             // comercial@gard.cl
+  emailOps: string;          // operaciones@gard.cl
+  emailContact: string;      // contacto@gard.cl
+  phone: string;             // "+56 98 230 7771"
+  phoneRaw: string;          // "56982307771" (sin formato, para wa.me links)
+  whatsappLink: string;      // "https://wa.me/56982307771"
+
+  /* Email config */
+  emailFrom: string;         // "OPAI <opai@gard.cl>"
+  emailFromName: string;     // "OPAI"
+  emailFromAddress: string;  // "opai@gard.cl"
+  emailReplyTo: string;      // "comercial@gard.cl"
+}
+
+/* ------------------------------------------------------------------ */
+/*  Defaults (fallback si no hay valores en BD)                        */
+/* ------------------------------------------------------------------ */
+
+const DEFAULTS: TenantCompanyConfig = {
+  razonSocial: "Gard SpA",
+  rut: "77.840.623-3",
+  direccion: "",
+  comuna: "",
+  ciudad: "",
+  telefono: "+56 98 230 7771",
+  repLegalNombre: "",
+  repLegalRut: "",
+
+  companyName: "Gard SpA",
+  commercialName: "Gard Security",
+  brandNameUpper: "GARD",
+  website: "www.gard.cl",
+  logoUrl: "",
+
+  email: "comercial@gard.cl",
+  emailOps: "operaciones@gard.cl",
+  emailContact: "contacto@gard.cl",
+  phone: "+56 98 230 7771",
+  phoneRaw: "56982307771",
+  whatsappLink: "https://wa.me/56982307771",
+
+  emailFrom: process.env.EMAIL_FROM || "OPAI <opai@gard.cl>",
+  emailFromName: "OPAI",
+  emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "opai@gard.cl",
+  emailReplyTo: process.env.EMAIL_REPLY_TO || "comercial@gard.cl",
+};
+
+/* ------------------------------------------------------------------ */
+/*  Setting key → config field mapping                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maps Setting keys (empresa.*) to TenantCompanyConfig fields.
+ * Keys that exist in the DB will override the defaults.
+ */
+const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
+  "empresa.razonSocial": "razonSocial",
+  "empresa.rut": "rut",
+  "empresa.direccion": "direccion",
+  "empresa.comuna": "comuna",
+  "empresa.ciudad": "ciudad",
+  "empresa.telefono": "telefono",
+  "empresa.repLegalNombre": "repLegalNombre",
+  "empresa.repLegalRut": "repLegalRut",
+
+  "empresa.companyName": "companyName",
+  "empresa.commercialName": "commercialName",
+  "empresa.brandNameUpper": "brandNameUpper",
+  "empresa.website": "website",
+  "empresa.logoUrl": "logoUrl",
+
+  "empresa.email": "email",
+  "empresa.emailOps": "emailOps",
+  "empresa.emailContact": "emailContact",
+  "empresa.phone": "phone",
+  "empresa.phoneRaw": "phoneRaw",
+  "empresa.whatsappLink": "whatsappLink",
+
+  "empresa.emailFrom": "emailFromAddress",
+  "empresa.emailFromName": "emailFromName",
+  "empresa.emailReplyTo": "emailReplyTo",
+};
+
+const ALL_KEYS = Object.keys(KEY_MAP);
+
+/* ------------------------------------------------------------------ */
+/*  Cache                                                              */
+/* ------------------------------------------------------------------ */
+
+const cache = new Map<string, { config: TenantCompanyConfig; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+export function clearTenantCompanyConfigCache(tenantId?: string): void {
+  if (tenantId) {
+    cache.delete(tenantId);
+  } else {
+    cache.clear();
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main function                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Obtiene la configuración completa de la empresa para un tenant.
+ * Lee de la tabla Setting, con cache de 5 minutos.
+ * Si no hay datos en BD, usa los defaults hardcodeados (Gard).
+ */
+export async function getTenantCompanyConfig(
+  tenantId: string,
+): Promise<TenantCompanyConfig> {
+  // Check cache
+  const cached = cache.get(tenantId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.config;
+
+  // Start from defaults
+  const config: TenantCompanyConfig = { ...DEFAULTS };
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+
+    // Try new-format keys first: empresa:<tenantId>:empresa.xxx
+    const newKeys = ALL_KEYS.map((k) => `empresa:${tenantId}:${k}`);
+    let settings = await prisma.setting.findMany({
+      where: { tenantId, key: { in: newKeys } },
+    });
+
+    // Fallback to old-format keys: empresa.xxx
+    if (settings.length === 0) {
+      settings = await prisma.setting.findMany({
+        where: { tenantId, key: { in: ALL_KEYS } },
+      });
+    }
+
+    // Apply settings to config
+    for (const s of settings) {
+      const shortKey = s.key.includes(":")
+        ? s.key.replace(`empresa:${tenantId}:`, "")
+        : s.key;
+      const field = KEY_MAP[shortKey];
+      if (field && s.value) {
+        (config as unknown as Record<string, string>)[field] = s.value;
+      }
+    }
+
+    // Derived fields: rebuild emailFrom from parts
+    if (config.emailFromAddress && config.emailFromName) {
+      config.emailFrom = `${config.emailFromName} <${config.emailFromAddress}>`;
+    } else if (config.emailFromAddress) {
+      config.emailFrom = config.emailFromAddress;
+    }
+
+    // Derive companyName from razonSocial if companyName not explicitly set
+    const hasExplicitCompanyName = settings.some((s) => {
+      const k = s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key;
+      return k === "empresa.companyName";
+    });
+    if (!hasExplicitCompanyName && config.razonSocial !== DEFAULTS.razonSocial) {
+      config.companyName = config.razonSocial;
+    }
+
+    // Derive whatsappLink from phoneRaw if whatsappLink not explicitly set
+    const hasExplicitWa = settings.some((s) => {
+      const k = s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key;
+      return k === "empresa.whatsappLink";
+    });
+    if (!hasExplicitWa && config.phoneRaw !== DEFAULTS.phoneRaw) {
+      config.whatsappLink = `https://wa.me/${config.phoneRaw}`;
+    }
+  } catch (err) {
+    console.error("[TENANT_CONFIG] Error loading config for tenant", tenantId, err);
+    // Return defaults on error
+  }
+
+  cache.set(tenantId, { config, ts: Date.now() });
+  return config;
+}

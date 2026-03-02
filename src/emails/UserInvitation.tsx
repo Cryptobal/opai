@@ -18,6 +18,13 @@ interface UserInvitationEmailProps {
   role: string;
   activationUrl: string;
   expiresInHours?: number;
+  // Tenant branding props
+  brandName?: string;
+  brandNameUpper?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
+  platformName?: string;
 }
 
 export default function UserInvitationEmail({
@@ -26,6 +33,12 @@ export default function UserInvitationEmail({
   role = 'admin',
   activationUrl = 'https://opai.gard.cl/activate?token=...',
   expiresInHours = 48,
+  brandName = 'Gard Security',
+  brandNameUpper = 'GARD SECURITY',
+  logoUrl = 'https://opai.gard.cl/Logo%20Gard%20Blanco.png',
+  website = 'https://gard.cl',
+  emailContact = 'comercial@gard.cl',
+  platformName = 'Gard Docs',
 }: UserInvitationEmailProps) {
   const roleNames: Record<string, string> = {
     owner: 'Propietario',
@@ -41,24 +54,24 @@ export default function UserInvitationEmail({
   return (
     <Html>
       <Head />
-      <Preview>Has sido invitado a Gard Docs</Preview>
+      <Preview>Has sido invitado a {platformName}</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="120"
               height="40"
-              alt="Gard Security"
+              alt={brandName}
             />
           </Section>
 
           <Section style={content}>
-            <Heading style={h1}>Bienvenido a Gard Docs</Heading>
+            <Heading style={h1}>Bienvenido a {platformName}</Heading>
 
             <Text style={text}>
               <strong>{inviterName}</strong> te ha invitado a unirte al equipo
-              de Gard Docs.
+              de {platformName}.
             </Text>
 
             <Section style={infoBox}>
@@ -95,14 +108,14 @@ export default function UserInvitationEmail({
 
           <Section style={footer}>
             <Text style={footerText}>
-              © {new Date().getFullYear()} Gard Security
+              © {new Date().getFullYear()} {brandName}
               <br />
-              <Link href="https://gard.cl" style={footerLink}>
-                gard.cl
+              <Link href={website} style={footerLink}>
+                {website.replace(/^https?:\/\//, '')}
               </Link>
               {' · '}
-              <Link href="mailto:comercial@gard.cl" style={footerLink}>
-                comercial@gard.cl
+              <Link href={`mailto:${emailContact}`} style={footerLink}>
+                {emailContact}
               </Link>
             </Text>
           </Section>

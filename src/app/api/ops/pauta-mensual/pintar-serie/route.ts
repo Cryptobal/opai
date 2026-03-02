@@ -5,43 +5,12 @@ import { pintarSerieSchema } from "@/lib/validations/ops";
 import {
   createOpsAuditLog,
   ensureOpsAccess,
+  generateSerieForMonth,
   getMonthDateRange,
   listDatesBetween,
   parseDateOnly,
   toISODate,
 } from "@/lib/ops";
-
-/**
- * Generates shift codes for a month based on a rotation pattern.
- * Returns "T" for work days, "-" for rest days.
- */
-function generateSerieForMonth(
-  startDate: Date,
-  startPosition: number,
-  patternWork: number,
-  patternOff: number,
-  monthDates: Date[]
-): { date: Date; shiftCode: string }[] {
-  const cycleLength = patternWork + patternOff;
-  const results: { date: Date; shiftCode: string }[] = [];
-
-  for (const d of monthDates) {
-    const diffMs = d.getTime() - startDate.getTime();
-    const daysDiff = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    const positionInCycle =
-      ((daysDiff + (startPosition - 1)) % cycleLength + cycleLength) % cycleLength;
-
-    const isWorkDay = positionInCycle < patternWork;
-
-    results.push({
-      date: new Date(d),
-      shiftCode: isWorkDay ? "T" : "-",
-    });
-  }
-
-  return results;
-}
 
 /**
  * Upserts pauta entries for a set of serie entries.
@@ -132,6 +101,9 @@ export async function POST(request: NextRequest) {
     });
 
     const startDate = parseDateOnly(body.startDate);
+    // End date for previous series = day before new series starts (avoids gaps/overlaps)
+    const prevSeriesEndDate = new Date(startDate);
+    prevSeriesEndDate.setUTCDate(prevSeriesEndDate.getUTCDate() - 1);
     const { start: monthStart, end: monthEnd } = getMonthDateRange(body.year, body.month);
     const paintDates = listDatesBetween(monthStart, monthEnd);
 
@@ -180,7 +152,7 @@ export async function POST(request: NextRequest) {
           slotNumber: body.slotNumber,
           isActive: true,
         },
-        data: { isActive: false, endDate: monthStart },
+        data: { isActive: false, endDate: prevSeriesEndDate },
       });
 
       // Create only the main serie (no mirrored serie).
@@ -254,7 +226,7 @@ export async function POST(request: NextRequest) {
         slotNumber: body.slotNumber,
         isActive: true,
       },
-      data: { isActive: false, endDate: monthStart },
+      data: { isActive: false, endDate: prevSeriesEndDate },
     });
 
     const serieCreateData: Record<string, unknown> = {

@@ -526,7 +526,7 @@ function isInstallHomeScreenQuestion(message: string): boolean {
     message.includes("acceso directo") ||
     message.includes("icono");
   const mentionsSite =
-    message.includes("opai") || message.includes("gard.cl") || message.includes("www.opai.gard.cl");
+    message.includes("opai") || message.includes("plataforma") || message.includes("sistema");
 
   return (
     (asksInstall && mentionsSite) ||
@@ -537,13 +537,14 @@ function isInstallHomeScreenQuestion(message: string): boolean {
 }
 
 function buildInstallHomeScreenAnswer(): string {
-  const url = "https://www.opai.gard.cl";
+  const url = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+  const displayUrl = url.replace(/^https?:\/\//, "");
   return [
     "Si quieres, lo hacemos altiro. Primero dime:",
     "1) **Dispositivo**: iPhone o Android",
     "2) **Navegador**: Safari, Chrome, Edge, Firefox, Samsung Internet o app Google",
     "",
-    `Mientras tanto, aqui tienes el paso a paso para [www.opai.gard.cl](${url}):`,
+    `Mientras tanto, aqui tienes el paso a paso para [${displayUrl}](${url}):`,
     "",
     "**iPhone**",
     "- **Safari**:",

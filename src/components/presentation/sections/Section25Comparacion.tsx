@@ -14,9 +14,17 @@ import { motion } from 'framer-motion';
 
 interface Section25ComparacionProps {
   data: Section25_Comparacion;
+  /** Tenant brand name in uppercase for headings (e.g. "GARD") */
+  brandNameUpper?: string;
+  /** Tenant commercial email for CTA mailto link */
+  contactEmail?: string;
 }
 
-export function Section25Comparacion({ data }: Section25ComparacionProps) {
+export function Section25Comparacion({
+  data,
+  brandNameUpper = 'GARD',
+  contactEmail = '',
+}: Section25ComparacionProps) {
   const theme = useThemeClasses();
   
   const renderValue = (value: string | boolean) => {
@@ -60,7 +68,7 @@ export function Section25Comparacion({ data }: Section25ComparacionProps) {
             'text-4xl md:text-6xl lg:text-7xl font-black mb-6',
             'text-white leading-tight'
           )}>
-            Por qué GARD{' '}
+            Por qué {brandNameUpper}{' '}
             <span className="bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">
               no es "uno más"
             </span>
@@ -110,7 +118,7 @@ export function Section25Comparacion({ data }: Section25ComparacionProps) {
                   </th>
                   <th className="px-8 py-6 text-center font-black text-lg bg-gradient-to-r from-teal-500/20 to-blue-500/20">
                     <span className="bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">
-                      GARD
+                      {brandNameUpper}
                     </span>
                   </th>
                 </tr>
@@ -173,7 +181,7 @@ export function Section25Comparacion({ data }: Section25ComparacionProps) {
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-teal-400 mb-2 font-semibold">GARD</div>
+                  <div className="text-sm text-teal-400 mb-2 font-semibold">{brandNameUpper}</div>
                   <div className="text-white font-bold">
                     {typeof row.gard === 'boolean' ? (row.gard ? '✓' : '✗') : row.gard}
                   </div>
@@ -195,7 +203,7 @@ export function Section25Comparacion({ data }: Section25ComparacionProps) {
               ¿Quieres saber cómo nos comparamos con tu proveedor actual?
             </p>
             <a
-              href="mailto:comercial@gard.cl?subject=Solicitud de comparación competitiva"
+              href={`mailto:${contactEmail}?subject=Solicitud de comparación competitiva`}
               className={cn(
                 'btn-premium inline-flex items-center gap-3 px-8 py-4 rounded-xl',
                 'text-base font-bold text-white',

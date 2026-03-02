@@ -29,6 +29,7 @@ import { toast } from "sonner";
 interface Props {
   installationId: string;
   installationName: string;
+  companyName?: string;
 }
 
 interface ProtocolSection {
@@ -125,7 +126,7 @@ function StatusBadge({ status }: { status?: GuardScore["status"] }) {
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-export function ClientViewSubTab({ installationId, installationName }: Props) {
+export function ClientViewSubTab({ installationId, installationName, companyName = "Gard Security" }: Props) {
   const [protocol, setProtocol] = useState<ProtocolData | null>(null);
   const [stats, setStats] = useState<ExamStats | null>(null);
   const [guards, setGuards] = useState<GuardScore[]>([]);
@@ -230,7 +231,7 @@ export function ClientViewSubTab({ installationId, installationName }: Props) {
                 </CardDescription>
                 <CardTitle className="text-xl font-bold">{installationName}</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Gard Security · {today}
+                  {companyName} · {today}
                 </p>
               </div>
               <div className="flex gap-2">

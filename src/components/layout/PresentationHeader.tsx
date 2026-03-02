@@ -20,6 +20,7 @@ interface PresentationHeaderProps {
   installationName?: string;
   showTokens?: boolean;
   className?: string;
+  website?: string; // Tenant website (e.g. "www.gard.cl")
 }
 
 export function PresentationHeader({
@@ -33,10 +34,15 @@ export function PresentationHeader({
   dealName = '',
   installationName = '',
   showTokens = false,
-  className
+  className,
+  website = 'www.gard.cl',
 }: PresentationHeaderProps) {
+  // Build WhatsApp link from cta (tenant-aware) with personalized message
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
-  const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappLink = cta.whatsapp_link
+    ? `${cta.whatsapp_link}?text=${encodeURIComponent(whatsappMessage)}`
+    : `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
+  const websiteUrl = website.startsWith('http') ? website : `https://${website}`;
   
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/95 border-b border-white/10 shadow-2xl">
@@ -111,7 +117,7 @@ export function PresentationHeader({
         <div className="flex items-center justify-between h-14 sm:h-16 gap-4">
           {/* Logos: Gard siempre + cliente si existe */}
           <div className="flex items-center gap-4 flex-shrink-0">
-            <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="group">
+            <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="group">
               <div className="w-28 h-10 sm:w-32 sm:h-12 transition-transform group-hover:scale-110 flex items-center">
                 <img
                   src={logo}

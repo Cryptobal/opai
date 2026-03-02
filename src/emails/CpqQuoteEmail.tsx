@@ -30,6 +30,12 @@ interface CpqQuoteEmailProps {
   serviceDetail?: string;
   businessName?: string;
   installationName?: string;
+  // Tenant branding props
+  brandName?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
+  brandTagline?: string;
 }
 
 export const CpqQuoteEmail = ({
@@ -45,8 +51,13 @@ export const CpqQuoteEmail = ({
   serviceDetail = "",
   businessName = "",
   installationName = "",
+  brandName = "Gard Security",
+  logoUrl = "https://opai.gard.cl/Logo%20Gard%20Blanco.png",
+  website = "https://www.gard.cl",
+  emailContact = "comercial@gard.cl",
+  brandTagline = "Servicios de Seguridad Profesional",
 }: CpqQuoteEmailProps) => {
-  const previewText = `Propuesta económica ${quoteCode} - Gard Security`;
+  const previewText = `Propuesta económica ${quoteCode} - ${brandName}`;
 
   return (
     <Html>
@@ -56,9 +67,9 @@ export const CpqQuoteEmail = ({
         <Container style={container}>
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="180"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
           </Section>
@@ -150,17 +161,17 @@ export const CpqQuoteEmail = ({
             <Text style={signature}>
               {senderName}
               <br />
-              Gard Security
+              {brandName}
               <br />
-              comercial@gard.cl
+              {emailContact}
             </Text>
           </Section>
 
           <Section style={footer}>
             <Text style={footerText}>
-              Gard Security · Servicios de Seguridad Profesional
+              {brandName} · {brandTagline}
               <br />
-              www.gard.cl · contacto@gard.cl
+              {website.replace(/^https?:\/\//, '')} · {emailContact}
             </Text>
           </Section>
         </Container>

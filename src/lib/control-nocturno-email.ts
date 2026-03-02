@@ -2,12 +2,11 @@
  * Envío de reporte de control nocturno por email.
  *
  * Al finalizar un reporte, se genera el PDF inline
- * y se manda como adjunto a operaciones@gard.cl.
+ * y se manda como adjunto al email de operaciones del tenant.
  */
 
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
-
-const OPS_EMAIL = "operaciones@gard.cl";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 interface ControlNocturnoEmailData {
   reporteId: string;
@@ -19,6 +18,7 @@ interface ControlNocturnoEmailData {
   criticos: number;
   generalNotes: string | null;
   aiSummary?: string | null;
+  tenantId: string;
   snapshot?: {
     week: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
     mtd: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
@@ -184,7 +184,7 @@ function buildHtml(data: ControlNocturnoEmailData): string {
         <tr>
           <td style="padding:16px 32px;border-top:1px solid #e2e8f0">
             <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center">
-              ${EMAIL_CONFIG.companyName} · Sistema OPAI · Reporte generado automáticamente
+              Sistema OPAI · Reporte generado automáticamente
             </p>
           </td>
         </tr>
@@ -204,6 +204,7 @@ export async function sendControlNocturnoEmail(
   pdfBuffer?: Buffer | Uint8Array,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const cfg = await getTenantCompanyConfig(data.tenantId);
     const dateSlug = data.date;
     const subject = `📋 Control Nocturno ${formatDate(data.date)}`;
 
@@ -217,9 +218,9 @@ export async function sendControlNocturnoEmail(
       : undefined;
 
     const response = await resend.emails.send({
-      from: EMAIL_CONFIG.from,
-      to: OPS_EMAIL,
-      replyTo: EMAIL_CONFIG.replyTo,
+      from: cfg.emailFrom,
+      to: cfg.emailOps,
+      replyTo: cfg.emailReplyTo,
       subject,
       html: buildHtml(data),
       attachments,

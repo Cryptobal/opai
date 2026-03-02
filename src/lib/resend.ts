@@ -1,6 +1,6 @@
 /**
  * Resend Email Service
- * 
+ *
  * Cliente configurado para envío de emails con Resend.
  * La config se puede sobreescribir por tenant desde Configuración > Empresa.
  */
@@ -13,6 +13,7 @@ if (!process.env.RESEND_API_KEY) {
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
+/** @deprecated — Usar getTenantCompanyConfig(tenantId) de @/lib/tenant-config */
 export const EMAIL_CONFIG = {
   from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
   replyTo: process.env.EMAIL_REPLY_TO || 'comercial@gard.cl',
@@ -33,7 +34,7 @@ export function clearTenantEmailConfigCache(tenantId: string): void {
 
 /**
  * Resuelve la configuración de email para un tenant.
- * Lee de Settings (empresa.emailFrom, etc.) con cache de 5min.
+ * Lee de Settings (empresa.emailFrom, empresa.emailReplyTo, etc.) con cache de 5min.
  * Si no hay config en BD, usa los defaults de EMAIL_CONFIG (env vars).
  */
 export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmailConfig> {
@@ -41,43 +42,17 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.config;
 
   try {
-    const { prisma } = await import("@/lib/prisma");
-    const newKeys = [
-      `empresa:${tenantId}:empresa.emailFrom`,
-      `empresa:${tenantId}:empresa.emailFromName`,
-    ];
-    let settings = await prisma.setting.findMany({
-      where: { tenantId, key: { in: newKeys } },
-    });
-    if (settings.length === 0) {
-      settings = await prisma.setting.findMany({
-        where: { tenantId, key: { in: ["empresa.emailFrom", "empresa.emailFromName"] } },
-      });
-    }
-
-    const map = new Map(
-      settings.map((s) => [
-        s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
-        s.value,
-      ])
-    );
-    const emailAddr = map.get("empresa.emailFrom");
-    const emailName = map.get("empresa.emailFromName");
-
-    const from = emailAddr
-      ? emailName
-        ? `${emailName} <${emailAddr}>`
-        : emailAddr
-      : EMAIL_CONFIG.from;
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const cfg = await getTenantCompanyConfig(tenantId);
 
     const config: TenantEmailConfig = {
-      from,
-      replyTo: 'comercial@gard.cl', // Siempre responder a comercial@gard.cl
+      from: cfg.emailFrom,
+      replyTo: cfg.emailReplyTo,
     };
 
     tenantEmailCache.set(tenantId, { config, ts: Date.now() });
     return config;
   } catch {
-    return { from: EMAIL_CONFIG.from, replyTo: 'comercial@gard.cl' };
+    return { from: EMAIL_CONFIG.from, replyTo: EMAIL_CONFIG.replyTo };
   }
 }

@@ -10,8 +10,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Gard Docs - Presentaciones Comerciales",
-  description: "Sistema de presentaciones comerciales inteligente para Gard Security",
+  title: "OPAI - Presentaciones Comerciales",
+  description: "Suite de aplicaciones inteligentes",
   icons: {
     icon: [
       { url: "/iconos_azul/icon-48x48.png", sizes: "48x48", type: "image/png" },

@@ -19,7 +19,7 @@ export function ThemeLogo({ width = 28, height = 28, className }: ThemeLogoProps
       {/* Logo azul: visible en light, oculto en dark */}
       <Image
         src="/Logo%20escudo%20gard%20azul.webp"
-        alt="Gard Security"
+        alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
         width={width}
         height={height}
         className="absolute inset-0 h-full w-full object-contain dark:hidden"
@@ -27,7 +27,7 @@ export function ThemeLogo({ width = 28, height = 28, className }: ThemeLogoProps
       {/* Logo blanco: oculto en light, visible en dark */}
       <Image
         src="/logo%20escudo%20blanco.png"
-        alt="Gard Security"
+        alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
         width={width}
         height={height}
         className="absolute inset-0 h-full w-full object-contain hidden dark:block"

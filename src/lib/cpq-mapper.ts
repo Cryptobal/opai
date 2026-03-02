@@ -5,11 +5,16 @@
  * para reutilizar el sistema de presentaciones existente.
  *
  * IMPORTANTE: Construye el payload con datos reales del CPQ + defaults
- * genéricos de Gard. NO usa getMockPresentationPayload() para evitar
+ * del tenant. NO usa getMockPresentationPayload() para evitar
  * que datos ficticios (ej. Polpaico) aparezcan en presentaciones reales.
+ *
+ * Requiere que el caller pase un TenantCompanyConfig (obtenido con
+ * getTenantCompanyConfig(tenantId)) para que todos los valores de
+ * contacto, logos y CTA sean dinámicos por tenant.
  */
 
 import { PresentationPayload } from "@/types/presentation";
+import type { TenantCompanyConfig } from "@/lib/tenant-config";
 
 interface CpqMapperInput {
   /** Valor UF para conversión CLP→UF cuando currency es UF. Si no se provee y currency=UF, los valores se pasan tal cual (CLP). */
@@ -88,12 +93,15 @@ function formatWeekdaysForDisplay(weekdays: string[] | null | undefined): string
 
 /**
  * Mapea datos CPQ al formato PresentationPayload
- * Construye el payload desde cero con datos reales + defaults genéricos de Gard
+ * Construye el payload desde cero con datos reales + defaults del tenant.
  * Cuando currency es UF y se provee ufValue, convierte unit_price/subtotal/total de CLP a UF.
+ *
+ * @param tenantCfg - Configuración de empresa del tenant (getTenantCompanyConfig)
  */
 export function mapCpqDataToPresentation(
   input: CpqMapperInput,
   sessionId: string,
+  tenantCfg: TenantCompanyConfig,
   templateSlug: string = "commercial"
 ): PresentationPayload {
   const { quote, positions, account, deal, contact, installation, ufValue, siteUrl } = input;
@@ -151,6 +159,13 @@ export function mapCpqDataToPresentation(
     _dealName: deal?.title || "",
     _installationName: installation?.name || "",
 
+    // Branding del tenant
+    _tenantBrand: {
+      brandNameUpper: tenantCfg.brandNameUpper,
+      commercialName: tenantCfg.commercialName,
+      website: tenantCfg.website,
+    },
+
     // Datos del cliente - 100% del CPQ
     client: {
       company_name: companyName,
@@ -199,26 +214,29 @@ export function mapCpqDataToPresentation(
       })),
     },
 
-    // Assets - defaults genéricos de Gard
-    assets: GARD_ASSETS,
-
-    // CTA - defaults de Gard
-    cta: {
-      meeting_link: "https://calendar.app.google/MfyKXvYxURJSnUBe9",
-      whatsapp_link: "https://wa.me/56982307771",
-      phone: contact?.phone || "+56 98 230 7771",
-      email: contact?.email || "comercial@gard.cl",
+    // Assets - defaults del tenant (logo dinámico, fotos genéricas)
+    assets: {
+      ...TENANT_ASSETS_DEFAULTS,
+      logo: tenantCfg.logoUrl || TENANT_ASSETS_DEFAULTS.logo,
     },
 
-    // Contacto comercial de Gard
+    // CTA - datos del tenant
+    cta: {
+      meeting_link: "https://calendar.app.google/MfyKXvYxURJSnUBe9",
+      whatsapp_link: tenantCfg.whatsappLink,
+      phone: contact?.phone || tenantCfg.phone,
+      email: contact?.email || tenantCfg.email,
+    },
+
+    // Contacto comercial del tenant
     contact: {
       name: contactFullName || "Equipo Comercial",
-      email: contact?.email || "comercial@gard.cl",
-      phone: contact?.phone || "+56 98 230 7771",
+      email: contact?.email || tenantCfg.email,
+      phone: contact?.phone || tenantCfg.phone,
       position: "Gerente Comercial",
     },
 
-    // Secciones - defaults genéricos de Gard + datos CPQ donde corresponda
+    // Secciones - defaults genéricos del tenant + datos CPQ donde corresponda
     sections: {
       s01_hero: {
         headline: "Seguridad privada diseñada para continuidad operacional",
@@ -233,7 +251,7 @@ export function mapCpqDataToPresentation(
         kpi_overlay: { value: "99,5%", label: "Cobertura de turnos" },
       },
 
-      ...GARD_SECTIONS_DEFAULTS,
+      ...buildSectionsDefaults(tenantCfg),
 
       // S23 - Propuesta Económica (datos reales del CPQ)
       s23_propuesta_economica: {
@@ -288,9 +306,9 @@ export function mapCpqDataToPresentation(
   };
 }
 
-// ─── Defaults genéricos de Gard (sin datos de clientes ficticios) ───
+// ─── Defaults genéricos de presentación (sin datos de clientes ficticios) ───
 
-const GARD_ASSETS = {
+const TENANT_ASSETS_DEFAULTS = {
   logo: "/Logo%20Gard%20Blanco.png",
   guard_photos: [
     "/guardia_hero.jpg",
@@ -325,10 +343,10 @@ const GARD_ASSETS = {
 };
 
 /**
- * Secciones S02-S29 con contenido genérico de Gard (sin datos de clientes ficticios).
+ * Secciones S02-S29 con contenido genérico del tenant (sin datos de clientes ficticios).
  * S01 y S23 se construyen con datos del CPQ en mapCpqDataToPresentation.
  */
-const GARD_SECTIONS_DEFAULTS = {
+function buildSectionsDefaults(cfg: TenantCompanyConfig) { return {
   s02_executive_summary: {
     commitment_title: "Nuestro compromiso: transparencia total",
     commitment_text:
@@ -634,18 +652,18 @@ const GARD_SECTIONS_DEFAULTS = {
   s28_cierre: {
     headline: "Seguridad que se gestiona. No seguridad que se espera.",
     cta_primary: { text: "Agendar visita técnica sin costo", link: "https://calendar.app.google/MfyKXvYxURJSnUBe9" },
-    cta_secondary: { text: "Solicitar propuesta directa", link: "mailto:comercial@gard.cl" },
+    cta_secondary: { text: "Solicitar propuesta directa", link: `mailto:${cfg.email}` },
     microcopy: "Respuesta en 24 horas hábiles",
   },
   s29_contacto: {
-    email: "comercial@gard.cl",
-    phone: "+56 9 8230 7771",
-    website: "www.gard.cl",
-    address: "Lo Fontecilla 201, Las Condes, Chile",
+    email: cfg.email,
+    phone: cfg.phone,
+    website: cfg.website,
+    address: cfg.direccion ? `${cfg.direccion}${cfg.comuna ? `, ${cfg.comuna}` : ""}${cfg.ciudad ? `, ${cfg.ciudad}` : ""}` : "Lo Fontecilla 201, Las Condes, Chile",
     social_media: {
       linkedin: "https://www.linkedin.com/company/gard-security",
       instagram: "https://www.instagram.com/gardsecuritycl/",
       x: "https://x.com/gard_cl?lang=es",
     },
   },
-};
+}; }

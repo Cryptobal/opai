@@ -1,6 +1,6 @@
 /**
  * PricingPDF - Componente para generar PDF de propuesta económica
- * Diseño branded con logo y colores Gard
+ * Diseño branded con logo y colores del tenant
  * Paginación automática según cantidad de items
  */
 
@@ -15,9 +15,11 @@ interface PricingPDFProps {
   pricing: PricingData;
   contactEmail?: string;
   contactPhone?: string;
+  companyName?: string;
+  website?: string;
 }
 
-// Estilos branded de Gard - ACTUALIZADO para match con preview
+// Estilos branded - ACTUALIZADO para match con preview
 const styles = StyleSheet.create({
   page: {
     padding: 0,
@@ -151,13 +153,15 @@ const styles = StyleSheet.create({
   },
 });
 
-export function PricingPDF({ 
-  clientName, 
-  quoteNumber, 
+export function PricingPDF({
+  clientName,
+  quoteNumber,
   quoteDate,
   pricing,
-  contactEmail = 'comercial@gard.cl',
-  contactPhone = '+56 98 230 7771'
+  contactEmail,
+  contactPhone,
+  companyName,
+  website,
 }: PricingPDFProps) {
   // Calcular paginación
   const ITEMS_PER_PAGE = 12;
@@ -261,8 +265,8 @@ export function PricingPDF({
               <Text style={styles.footerText}>{contactPhone}</Text>
             </View>
             <View>
-              <Text style={styles.footerText}>Gard Security</Text>
-              <Text style={styles.footerText}>www.gard.cl</Text>
+              <Text style={styles.footerText}>{companyName}</Text>
+              <Text style={styles.footerText}>{website}</Text>
             </View>
           </View>
         </Page>

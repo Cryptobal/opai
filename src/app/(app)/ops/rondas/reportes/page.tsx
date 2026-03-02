@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PageHeader } from "@/components/opai";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
@@ -137,6 +138,8 @@ export default async function RondasReportesPage() {
     installationName: g.currentInstallation?.name ?? "",
   }));
 
+  const tenantCfg = await getTenantCompanyConfig(tenantId);
+
   return (
     <div className="space-y-6 min-w-0">
       <PageHeader
@@ -150,6 +153,7 @@ export default async function RondasReportesPage() {
         initialDailyCompliance={dailyCompliance}
         installations={installationsRaw}
         guardias={guardiaOptions}
+        companyName={tenantCfg.commercialName}
       />
     </div>
   );

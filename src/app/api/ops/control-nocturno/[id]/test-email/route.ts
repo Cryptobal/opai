@@ -10,7 +10,7 @@ export const maxDuration = 60;
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**
- * POST — Enviar email de prueba con PDF adjunto a operaciones@gard.cl
+ * POST — Enviar email de prueba con PDF adjunto al email de operaciones
  */
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
@@ -80,6 +80,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       criticos: reporte.instalaciones.filter((i) => i.statusInstalacion === "critico").length,
       generalNotes: reporte.generalNotes,
       baseUrl,
+      tenantId: ctx.tenantId,
     };
 
     const result = await sendControlNocturnoEmail(emailData, pdfBuffer);
@@ -87,7 +88,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     if (result.ok) {
       return NextResponse.json({
         success: true,
-        message: "Email de prueba enviado a operaciones@gard.cl",
+        message: "Email de prueba enviado correctamente",
         pdfAttached: !!pdfBuffer,
       });
     } else {

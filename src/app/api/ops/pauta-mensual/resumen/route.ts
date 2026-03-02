@@ -157,12 +157,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Add V/L/P slots (these always count as PPC since they need replacement coverage)
+    // Add V/L/P slots — these ALWAYS count as PPC since the guard is on leave
+    // and the slot needs replacement coverage, regardless of assignment status.
     const vlpCounted = new Set<string>();
     for (const slot of slotsWithVLP) {
       const slotKey = `${slot.installationId}|${slot.puestoId}|${slot.slotNumber}`;
-      // Don't double-count if already counted as unassigned
-      if (!vlpCounted.has(slotKey) && assignedSlotSet.has(slotKey)) {
+      if (!vlpCounted.has(slotKey)) {
         vlpCounted.add(slotKey);
         ppcPerInstallation.set(
           slot.installationId,

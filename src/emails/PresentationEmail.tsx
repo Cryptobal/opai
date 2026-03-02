@@ -29,6 +29,13 @@ interface PresentationEmailProps {
   quoteNumber?: string;
   senderName?: string;
   expiryDate?: string;
+  // Tenant branding props
+  brandName?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
+  phone?: string;
+  platformName?: string;
 }
 
 export const PresentationEmail = ({
@@ -39,8 +46,14 @@ export const PresentationEmail = ({
   quoteNumber = '',
   senderName = 'Equipo Comercial',
   expiryDate = '',
+  brandName = 'Gard Security',
+  logoUrl = 'https://opai.gard.cl/Logo%20Gard%20Blanco.png',
+  website = 'https://www.gard.cl',
+  emailContact = 'comercial@gard.cl',
+  phone = '+56 98 230 7771',
+  platformName = 'Gard Docs',
 }: PresentationEmailProps) => {
-  const previewText = `${subject} - Gard Security`;
+  const previewText = `${subject} - ${brandName}`;
 
   return (
     <Html>
@@ -51,9 +64,9 @@ export const PresentationEmail = ({
           {/* Header con logo */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="180"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
           </Section>
@@ -116,20 +129,20 @@ export const PresentationEmail = ({
               <br />
               <strong>{senderName}</strong>
               <br />
-              Gard Security
+              {brandName}
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              📞 +56 98 230 7771  ·  ✉️ comercial@gard.cl  ·  🌐 www.gard.cl
+              {phone}  ·  {emailContact}  ·  {website.replace(/^https?:\/\//, '')}
             </Text>
             <Text style={footerTextSmall}>
-              Este correo fue enviado desde Gard Docs, nuestra plataforma de presentaciones comerciales.
+              Este correo fue enviado desde {platformName}, nuestra plataforma de presentaciones comerciales.
             </Text>
             <Text style={footerTextSmall}>
-              © {new Date().getFullYear()} Gard Security. Todos los derechos reservados.
+              © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
             </Text>
           </Section>
         </Container>
