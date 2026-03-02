@@ -575,8 +575,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               LIFECYCLE_COLORS[guardia.lifecycleStatus] || "bg-muted text-muted-foreground border-border")}>
               {LIFECYCLE_LABELS[guardia.lifecycleStatus] || guardia.lifecycleStatus}
             </span>
-            {guardia.code && <span className="text-xs text-[#7a8a9e] lg:hidden shrink-0">{guardia.code}</span>}
-            {guardia.persona.rut && <span className="text-xs text-[#7a8a9e] lg:hidden shrink-0">{guardia.persona.rut}</span>}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {guardia.persona.phoneMobile && (
