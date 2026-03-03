@@ -1,5 +1,3 @@
-"use client";
-
 interface Props {
   completed: number;
   total: number;

@@ -61,7 +61,11 @@ export function RondaCompletada({
       {/* ============ Content ============ */}
       <main className="flex flex-1 flex-col items-center justify-center space-y-6 px-4 pb-8 pt-6">
         {/* ---- Trust Score Gauge ---- */}
-        <div className="relative flex items-center justify-center">
+        <div
+          className="relative flex items-center justify-center"
+          role="status"
+          aria-label={`Trust Score: ${clampedScore} de 100, ${trustLabel(clampedScore)}`}
+        >
           <svg
             width="140"
             height="140"
@@ -116,7 +120,7 @@ export function RondaCompletada({
             </div>
 
             {/* Duration */}
-            {durationMinutes != null && (
+            {durationMinutes !== null && (
               <div className="flex items-center justify-between">
                 <span className="text-base text-gray-400">Duracion</span>
                 <span className="text-base font-medium text-white">

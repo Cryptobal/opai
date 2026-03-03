@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { RondaProgress } from "./RondaProgress";
 import type { RondasSession } from "./RondasPortalClient";
 
@@ -59,6 +59,12 @@ export function RondaActiva({ session, rondaData, onMark, onComplete, onBack }: 
   const [checkpoints, setCheckpoints] = useState<ApiCheckpoint[]>(rondaData.checkpoints);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState("");
+  const completingRef = useRef(false);
+
+  // C2 fix: Sync checkpoints when parent passes updated rondaData
+  useEffect(() => {
+    setCheckpoints(rondaData.checkpoints);
+  }, [rondaData.checkpoints]);
 
   const completedCount = checkpoints.filter((c) => c.completed).length;
   const total = checkpoints.length;
@@ -95,6 +101,8 @@ export function RondaActiva({ session, rondaData, onMark, onComplete, onBack }: 
   // (Handled via the onMark flow in the parent)
 
   const handleComplete = useCallback(async () => {
+    if (completingRef.current) return;
+    completingRef.current = true;
     setCompleting(true);
     setError("");
     try {
@@ -123,6 +131,7 @@ export function RondaActiva({ session, rondaData, onMark, onComplete, onBack }: 
         missed: json.data?.missed ?? 0,
       });
     } catch (err: unknown) {
+      completingRef.current = false;
       setError(err instanceof Error ? err.message : "Error de conexion");
     } finally {
       setCompleting(false);
@@ -208,6 +217,7 @@ export function RondaActiva({ session, rondaData, onMark, onComplete, onBack }: 
                   if (!isCompleted) onMark(cp.id);
                 }}
                 disabled={isCompleted}
+                aria-label={`${cp.name} - ${isCompleted ? "Completado" : isActive ? "Siguiente" : "Pendiente"}${cp.isRequired && !isCompleted ? ", obligatorio" : ""}`}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-colors ${
                   isCompleted
                     ? "border-green-900/40 bg-green-950/20 opacity-70"
