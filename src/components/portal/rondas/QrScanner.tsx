@@ -11,8 +11,15 @@ export function QrScanner({ onScan, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const streamRef = useRef<MediaStream | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
 
   const stopCamera = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
   }, []);
@@ -32,30 +39,33 @@ export function QrScanner({ onScan, onClose }: Props) {
           await videoRef.current.play();
         }
 
-        // Use BarcodeDetector if available
-        if ("BarcodeDetector" in window) {
-          const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-          const interval = setInterval(async () => {
-            if (cancelled || !videoRef.current) { clearInterval(interval); return; }
-            try {
-              const barcodes = await detector.detect(videoRef.current);
-              if (barcodes.length > 0) {
-                clearInterval(interval);
-                stopCamera();
-                onScan(barcodes[0].rawValue);
-              }
-            } catch { /* ignore detection errors */ }
-          }, 300);
-          return () => clearInterval(interval);
+        if (!("BarcodeDetector" in window)) {
+          setError("Tu navegador no soporta escaneo QR. Usa Chrome en Android.");
+          return;
         }
-      } catch (err) {
+
+        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+        intervalRef.current = setInterval(async () => {
+          if (cancelled || !videoRef.current) return;
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0 && !cancelled) {
+              if (intervalRef.current) clearInterval(intervalRef.current);
+              intervalRef.current = null;
+              streamRef.current?.getTracks().forEach(t => t.stop());
+              streamRef.current = null;
+              onScanRef.current(barcodes[0].rawValue);
+            }
+          } catch { /* ignore detection errors */ }
+        }, 300);
+      } catch {
         if (!cancelled) setError("No se pudo acceder a la cámara");
       }
     }
 
     startScan();
     return () => { cancelled = true; stopCamera(); };
-  }, [onScan, stopCamera]);
+  }, [stopCamera]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">

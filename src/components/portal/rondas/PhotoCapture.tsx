@@ -12,6 +12,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [cameraKey, setCameraKey] = useState(0);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -19,6 +20,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
   }, []);
 
   useEffect(() => {
+    if (preview) return; // Don't start camera while showing preview
     let cancelled = false;
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } })
@@ -32,7 +34,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
       })
       .catch(() => {});
     return () => { cancelled = true; stopCamera(); };
-  }, [stopCamera]);
+  }, [stopCamera, preview, cameraKey]);
 
   const capture = useCallback(() => {
     const video = videoRef.current;
@@ -51,6 +53,11 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
     canvas.toBlob(blob => { if (blob) onCapture(blob); }, "image/jpeg", 0.8);
   }, [onCapture]);
 
+  const retake = useCallback(() => {
+    setPreview(null);
+    setCameraKey(k => k + 1);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       <div className="flex items-center justify-between px-4 py-3">
@@ -64,7 +71,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
         <div className="flex flex-1 flex-col">
           <img src={preview} alt="Preview" className="flex-1 object-contain" />
           <div className="flex gap-3 px-4 py-4">
-            <button onClick={() => { setPreview(null); /* restart camera */ }} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
+            <button onClick={retake} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
               Repetir
             </button>
             <button onClick={confirm} className="flex-1 rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white">
