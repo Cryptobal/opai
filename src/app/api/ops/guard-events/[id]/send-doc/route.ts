@@ -104,7 +104,7 @@ export async function POST(
       data: {
         documentId: document.id,
         action: "sent",
-        userId: ctx.userId,
+        createdBy: ctx.userId,
         details: {
           to: toEmails,
           cc: ccEmails,
