@@ -19,7 +19,7 @@ const markSchema = z.object({
   lng: z.number(),
   guardiaId: z.string().min(1),
   batteryLevel: z.number().nullable().optional(),
-  motionData: z.record(z.unknown()).nullable().optional(),
+  motionData: z.record(z.string(), z.unknown()).nullable().optional(),
   fotoEvidenciaUrl: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
   verificationMethod: z.string().optional(),
