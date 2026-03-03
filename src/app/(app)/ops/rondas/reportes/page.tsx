@@ -4,6 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { formatPersonName } from "@/lib/personas";
 import { PageHeader } from "@/components/opai";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
@@ -79,7 +80,7 @@ export default async function RondasReportesPage() {
     template: row.rondaTemplate.name,
     guardiaId: row.guardiaId,
     guardia: row.guardia
-      ? `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}`
+      ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
       : "",
     guardiaCode: row.guardia?.code ?? "",
     rut: row.guardia?.persona.rut ?? "",
@@ -132,7 +133,7 @@ export default async function RondasReportesPage() {
 
   const guardiaOptions = guardiasRaw.map((g) => ({
     id: g.id,
-    label: `${g.persona.firstName} ${g.persona.lastName}`,
+    label: formatPersonName(g.persona.firstName, g.persona.lastName),
     code: g.code ?? "",
     rut: g.persona.rut ?? "",
     installationName: g.currentInstallation?.name ?? "",

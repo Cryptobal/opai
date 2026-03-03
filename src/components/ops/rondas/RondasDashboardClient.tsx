@@ -3,6 +3,7 @@
 import { RondaProgress } from "@/components/ops/rondas/ronda-progress";
 import { TrustScoreBadge } from "@/components/ops/rondas/trust-score-badge";
 import { KpiCard, KpiGrid, DataTable } from "@/components/opai";
+import { formatPersonName } from "@/lib/personas";
 import type { DataTableColumn } from "@/components/opai";
 
 interface Row {
@@ -32,7 +33,7 @@ const columns: DataTableColumn[] = [
     key: "guardia",
     label: "Guardia",
     render: (_v, row) =>
-      row.guardia ? `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}` : "Sin asignar",
+      row.guardia ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName) : "Sin asignar",
   },
   {
     key: "scheduledAt",

@@ -33,6 +33,8 @@ type SearchResult = {
   title: string;
   subtitle: string;
   href: string;
+  badgeLabel?: string;
+  badgeClass?: string;
 };
 
 const TYPE_CONFIG: Record<
@@ -322,11 +324,12 @@ export function GlobalSearch({
                     <span
                       className={cn(
                         "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                        config.bgColor,
-                        config.color
+                        result.badgeLabel && result.badgeClass
+                          ? result.badgeClass
+                          : [config.bgColor, config.color]
                       )}
                     >
-                      {config.label}
+                      {result.badgeLabel ?? config.label}
                     </span>
                   </button>
                 );

@@ -13,8 +13,10 @@ export function formatPersonName(
   firstName?: string | null,
   lastName?: string | null,
 ): string {
-  const fullName = `${firstName || ''} ${lastName || ''}`.trim();
-  return fullName || 'Sin contacto';
+  const last = (lastName ?? "").trim();
+  const first = (firstName ?? "").trim();
+  const parts = [last, first].filter(Boolean);
+  return parts.join(" ") || "Sin contacto";
 }
 
 export function formatLeadSource(source?: string | null): string {

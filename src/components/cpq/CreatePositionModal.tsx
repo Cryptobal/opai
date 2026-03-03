@@ -129,10 +129,13 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
     }
     setLoading(true);
     try {
+      const cargoName = cargos.find((c) => c.id === form.cargoId)?.name || "";
+      const puestoName = puestos.find((p) => p.id === form.puestoTrabajoId)?.name || "";
+      const resolvedName = [cargoName, puestoName].filter(Boolean).join(" - ");
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, healthPlanPct }),
+        body: JSON.stringify({ ...form, customName: resolvedName || null, healthPlanPct }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error");
@@ -162,15 +165,8 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ── Identificación: Tipo + Cargo / Nombre + Rol ── */}
+          {/* ── Identificación: Cargo + Tipo + Rol ── */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Puesto *</Label>
-              <select className={selectClass} value={form.puestoTrabajoId} onChange={(e) => setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))}>
-                <option value="">Selecciona un puesto</option>
-                {puestos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cargo *</Label>
               <select className={selectClass} value={form.cargoId} onChange={(e) => setForm((p) => ({ ...p, cargoId: e.target.value }))}>
@@ -179,8 +175,11 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre personalizado</Label>
-              <Input value={form.customName} onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))} placeholder="Ej: Control Acceso Nocturno" className="h-9 bg-background text-sm" />
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Puesto *</Label>
+              <select className={selectClass} value={form.puestoTrabajoId} onChange={(e) => setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))}>
+                <option value="">Selecciona un puesto</option>
+                {puestos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rol *</Label>

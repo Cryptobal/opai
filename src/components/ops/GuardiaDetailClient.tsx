@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Briefcase,
+  CalendarDays,
   ChevronDown,
   FileText,
   History,
@@ -37,10 +39,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Avatar } from "@/components/opai";
 import { cn } from "@/lib/utils";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { formatPersonName } from "@/lib/personas";
 import {
   AFP_CHILE,
   getLifecycleTransitions,
@@ -67,6 +71,7 @@ import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabaja
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
 import HistorialSection from "@/components/ops/guardia-sections/HistorialSection";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
+import Link from "next/link";
 
 type GuardiaDetail = {
   id: string;
@@ -206,12 +211,13 @@ const LIFECYCLE_COLORS: Record<string, string> = {
   inactivo: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-type TabKey = "perfil" | "operaciones" | "contractual" | "documentos" | "actividad";
+type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad";
 
 const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "perfil", label: "Perfil", icon: User },
   { key: "operaciones", label: "Operaciones", icon: Wrench },
   { key: "contractual", label: "Contractual", icon: Briefcase },
+  { key: "eventos_laborales", label: "Eventos laborales", icon: CalendarDays },
   { key: "documentos", label: "Documentos", icon: FileText },
   { key: "actividad", label: "Actividad", icon: History },
 ];
@@ -249,6 +255,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [contractDateModalOpen, setContractDateModalOpen] = useState(false);
   const [contractDate, setContractDate] = useState("");
   const [pendingLifecycleStatus, setPendingLifecycleStatus] = useState<string | null>(null);
+  const [inactivoWarningOpen, setInactivoWarningOpen] = useState(false);
+  const [pendingInactivoTarget, setPendingInactivoTarget] = useState<string | null>(null);
   const [recontratarModalOpen, setRecontratarModalOpen] = useState(false);
   const [recontratarDate, setRecontratarDate] = useState("");
 
@@ -358,6 +366,11 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   // ── Lifecycle handlers ──
   const handleLifecycleChange = async (nextStatus: string) => {
     if (lifecycleChanging) return;
+    if (guardia.lifecycleStatus === "inactivo") {
+      setPendingInactivoTarget(nextStatus);
+      setInactivoWarningOpen(true);
+      return;
+    }
     if (nextStatus === "contratado") {
       setContractDate(new Date().toISOString().slice(0, 10));
       setPendingLifecycleStatus(nextStatus);
@@ -365,6 +378,19 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       return;
     }
     await doLifecycleChange(nextStatus, undefined);
+  };
+
+  const handleConfirmInactivoChange = () => {
+    if (!pendingInactivoTarget) return;
+    setInactivoWarningOpen(false);
+    if (pendingInactivoTarget === "contratado") {
+      setContractDate(new Date().toISOString().slice(0, 10));
+      setPendingLifecycleStatus(pendingInactivoTarget);
+      setContractDateModalOpen(true);
+    } else {
+      void doLifecycleChange(pendingInactivoTarget, undefined);
+    }
+    setPendingInactivoTarget(null);
   };
 
   const doLifecycleChange = async (nextStatus: string, effectiveAt?: string) => {
@@ -410,7 +436,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   };
 
   // ── Computed ──
-  const fullName = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim() || "Guardia";
+  const fullName = formatPersonName(guardia.persona.firstName, guardia.persona.lastName) || "Guardia";
   const puedeRecontratar = canManageGuardias && guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt;
 
   // ── Tab content ──
@@ -472,6 +498,21 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </CollapsibleSection>
           </div>
         );
+      case "eventos_laborales":
+        return (
+          <div className="space-y-3">
+            <CollapsibleSection title="Eventos laborales" defaultOpen>
+              <GuardEventsTab guardiaId={guardia.id} guardiaName={fullName} userRole={userRole}
+                guardContract={guardia.contractType ? {
+                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
+                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
+                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+                } : null}
+              />
+            </CollapsibleSection>
+          </div>
+        );
       case "documentos":
         return (
           <div className="space-y-3">
@@ -486,20 +527,34 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       case "actividad":
         return (
           <div className="space-y-3">
-            <CollapsibleSection title="Eventos laborales" defaultOpen>
-              <GuardEventsTab guardiaId={guardia.id} guardiaName={fullName} userRole={userRole}
-                guardContract={guardia.contractType ? {
-                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
-                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
-                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
-                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
-                } : null}
-              />
-            </CollapsibleSection>
-            <CollapsibleSection title="Días trabajados" defaultOpen={false}>
+            <CollapsibleSection
+              title="Días trabajados"
+              defaultOpen={false}
+              action={
+                <Link
+                  href={`/ops/pauta-diaria?guardiaId=${guardia.id}`}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+                  title="Ver en pauta diaria"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              }
+            >
               <DiasTrabajadesSection guardiaId={guardia.id} />
             </CollapsibleSection>
-            <CollapsibleSection title="Turnos extra" defaultOpen={false}>
+            <CollapsibleSection
+              title="Turnos extra"
+              defaultOpen={false}
+              action={
+                <Link
+                  href={`/ops/pauta-diaria?guardiaId=${guardia.id}`}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+                  title="Ver en pauta diaria"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              }
+            >
               <TurnosExtraSection guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection title="Historial del guardia" defaultOpen>
@@ -675,6 +730,17 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Modal advertencia guardia inactivo/finiquitado ── */}
+      <ConfirmDialog
+        open={inactivoWarningOpen}
+        onOpenChange={setInactivoWarningOpen}
+        title="Guardia finiquitado"
+        description={`Este guardia fue finiquitado${guardia.terminatedAt ? ` el ${new Date(guardia.terminatedAt).toLocaleDateString("es-CL")}` : ""}. Al cambiar su estado, quedará habilitado para ser asignado a puestos nuevamente.\n\n¿Deseas continuar?`}
+        confirmLabel="Continuar"
+        variant="default"
+        onConfirm={handleConfirmInactivoChange}
+      />
 
       {/* ── Edit Personal Data Modal ── */}
       <Dialog open={editPersonalOpen} onOpenChange={setEditPersonalOpen}>

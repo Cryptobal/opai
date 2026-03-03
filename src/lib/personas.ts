@@ -1,3 +1,16 @@
+/**
+ * Formatea nombre de persona: Apellido Nombre (estándar en toda la app).
+ */
+export function formatPersonName(
+  firstName?: string | null,
+  lastName?: string | null
+): string {
+  const last = (lastName ?? "").trim();
+  const first = (firstName ?? "").trim();
+  const parts = [last, first].filter(Boolean);
+  return parts.join(" ") || "";
+}
+
 export const GUARDIA_LIFECYCLE_STATUSES = [
   "postulante",
   "seleccionado",

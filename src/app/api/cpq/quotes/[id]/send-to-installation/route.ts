@@ -123,7 +123,10 @@ export async function POST(
     const createData = quote.positions.map((pos) => ({
       tenantId: ctx.tenantId,
       installationId: installation.id,
-      name: pos.customName?.trim() || pos.puestoTrabajo.name,
+      name: [pos.cargo.name, pos.puestoTrabajo.name].filter(Boolean).join(" - ") || pos.puestoTrabajo.name,
+      puestoTrabajoId: pos.puestoTrabajoId,
+      cargoId: pos.cargoId,
+      rolId: pos.rolId,
       shiftStart: pos.startTime,
       shiftEnd: pos.endTime,
       weekdays: pos.weekdays,

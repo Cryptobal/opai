@@ -16,6 +16,17 @@ export type GlobalSearchResult = {
   title: string;
   subtitle: string;
   href: string;
+  /** Badge override for guardias: label + Tailwind classes (e.g. "Contratado" + "bg-emerald-500/20 text-emerald-400") */
+  badgeLabel?: string;
+  badgeClass?: string;
+};
+
+const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
+  postulante: { label: "Postulante", class: "bg-blue-500/20 text-blue-400" },
+  seleccionado: { label: "Seleccionado", class: "bg-amber-500/20 text-amber-400" },
+  contratado: { label: "Contratado", class: "bg-emerald-500/20 text-emerald-400" },
+  te: { label: "TE", class: "bg-violet-500/20 text-violet-400" },
+  inactivo: { label: "Inactivo", class: "bg-red-500/20 text-red-400" },
 };
 
 const CRM_TYPE_LIMIT = 4;
@@ -295,6 +306,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
+            lifecycleStatus: true,
             persona: {
               select: { firstName: true, lastName: true, rut: true },
             },
@@ -311,12 +323,15 @@ export async function GET(request: NextRequest) {
             g.currentInstallation?.name,
             g.persona.rut ?? "",
           ].filter(Boolean);
+          const lifecycleBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
           results.push({
             id: g.id,
             type: "guardia",
             title,
             subtitle: subtitleParts.join(" · "),
             href: `/personas/guardias/${g.id}`,
+            badgeLabel: lifecycleBadge.label,
+            badgeClass: lifecycleBadge.class,
           });
         }
       }

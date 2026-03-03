@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, LoadingSpinner } from "@/components/opai";
 import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock } from "lucide-react";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Input } from "@/components/ui/input";
 import { hasOpsCapability } from "@/lib/ops-rbac";
+import { formatPersonName } from "@/lib/personas";
 
 /* ── types ─────────────────────────────────────── */
 
@@ -147,10 +149,16 @@ export function OpsPautaDiariaClient({
   guardias,
   userRole,
 }: OpsPautaDiariaClientProps) {
+  const searchParams = useSearchParams();
+  const urlDate = searchParams.get("date");
+  const urlGuardiaId = searchParams.get("guardiaId");
   const [clients] = useState<ClientOption[]>(initialClients);
   const [clientId, setClientId] = useState<string>("all");
   const [installationId, setInstallationId] = useState<string>("all");
-  const [date, setDate] = useState<string>(toDateInput(new Date()));
+  const [date, setDate] = useState<string>(() => {
+    if (urlDate && DATE_INPUT_REGEX.test(urlDate)) return urlDate;
+    return toDateInput(new Date());
+  });
   const [shiftFilter, setShiftFilter] = useState<"todos" | "dia" | "noche">("todos");
   const [loading, setLoading] = useState<boolean>(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -167,6 +175,13 @@ export function OpsPautaDiariaClient({
   // Modal para marcar Asistió: obliga a ingresar horas antes de guardar (no hay entrada inline)
   const [asistioModalItem, setAsistioModalItem] = useState<AsistenciaItem | null>(null);
   const [asistioModalHours, setAsistioModalHours] = useState<{ checkIn: string; checkOut: string }>({ checkIn: "", checkOut: "" });
+  // Sync date from URL when navigating with params
+  useEffect(() => {
+    if (urlDate && DATE_INPUT_REGEX.test(urlDate)) {
+      setDate(urlDate);
+    }
+  }, [urlDate]);
+
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     setIsDesktop(m.matches);
@@ -244,18 +259,27 @@ export function OpsPautaDiariaClient({
     if (!q) return guardias.slice(0, 20);
     return guardias
       .filter((g) => {
-        const hay = `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
+        const hay = `${formatPersonName(g.persona.firstName, g.persona.lastName)} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 20);
   }, [guardias, replacementSearch]);
 
-  // Filter by shift (todos/día/noche) and group by installation
+  // Filter by guardiaId (from URL), shift (todos/día/noche), and group by installation
   const { filteredItems, grouped } = useMemo(() => {
+    let base = items;
+    if (urlGuardiaId) {
+      base = base.filter(
+        (item) =>
+          item.plannedGuardiaId === urlGuardiaId ||
+          item.actualGuardiaId === urlGuardiaId ||
+          item.replacementGuardiaId === urlGuardiaId
+      );
+    }
     const filtered =
       shiftFilter === "todos"
-        ? items
-        : items.filter((item) => {
+        ? base
+        : base.filter((item) => {
             const isDay = isDayShift(item.puesto.shiftStart);
             return shiftFilter === "dia" ? isDay : !isDay;
           });
@@ -269,7 +293,7 @@ export function OpsPautaDiariaClient({
     }
     const groupedResult = Array.from(map.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name));
     return { filteredItems: filtered, grouped: groupedResult };
-  }, [items, shiftFilter]);
+  }, [items, shiftFilter, urlGuardiaId]);
 
   const openReplacementItem = replacementOpenId ? items.find((i) => i.id === replacementOpenId) ?? null : null;
 
@@ -280,7 +304,7 @@ export function OpsPautaDiariaClient({
       total++;
       if (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") cubiertos++;
       if (!item.plannedGuardiaId) ppc++;
-      if (item.turnosExtra && item.turnosExtra.length > 0) te++;
+      if (item.turnosExtra?.some((t: { status: string }) => t.status !== "rejected")) te++;
     }
     const cobertura = total > 0 ? Math.round((cubiertos / total) * 100) : 0;
     return { total, cubiertos, ppc, te, cobertura };
@@ -414,7 +438,9 @@ export function OpsPautaDiariaClient({
               >
                 Exportar HE día
               </Button>
-              {!loading && items.length > 0 ? (
+              {loading ? (
+                <LoadingSpinner size="sm" />
+              ) : items.length > 0 ? (
                 <span className="text-emerald-400" title="Pauta cargada">
                   <CalendarCheck2 className="h-4 w-4" aria-hidden />
                 </span>
@@ -484,12 +510,9 @@ export function OpsPautaDiariaClient({
 
       {/* Content grouped by installation */}
       {loading && items.length === 0 ? (
-        <Card>
-          <CardContent className="pt-8 pb-8 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
-            <p className="text-sm text-muted-foreground">Cargando pauta…</p>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-16">
+          <LoadingSpinner size="md" />
+        </div>
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="pt-5">
@@ -542,7 +565,7 @@ export function OpsPautaDiariaClient({
                     (item.plannedGuardiaId !== item.actualGuardiaId || item.plannedGuardiaId == null);
                   const asistenciaPreviaGuardiaName =
                     item.actualGuardia
-                      ? `${item.actualGuardia.persona.firstName} ${item.actualGuardia.persona.lastName}`
+                      ? formatPersonName(item.actualGuardia.persona.firstName, item.actualGuardia.persona.lastName)
                       : "Guardia";
 
                   return (
@@ -572,7 +595,7 @@ export function OpsPautaDiariaClient({
                         <span className="text-xs text-muted-foreground shrink-0 md:hidden">Planificado</span>
                         {item.plannedGuardia ? (
                           <span className="truncate flex items-center gap-2">
-                            {item.plannedGuardia.persona.firstName} {item.plannedGuardia.persona.lastName}
+                            {formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}
                             {item.plannedGuardia.code && (
                               <span className="text-xs text-muted-foreground">({item.plannedGuardia.code})</span>
                             )}
@@ -594,7 +617,7 @@ export function OpsPautaDiariaClient({
                           {item.attendanceStatus === "reemplazo" && item.replacementGuardia ? (
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-rose-300">
-                                {item.replacementGuardia.persona.firstName} {item.replacementGuardia.persona.lastName}
+                                {formatPersonName(item.replacementGuardia.persona.firstName, item.replacementGuardia.persona.lastName)}
                               </span>
                               {item.replacementGuardia.lifecycleStatus === "te" && (
                                 <span className="inline-flex items-center rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-400">
@@ -623,7 +646,7 @@ export function OpsPautaDiariaClient({
                               >
                                 {item.replacementGuardiaId
                                   ? guardias.find((g) => g.id === item.replacementGuardiaId)
-                                    ? `${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName} ${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName}`
+                                    ? formatPersonName(guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName, guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName)
                                     : "Guardia seleccionado"
                                   : "Buscar guardia…"}
                               </Button>
@@ -662,7 +685,7 @@ export function OpsPautaDiariaClient({
                                             }}
                                           >
                                             <span className="flex items-center gap-2">
-                                              {g.persona.firstName} {g.persona.lastName}
+                                              {formatPersonName(g.persona.firstName, g.persona.lastName)}
                                               {g.code ? ` (${g.code})` : ""}
                                               {g.lifecycleStatus === "te" && (
                                                 <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
@@ -691,11 +714,13 @@ export function OpsPautaDiariaClient({
                         </div>
                       </div>
 
-                      {/* Col: Marcación asistencia — muestra horas reales (marcación digital o manual) */}
+                      {/* Col: Marcación asistencia — NO se muestra para Turnos Extra (reemplazo) */}
                       <div className="text-sm min-w-0 md:flex md:items-center">
                         <span className="text-xs text-muted-foreground md:hidden">Marcación</span>
                         <div className="mt-1 md:mt-0">
-                          {(item.marcaciones && item.marcaciones.length > 0) ? (
+                          {item.attendanceStatus === "reemplazo" ? (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          ) : (item.marcaciones && item.marcaciones.length > 0) ? (
                             <div className="flex flex-wrap items-center gap-1.5">
                               {(() => {
                                 const entradas = item.marcaciones!.filter((m) => m.tipo === "entrada").sort(
@@ -746,7 +771,7 @@ export function OpsPautaDiariaClient({
                                 Ver detalle
                               </button>
                             </div>
-                          ) : (item.checkInAt || item.checkOutAt) && (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") ? (
+                          ) : (item.checkInAt || item.checkOutAt) && item.attendanceStatus === "asistio" ? (
                             <span className="inline-flex items-center gap-1.5 text-xs">
                               <span className="text-emerald-500">
                                 {timeFromISO(item.checkInAt)}
@@ -1133,7 +1158,7 @@ export function OpsPautaDiariaClient({
                       }}
                     >
                       <span className="flex items-center gap-2">
-                        {g.persona.firstName} {g.persona.lastName}
+                        {formatPersonName(g.persona.firstName, g.persona.lastName)}
                         {g.code ? ` (${g.code})` : ""}
                         {g.lifecycleStatus === "te" && (
                           <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">

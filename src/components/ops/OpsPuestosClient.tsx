@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { formatPersonName } from "@/lib/personas";
 
 function toDateInput(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -287,7 +288,7 @@ export function OpsPuestosClient({
     return guardias.filter((g) => {
       if (assignedGuardiaIds.has(g.id)) return false;
       if (q) {
-        const hay = `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
+        const hay = `${formatPersonName(g.persona.firstName, g.persona.lastName)} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -476,7 +477,7 @@ export function OpsPuestosClient({
                               href={`/personas/guardias/${assignment.guardiaId}`}
                               className="font-medium text-xs hover:text-primary transition-colors hover:underline underline-offset-2 truncate block"
                             >
-                              {assignment.guardia.persona.firstName} {assignment.guardia.persona.lastName}
+                              {formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName)}
                               {assignment.guardia.code && (
                                 <span className="text-muted-foreground font-normal ml-1">({assignment.guardia.code})</span>
                               )}
@@ -493,7 +494,7 @@ export function OpsPuestosClient({
                               onClick={() => setUnassignConfirm({
                                 open: true,
                                 asignacionId: assignment.id,
-                                guardiaName: `${assignment.guardia.persona.firstName} ${assignment.guardia.persona.lastName}`,
+                                guardiaName: formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName),
                               })}
                             >
                               <UserMinus className="h-3 w-3" />
@@ -706,7 +707,7 @@ export function OpsPuestosClient({
                     assignGuardiaId === g.id ? "bg-primary/15 border border-primary/30" : "hover:bg-accent border border-transparent"
                   }`}
                 >
-                  <span className="font-medium">{g.persona.firstName} {g.persona.lastName}</span>
+                  <span className="font-medium">{formatPersonName(g.persona.firstName, g.persona.lastName)}</span>
                   {g.code && <span className="text-muted-foreground ml-1">({g.code})</span>}
                 </button>
               ))}

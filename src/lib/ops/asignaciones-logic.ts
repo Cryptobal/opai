@@ -132,6 +132,27 @@ export async function executeAsignar(
     ? parseDateOnly(body.endDatePrevious)
     : startDate;
 
+  // 0. Validate startDate does not overlap with previous assignment on same slot
+  const previousSlotAssignment = await prisma.opsAsignacionGuardia.findFirst({
+    where: {
+      puestoId: body.puestoId,
+      slotNumber: body.slotNumber,
+      tenantId: ctx.tenantId,
+      isActive: false,
+      endDate: { not: null },
+    },
+    orderBy: { endDate: "desc" },
+  });
+
+  if (previousSlotAssignment?.endDate && startDate <= previousSlotAssignment.endDate) {
+    const endStr = previousSlotAssignment.endDate.toISOString().slice(0, 10).split("-").reverse().join("/");
+    return {
+      success: false,
+      error: `La fecha de inicio no puede ser anterior o igual al ${endStr} (fecha de término del guardia anterior en este puesto)`,
+      status: 400,
+    };
+  }
+
   // 1. If guardia already has active assignment → close it + clean pauta
   const existingGuardiaAssignment = await prisma.opsAsignacionGuardia.findFirst({
     where: { guardiaId: body.guardiaId, tenantId: ctx.tenantId, isActive: true },

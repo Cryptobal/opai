@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
+import { formatPersonName } from "@/lib/personas";
 import { Plus } from "lucide-react";
 
 type Variant = {
@@ -345,7 +346,7 @@ export function InventarioEntregasClient() {
                 <div className="flex justify-between">
                   <span className="font-medium">
                     {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
-                    {m.guardia.persona.firstName} {m.guardia.persona.lastName}
+                    {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {m.fromWarehouse.name}

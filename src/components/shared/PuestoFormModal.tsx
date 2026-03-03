@@ -251,7 +251,10 @@ export function PuestoFormModal({
     }
     setSaving(true);
     try {
-      await onSave(form);
+      const cargoName = cargos.find((c) => c.id === form.cargoId)?.name || "";
+      const puestoName = puestos.find((p) => p.id === form.puestoTrabajoId)?.name || "";
+      const resolvedName = [cargoName, puestoName].filter(Boolean).join(" - ");
+      await onSave({ ...form, customName: resolvedName });
     } finally {
       setSaving(false);
     }
@@ -268,27 +271,8 @@ export function PuestoFormModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ── Row 1: Tipo de puesto + Cargo ── */}
+          {/* ── Row 1: Cargo + Tipo de puesto ── */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Tipo de Puesto *
-              </Label>
-              <select
-                className={selectClass}
-                value={form.puestoTrabajoId}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))
-                }
-              >
-                <option value="">Selecciona un puesto</option>
-                {puestos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Cargo *
@@ -308,23 +292,29 @@ export function PuestoFormModal({
                 ))}
               </select>
             </div>
-          </div>
-
-          {/* ── Row 2: Nombre personalizado + Rol ── */}
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Nombre personalizado
+                Tipo de Puesto *
               </Label>
-              <Input
-                value={form.customName}
+              <select
+                className={selectClass}
+                value={form.puestoTrabajoId}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, customName: e.target.value }))
+                  setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))
                 }
-                placeholder="Ej: Control Acceso Nocturno"
-                className="h-9 bg-background text-sm"
-              />
+              >
+                <option value="">Selecciona un puesto</option>
+                {puestos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          {/* ── Row 2: Rol ── */}
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Rol *

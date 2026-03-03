@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
         shiftStart: true,
         shiftEnd: true,
         requiredGuards: true,
+        cargo: { select: { name: true } },
+        puestoTrabajo: { select: { name: true } },
       },
       orderBy: { name: "asc" },
     });
@@ -217,9 +219,10 @@ export async function GET(request: NextRequest) {
           const h = parseInt(p.shiftStart.split(":")[0], 10);
           const isNight = h >= 18 || h < 6;
           const puestoAsigs = instAsignaciones.filter((a) => a.puestoId === p.id);
+          const displayName = [p.cargo?.name, p.puestoTrabajo?.name].filter(Boolean).join(" - ") || p.name;
           return {
             id: p.id,
-            name: p.name,
+            name: displayName,
             shiftStart: p.shiftStart,
             shiftEnd: p.shiftEnd,
             isNight,

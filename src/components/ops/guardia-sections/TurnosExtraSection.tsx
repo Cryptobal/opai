@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
 
 /** Format a date-only value using UTC to avoid timezone shift */
@@ -33,7 +35,24 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Rechazado",
 };
 
-const columns: DataTableColumn[] = [
+const baseColumns: (guardiaId: string) => DataTableColumn[] = (guardiaId) => [
+  {
+    key: "_link",
+    label: "",
+    className: "w-8",
+    render: (_: unknown, row: TeRow) => {
+      const dateStr = typeof row.date === "string" ? row.date.slice(0, 10) : new Date(row.date).toISOString().slice(0, 10);
+      return (
+      <Link
+        href={`/ops/pauta-diaria?date=${dateStr}&guardiaId=${guardiaId}`}
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+        title="Ver en pauta diaria"
+      >
+        <ArrowUpRight className="h-3 w-3" />
+      </Link>
+      );
+    },
+  },
   {
     key: "date",
     label: "Fecha",
@@ -115,7 +134,7 @@ export default function TurnosExtraSection({ guardiaId }: TurnosExtraSectionProp
         Historial de turnos extra (reemplazos y cubrimientos) de este guardia.
       </p>
       <DataTable
-        columns={columns}
+        columns={baseColumns(guardiaId)}
         data={turnosExtra}
         loading={turnosExtraLoading}
         compact

@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { listRefuerzoQuerySchema } from "@/lib/validations/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
+import { formatPersonName } from "@/lib/personas";
 
 type RefuerzoExportRow = {
   status: "solicitado" | "en_curso" | "realizado" | "facturado";
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       if (query.status && status !== query.status) return false;
       if (query.pendingBilling && status === "facturado") return false;
       if (query.q) {
-        const haystack = `${row.installation.name} ${row.account?.name ?? ""} ${row.guardia.persona.firstName} ${row.guardia.persona.lastName}`.toLowerCase();
+        const haystack = `${row.installation.name} ${row.account?.name ?? ""} ${formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)}`.toLowerCase();
         if (!haystack.includes(query.q.toLowerCase())) return false;
       }
       return true;
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
 
     const lines = filtered.map((row) => {
       const status = resolveRefuerzoStatus(row.status, row.endAt, now);
-      const guardiaName = `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}`.trim();
+      const guardiaName = formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName).trim();
       return [
         row.installation.name,
         row.account?.name ?? "",

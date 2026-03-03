@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     const installationId = request.nextUrl.searchParams.get("installationId") || undefined;
     const dateRaw = request.nextUrl.searchParams.get("date") || toISODate(new Date());
-    const rangeMode = request.nextUrl.searchParams.get("range") || "day"; // "day" or "month"
+    const rangeMode = request.nextUrl.searchParams.get("range") || "day";
     const date = parseDateOnly(dateRaw);
 
     let dateFilter: { gte: Date; lte: Date };
@@ -25,43 +25,50 @@ export async function GET(request: NextRequest) {
       dateFilter = { gte: date, lte: date };
     }
 
-    // PPC from pauta mensual: slots without plannedGuardiaId
-    // OR slots with shiftCode V, L, P (vacaciones, licencia, permiso → need coverage)
-    const ppcFromPauta = await prisma.opsPautaMensual.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        ...(installationId && installationId !== "all" ? { installationId } : {}),
-        date: dateFilter,
-        puesto: { active: true },
-        OR: [
-          // No guard assigned (shiftCode can be null or any value except "-" which is rest day)
-          { plannedGuardiaId: null, shiftCode: null },
-          { plannedGuardiaId: null, shiftCode: { notIn: ["-"] } },
-          // Special statuses that need coverage
-          { shiftCode: { in: ["V", "L", "P"] } },
-        ],
-      },
-      include: {
-        installation: { select: { id: true, name: true } },
-        puesto: { select: { id: true, name: true, shiftStart: true, shiftEnd: true } },
-        plannedGuardia: {
-          select: {
-            id: true,
-            code: true,
-            persona: { select: { firstName: true, lastName: true } },
+    const instFilter = installationId && installationId !== "all"
+      ? { installationId }
+      : {};
+
+    const [ppcFromPauta, totalGuards] = await Promise.all([
+      prisma.opsPautaMensual.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          ...instFilter,
+          date: dateFilter,
+          puesto: { active: true },
+          OR: [
+            { plannedGuardiaId: null, shiftCode: null },
+            { plannedGuardiaId: null, shiftCode: { notIn: ["-"] } },
+            { shiftCode: { in: ["V", "L", "P"] } },
+          ],
+        },
+        include: {
+          installation: { select: { id: true, name: true } },
+          puesto: { select: { id: true, name: true, shiftStart: true, shiftEnd: true } },
+          plannedGuardia: {
+            select: {
+              id: true,
+              code: true,
+              persona: { select: { firstName: true, lastName: true } },
+            },
           },
         },
-      },
-      orderBy: [{ date: "asc" }, { installation: { name: "asc" } }, { puesto: { name: "asc" } }],
-    });
+        orderBy: [{ date: "asc" }, { installation: { name: "asc" } }, { puesto: { name: "asc" } }],
+      }),
+      prisma.opsGuardia.count({
+        where: { tenantId: ctx.tenantId, status: "active" },
+      }),
+    ]);
 
-    // Map to PPC items
-    const ppcItems = ppcFromPauta.map((item) => ({
-      id: item.id,
-      date: item.date,
-      slotNumber: item.slotNumber,
-      shiftCode: item.shiftCode,
-      reason: !item.plannedGuardiaId
+    const byReason: Record<string, number> = {
+      sin_guardia: 0,
+      vacaciones: 0,
+      licencia: 0,
+      permiso: 0,
+    };
+
+    const ppcItems = ppcFromPauta.map((item) => {
+      const reason = !item.plannedGuardiaId
         ? "sin_guardia"
         : item.shiftCode === "V"
           ? "vacaciones"
@@ -69,18 +76,34 @@ export async function GET(request: NextRequest) {
             ? "licencia"
             : item.shiftCode === "P"
               ? "permiso"
-              : "sin_guardia",
-      installation: item.installation,
-      puesto: item.puesto,
-      plannedGuardia: item.plannedGuardia,
-    }));
+              : "sin_guardia";
+      byReason[reason] = (byReason[reason] || 0) + 1;
+      return {
+        id: item.id,
+        date: item.date,
+        slotNumber: item.slotNumber,
+        shiftCode: item.shiftCode,
+        reason,
+        installation: item.installation,
+        puesto: item.puesto,
+        plannedGuardia: item.plannedGuardia,
+      };
+    });
+
+    const totalPpc = ppcItems.length;
+    const ppcPercentage = totalGuards > 0
+      ? Math.round((totalPpc / totalGuards) * 10000) / 100
+      : 0;
 
     return NextResponse.json({
       success: true,
       data: {
         date: dateRaw,
         range: rangeMode,
-        total: ppcItems.length,
+        total: totalPpc,
+        totalGuards,
+        ppcPercentage,
+        byReason,
         items: ppcItems,
       },
     });

@@ -64,6 +64,7 @@ export const SUBMODULE_KEYS = {
     "tickets",
     "supervision",
     "inventario",
+    "eventos_laborales",
   ] as const,
   crm: [
     "leads",
@@ -205,6 +206,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.tickets", module: "ops", submodule: "tickets", label: "Tickets", href: "/ops/tickets" },
   { key: "ops.supervision", module: "ops", submodule: "supervision", label: "Supervisión", href: "/ops/supervision" },
   { key: "ops.inventario", module: "ops", submodule: "inventario", label: "Inventario", href: "/ops/inventario" },
+  { key: "ops.eventos_laborales", module: "ops", submodule: "eventos_laborales", label: "Eventos laborales", href: "/personas/guardias" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -359,7 +361,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "edit",
     },
-    submodules: {},
+    submodules: { "ops.eventos_laborales": "full" },
     capabilities: { te_approve: true, rondas_resolve_alerts: true, rendicion_submit: true, rendicion_view_all: true, ticket_approve: true },
   },
 

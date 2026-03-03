@@ -24,6 +24,8 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   note_added: "Nota agregada",
   personal_data_updated: "Datos personales actualizados",
   rehired: "Recontratado",
+  labor_event_created: "Evento laboral registrado",
+  labor_event_deleted: "Evento laboral eliminado",
 };
 
 const EVENT_NODE_COLOR: Record<string, string> = {
@@ -39,6 +41,8 @@ const EVENT_NODE_COLOR: Record<string, string> = {
   contract_generated: "bg-indigo-500",
   contract_signed: "bg-emerald-500",
   rehired: "bg-emerald-500",
+  labor_event_created: "bg-orange-500",
+  labor_event_deleted: "bg-red-500",
 };
 
 const LIFECYCLE_STATUS_LABEL: Record<string, string> = {
@@ -106,6 +110,19 @@ function getEventDescription(event: HistoryEvent): string | null {
   if (eventType === "document_uploaded" && newValue) {
     const docType = newValue.documentType as string | undefined;
     if (docType) return docType;
+  }
+
+  if (eventType === "labor_event_created" && newValue) {
+    const cat = newValue.category as string | undefined;
+    const subtypeLabel = newValue.subtypeLabel as string | undefined;
+    if (cat === "finiquito") return event.reason ?? "Finiquito registrado";
+    if (cat === "amonestacion") return event.reason ?? "Amonestación registrada";
+    if (cat === "ausencia" && subtypeLabel) return event.reason ?? subtypeLabel;
+    return event.reason ?? "Evento laboral registrado";
+  }
+
+  if (eventType === "labor_event_deleted") {
+    return event.reason ?? "Evento laboral eliminado";
   }
 
   if (event.reason) return event.reason;

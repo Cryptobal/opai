@@ -132,7 +132,7 @@ export const EVENT_CATEGORIES: {
 }[] = [
   { value: "ausencia", label: "Ausencia", description: "Vacaciones, licencias médicas, permisos" },
   { value: "finiquito", label: "Finiquito", description: "Término de contrato / desvinculación" },
-  { value: "amonestacion", label: "Amonestación", description: "Amonestaciones verbales, escritas o graves" },
+  { value: "amonestacion", label: "Amonestación", description: "Amonestación escrita al guardia" },
 ];
 
 export const EVENT_SUBTYPES: Record<
@@ -149,9 +149,7 @@ export const EVENT_SUBTYPES: Record<
     { value: "finiquito", label: "Finiquito / Término" },
   ],
   amonestacion: [
-    { value: "amonestacion_verbal", label: "Amonestación verbal" },
     { value: "amonestacion_escrita", label: "Amonestación escrita" },
-    { value: "amonestacion_grave", label: "Amonestación grave" },
   ],
 };
 

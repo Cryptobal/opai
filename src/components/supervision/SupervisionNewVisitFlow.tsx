@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { formatPersonName } from "@/lib/personas";
 
 type NearbyInstallation = {
   id: string;
@@ -378,7 +379,7 @@ export function SupervisionNewVisitFlow() {
                 <div className="space-y-1">
                   {dotacion.slice(0, 8).map((row) => (
                     <p key={row.id} className="text-xs">
-                      {row.puesto.name} #{row.slotNumber} - {row.guardia.persona.firstName} {row.guardia.persona.lastName}
+                      {row.puesto.name} #{row.slotNumber} - {formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)}
                     </p>
                   ))}
                 </div>

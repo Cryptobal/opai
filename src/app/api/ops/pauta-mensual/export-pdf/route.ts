@@ -14,6 +14,7 @@ import {
   type ExecutionState,
 } from "@/lib/ops";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { formatPersonName } from "@/lib/personas";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -101,6 +102,8 @@ export async function GET(request: NextRequest) {
               name: true,
               shiftStart: true,
               shiftEnd: true,
+              cargo: { select: { name: true } },
+              puestoTrabajo: { select: { name: true } },
             },
           },
         },
@@ -165,9 +168,13 @@ export async function GET(request: NextRequest) {
     for (const item of pauta) {
       const key = `${item.puestoId}|${item.slotNumber}`;
       if (!rows.has(key)) {
+        const displayName = [
+          (item.puesto as any).cargo?.name,
+          (item.puesto as any).puestoTrabajo?.name,
+        ].filter(Boolean).join(" - ") || item.puesto.name;
         rows.set(key, {
           puestoId: item.puestoId,
-          puestoName: item.puesto.name,
+          puestoName: displayName,
           shiftStart: item.puesto.shiftStart,
           shiftEnd: item.puesto.shiftEnd,
           slotNumber: item.slotNumber,
@@ -180,7 +187,7 @@ export async function GET(request: NextRequest) {
     for (const a of asignaciones) {
       const key = `${a.puestoId}|${a.slotNumber}`;
       const row = rows.get(key);
-      if (row) row.guardiaName = `${a.guardia.persona.firstName} ${a.guardia.persona.lastName}`;
+      if (row) row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
     }
 
     const matrix = Array.from(rows.values()).sort((a, b) => {

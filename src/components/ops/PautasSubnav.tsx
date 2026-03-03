@@ -16,8 +16,8 @@ const PAUTAS_ITEMS: (SubNavItem & { subKey: string })[] = [
   { href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, subKey: "turnos_extra" },
-  { href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
   { href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
+  { href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
   { href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
 ];
 

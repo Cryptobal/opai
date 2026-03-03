@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Limpiar asistencias huérfanas de puestos inactivos (no bloqueadas, sin TE aprobado/pagado)
+    // Limpiar asistencias huérfanas de puestos inactivos (no bloqueadas, sin reemplazo/TE)
+    // Nunca borrar filas con replacementGuardiaId: tienen TE asignado y deben persistir
     const orphanedRows = await prisma.opsAsistenciaDiaria.findMany({
       where: {
         tenantId: ctx.tenantId,
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
         date,
         puesto: { active: false },
         lockedAt: null,
+        replacementGuardiaId: null,
       },
       select: { id: true },
     });
@@ -84,9 +86,22 @@ export async function GET(request: NextRequest) {
       },
       select: { id: true, puestoId: true, slotNumber: true },
     });
-    const ghostIds = allAsistenciaForDate
+    const candidateGhostIds = allAsistenciaForDate
       .filter((row) => !pautaKeys.has(`${row.puestoId}|${row.slotNumber}`))
       .map((row) => row.id);
+    // No borrar filas que tengan TE vinculado (pending/approved/paid): el TE debe persistir
+    const withLinkedTe =
+      candidateGhostIds.length > 0
+        ? await prisma.opsTurnoExtra.findMany({
+            where: {
+              asistenciaId: { in: candidateGhostIds },
+              status: { in: ["pending", "approved", "paid"] },
+            },
+            select: { asistenciaId: true },
+          })
+        : [];
+    const protectedIds = new Set(withLinkedTe.map((t) => t.asistenciaId).filter(Boolean));
+    const ghostIds = candidateGhostIds.filter((id) => !protectedIds.has(id));
     if (ghostIds.length > 0) {
       await prisma.opsTurnoExtra.deleteMany({
         where: { asistenciaId: { in: ghostIds }, status: "pending" },

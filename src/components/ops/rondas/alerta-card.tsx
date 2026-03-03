@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Eye, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatPersonName } from "@/lib/personas";
 
 interface Alerta {
   id: string;
@@ -67,7 +68,7 @@ const TIPO_LABELS: Record<string, string> = {
 export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
   const sev = SEVERITY_STYLES[alerta.severidad] ?? SEVERITY_STYLES.info;
   const guardiaNombre = alerta.ejecucion?.guardia?.persona
-    ? `${alerta.ejecucion.guardia.persona.firstName} ${alerta.ejecucion.guardia.persona.lastName}`
+    ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
     : null;
 
   return (

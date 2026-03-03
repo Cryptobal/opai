@@ -6,6 +6,7 @@ import { MonitoreoGuardPanel } from "@/components/ops/rondas/MonitoreoGuardPanel
 import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHeader";
 import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { formatPersonName } from "@/lib/personas";
 
 interface Installation {
   id: string;
@@ -80,7 +81,7 @@ export function RondasMonitoreoClient({
       .filter((r: any) => r.marcaciones?.[0]?.lat != null)
       .map((r: any) => ({
         id: r.id,
-        label: r.guardia ? `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}` : "Guardia",
+        label: r.guardia ? formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName) : "Guardia",
         lat: r.marcaciones[0].lat,
         lng: r.marcaciones[0].lng,
         hasAlert: (r.alertasRows?.length ?? 0) > 0,
@@ -114,7 +115,7 @@ export function RondasMonitoreoClient({
       id: r.id,
       templateName: r.rondaTemplate?.name ?? "Ronda",
       installationName: r.rondaTemplate?.installation?.name ?? "",
-      guardiaNombre: r.guardia ? `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}` : "Sin asignar",
+      guardiaNombre: r.guardia ? formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName) : "Sin asignar",
       guardiaPhone: r.guardia?.persona?.phoneMobile ?? null,
       checkpointsTotal: r.checkpointsTotal,
       checkpointsCompletados: r.checkpointsCompletados,

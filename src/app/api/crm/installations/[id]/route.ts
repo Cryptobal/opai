@@ -93,6 +93,18 @@ export async function PATCH(
     const installationData: Record<string, unknown> = { ...payload };
     delete installationData.activateAccount;
 
+    // Convert date strings to Date objects for Prisma
+    if (installationData.startDate !== undefined) {
+      installationData.startDate = installationData.startDate
+        ? new Date(installationData.startDate as string)
+        : null;
+    }
+    if (installationData.endDate !== undefined) {
+      installationData.endDate = installationData.endDate
+        ? new Date(installationData.endDate as string)
+        : null;
+    }
+
     const normalizedData =
       payload.name === undefined
         ? installationData

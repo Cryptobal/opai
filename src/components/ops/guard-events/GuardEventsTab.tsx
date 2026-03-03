@@ -11,15 +11,15 @@ import {
   DollarSign,
   FileWarning,
   Gavel,
-  Info,
   Loader2,
   Palmtree,
   Paperclip,
   Plus,
   ShieldAlert,
+  Sparkles,
   Stethoscope,
   Ticket,
-  X,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,6 @@ import {
   type GuardEvent,
   type GuardEventCategory,
   type GuardEventSubtype,
-  type GuardEventStatus,
   type GuardContract,
   EVENT_CATEGORIES,
   EVENT_SUBTYPES,
@@ -46,13 +45,11 @@ import {
   getSubtypeLabel,
   formatDateUTC,
   formatCLP,
-  isEditable,
-  isApprovable,
-  isCancellable,
   validateCausal159N4,
   CAUSALES_DT,
 } from "@/lib/guard-events";
 import { EventDocuments } from "./EventDocuments";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // ═══════════════════════════════════════════════════════════════
 //  ICONS BY SUBTYPE
@@ -66,7 +63,7 @@ const SUBTYPE_ICON: Record<string, typeof Palmtree> = {
   finiquito: FileWarning,
   amonestacion_verbal: ShieldAlert,
   amonestacion_escrita: ShieldAlert,
-  amonestacion_grave: AlertTriangle,
+  amonestacion_grave: ShieldAlert,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -89,6 +86,8 @@ interface GuardEventsTabProps {
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
+const ROLES_CAN_DELETE = ["owner", "admin", "editor"];
+
 export function GuardEventsTab({
   guardiaId,
   guardiaName,
@@ -98,7 +97,12 @@ export function GuardEventsTab({
   const [viewState, setViewState] = useState<ViewState>({ view: "list" });
   const [events, setEvents] = useState<GuardEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<"all" | GuardEventStatus>("all");
+  const [filterCategory, setFilterCategory] = useState<"all" | GuardEventCategory>("all");
+
+  const canDelete = ROLES_CAN_DELETE.includes(userRole);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<GuardEvent | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ── Fetch events ──
   const fetchEvents = useCallback(async () => {
@@ -122,9 +126,9 @@ export function GuardEventsTab({
 
   // ── Filtered events ──
   const filteredEvents = useMemo(() => {
-    if (filterStatus === "all") return events;
-    return events.filter((e) => e.status === filterStatus);
-  }, [events, filterStatus]);
+    if (filterCategory === "all") return events;
+    return events.filter((e) => e.category === filterCategory);
+  }, [events, filterCategory]);
 
   // ── Event created callback ──
   function handleEventCreated(newEvent: GuardEvent) {
@@ -133,83 +137,79 @@ export function GuardEventsTab({
     toast.success("Evento laboral creado");
   }
 
-  // ── Status action callbacks ──
-  async function handleApprove(event: GuardEvent) {
-    try {
-      const res = await fetch(`/api/ops/guard-events/${event.id}/approve`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      const updated = { ...event, status: "approved" as const, approvedAt: new Date().toISOString() };
-      setEvents((prev) => prev.map((e) => (e.id === event.id ? updated : e)));
-      setViewState({ view: "detail", event: updated });
-      toast.success("Evento aprobado");
-    } catch {
-      toast.error("Error al aprobar evento");
-    }
+  function requestDelete(event: GuardEvent) {
+    setEventToDelete(event);
+    setDeleteDialogOpen(true);
   }
 
-  async function handleReject(event: GuardEvent) {
+  async function confirmDelete() {
+    if (!eventToDelete) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/ops/guard-events/${event.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+      const res = await fetch(`/api/ops/guard-events/${eventToDelete.id}`, {
+        method: "DELETE",
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      const updated = { ...event, status: "rejected" as const };
-      setEvents((prev) => prev.map((e) => (e.id === event.id ? updated : e)));
-      setViewState({ view: "detail", event: updated });
-      toast.success("Evento rechazado");
+      setEvents((prev) => prev.filter((e) => e.id !== eventToDelete.id));
+      setViewState({ view: "list" });
+      toast.success("Evento laboral eliminado");
     } catch {
-      toast.error("Error al rechazar evento");
-    }
-  }
-
-  async function handleCancel(event: GuardEvent) {
-    try {
-      const res = await fetch(`/api/ops/guard-events/${event.id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      const updated = { ...event, status: "cancelled" as const };
-      setEvents((prev) => prev.map((e) => (e.id === event.id ? updated : e)));
-      setViewState({ view: "detail", event: updated });
-      toast.success("Evento anulado");
-    } catch {
-      toast.error("Error al anular evento");
+      toast.error("Error al eliminar evento laboral");
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setEventToDelete(null);
     }
   }
 
   // ── RENDER ──
+  // ConfirmDialog must always render regardless of view
+  const deleteDialog = (
+    <ConfirmDialog
+      open={deleteDialogOpen}
+      onOpenChange={setDeleteDialogOpen}
+      title="Eliminar evento laboral"
+      description={
+        eventToDelete
+          ? `¿Estás seguro de eliminar este evento laboral (${getSubtypeLabel(eventToDelete.subtype)})?\n\nSi el evento afectó la pauta mensual, los cambios se revertirán automáticamente.\n\nEsta acción no se puede deshacer.`
+          : ""
+      }
+      confirmLabel="Eliminar"
+      onConfirm={confirmDelete}
+      variant="destructive"
+      loading={deleting}
+    />
+  );
+
   if (viewState.view === "create") {
     return (
-      <EventCreateForm
-        guardiaId={guardiaId}
-        guardiaName={guardiaName}
-        guardContract={guardContract ?? null}
-        onBack={() => setViewState({ view: "list" })}
-        onCreated={handleEventCreated}
-      />
+      <>
+        <EventCreateForm
+          guardiaId={guardiaId}
+          guardiaName={guardiaName}
+          guardContract={guardContract ?? null}
+          onBack={() => setViewState({ view: "list" })}
+          onCreated={handleEventCreated}
+        />
+        {deleteDialog}
+      </>
     );
   }
 
   if (viewState.view === "detail") {
     return (
-      <EventDetailView
-        event={viewState.event}
-        guardiaName={guardiaName}
-        userRole={userRole}
-        onBack={() => setViewState({ view: "list" })}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onCancel={handleCancel}
-      />
+      <>
+        <EventDetailView
+          event={viewState.event}
+          guardiaName={guardiaName}
+          userRole={userRole}
+          canDelete={canDelete}
+          onBack={() => setViewState({ view: "list" })}
+          onDelete={requestDelete}
+        />
+        {deleteDialog}
+      </>
     );
   }
 
@@ -219,19 +219,17 @@ export function GuardEventsTab({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Select
-            value={filterStatus}
-            onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
+            value={filterCategory}
+            onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}
           >
-            <SelectTrigger className="h-8 w-full max-w-[140px] text-xs">
+            <SelectTrigger className="h-8 w-full max-w-[160px] text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="draft">Borrador</SelectItem>
-              <SelectItem value="pending">Pendiente</SelectItem>
-              <SelectItem value="approved">Aprobado</SelectItem>
-              <SelectItem value="rejected">Rechazado</SelectItem>
-              <SelectItem value="cancelled">Anulado</SelectItem>
+              <SelectItem value="ausencia">Ausencias</SelectItem>
+              <SelectItem value="finiquito">Finiquitos</SelectItem>
+              <SelectItem value="amonestacion">Amonestaciones</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -278,6 +276,8 @@ export function GuardEventsTab({
           ))}
         </div>
       )}
+
+      {deleteDialog}
     </div>
   );
 }
@@ -370,14 +370,16 @@ function EventCreateForm({
   const [saving, setSaving] = useState(false);
   const [category, setCategory] = useState<GuardEventCategory | "">("");
   const [subtype, setSubtype] = useState<GuardEventSubtype | "">("");
-  // Dates - ausencia uses startDate + endDate; finiquito uses finiquitoDate; amonestacion uses startDate
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [finiquitoDate, setFiniquitoDate] = useState("");
   const [reason, setReason] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [causalDtCode, setCausalDtCode] = useState("");
-  const [status, setStatus] = useState<"draft" | "pending" | "approved">("draft");
+
+  // AI amonestación preview
+  const [aiPreviewHtml, setAiPreviewHtml] = useState("");
+  const [generatingAi, setGeneratingAi] = useState(false);
 
   // Finiquito financial fields
   const [vacationDaysPending, setVacationDaysPending] = useState<string>("");
@@ -422,14 +424,20 @@ function EventCreateForm({
     return vac + rem + yos + sub;
   }, [vacationPaymentAmount, pendingRemunerationAmount, yearsOfServiceAmount, substituteNoticeAmount]);
 
-  // Reset subtype when category changes
   function handleCategoryChange(val: string) {
-    setCategory(val as GuardEventCategory);
-    setSubtype("");
+    const cat = val as GuardEventCategory;
+    setCategory(cat);
     setCausalDtCode("");
     setFiniquitoDate("");
     setStartDate("");
     setEndDate("");
+    if (cat === "amonestacion") {
+      setSubtype("amonestacion_escrita");
+    } else if (cat === "finiquito") {
+      setSubtype("finiquito");
+    } else {
+      setSubtype("");
+    }
   }
 
   // Calculate total days (only for ausencia)
@@ -473,14 +481,14 @@ function EventCreateForm({
           internalNotes: internalNotes || null,
           causalDtCode: selectedCausal?.code ?? null,
           causalDtLabel: selectedCausal?.label ?? null,
-          status,
-          // Finiquito financial fields
+          status: "approved",
           vacationDaysPending: isFiniquito ? (Number(vacationDaysPending) || null) : null,
           vacationPaymentAmount: isFiniquito ? (Number(vacationPaymentAmount) || null) : null,
           pendingRemunerationAmount: isFiniquito ? (Number(pendingRemunerationAmount) || null) : null,
           yearsOfServiceAmount: isFiniquito ? (Number(yearsOfServiceAmount) || null) : null,
           substituteNoticeAmount: isFiniquito ? (Number(substituteNoticeAmount) || null) : null,
           totalSettlementAmount: isFiniquito ? totalSettlement : null,
+          aiGeneratedHtml: isAmonestacion && aiPreviewHtml ? aiPreviewHtml : null,
         }),
       });
       const data = await res.json();
@@ -529,8 +537,8 @@ function EventCreateForm({
         </div>
       </div>
 
-      {/* ── Subtype ── */}
-      {category && (
+      {/* ── Subtype (only for ausencia — amonestación and finiquito auto-select) ── */}
+      {category === "ausencia" && (
         <div className="space-y-1.5">
           <Label className="text-xs">Tipo *</Label>
           <Select value={subtype} onValueChange={(v) => setSubtype(v as GuardEventSubtype)}>
@@ -718,23 +726,80 @@ function EventCreateForm({
         </div>
       )}
 
-      {/* ── Reason ── */}
+      {/* ── Reason + AI button for amonestación ── */}
       {subtype && (
         <div className="space-y-1.5">
-          <Label className="text-xs">
-            {isAmonestacion ? "Descripción / motivo" : "Motivo / observación"}
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">
+              {isAmonestacion ? "Descripción / motivo *" : "Motivo / observación"}
+            </Label>
+            {isAmonestacion && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!reason.trim() || generatingAi}
+                onClick={async () => {
+                  setGeneratingAi(true);
+                  try {
+                    const res = await fetch("/api/ops/guard-events/generate-amonestacion-preview", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ guardiaId, reason }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+                    setAiPreviewHtml(data.html);
+                  } catch {
+                    toast.error("Error al generar carta con IA");
+                  } finally {
+                    setGeneratingAi(false);
+                  }
+                }}
+                className="h-7 gap-1.5 text-xs"
+              >
+                {generatingAi ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {generatingAi ? "Generando..." : "Generar carta con IA"}
+              </Button>
+            )}
+          </div>
           <textarea
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
+            onChange={(e) => { setReason(e.target.value); if (aiPreviewHtml) setAiPreviewHtml(""); }}
+            rows={isAmonestacion ? 3 : 2}
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             placeholder={
               isAmonestacion
-                ? "Descripción de la amonestación..."
+                ? "Describe el motivo de la amonestación y luego presiona 'Generar carta con IA'..."
                 : "Motivo del evento (opcional)..."
             }
           />
+        </div>
+      )}
+
+      {/* ── AI Preview for amonestación ── */}
+      {isAmonestacion && aiPreviewHtml && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Vista previa de la carta (generada con IA)</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setAiPreviewHtml("")}
+              className="h-6 text-[10px]"
+            >
+              Cerrar preview
+            </Button>
+          </div>
+          <AiHtmlPreview html={aiPreviewHtml} />
+          <p className="text-[10px] text-muted-foreground">
+            Al registrar el evento, esta carta se guardará como documento PDF adjunto.
+          </p>
         </div>
       )}
 
@@ -749,23 +814,6 @@ function EventCreateForm({
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Notas internas..."
           />
-        </div>
-      )}
-
-      {/* ── Status on creation ── */}
-      {subtype && (
-        <div className="space-y-1.5">
-          <Label className="text-xs">Estado inicial</Label>
-          <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-            <SelectTrigger className="text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Borrador (no afecta pauta)</SelectItem>
-              <SelectItem value="pending">Pendiente de aprobación</SelectItem>
-              <SelectItem value="approved">Aprobado (afecta pauta inmediatamente)</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       )}
 
@@ -801,25 +849,19 @@ function EventDetailView({
   event,
   guardiaName,
   userRole,
+  canDelete,
   onBack,
-  onApprove,
-  onReject,
-  onCancel,
+  onDelete,
 }: {
   event: GuardEvent;
   guardiaName: string;
   userRole: string;
+  canDelete: boolean;
   onBack: () => void;
-  onApprove: (event: GuardEvent) => void;
-  onReject: (event: GuardEvent) => void;
-  onCancel: (event: GuardEvent) => void;
+  onDelete: (event: GuardEvent) => void;
 }) {
   const statusCfg = EVENT_STATUS_CONFIG[event.status];
   const Icon = SUBTYPE_ICON[event.subtype] ?? Gavel;
-  const canApprove =
-    isApprovable(event.status) &&
-    ["owner", "admin", "rrhh", "operaciones"].includes(userRole);
-  const canCancel = isCancellable(event.status);
   const isFiniquito = event.category === "finiquito";
 
   return (
@@ -999,43 +1041,58 @@ function EventDetailView({
         </div>
       )}
 
-      {/* Action buttons */}
-      {(canApprove || canCancel) && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          {canApprove && (
-            <>
-              <Button
-                size="sm"
-                onClick={() => onApprove(event)}
-                className="gap-1.5"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Aprobar
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => onReject(event)}
-                className="gap-1.5"
-              >
-                <X className="h-3.5 w-3.5" />
-                Rechazar
-              </Button>
-            </>
-          )}
-          {canCancel && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onCancel(event)}
-              className="gap-1.5"
-            >
-              Anular
-            </Button>
-          )}
+      {/* Delete button */}
+      {canDelete && (
+        <div className="border-t border-border pt-3">
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => onDelete(event)}
+            className="gap-1.5"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Eliminar evento
+          </Button>
         </div>
       )}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AI HTML PREVIEW (sandboxed iframe for security)
+// ═══════════════════════════════════════════════════════════════
+
+function AiHtmlPreview({ html }: { html: string }) {
+  const iframeRef = useCallback(
+    (node: HTMLIFrameElement | null) => {
+      if (!node) return;
+      const doc = node.contentDocument;
+      if (!doc) return;
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><style>
+        body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.6; padding: 24px; color: #333; margin: 0; }
+        h1 { font-size: 16pt; margin-bottom: 8pt; }
+        h2 { font-size: 14pt; margin-bottom: 6pt; }
+        p { margin: 0 0 8pt 0; }
+      </style></head><body>${html}</body></html>`);
+      doc.close();
+      setTimeout(() => {
+        const h = doc.body?.scrollHeight;
+        if (h) node.style.height = `${Math.min(h + 32, 500)}px`;
+      }, 50);
+    },
+    [html],
+  );
+
+  return (
+    <iframe
+      ref={iframeRef}
+      sandbox=""
+      className="w-full rounded-lg border border-border bg-white"
+      style={{ minHeight: 200, maxHeight: 500 }}
+      title="Vista previa carta"
+    />
   );
 }
 

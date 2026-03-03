@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Loader2 } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/opai/DataTable";
 
 /** Format a date-only value using UTC to avoid timezone shift */
@@ -29,7 +30,21 @@ interface DiasTrabajadesSectionProps {
   guardiaId: string;
 }
 
-const columns: DataTableColumn[] = [
+const baseColumns: (guardiaId: string) => DataTableColumn[] = (guardiaId) => [
+  {
+    key: "_link",
+    label: "",
+    className: "w-8",
+    render: (_: unknown, row: DiaTrabajadoRow) => (
+      <Link
+        href={`/ops/pauta-diaria?date=${row.date}&guardiaId=${guardiaId}`}
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+        title="Ver en pauta diaria"
+      >
+        <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    ),
+  },
   {
     key: "date",
     label: "Fecha",
@@ -131,7 +146,7 @@ export default function DiasTrabajadesSection({ guardiaId }: DiasTrabajadesSecti
             </div>
           )}
           <DataTable
-            columns={columns}
+            columns={baseColumns(guardiaId)}
             data={diasTrabajados}
             compact
             emptyMessage="Sin días trabajados registrados en el período."

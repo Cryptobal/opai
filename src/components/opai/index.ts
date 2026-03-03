@@ -27,6 +27,9 @@ export type { EmptyStateProps } from './EmptyState';
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 
+export { LoadingSpinner } from './LoadingSpinner';
+export type { LoadingSpinnerProps, LoadingSpinnerSize } from './LoadingSpinner';
+
 export { Avatar } from './Avatar';
 export { Stepper } from './Stepper';
 export { Breadcrumb } from './Breadcrumb';

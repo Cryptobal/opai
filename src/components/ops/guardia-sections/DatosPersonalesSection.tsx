@@ -10,6 +10,7 @@ import { DetailField, DetailFieldGrid } from "@/components/crm/DetailField";
 import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
+  formatPersonName,
   getRegimenPrevisionalLabel,
 } from "@/lib/personas";
 
@@ -229,7 +230,7 @@ export default function DatosPersonalesSection({
       <div>
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Identificación</p>
         <DetailFieldGrid columns={3}>
-          <DetailField label="Nombre completo" value={`${persona.firstName} ${persona.lastName}`} />
+          <DetailField label="Nombre completo" value={formatPersonName(persona.firstName, persona.lastName)} />
           <DetailField label="RUT" value={persona.rut} mono copyable />
           <DetailField label="Fecha de nacimiento" value={persona.birthDate ? formatDateUTC(persona.birthDate) : undefined} />
           <DetailField

@@ -18,8 +18,11 @@ export default async function OpsTurnosExtraPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
   const turnos = await prisma.opsTurnoExtra.findMany({
-    where: { tenantId },
+    where: { tenantId, date: { gte: monthStart } },
     include: {
       installation: { select: { id: true, name: true } },
       puesto: { select: { id: true, name: true } },
@@ -33,7 +36,6 @@ export default async function OpsTurnosExtraPage() {
       refuerzoSolicitud: { select: { id: true, name: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: 200,
   });
 
   return (

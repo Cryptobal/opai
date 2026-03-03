@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { formatPersonName } from "@/lib/personas";
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       template: row.rondaTemplate.name,
       guardiaId: row.guardiaId,
       guardia: row.guardia
-        ? `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}`
+        ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
         : "",
       guardiaCode: row.guardia?.code ?? "",
       rut: row.guardia?.persona.rut ?? "",

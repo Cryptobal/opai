@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { EmptyState } from "@/components/opai";
+import { EmptyState, LoadingSpinner } from "@/components/opai";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock, Search, ChevronDown, ChevronRight, Sun, Moon, RotateCw } from "lucide-react";
+import { formatPersonName } from "@/lib/personas";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -94,10 +95,14 @@ type PautaItem = {
     shiftEnd: string;
     weekdays?: string[];
     requiredGuards?: number;
+    cargo?: { name: string } | null;
+    puestoTrabajo?: { name: string } | null;
   };
   plannedGuardia?: {
     id: string;
     code?: string | null;
+    lifecycleStatus?: string | null;
+    terminatedAt?: string | null;
     persona: { firstName: string; lastName: string; rut?: string | null };
   } | null;
 };
@@ -130,6 +135,8 @@ type PuestoInfo = {
   shiftStart: string;
   shiftEnd: string;
   requiredGuards: number;
+  cargo?: { name: string } | null;
+  puestoTrabajo?: { name: string } | null;
 };
 
 type SlotAsignacion = {
@@ -202,6 +209,11 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
   const endIdx = Math.min(monthDays.length, startIdx + 7);
 
   return monthDays.slice(startIdx, endIdx);
+}
+
+function buildPuestoDisplayName(puesto: { name: string; cargo?: { name: string } | null; puestoTrabajo?: { name: string } | null }): string {
+  const parts = [puesto.cargo?.name, puesto.puestoTrabajo?.name].filter(Boolean);
+  return parts.length > 0 ? parts.join(" - ") : puesto.name;
 }
 
 function timeAgo(date: Date): string {
@@ -583,7 +595,7 @@ export function OpsPautaMensualClient({
       if (!rows.has(key)) {
         rows.set(key, {
           puestoId: item.puestoId,
-          puestoName: item.puesto.name,
+          puestoName: buildPuestoDisplayName(item.puesto),
           shiftStart: item.puesto.shiftStart,
           shiftEnd: item.puesto.shiftEnd,
           slotNumber: item.slotNumber,
@@ -606,7 +618,7 @@ export function OpsPautaMensualClient({
         if (!rows.has(key)) {
           rows.set(key, {
             puestoId: puesto.id,
-            puestoName: puesto.name,
+            puestoName: buildPuestoDisplayName(puesto),
             shiftStart: puesto.shiftStart,
             shiftEnd: puesto.shiftEnd,
             slotNumber: slot,
@@ -641,7 +653,7 @@ export function OpsPautaMensualClient({
       const row = rows.get(key);
       if (row && a.guardia) {
         row.guardiaId = a.guardiaId;
-        row.guardiaName = `${a.guardia.persona.firstName} ${a.guardia.persona.lastName}`;
+        row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
       }
     }
 
@@ -1229,9 +1241,8 @@ export function OpsPautaMensualClient({
 
         {/* Installation cards */}
         {overviewLoading ? (
-          <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Cargando resumen…
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner size="md" />
           </div>
         ) : overviewData.length === 0 ? (
           <Card>
@@ -1421,9 +1432,9 @@ export function OpsPautaMensualClient({
             {/* Status + Exportar + Regenerar */}
             <div className="flex items-center gap-2 flex-wrap">
               {loading ? (
-                <div className="flex items-center gap-2 text-xs text-emerald-400">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Cargando…
+                <div className="flex items-center gap-2 text-xs">
+                  <LoadingSpinner size="sm" />
+                  <span className="text-muted-foreground">Cargando…</span>
                 </div>
               ) : items.length > 0 ? (
                 <div className="flex items-center gap-3 text-xs">
@@ -1567,9 +1578,8 @@ export function OpsPautaMensualClient({
       <Card>
         <CardContent className="pt-3 pb-2.5">
           {loading && matrix.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Cargando pauta…
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner size="md" />
             </div>
           ) : (
             <>
@@ -1846,6 +1856,9 @@ export function OpsPautaMensualClient({
                                   : (isTrabajo ? "T" : (code || "·"));
                                 const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
 
+                                const isGuardiaFiniquitado = cell?.plannedGuardia?.lifecycleStatus === "inactivo"
+                                  && cell?.plannedGuardia?.terminatedAt != null;
+
                                 return (
                                   <td
                                     key={dateKey}
@@ -1860,7 +1873,7 @@ export function OpsPautaMensualClient({
                                         }`}
                                         title={
                                           cell?.plannedGuardia
-                                            ? `${cell.plannedGuardia.persona.firstName} ${cell.plannedGuardia.persona.lastName}`
+                                            ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
                                             : "Sin asignar"
                                         }
                                         onPointerDown={() => {
@@ -1948,6 +1961,14 @@ export function OpsPautaMensualClient({
                                             }
                                           >
                                             {executionBadge}
+                                          </span>
+                                        ) : null}
+                                        {isGuardiaFiniquitado && !executionBadge ? (
+                                          <span
+                                            className="absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-red-700 text-red-100"
+                                            title="Guardia finiquitado"
+                                          >
+                                            F
                                           </span>
                                         ) : null}
                                       </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { formatPersonName } from "@/lib/personas";
 import { AIService } from "@/lib/ai-service";
 
 interface Recommendation {
@@ -77,7 +78,7 @@ export async function POST() {
     const guardMap = new Map<string, { name: string; scores4w: number[]; scores2w: number[]; total: number }>();
     for (const ej of ejecuciones) {
       if (!ej.guardiaId || !ej.guardia) continue;
-      const gName = `${ej.guardia.persona.firstName} ${ej.guardia.persona.lastName}`;
+      const gName = formatPersonName(ej.guardia.persona.firstName, ej.guardia.persona.lastName);
       const entry = guardMap.get(ej.guardiaId) ?? { name: gName, scores4w: [], scores2w: [], total: 0 };
       entry.total++;
       if (ej.trustScore > 0) {

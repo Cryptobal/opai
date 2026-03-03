@@ -35,6 +35,7 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { toast } from "sonner";
+import { formatPersonName } from "@/lib/personas";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -509,7 +510,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
     const q = assignSearch.trim().toLowerCase();
     return guardias.filter((g) => {
       if (q) {
-        const hay = `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
+        const hay = `${formatPersonName(g.persona.firstName, g.persona.lastName)} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -655,7 +656,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                             href={`/personas/guardias/${assignment.guardia.id}`}
                             className="font-medium hover:underline hover:text-primary transition-colors truncate"
                           >
-                            {assignment.guardia.persona.firstName} {assignment.guardia.persona.lastName}
+                            {formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName)}
                           </Link>
                           {assignment.guardia.code && (
                             <span className="text-muted-foreground shrink-0">({assignment.guardia.code})</span>
@@ -682,7 +683,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                                 type="button"
                                 onClick={() => openUnassign(
                                   assignment.id,
-                                  `${assignment.guardia.persona.firstName} ${assignment.guardia.persona.lastName}`
+                                  formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName)
                                 )}
                                 className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                 title="Desasignar guardia"
@@ -730,7 +731,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                 className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-3 py-1.5 text-xs hover:bg-accent transition-colors"
               >
                 <span className="font-medium">
-                  {g.persona.firstName} {g.persona.lastName}
+                  {formatPersonName(g.persona.firstName, g.persona.lastName)}
                 </span>
                 {g.code && <span className="text-muted-foreground">({g.code})</span>}
                 <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${
@@ -817,7 +818,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                     }`}
                   >
                     <span className="font-medium truncate">
-                      {g.persona.firstName} {g.persona.lastName}
+                      {formatPersonName(g.persona.firstName, g.persona.lastName)}
                     </span>
                     {g.code && <span className="text-muted-foreground shrink-0">({g.code})</span>}
                     {g.persona.rut && <span className="text-[10px] text-muted-foreground shrink-0">{g.persona.rut}</span>}
@@ -1004,7 +1005,7 @@ function StaffingSection({
       puestoTrabajoId: puesto.puestoTrabajoId ?? "",
       cargoId: puesto.cargoId ?? "",
       rolId: puesto.rolId ?? "",
-      customName: puesto.name,
+      customName: "",
       startTime: puesto.shiftStart,
       endTime: puesto.shiftEnd,
       weekdays: puesto.weekdays,
@@ -1032,7 +1033,7 @@ function StaffingSection({
       puestoTrabajoId: puesto.puestoTrabajoId ?? "",
       cargoId: puesto.cargoId ?? "",
       rolId: puesto.rolId ?? "",
-      customName: `${puesto.name} (copia)`,
+      customName: "",
       startTime: puesto.shiftStart,
       endTime: puesto.shiftEnd,
       weekdays: puesto.weekdays,
@@ -1065,7 +1066,7 @@ function StaffingSection({
   // Save (create or edit)
   const handleSave = async (data: PuestoFormData) => {
     const body: Record<string, unknown> = {
-      name: data.customName || `Puesto ${data.startTime}-${data.endTime}`,
+      name: data.customName || "Puesto",
       puestoTrabajoId: data.puestoTrabajoId || null,
       cargoId: data.cargoId || null,
       rolId: data.rolId || null,
@@ -1285,6 +1286,7 @@ function StaffingSection({
             {installation.puestosActivos!.map((item) => {
               const cargoName = item.cargo?.name ?? "—";
               const rolName = item.rol?.name ?? "—";
+              const puestoTrabajoName = item.puestoTrabajo?.name ?? "";
               const salary = Number(item.baseSalary ?? 0);
               const ss = (item as any).salaryStructure;
               const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
@@ -1295,7 +1297,7 @@ function StaffingSection({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
+                        <p className="font-medium text-sm truncate">{cargoName}</p>
                         <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${
                           isNight
                             ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
@@ -1304,10 +1306,10 @@ function StaffingSection({
                           {isNight ? "Noche" : "Día"}
                         </span>
                       </div>
-                      {item.puestoTrabajo && (
-                        <p className="text-[10px] text-muted-foreground">{item.puestoTrabajo.name}</p>
+                      {puestoTrabajoName && (
+                        <p className="text-[10px] text-muted-foreground">{puestoTrabajoName}</p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-0.5">{cargoName} / {rolName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Rol: {rolName}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDuplicate(item)} title="Duplicar">
@@ -1361,8 +1363,9 @@ function StaffingSection({
             <table className="w-full text-sm">
               <thead className="bg-muted/30">
                 <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Rol</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
@@ -1374,16 +1377,13 @@ function StaffingSection({
                 {installation.puestosActivos!.map((item) => {
                   const cargoName = item.cargo?.name ?? "—";
                   const rolName = item.rol?.name ?? "—";
+                  const puestoTrabajoName = item.puestoTrabajo?.name ?? "—";
                   const salary = Number(item.baseSalary ?? 0);
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{item.name}</div>
-                        {item.puestoTrabajo && (
-                          <div className="text-[10px] text-muted-foreground">{item.puestoTrabajo.name}</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">{cargoName} / {rolName}</td>
+                      <td className="px-3 py-2 font-medium">{cargoName}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{puestoTrabajoName}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{rolName}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1.5">
                           <span>{item.shiftStart} - {item.shiftEnd}</span>
@@ -1463,8 +1463,8 @@ function StaffingSection({
               const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
               return (
                 <div key={item.id} className="rounded-lg border border-border/50 p-3 space-y-1">
-                  <p className="font-medium text-sm text-muted-foreground">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</p>
+                  <p className="font-medium text-sm text-muted-foreground">{item.cargo?.name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">{item.puestoTrabajo?.name ?? "—"} · {item.rol?.name ?? "—"}</p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{item.shiftStart} - {item.shiftEnd}</span>
                     <span>{from} → {until}</span>
@@ -1479,8 +1479,9 @@ function StaffingSection({
             <table className="w-full text-sm">
               <thead className="bg-muted/30">
                 <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Rol</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Período</th>
                 </tr>
@@ -1491,8 +1492,9 @@ function StaffingSection({
                   const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
-                      <td className="px-3 py-2 text-muted-foreground">{item.name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</td>
+                      <td className="px-3 py-2 font-medium text-muted-foreground">{item.cargo?.name ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.puestoTrabajo?.name ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.rol?.name ?? "—"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{item.shiftStart} - {item.shiftEnd}</td>
                       <td className="px-3 py-2 text-muted-foreground">{from} → {until}</td>
                     </tr>
@@ -1970,7 +1972,7 @@ export function CrmInstallationDetailClient({
             <CrmRelatedRecordCard
               key={c.id}
               module="contacts"
-              title={`${c.firstName} ${c.lastName}`.trim()}
+              title={formatPersonName(c.firstName, c.lastName) || "Sin nombre"}
               subtitle={c.roleTitle || "Sin cargo"}
               meta={[c.email, c.phone].filter(Boolean).join(" · ") || undefined}
               badge={c.isPrimary ? { label: "Principal", variant: "default" } : undefined}

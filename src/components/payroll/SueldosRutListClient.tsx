@@ -32,6 +32,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { formatPersonName } from "@/lib/personas";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface SueldoRut {
@@ -161,7 +162,7 @@ export function SueldosRutListClient() {
         const json = await res.json();
         setSearchResults((json.data || []).map((g: any) => ({
           id: g.id, rut: g.persona?.rut || "",
-          name: `${g.persona?.firstName || ""} ${g.persona?.lastName || ""}`.trim(),
+          name: formatPersonName(g.persona?.firstName, g.persona?.lastName).trim(),
           hasSalaryOverride: !!g.salaryStructureId,
         })));
       }

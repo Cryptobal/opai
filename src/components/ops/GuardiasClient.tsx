@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatPersonName } from "@/lib/personas";
 import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
@@ -170,7 +171,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
       if (!query) return true;
       const text =
-        `${item.persona.firstName} ${item.persona.lastName} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""}`.toLowerCase();
+        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""}`.toLowerCase();
       return text.includes(query);
     });
   }, [guardias, search, lifecycleFilter]);
@@ -720,7 +721,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-w-0">
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
-                const fullName = `${item.persona.firstName} ${item.persona.lastName}`;
+                const fullName = formatPersonName(item.persona.firstName, item.persona.lastName);
 
                 return (
                   <div
@@ -831,7 +832,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               </div>
               {filtered.map((item) => {
                 const phone = item.persona.phoneMobile;
-                const fullName = `${item.persona.firstName} ${item.persona.lastName}`;
+                const fullName = formatPersonName(item.persona.firstName, item.persona.lastName);
 
                 return (
                   <div

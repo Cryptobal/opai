@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { generateTicketCode, TICKET_TEAM_CONFIG } from "@/lib/tickets";
 import type { Ticket } from "@/lib/tickets";
+import { formatPersonName } from "@/lib/personas";
 
 /* ── Prisma includes for list view ──────────────────────────── */
 
@@ -24,7 +25,7 @@ const ticketListIncludes = {
 function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
   const guardiaName =
     t.guardia?.persona
-      ? `${t.guardia.persona.firstName} ${t.guardia.persona.lastName}`
+      ? formatPersonName(t.guardia.persona.firstName, t.guardia.persona.lastName)
       : null;
 
   const assignedToName = t.assignedTo && assigneeMap

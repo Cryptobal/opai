@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatPersonName } from "@/lib/personas";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
       data: {
         guardiaId: guardia.id,
         tenantId: persona.tenantId,
-        nombre: `${persona.firstName} ${persona.lastName}`,
+        nombre: formatPersonName(persona.firstName, persona.lastName),
         currentInstallationId: guardia.currentInstallationId,
         installations,
       },

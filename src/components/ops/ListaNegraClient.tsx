@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai";
 import { ShieldAlert } from "lucide-react";
+import { formatPersonName } from "@/lib/personas";
 
 type BlacklistItem = {
   id: string;
@@ -71,7 +72,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
               >
                 <div>
                   <p className="text-sm font-medium">
-                    {item.persona.firstName} {item.persona.lastName}
+                    {formatPersonName(item.persona.firstName, item.persona.lastName)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {item.persona.rut || "Sin RUT"}

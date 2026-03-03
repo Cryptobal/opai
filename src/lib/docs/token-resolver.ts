@@ -19,7 +19,7 @@ function formatDateOnly(value: string | Date | null | undefined): string | null 
   const [, y, mo, d] = m;
   return format(new Date(Number(y), Number(mo) - 1, Number(d)), "dd/MM/yyyy");
 }
-import { getRegimenPrevisionalLabel } from "@/lib/personas";
+import { formatPersonName, getRegimenPrevisionalLabel } from "@/lib/personas";
 
 export interface EntityData {
   empresa?: Record<string, any> | null;
@@ -558,7 +558,7 @@ export function buildGuardiaEntityData(guardia: {
   return {
     firstName: persona.firstName,
     lastName: persona.lastName,
-    fullName: `${persona.firstName} ${persona.lastName}`.trim(),
+    fullName: formatPersonName(persona.firstName, persona.lastName).trim(),
     rut: persona.rut,
     email: persona.email,
     phone: persona.phone || persona.phoneMobile,

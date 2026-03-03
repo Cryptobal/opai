@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Package, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatPersonName } from "@/lib/personas";
 
 type Movement = {
   id: string;
@@ -100,7 +101,7 @@ export function InventarioInstallationSection({ installationId }: { installation
               <div key={m.id} className="p-3">
                 <p className="font-medium text-sm">
                   {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
-                  {m.guardia.persona.firstName} {m.guardia.persona.lastName}
+                  {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
                 </p>
                 <ul className="text-xs text-muted-foreground mt-1">
                   {m.lines.map((l, i) => (

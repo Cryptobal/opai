@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge, KpiCard, KpiGrid, FilterBar } from "@/components/opai";
+import { EmptyState, StatusBadge, KpiCard, KpiGrid, FilterBar, LoadingSpinner } from "@/components/opai";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { formatPersonName } from "@/lib/personas";
 
 type RefuerzoItem = {
   id: string;
@@ -222,7 +224,8 @@ export function OpsRefuerzosClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [pendingBillingOnly, setPendingBillingOnly] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const crearParam = useSearchParams().get("crear");
+  const [createOpen, setCreateOpen] = useState(crearParam === "refuerzo");
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailEditMode, setDetailEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -273,7 +276,7 @@ export function OpsRefuerzosClient({
       if (pendingBillingOnly && row.status === "facturado") return false;
       if (q) {
         const haystack =
-          `${row.installation.name} ${row.account?.name ?? ""} ${row.guardia.persona.firstName} ${row.guardia.persona.lastName} ${row.guardia.persona.rut ?? ""} ${row.requestedByName ?? ""}`.toLowerCase();
+          `${row.installation.name} ${row.account?.name ?? ""} ${formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)} ${row.guardia.persona.rut ?? ""} ${row.requestedByName ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -309,7 +312,7 @@ export function OpsRefuerzosClient({
             .filter((g: { lifecycleStatus?: string; isBlacklisted?: boolean }) => !g.isBlacklisted)
             .map((g: GuardiaOption) => g)
             .sort((a: GuardiaOption, b: GuardiaOption) =>
-              `${a.persona.firstName} ${a.persona.lastName}`.localeCompare(`${b.persona.firstName} ${b.persona.lastName}`, "es")
+              formatPersonName(a.persona.firstName, a.persona.lastName).localeCompare(formatPersonName(b.persona.firstName, b.persona.lastName), "es")
             )
         );
       }
@@ -380,11 +383,11 @@ export function OpsRefuerzosClient({
     () =>
       guardias.map((g) => ({
         id: g.id,
-        label: `${g.persona.firstName} ${g.persona.lastName}`,
+        label: formatPersonName(g.persona.firstName, g.persona.lastName),
         description: [g.code ? `Cód. ${g.code}` : null, g.persona.rut ?? null, g.lifecycleStatus ?? null]
           .filter(Boolean)
           .join(" · "),
-        searchText: `${g.persona.firstName} ${g.persona.lastName} ${g.persona.rut ?? ""} ${g.code ?? ""}`,
+        searchText: `${formatPersonName(g.persona.firstName, g.persona.lastName)} ${g.persona.rut ?? ""} ${g.code ?? ""}`,
       })),
     [guardias]
   );
@@ -689,7 +692,7 @@ export function OpsRefuerzosClient({
                       <p className="text-xs font-semibold text-primary">{item.name}</p>
                     )}
                     <p className="text-sm font-medium">
-                      {item.installation.name} · {item.guardia.persona.firstName} {item.guardia.persona.lastName}
+                      {item.installation.name} · {formatPersonName(item.guardia.persona.firstName, item.guardia.persona.lastName)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {item.account?.name ?? "Sin cliente"} · {formatDateTime(item.startAt)} - {formatDateTime(item.endAt)}
@@ -872,7 +875,7 @@ export function OpsRefuerzosClient({
             ) : (
               <div className="space-y-2 text-sm">
                 <p><strong>Instalación:</strong> {selectedItem.installation.name}</p>
-                <p><strong>Guardia:</strong> {selectedItem.guardia.persona.firstName} {selectedItem.guardia.persona.lastName}</p>
+                <p><strong>Guardia:</strong> {formatPersonName(selectedItem.guardia.persona.firstName, selectedItem.guardia.persona.lastName)}</p>
                 <p><strong>Puesto:</strong> {selectedItem.puesto?.name ?? "Sin puesto"}</p>
                 <p><strong>Inicio:</strong> {formatDateTime(selectedItem.startAt)}</p>
                 <p><strong>Fin:</strong> {formatDateTime(selectedItem.endAt)}</p>
@@ -977,7 +980,7 @@ export function OpsRefuerzosClient({
                   disabled={!createForm.installationId || puestosLoading}
                   onChange={(id) => setCreateForm((f) => ({ ...f, puestoId: id }))}
                 />
-                {puestosLoading ? <p className="text-xs text-muted-foreground">Cargando puestos...</p> : null}
+                {puestosLoading ? <LoadingSpinner size="sm" /> : null}
               </div>
             </div>
             <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState, StatusBadge } from "@/components/opai";
+import { EmptyState, StatusBadge, LoadingSpinner } from "@/components/opai";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Clock3, FileDown, Plus, Search } from "lucide-react";
+import { AlertTriangle, Clock3, FileDown, Plus, Search, BarChart3, List, UserX } from "lucide-react";
+import { formatPersonName } from "@/lib/personas";
+import { TeDashboard } from "./TeDashboard";
+import { TeAusentismoRanking } from "./TeAusentismoRanking";
 
 type TeItem = {
   id: string;
@@ -27,6 +31,7 @@ type TeItem = {
   horasExtra?: number | string | null;
   approvedAt?: string | null;
   rejectedAt?: string | null;
+  rejectionReason?: string | null;
   paidAt?: string | null;
   installation?: { id: string; name: string } | null;
   puesto?: { id: string; name: string } | null;
@@ -58,18 +63,74 @@ function toDateLabel(value: string): string {
   return new Date(value).toLocaleDateString("es-CL");
 }
 
+const TABS = [
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { key: "ausentismo", label: "Ausentismo", icon: UserX },
+  { key: "registro", label: "Registro", icon: List },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
 export function TeTurnosClient({
   initialItems,
   defaultStatusFilter = "all",
 }: TeTurnosClientProps) {
+  const searchParams = useSearchParams();
+  const crearParam = searchParams.get("crear");
+  const [activeTab, setActiveTab] = useState<TabKey>(crearParam === "te" ? "registro" : "dashboard");
+  const [dashKey, setDashKey] = useState(0);
   const [items, setItems] = useState<TeItem[]>(initialItems);
   const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter);
+
+  // Month filter for Registro tab
+  const now = new Date();
+  const [regYear, setRegYear] = useState(now.getUTCFullYear());
+  const [regMonth, setRegMonth] = useState(now.getUTCMonth() + 1);
+  const [regLoading, setRegLoading] = useState(false);
+  const isCurrentMonth = regYear === now.getUTCFullYear() && regMonth === now.getUTCMonth() + 1;
+
+  const fetchRegistroMonth = useCallback(async (y: number, m: number) => {
+    setRegLoading(true);
+    try {
+      // Rango ampliado: 45 días antes del mes para calcular rachas consecutivas
+      const monthStart = new Date(Date.UTC(y, m - 1, 1));
+      const fromDate = new Date(monthStart);
+      fromDate.setUTCDate(fromDate.getUTCDate() - 45);
+      const from = fromDate.toISOString().slice(0, 10);
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const to = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const res = await fetch(`/api/te?from=${from}&to=${to}`, { cache: "no-store" });
+      const payload = await res.json();
+      if (payload.success && Array.isArray(payload.data)) {
+        setItems(payload.data);
+      }
+    } catch {
+      toast.error("Error cargando registros");
+    } finally {
+      setRegLoading(false);
+    }
+  }, []);
+
+  const handleMonthChange = (y: number, m: number) => {
+    setRegYear(y);
+    setRegMonth(m);
+    void fetchRegistroMonth(y, m);
+  };
+
+  // Refetch when switching to Registro tab to ensure fresh data
+  useEffect(() => {
+    if (activeTab === "registro") {
+      void fetchRegistroMonth(regYear, regMonth);
+    }
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [search, setSearch] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatingPlantilla, setGeneratingPlantilla] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(crearParam === "te");
   const [aprobarModal, setAprobarModal] = useState<{ item: TeItem; amountClp: string } | null>(null);
+  const [rechazarModal, setRechazarModal] = useState<{ item: TeItem; reason: string } | null>(null);
 
   // Modal crear TE/HE
   const [clients, setClients] = useState<Array<{ id: string; name: string; installations: Array<{ id: string; name: string; teMontoClp?: number | string | null }> }>>([]);
@@ -111,18 +172,59 @@ export function TeTurnosClient({
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  // Solo items del mes seleccionado para mostrar (el fetch trae +45 días de historial)
+  const itemsDelMes = useMemo(() => {
+    return items.filter((item) => {
+      const d = new Date(item.date);
+      return d.getUTCFullYear() === regYear && d.getUTCMonth() + 1 === regMonth;
+    });
+  }, [items, regYear, regMonth]);
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return items.filter((item) => {
+    return itemsDelMes.filter((item) => {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (query) {
         const haystack =
-          `${item.installation?.name ?? ""} ${item.puesto?.name ?? ""} ${item.guardia.persona.firstName} ${item.guardia.persona.lastName} ${item.guardia.persona.rut ?? ""}`.toLowerCase();
+          `${item.installation?.name ?? ""} ${item.puesto?.name ?? ""} ${formatPersonName(item.guardia.persona.firstName, item.guardia.persona.lastName)} ${item.guardia.persona.rut ?? ""}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
       return true;
     });
-  }, [items, search, statusFilter]);
+  }, [itemsDelMes, search, statusFilter]);
+
+  /** Días consecutivos de TE hacia atrás desde cada (guardiaId, date). Solo cuenta pending/approved/paid. */
+  const consecutiveByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    const validStatuses = new Set(["pending", "approved", "paid"]);
+    const byGuard = new Map<string, Set<string>>();
+    for (const item of items) {
+      if (!validStatuses.has(item.status)) continue;
+      const gid = item.guardia.id;
+      const dateStr = item.date.slice(0, 10);
+      if (!byGuard.has(gid)) byGuard.set(gid, new Set());
+      byGuard.get(gid)!.add(dateStr);
+    }
+    for (const item of items) {
+      if (!validStatuses.has(item.status)) continue;
+      const gid = item.guardia.id;
+      const dateStr = item.date.slice(0, 10);
+      const dates = byGuard.get(gid)!;
+      let count = 0;
+      const d = new Date(dateStr + "T12:00:00Z");
+      for (;;) {
+        const s = d.toISOString().slice(0, 10);
+        if (!dates.has(s)) break;
+        count++;
+        d.setUTCDate(d.getUTCDate() - 1);
+      }
+      map.set(`${gid}|${dateStr}`, count);
+    }
+    return map;
+  }, [items]);
+
+  const getConsecutive = (item: TeItem) =>
+    consecutiveByItem.get(`${item.guardia.id}|${item.date.slice(0, 10)}`) ?? 0;
 
   const patch = async (
     id: string,
@@ -231,7 +333,7 @@ export function TeTurnosClient({
             lifecycleStatus: g.lifecycleStatus,
           }))
           .sort((a: { persona: { firstName: string; lastName: string } }, b: { persona: { firstName: string; lastName: string } }) =>
-            `${a.persona.firstName} ${a.persona.lastName}`.localeCompare(`${b.persona.firstName} ${b.persona.lastName}`)
+            formatPersonName(a.persona.firstName, a.persona.lastName).localeCompare(formatPersonName(b.persona.firstName, b.persona.lastName))
           )
       );
     } else {
@@ -403,17 +505,96 @@ export function TeTurnosClient({
 
   return (
     <div className="space-y-4">
+      {/* Tab navigation */}
+      <div className="flex items-center gap-1 border-b border-border pb-0">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); if (tab.key === "dashboard") setDashKey((k) => k + 1); }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab.key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Dashboard tab — key forces refetch when switching back */}
+      {activeTab === "dashboard" && <TeDashboard key={`dash-${dashKey}`} />}
+
+      {/* Ausentismo tab */}
+      {activeTab === "ausentismo" && <TeAusentismoRanking />}
+
+      {/* Registro tab (original content) */}
+      {activeTab === "registro" && (
+      <>
       <Card>
         <CardContent className="pt-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setCreateModalOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Nuevo turno/hora extra
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCreateModalOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Nuevo turno/hora extra
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleMonthChange(regMonth === 1 ? regYear - 1 : regYear, regMonth === 1 ? 12 : regMonth - 1)}
+                className="h-7 w-7 rounded-md border border-input bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xs"
+              >
+                ‹
+              </button>
+              <select
+                value={`${regYear}-${String(regMonth).padStart(2, "0")}`}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split("-").map(Number);
+                  handleMonthChange(y, m);
+                }}
+                className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                {Array.from({ length: 13 }, (_, i) => {
+                  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+                  const y = d.getUTCFullYear();
+                  const m = d.getUTCMonth() + 1;
+                  const label = d.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+                  return (
+                    <option key={`${y}-${m}`} value={`${y}-${String(m).padStart(2, "0")}`}>
+                      {label.charAt(0).toUpperCase() + label.slice(1)}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => handleMonthChange(regMonth === 12 ? regYear + 1 : regYear, regMonth === 12 ? 1 : regMonth + 1)}
+                disabled={isCurrentMonth}
+                className="h-7 w-7 rounded-md border border-input bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xs disabled:opacity-30"
+              >
+                ›
+              </button>
+              {!isCurrentMonth && (
+                <button
+                  type="button"
+                  onClick={() => handleMonthChange(now.getUTCFullYear(), now.getUTCMonth() + 1)}
+                  className="h-7 rounded-md bg-primary text-primary-foreground px-2 text-[11px] font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Hoy
+                </button>
+              )}
+              {regLoading && <LoadingSpinner size="sm" className="ml-1" />}
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="relative md:col-span-2">
@@ -513,7 +694,7 @@ export function TeTurnosClient({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium">
-                          {item.guardia.persona.firstName} {item.guardia.persona.lastName}
+                          {formatPersonName(item.guardia.persona.firstName, item.guardia.persona.lastName)}
                         </p>
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
@@ -534,6 +715,24 @@ export function TeTurnosClient({
                             Refuerzo{item.refuerzoSolicitud.name ? `: ${item.refuerzoSolicitud.name}` : ""}
                           </span>
                         )}
+                        {(() => {
+                          const consec = getConsecutive(item);
+                          if (consec === 0) return null;
+                          const isAlert = consec >= 5;
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                isAlert
+                                  ? "bg-red-500/20 text-red-400 dark:bg-red-500/30 dark:text-red-300"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                              title={consec >= 5 ? `${consec} días consecutivos con TE — evite rachas largas` : `${consec} día(s) consecutivo(s) con TE`}
+                            >
+                              {consec >= 5 && <AlertTriangle className="h-3 w-3" />}
+                              {consec} día{consec !== 1 ? "s" : ""} seguido{consec !== 1 ? "s" : ""}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {item.installation?.name ?? "Instalación"} · {item.puesto?.name ?? "Sin puesto"} ·{" "}
@@ -545,8 +744,13 @@ export function TeTurnosClient({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={item.status} />
+                    {item.status === "rejected" && item.rejectionReason && (
+                      <span className="text-[10px] text-red-400 max-w-48 truncate" title={item.rejectionReason}>
+                        {item.rejectionReason}
+                      </span>
+                    )}
                     {item.status === "pending" && (
                       <>
                         <Button
@@ -566,10 +770,7 @@ export function TeTurnosClient({
                           size="sm"
                           variant="ghost"
                           disabled={updatingId === item.id}
-                          onClick={() => {
-                            const reason = window.prompt("Motivo de rechazo (opcional):") ?? "";
-                            void patch(item.id, "rechazar", { reason: reason || undefined });
-                          }}
+                          onClick={() => setRechazarModal({ item, reason: "" })}
                         >
                           Rechazar
                         </Button>
@@ -582,6 +783,8 @@ export function TeTurnosClient({
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -657,7 +860,7 @@ export function TeTurnosClient({
                 value={createForm.guardiaId}
                 options={guardias.map((g) => ({
                   id: g.id,
-                  label: `${g.persona.firstName} ${g.persona.lastName}`,
+                  label: formatPersonName(g.persona.firstName, g.persona.lastName),
                   ...(g.code ? { description: `Cód. ${g.code}` } : {}),
                 }))}
                 placeholder="Seleccionar..."
@@ -785,6 +988,50 @@ export function TeTurnosClient({
                   }
                 >
                   Aprobar con este monto
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!rechazarModal}
+        onOpenChange={(open) => !open && setRechazarModal(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rechazar turno extra</DialogTitle>
+          </DialogHeader>
+          {rechazarModal && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {formatPersonName(rechazarModal.item.guardia.persona.firstName, rechazarModal.item.guardia.persona.lastName)} · {rechazarModal.item.installation?.name ?? ""}
+                </p>
+                <Label>Motivo del rechazo</Label>
+                <textarea
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] resize-y"
+                  placeholder="Escribe el motivo del rechazo..."
+                  value={rechazarModal.reason}
+                  onChange={(e) => setRechazarModal((m) => m ? { ...m, reason: e.target.value } : null)}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRechazarModal(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={updatingId === rechazarModal.item.id}
+                  onClick={() => {
+                    void patch(rechazarModal.item.id, "rechazar", {
+                      reason: rechazarModal.reason.trim() || undefined,
+                    });
+                    setRechazarModal(null);
+                  }}
+                >
+                  Rechazar
                 </Button>
               </DialogFooter>
             </div>

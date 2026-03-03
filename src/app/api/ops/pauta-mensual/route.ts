@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
             shiftEnd: true,
             weekdays: true,
             requiredGuards: true,
+            cargo: { select: { name: true } },
+            puestoTrabajo: { select: { name: true } },
           },
         },
         plannedGuardia: {
@@ -60,6 +62,8 @@ export async function GET(request: NextRequest) {
             id: true,
             code: true,
             status: true,
+            lifecycleStatus: true,
+            terminatedAt: true,
             persona: {
               select: {
                 firstName: true,
@@ -393,6 +397,8 @@ export async function GET(request: NextRequest) {
         shiftStart: true,
         shiftEnd: true,
         requiredGuards: true,
+        cargo: { select: { name: true } },
+        puestoTrabajo: { select: { name: true } },
       },
       orderBy: { name: "asc" },
     });

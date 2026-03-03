@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { normalizeRut, isValidChileanRut } from "@/lib/personas";
+import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/personas";
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,13 +70,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        guardiaNombre: `${persona.firstName} ${persona.lastName}`,
+        guardiaNombre: formatPersonName(persona.firstName, persona.lastName),
         guardiaId: currentGuardiaId,
         rondas: rows.map((row) => ({
           ...row,
           assignedGuardiaId: row.guardiaId ?? null,
           assignedGuardiaNombre: row.guardia
-            ? `${row.guardia.persona.firstName} ${row.guardia.persona.lastName}`
+            ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
             : null,
           canStartAsReplacement: Boolean(row.guardiaId && row.guardiaId !== currentGuardiaId),
           isAssignedToCurrentGuard: row.guardiaId === currentGuardiaId || row.guardiaId === null,

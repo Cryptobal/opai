@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { normalizeRut, isValidChileanRut } from "@/lib/personas";
+import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { patrolLoginSchema } from "@/lib/validations/rondas";
 
 export async function POST(req: NextRequest) {
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         session: { id: session.id, loginAt: session.loginAt },
         guardia: {
           id: persona.guardia.id,
-          nombre: `${persona.firstName} ${persona.lastName}`,
+          nombre: formatPersonName(persona.firstName, persona.lastName),
         },
         installation: {
           id: installation.id,

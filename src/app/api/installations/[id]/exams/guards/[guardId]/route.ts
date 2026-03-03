@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { formatPersonName } from "@/lib/personas";
 
 type Params = { id: string; guardId: string };
 
@@ -69,7 +70,7 @@ export async function GET(
       data: {
         guard: {
           id: guard.id,
-          name: `${guard.persona.firstName} ${guard.persona.lastName}`,
+          name: formatPersonName(guard.persona.firstName, guard.persona.lastName),
         },
         history,
         summary: {

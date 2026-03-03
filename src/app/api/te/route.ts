@@ -121,16 +121,20 @@ export async function GET(request: NextRequest) {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const status = request.nextUrl.searchParams.get("status") || undefined;
+    const statusRaw = request.nextUrl.searchParams.get("status") || undefined;
     const installationId = request.nextUrl.searchParams.get("installationId") || undefined;
     const guardiaId = request.nextUrl.searchParams.get("guardiaId") || undefined;
     const from = request.nextUrl.searchParams.get("from");
     const to = request.nextUrl.searchParams.get("to");
 
+    const statusFilter = statusRaw
+      ? statusRaw.includes(",") ? { in: statusRaw.split(",") } : statusRaw
+      : undefined;
+
     const turnos = await prisma.opsTurnoExtra.findMany({
       where: {
         tenantId: ctx.tenantId,
-        ...(status ? { status } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
         ...(installationId ? { installationId } : {}),
         ...(guardiaId ? { guardiaId } : {}),
         ...(from || to

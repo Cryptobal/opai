@@ -683,11 +683,16 @@ export async function POST(
               const endTime = typeof d.horaFin === "string" && d.horaFin ? d.horaFin : "20:00";
               const numPuestos = normalizePositiveInt(d.numPuestos, 1);
 
+              const cargoNameForPosition = cargoIdToUse
+                ? (await tx.cpqCargo.findFirst({ where: { id: cargoIdToUse }, select: { name: true } }))?.name || ""
+                : "";
+              const resolvedPositionName = [cargoNameForPosition, puestoNameToUse].filter(Boolean).join(" - ") || puestoNameToUse;
+
               await tx.cpqPosition.create({
                 data: {
                   quoteId: quote.id,
                   puestoTrabajoId: puestoIdToUse,
-                  customName: customName || puestoNameToUse,
+                  customName: resolvedPositionName,
                   weekdays,
                   startTime,
                   endTime,

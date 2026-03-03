@@ -8,9 +8,11 @@ import {
   ensureOpsAccess,
   parseDateOnly,
 } from "@/lib/ops";
+import { checkNoDoblar } from "@/lib/ops-no-doblar";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { computeMarcacionHash } from "@/lib/marcacion";
 import { sendAvisoMarcaManual } from "@/lib/marcacion-email";
+import { formatPersonName } from "@/lib/personas";
 
 type Params = { id: string };
 
@@ -36,6 +38,7 @@ export async function PATCH(
         puesto: {
           select: {
             id: true,
+            name: true,
             installationId: true,
             teMontoClp: true,
             shiftStart: true,
@@ -45,6 +48,7 @@ export async function PATCH(
         installation: {
           select: {
             id: true,
+            name: true,
             teMontoClp: true,
           },
         },
@@ -83,6 +87,78 @@ export async function PATCH(
       }
     }
 
+    // ── Restricción no doblar: el guardia no puede tener 2 turnos el mismo día (solapados o consecutivos) ──
+    if (body.replacementGuardiaId) {
+      const dateStr = asistencia.date.toISOString().slice(0, 10);
+      const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+      // Otros turnos en asistencia (planificado, reemplazo o actual) el mismo día
+      const otrosAsistencia = await prisma.opsAsistenciaDiaria.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          date: { gte: dayStart, lt: dayEnd },
+          id: { not: asistencia.id },
+          OR: [
+            { plannedGuardiaId: body.replacementGuardiaId },
+            { replacementGuardiaId: body.replacementGuardiaId },
+            { actualGuardiaId: body.replacementGuardiaId },
+          ],
+        },
+        select: {
+          plannedShiftStart: true,
+          plannedShiftEnd: true,
+          puesto: { select: { shiftStart: true, shiftEnd: true, name: true } },
+          installation: { select: { name: true } },
+        },
+      });
+      // TEs manuales del guardia el mismo día (sin asistenciaId; los con asistenciaId ya están en otrosAsistencia)
+      const teManuales = await prisma.opsTurnoExtra.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          guardiaId: body.replacementGuardiaId,
+          date: { gte: dayStart, lt: dayEnd },
+          status: { in: ["pending", "approved", "paid"] },
+          asistenciaId: null,
+        },
+        select: {
+          installation: { select: { name: true } },
+          puesto: { select: { shiftStart: true, shiftEnd: true, name: true } },
+        },
+      });
+      const existentes = [
+        ...otrosAsistencia.map((r) => ({
+          shiftStart: r.plannedShiftStart ?? r.puesto.shiftStart ?? "09:00",
+          shiftEnd: r.plannedShiftEnd ?? r.puesto.shiftEnd ?? "19:00",
+          installationName: r.installation.name,
+          puestoName: r.puesto.name,
+        })),
+        ...teManuales.map((t) => ({
+          shiftStart: t.puesto?.shiftStart ?? "06:00",
+          shiftEnd: t.puesto?.shiftEnd ?? "22:00",
+          installationName: t.installation.name,
+          puestoName: t.puesto?.name ?? "TE manual",
+        })),
+      ];
+      const nuevoShiftStart = asistencia.plannedShiftStart ?? asistencia.puesto.shiftStart ?? "09:00";
+      const nuevoShiftEnd = asistencia.plannedShiftEnd ?? asistencia.puesto.shiftEnd ?? "19:00";
+      const conflicto = checkNoDoblar(
+        {
+          shiftStart: nuevoShiftStart,
+          shiftEnd: nuevoShiftEnd,
+          installationName: asistencia.installation?.name,
+          puestoName: asistencia.puesto?.name,
+        },
+        existentes
+      );
+      if (conflicto) {
+        return NextResponse.json(
+          { success: false, error: conflicto.message },
+          { status: 400 }
+        );
+      }
+    }
+
     const nextStatus =
       body.attendanceStatus ?? (body.replacementGuardiaId ? "reemplazo" : asistencia.attendanceStatus);
     const nextReplacementGuardiaId =
@@ -92,7 +168,9 @@ export async function PATCH(
     const nextActualGuardiaId =
       body.actualGuardiaId !== undefined
         ? body.actualGuardiaId
-        : body.replacementGuardiaId ?? asistencia.actualGuardiaId;
+        : nextStatus === "reemplazo"
+          ? null
+          : asistencia.actualGuardiaId;
 
     const existingTe = await prisma.opsTurnoExtra.findFirst({
       where: { tenantId: ctx.tenantId, asistenciaId: asistencia.id },
@@ -138,10 +216,18 @@ export async function PATCH(
     const checkOutAt = body.checkOutAt ? new Date(body.checkOutAt) : undefined;
     const nextPlannedGuardiaId =
       body.plannedGuardiaId !== undefined ? body.plannedGuardiaId : asistencia.plannedGuardiaId;
+
+    // When switching to "reemplazo", clear check-in/out from previous guard
+    // unless the caller explicitly sends them
+    const switchingToReemplazo = nextStatus === "reemplazo" && asistencia.attendanceStatus !== "reemplazo";
     const nextCheckInAt =
-      body.checkInAt !== undefined ? (checkInAt ?? null) : asistencia.checkInAt;
+      body.checkInAt !== undefined ? (checkInAt ?? null)
+        : switchingToReemplazo ? null
+        : asistencia.checkInAt;
     const nextCheckOutAt =
-      body.checkOutAt !== undefined ? (checkOutAt ?? null) : asistencia.checkOutAt;
+      body.checkOutAt !== undefined ? (checkOutAt ?? null)
+        : switchingToReemplazo ? null
+        : asistencia.checkOutAt;
     const nextCheckInSource =
       body.checkInAt !== undefined
         ? body.checkInAt
@@ -377,14 +463,32 @@ export async function PATCH(
       forceDeleteReason,
     });
 
-    // ── Marca manual + email de aviso (no fallar la actualización si esto falla) ──
-    const asistioOReemplazo = nextStatus === "asistio" || nextStatus === "reemplazo";
-    const guardiaIdParaMarca =
-      nextStatus === "reemplazo"
-        ? updatedAsistencia.replacementGuardiaId
-        : updatedAsistencia.actualGuardiaId ?? updatedAsistencia.plannedGuardiaId;
+    // ── Limpiar marcaciones manuales huérfanas al cambiar a reemplazo ──
+    if (switchingToReemplazo && asistencia.plannedGuardiaId) {
+      try {
+        const dayStart = new Date(updatedAsistencia.date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        await prisma.opsMarcacion.deleteMany({
+          where: {
+            guardiaId: asistencia.plannedGuardiaId,
+            installationId: asistencia.installationId,
+            timestamp: { gte: dayStart, lt: dayEnd },
+            metodoId: "manual",
+          },
+        });
+      } catch { /* non-critical */ }
+    }
 
-    if (asistioOReemplazo && guardiaIdParaMarca) {
+    // ── Marca manual + email de aviso (solo para "asistio", NO para "reemplazo") ──
+    // Reemplazos registran marcación cuando el guardia de reemplazo marca por sí mismo
+    const guardiaIdParaMarca =
+      nextStatus === "asistio"
+        ? (updatedAsistencia.actualGuardiaId ?? updatedAsistencia.plannedGuardiaId)
+        : null;
+
+    if (nextStatus === "asistio" && guardiaIdParaMarca) {
       try {
         const todayStart = new Date(updatedAsistencia.date);
         todayStart.setHours(0, 0, 0, 0);
@@ -474,12 +578,12 @@ export async function PATCH(
             if (guardiaData?.persona) {
               const p = guardiaData.persona;
               if (!p.email) {
-                console.warn(`[OPS] Guardia ${p.firstName} ${p.lastName} no tiene email — no se envía aviso de marca manual`);
+                console.warn(`[OPS] Guardia ${formatPersonName(p.firstName, p.lastName)} no tiene email — no se envía aviso de marca manual`);
               } else {
                 const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
                 const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
                 const emailPayload = {
-                  guardiaName: `${p.firstName} ${p.lastName}`,
+                  guardiaName: formatPersonName(p.firstName, p.lastName),
                   guardiaEmail: p.email,
                   guardiaRut: p.rut ?? "",
                   installationName: result?.installation?.name ?? "Instalación",
@@ -516,7 +620,7 @@ export async function PATCH(
                       tenantId: ctx.tenantId,
                     },
                   }).catch((err) => console.error("[OPS] Error guardando email pendiente:", err));
-                  console.log(`[OPS] Email de marca manual diferido ${emailDelayMinutos} min para guardia ${p.firstName} ${p.lastName}`);
+                  console.log(`[OPS] Email de marca manual diferido ${emailDelayMinutos} min para guardia ${formatPersonName(p.firstName, p.lastName)}`);
                 } else {
                   // Envío inmediato
                   sendAvisoMarcaManual(emailPayload).catch((err) =>

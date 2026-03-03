@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { normalizeRut, isValidChileanRut } from "@/lib/personas";
+import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
@@ -282,59 +282,72 @@ export async function POST(req: NextRequest) {
       const todayDate = new Date(serverTimestamp);
       todayDate.setHours(0, 0, 0, 0);
 
-      if (asignacion) {
-        const asistencia = await tx.opsAsistenciaDiaria.findFirst({
-          where: {
-            installationId: installation.id,
-            puestoId: asignacion.puestoId,
-            slotNumber: asignacion.slotNumber,
-            date: todayDate,
-            OR: [
-              { plannedGuardiaId: guardia.id },
-              { actualGuardiaId: guardia.id },
-            ],
-          },
-          include: {
-            puesto: {
-              select: {
-                shiftStart: true,
-                shiftEnd: true,
+      // Priority 1: check if guard is a replacement today (turno extra)
+      const asistenciaReemplazo = await tx.opsAsistenciaDiaria.findFirst({
+        where: {
+          installationId: installation.id,
+          date: todayDate,
+          replacementGuardiaId: guardia.id,
+          attendanceStatus: "reemplazo",
+        },
+        include: {
+          puesto: { select: { shiftStart: true, shiftEnd: true } },
+        },
+      });
+
+      // Priority 2: regular assignment slot
+      const asistencia = asistenciaReemplazo
+        ?? (asignacion
+          ? await tx.opsAsistenciaDiaria.findFirst({
+              where: {
+                installationId: installation.id,
+                puestoId: asignacion.puestoId,
+                slotNumber: asignacion.slotNumber,
+                date: todayDate,
+                OR: [
+                  { plannedGuardiaId: guardia.id },
+                  { actualGuardiaId: guardia.id },
+                ],
               },
-            },
-          },
-        });
+              include: {
+                puesto: { select: { shiftStart: true, shiftEnd: true } },
+              },
+            })
+          : null);
 
-        if (asistencia) {
-          const updateData: Record<string, unknown> = {};
-          if (tipo === "entrada") {
-            updateData.checkInAt = serverTimestamp;
-            updateData.checkInSource = "digital";
-            if (asistencia.attendanceStatus === "pendiente") {
-              updateData.attendanceStatus = "asistio";
-              updateData.actualGuardiaId = guardia.id;
-            }
-          } else {
-            updateData.checkOutAt = serverTimestamp;
-            updateData.checkOutSource = "digital";
+      if (asistencia) {
+        const isReplacementRow = asistencia.replacementGuardiaId === guardia.id
+          && asistencia.attendanceStatus === "reemplazo";
+
+        const updateData: Record<string, unknown> = {};
+        if (tipo === "entrada") {
+          updateData.checkInAt = serverTimestamp;
+          updateData.checkInSource = "digital";
+          if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
+            updateData.attendanceStatus = "asistio";
+            updateData.actualGuardiaId = guardia.id;
           }
-
-          const metrics = computeAttendanceMetrics({
-            plannedShiftStart: asistencia.plannedShiftStart ?? asistencia.puesto.shiftStart,
-            plannedShiftEnd: asistencia.plannedShiftEnd ?? asistencia.puesto.shiftEnd,
-            checkInAt: tipo === "entrada" ? serverTimestamp : asistencia.checkInAt,
-            checkOutAt: tipo === "salida" ? serverTimestamp : asistencia.checkOutAt,
-          });
-          updateData.plannedMinutes = metrics.plannedMinutes;
-          updateData.workedMinutes = metrics.workedMinutes;
-          updateData.overtimeMinutes = metrics.overtimeMinutes;
-          updateData.lateMinutes = metrics.lateMinutes;
-          updateData.hoursCalculatedAt = new Date();
-
-          await tx.opsAsistenciaDiaria.update({
-            where: { id: asistencia.id },
-            data: updateData,
-          });
+        } else {
+          updateData.checkOutAt = serverTimestamp;
+          updateData.checkOutSource = "digital";
         }
+
+        const metrics = computeAttendanceMetrics({
+          plannedShiftStart: asistencia.plannedShiftStart ?? asistencia.puesto.shiftStart,
+          plannedShiftEnd: asistencia.plannedShiftEnd ?? asistencia.puesto.shiftEnd,
+          checkInAt: tipo === "entrada" ? serverTimestamp : asistencia.checkInAt,
+          checkOutAt: tipo === "salida" ? serverTimestamp : asistencia.checkOutAt,
+        });
+        updateData.plannedMinutes = metrics.plannedMinutes;
+        updateData.workedMinutes = metrics.workedMinutes;
+        updateData.overtimeMinutes = metrics.overtimeMinutes;
+        updateData.lateMinutes = metrics.lateMinutes;
+        updateData.hoursCalculatedAt = new Date();
+
+        await tx.opsAsistenciaDiaria.update({
+          where: { id: asistencia.id },
+          data: updateData,
+        });
       }
 
       return marcacion;
@@ -355,7 +368,7 @@ export async function POST(req: NextRequest) {
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
     if (comprobanteEmailEnabled && persona.guardia && persona.firstName) {
       sendMarcacionComprobante({
-        guardiaName: `${persona.firstName} ${persona.lastName}`,
+        guardiaName: formatPersonName(persona.firstName, persona.lastName),
         guardiaEmail: persona.email ?? undefined,
         guardiaRut: normalizedRut,
         installationName: installation.name,
@@ -375,7 +388,7 @@ export async function POST(req: NextRequest) {
         timestamp: result.timestamp.toISOString(),
         geoValidada,
         geoDistanciaM,
-        guardiaName: `${persona.firstName} ${persona.lastName}`,
+        guardiaName: formatPersonName(persona.firstName, persona.lastName),
         installationName: installation.name,
         hashIntegridad: result.hashIntegridad,
       },

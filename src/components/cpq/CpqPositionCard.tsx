@@ -96,7 +96,9 @@ export function CpqPositionCard({
     }
   };
 
-  const title = position.customName || position.puestoTrabajo?.name || "Puesto";
+  const title = position.customName
+    || [position.cargo?.name, position.puestoTrabajo?.name].filter(Boolean).join(" - ")
+    || "Puesto";
   const puestoName = position.puestoTrabajo?.name || "Puesto";
   const roleName = position.rol?.name || "—";
   const shiftType = getShiftType(position.startTime);

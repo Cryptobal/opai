@@ -1381,6 +1381,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="space-y-1">
+                          <Label className="text-[10px]">Cargo *</Label>
+                          <select className={selectCompactClassName} value={dot.cargoId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cargoId", e.target.value)}>
+                            <option value="">Seleccionar cargo...</option>
+                            {cpqCargos.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
                           <Label className="text-[10px]">Tipo de puesto *</Label>
                           <select className={selectCompactClassName} value={dot.puestoTrabajoId || ""}
                             onChange={(e) => { const puestoTrabajoId = e.target.value; const selected = cpqPuestos.find((p) => p.id === puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puestoTrabajoId", puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puesto", selected?.name || dot.puesto || ""); }}>
@@ -1388,19 +1395,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                             {cpqPuestos.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
                           </select>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Nombre personalizado</Label>
-                          <Input value={dot.customName || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "customName", e.target.value)} placeholder={dot.puesto || "Ej: CCTV acceso principal"} className={`h-8 text-sm ${inputClassName}`} />
-                        </div>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-5">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Cargo *</Label>
-                          <select className={selectCompactClassName} value={dot.cargoId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cargoId", e.target.value)}>
-                            <option value="">Seleccionar cargo...</option>
-                            {cpqCargos.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                          </select>
-                        </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">Rol *</Label>
                           <select className={selectCompactClassName} value={dot.rolId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "rolId", e.target.value)}>

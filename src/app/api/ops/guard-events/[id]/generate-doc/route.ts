@@ -130,13 +130,21 @@ export async function POST(
     });
 
     // 6. Create associations: link to guard and event
-    await prisma.docAssociation.create({
-      data: {
-        documentId: document.id,
-        entityType: "ops_guardia",
-        entityId: guardia.id,
-        role: "primary",
-      },
+    await prisma.docAssociation.createMany({
+      data: [
+        {
+          documentId: document.id,
+          entityType: "ops_guardia",
+          entityId: guardia.id,
+          role: "primary",
+        },
+        {
+          documentId: document.id,
+          entityType: "guard_event",
+          entityId: event.id,
+          role: "source",
+        },
+      ],
     });
 
     return NextResponse.json({

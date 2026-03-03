@@ -2302,6 +2302,23 @@ model OpsPautaMensual {
   @@schema("ops")
 }
 
+model OpsPpcSnapshot {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  date           DateTime @db.Date
+  totalPpc       Int      @map("total_ppc")
+  totalGuards    Int      @map("total_guards")
+  ppcPercentage  Float    @map("ppc_percentage")
+  byReason       Json     @map("by_reason") @db.JsonB
+  byInstallation Json     @map("by_installation") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, date], map: "uq_ops_ppc_snapshot_tenant_date")
+  @@index([tenantId, date(sort: Desc)], map: "idx_ops_ppc_snapshot_tenant_date")
+  @@map("ops_ppc_snapshots")
+  @@schema("ops")
+}
+
 model OpsAsignacionGuardia {
   id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId       String    @map("tenant_id")
