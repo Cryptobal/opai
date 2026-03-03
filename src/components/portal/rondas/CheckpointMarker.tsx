@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { QrScanner } from "./QrScanner";
 import { PhotoCapture } from "./PhotoCapture";
+import { savePendingMark, getPendingMarks, clearPendingMarks } from "@/lib/rondas-offline";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -204,6 +205,35 @@ export function CheckpointMarker({
   }, []);
 
   // ------------------------------------------------------------------
+  // Online sync — flush pending offline marks when connectivity returns
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    async function syncPending() {
+      try {
+        const marks = await getPendingMarks();
+        if (marks.length === 0) return;
+        const res = await fetch("/api/portal/rondas/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ marks }),
+        });
+        if (res.ok) {
+          await clearPendingMarks();
+          const json = await res.json();
+          console.log("[Rondas] Synced", json.data?.synced ?? marks.length, "pending marks");
+        }
+      } catch {
+        // Will retry next time online
+      }
+    }
+
+    window.addEventListener("online", syncPending);
+    // Also try on mount in case we're already online with pending marks
+    syncPending();
+    return () => window.removeEventListener("online", syncPending);
+  }, []);
+
+  // ------------------------------------------------------------------
   // Revoke photo preview URL on unmount
   // ------------------------------------------------------------------
   useEffect(() => {
@@ -309,35 +339,68 @@ export function CheckpointMarker({
         clientTimestamp: timestamp,
       };
 
-      const res = await fetch("/api/portal/rondas/marcar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      let result: MarcarResult;
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.error || `Error del servidor (${res.status})`);
-      }
+      try {
+        const res = await fetch("/api/portal/rondas/marcar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-      const json = await res.json();
-      if (!json.success) {
-        throw new Error(json.error || "Error al registrar marcacion");
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null);
+          throw new Error(errJson?.error || `Error del servidor (${res.status})`);
+        }
+
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error || "Error al registrar marcacion");
+        }
+
+        result = {
+          id: json.data?.id ?? "",
+          trustScore: json.data?.trustScore ?? 0,
+          anomalies: json.data?.anomalies ?? [],
+          geo: {
+            valid: json.data?.geo?.valid ?? withinRadius,
+            distanceM: json.data?.geo?.distanceM ?? distanceM,
+          },
+        };
+      } catch (networkErr) {
+        // Network error (offline) — save to IndexedDB for later sync
+        if (
+          networkErr instanceof TypeError ||
+          (networkErr instanceof Error && networkErr.message === "Failed to fetch")
+        ) {
+          try {
+            await savePendingMark({ ...body, isOfflineSync: true });
+            console.log("[Rondas] Mark saved offline for later sync");
+          } catch (idbErr) {
+            console.error("[Rondas] Failed to save offline mark:", idbErr);
+            throw new Error("Sin conexion y no se pudo guardar localmente");
+          }
+
+          // Synthetic result for offline save
+          result = {
+            id: `offline-${Date.now()}`,
+            trustScore: 0,
+            anomalies: [],
+            geo: {
+              valid: withinRadius,
+              distanceM,
+            },
+          };
+        } else {
+          // Server returned an error response — rethrow as-is
+          throw networkErr;
+        }
       }
 
       // 6. Haptic feedback
       navigator.vibrate?.(200);
 
       // 7. Callback
-      const result: MarcarResult = {
-        id: json.data?.id ?? "",
-        trustScore: json.data?.trustScore ?? 0,
-        anomalies: json.data?.anomalies ?? [],
-        geo: {
-          valid: json.data?.geo?.valid ?? withinRadius,
-          distanceM: json.data?.geo?.distanceM ?? distanceM,
-        },
-      };
       onComplete(result);
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : "Error de conexion");
