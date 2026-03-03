@@ -8,6 +8,7 @@ import type { RondaData, CompletionData } from "./RondaActiva";
 import { RondaCompletada } from "./RondaCompletada";
 import { CheckpointMarker } from "./CheckpointMarker";
 import type { CheckpointInfo, MarcarResult } from "./CheckpointMarker";
+import { InstallBanner } from "./InstallBanner";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "marcar" | "completada";
 
@@ -28,6 +29,20 @@ export function RondasPortalClient() {
   const [activeCheckpointId, setActiveCheckpointId] = useState<string | null>(null);
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
   const [loadingRonda, setLoadingRonda] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  // Track online/offline status
+  useEffect(() => {
+    setIsOffline(!navigator.onLine);
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, []);
 
   // Restore session from sessionStorage on mount (with 12h TTL)
   useEffect(() => {
@@ -160,6 +175,12 @@ export function RondasPortalClient() {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {isOffline && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white">
+          Sin conexión — modo offline
+        </div>
+      )}
+
       {screen === "login" && <LoginScreen onLogin={handleLogin} />}
 
       {screen === "mis-rondas" && session && (
@@ -226,6 +247,8 @@ export function RondasPortalClient() {
           onBackToRondas={handleBackToRondas}
         />
       )}
+
+      <InstallBanner />
     </div>
   );
 }
