@@ -92,6 +92,7 @@ export type InstallationDetail = {
     activeUntil?: string | null;
     cargo?: { name: string } | null;
     rol?: { name: string } | null;
+    puestoTrabajo?: { name: string } | null;
   }>;
   asignacionGuardias?: Array<{
     id: string;

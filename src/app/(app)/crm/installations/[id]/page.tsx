@@ -110,6 +110,7 @@ export default async function CrmInstallationDetailPage({
         activeUntil: true,
         cargo: { select: { name: true } },
         rol: { select: { name: true } },
+        puestoTrabajo: { select: { name: true } },
       },
     }),
     prisma.cpqQuote.findMany({
