@@ -5,6 +5,7 @@ import { computeMarcacionHash } from "@/lib/marcacion";
 import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
+import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 
 // ---------------------------------------------------------------------------
 // Inline validation — individual mark payload (same shape as /marcar body)
@@ -142,7 +143,17 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   // 5. Geo validation + speed calculation
   const prev = execution.marcaciones[0];
   const geo = isWithinGeoRadius(lat, lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM);
-  const now = new Date();
+
+  // Use client timestamp when available (offline marks carry the original capture time)
+  let now = new Date();
+  if (mark.clientTimestamp) {
+    const parsed = new Date(mark.clientTimestamp);
+    const ageMs = Date.now() - parsed.getTime();
+    // Accept if valid date within the last 48 hours and not in the future
+    if (!isNaN(parsed.getTime()) && ageMs >= -60_000 && ageMs <= 48 * 3600_000) {
+      now = parsed;
+    }
+  }
   const elapsedSec = prev ? Math.max(1, Math.round((now.getTime() - prev.timestamp.getTime()) / 1000)) : 0;
   const prevDistance =
     prev?.lat != null && prev?.lng != null
@@ -173,7 +184,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   // 8. Integrity hash
   const hash = computeMarcacionHash({
     tenantId: execution.tenantId,
-    guardiaId: guardiaId ?? "unknown",
+    guardiaId: guardiaId!,
     installationId: execution.rondaTemplate.installationId,
     tipo: "checkpoint",
     timestamp: now.toISOString(),
@@ -259,4 +270,23 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
       });
     }
   });
+
+  // Post-mark alerts (order compliance, missed windows, etc.) — fire-and-forget
+  evaluatePostMarkAlerts({
+    tenantId: execution.tenantId,
+    ejecucionId: execution.id,
+    installationId: execution.rondaTemplate.installationId,
+    guardiaId: guardiaId!,
+    checkpointId: checkpoint.id,
+    checkpointName: checkpoint.name,
+    templateOrderMode: execution.rondaTemplate.orderMode ?? "flexible",
+    marcacion: {
+      lat,
+      lng,
+      verificationMethod: verificationMethod ?? "QR",
+      geoDistanciaM: geo.distanceM,
+      checkpointRadius: checkpoint.geoRadiusM,
+      timestamp: now,
+    },
+  }).catch(err => console.error("[RONDAS] evaluatePostMarkAlerts error (sync):", err));
 }

@@ -208,7 +208,11 @@ export function CheckpointMarker({
   // Online sync — flush pending offline marks when connectivity returns
   // ------------------------------------------------------------------
   useEffect(() => {
+    let syncInFlight = false;
+
     async function syncPending() {
+      if (syncInFlight) return;
+      syncInFlight = true;
       try {
         const marks = await getPendingMarks();
         if (marks.length === 0) return;
@@ -218,12 +222,17 @@ export function CheckpointMarker({
           body: JSON.stringify({ marks }),
         });
         if (res.ok) {
-          await clearPendingMarks();
           const json = await res.json();
-          console.log("[Rondas] Synced", json.data?.synced ?? marks.length, "pending marks");
+          // Only clear if all marks synced; otherwise keep failed ones
+          if ((json.data?.failed ?? 0) === 0) {
+            await clearPendingMarks();
+          }
+          console.log("[Rondas] Synced", json.data?.synced ?? 0, "marks,", json.data?.failed ?? 0, "failed");
         }
       } catch {
         // Will retry next time online
+      } finally {
+        syncInFlight = false;
       }
     }
 
@@ -369,10 +378,8 @@ export function CheckpointMarker({
         };
       } catch (networkErr) {
         // Network error (offline) — save to IndexedDB for later sync
-        if (
-          networkErr instanceof TypeError ||
-          (networkErr instanceof Error && networkErr.message === "Failed to fetch")
-        ) {
+        // TypeError is the standard fetch failure across all browsers (Chrome, Firefox, Safari)
+        if (networkErr instanceof TypeError) {
           try {
             await savePendingMark({ ...body, isOfflineSync: true });
             console.log("[Rondas] Mark saved offline for later sync");
