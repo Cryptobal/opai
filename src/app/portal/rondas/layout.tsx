@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 export default function PortalRondasLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-[#f5f5f5] antialiased">
+      <ServiceWorkerRegistrar />
       {children}
     </div>
   );
