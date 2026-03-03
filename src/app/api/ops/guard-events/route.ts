@@ -424,10 +424,10 @@ async function autoGenerateAmonestacionDoc(
 
   const fullName = `${guardia.persona.firstName} ${guardia.persona.lastName}`;
   const rut = guardia.persona.rut ?? "";
-  const address = guardia.persona.address ?? "";
+  const address = guardia.persona.addressFormatted ?? "";
   const commune = guardia.persona.commune ?? "";
   const email = guardia.persona.email ?? "";
-  const phone = guardia.persona.phone ?? "";
+  const phone = guardia.persona.phoneMobile ?? guardia.persona.phone ?? "";
 
   const prompt = `Genera una carta formal de amonestación escrita para un guardia de seguridad. La carta debe ser profesional, en español de Chile, y firmada por el representante legal de GARD SEGURIDAD LTDA.
 
