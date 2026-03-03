@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { LoginScreen } from "./LoginScreen";
 import { MisRondas } from "./MisRondas";
+import { RondaActiva } from "./RondaActiva";
+import type { RondaData, CompletionData } from "./RondaActiva";
+import { RondaCompletada } from "./RondaCompletada";
+import { CheckpointMarker } from "./CheckpointMarker";
+import type { CheckpointInfo, MarcarResult } from "./CheckpointMarker";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "marcar" | "completada";
 
@@ -19,6 +24,9 @@ export function RondasPortalClient() {
   const [screen, setScreen] = useState<RondasScreen>("login");
   const [session, setSession] = useState<RondasSession | null>(null);
   const [activeEjecucionId, setActiveEjecucionId] = useState<string | null>(null);
+  const [activeRondaData, setActiveRondaData] = useState<RondaData | null>(null);
+  const [activeCheckpointId, setActiveCheckpointId] = useState<string | null>(null);
+  const [completionData, setCompletionData] = useState<CompletionData | null>(null);
 
   // Restore session from sessionStorage on mount (with 12h TTL)
   useEffect(() => {
@@ -50,50 +58,154 @@ export function RondasPortalClient() {
 
   const handleLogout = () => {
     setSession(null);
+    setActiveRondaData(null);
+    setActiveEjecucionId(null);
+    setActiveCheckpointId(null);
+    setCompletionData(null);
     setScreen("login");
     sessionStorage.removeItem("rondas_portal_session");
     sessionStorage.removeItem("rondas_portal_auth_temp");
   };
 
+  // Fetch fresh ronda data for the active ejecucion
+  const fetchRondaData = useCallback(
+    async (ejecucionId: string): Promise<RondaData | null> => {
+      if (!session) return null;
+      try {
+        const params = new URLSearchParams({
+          guardiaId: session.guardiaId,
+          installationId: session.installationId,
+          tenantId: session.tenantId,
+        });
+        const res = await fetch(`/api/portal/rondas/mis-rondas?${params.toString()}`);
+        if (!res.ok) return null;
+        const json = await res.json();
+        if (!json.success || !json.data) return null;
+        const found = (json.data as RondaData[]).find((r) => r.ejecucionId === ejecucionId);
+        return found ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [session],
+  );
+
+  // Navigate: mis-rondas -> ronda-activa
+  const handleIniciarRonda = useCallback(
+    async (ejecucionId: string) => {
+      setActiveEjecucionId(ejecucionId);
+      // Fetch fresh data
+      const data = await fetchRondaData(ejecucionId);
+      if (data) {
+        setActiveRondaData(data);
+        setScreen("ronda-activa");
+      }
+    },
+    [fetchRondaData],
+  );
+
+  // Navigate: ronda-activa -> marcar
+  const handleMark = (checkpointId: string) => {
+    setActiveCheckpointId(checkpointId);
+    setScreen("marcar");
+  };
+
+  // Navigate: marcar -> ronda-activa (after successful marking)
+  const handleMarcarComplete = useCallback(
+    async (_result: MarcarResult) => {
+      // Refresh ronda data to get updated checkpoint statuses
+      if (activeEjecucionId) {
+        const data = await fetchRondaData(activeEjecucionId);
+        if (data) {
+          setActiveRondaData(data);
+        }
+      }
+      setActiveCheckpointId(null);
+      setScreen("ronda-activa");
+    },
+    [activeEjecucionId, fetchRondaData],
+  );
+
+  // Navigate: ronda-activa -> completada
+  const handleRondaComplete = (data: CompletionData) => {
+    setCompletionData(data);
+    setScreen("completada");
+  };
+
+  // Navigate: completada -> mis-rondas
+  const handleBackToRondas = () => {
+    setActiveRondaData(null);
+    setActiveEjecucionId(null);
+    setActiveCheckpointId(null);
+    setCompletionData(null);
+    setScreen("mis-rondas");
+  };
+
+  // Build CheckpointInfo from rondaData for the active checkpoint
+  const activeCheckpoint: CheckpointInfo | null =
+    activeRondaData && activeCheckpointId
+      ? (() => {
+          const cp = activeRondaData.checkpoints.find((c) => c.id === activeCheckpointId);
+          if (!cp) return null;
+          return {
+            id: cp.id,
+            name: cp.name,
+            lat: cp.lat,
+            lng: cp.lng,
+            geoRadiusM: cp.geoRadiusM,
+            verificationType: cp.verificationType,
+          };
+        })()
+      : null;
+
   return (
     <div className="flex min-h-dvh flex-col">
       {screen === "login" && <LoginScreen onLogin={handleLogin} />}
+
       {screen === "mis-rondas" && session && (
         <MisRondas
           session={session}
           onLogout={handleLogout}
-          onIniciarRonda={(ejecucionId) => {
-            setActiveEjecucionId(ejecucionId);
+          onIniciarRonda={handleIniciarRonda}
+        />
+      )}
+
+      {screen === "ronda-activa" && session && activeRondaData && (
+        <RondaActiva
+          session={session}
+          rondaData={activeRondaData}
+          onMark={handleMark}
+          onComplete={handleRondaComplete}
+          onBack={() => {
+            setActiveRondaData(null);
+            setActiveEjecucionId(null);
+            setScreen("mis-rondas");
+          }}
+        />
+      )}
+
+      {screen === "marcar" && session && activeCheckpoint && activeRondaData && activeEjecucionId && (
+        <CheckpointMarker
+          checkpoint={activeCheckpoint}
+          ejecucionId={activeEjecucionId}
+          guardiaId={session.guardiaId}
+          qrRequerido={activeRondaData.qrRequerido}
+          onComplete={handleMarcarComplete}
+          onBack={() => {
+            setActiveCheckpointId(null);
             setScreen("ronda-activa");
           }}
         />
       )}
-      {screen === "ronda-activa" && session && (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="text-center space-y-4">
-            <p className="text-lg text-gray-400">Ronda Activa</p>
-            <p className="text-sm text-gray-500">ID: {activeEjecucionId}</p>
-            <button
-              onClick={() => setScreen("mis-rondas")}
-              className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-gray-400 hover:bg-gray-700"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      )}
-      {(screen === "marcar" || screen === "completada") && session && (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="text-center space-y-4">
-            <p className="text-lg text-gray-400">{screen === "marcar" ? "Marcar Checkpoint" : "Ronda Completada"}</p>
-            <button
-              onClick={() => setScreen("mis-rondas")}
-              className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-gray-400 hover:bg-gray-700"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
+
+      {screen === "completada" && session && completionData && (
+        <RondaCompletada
+          trustScore={completionData.trustScore}
+          porcentajeCompletado={completionData.porcentajeCompletado}
+          durationMinutes={completionData.durationMinutes}
+          missed={completionData.missed}
+          onBackToRondas={handleBackToRondas}
+        />
       )}
     </div>
   );
