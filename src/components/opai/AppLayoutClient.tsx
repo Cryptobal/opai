@@ -141,18 +141,20 @@ export function AppLayoutClient({
       show: hasModuleAccess(permissions, 'ops'),
       badge: opsNotesBadge,
       children: [
-        (() => {
-          const pautaChildren = [
-            canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
-            canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
+        // ── Subgrupo Pautas (Etapa 3) ──
+        (canView(permissions, 'ops', 'pauta_mensual') || canView(permissions, 'ops', 'pauta_diaria') || canView(permissions, 'ops', 'turnos_extra') || canView(permissions, 'ops', 'ppc')) && {
+          href: '/ops/pautas',
+          label: 'Pautas',
+          icon: CalendarDays,
+          children: [
+            canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Mensual', icon: CalendarDays },
+            canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Diaria', icon: UserRoundCheck },
             canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
-            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Turnos Refuerzo', icon: Clock3 },
+            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Refuerzos', icon: Clock3 },
             canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
-          ].filter(Boolean) as NavItem['children'];
-          return pautaChildren.length > 0
-            ? { href: '/ops/pauta-mensual', label: 'Pauta', icon: CalendarDays, children: pautaChildren }
-            : null;
-        })(),
+          ].filter(Boolean) as NavItem['children'],
+        },
+        // ── Ítems individuales ──
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon, badge: notesByModule.operation },

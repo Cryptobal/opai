@@ -20,12 +20,14 @@ import {
 
 const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops", label: "Inicio", icon: LayoutDashboard, exactMatch: true },
+  // ── Grupo Pautas ──
   { href: "/ops/pauta-mensual", label: "Pauta Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { href: "/ops/pauta-diaria", label: "Pauta Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, subKey: "turnos_extra" },
   { href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
-  { href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
+  // ── Otros módulos ──
+  { href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
