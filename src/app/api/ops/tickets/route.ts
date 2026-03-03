@@ -151,11 +151,27 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const typeId: string | undefined = body.ticketTypeId ?? body.categoryId;
+    let typeId: string | undefined = body.ticketTypeId ?? body.categoryId;
 
-    if (!typeId || !body.title) {
+    if (!body.title) {
       return NextResponse.json(
-        { success: false, error: "Campos requeridos: ticketTypeId, title" },
+        { success: false, error: "El asunto (title) es requerido" },
+        { status: 400 },
+      );
+    }
+
+    if (!typeId) {
+      const defaultType = await prisma.opsTicketType.findFirst({
+        where: { tenantId: ctx.tenantId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true },
+      });
+      typeId = defaultType?.id;
+    }
+
+    if (!typeId) {
+      return NextResponse.json(
+        { success: false, error: "No hay tipos de ticket configurados. Configure uno en Ops > Tipos de ticket." },
         { status: 400 },
       );
     }

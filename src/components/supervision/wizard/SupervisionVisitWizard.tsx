@@ -50,6 +50,8 @@ export function SupervisionVisitWizard() {
   const [bookNotes, setBookNotes] = useState("");
   const [bookPhotoFile, setBookPhotoFile] = useState<File | null>(null);
   const [bookPhotoPreview, setBookPhotoPreview] = useState<string | null>(null);
+  const [puestoPhotoFile, setPuestoPhotoFile] = useState<File | null>(null);
+  const [puestoPhotoPreview, setPuestoPhotoPreview] = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<InstalacionDocumentType[]>([]);
   const [documentResults, setDocumentResults] = useState<DocumentCheckResult[]>([]);
 
@@ -223,7 +225,22 @@ export function SupervisionVisitWizard() {
         }
       }
 
-      // Upload book photo if present
+      // Upload puesto de guardia photo (obligatoria)
+      if (puestoPhotoFile) {
+        const formData = new FormData();
+        formData.append("file", puestoPhotoFile);
+        formData.append("categoryName", "Puesto de guardia y presentación personal");
+        const puestoRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
+          method: "POST",
+          body: formData,
+        });
+        const puestoJson = await puestoRes.json();
+        if (!puestoRes.ok || !puestoJson.success) {
+          throw new Error(puestoJson.error ?? "Error al subir foto del puesto de guardia");
+        }
+      }
+
+      // Upload book photo if present (solo cuando libro al día = Sí)
       let bookPhotoUrl: string | null = null;
       if (bookPhotoFile) {
         const formData = new FormData();
@@ -693,11 +710,14 @@ export function SupervisionVisitWizard() {
           checklistItems={checklistItems}
           checklistResults={checklistResults}
           openFindings={openFindings}
+          findingsCount={findings.length}
           bookUpToDate={bookUpToDate}
           bookLastEntryDate={bookLastEntryDate}
           bookNotes={bookNotes}
           bookPhotoFile={bookPhotoFile}
           bookPhotoPreview={bookPhotoPreview}
+          puestoPhotoFile={puestoPhotoFile}
+          puestoPhotoPreview={puestoPhotoPreview}
           documentTypes={documentTypes}
           documentResults={documentResults}
           onChecklistChange={setChecklistResults}
@@ -709,6 +729,10 @@ export function SupervisionVisitWizard() {
           onBookPhotoChange={(file, preview) => {
             setBookPhotoFile(file);
             setBookPhotoPreview(preview);
+          }}
+          onPuestoPhotoChange={(file, preview) => {
+            setPuestoPhotoFile(file);
+            setPuestoPhotoPreview(preview);
           }}
           onDocumentResultsChange={setDocumentResults}
           onFindingCreated={handleFindingCreated}

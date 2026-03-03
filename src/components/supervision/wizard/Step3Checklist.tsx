@@ -33,11 +33,14 @@ type Props = {
   checklistItems: ChecklistItem[];
   checklistResults: ChecklistResult[];
   openFindings: Finding[];
+  findingsCount: number;
   bookUpToDate: boolean | null;
   bookLastEntryDate: string;
   bookNotes: string;
   bookPhotoFile: File | null;
   bookPhotoPreview: string | null;
+  puestoPhotoFile: File | null;
+  puestoPhotoPreview: string | null;
   documentTypes: InstalacionDocumentType[];
   documentResults: DocumentCheckResult[];
   onChecklistChange: (results: ChecklistResult[]) => void;
@@ -47,6 +50,7 @@ type Props = {
     bookNotes: string;
   }) => void;
   onBookPhotoChange: (file: File | null, preview: string | null) => void;
+  onPuestoPhotoChange: (file: File | null, preview: string | null) => void;
   onDocumentResultsChange: (results: DocumentCheckResult[]) => void;
   onFindingCreated: (finding: Finding) => void;
   onFindingStatusChange: (findingId: string, status: string) => void;
@@ -60,15 +64,19 @@ export function Step3Checklist({
   checklistItems,
   checklistResults,
   openFindings,
+  findingsCount,
   bookUpToDate,
   bookLastEntryDate,
   bookNotes,
   bookPhotoPreview,
+  puestoPhotoFile,
+  puestoPhotoPreview,
   documentTypes,
   documentResults,
   onChecklistChange,
   onBookChange,
   onBookPhotoChange,
+  onPuestoPhotoChange,
   onDocumentResultsChange,
   onFindingCreated,
   onFindingStatusChange,
@@ -78,6 +86,7 @@ export function Step3Checklist({
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
   const bookPhotoInputRef = useRef<HTMLInputElement>(null);
+  const puestoPhotoInputRef = useRef<HTMLInputElement>(null);
   const docPhotoInputRef = useRef<HTMLInputElement>(null);
   const [activeDocCode, setActiveDocCode] = useState<string | null>(null);
 
@@ -153,6 +162,25 @@ export function Step3Checklist({
 
   const bookRequiredFilled = bookUpToDate !== null;
   const bookNotesRequired = bookUpToDate === false;
+  const bookPhotoRequired = bookUpToDate === true;
+  const bookPhotoFulfilled = bookPhotoRequired ? !!bookPhotoPreview : true;
+  const whenBookNoRequireFinding = bookUpToDate === false;
+  const findingRequiredFulfilled = !whenBookNoRequireFinding || findingsCount > 0;
+  const puestoPhotoFulfilled = !!puestoPhotoPreview;
+
+  function handlePuestoPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (puestoPhotoPreview) URL.revokeObjectURL(puestoPhotoPreview);
+    const preview = URL.createObjectURL(file);
+    onPuestoPhotoChange(file, preview);
+    if (puestoPhotoInputRef.current) puestoPhotoInputRef.current.value = "";
+  }
+
+  function handleRemovePuestoPhoto() {
+    if (puestoPhotoPreview) URL.revokeObjectURL(puestoPhotoPreview);
+    onPuestoPhotoChange(null, null);
+  }
 
   function handleBookPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -181,6 +209,56 @@ export function Step3Checklist({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Puesto de guardia y presentación personal — foto obligatoria */}
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Camera className="h-4 w-4" />
+              Puesto de guardia y presentación personal
+              <span className="text-[10px] text-amber-400">(obligatorio)</span>
+            </p>
+            <input
+              ref={puestoPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handlePuestoPhotoCapture}
+            />
+            {puestoPhotoPreview ? (
+              <div className="relative inline-block">
+                <img
+                  src={puestoPhotoPreview}
+                  alt="Puesto de guardia"
+                  className="h-24 w-auto rounded-lg border object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemovePuestoPhoto}
+                  className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full text-xs"
+                  onClick={() => puestoPhotoInputRef.current?.click()}
+                >
+                  Retomar foto
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => puestoPhotoInputRef.current?.click()}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Tomar foto
+              </Button>
+            )}
+          </div>
+
           {/* Document types from configuration — Sí/No buttons */}
           {documentTypes.length > 0 && (
             <div className="space-y-2">
@@ -429,52 +507,71 @@ export function Step3Checklist({
               )}
             </div>
 
-            {/* Book photo */}
-            <div className="space-y-2">
-              <Label className="text-xs">Foto del libro de novedades</Label>
-              <input
-                ref={bookPhotoInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleBookPhotoCapture}
-              />
+            {/* Book photo — solo cuando el libro está presente (Sí) */}
+            {bookUpToDate === true && (
+              <div className="space-y-2">
+                <Label className="text-xs">Foto última página del libro</Label>
+                <input
+                  ref={bookPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleBookPhotoCapture}
+                />
 
-              {bookPhotoPreview ? (
-                <div className="relative inline-block">
-                  <img
-                    src={bookPhotoPreview}
-                    alt="Libro de novedades"
-                    className="h-24 w-auto rounded-lg border object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRemoveBookPhoto}
-                    className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                {bookPhotoPreview ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={bookPhotoPreview}
+                      alt="Libro de novedades"
+                      className="h-24 w-auto rounded-lg border object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveBookPhoto}
+                      className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full text-xs"
+                      onClick={() => bookPhotoInputRef.current?.click()}
+                    >
+                      Retomar foto
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="mt-2 w-full text-xs"
+                    className="w-full"
                     onClick={() => bookPhotoInputRef.current?.click()}
                   >
-                    Retomar foto
+                    <Camera className="mr-2 h-4 w-4" />
+                    Fotografiar última página del libro
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => bookPhotoInputRef.current?.click()}
+                )}
+              </div>
+            )}
+
+            {bookUpToDate === false && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
+                <p className="font-medium">Libro no presente</p>
+                <p className="mt-1">
+                  Debes registrar un hallazgo (ticket/incidente) y agregar fotos adicionales en el paso de Evidencia.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowFindingModal(true)}
+                  className="mt-2 flex items-center gap-1 rounded border border-amber-500/50 px-2 py-1.5 text-amber-400 hover:bg-amber-500/10"
                 >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Fotografiar libro de novedades
-                </Button>
-              )}
-            </div>
+                  <AlertTriangle className="h-3 w-3" />
+                  Registrar hallazgo
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Open findings from previous visits */}
@@ -549,7 +646,14 @@ export function Step3Checklist({
             </Button>
             <Button
               onClick={onNext}
-              disabled={saving || !bookRequiredFilled || (bookNotesRequired && !bookNotes.trim())}
+              disabled={
+                saving ||
+                !bookRequiredFilled ||
+                (bookNotesRequired && !bookNotes.trim()) ||
+                !bookPhotoFulfilled ||
+                !findingRequiredFulfilled ||
+                !puestoPhotoFulfilled
+              }
               className="flex-1"
               size="lg"
             >
@@ -557,9 +661,12 @@ export function Step3Checklist({
             </Button>
           </div>
 
-          {!bookRequiredFilled && (
+          {(!bookRequiredFilled || !bookPhotoFulfilled || !findingRequiredFulfilled || !puestoPhotoFulfilled) && (
             <p className="text-center text-xs text-amber-400">
-              Debes indicar si el libro de novedades esta al dia
+              {!bookRequiredFilled && "Debes indicar si el libro de novedades está al día. "}
+              {!puestoPhotoFulfilled && "Debes tomar la foto del puesto de guardia. "}
+              {bookUpToDate === true && !bookPhotoFulfilled && "Debes fotografiar la última página del libro. "}
+              {bookUpToDate === false && !findingRequiredFulfilled && "Debes registrar un hallazgo (libro no presente). "}
             </p>
           )}
         </CardContent>

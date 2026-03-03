@@ -25,11 +25,13 @@ import {
   ClipboardCheck,
   // CRM
   Users,
+  User,
   MapPin,
   TrendingUp,
   Contact,
   DollarSign,
   // Ops
+  Activity,
   CalendarDays,
   Clock3,
   UserRoundCheck,
@@ -79,12 +81,12 @@ export interface BottomNavItem {
 
 const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
-  { key: "docs", href: "/opai/inicio", label: "Docs", icon: FileText, app: "docs" },
-  { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
+  { key: "crm", href: "/crm", label: "Comercial", icon: TrendingUp, app: "crm" },
+  { key: "ops", href: "/ops", label: "Operaciones", icon: Activity, app: "ops" },
+  { key: "personas", href: "/personas/guardias", label: "Personas", icon: User, app: "ops" },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
-  { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
-  { key: "personas", href: "/personas/guardias", label: "Personas", icon: Shield, app: "ops" },
   { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
+  { key: "docs", href: "/opai/inicio", label: "Documentos", icon: FileText, app: "docs" },
   { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
 
@@ -101,13 +103,15 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 
 /* ── Ops sub-items ── */
 
+/* Pauta: Mensual, Diaria, Turnos Extra, Refuerzo, PPC agrupados */
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, subKey: "pauta_mensual" },
-  { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
-  { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
-  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
-  { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
+  { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Pauta Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
+  { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Pauta Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
+  { key: "ops-turnos-extra", href: "/ops/turnos-extra", label: "Turnos Extra", icon: Receipt, subKey: "turnos_extra" },
+  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Turnos Refuerzo", icon: Clock3, subKey: "turnos_extra" },
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
+  { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
@@ -147,7 +151,7 @@ const TE_ITEMS: BottomNavItem[] = [
 /* ── Personas sub-items ── */
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
-  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: Shield },
+  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: User },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
 ];
 

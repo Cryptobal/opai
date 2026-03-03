@@ -33,13 +33,11 @@ export async function GET(
     });
 
     // If no custom categories, return defaults
+    // Puesto de guardia y Libro de novedades están en Step 3 (Verificación)
     if (categories.length === 0) {
       const defaults = [
-        { id: "default-puesto", name: "Puesto de guardia", isMandatory: true, sortOrder: 0 },
-        { id: "default-presentacion", name: "Presentación personal", isMandatory: true, sortOrder: 1 },
-        { id: "default-libro", name: "Libro de novedades", isMandatory: true, sortOrder: 2 },
-        { id: "default-hallazgo", name: "Hallazgo detectado", isMandatory: false, sortOrder: 3 },
-        { id: "default-otra", name: "Otra evidencia", isMandatory: false, sortOrder: 4 },
+        { id: "default-hallazgo", name: "Hallazgo detectado", isMandatory: false, sortOrder: 0 },
+        { id: "default-otra", name: "Otra evidencia", isMandatory: false, sortOrder: 1 },
       ];
       return NextResponse.json({ success: true, data: defaults, isDefault: true });
     }

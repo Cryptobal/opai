@@ -6,7 +6,7 @@ import {
   Building2,
   Grid3x3,
   Calculator,
-  ClipboardList,
+  Activity,
   Receipt,
   Users,
   MapPin,
@@ -25,13 +25,12 @@ import {
   Wallet,
   BarChart3,
   Bell,
-  Shield,
+  User,
   ClipboardCheck,
   Landmark,
   Package,
   BookText,
   Inbox,
-  Sparkles,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -121,20 +120,9 @@ export function AppLayoutClient({
       badge: notificationUnreadCount,
     },
     {
-      href: '/opai/inicio',
-      label: 'Documentos',
-      icon: FileText,
-      show: hasModuleAccess(permissions, 'docs'),
-      badge: docsNotesBadge,
-      children: [
-        { href: '/opai/inicio', label: 'Envíos', icon: FileText },
-        { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
-      ],
-    },
-    {
       href: '/crm',
       label: 'Comercial',
-      icon: Building2,
+      icon: TrendingUp,
       show: hasModuleAccess(permissions, 'crm'),
       badge: crmNotesBadge || unreadMentionNotesCount,
       children: [
@@ -147,31 +135,25 @@ export function AppLayoutClient({
       ].filter(Boolean) as NavItem['children'],
     },
     {
-      href: '/payroll',
-      label: 'Payroll',
-      icon: Calculator,
-      show: hasModuleAccess(permissions, 'payroll'),
-      badge: payrollNotesBadge,
-      children: [
-        { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays, badge: notesByModule.payroll_record },
-        { href: '/payroll/anticipos', label: 'Anticipos', icon: Wallet },
-        { href: '/payroll/simulator', label: 'Simulador', icon: Calculator },
-        { href: '/payroll/parameters', label: 'Parámetros', icon: FileText },
-      ],
-    },
-    {
       href: '/ops',
       label: 'Operaciones',
-      icon: ClipboardList,
+      icon: Activity,
       show: hasModuleAccess(permissions, 'ops'),
       badge: opsNotesBadge,
       children: [
-        canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
-        canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
-        canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
-        canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Turnos Refuerzo', icon: Clock3 },
+        (() => {
+          const pautaChildren = [
+            canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Pauta Mensual', icon: CalendarDays },
+            canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Pauta Diaria', icon: UserRoundCheck },
+            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
+            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Turnos Refuerzo', icon: Clock3 },
+            canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
+          ].filter(Boolean) as NavItem['children'];
+          return pautaChildren.length > 0
+            ? { href: '/ops/pauta-mensual', label: 'Pauta', icon: CalendarDays, children: pautaChildren }
+            : null;
+        })(),
         canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
-        canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon, badge: notesByModule.operation },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
@@ -182,12 +164,25 @@ export function AppLayoutClient({
     {
       href: '/personas/guardias',
       label: 'Personas',
-      icon: Shield,
+      icon: User,
       show: hasModuleAccess(permissions, 'ops'),
       badge: personasNotesBadge,
       children: [
-        { href: '/personas/guardias', label: 'Listado', icon: Shield, badge: notesByModule.guard },
+        { href: '/personas/guardias', label: 'Listado', icon: User, badge: notesByModule.guard },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
+      ],
+    },
+    {
+      href: '/payroll',
+      label: 'Payroll',
+      icon: Calculator,
+      show: hasModuleAccess(permissions, 'payroll'),
+      badge: payrollNotesBadge,
+      children: [
+        { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays, badge: notesByModule.payroll_record },
+        { href: '/payroll/anticipos', label: 'Anticipos', icon: Wallet },
+        { href: '/payroll/simulator', label: 'Simulador', icon: Calculator },
+        { href: '/payroll/parameters', label: 'Parámetros', icon: FileText },
       ],
     },
     {
@@ -205,6 +200,17 @@ export function AppLayoutClient({
         canView(permissions, 'finance', 'contabilidad') && { href: '/finanzas/contabilidad', label: 'Contabilidad', icon: BookText },
         canView(permissions, 'finance', 'reportes') && { href: '/finanzas/reportes', label: 'Informes', icon: BarChart3 },
       ].filter(Boolean) as NavItem['children'],
+    },
+    {
+      href: '/opai/inicio',
+      label: 'Documentos',
+      icon: FileText,
+      show: hasModuleAccess(permissions, 'docs'),
+      badge: docsNotesBadge,
+      children: [
+        { href: '/opai/inicio', label: 'Envíos', icon: FileText },
+        { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
+      ],
     },
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, activityUnreadTotal]);
 

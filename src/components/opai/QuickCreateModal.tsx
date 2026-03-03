@@ -59,7 +59,7 @@ const TYPE_CONFIG: Record<
   },
   contact: {
     title: "Nuevo Contacto",
-    apiEndpoint: "/api/crm/contacts",
+    apiEndpoint: "/api/crm/quick-create/contact",
     redirectPrefix: "/crm/contacts/",
     fields: [
       { key: "firstName", label: "Nombre", required: true },
@@ -71,7 +71,7 @@ const TYPE_CONFIG: Record<
   },
   deal: {
     title: "Nuevo Negocio",
-    apiEndpoint: "/api/crm/deals",
+    apiEndpoint: "/api/crm/quick-create/deal",
     redirectPrefix: "/crm/deals/",
     fields: [
       { key: "title", label: "Nombre del negocio", required: true },
@@ -88,14 +88,9 @@ const TYPE_CONFIG: Record<
   },
   persona: {
     title: "Nueva Persona",
-    apiEndpoint: "/api/personas/guardias",
+    apiEndpoint: "",
     redirectPrefix: "/personas/guardias/",
-    fields: [
-      { key: "firstName", label: "Nombre", required: true },
-      { key: "lastName", label: "Apellido", required: true },
-      { key: "rut", label: "RUT" },
-      { key: "phoneMobile", label: "Celular", type: "tel" },
-    ],
+    fields: [],
   },
 };
 
@@ -123,15 +118,18 @@ export function QuickCreateModal({ type, onClose, context }: QuickCreateModalPro
 
     setSaving(true);
     try {
+      const payload = Object.fromEntries(
+        Object.entries(formData).map(([k, v]) => [k, v?.trim() || null])
+      );
       const res = await fetch(config.apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al crear");
 
-      const newId = data.id || data.data?.id;
+      const newId = data.id ?? data.data?.id;
       toast.success(`${config.title} creado`);
       onClose();
       if (newId) {
@@ -174,7 +172,7 @@ export function QuickCreateModal({ type, onClose, context }: QuickCreateModalPro
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Crear
+            Guardar
           </Button>
         </DialogFooter>
       </DialogContent>

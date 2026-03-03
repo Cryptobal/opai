@@ -90,6 +90,10 @@ export function Step4Evidence({
   const mandatory = photoCategories.filter((c) => c.isMandatory);
   const optional = photoCategories.filter((c) => !c.isMandatory);
 
+  // Cuando libro no está presente, se requieren fotos adicionales (hallazgo/incidente)
+  const requireExtraPhotos = visit.bookUpToDate === false;
+  const hasExtraPhotos = capturedPhotos.length > 0;
+
   function getPhotosForCategory(categoryId: string): CapturedPhoto[] {
     return capturedPhotos.filter((p) => p.categoryId === categoryId);
   }
@@ -101,6 +105,10 @@ export function Step4Evidence({
   const fulfilledMandatory = mandatory.filter(
     (c) => getPhotosForCategory(c.id).length > 0,
   ).length;
+
+  const canProceed =
+    mandatoryFulfilled &&
+    (!requireExtraPhotos || hasExtraPhotos);
 
   function handleCaptureClick(categoryId: string, categoryName: string) {
     setActiveCategoryId(categoryId);
@@ -299,7 +307,7 @@ export function Step4Evidence({
           </Button>
           <Button
             onClick={onNext}
-            disabled={saving || (totalMandatory > 0 && !mandatoryFulfilled)}
+            disabled={saving || !canProceed}
             className="flex-1"
             size="lg"
           >
@@ -310,6 +318,11 @@ export function Step4Evidence({
         {totalMandatory > 0 && !mandatoryFulfilled && (
           <p className="text-center text-xs text-amber-400">
             Faltan {totalMandatory - fulfilledMandatory} foto(s) obligatoria(s)
+          </p>
+        )}
+        {requireExtraPhotos && !hasExtraPhotos && (
+          <p className="text-center text-xs text-amber-400">
+            Libro no presente: debes agregar al menos una foto del hallazgo o evidencia adicional
           </p>
         )}
       </CardContent>

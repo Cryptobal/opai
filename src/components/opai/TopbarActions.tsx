@@ -44,7 +44,7 @@ const QUICK_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof T
   { label: "Nuevo Negocio", type: "deal", icon: Users },
   { label: "Nuevo Ticket", type: "ticket", icon: Ticket },
   { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
-  { label: "Nueva Persona", type: "persona", icon: Shield },
+  { label: "Nueva Persona", type: null, icon: Shield, navigateHref: "/personas/guardias" },
   { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
 ];
 
