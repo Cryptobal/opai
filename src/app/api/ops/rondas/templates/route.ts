@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
           description: parsed.data.description ?? null,
           orderMode: parsed.data.orderMode,
           estimatedDurationMin: parsed.data.estimatedDurationMin ?? null,
+          qrRequerido: parsed.data.qrRequerido ?? false,
           createdBy: ctx.userId,
         },
       });

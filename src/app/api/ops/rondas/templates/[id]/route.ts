@@ -79,6 +79,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           description: parsed.data.description,
           orderMode: parsed.data.orderMode,
           estimatedDurationMin: parsed.data.estimatedDurationMin,
+          ...(parsed.data.qrRequerido !== undefined && { qrRequerido: parsed.data.qrRequerido }),
         },
       });
 

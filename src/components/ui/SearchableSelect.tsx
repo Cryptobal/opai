@@ -85,7 +85,8 @@ export function SearchableSelect({
           const next = event.target.value;
           setQuery(next);
           setOpen(true);
-          if (value) onChange("");
+          // Solo limpiar si el usuario borra todo el texto; no al empezar a escribir
+          if (next.trim() === "" && value) onChange("");
         }}
         className="h-9"
       />

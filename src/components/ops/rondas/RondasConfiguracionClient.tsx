@@ -260,18 +260,26 @@ export function RondasConfiguracionClient({
     },
   ];
 
+  const installationOptions = useMemo(
+    () =>
+      installations.map((inst) => ({
+        id: inst.id,
+        label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
+      })),
+    [installations],
+  );
+
   return (
     <div className="space-y-4">
       <FilterBar>
-        <SearchableSelect
-          value={installationId}
-          options={installations.map((inst) => ({
-            id: inst.id,
-            label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
-          }))}
-          placeholder="Seleccionar instalación..."
-          onChange={(val) => setInstallationId(val)}
-        />
+        <div className="min-w-[200px] sm:min-w-[280px]">
+          <SearchableSelect
+            value={installationId}
+            options={installationOptions}
+            placeholder="Seleccionar instalación..."
+            onChange={(val) => setInstallationId(val)}
+          />
+        </div>
       </FilterBar>
 
       {installationId && <PatrullajeLink installationId={installationId} installationName={selectedInstallation?.name ?? ""} />}
@@ -341,6 +349,7 @@ export function RondasConfiguracionClient({
                   {tpl.orderMode === "strict" ? "Secuencial" : "Flexible"}
                   {tpl.estimatedDurationMin ? ` · ~${tpl.estimatedDurationMin} min` : ""}
                   {` · ${tpl.checkpoints?.length ?? 0} checkpoints`}
+                  {tpl.qrRequerido ? " · QR obligatorio" : ""}
                 </p>
                 {tpl.checkpoints?.length > 0 && (
                   <div className="flex flex-wrap gap-1">

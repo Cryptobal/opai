@@ -38,6 +38,7 @@ export interface RondaTemplatePayload {
   description?: string;
   orderMode: "strict" | "flexible";
   estimatedDurationMin?: number;
+  qrRequerido?: boolean;
   checkpointIds: string[];
 }
 
@@ -80,6 +81,7 @@ export function RondaTemplateForm({
   const [description, setDescription] = useState("");
   const [orderMode, setOrderMode] = useState<"strict" | "flexible">("flexible");
   const [estimatedDurationMin, setEstimatedDurationMin] = useState("");
+  const [qrRequerido, setQrRequerido] = useState(false);
   const [selected, setSelected] = useState<SelectedCheckpoint[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -125,6 +127,7 @@ export function RondaTemplateForm({
             description: description || undefined,
             orderMode,
             estimatedDurationMin: estimatedDurationMin ? Number(estimatedDurationMin) : undefined,
+            qrRequerido,
             checkpointIds: selected.map((s) => s.id),
           });
           setName("");
@@ -159,6 +162,16 @@ export function RondaTemplateForm({
           </Button>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 cursor-pointer text-sm">
+        <input
+          type="checkbox"
+          checked={qrRequerido}
+          onChange={(e) => setQrRequerido(e.target.checked)}
+          className="rounded border-border"
+        />
+        <span>QR obligatorio en checkpoints</span>
+      </label>
 
       <div className="rounded border border-border p-2">
         <p className="text-xs text-muted-foreground mb-2">Selecciona checkpoints:</p>
