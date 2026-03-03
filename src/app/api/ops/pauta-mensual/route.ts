@@ -217,12 +217,14 @@ export async function GET(request: NextRequest) {
           slotNumber: true,
           guardiaId: true,
           startDate: true,
+          guardia: { select: { lifecycleStatus: true } },
         },
       });
 
-      // Build lookup: puestoId|slotNumber → asignacion
+      // Build lookup: puestoId|slotNumber → asignacion (skip inactive/terminated guards)
       const asignacionMap = new Map<string, { guardiaId: string; startDate: Date }>();
       for (const a of activeAsignaciones) {
+        if (a.guardia?.lifecycleStatus === "inactivo") continue;
         asignacionMap.set(`${a.puestoId}|${a.slotNumber}`, {
           guardiaId: a.guardiaId,
           startDate: a.startDate,
@@ -438,7 +440,9 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             code: true,
-            persona: { select: { firstName: true, lastName: true } },
+            lifecycleStatus: true,
+            terminatedAt: true,
+            persona: { select: { firstName: true, lastName: true, rut: true } },
           },
         },
       },

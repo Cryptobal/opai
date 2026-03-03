@@ -146,7 +146,9 @@ type SlotAsignacion = {
   guardia: {
     id: string;
     code?: string | null;
-    persona: { firstName: string; lastName: string };
+    lifecycleStatus?: string;
+    terminatedAt?: string | null;
+    persona: { firstName: string; lastName: string; rut?: string | null };
   };
 };
 
@@ -577,6 +579,8 @@ export function OpsPautaMensualClient({
     cells: Map<string, CellData>;
     guardiaId?: string;
     guardiaName?: string;
+    isGuardiaFiniquitado?: boolean;
+    finiquitadoGuardiaInfo?: { name: string; rut?: string | null };
     patternCode?: string;
     patternWork?: number;
     patternOff?: number;
@@ -647,13 +651,22 @@ export function OpsPautaMensualClient({
       }
     }
 
-    // Guard name comes ONLY from active assignments (source of truth)
+    // Guard name comes from active assignments (source of truth)
+    // Mark finiquitado guards so UI can show (F) badge
     for (const a of slotAsignaciones) {
       const key: RowKey = `${a.puestoId}|${a.slotNumber}`;
       const row = rows.get(key);
       if (row && a.guardia) {
+        const isFiniquitado = a.guardia.lifecycleStatus === "inactivo" && a.guardia.terminatedAt != null;
         row.guardiaId = a.guardiaId;
         row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
+        row.isGuardiaFiniquitado = isFiniquitado;
+        if (isFiniquitado) {
+          row.finiquitadoGuardiaInfo = {
+            name: formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName),
+            rut: a.guardia.persona.rut ?? undefined,
+          };
+        }
       }
     }
 
@@ -974,8 +987,8 @@ export function OpsPautaMensualClient({
       existingSerie?.startShift === "day" || existingSerie?.startShift === "night"
         ? existingSerie.startShift
         : currentIsNight
-        ? "night"
-        : "day";
+          ? "night"
+          : "day";
 
     return {
       rotatePuestoId: rotatePuesto?.id ?? null,
@@ -1334,11 +1347,10 @@ export function OpsPautaMensualClient({
                               <tr key={p.id} className="border-t border-border/30">
                                 <td className="px-2 py-1 text-foreground truncate max-w-[160px]">{p.name}</td>
                                 <td className="text-center px-1 py-1">
-                                  <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[8px] font-semibold border ${
-                                    p.isNight
-                                      ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                  }`}>
+                                  <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[8px] font-semibold border ${p.isNight
+                                    ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                                    : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                    }`}>
                                     {p.isNight ? "N" : "D"}
                                     <span className="font-normal ml-0.5">{p.shiftStart}-{p.shiftEnd}</span>
                                   </span>
@@ -1508,22 +1520,20 @@ export function OpsPautaMensualClient({
               <button
                 type="button"
                 onClick={() => setViewMode("week")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  viewMode === "week"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "week"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 Semana
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("month")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  viewMode === "month"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "month"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 Mes completo
               </button>
@@ -1575,436 +1585,506 @@ export function OpsPautaMensualClient({
           </CardContent>
         </Card>
       ) : (
-      <Card>
-        <CardContent className="pt-3 pb-2.5">
-          {loading && matrix.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner size="md" />
-            </div>
-          ) : (
-            <>
-              {/* ── Resumen por tipo de turno ── */}
-              <div className="mb-3 space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {([
-                    { key: "day" as ShiftType, label: "Diurnos", icon: Sun, borderCls: "border-amber-500/30", iconCls: "text-amber-400", bgCls: "bg-amber-500/10" },
-                    { key: "rotativo" as ShiftType, label: "Rotativos", icon: RotateCw, borderCls: "border-violet-500/30", iconCls: "text-violet-400", bgCls: "bg-violet-500/10" },
-                    { key: "night" as ShiftType, label: "Nocturnos", icon: Moon, borderCls: "border-indigo-500/30", iconCls: "text-indigo-400", bgCls: "bg-indigo-500/10" },
-                  ] as const)
-                    .filter((s) => shiftSummary.byType[s.key].required > 0)
-                    .map((s) => {
-                      const data = shiftSummary.byType[s.key];
-                      const vacantes = Math.max(0, data.required - data.assigned);
-                      const SIcon = s.icon;
-                      return (
-                        <div key={s.key} className={`rounded-md border ${s.borderCls} ${s.bgCls} px-3 py-2`}>
-                          <div className="flex items-center gap-1.5 text-[11px] sm:text-[10px]">
-                            <SIcon className={`h-3.5 w-3.5 ${s.iconCls}`} />
-                            <span className="font-medium text-foreground">{s.label}</span>
-                          </div>
-                          <div className="mt-1 flex items-baseline gap-2 text-[11px] sm:text-[10px]">
-                            <span className="text-muted-foreground">
-                              {data.assigned}/{data.required} guardias
-                            </span>
-                            <span className={`font-medium ${vacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                              {vacantes > 0
-                                ? `${vacantes} vacante${vacantes !== 1 ? "s" : ""}`
-                                : "Completo"}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-                {/* Total general compacto */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-muted/10 px-3 py-1.5 text-[11px] sm:text-[10px]">
-                  <span className="font-medium text-foreground">Total</span>
-                  <span className="text-muted-foreground">
-                    {shiftSummary.totalAssignedSlots}/{shiftSummary.totalRequiredSlots} guardias
-                  </span>
-                  <span className={`font-medium ${shiftSummary.totalVacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                    {shiftSummary.totalVacantes > 0
-                      ? `${shiftSummary.totalVacantes} vacante${shiftSummary.totalVacantes !== 1 ? "s" : ""}`
-                      : "Cobertura completa"}
-                  </span>
-                </div>
+        <Card>
+          <CardContent className="pt-3 pb-2.5">
+            {loading && matrix.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="md" />
               </div>
-
-              <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto">
-              <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
-                <colgroup>
-                  <col style={{ width: "22%" }} />
-                  {visibleDays.map((d, i) => (
-                    <col key={`${d.getUTCDate()}-${i}`} />
-                  ))}
-                </colgroup>
-                <thead className="sticky top-0 z-20 bg-card shadow-[0_2px_4px_-1px_rgba(0,0,0,0.2)]">
-                  <tr className="border-b border-border">
-                    <th className="sticky left-0 z-30 bg-card text-left pl-1 pr-2 py-2 w-[22%] sm:min-w-[200px] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                      <span className="hidden sm:inline">Puesto / Guardia</span>
-                      <span className="sm:hidden text-xs">Puesto</span>
-                    </th>
-                    {visibleDays.map((d) => {
-                      const dayNum = d.getUTCDate();
-                      const dayName = WEEKDAY_SHORT[d.getUTCDay()];
-                      const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
-                      const isToday = toDateKey(d) === toLocalDateKey(new Date());
-                      const dateKey = toDateKey(d);
-                      const holidayName = holidayDates.get(dateKey);
-                      const isHoliday = !!holidayName;
-                      return (
-                        <th
-                          key={dayNum}
-                          className={`sticky top-0 z-20 bg-card text-center px-0.5 py-1 ${
-                            isToday ? "text-primary" : isHoliday ? "text-rose-400" : isWeekend ? "text-amber-400" : "text-muted-foreground"
-                          }`}
-                          title={holidayName || undefined}
-                        >
-                          <div className="text-[11px] sm:text-[10px] leading-tight">{dayName}</div>
-                          <div className={`font-semibold text-sm sm:text-xs ${
-                            isToday
-                              ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
-                              : isHoliday
-                                ? "bg-rose-500/20 text-rose-400 rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
-                                : ""
-                          }`}>
-                            {dayNum}
+            ) : (
+              <>
+                {/* ── Resumen por tipo de turno ── */}
+                <div className="mb-3 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {([
+                      { key: "day" as ShiftType, label: "Diurnos", icon: Sun, borderCls: "border-amber-500/30", iconCls: "text-amber-400", bgCls: "bg-amber-500/10" },
+                      { key: "rotativo" as ShiftType, label: "Rotativos", icon: RotateCw, borderCls: "border-violet-500/30", iconCls: "text-violet-400", bgCls: "bg-violet-500/10" },
+                      { key: "night" as ShiftType, label: "Nocturnos", icon: Moon, borderCls: "border-indigo-500/30", iconCls: "text-indigo-400", bgCls: "bg-indigo-500/10" },
+                    ] as const)
+                      .filter((s) => shiftSummary.byType[s.key].required > 0)
+                      .map((s) => {
+                        const data = shiftSummary.byType[s.key];
+                        const vacantes = Math.max(0, data.required - data.assigned);
+                        const SIcon = s.icon;
+                        return (
+                          <div key={s.key} className={`rounded-md border ${s.borderCls} ${s.bgCls} px-3 py-2`}>
+                            <div className="flex items-center gap-1.5 text-[11px] sm:text-[10px]">
+                              <SIcon className={`h-3.5 w-3.5 ${s.iconCls}`} />
+                              <span className="font-medium text-foreground">{s.label}</span>
+                            </div>
+                            <div className="mt-1 flex items-baseline gap-2 text-[11px] sm:text-[10px]">
+                              <span className="text-muted-foreground">
+                                {data.assigned}/{data.required} guardias
+                              </span>
+                              <span className={`font-medium ${vacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                                {vacantes > 0
+                                  ? `${vacantes} vacante${vacantes !== 1 ? "s" : ""}`
+                                  : "Completo"}
+                              </span>
+                            </div>
                           </div>
+                        );
+                      })}
+                  </div>
+                  {/* Total general compacto */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-muted/10 px-3 py-1.5 text-[11px] sm:text-[10px]">
+                    <span className="font-medium text-foreground">Total</span>
+                    <span className="text-muted-foreground">
+                      {shiftSummary.totalAssignedSlots}/{shiftSummary.totalRequiredSlots} guardias
+                    </span>
+                    <span className={`font-medium ${shiftSummary.totalVacantes > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                      {shiftSummary.totalVacantes > 0
+                        ? `${shiftSummary.totalVacantes} vacante${shiftSummary.totalVacantes !== 1 ? "s" : ""}`
+                        : "Cobertura completa"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto">
+                  <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
+                    <colgroup>
+                      <col style={{ width: "22%" }} />
+                      {visibleDays.map((d, i) => (
+                        <col key={`${d.getUTCDate()}-${i}`} />
+                      ))}
+                    </colgroup>
+                    <thead className="sticky top-0 z-20 bg-card shadow-[0_2px_4px_-1px_rgba(0,0,0,0.2)]">
+                      <tr className="border-b border-border">
+                        <th className="sticky left-0 z-30 bg-card text-left pl-1 pr-2 py-2 w-[22%] sm:min-w-[200px] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                          <span className="hidden sm:inline">Puesto / Guardia</span>
+                          <span className="sm:hidden text-xs">Puesto</span>
                         </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {([
-                    { key: "day" as const, label: "TURNOS DIURNOS", badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30", icon: Sun },
-                    { key: "rotativo" as const, label: "TURNOS ROTATIVOS", badgeClass: "bg-violet-500/15 text-violet-300 border-violet-500/30", icon: RotateCw },
-                    { key: "night" as const, label: "TURNOS NOCTURNOS", badgeClass: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30", icon: Moon },
-                  ]).flatMap((section) => {
-                    const groups = groupedByShiftType[section.key];
-                    if (groups.length === 0) return [];
-                    const SectionIcon = section.icon;
-                    const sectionIds = section.key === "day" ? daySectionIds : section.key === "night" ? nightSectionIds : rotativoSectionIds;
-                    const allSectionCollapsed = sectionIds.length > 0 && sectionIds.every((id) => collapsedPuestos.has(id));
-
-                    return [
-                      <tr key={`${section.key}-header`} className="sticky top-[42px] sm:top-[44px] z-10 border-y border-border">
-                        <td colSpan={1 + visibleDays.length} className="bg-card/95 backdrop-blur px-2 py-1">
-                          <div className="flex items-center gap-2 text-[11px] sm:text-[10px]">
-                            <button
-                              type="button"
-                              onClick={() => toggleSectionCollapsed(section.key)}
-                              className="shrink-0 p-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                              aria-label={allSectionCollapsed ? "Abrir todos" : "Contraer todos"}
-                            >
-                              {allSectionCollapsed
-                                ? <ChevronRight className="h-3.5 w-3.5" />
-                                : <ChevronDown className="h-3.5 w-3.5" />}
-                            </button>
-                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${section.badgeClass}`}>
-                              <SectionIcon className="h-3 w-3" />
-                              {section.label}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {groups.length} puesto{groups.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>,
-                      ...groups.flatMap((group) => {
-                        const isCollapsed = collapsedPuestos.has(group.puestoId);
-                        if (isCollapsed) {
-                          return [
-                            <tr
-                              key={group.puestoId}
-                              onClick={() => togglePuestoCollapsed(group.puestoId)}
-                              className="cursor-pointer hover:bg-muted/20 border-t border-border"
-                            >
-                              <td
-                                colSpan={1 + visibleDays.length}
-                                className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1.5 sm:py-2 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                                  <span className="font-medium text-foreground text-xs sm:text-sm">{group.puestoName}</span>
-                                  <span className="text-muted-foreground text-[10px]">
-                                    ({group.rows.length} slot{group.rows.length > 1 ? "s" : ""})
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>,
-                          ];
-                        }
-
-                        return group.rows.map((row, slotIdx) => {
-                          const isFirstSlot = slotIdx === 0;
+                        {visibleDays.map((d) => {
+                          const dayNum = d.getUTCDate();
+                          const dayName = WEEKDAY_SHORT[d.getUTCDay()];
+                          const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+                          const isToday = toDateKey(d) === toLocalDateKey(new Date());
+                          const dateKey = toDateKey(d);
+                          const holidayName = holidayDates.get(dateKey);
+                          const isHoliday = !!holidayName;
                           return (
-                            <tr
-                              key={`${row.puestoId}-${row.slotNumber}`}
-                              className={`${isFirstSlot ? "border-t border-border" : ""} hover:bg-muted/10`}
+                            <th
+                              key={dayNum}
+                              className={`sticky top-0 z-20 bg-card text-center px-0.5 py-1 ${isToday ? "text-primary" : isHoliday ? "text-rose-400" : isWeekend ? "text-amber-400" : "text-muted-foreground"
+                                }`}
+                              title={holidayName || undefined}
                             >
-                              {/* Row header: chevron + puesto/guardia */}
-                              <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 sm:py-1.5 align-top w-[22%] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                                {isFirstSlot && (
-                                  <div className="font-medium text-foreground leading-tight flex items-center gap-1 text-xs sm:text-sm min-w-0">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        togglePuestoCollapsed(group.puestoId);
-                                      }}
-                                      className="shrink-0 p-0.5 -ml-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                                      aria-label="Contraer puesto"
-                                    >
-                                      <ChevronDown className="h-3.5 w-3.5" />
-                                    </button>
-                                    <span className="truncate min-w-0 flex-1 sm:flex-none sm:truncate sm:max-w-[calc(100%-2rem)]">
-                                      <button
-                                        type="button"
-                                        onClick={() => setPuestoSheet({ puestoId: row.puestoId, puestoName: row.puestoName })}
-                                        className="sm:hidden text-left w-full truncate block hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                      >
-                                        {row.puestoName}
-                                      </button>
-                                      <span className="hidden sm:inline truncate">{row.puestoName}</span>
-                                    </span>
-                                    <span className="shrink-0 text-[10px] text-muted-foreground hidden sm:inline">
-                                      {`${row.shiftStart}-${row.shiftEnd}`}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="text-[11px] sm:text-[10px] mt-0.5 flex items-center gap-1">
-                                  <span className="text-muted-foreground font-mono">
-                                    S{row.slotNumber}
-                                  </span>
-                                  {row.guardiaName ? (
-                                    row.guardiaId ? (
-                                      <Link
-                                        href={`/personas/guardias/${row.guardiaId}`}
-                                        className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                      >
-                                        {row.guardiaName}
-                                      </Link>
-                                    ) : (
-                                      <span className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px]">
-                                        {row.guardiaName}
-                                      </span>
-                                    )
-                                  ) : (
-                                    <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
-                                  )}
-                                  {row.patternCode && (
-                                    <span className="text-primary/50 text-[10px] hidden sm:inline">
-                                      {row.patternCode}
-                                      {row.isRotativo ? (
-                                        <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                                          rot
-                                        </span>
-                                      ) : null}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
+                              <div className="text-[11px] sm:text-[10px] leading-tight">{dayName}</div>
+                              <div className={`font-semibold text-sm sm:text-xs ${isToday
+                                ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
+                                : isHoliday
+                                  ? "bg-rose-500/20 text-rose-400 rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
+                                  : ""
+                                }`}>
+                                {dayNum}
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {([
+                        { key: "day" as const, label: "TURNOS DIURNOS", badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30", icon: Sun },
+                        { key: "rotativo" as const, label: "TURNOS ROTATIVOS", badgeClass: "bg-violet-500/15 text-violet-300 border-violet-500/30", icon: RotateCw },
+                        { key: "night" as const, label: "TURNOS NOCTURNOS", badgeClass: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30", icon: Moon },
+                      ]).flatMap((section) => {
+                        const groups = groupedByShiftType[section.key];
+                        if (groups.length === 0) return [];
+                        const SectionIcon = section.icon;
+                        const sectionIds = section.key === "day" ? daySectionIds : section.key === "night" ? nightSectionIds : rotativoSectionIds;
+                        const allSectionCollapsed = sectionIds.length > 0 && sectionIds.every((id) => collapsedPuestos.has(id));
 
-                              {/* Day cells */}
-                              {visibleDays.map((d) => {
-                                const dateKey = toDateKey(d);
-                                const cellData = row.cells.get(dateKey);
-                                const cell = cellData?.item;
-                                const execution = cellData?.execution;
-                                const hasCell = Boolean(cellData);
-                                const isRotativoRow = row.isRotativo === true;
-                                const code = isRotativoRow
-                                  ? getRotativoDisplayCode(row, dateKey, cell?.shiftCode)
-                                  : (cell?.shiftCode ?? "");
-                                const isEmpty = !hasCell || !code;
-                                const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
-                                const trabajoClass = isRotativoRow
-                                  ? (code === "Tn"
-                                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
-                                    : "bg-amber-500/20 text-amber-300 border-amber-500/30")
-                                  : (group.shiftType === "night"
-                                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
-                                    : "bg-amber-500/20 text-amber-300 border-amber-500/30");
-                                const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
-                                const executionBadge =
-                                  execution?.state === "te"
-                                    ? "TE"
-                                    : execution?.state === "asistio"
-                                      ? "ASI"
-                                      : execution?.state === "sin_cobertura"
-                                        ? "SC"
-                                        : execution?.state === "ppc"
-                                          ? "PPC"
-                                          : null;
-                                const executionBadgeClass =
-                                  execution?.state === "te"
-                                    ? "bg-rose-600 text-rose-50"
-                                    : execution?.state === "asistio"
-                                      ? "bg-emerald-600 text-emerald-50"
-                                      : execution?.state === "sin_cobertura"
-                                        ? "bg-amber-500 text-amber-950"
-                                        : execution?.state === "ppc"
-                                          ? "bg-zinc-600 text-zinc-100"
-                                          : "";
-
-                                const clickPuestoId = row.puestoId;
-                                const clickSlotNumber = row.slotNumber;
-                                const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
-                                const displayCode = isRotativoRow
-                                  ? (code || "·")
-                                  : (isTrabajo ? "T" : (code || "·"));
-                                const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
-
-                                const isGuardiaFiniquitado = cell?.plannedGuardia?.lifecycleStatus === "inactivo"
-                                  && cell?.plannedGuardia?.terminatedAt != null;
-
-                                return (
+                        return [
+                          <tr key={`${section.key}-header`} className="sticky top-[42px] sm:top-[44px] z-10 border-y border-border">
+                            <td colSpan={1 + visibleDays.length} className="bg-card/95 backdrop-blur px-2 py-1">
+                              <div className="flex items-center gap-2 text-[11px] sm:text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSectionCollapsed(section.key)}
+                                  className="shrink-0 p-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                  aria-label={allSectionCollapsed ? "Abrir todos" : "Contraer todos"}
+                                >
+                                  {allSectionCollapsed
+                                    ? <ChevronRight className="h-3.5 w-3.5" />
+                                    : <ChevronDown className="h-3.5 w-3.5" />}
+                                </button>
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${section.badgeClass}`}>
+                                  <SectionIcon className="h-3 w-3" />
+                                  {section.label}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {groups.length} puesto{groups.length !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>,
+                          ...groups.flatMap((group) => {
+                            const isCollapsed = collapsedPuestos.has(group.puestoId);
+                            if (isCollapsed) {
+                              return [
+                                <tr
+                                  key={group.puestoId}
+                                  onClick={() => togglePuestoCollapsed(group.puestoId)}
+                                  className="cursor-pointer hover:bg-muted/20 border-t border-border"
+                                >
                                   <td
-                                    key={dateKey}
-                                    className="text-center px-0.5 py-0.5"
+                                    colSpan={1 + visibleDays.length}
+                                    className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1.5 sm:py-2 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
                                   >
-                                    {hasCell ? (
-                                      <div
-                                        className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
-                                          isEmpty
-                                            ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
-                                            : colorClass
-                                        }`}
-                                        title={
-                                          cell?.plannedGuardia
-                                            ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
-                                            : "Sin asignar"
-                                        }
-                                        onPointerDown={() => {
-                                          longPressTargetRef.current = {
-                                            puestoId: clickPuestoId,
-                                            slotNumber: clickSlotNumber,
-                                            dateKey,
-                                          };
-                                          longPressTimerRef.current = setTimeout(() => {
-                                            longPressTimerRef.current = null;
-                                            openEliminarSerieModal({
-                                              puestoId: clickPuestoId,
-                                              slotNumber: clickSlotNumber,
-                                              dateKey,
-                                              puestoName: row.puestoName,
-                                            });
-                                          }, 450);
-                                        }}
-                                        onPointerUp={() => {
-                                          if (longPressTimerRef.current) {
-                                            clearTimeout(longPressTimerRef.current);
-                                            longPressTimerRef.current = null;
-                                            longPressTargetRef.current = null;
-                                          }
-                                        }}
-                                        onPointerLeave={() => {
-                                          if (longPressTimerRef.current) {
-                                            clearTimeout(longPressTimerRef.current);
-                                            longPressTimerRef.current = null;
-                                            longPressTargetRef.current = null;
-                                          }
-                                        }}
-                                        onClick={() => {
-                                          const wasLongPress =
-                                            longPressTargetRef.current &&
-                                            longPressTargetRef.current.puestoId === clickPuestoId &&
-                                            longPressTargetRef.current.slotNumber === clickSlotNumber &&
-                                            longPressTargetRef.current.dateKey === dateKey;
-                                          if (wasLongPress) {
-                                            longPressTargetRef.current = null;
-                                            return;
-                                          }
-                                          openPintarOpcionesModal({
-                                            puestoId: clickPuestoId,
-                                            slotNumber: clickSlotNumber,
-                                            dateKey,
-                                            puestoName: row.puestoName,
-                                            guardiaId: clickGuardiaId,
-                                          });
-                                        }}
-                                        onContextMenu={(e) => {
-                                          e.preventDefault();
-                                          if (!hasCell) return;
-                                          openEliminarSerieModal({
-                                            puestoId: clickPuestoId,
-                                            slotNumber: clickSlotNumber,
-                                            dateKey,
-                                            puestoName: row.puestoName,
-                                          });
-                                        }}
-                                      >
-                                        {displayCode}
-                                        {displayBadge ? (
-                                          <span
-                                            className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${
-                                              displayBadge === "N"
-                                                ? "bg-indigo-700 text-indigo-100"
-                                                : "bg-amber-600 text-amber-50"
-                                            }`}
+                                    <div className="flex items-center gap-2">
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                      <span className="font-medium text-foreground text-xs sm:text-sm">{group.puestoName}</span>
+                                      <span className="text-muted-foreground text-[10px]">
+                                        ({group.rows.length} slot{group.rows.length > 1 ? "s" : ""})
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>,
+                              ];
+                            }
+
+                            return group.rows.map((row, slotIdx) => {
+                              const isFirstSlot = slotIdx === 0;
+                              return (
+                                <tr
+                                  key={`${row.puestoId}-${row.slotNumber}`}
+                                  className={`${isFirstSlot ? "border-t border-border" : ""} hover:bg-muted/10`}
+                                >
+                                  {/* Row header: chevron + puesto/guardia */}
+                                  <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 sm:py-1.5 align-top w-[22%] sm:w-auto shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                                    {isFirstSlot && (
+                                      <div className="font-medium text-foreground leading-tight flex items-center gap-1 text-xs sm:text-sm min-w-0">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            togglePuestoCollapsed(group.puestoId);
+                                          }}
+                                          className="shrink-0 p-0.5 -ml-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                          aria-label="Contraer puesto"
+                                        >
+                                          <ChevronDown className="h-3.5 w-3.5" />
+                                        </button>
+                                        <span className="truncate min-w-0 flex-1 sm:flex-none sm:truncate sm:max-w-[calc(100%-2rem)]">
+                                          <button
+                                            type="button"
+                                            onClick={() => setPuestoSheet({ puestoId: row.puestoId, puestoName: row.puestoName })}
+                                            className="sm:hidden text-left w-full truncate block hover:text-primary hover:underline underline-offset-2 transition-colors"
                                           >
-                                            {displayBadge}
-                                          </span>
-                                        ) : null}
-                                        {executionBadge ? (
-                                          <span
-                                            className={`absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm ${executionBadgeClass}`}
-                                            title={
-                                              execution?.state === "asistio"
-                                                ? "Asistió"
-                                                : execution?.state === "te"
-                                                  ? "Turno extra / Reemplazo"
-                                                  : execution?.state === "sin_cobertura"
-                                                    ? "Sin cobertura"
-                                                    : "PPC"
-                                            }
-                                          >
-                                            {executionBadge}
-                                          </span>
-                                        ) : null}
-                                        {isGuardiaFiniquitado && !executionBadge ? (
-                                          <span
-                                            className="absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-red-700 text-red-100"
-                                            title="Guardia finiquitado"
-                                          >
-                                            F
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    ) : (
-                                      <div
-                                        className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-7 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
-                                        onClick={() =>
-                                          openPintarOpcionesModal({
-                                            puestoId: clickPuestoId,
-                                            slotNumber: clickSlotNumber,
-                                            dateKey,
-                                            puestoName: row.puestoName,
-                                            guardiaId: clickGuardiaId,
-                                          })
-                                        }
-                                      >
-                                        ·
+                                            {row.puestoName}
+                                          </button>
+                                          <span className="hidden sm:inline truncate">{row.puestoName}</span>
+                                        </span>
+                                        <span className="shrink-0 text-[10px] text-muted-foreground hidden sm:inline">
+                                          {`${row.shiftStart}-${row.shiftEnd}`}
+                                        </span>
                                       </div>
                                     )}
+                                    <div className="text-[11px] sm:text-[10px] mt-0.5 flex items-center gap-1">
+                                      <span className="text-muted-foreground font-mono">
+                                        S{row.slotNumber}
+                                      </span>
+                                      {row.guardiaName ? (
+                                        <>
+                                          {row.guardiaId ? (
+                                            <Link
+                                              href={`/personas/guardias/${row.guardiaId}`}
+                                              className={`font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors ${row.isGuardiaFiniquitado ? "text-red-400 line-through decoration-red-500/40" : "text-foreground"}`}
+                                            >
+                                              {row.guardiaName}
+                                            </Link>
+                                          ) : (
+                                            <span className={`font-medium truncate max-w-[60px] sm:max-w-[120px] ${row.isGuardiaFiniquitado ? "text-red-400 line-through decoration-red-500/40" : "text-foreground"}`}>
+                                              {row.guardiaName}
+                                            </span>
+                                          )}
+                                          {row.isGuardiaFiniquitado && (
+                                            <span className="relative group/f shrink-0">
+                                              <span className="rounded px-1 py-px text-[8px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 cursor-help">
+                                                F
+                                              </span>
+                                              <span className="absolute hidden group-hover/f:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-md border border-red-500/30 bg-zinc-900 px-2 py-1 text-[10px] text-red-300 shadow-lg z-50 pointer-events-none">
+                                                Finiquitado: {row.finiquitadoGuardiaInfo?.name ?? row.guardiaName}
+                                                {row.finiquitadoGuardiaInfo?.rut ? ` (${row.finiquitadoGuardiaInfo.rut})` : ""}
+                                              </span>
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
+                                      )}
+                                      {row.patternCode && (
+                                        <span className="text-primary/50 text-[10px] hidden sm:inline">
+                                          {row.patternCode}
+                                          {row.isRotativo ? (
+                                            <span className="ml-0.5 inline-flex items-center rounded px-1 py-px text-[8px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                              rot
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        });
-                      }),
-                      <tr key={`${section.key}-summary`} className="border-t border-border bg-muted/5">
-                        <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] text-muted-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                          {section.key === "day" ? <Sun className="inline h-3 w-3 text-amber-400 mr-0.5" /> : section.key === "rotativo" ? <RotateCw className="inline h-3 w-3 text-violet-400 mr-0.5" /> : <Moon className="inline h-3 w-3 text-indigo-400 mr-0.5" />}
-                          <span className="hidden sm:inline">Slots {section.key === "day" ? "día" : section.key === "rotativo" ? "rot" : "noche"}</span>
-                          <span className="sm:hidden">#</span>
+
+                                  {/* Day cells */}
+                                  {visibleDays.map((d) => {
+                                    const dateKey = toDateKey(d);
+                                    const cellData = row.cells.get(dateKey);
+                                    const cell = cellData?.item;
+                                    const execution = cellData?.execution;
+                                    const hasCell = Boolean(cellData);
+                                    const isRotativoRow = row.isRotativo === true;
+                                    const code = isRotativoRow
+                                      ? getRotativoDisplayCode(row, dateKey, cell?.shiftCode)
+                                      : (cell?.shiftCode ?? "");
+                                    const isEmpty = !hasCell || !code;
+                                    const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
+                                    const trabajoClass = isRotativoRow
+                                      ? (code === "Tn"
+                                        ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                                        : "bg-amber-500/20 text-amber-300 border-amber-500/30")
+                                      : (group.shiftType === "night"
+                                        ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                                        : "bg-amber-500/20 text-amber-300 border-amber-500/30");
+                                    const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
+                                    const executionBadge =
+                                      execution?.state === "te"
+                                        ? "TE"
+                                        : execution?.state === "asistio"
+                                          ? "ASI"
+                                          : execution?.state === "sin_cobertura"
+                                            ? "SC"
+                                            : execution?.state === "ppc"
+                                              ? "PPC"
+                                              : null;
+                                    const executionBadgeClass =
+                                      execution?.state === "te"
+                                        ? "bg-rose-600 text-rose-50"
+                                        : execution?.state === "asistio"
+                                          ? "bg-emerald-600 text-emerald-50"
+                                          : execution?.state === "sin_cobertura"
+                                            ? "bg-amber-500 text-amber-950"
+                                            : execution?.state === "ppc"
+                                              ? "bg-zinc-600 text-zinc-100"
+                                              : "";
+
+                                    const clickPuestoId = row.puestoId;
+                                    const clickSlotNumber = row.slotNumber;
+                                    const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
+                                    const displayCode = isRotativoRow
+                                      ? (code || "·")
+                                      : (isTrabajo ? "T" : (code || "·"));
+                                    const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
+
+                                    const isGuardiaFiniquitado = cell?.plannedGuardia?.lifecycleStatus === "inactivo"
+                                      && cell?.plannedGuardia?.terminatedAt != null;
+
+                                    // Detect if this cell date is AFTER the finiquito date → should be PPC, not F
+                                    const isPostFiniquito = isGuardiaFiniquitado && (() => {
+                                      const terminatedAt = cell?.plannedGuardia?.terminatedAt;
+                                      if (!terminatedAt) return false;
+                                      const terminated = typeof terminatedAt === "string" ? terminatedAt.slice(0, 10) : "";
+                                      return dateKey > terminated;
+                                    })();
+
+                                    // A work cell with no planned guard, or a post-finiquito cell, is PPC
+                                    // Allow PPC display when execution state is also "ppc" (from pauta diaria)
+                                    const isUnassignedWork = isTrabajo && !cell?.plannedGuardiaId && !cell?.plannedGuardia;
+                                    const showAsPpc = (isUnassignedWork || isPostFiniquito) && (!execution || execution.state === "ppc");
+
+                                    return (
+                                      <td
+                                        key={dateKey}
+                                        className="text-center px-0.5 py-0.5"
+                                      >
+                                        {hasCell ? (
+                                          <div
+                                            className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${showAsPpc
+                                              ? "border-dashed border-zinc-500/40 bg-zinc-500/10 text-zinc-400"
+                                              : isEmpty
+                                                ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
+                                                : colorClass
+                                              }`}
+                                            title={
+                                              showAsPpc
+                                                ? "Puesto por cubrir (PPC)"
+                                                : cell?.plannedGuardia
+                                                  ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
+                                                  : "Sin asignar"
+                                            }
+                                            onPointerDown={() => {
+                                              longPressTargetRef.current = {
+                                                puestoId: clickPuestoId,
+                                                slotNumber: clickSlotNumber,
+                                                dateKey,
+                                              };
+                                              longPressTimerRef.current = setTimeout(() => {
+                                                longPressTimerRef.current = null;
+                                                openEliminarSerieModal({
+                                                  puestoId: clickPuestoId,
+                                                  slotNumber: clickSlotNumber,
+                                                  dateKey,
+                                                  puestoName: row.puestoName,
+                                                });
+                                              }, 450);
+                                            }}
+                                            onPointerUp={() => {
+                                              if (longPressTimerRef.current) {
+                                                clearTimeout(longPressTimerRef.current);
+                                                longPressTimerRef.current = null;
+                                                longPressTargetRef.current = null;
+                                              }
+                                            }}
+                                            onPointerLeave={() => {
+                                              if (longPressTimerRef.current) {
+                                                clearTimeout(longPressTimerRef.current);
+                                                longPressTimerRef.current = null;
+                                                longPressTargetRef.current = null;
+                                              }
+                                            }}
+                                            onClick={() => {
+                                              const wasLongPress =
+                                                longPressTargetRef.current &&
+                                                longPressTargetRef.current.puestoId === clickPuestoId &&
+                                                longPressTargetRef.current.slotNumber === clickSlotNumber &&
+                                                longPressTargetRef.current.dateKey === dateKey;
+                                              if (wasLongPress) {
+                                                longPressTargetRef.current = null;
+                                                return;
+                                              }
+                                              openPintarOpcionesModal({
+                                                puestoId: clickPuestoId,
+                                                slotNumber: clickSlotNumber,
+                                                dateKey,
+                                                puestoName: row.puestoName,
+                                                guardiaId: clickGuardiaId,
+                                              });
+                                            }}
+                                            onContextMenu={(e) => {
+                                              e.preventDefault();
+                                              if (!hasCell) return;
+                                              openEliminarSerieModal({
+                                                puestoId: clickPuestoId,
+                                                slotNumber: clickSlotNumber,
+                                                dateKey,
+                                                puestoName: row.puestoName,
+                                              });
+                                            }}
+                                          >
+                                            {showAsPpc ? "PPC" : displayCode}
+                                            {!showAsPpc && displayBadge ? (
+                                              <span
+                                                className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${displayBadge === "N"
+                                                  ? "bg-indigo-700 text-indigo-100"
+                                                  : "bg-amber-600 text-amber-50"
+                                                  }`}
+                                              >
+                                                {displayBadge}
+                                              </span>
+                                            ) : null}
+                                            {executionBadge ? (
+                                              <span
+                                                className={`absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm ${executionBadgeClass}`}
+                                                title={
+                                                  execution?.state === "asistio"
+                                                    ? "Asistió"
+                                                    : execution?.state === "te"
+                                                      ? "Turno extra / Reemplazo"
+                                                      : execution?.state === "sin_cobertura"
+                                                        ? "Sin cobertura"
+                                                        : "PPC"
+                                                }
+                                              >
+                                                {executionBadge}
+                                              </span>
+                                            ) : null}
+                                            {isGuardiaFiniquitado && !executionBadge && !showAsPpc ? (
+                                              <span className="absolute -bottom-1 -right-1 group/fc">
+                                                <span className="rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-red-700 text-red-100 cursor-help">
+                                                  F
+                                                </span>
+                                                <span className="absolute hidden group-hover/fc:block bottom-full right-0 mb-1 whitespace-nowrap rounded-md border border-red-500/30 bg-zinc-900 px-2 py-1 text-[10px] text-red-300 shadow-lg z-50 pointer-events-none">
+                                                  Finiquitado: {cell?.plannedGuardia ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName) : ""}
+                                                  {cell?.plannedGuardia?.persona?.rut ? ` (${cell.plannedGuardia.persona.rut})` : ""}
+                                                </span>
+                                              </span>
+                                            ) : null}
+                                            {showAsPpc && !executionBadge ? (
+                                              <span
+                                                className="absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-zinc-600 text-zinc-100"
+                                                title="Puesto por cubrir"
+                                              >
+                                                PPC
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        ) : (
+                                          <div
+                                            className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-7 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
+                                            onClick={() =>
+                                              openPintarOpcionesModal({
+                                                puestoId: clickPuestoId,
+                                                slotNumber: clickSlotNumber,
+                                                dateKey,
+                                                puestoName: row.puestoName,
+                                                guardiaId: clickGuardiaId,
+                                              })
+                                            }
+                                          >
+                                            ·
+                                          </div>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            });
+                          }),
+                          <tr key={`${section.key}-summary`} className="border-t border-border bg-muted/5">
+                            <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] text-muted-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                              {section.key === "day" ? <Sun className="inline h-3 w-3 text-amber-400 mr-0.5" /> : section.key === "rotativo" ? <RotateCw className="inline h-3 w-3 text-violet-400 mr-0.5" /> : <Moon className="inline h-3 w-3 text-indigo-400 mr-0.5" />}
+                              <span className="hidden sm:inline">Slots {section.key === "day" ? "día" : section.key === "rotativo" ? "rot" : "noche"}</span>
+                              <span className="sm:hidden">#</span>
+                            </td>
+                            {visibleDays.map((d) => {
+                              const dk = toDateKey(d);
+                              let slots = 0;
+                              for (const g of groups) {
+                                for (const r of g.rows) {
+                                  const shiftCode = r.cells.get(dk)?.item?.shiftCode;
+                                  if (r.isRotativo) {
+                                    const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
+                                    if (displayCode === "Td" || displayCode === "Tn") slots += 1;
+                                  } else if (shiftCode === "T") {
+                                    slots += 1;
+                                  }
+                                }
+                              }
+                              return (
+                                <td key={dk} className="text-center px-0.5 py-0.5">
+                                  {slots > 0 ? (
+                                    <span className="text-[9px] font-medium text-muted-foreground">{slots}</span>
+                                  ) : (
+                                    <span className="text-[9px] text-muted-foreground/30">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>,
+                        ];
+                      })}
+                      <tr key="total-slots" className="border-t-2 border-border bg-muted/10">
+                        <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] font-semibold text-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                          <span className="hidden sm:inline">Total slots</span>
+                          <span className="sm:hidden">Tot</span>
                         </td>
                         {visibleDays.map((d) => {
                           const dk = toDateKey(d);
                           let slots = 0;
-                          for (const g of groups) {
+                          const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.rotativo, ...groupedByShiftType.night];
+                          for (const g of allGroups) {
                             for (const r of g.rows) {
                               const shiftCode = r.cells.get(dk)?.item?.shiftCode;
                               if (r.isRotativo) {
@@ -2018,83 +2098,50 @@ export function OpsPautaMensualClient({
                           return (
                             <td key={dk} className="text-center px-0.5 py-0.5">
                               {slots > 0 ? (
-                                <span className="text-[9px] font-medium text-muted-foreground">{slots}</span>
+                                <span className="text-[9px] font-semibold text-foreground">{slots}</span>
                               ) : (
                                 <span className="text-[9px] text-muted-foreground/30">-</span>
                               )}
                             </td>
                           );
                         })}
-                      </tr>,
-                    ];
-                  })}
-                  <tr key="total-slots" className="border-t-2 border-border bg-muted/10">
-                    <td className="sticky left-0 z-10 bg-card pl-1 pr-2 py-1 text-[9px] font-semibold text-foreground shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                      <span className="hidden sm:inline">Total slots</span>
-                      <span className="sm:hidden">Tot</span>
-                    </td>
-                    {visibleDays.map((d) => {
-                      const dk = toDateKey(d);
-                      let slots = 0;
-                      const allGroups = [...groupedByShiftType.day, ...groupedByShiftType.rotativo, ...groupedByShiftType.night];
-                      for (const g of allGroups) {
-                        for (const r of g.rows) {
-                          const shiftCode = r.cells.get(dk)?.item?.shiftCode;
-                          if (r.isRotativo) {
-                            const displayCode = getRotativoDisplayCode(r, dk, shiftCode);
-                            if (displayCode === "Td" || displayCode === "Tn") slots += 1;
-                          } else if (shiftCode === "T") {
-                            slots += 1;
-                          }
-                        }
-                      }
-                      return (
-                        <td key={dk} className="text-center px-0.5 py-0.5">
-                          {slots > 0 ? (
-                            <span className="text-[9px] font-semibold text-foreground">{slots}</span>
-                          ) : (
-                            <span className="text-[9px] text-muted-foreground/30">-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </tbody>
-              </table>
+                      </tr>
+                    </tbody>
+                  </table>
 
-              {/* Legend — serie (T, -, V, L, P) + segunda capa (asistencia: ✓, TE, ✗) */}
-              <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-[11px] sm:text-[10px] text-muted-foreground border-t border-border pt-3">
-                {[
-                  { code: "TD", label: "Trabajo diurno", cls: "bg-amber-500/20 border-amber-500/30" },
-                  { code: "TN", label: "Trabajo nocturno", cls: "bg-indigo-500/20 border-indigo-500/30" },
-                  { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
-                  { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
-                  { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
-                  { code: "P", label: "Permiso", cls: "bg-orange-800/30 border-orange-600/30" },
-                ].map((l) => (
-                  <span key={l.code} className="flex items-center gap-1">
-                    <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />
-                    <span className="hidden sm:inline">{l.code} = {l.label}</span>
-                    <span className="sm:hidden">{l.code}</span>
-                  </span>
-                ))}
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:text-[10px] text-muted-foreground">
-                <span>Segunda capa (asistencia):</span>
-                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-emerald-600 text-emerald-50 text-[10px] font-semibold">ASI</span> Asistió</span>
-                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-rose-600 text-rose-50 text-[10px] font-semibold">TE</span> Turno extra</span>
-                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-amber-500 text-amber-950 text-[10px] font-semibold">SC</span> Sin cobertura</span>
-                <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-zinc-600 text-zinc-100 text-[10px] font-semibold">PPC</span> Slot PPC</span>
-              </div>
-              <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
-                <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
-                <span className="sm:hidden">Toca = pintar · Mantén presionado = eliminar</span>
-              </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                  {/* Legend — serie (T, -, V, L, P) + segunda capa (asistencia: ✓, TE, ✗) */}
+                  <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-[11px] sm:text-[10px] text-muted-foreground border-t border-border pt-3">
+                    {[
+                      { code: "TD", label: "Trabajo diurno", cls: "bg-amber-500/20 border-amber-500/30" },
+                      { code: "TN", label: "Trabajo nocturno", cls: "bg-indigo-500/20 border-indigo-500/30" },
+                      { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
+                      { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
+                      { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
+                      { code: "P", label: "Permiso", cls: "bg-orange-800/30 border-orange-600/30" },
+                    ].map((l) => (
+                      <span key={l.code} className="flex items-center gap-1">
+                        <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />
+                        <span className="hidden sm:inline">{l.code} = {l.label}</span>
+                        <span className="sm:hidden">{l.code}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:text-[10px] text-muted-foreground">
+                    <span>Segunda capa (asistencia):</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-emerald-600 text-emerald-50 text-[10px] font-semibold">ASI</span> Asistió</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-rose-600 text-rose-50 text-[10px] font-semibold">TE</span> Turno extra</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-amber-500 text-amber-950 text-[10px] font-semibold">SC</span> Sin cobertura</span>
+                    <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-zinc-600 text-zinc-100 text-[10px] font-semibold">PPC</span> Slot PPC</span>
+                  </div>
+                  <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
+                    <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
+                    <span className="sm:hidden">Toca = pintar · Mantén presionado = eliminar</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
 
@@ -2147,15 +2194,13 @@ export function OpsPautaMensualClient({
                           key={pos}
                           type="button"
                           onClick={() => setSerieForm((p) => ({ ...p, startPosition: pos }))}
-                          className={`relative flex flex-col items-center justify-center rounded-md w-10 h-12 text-[10px] font-medium border-2 transition-all ${
-                            isSelected
-                              ? "border-primary ring-2 ring-primary/30 scale-105"
-                              : "border-transparent hover:border-muted-foreground/30"
-                          } ${
-                            isWork
+                          className={`relative flex flex-col items-center justify-center rounded-md w-10 h-12 text-[10px] font-medium border-2 transition-all ${isSelected
+                            ? "border-primary ring-2 ring-primary/30 scale-105"
+                            : "border-transparent hover:border-muted-foreground/30"
+                            } ${isWork
                               ? "bg-emerald-600/20 text-emerald-300"
                               : "bg-zinc-700/30 text-zinc-500"
-                          }`}
+                            }`}
                         >
                           <span className="text-[9px] text-muted-foreground/60">
                             {isWork ? `T${i + 1}` : `D${i - pattern.work + 1}`}
@@ -2227,14 +2272,12 @@ export function OpsPautaMensualClient({
                           };
                         })
                       }
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                        serieForm.isRotativo ? "bg-violet-500" : "bg-zinc-600"
-                      }`}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${serieForm.isRotativo ? "bg-violet-500" : "bg-zinc-600"
+                        }`}
                     >
                       <span
-                        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${
-                          serieForm.isRotativo ? "translate-x-4" : "translate-x-0"
-                        }`}
+                        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${serieForm.isRotativo ? "translate-x-4" : "translate-x-0"
+                          }`}
                       />
                     </button>
                   </div>

@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     const userIds = [...new Set(events.map((e) => e.createdBy).filter(Boolean))];
     const users = userIds.length
       ? await prisma.admin.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true },
-        })
+        where: { id: { in: userIds } },
+        select: { id: true, name: true },
+      })
       : [];
     const userMap = new Map(users.map((u) => [u.id, u.name]));
 
@@ -207,36 +207,34 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Deactivate active assignment
-      const activeAssignment = await prisma.opsAsignacionGuardia.findFirst({
+      // Deactivate ALL active assignments (handles multiple assignments robustly)
+      await prisma.opsAsignacionGuardia.updateMany({
         where: { guardiaId, tenantId: ctx.tenantId, isActive: true },
+        data: {
+          isActive: false,
+          endDate: finiquitoDateObj,
+          reason: "Finiquito",
+        },
       });
 
-      if (activeAssignment) {
-        await prisma.opsAsignacionGuardia.update({
-          where: { id: activeAssignment.id },
-          data: {
-            isActive: false,
-            endDate: finiquitoDateObj,
-            reason: "Finiquito",
-          },
-        });
+      // Deactivate ALL active series for this guard
+      await prisma.opsSerieAsignacion.updateMany({
+        where: { guardiaId, tenantId: ctx.tenantId, isActive: true },
+        data: { isActive: false, endDate: finiquitoDateObj },
+      });
 
-        // Clear pauta from day AFTER finiquito (finiquito day = last worked day)
-        const dayAfterFiniquito = new Date(finiquitoDateObj);
-        dayAfterFiniquito.setUTCDate(dayAfterFiniquito.getUTCDate() + 1);
+      // Clear pauta from day AFTER finiquito for ALL slots where this guard is planned
+      const dayAfterFiniquito = new Date(finiquitoDateObj);
+      dayAfterFiniquito.setUTCDate(dayAfterFiniquito.getUTCDate() + 1);
 
-        await prisma.opsPautaMensual.updateMany({
-          where: {
-            tenantId: ctx.tenantId,
-            puestoId: activeAssignment.puestoId,
-            slotNumber: activeAssignment.slotNumber,
-            plannedGuardiaId: guardiaId,
-            date: { gte: dayAfterFiniquito },
-          },
-          data: { plannedGuardiaId: null },
-        });
-      }
+      await prisma.opsPautaMensual.updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          plannedGuardiaId: guardiaId,
+          date: { gte: dayAfterFiniquito },
+        },
+        data: { plannedGuardiaId: null },
+      });
 
       // Auto-generate Carta de Aviso + Finiquito from templates
       try {
