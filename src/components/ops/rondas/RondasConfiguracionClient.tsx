@@ -341,6 +341,7 @@ export function RondasConfiguracionClient({
                   {tpl.orderMode === "strict" ? "Secuencial" : "Flexible"}
                   {tpl.estimatedDurationMin ? ` · ~${tpl.estimatedDurationMin} min` : ""}
                   {` · ${tpl.checkpoints?.length ?? 0} checkpoints`}
+                  {tpl.qrRequerido && " · QR obligatorio"}
                 </p>
                 {tpl.checkpoints?.length > 0 && (
                   <div className="flex flex-wrap gap-1">

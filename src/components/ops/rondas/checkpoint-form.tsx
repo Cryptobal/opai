@@ -54,7 +54,7 @@ export function CheckpointForm({
 
   return (
     <form
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
+      className="rounded-lg border border-border bg-card p-4 space-y-4"
       onSubmit={async (e) => {
         e.preventDefault();
         setSaving(true);
@@ -83,50 +83,82 @@ export function CheckpointForm({
         }
       }}
     >
-      <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre checkpoint" className="h-9" />
-      <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
-      <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitud" className="h-9" />
-      <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitud" className="h-9" />
-      <Button type="button" variant="outline" className="h-10 w-full sm:w-auto" onClick={() => setGeoModalOpen(true)}>
-        Georreferenciar en mapa
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        className="h-10 w-full sm:w-auto"
-        onClick={applyInstallationCoords}
-        disabled={installationLat == null || installationLng == null}
-      >
-        Usar ubicación instalación
-      </Button>
-      <Input
-        value={String(geoRadiusM)}
-        onChange={(e) => setGeoRadiusM(Number(e.target.value))}
-        placeholder="Radio metros"
-        className="h-9"
-        type="number"
-      />
-      <select
-        value={verificationType}
-        onChange={(e) => setVerificationType(e.target.value)}
-        className="h-9 rounded border border-border bg-background px-2 text-sm"
-      >
-        <option value="GEOFENCE">📍 Geocerca</option>
-        <option value="QR">🔲 QR</option>
-        <option value="BOTH">📍🔲 Ambos</option>
-      </select>
-      <label className="flex items-center gap-2 text-sm h-9">
-        <input type="checkbox" checked={isCritical} onChange={(e) => setIsCritical(e.target.checked)} className="rounded" />
-        ⚠ Crítico
-      </label>
-      <Input
-        value={String(sortOrder)}
-        onChange={(e) => setSortOrder(Number(e.target.value))}
-        placeholder="Orden"
-        className="h-9"
-        type="number"
-      />
-      <Button className="h-10 w-full sm:w-auto" type="submit" disabled={saving}>
+      <div>
+        <h3 className="text-sm font-semibold">Nuevo Checkpoint</h3>
+        <p className="text-xs text-muted-foreground">Define un punto de control con su ubicacion y tipo de verificacion.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Nombre *</label>
+          <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Acceso principal" className="h-9" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Descripcion</label>
+          <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripcion opcional" className="h-9" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground">Ubicacion</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitud" className="h-9" />
+          <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitud" className="h-9" />
+          <Button type="button" variant="outline" className="h-9 w-full text-xs" onClick={() => setGeoModalOpen(true)}>
+            Georreferenciar en mapa
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 w-full text-xs"
+            onClick={applyInstallationCoords}
+            disabled={installationLat == null || installationLng == null}
+          >
+            Usar ubicacion instalacion
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Radio (m)</label>
+          <Input
+            value={String(geoRadiusM)}
+            onChange={(e) => setGeoRadiusM(Number(e.target.value))}
+            className="h-9"
+            type="number"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Verificacion</label>
+          <select
+            value={verificationType}
+            onChange={(e) => setVerificationType(e.target.value)}
+            className="h-9 w-full rounded border border-border bg-background px-2 text-sm"
+          >
+            <option value="GEOFENCE">Geocerca</option>
+            <option value="QR">QR</option>
+            <option value="BOTH">Ambos</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Orden</label>
+          <Input
+            value={String(sortOrder)}
+            onChange={(e) => setSortOrder(Number(e.target.value))}
+            className="h-9"
+            type="number"
+          />
+        </div>
+        <div className="flex items-end pb-0.5">
+          <label className="flex items-center gap-2 text-sm h-9">
+            <input type="checkbox" checked={isCritical} onChange={(e) => setIsCritical(e.target.checked)} className="rounded" />
+            Punto critico
+          </label>
+        </div>
+      </div>
+
+      <Button className="h-9" type="submit" disabled={saving}>
         {saving ? "Guardando..." : "Crear checkpoint"}
       </Button>
 

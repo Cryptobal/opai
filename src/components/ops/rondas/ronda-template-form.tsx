@@ -38,6 +38,7 @@ export interface RondaTemplatePayload {
   description?: string;
   orderMode: "strict" | "flexible";
   estimatedDurationMin?: number;
+  qrRequerido: boolean;
   checkpointIds: string[];
 }
 
@@ -80,6 +81,7 @@ export function RondaTemplateForm({
   const [description, setDescription] = useState("");
   const [orderMode, setOrderMode] = useState<"strict" | "flexible">("flexible");
   const [estimatedDurationMin, setEstimatedDurationMin] = useState("");
+  const [qrRequerido, setQrRequerido] = useState(false);
   const [selected, setSelected] = useState<SelectedCheckpoint[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -113,7 +115,7 @@ export function RondaTemplateForm({
 
   return (
     <form
-      className="space-y-3"
+      className="rounded-lg border border-border bg-card p-4 space-y-4"
       onSubmit={async (e) => {
         e.preventDefault();
         if (!selected.length) return;
@@ -125,61 +127,98 @@ export function RondaTemplateForm({
             description: description || undefined,
             orderMode,
             estimatedDurationMin: estimatedDurationMin ? Number(estimatedDurationMin) : undefined,
+            qrRequerido,
             checkpointIds: selected.map((s) => s.id),
           });
           setName("");
           setDescription("");
+          setQrRequerido(false);
           setSelected([]);
         } finally {
           setSaving(false);
         }
       }}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre plantilla" className="h-9" />
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
-        <select
-          value={orderMode}
-          onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
-          className="h-9 rounded border border-border bg-background px-2 text-sm"
-        >
-          <option value="flexible">Orden flexible</option>
-          <option value="strict">Orden estricto (secuencial)</option>
-        </select>
-        <div className="flex gap-1">
-          <Input
-            value={estimatedDurationMin}
-            onChange={(e) => setEstimatedDurationMin(e.target.value)}
-            placeholder="Duración (min)"
-            className="h-9 flex-1"
-            type="number"
-          />
-          <Button type="button" variant="outline" className="h-9 text-xs shrink-0" onClick={calcDuration}>
-            Auto
-          </Button>
+      <div>
+        <h3 className="text-sm font-semibold">Nueva Plantilla</h3>
+        <p className="text-xs text-muted-foreground">Define una plantilla de ronda con sus checkpoints y configuracion.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Nombre *</label>
+          <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Ronda Nocturna Perimetral" className="h-9" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Descripcion</label>
+          <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripcion opcional" className="h-9" />
         </div>
       </div>
 
-      <div className="rounded border border-border p-2">
-        <p className="text-xs text-muted-foreground mb-2">Selecciona checkpoints:</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-          {checkpoints.map((cp) => (
-            <label key={cp.id} className="text-xs flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selected.some((s) => s.id === cp.id)}
-                onChange={() => toggleCheckpoint(cp)}
-                className="rounded"
-              />
-              {cp.name}
-            </label>
-          ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Orden de recorrido</label>
+          <select
+            value={orderMode}
+            onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
+            className="h-9 w-full rounded border border-border bg-background px-2 text-sm"
+          >
+            <option value="flexible">Flexible</option>
+            <option value="strict">Estricto (secuencial)</option>
+          </select>
         </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Duracion (min)</label>
+          <div className="flex gap-1">
+            <Input
+              value={estimatedDurationMin}
+              onChange={(e) => setEstimatedDurationMin(e.target.value)}
+              placeholder="—"
+              className="h-9 flex-1"
+              type="number"
+            />
+            <Button type="button" variant="outline" className="h-9 text-xs shrink-0" onClick={calcDuration}>
+              Auto
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-end pb-0.5 col-span-2 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm h-9 rounded-lg border border-border px-3 cursor-pointer select-none hover:bg-muted/50 transition-colors">
+            <input
+              type="checkbox"
+              checked={qrRequerido}
+              onChange={(e) => setQrRequerido(e.target.checked)}
+              className="rounded"
+            />
+            <span className={qrRequerido ? "font-medium" : ""}>QR obligatorio</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border p-3 space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Selecciona checkpoints:</p>
+        {checkpoints.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No hay checkpoints activos. Crea checkpoints primero.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+            {checkpoints.map((cp) => (
+              <label key={cp.id} className="text-xs flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={selected.some((s) => s.id === cp.id)}
+                  onChange={() => toggleCheckpoint(cp)}
+                  className="rounded"
+                />
+                {cp.name}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       {selected.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Orden de recorrido (arrastra para reordenar):</p>
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Orden de recorrido (arrastra para reordenar):</p>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={selected.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               {selected.map((cp) => (
