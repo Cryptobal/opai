@@ -26,19 +26,25 @@ export function InstallBanner() {
       <button
         onClick={async () => {
           if (deferredPrompt) {
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
+            try {
+              deferredPrompt.prompt();
+              await deferredPrompt.userChoice;
+            } catch {
+              // Browser may reject prompt silently
+            }
             setShow(false);
             setDeferredPrompt(null);
           }
         }}
         className="rounded-lg bg-teal-600 px-4 py-2 text-base font-semibold text-white"
+        aria-label="Instalar la aplicación Rondas"
       >
         Instalar
       </button>
       <button
         onClick={() => setShow(false)}
         className="text-gray-500 text-sm"
+        aria-label="Descartar"
       >
         No
       </button>

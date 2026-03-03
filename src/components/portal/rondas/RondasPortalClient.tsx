@@ -176,10 +176,11 @@ export function RondasPortalClient() {
   return (
     <div className="flex min-h-dvh flex-col">
       {isOffline && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white">
+        <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white" role="status">
           Sin conexión — modo offline
         </div>
       )}
+      {isOffline && <div className="h-10 shrink-0" aria-hidden="true" />}
 
       {screen === "login" && <LoginScreen onLogin={handleLogin} />}
 
