@@ -175,7 +175,7 @@ export function AppLayoutClient({
     {
       href: '/payroll',
       label: 'Payroll',
-      icon: Calculator,
+      icon: Wallet,
       show: hasModuleAccess(permissions, 'payroll'),
       badge: payrollNotesBadge,
       children: [
@@ -188,7 +188,7 @@ export function AppLayoutClient({
     {
       href: '/finanzas',
       label: 'Finanzas',
-      icon: Receipt,
+      icon: Landmark,
       show: hasModuleAccess(permissions, 'finance'),
       badge: financeNotesBadge,
       children: [
@@ -204,7 +204,7 @@ export function AppLayoutClient({
     {
       href: '/opai/inicio',
       label: 'Documentos',
-      icon: FileText,
+      icon: FolderOpen,
       show: hasModuleAccess(permissions, 'docs'),
       badge: docsNotesBadge,
       children: [

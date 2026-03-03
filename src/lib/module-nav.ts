@@ -49,6 +49,7 @@ import {
   // TE
   CheckCircle2,
   Banknote,
+  Wallet,
   // Personas
   Shield,
   // Docs
@@ -84,9 +85,9 @@ const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "crm", href: "/crm", label: "Comercial", icon: TrendingUp, app: "crm" },
   { key: "ops", href: "/ops", label: "Operaciones", icon: Activity, app: "ops" },
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: User, app: "ops" },
-  { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
-  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
-  { key: "docs", href: "/opai/inicio", label: "Documentos", icon: FileText, app: "docs" },
+  { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, app: "payroll" },
+  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Landmark, app: "finance" },
+  { key: "docs", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, app: "docs" },
   { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
 
