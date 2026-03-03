@@ -37,6 +37,15 @@ interface Props {
 // Helpers
 // ---------------------------------------------------------------------------
 
+async function computeClientHash(parts: string[]): Promise<string> {
+  const payload = parts.join("|");
+  const encoded = new TextEncoder().encode(payload);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -269,7 +278,17 @@ export function CheckpointMarker({
       // 3. Determine verification method
       const verificationMethod = qrCode ? "QR" : "GEOFENCE";
 
-      // 4. POST marcacion
+      // 4. Compute client-side integrity hash
+      const timestamp = new Date().toISOString();
+      const clientHash = await computeClientHash([
+        checkpoint.id,
+        timestamp,
+        coords.lat.toString(),
+        coords.lng.toString(),
+        guardiaId,
+      ]);
+
+      // 5. POST marcacion
       const body = {
         ejecucionId,
         checkpointId: checkpoint.id,
@@ -283,6 +302,8 @@ export function CheckpointMarker({
         verificationMethod,
         isOfflineSync: false,
         guardiaId,
+        clientHash,
+        clientTimestamp: timestamp,
       };
 
       const res = await fetch("/api/portal/rondas/marcar", {
@@ -301,10 +322,10 @@ export function CheckpointMarker({
         throw new Error(json.error || "Error al registrar marcacion");
       }
 
-      // 5. Haptic feedback
+      // 6. Haptic feedback
       navigator.vibrate?.(200);
 
-      // 6. Callback
+      // 7. Callback
       const result: MarcarResult = {
         id: json.data?.id ?? "",
         trustScore: json.data?.trustScore ?? 0,
