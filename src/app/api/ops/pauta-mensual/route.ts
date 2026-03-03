@@ -295,7 +295,7 @@ export async function GET(request: NextRequest) {
           seriesCount: activeSeries.length,
         });
 
-        // Re-fetch pauta to include the updated shiftCodes
+        // Re-fetch pauta to include the updated shiftCodes (same include as initial query)
         const refetched = await prisma.opsPautaMensual.findMany({
           where: {
             tenantId: ctx.tenantId,
@@ -306,13 +306,23 @@ export async function GET(request: NextRequest) {
           include: {
             puesto: {
               select: {
-                id: true, name: true, shiftStart: true, shiftEnd: true,
-                weekdays: true, requiredGuards: true,
+                id: true,
+                name: true,
+                shiftStart: true,
+                shiftEnd: true,
+                weekdays: true,
+                requiredGuards: true,
+                cargo: { select: { name: true } },
+                puestoTrabajo: { select: { name: true } },
               },
             },
             plannedGuardia: {
               select: {
-                id: true, code: true, status: true,
+                id: true,
+                code: true,
+                status: true,
+                lifecycleStatus: true,
+                terminatedAt: true,
                 persona: { select: { firstName: true, lastName: true, rut: true } },
               },
             },
