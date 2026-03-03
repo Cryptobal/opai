@@ -38,12 +38,17 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 async function computeClientHash(parts: string[]): Promise<string> {
-  const payload = parts.join("|");
-  const encoded = new TextEncoder().encode(payload);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  try {
+    const payload = parts.join("|");
+    const encoded = new TextEncoder().encode(payload);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    // crypto.subtle unavailable (non-HTTPS context) — return empty string
+    return "";
+  }
 }
 
 function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -72,6 +77,7 @@ export function CheckpointMarker({
   // ---- GPS State ----
   const [gpsStatus, setGpsStatus] = useState<"loading" | "success" | "error">("loading");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [gpsError, setGpsError] = useState("");
 
   // ---- QR State ----
@@ -91,6 +97,7 @@ export function CheckpointMarker({
 
   // ---- Submission ----
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState("");
 
   // ---- Anti-fraud refs ----
@@ -112,6 +119,7 @@ export function CheckpointMarker({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsAccuracy(pos.coords.accuracy ?? null);
         setGpsStatus("success");
       },
       (err) => {
@@ -222,20 +230,13 @@ export function CheckpointMarker({
   // Photo handlers
   // ------------------------------------------------------------------
   const handlePhotoCapture = useCallback((blob: Blob) => {
-    // Revoke old preview if any
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(blob);
-    });
+    setPhotoPreview(URL.createObjectURL(blob));
     setPhoto(blob);
     setShowCamera(false);
   }, []);
 
   const removePhoto = useCallback(() => {
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
+    setPhotoPreview(null);
     setPhoto(null);
   }, []);
 
@@ -243,7 +244,8 @@ export function CheckpointMarker({
   // Submit marcacion
   // ------------------------------------------------------------------
   const handleSubmit = useCallback(async () => {
-    if (!coords) return;
+    if (!coords || submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setSubmitError("");
 
@@ -295,6 +297,7 @@ export function CheckpointMarker({
         checkpointQrCode: qrCode ?? undefined,
         lat: coords.lat,
         lng: coords.lng,
+        gpsAccuracy: gpsAccuracy ?? undefined,
         batteryLevel: batteryRef.current,
         motionData: movementScore != null ? { movementScore } : null,
         fotoEvidenciaUrl: fotoEvidenciaUrl ?? undefined,
@@ -336,13 +339,15 @@ export function CheckpointMarker({
         },
       };
       onComplete(result);
-    } catch (err: any) {
-      setSubmitError(err?.message || "Error de conexion");
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : "Error de conexion");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }, [
     coords,
+    gpsAccuracy,
     photo,
     ejecucionId,
     guardiaId,
@@ -401,6 +406,7 @@ export function CheckpointMarker({
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -629,6 +635,7 @@ export function CheckpointMarker({
             onChange={(e) => setNote(e.target.value)}
             placeholder="Observaciones del punto..."
             rows={3}
+            maxLength={500}
             className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
           />
         </div>
