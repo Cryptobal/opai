@@ -1,4 +1,5 @@
 export * from "./TeSubnav";
+export * from "./PautasSubnav";
 export * from "./OpsPuestosClient";
 export * from "./OpsPautaMensualClient";
 export * from "./OpsPautaDiariaClient";

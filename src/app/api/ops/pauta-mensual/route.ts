@@ -131,6 +131,14 @@ export async function GET(request: NextRequest) {
         skipDuplicates: true,
       });
 
+      // Audit: auto-sync created missing pauta rows
+      await createOpsAuditLog(ctx, "ops.pauta.auto_sync_created", "ops_pauta", installationId, {
+        month,
+        year,
+        rowsCreated: missingRows.length,
+        puestoIds: [...new Set(missingRows.map((r) => r.puestoId))],
+      });
+
       // Re-fetch to include the newly created rows
       const refetched = await prisma.opsPautaMensual.findMany({
         where: {
@@ -264,6 +272,14 @@ export async function GET(request: NextRequest) {
 
       if (updates.length > 0) {
         await Promise.all(updates);
+
+        // Audit: auto-projected series onto unpainted cells
+        await createOpsAuditLog(ctx, "ops.pauta.auto_sync_projected", "ops_pauta", installationId, {
+          month,
+          year,
+          cellsProjected: updates.length,
+          seriesCount: activeSeries.length,
+        });
 
         // Re-fetch pauta to include the updated shiftCodes
         const refetched = await prisma.opsPautaMensual.findMany({

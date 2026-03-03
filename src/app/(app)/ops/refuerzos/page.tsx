@@ -5,7 +5,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
-import { OpsRefuerzosClient } from "@/components/ops";
+import { OpsRefuerzosClient, PautasSubnav } from "@/components/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
 function toNumber(value: unknown): number {
@@ -79,6 +79,7 @@ export default async function OpsRefuerzosPage() {
         title="Turnos de refuerzo"
         description="Solicitudes de refuerzo por instalación y seguimiento para facturación."
       />
+      <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsRefuerzosClient
         initialItems={JSON.parse(JSON.stringify(data))}

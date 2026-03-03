@@ -4,7 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
-import { OpsPautaDiariaClient } from "@/components/ops";
+import { OpsPautaDiariaClient, PautasSubnav } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsAsistenciaDiariaPage() {
   const session = await auth();
@@ -63,6 +63,7 @@ export default async function OpsAsistenciaDiariaPage() {
         title="Asistencia diaria"
         description="Control diario de asistencia, reemplazos y generación de turnos extra."
       />
+      <PautasSubnav />
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPautaDiariaClient
         initialClients={JSON.parse(JSON.stringify(clients))}

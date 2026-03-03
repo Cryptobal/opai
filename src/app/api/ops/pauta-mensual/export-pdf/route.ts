@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import {
   buildExecutionMap,
+  createOpsAuditLog,
   ensureOpsAccess,
   getMonthDateRange,
   toDateKeyUTC,
@@ -361,6 +362,15 @@ export async function GET(request: NextRequest) {
     browser = undefined;
 
     const fileName = `PautaMensual_${installation.name.replace(/\s+/g, "_")}_${year}-${String(month).padStart(2, "0")}.pdf`;
+
+    // Audit: log export access
+    await createOpsAuditLog(ctx, "ops.pauta.export_pdf", "ops_pauta", installationId, {
+      month,
+      year,
+      installationName: installation.name,
+      rowCount: matrix.length,
+    });
+
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {

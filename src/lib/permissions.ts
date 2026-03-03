@@ -748,6 +748,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/ops/marcaciones")) return { module: "ops", submodule: "marcaciones" };
   if (pathname.startsWith("/ops/ppc")) return { module: "ops", submodule: "ppc" };
+  if (pathname.startsWith("/ops/audit-pautas")) return { module: "ops", submodule: "pauta_mensual" };
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
   if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };

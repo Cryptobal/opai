@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { ensureOpsAccess } from "@/lib/ops";
+import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { listRefuerzoQuerySchema } from "@/lib/validations/ops";
 import { resolveRefuerzoStatus } from "@/lib/ops-refuerzos";
 
@@ -130,6 +130,19 @@ export async function GET(request: NextRequest) {
     });
 
     const csv = [header.join(","), ...lines].join("\n");
+
+    // Audit: log export access
+    await createOpsAuditLog(ctx, "ops.refuerzos.export_csv", "ops_refuerzo_solicitud", undefined, {
+      rowCount: filtered.length,
+      filters: {
+        installationId: query.installationId,
+        accountId: query.accountId,
+        status: query.status,
+        from: query.from,
+        to: query.to,
+      },
+    });
+
     return new NextResponse(csv, {
       status: 200,
       headers: {
