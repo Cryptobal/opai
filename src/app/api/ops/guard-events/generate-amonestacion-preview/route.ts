@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const guardia = await prisma.opsGuardia.findFirst({
       where: { id: guardiaId, tenantId: ctx.tenantId },
       include: {
-        persona: { select: { firstName: true, lastName: true, rut: true, address: true, commune: true, email: true, phone: true } },
+        persona: { select: { firstName: true, lastName: true, rut: true, addressFormatted: true, commune: true, email: true, phone: true, phoneMobile: true } },
       },
     });
 
@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
 Datos del guardia:
 - Nombre completo: ${fullName}
 - RUT: ${p.rut ?? "Sin RUT"}
-- Dirección: ${p.address ?? "Sin dirección"}, ${p.commune ?? ""}
+- Dirección: ${p.addressFormatted ?? "Sin dirección"}, ${p.commune ?? ""}
 - Email: ${p.email ?? "Sin email"}
-- Teléfono: ${p.phone ?? "Sin teléfono"}
+- Teléfono: ${p.phoneMobile ?? p.phone ?? "Sin teléfono"}
 
 Motivo de la amonestación:
 ${reason}
