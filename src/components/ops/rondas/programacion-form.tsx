@@ -13,19 +13,33 @@ export interface ProgramacionPayload {
   toleranciaMinutos: number;
 }
 
+export interface EditingProgramacion {
+  id: string;
+  rondaTemplateId: string;
+  diasSemana: number[];
+  horaInicio: string;
+  horaFin: string;
+  frecuenciaMinutos: number;
+  toleranciaMinutos: number;
+}
+
 export function ProgramacionForm({
   templates,
   onSubmit,
+  editingProgramacion,
+  onCancelEdit,
 }: {
   templates: { id: string; name: string }[];
   onSubmit: (payload: ProgramacionPayload) => Promise<void> | void;
+  editingProgramacion?: EditingProgramacion | null;
+  onCancelEdit?: () => void;
 }) {
-  const [templateId, setTemplateId] = useState("");
-  const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [horaInicio, setHoraInicio] = useState("22:00");
-  const [horaFin, setHoraFin] = useState("06:00");
-  const [frecuenciaMinutos, setFrecuenciaMinutos] = useState(120);
-  const [toleranciaMinutos, setToleranciaMinutos] = useState(10);
+  const [templateId, setTemplateId] = useState(editingProgramacion?.rondaTemplateId ?? "");
+  const [diasSemana, setDiasSemana] = useState<number[]>(editingProgramacion?.diasSemana ?? [1, 2, 3, 4, 5]);
+  const [horaInicio, setHoraInicio] = useState(editingProgramacion?.horaInicio ?? "22:00");
+  const [horaFin, setHoraFin] = useState(editingProgramacion?.horaFin ?? "06:00");
+  const [frecuenciaMinutos, setFrecuenciaMinutos] = useState(editingProgramacion?.frecuenciaMinutos ?? 120);
+  const [toleranciaMinutos, setToleranciaMinutos] = useState(editingProgramacion?.toleranciaMinutos ?? 10);
   const [saving, setSaving] = useState(false);
 
   const dayLabels = ["D", "L", "M", "X", "J", "V", "S"];
@@ -123,9 +137,16 @@ export function ProgramacionForm({
         ))}
       </div>
 
-      <Button type="submit" className="h-9" disabled={saving || !templateId || !diasSemana.length}>
-        {saving ? "Guardando..." : "Crear programación"}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" className="h-9" disabled={saving || !templateId || !diasSemana.length}>
+          {saving ? "Guardando..." : editingProgramacion ? "Guardar cambios" : "Crear programación"}
+        </Button>
+        {editingProgramacion && onCancelEdit && (
+          <Button type="button" variant="outline" className="h-9" onClick={onCancelEdit}>
+            Cancelar
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

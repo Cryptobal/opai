@@ -67,20 +67,41 @@ function SortableItem({ cp, onToggleRequired, onRemove }: {
   );
 }
 
+export interface EditingTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  orderMode: string;
+  estimatedDurationMin?: number | null;
+  checkpoints: { checkpointId: string; orderIndex: number }[];
+}
+
 export function RondaTemplateForm({
   installationId,
   checkpoints,
   onSubmit,
+  editingTemplate,
+  onCancelEdit,
 }: {
   installationId: string;
   checkpoints: CheckpointOption[];
   onSubmit: (payload: RondaTemplatePayload) => Promise<void> | void;
+  editingTemplate?: EditingTemplate | null;
+  onCancelEdit?: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [orderMode, setOrderMode] = useState<"strict" | "flexible">("flexible");
-  const [estimatedDurationMin, setEstimatedDurationMin] = useState("");
-  const [selected, setSelected] = useState<SelectedCheckpoint[]>([]);
+  const [name, setName] = useState(editingTemplate?.name ?? "");
+  const [description, setDescription] = useState(editingTemplate?.description ?? "");
+  const [orderMode, setOrderMode] = useState<"strict" | "flexible">((editingTemplate?.orderMode as "strict" | "flexible") ?? "flexible");
+  const [estimatedDurationMin, setEstimatedDurationMin] = useState(editingTemplate?.estimatedDurationMin ? String(editingTemplate.estimatedDurationMin) : "");
+  const [selected, setSelected] = useState<SelectedCheckpoint[]>(() => {
+    if (!editingTemplate?.checkpoints?.length) return [];
+    return editingTemplate.checkpoints
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((tc) => {
+        const cp = checkpoints.find((c) => c.id === tc.checkpointId);
+        return { id: tc.checkpointId, name: cp?.name ?? "?", isRequired: true };
+      });
+  });
   const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(
@@ -217,9 +238,16 @@ export function RondaTemplateForm({
         </div>
       )}
 
-      <Button type="submit" className="h-9" disabled={saving || !selected.length}>
-        {saving ? "Guardando..." : "Crear plantilla"}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" className="h-9" disabled={saving || !selected.length}>
+          {saving ? "Guardando..." : editingTemplate ? "Guardar cambios" : "Crear plantilla"}
+        </Button>
+        {editingTemplate && onCancelEdit && (
+          <Button type="button" variant="outline" className="h-9" onClick={onCancelEdit}>
+            Cancelar
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

@@ -7,8 +7,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { FilterBar } from "@/components/opai";
 import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreator";
-import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
-import { ProgramacionForm } from "@/components/ops/rondas/programacion-form";
+import { RondaTemplateForm, type EditingTemplate } from "@/components/ops/rondas/ronda-template-form";
+import { ProgramacionForm, type EditingProgramacion } from "@/components/ops/rondas/programacion-form";
 import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,8 @@ export function RondasConfiguracionClient({
   const [templates, setTemplates] = useState<any[]>([]);
   const [programaciones, setProgramaciones] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<EditingTemplate | null>(null);
+  const [editingProgramacion, setEditingProgramacion] = useState<EditingProgramacion | null>(null);
 
   const filteredInstallations = useMemo(
     () => clientId ? installations.filter((i) => i.accountId === clientId) : installations,
@@ -157,18 +159,19 @@ export function RondasConfiguracionClient({
             size="sm"
             variant="outline"
             className="h-7 text-xs"
-            onClick={async () => {
-              const res = await fetch("/api/ops/rondas/ejecuciones", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ programacionId: row.id }),
+            onClick={() => {
+              setEditingProgramacion({
+                id: row.id,
+                rondaTemplateId: row.rondaTemplateId,
+                diasSemana: row.diasSemana,
+                horaInicio: row.horaInicio,
+                horaFin: row.horaFin,
+                frecuenciaMinutos: row.frecuenciaMinutos,
+                toleranciaMinutos: row.toleranciaMinutos,
               });
-              const json = await res.json();
-              if (res.ok && json.success) toast.success(`Generadas: ${json.data.created}`);
-              else toast.error("Error generando");
             }}
           >
-            Generar 24h
+            Editar
           </Button>
           <Button
             size="sm"
@@ -271,18 +274,34 @@ export function RondasConfiguracionClient({
       {!loading && activeTab === "plantillas" && installationId && (
         <div className="space-y-4">
           <RondaTemplateForm
+            key={editingTemplate?.id ?? "new"}
             installationId={installationId}
             checkpoints={checkpointOptions}
+            editingTemplate={editingTemplate}
+            onCancelEdit={() => setEditingTemplate(null)}
             onSubmit={async (payload) => {
-              const res = await fetch("/api/ops/rondas/templates", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const json = await res.json();
-              if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
-              await loadData(installationId);
-              toast.success("Plantilla creada");
+              if (editingTemplate) {
+                const res = await fetch(`/api/ops/rondas/templates/${editingTemplate.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+                setEditingTemplate(null);
+                await loadData(installationId);
+                toast.success("Plantilla actualizada");
+              } else {
+                const res = await fetch("/api/ops/rondas/templates", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+                await loadData(installationId);
+                toast.success("Plantilla creada");
+              }
             }}
           />
 
@@ -316,7 +335,22 @@ export function RondasConfiguracionClient({
                   </div>
                 )}
                 <div className="flex gap-1 pt-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                    setEditingTemplate({
+                      id: tpl.id,
+                      name: tpl.name,
+                      description: tpl.description,
+                      orderMode: tpl.orderMode,
+                      estimatedDurationMin: tpl.estimatedDurationMin,
+                      checkpoints: tpl.checkpoints?.map((tc: any, i: number) => ({
+                        checkpointId: tc.checkpoint?.id ?? tc.checkpointId,
+                        orderIndex: tc.orderIndex ?? i,
+                      })) ?? [],
+                    });
+                  }}>
+                    Editar
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs text-red-500" onClick={async () => {
                     const res = await fetch(`/api/ops/rondas/templates/${tpl.id}`, { method: "DELETE" });
                     if (res.ok) {
                       setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
@@ -335,18 +369,34 @@ export function RondasConfiguracionClient({
       {!loading && activeTab === "programacion" && installationId && (
         <div className="space-y-4">
           <ProgramacionForm
+            key={editingProgramacion?.id ?? "new"}
             templates={templateOptions}
+            editingProgramacion={editingProgramacion}
+            onCancelEdit={() => setEditingProgramacion(null)}
             onSubmit={async (payload) => {
-              const res = await fetch("/api/ops/rondas/programacion", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const json = await res.json();
-              if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
-              const tpl = templateOptions.find((t) => t.id === payload.rondaTemplateId);
-              setProgramaciones((prev) => [{ ...json.data, rondaTemplate: tpl ? { name: tpl.name } : null }, ...prev]);
-              toast.success("Programación creada");
+              if (editingProgramacion) {
+                const res = await fetch(`/api/ops/rondas/programacion/${editingProgramacion.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+                setEditingProgramacion(null);
+                await loadData(installationId);
+                toast.success("Programación actualizada");
+              } else {
+                const res = await fetch("/api/ops/rondas/programacion", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+                const tpl = templateOptions.find((t) => t.id === payload.rondaTemplateId);
+                setProgramaciones((prev) => [{ ...json.data, rondaTemplate: tpl ? { name: tpl.name } : null }, ...prev]);
+                toast.success("Programación creada");
+              }
             }}
           />
           <DataTable columns={programacionColumns} data={programaciones} emptyMessage="Sin programaciones." />
