@@ -1,5 +1,45 @@
 import { prisma } from "@/lib/prisma";
 
+export type PortalConfig = {
+  dashboard: boolean
+  guardias: boolean
+  liquidaciones: boolean
+  asistencia: boolean
+  pautas: boolean
+  examenes: boolean
+  rondas: boolean
+  posta: boolean
+  documentacion: boolean
+  cotizaciones: boolean
+  chat_instalacion: boolean
+  chat_grupos: boolean
+  tickets: boolean
+  encuestas: boolean
+  reportes: boolean
+  comparativa: boolean
+  alertas: boolean
+}
+
+export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
+  dashboard: true,
+  guardias: true,
+  liquidaciones: false,
+  asistencia: true,
+  pautas: false,
+  examenes: false,
+  rondas: true,
+  posta: true,
+  documentacion: true,
+  cotizaciones: true,
+  chat_instalacion: true,
+  chat_grupos: true,
+  tickets: true,
+  encuestas: false,
+  reportes: true,
+  comparativa: true,
+  alertas: true,
+}
+
 export interface ClienteSession {
   contactId: string;
   tenantId: string;
@@ -10,6 +50,9 @@ export interface ClienteSession {
   email: string | null;
   installations: Array<{ id: string; name: string }>;
   authenticatedAt: string;
+  portalConfig: PortalConfig;
+  isProspect: boolean;
+  hasDemoData: boolean;
 }
 
 export function sanitizeGuardName(firstName: string, lastName: string): string {
@@ -98,6 +141,16 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
         },
       });
 
+      const rawConfig = contact.account.portalConfig as Partial<PortalConfig> | null
+      const portalConfig: PortalConfig = rawConfig
+        ? { ...DEFAULT_PORTAL_CONFIG, ...rawConfig }
+        : DEFAULT_PORTAL_CONFIG
+
+      const hasDemoData = await prisma.portalClienteDemoData.findUnique({
+        where: { contactId: contact.id },
+        select: { id: true },
+      }) !== null
+
       return {
         success: true,
         session: {
@@ -110,6 +163,9 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
           email: contact.email,
           installations: contact.account.installations,
           authenticatedAt: new Date().toISOString(),
+          portalConfig,
+          isProspect: contact.account.status === 'prospect',
+          hasDemoData,
         },
       };
     }
