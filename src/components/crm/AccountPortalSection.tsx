@@ -10,7 +10,7 @@ import {
   Shield, Key, Copy, Send, RefreshCw, Loader2, ToggleLeft, ToggleRight, XCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DEFAULT_PORTAL_CONFIG, PortalConfig } from "@/lib/portal-cliente";
+import { DEFAULT_PORTAL_CONFIG, PortalConfig } from "@/lib/portal-cliente-types";
 
 interface Contact {
   id: string;

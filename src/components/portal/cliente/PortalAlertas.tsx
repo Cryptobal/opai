@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bell, Loader2, Mail, Smartphone } from "lucide-react";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { ClienteSession } from "@/lib/portal-cliente-types";
 
 interface AlertConfig {
   id: string | null;

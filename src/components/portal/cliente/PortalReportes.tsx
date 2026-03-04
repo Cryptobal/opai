@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FileText, Download, Loader2, BarChart3 } from "lucide-react";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { ClienteSession } from "@/lib/portal-cliente-types";
 import { cn } from "@/lib/utils";
 
 /* ── Types ── */

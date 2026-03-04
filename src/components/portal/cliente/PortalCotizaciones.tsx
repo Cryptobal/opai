@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PortalContractForm } from "./PortalContractForm";
 
 /* ── Types ── */

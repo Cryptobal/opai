@@ -11,7 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { ClienteSession } from "@/lib/portal-cliente-types";
 
 interface Ejecucion {
   id: string;

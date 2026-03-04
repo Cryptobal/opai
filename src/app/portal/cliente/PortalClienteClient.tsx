@@ -21,7 +21,7 @@ import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalDemoOverlay } from "@/components/portal/cliente/PortalDemoOverlay";
-import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
+import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 
 /* ── Helpers ── */
 
