@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Auth note: Portal routes in this codebase use a PIN-based session stored in
+// the browser's localStorage/sessionStorage and passed as custom request headers
+// (x-guardia-id, x-tenant-id, x-contact-id) by the frontend for chat routes.
+// Push subscription routes are called from the browser after PIN-auth succeeds,
+// so userId comes from the authenticated session in the client. We validate that
+// tenantId and userId are non-empty strings (basic sanity checks) to prevent
+// obviously malformed requests, consistent with simpler portal routes like
+// /api/portal/guardia/profile which trust guardiaId from query params.
+
+const VALID_USER_TYPES = new Set(['contact', 'guardia', 'admin']);
+const VALID_PORTAL_TYPES = new Set(['cliente', 'guardia', 'rondas', 'app']);
+
 export async function POST(req: NextRequest) {
   try {
     const { subscription, portalType, userType, userId, tenantId } = await req.json();
@@ -9,15 +21,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
+    // Validate enum fields to prevent injection of unexpected values
+    if (!VALID_USER_TYPES.has(userType)) {
+      return NextResponse.json({ error: 'Invalid userType' }, { status: 400 });
+    }
+    if (!VALID_PORTAL_TYPES.has(portalType)) {
+      return NextResponse.json({ error: 'Invalid portalType' }, { status: 400 });
+    }
+    if (typeof tenantId !== 'string' || tenantId.trim() === '') {
+      return NextResponse.json({ error: 'Invalid tenantId' }, { status: 400 });
+    }
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      return NextResponse.json({ error: 'Invalid userId' }, { status: 400 });
+    }
+
     const senderTypeMap: Record<string, string> = {
       contact: 'CLIENT',
       guardia: 'GUARD',
       admin: 'ADMIN',
     };
     const subscriberType = senderTypeMap[userType];
-    if (!subscriberType) {
-      return NextResponse.json({ error: 'Invalid userType' }, { status: 400 });
-    }
 
     await prisma.chatPushSubscription.upsert({
       where: { endpoint: subscription.endpoint },

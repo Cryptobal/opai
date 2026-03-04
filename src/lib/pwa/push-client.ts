@@ -53,11 +53,16 @@ export async function unsubscribeFromPush(
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) return true;
 
-    await fetch('/api/notifications/push/subscribe', {
+    const res = await fetch('/api/notifications/push/subscribe', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     });
+
+    if (!res.ok) {
+      console.warn('[push] Server unsubscribe failed:', res.status);
+      // Still unsubscribe locally to maintain browser state consistency
+    }
 
     await subscription.unsubscribe();
     return true;

@@ -1,6 +1,10 @@
 import webPush from 'web-push';
 import { prisma } from '@/lib/prisma';
 
+if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  throw new Error('[push] VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set in environment');
+}
+
 webPush.setVapidDetails(
   'mailto:soporte@gardsecurity.cl',
   process.env.VAPID_PUBLIC_KEY!,
