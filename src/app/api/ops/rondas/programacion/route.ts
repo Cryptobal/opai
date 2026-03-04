@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { rondaProgramacionSchema } from "@/lib/validations/rondas";
+import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
+import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { startOfDayChile } from "@/lib/rondas/timezone";
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,6 +66,59 @@ export async function POST(request: NextRequest) {
         createdBy: ctx.userId,
       },
     });
+
+    // Auto-generate executions for today+tomorrow so guards see rondas immediately
+    if (parsed.data.isActive !== false) {
+      try {
+        const now = new Date();
+        const from = startOfDayChile(now);
+        const to = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+        const tpl = await prisma.opsRondaTemplate.findFirst({
+          where: { id: parsed.data.rondaTemplateId },
+          include: { checkpoints: true },
+        });
+
+        if (tpl) {
+          const slots = buildScheduleSlots({
+            from,
+            to,
+            diasSemana: parsed.data.diasSemana,
+            horaInicio: parsed.data.horaInicio,
+            horaFin: parsed.data.horaFin,
+            frecuenciaMinutos: parsed.data.frecuenciaMinutos,
+          });
+
+          if (slots.length > 0) {
+            const rows = await Promise.all(
+              slots.map(async (scheduledAt) => {
+                const assignment = await resolveOnDutyGuardiaForInstallation({
+                  tenantId: ctx.tenantId,
+                  installationId: tpl.installationId,
+                  scheduledAt,
+                });
+                return {
+                  tenantId: ctx.tenantId,
+                  rondaTemplateId: tpl.id,
+                  programacionId: row.id,
+                  guardiaId: assignment.guardiaId,
+                  status: "pendiente",
+                  scheduledAt,
+                  checkpointsTotal: tpl.checkpoints.length,
+                  checkpointsCompletados: 0,
+                  porcentajeCompletado: 0,
+                  trustScore: 0,
+                };
+              }),
+            );
+            await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });
+          }
+        }
+      } catch (genError) {
+        console.error("[RONDAS] Auto-generate on create failed:", genError);
+        // Don't fail the programacion creation
+      }
+    }
 
     return NextResponse.json({ success: true, data: row }, { status: 201 });
   } catch (error) {
