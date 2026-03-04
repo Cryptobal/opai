@@ -9,6 +9,9 @@ import { PORTAL_NOTIFICATION_TYPE_MAP } from '@/lib/pwa/portal-notification-type
 // client. We validate that required fields are non-empty strings (consistent
 // with simpler portal routes like /api/portal/guardia/profile).
 
+const VALID_USER_TYPES = new Set(['contact', 'guardia', 'admin']);
+const VALID_PORTAL_TYPES = new Set(['cliente', 'guardia', 'rondas', 'app']);
+
 export async function GET(req: NextRequest) {
   try {
     const userType = req.nextUrl.searchParams.get('userType');
@@ -17,6 +20,10 @@ export async function GET(req: NextRequest) {
 
     if (!userType || !userId || !portalType) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+    }
+
+    if (!VALID_USER_TYPES.has(userType) || !VALID_PORTAL_TYPES.has(portalType)) {
+      return NextResponse.json({ error: 'Invalid userType or portalType' }, { status: 400 });
     }
 
     const prefs = await prisma.portalNotificationPreference.findUnique({

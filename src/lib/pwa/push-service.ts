@@ -1,15 +1,21 @@
 import webPush from 'web-push';
 import { prisma } from '@/lib/prisma';
 
-if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-  throw new Error('[push] VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set in environment');
+// Lazy VAPID init — deferred to call time so `next build` succeeds in environments
+// without VAPID keys (e.g., CI pipelines that do not run push delivery).
+let vapidInitialized = false;
+function ensureVapidInitialized() {
+  if (vapidInitialized) return;
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    throw new Error('[push] VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set in environment');
+  }
+  webPush.setVapidDetails(
+    'mailto:soporte@gardsecurity.cl',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  vapidInitialized = true;
 }
-
-webPush.setVapidDetails(
-  'mailto:soporte@gardsecurity.cl',
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
 
 type UserType = 'contact' | 'guardia' | 'admin';
 
@@ -41,6 +47,8 @@ export async function sendPushToPortalUser({
   url,
   tag,
 }: SendPushParams) {
+  ensureVapidInitialized();
+
   // 1. Check preferences (only for portal users — admin uses UserNotificationPreference)
   if (userType !== 'admin') {
     const prefs = await prisma.portalNotificationPreference.findUnique({
