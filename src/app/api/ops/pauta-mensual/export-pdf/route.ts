@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
           tenantId: ctx.tenantId,
           installationId,
           date: { gte: start, lte: end },
+          puesto: { tenantId: ctx.tenantId, active: true },
         },
         include: {
           puesto: {
