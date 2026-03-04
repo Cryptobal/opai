@@ -6,7 +6,11 @@ import { canEdit } from "@/lib/permissions";
 import { sendNotification } from "@/lib/notification-service";
 
 function generatePin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  // Ensure the value is between 1000 and 9999
+  const randomValue = array[0] % 9000;
+  return String(1000 + randomValue);
 }
 
 export async function POST(
