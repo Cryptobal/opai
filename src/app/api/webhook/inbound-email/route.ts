@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
 
     const emailId = data?.email_id as string | undefined;
     const toList = (data?.to as string[]) || [];
+    const ccList = (data?.cc as string[]) || [];
+    const bccList = (data?.bcc as string[]) || [];
+    const allRecipients = [...toList, ...ccList, ...bccList];
     if (!emailId) {
       return NextResponse.json(
         { error: "email_id requerido" },
@@ -53,11 +56,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isForLeads = toList.some(
-      (addr: string) => addr.toLowerCase().replace(/\s/g, "") === INBOUND_LEADS_TO.toLowerCase().replace(/\s/g, "")
+    const normalizedInbound = INBOUND_LEADS_TO.toLowerCase().replace(/\s/g, "");
+    const isForLeads = allRecipients.some(
+      (addr: string) => (addr || "").toLowerCase().replace(/\s/g, "") === normalizedInbound
     );
     if (!isForLeads) {
-      console.log("[inbound-email] Skipped: recipient not matched", { toList, expected: INBOUND_LEADS_TO });
+      console.log("[inbound-email] Skipped: recipient not matched", {
+        to: toList,
+        cc: ccList,
+        bcc: bccList,
+        expected: INBOUND_LEADS_TO,
+      });
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
 
@@ -79,13 +88,42 @@ export async function POST(request: NextRequest) {
     const text = email.text ?? null;
     const attachments = email.attachments || [];
 
-    const extracted = await extractLeadFromEmail({
-      subject,
-      htmlBody: html,
-      textBody: text,
-      fromEmail: from,
-      ownDomain: "gard.cl",
-    });
+    let extracted: Awaited<ReturnType<typeof extractLeadFromEmail>>;
+    try {
+      extracted = await extractLeadFromEmail({
+        subject,
+        htmlBody: html,
+        textBody: text,
+        fromEmail: from,
+        ownDomain: "gard.cl",
+      });
+    } catch (extractErr) {
+      console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);
+      extracted = {
+        companyName: null,
+        rut: null,
+        legalName: null,
+        businessActivity: null,
+        legalRepresentativeName: null,
+        contactFirstName: null,
+        contactLastName: null,
+        contactEmail: from?.replace(/^.*<([^>]+)>$/, "$1").trim() || from || null,
+        contactPhone: null,
+        contactRole: null,
+        address: null,
+        city: null,
+        commune: null,
+        serviceType: null,
+        serviceDuration: null,
+        coverageDetails: null,
+        guardsPerShift: null,
+        numberOfLocations: null,
+        startDate: null,
+        summary: subject,
+        industry: null,
+        website: null,
+      };
+    }
 
     const firstName = toSentenceCase(extracted.contactFirstName?.trim() || "") ?? null;
     const lastName = toSentenceCase(extracted.contactLastName?.trim() || "") ?? null;
@@ -195,9 +233,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, leadId: lead.id });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     console.error("[inbound-email] Error:", error);
     return NextResponse.json(
-      { error: "Error procesando correo entrante" },
+      {
+        error: "Error procesando correo entrante",
+        detail: message,
+        ...(process.env.NODE_ENV === "development" && stack ? { stack } : {}),
+      },
       { status: 500 }
     );
   }
