@@ -170,7 +170,8 @@ export async function POST(request: NextRequest) {
         ticket.updatedAt instanceof Date ? ticket.updatedAt.toISOString() : String(ticket.updatedAt),
     };
 
-    // Send notifications: approval group + email to guard
+    // Send notifications: approval group + email + push to guard
+    // (dynamic imports: push-service throws at module level if VAPID keys are absent)
     try {
       const { sendNotificationToUsers } = await import("@/lib/notification-service");
       const { resend, getTenantEmailConfig } = await import("@/lib/resend");
@@ -235,6 +236,18 @@ export async function POST(request: NextRequest) {
           html,
         });
       }
+
+      // Push to the guard (ticket received confirmation)
+      const { sendPushToPortalUser } = await import("@/lib/pwa/push-service");
+      await sendPushToPortalUser({
+        tenantId: effectiveTenantId,
+        notifKey: "ticket_created",
+        userType: "guardia",
+        userId: guardiaId,
+        portalType: "guardia",
+        title: `Solicitud ${ticket.code} recibida`,
+        body: `Tu solicitud "${title}" está ${needsApproval ? "pendiente de aprobación" : "en proceso"}.`,
+      });
     } catch (err) {
       console.error("[Portal Guardia] Error sending notifications:", err);
     }

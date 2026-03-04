@@ -289,7 +289,29 @@ export async function POST(
         link: `/ops/tickets/${ticketId}`,
         targetUserIds,
       });
-    } catch {}
+
+      // Push to the guardia if ticket came from portal
+      // (dynamic import: push-service throws at module level if VAPID keys are absent)
+      if (ticket.guardiaId) {
+        const comment = typeof body.comment === "string" ? body.comment : null;
+        const { sendPushToPortalUser } = await import("@/lib/pwa/push-service");
+        await sendPushToPortalUser({
+          tenantId: ctx.tenantId,
+          notifKey: "ticket_updated",
+          userType: "guardia",
+          userId: ticket.guardiaId,
+          portalType: "guardia",
+          title: decision === "approved"
+            ? `Solicitud ${ticket.code} aprobada`
+            : `Solicitud ${ticket.code} rechazada`,
+          body: decision === "approved"
+            ? `${decider} aprobó tu solicitud "${ticket.title}"`
+            : `${decider} rechazó tu solicitud: ${comment ?? "sin comentario"}`,
+        });
+      }
+    } catch (err) {
+      console.error("[OPS] Error sending ticket approval notifications:", err);
+    }
 
     return NextResponse.json(
       { success: true, data: mapApproval(updatedApproval) },
