@@ -18,7 +18,9 @@ interface ClienteSession {
 interface ChannelInfo {
   id: string;
   name: string;
-  installationId: string;
+  installationId: string | null;
+  groupId?: string | null;
+  channelType?: string;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
@@ -30,6 +32,7 @@ interface ChatClienteSectionProps {
 
 export function ChatClienteSection({ session }: ChatClienteSectionProps) {
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
+  const [groupChannels, setGroupChannels] = useState<ChannelInfo[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<ChannelInfo | null>(null);
   const [isLoadingChannels, setIsLoadingChannels] = useState(true);
 
@@ -45,23 +48,28 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
     "Content-Type": "application/json",
   };
 
-  // Load channels
+  // Load installation channels + group channels in parallel
   useEffect(() => {
     setIsLoadingChannels(true);
-    fetch("/api/portal/cliente/chat/channels", { headers })
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success && res.data?.length > 0) {
-          setChannels(res.data);
-          // If only one channel, select it directly
-          if (res.data.length === 1) {
-            setSelectedChannel(res.data[0]);
-          }
+    Promise.all([
+      fetch("/api/portal/cliente/chat/channels", { headers }).then((r) => r.json()),
+      fetch("/api/portal/cliente/chat/groups", { headers }).then((r) => r.json()),
+    ])
+      .then(([installRes, groupRes]) => {
+        const instChannels: ChannelInfo[] = installRes.success ? installRes.data ?? [] : [];
+        const grpChannels: ChannelInfo[] = groupRes.success ? groupRes.data ?? [] : [];
+        setChannels(instChannels);
+        setGroupChannels(grpChannels);
+        // Auto-select if there is exactly one installation channel and no groups
+        if (instChannels.length === 1 && grpChannels.length === 0) {
+          setSelectedChannel(instChannels[0]);
         }
       })
       .catch(() => {})
       .finally(() => setIsLoadingChannels(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const allChannels = [...channels, ...groupChannels];
 
   if (isLoadingChannels) {
     return (
@@ -71,7 +79,7 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
     );
   }
 
-  if (channels.length === 0) {
+  if (allChannels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center p-6">
         <p className="text-zinc-400 text-sm">No hay canales de chat disponibles.</p>
@@ -86,37 +94,57 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
         session={session}
         channel={selectedChannel}
         senderName={senderName}
-        onBack={channels.length > 1 ? () => setSelectedChannel(null) : undefined}
+        onBack={allChannels.length > 1 ? () => setSelectedChannel(null) : undefined}
       />
     );
   }
 
+  const renderChannelButton = (ch: ChannelInfo) => (
+    <button
+      key={ch.id}
+      onClick={() => setSelectedChannel(ch)}
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-left"
+    >
+      <div className="h-9 w-9 rounded-full bg-teal-600/20 flex items-center justify-center shrink-0">
+        <span className="text-teal-400 text-xs font-bold">#</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-zinc-100 truncate">{ch.name}</p>
+        {ch.lastMessagePreview && (
+          <p className="text-[11px] text-zinc-500 truncate">{ch.lastMessagePreview}</p>
+        )}
+      </div>
+      {ch.unreadCount > 0 && (
+        <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-teal-600 text-[10px] font-bold text-white px-1.5">
+          {ch.unreadCount}
+        </span>
+      )}
+    </button>
+  );
+
   // Show channel list
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-zinc-100 mb-3">Canales de chat</h3>
-      {channels.map((ch) => (
-        <button
-          key={ch.id}
-          onClick={() => setSelectedChannel(ch)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-left"
-        >
-          <div className="h-9 w-9 rounded-full bg-teal-600/20 flex items-center justify-center shrink-0">
-            <span className="text-teal-400 text-xs font-bold">#</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-zinc-100 truncate">{ch.name}</p>
-            {ch.lastMessagePreview && (
-              <p className="text-[11px] text-zinc-500 truncate">{ch.lastMessagePreview}</p>
-            )}
-          </div>
-          {ch.unreadCount > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-teal-600 text-[10px] font-bold text-white px-1.5">
-              {ch.unreadCount}
-            </span>
+      {channels.length > 0 && (
+        <>
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">
+            Canales de instalación
+          </h3>
+          {channels.map(renderChannelButton)}
+        </>
+      )}
+
+      {groupChannels.length > 0 && (
+        <>
+          {channels.length > 0 && (
+            <div className="border-t border-zinc-800 my-3" />
           )}
-        </button>
-      ))}
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">
+            Grupos Gard
+          </h3>
+          {groupChannels.map(renderChannelButton)}
+        </>
+      )}
     </div>
   );
 }
@@ -350,7 +378,9 @@ function ClienteChatConversation({
         </div>
         <div>
           <h3 className="text-sm font-semibold text-zinc-100">{channel.name}</h3>
-          <p className="text-[10px] text-zinc-500">Chat de instalación</p>
+          <p className="text-[10px] text-zinc-500">
+            {channel.channelType === "GROUP" ? "Grupo Gard" : "Chat de instalación"}
+          </p>
         </div>
       </div>
 
