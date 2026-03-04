@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { updateInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
+import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET(
   _request: NextRequest,
@@ -78,7 +79,22 @@ export async function PATCH(
 
     const existing = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        commune: true,
+        lat: true,
+        lng: true,
+        isActive: true,
+        geoRadiusM: true,
+        teMontoClp: true,
+        notes: true,
+        startDate: true,
+        endDate: true,
+        accountId: true,
+      },
     });
     if (!existing) {
       return NextResponse.json(
@@ -172,6 +188,21 @@ export async function PATCH(
     if (installation.accountId) {
       revalidatePath(`/crm/accounts/${installation.accountId}`);
     }
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      normalizedData
+    );
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "installation",
+      entityId: id,
+      action: "installation_updated",
+      details: {
+        changedFields: diff.changedFields,
+        changes: diff.changes,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: installation });
   } catch (error) {
@@ -204,7 +235,7 @@ export async function DELETE(
 
     const existing = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, name: true, accountId: true, isActive: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -214,6 +245,18 @@ export async function DELETE(
     }
 
     await prisma.crmInstallation.delete({ where: { id } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "installation",
+      entityId: id,
+      action: "installation_deleted",
+      details: {
+        name: existing.name,
+        accountId: existing.accountId,
+        isActive: existing.isActive,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
+import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
 const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
@@ -171,6 +172,21 @@ export async function PATCH(
 
       return updatedAccount;
     });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      updateData
+    );
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "account",
+      entityId: id,
+      action: "account_updated",
+      details: {
+        changedFields: diff.changedFields,
+        changes: diff.changes,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: account });
   } catch (error) {
@@ -222,6 +238,18 @@ export async function DELETE(
     }
 
     await prisma.crmAccount.delete({ where: { id } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "account",
+      entityId: id,
+      action: "account_deleted",
+      details: {
+        name: existing.name,
+        type: existing.type,
+        status: existing.status,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

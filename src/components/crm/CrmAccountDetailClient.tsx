@@ -38,6 +38,7 @@ import {
   Phone,
   Receipt,
   Shield,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -48,6 +49,7 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { AccountPortalSection } from "./AccountPortalSection";
+import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -144,6 +146,15 @@ type AccountDetail = {
   _count: { contacts: number; deals: number; installations: number };
 };
 
+type ActivityEvent = {
+  id: string;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+};
+
 function formatCLP(value: number | string): string {
   const n = typeof value === "string" ? parseFloat(value) : value;
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0 }).format(n || 0);
@@ -160,10 +171,12 @@ function getAccountLifecycle(account: Pick<AccountDetail, "status" | "type" | "i
 export function CrmAccountDetailClient({
   account: initialAccount,
   quotes = [],
+  activityEvents = [],
   currentUserId,
 }: {
   account: AccountDetail;
   quotes?: QuoteRow[];
+  activityEvents?: ActivityEvent[];
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -630,6 +643,7 @@ export function CrmAccountDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "portal", label: "Portal", icon: Shield },
     { id: "files", label: "Archivos", icon: FileText },
   ];
@@ -893,6 +907,11 @@ export function CrmAccountDetailClient({
         {activeTab === "general" && generalContent}
 
         {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
+        {activeTab === "activity" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <CrmActivityTimeline events={activityEvents} />
+          </div>
+        )}
 
         {activeTab === "portal" && (
           <AccountPortalSection

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createDealSchema } from "@/lib/validations/crm";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET() {
   try {
@@ -101,6 +102,19 @@ export async function POST(request: NextRequest) {
         toStageId: stage,
         changedBy: ctx.userId,
       },
+    });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "deal",
+      entityId: deal.id,
+      action: "deal_created",
+      details: {
+        title: deal.title,
+        amount: deal.amount,
+        stageId: deal.stage?.id ?? stage,
+        accountId: deal.account?.id ?? body.accountId,
+      },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: deal }, { status: 201 });

@@ -59,6 +59,7 @@ export default async function CrmDealDetailPage({
     accountInstallations,
     followUpConfig,
     followUpLogsRaw,
+    activityLogs,
     ufValue,
   ] = await Promise.all([
     prisma.cpqQuote.findMany({
@@ -159,8 +160,38 @@ export default async function CrmDealDetailPage({
         createdAt: true,
       },
     }),
+    prisma.crmHistoryLog.findMany({
+      where: { tenantId, entityType: "deal", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 150,
+    }),
     getUfValue(),
   ]);
+  const activityActorIds = Array.from(
+    new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
+  );
+  const activityActors = activityActorIds.length
+    ? await prisma.admin.findMany({
+        where: { tenantId, id: { in: activityActorIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const activityActorMap = new Map(activityActors.map((actor) => [actor.id, actor.name]));
+  const activityEvents = activityLogs.map((log) => ({
+    ...log,
+    createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
+    details: {
+      ...(typeof log.details === "object" && log.details ? (log.details as Record<string, unknown>) : {}),
+      fromStageName:
+        typeof log.details === "object" && log.details && "fromStageId" in (log.details as Record<string, unknown>)
+          ? pipelineStages.find((stage) => stage.id === (log.details as Record<string, unknown>).fromStageId)?.name || null
+          : null,
+      toStageName:
+        typeof log.details === "object" && log.details && "toStageId" in (log.details as Record<string, unknown>)
+          ? pipelineStages.find((stage) => stage.id === (log.details as Record<string, unknown>).toStageId)?.name || null
+          : null,
+    },
+  }));
 
   const followUpLogIds = followUpLogsRaw.map((log: { id: string }) => log.id);
   const followUpMessages = followUpLogIds.length > 0
@@ -276,6 +307,7 @@ export default async function CrmDealDetailPage({
           docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
           followUpConfig={initialFollowUpConfig}
           followUpLogs={initialFollowUpLogs}
+          activityEvents={JSON.parse(JSON.stringify(activityEvents))}
           ufValue={ufValue}
           canConfigureCrm={canConfigureCrm}
           currentUserId={session.user.id}

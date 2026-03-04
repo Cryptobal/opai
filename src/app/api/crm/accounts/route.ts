@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createAccountSchema } from "@/lib/validations/crm";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
@@ -103,6 +104,19 @@ export async function POST(request: NextRequest) {
         address: body.address || null,
         notes: body.notes || null,
       },
+    });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "account",
+      entityId: account.id,
+      action: "account_created",
+      details: {
+        name: account.name,
+        type: account.type,
+        status: account.status,
+        isActive: account.isActive,
+      },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: account }, { status: 201 });

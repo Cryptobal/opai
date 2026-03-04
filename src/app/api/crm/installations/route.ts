@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET(request: NextRequest) {
   try {
@@ -121,6 +122,18 @@ export async function POST(request: NextRequest) {
         accountId: true,
         account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
       },
+    });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "installation",
+      entityId: installation.id,
+      action: "installation_created",
+      details: {
+        name: installation.name,
+        accountId: installation.accountId,
+        isActive: installation.isActive,
+      },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: installation }, { status: 201 });

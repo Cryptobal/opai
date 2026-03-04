@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createContactSchema, updateContactSchema } from "@/lib/validations/crm";
+import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET() {
   try {
@@ -75,6 +76,18 @@ export async function POST(request: NextRequest) {
       },
       include: { account: true },
     });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "contact",
+      entityId: contact.id,
+      action: "contact_created",
+      details: {
+        fullName: `${contact.firstName} ${contact.lastName}`.trim(),
+        email: contact.email,
+        accountId: contact.accountId,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: contact }, { status: 201 });
   } catch (error) {
@@ -129,6 +142,21 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: parsed.data,
       include: { account: true },
+    });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      parsed.data as unknown as Record<string, unknown>
+    );
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "contact",
+      entityId: id,
+      action: "contact_updated",
+      details: {
+        changedFields: diff.changedFields,
+        changes: diff.changes,
+      },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: contact });

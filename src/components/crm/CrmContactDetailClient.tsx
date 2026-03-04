@@ -43,6 +43,7 @@ import {
   Building2,
   MapPin,
   DollarSign,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -50,6 +51,7 @@ import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
+import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -142,6 +144,14 @@ type QuoteRow = {
 
 type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
+type ActivityEvent = {
+  id: string;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+};
 
 export function CrmContactDetailClient({
   contact: initialContact,
@@ -153,6 +163,7 @@ export function CrmContactDetailClient({
   docTemplatesMail = [],
   docTemplatesWhatsApp = [],
   initialEmailCount = 0,
+  activityEvents = [],
   currentUserId = "",
 }: {
   contact: ContactDetail;
@@ -164,6 +175,7 @@ export function CrmContactDetailClient({
   docTemplatesMail?: DocTemplateMail[];
   docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   initialEmailCount?: number;
+  activityEvents?: ActivityEvent[];
   currentUserId?: string;
 }) {
   const router = useRouter();
@@ -451,6 +463,7 @@ export function CrmContactDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -693,6 +706,11 @@ export function CrmContactDetailClient({
               onReply={gmailConnected ? handleReplyFromHistory : undefined}
               onCountChange={setEmailCount}
             />
+          </div>
+        )}
+        {activeTab === "activity" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <CrmActivityTimeline events={activityEvents} />
           </div>
         )}
 

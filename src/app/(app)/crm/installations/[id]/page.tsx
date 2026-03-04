@@ -29,7 +29,7 @@ export default async function CrmInstallationDetailPage({
     };
   };
   const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount, contactsOfAccount] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount, contactsOfAccount, activityLogs] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       select: {
@@ -206,6 +206,11 @@ export default async function CrmInstallationDetailPage({
           })
         : Promise.resolve([])
     ),
+    prisma.crmHistoryLog.findMany({
+      where: { tenantId, entityType: "installation", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 120,
+    }),
   ]);
 
   if (!installation) {
@@ -229,6 +234,20 @@ export default async function CrmInstallationDetailPage({
   const canEditDotacion = canEdit(perms, "crm", "dotacion");
   const hasInventarioAccess = canView(perms, "ops", "inventario");
   const canForceDeletePuesto = ["owner", "admin"].includes(session.user.role ?? "");
+  const activityActorIds = Array.from(
+    new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
+  );
+  const activityActors = activityActorIds.length
+    ? await prisma.admin.findMany({
+        where: { tenantId, id: { in: activityActorIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const activityActorMap = new Map(activityActors.map((actor) => [actor.id, actor.name]));
+  const activityEvents = activityLogs.map((log) => ({
+    ...log,
+    createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
+  }));
 
   return (
     <NotesProvider
@@ -243,6 +262,7 @@ export default async function CrmInstallationDetailPage({
         canEditDotacion={canEditDotacion}
         canForceDeletePuesto={canForceDeletePuesto}
         hasInventarioAccess={hasInventarioAccess}
+        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
         currentUserId={session.user.id ?? ""}
       />
     </NotesProvider>

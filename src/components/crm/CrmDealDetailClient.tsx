@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2 } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
+import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -128,6 +129,14 @@ type FollowUpLog = {
   createdAt: string;
   emailMessage?: FollowUpEmail | null;
 };
+type ActivityEvent = {
+  id: string;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+};
 
 export type DealDetail = {
   id: string;
@@ -161,7 +170,7 @@ type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], ufValue, canConfigureCrm = false, currentUserId = "",
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
@@ -170,6 +179,7 @@ export function CrmDealDetailClient({
   gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[]; docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   followUpConfig?: FollowUpConfigState | null;
   followUpLogs?: FollowUpLog[];
+  activityEvents?: ActivityEvent[];
   ufValue: number;
   canConfigureCrm?: boolean;
   currentUserId?: string;
@@ -1219,6 +1229,7 @@ export function CrmDealDetailClient({
     { id: "general", label: "General", icon: Info },
     { id: "followup", label: "Seguimiento", icon: CalendarClock },
     { id: "communication", label: "Comunicación", icon: Mail },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -1267,6 +1278,11 @@ export function CrmDealDetailClient({
           </div>
         )}
         {activeTab === "communication" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{communicationSection.children}</div>}
+        {activeTab === "activity" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <CrmActivityTimeline events={activityEvents} />
+          </div>
+        )}
         {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
       </EntityDetailLayout>
 

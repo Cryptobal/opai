@@ -86,8 +86,8 @@ export default async function CrmContactDetailPage({
       })
     : [];
 
-  // Gmail, pipeline stages, doc templates (mail + whatsapp)
-  const [gmailAccount, pipelineStages, docTemplatesMail, docTemplatesWhatsApp] = await Promise.all([
+  // Gmail, pipeline stages, doc templates (mail + whatsapp) + actividad
+  const [gmailAccount, pipelineStages, docTemplatesMail, docTemplatesWhatsApp, activityLogs] = await Promise.all([
     prisma.crmEmailAccount.findFirst({
       where: { tenantId, userId: session.user.id, provider: "gmail", status: "active" },
     }),
@@ -105,7 +105,26 @@ export default async function CrmContactDetailPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, content: true },
     }),
+    prisma.crmHistoryLog.findMany({
+      where: { tenantId, entityType: "contact", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 120,
+    }),
   ]);
+  const activityActorIds = Array.from(
+    new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
+  );
+  const activityActors = activityActorIds.length
+    ? await prisma.admin.findMany({
+        where: { tenantId, id: { in: activityActorIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const activityActorMap = new Map(activityActors.map((actor) => [actor.id, actor.name]));
+  const activityEvents = activityLogs.map((log) => ({
+    ...log,
+    createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
+  }));
 
   const linkedThreads = await prisma.crmEmailThread.findMany({
     where: { tenantId, contactId: contact.id },
@@ -166,6 +185,7 @@ export default async function CrmContactDetailPage({
         deals={initialDeals}
         installations={initialInstallations}
         quotes={initialQuotes}
+        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
         pipelineStages={initialPipelineStages}
         gmailConnected={!!gmailAccount}
         docTemplatesMail={initialDocTemplatesMail}

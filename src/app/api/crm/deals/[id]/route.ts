@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createDealSchema } from "@/lib/validations/crm";
+import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET(
   _request: NextRequest,
@@ -134,6 +135,21 @@ export async function PATCH(
         primaryContact: true,
       },
     });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      data
+    );
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "deal",
+      entityId: id,
+      action: "deal_updated",
+      details: {
+        changedFields: diff.changedFields,
+        changes: diff.changes,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: deal });
   } catch (error) {
@@ -167,6 +183,17 @@ export async function DELETE(
 
     // Cascade: stageHistory, dealQuotes, tasks se eliminan por onDelete: Cascade
     await prisma.crmDeal.delete({ where: { id } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "deal",
+      entityId: id,
+      action: "deal_deleted",
+      details: {
+        title: existing.title,
+        accountId: existing.accountId,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

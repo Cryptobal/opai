@@ -24,7 +24,7 @@ export default async function CrmAccountDetailPage({
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 
-  let [account, quotes] = await Promise.all([
+  let [account, quotes, activityLogs] = await Promise.all([
     prisma.crmAccount.findFirst({
       where: { id, tenantId },
       include: {
@@ -41,6 +41,11 @@ export default async function CrmAccountDetailPage({
       where: { accountId: id, tenantId },
       orderBy: { createdAt: "desc" },
       select: { id: true, code: true, name: true, status: true, clientName: true, monthlyCost: true, createdAt: true },
+    }),
+    prisma.crmHistoryLog.findMany({
+      where: { tenantId, entityType: "account", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 120,
     }),
   ]);
 
@@ -69,6 +74,20 @@ export default async function CrmAccountDetailPage({
   }
 
   const data = JSON.parse(JSON.stringify({ ...account, quotes }));
+  const actorIds = Array.from(
+    new Set(activityLogs.map((log) => log.createdBy).filter((id): id is string => Boolean(id)))
+  );
+  const actors = actorIds.length
+    ? await prisma.admin.findMany({
+        where: { tenantId, id: { in: actorIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const actorMap = new Map(actors.map((user) => [user.id, user.name]));
+  const activityEvents = activityLogs.map((log) => ({
+    ...log,
+    createdByName: log.createdBy ? actorMap.get(log.createdBy) ?? null : null,
+  }));
 
   const lifecycle =
     account.status === "prospect" || account.status === "client_active" || account.status === "client_inactive"
@@ -90,6 +109,7 @@ export default async function CrmAccountDetailPage({
       <CrmAccountDetailClient
         account={data}
         quotes={data.quotes || []}
+        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
         currentUserId={session.user.id}
       />
     </NotesProvider>

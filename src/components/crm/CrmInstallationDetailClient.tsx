@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { toast } from "sonner";
 import { formatPersonName } from "@/lib/personas";
+import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -162,6 +163,15 @@ export type InstallationDetail = {
   }>;
   createdAt?: string | null;
   updatedAt?: string | null;
+};
+
+type ActivityEvent = {
+  id: string;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
 };
 
 /* ── Lifecycle colors (shared) ── */
@@ -1591,12 +1601,14 @@ export function CrmInstallationDetailClient({
   canEditDotacion = false,
   canForceDeletePuesto = false,
   hasInventarioAccess = false,
+  activityEvents = [],
   currentUserId = "",
 }: {
   installation: InstallationDetail;
   canEditDotacion?: boolean;
   canForceDeletePuesto?: boolean;
   hasInventarioAccess?: boolean;
+  activityEvents?: ActivityEvent[];
   currentUserId?: string;
 }) {
   const router = useRouter();
@@ -1830,6 +1842,7 @@ export function CrmInstallationDetailClient({
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
   ];
 
@@ -2206,6 +2219,11 @@ export function CrmInstallationDetailClient({
             activeSubTab={protocolSubTab}
             onSubTabChange={setProtocolSubTab}
           />
+        )}
+        {activeTab === "activity" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <CrmActivityTimeline events={activityEvents} />
+          </div>
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />
