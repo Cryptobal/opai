@@ -46,6 +46,17 @@ export interface CompletionData {
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
+  checkpoints?: {
+    name: string;
+    status: "COMPLETED" | "MISSED";
+    timestamp?: string;
+    distanceM?: number;
+    geoValidada?: boolean;
+    qrScanned?: boolean;
+    hasPhoto?: boolean;
+  }[];
+  scheduledAt?: string;
+  startedAt?: string;
 }
 
 interface Props {
@@ -285,6 +296,9 @@ export function RondaActiva({
         porcentajeCompletado: json.data?.porcentajeCompletado ?? 0,
         durationMinutes: json.data?.durationMinutes ?? null,
         missed: json.data?.missed ?? 0,
+        checkpoints: json.data?.checkpoints,
+        scheduledAt: json.data?.scheduledAt,
+        startedAt: json.data?.startedAt,
       });
     } catch (err: unknown) {
       completingRef.current = false;

@@ -143,6 +143,43 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Build per-checkpoint detail for the completion screen
+    const templateCheckpointsForDetail = await prisma.opsRondaCheckpoint.findMany({
+      where: { rondaTemplateId: execution.rondaTemplateId },
+      include: { checkpoint: { select: { id: true, name: true } } },
+      orderBy: { orderIndex: "asc" },
+    });
+
+    const allMarcacionesForDetail = await prisma.opsMarcacionCheckpoint.findMany({
+      where: { ejecucionId },
+      select: {
+        checkpointId: true,
+        timestamp: true,
+        geoDistanciaM: true,
+        geoValidada: true,
+        verificationMethod: true,
+        fotoEvidenciaUrl: true,
+        status: true,
+      },
+    });
+
+    const checkpointDetails = templateCheckpointsForDetail.map((tc) => {
+      const marc = allMarcacionesForDetail.find(
+        (m) => m.checkpointId === tc.checkpointId && m.status === "COMPLETED",
+      );
+      return {
+        name: tc.checkpoint.name,
+        status: marc ? ("COMPLETED" as const) : ("MISSED" as const),
+        timestamp: marc?.timestamp?.toISOString() ?? undefined,
+        distanceM: marc?.geoDistanciaM ?? undefined,
+        geoValidada: marc?.geoValidada ?? false,
+        qrScanned:
+          marc?.verificationMethod === "QR" ||
+          marc?.verificationMethod === "BOTH",
+        hasPhoto: !!marc?.fotoEvidenciaUrl,
+      };
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -153,6 +190,9 @@ export async function POST(request: NextRequest) {
         porcentajeCompletado: pct,
         durationMinutes,
         missed: missedData.length,
+        checkpoints: checkpointDetails,
+        scheduledAt: execution.scheduledAt.toISOString(),
+        startedAt: execution.startedAt?.toISOString(),
       },
     });
   } catch (error) {
