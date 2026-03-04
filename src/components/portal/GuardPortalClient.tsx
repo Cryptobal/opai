@@ -31,6 +31,7 @@ import {
 import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
+import { NotificationSettings } from "@/components/pwa/NotificationSettings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1151,6 +1152,17 @@ function PerfilSection({
           </p>
         </div>
       )}
+
+      {/* Notification preferences */}
+      <div className="rounded-xl border bg-card shadow-sm p-4">
+        <h3 className="text-sm font-semibold mb-3">Notificaciones</h3>
+        <NotificationSettings
+          userType="guardia"
+          userId={session.guardiaId}
+          tenantId={session.tenantId}
+          portalType="guardia"
+        />
+      </div>
 
       {/* Logout */}
       <Button
