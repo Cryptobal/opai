@@ -14,6 +14,7 @@ import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
 import { PortalInstallations } from "@/components/portal/cliente/PortalInstallations";
 import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
 import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
+import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
 
 /* ── Helpers ── */
@@ -96,6 +97,13 @@ export function PortalClienteClient() {
       case "posta":
         return (
           <PortalPosta
+            session={session}
+            selectedInstallation={selectedInstallation}
+          />
+        );
+      case "tickets":
+        return (
+          <PortalTickets
             session={session}
             selectedInstallation={selectedInstallation}
           />
