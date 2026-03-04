@@ -15,17 +15,26 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
   const { registration } = useServiceWorker();
   const [dismissed, setDismissed] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (subscribed || dismissed || !registration) return null;
   if (typeof Notification === 'undefined') return null;
   if (Notification.permission === 'granted' || Notification.permission === 'denied') return null;
 
   const handleEnable = async () => {
-    const success = await subscribeToPush({ registration, portalType, userType, userId, tenantId });
-    if (success) {
-      setSubscribed(true);
-    } else {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const success = await subscribeToPush({ registration, portalType, userType, userId, tenantId });
+      if (success) {
+        setSubscribed(true);
+      } else {
+        setDismissed(true);
+      }
+    } catch {
       setDismissed(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,11 +49,16 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
       </div>
       <button
         onClick={handleEnable}
-        className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+        disabled={loading}
+        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
       >
-        Activar
+        {loading ? 'Activando...' : 'Activar'}
       </button>
-      <button onClick={() => setDismissed(true)} className="text-zinc-500 hover:text-zinc-300 shrink-0">
+      <button
+        onClick={() => setDismissed(true)}
+        aria-label="Cerrar"
+        className="text-zinc-500 hover:text-zinc-300 shrink-0"
+      >
         <X className="w-4 h-4" />
       </button>
     </div>

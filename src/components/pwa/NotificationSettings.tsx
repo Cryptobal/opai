@@ -21,7 +21,7 @@ export function NotificationSettings({ userType, userId, tenantId, portalType }:
   const [saving, setSaving] = useState(false);
 
   const relevantTypes = PORTAL_NOTIFICATION_TYPES.filter((t) =>
-    t.portals.includes(portalType as any)
+    t.portals.includes(portalType)
   );
 
   useEffect(() => {
@@ -35,19 +35,29 @@ export function NotificationSettings({ userType, userId, tenantId, portalType }:
   }, [userType, userId, portalType]);
 
   const updatePref = async (type: string, field: keyof Pref, value: boolean) => {
+    const previous = preferences;
     const updated = {
       ...preferences,
       [type]: { ...preferences[type], [field]: value },
     };
-    setPreferences(updated);
+    setPreferences(updated); // optimistic update
 
     setSaving(true);
-    await fetch('/api/notifications/push/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userType, userId, tenantId, portalType, preferences: updated }),
-    });
-    setSaving(false);
+    try {
+      const res = await fetch('/api/notifications/push/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userType, userId, tenantId, portalType, preferences: updated }),
+      });
+      if (!res.ok) {
+        setPreferences(previous); // rollback on failure
+        console.error('[NotificationSettings] Failed to save preferences:', res.status);
+      }
+    } catch {
+      setPreferences(previous); // rollback on network error
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
