@@ -55,6 +55,9 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "account.size", label: "Tamaño", path: "size" },
       { key: "account.website", label: "Sitio Web", path: "website" },
       { key: "account.address", label: "Dirección", path: "address" },
+      { key: "account.commune", label: "Comuna", path: "commune" },
+      { key: "account.notaryName", label: "Nombre Notaría", path: "notaryName" },
+      { key: "account.notaryDate", label: "Fecha Escritura Pública", path: "notaryDate" },
     ],
   },
   {
@@ -112,6 +115,25 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "quote.totalPositions", label: "Total Posiciones", path: "totalPositions", type: "number" },
       { key: "quote.totalGuards", label: "Total Guardias", path: "totalGuards", type: "number" },
       { key: "quote.clientName", label: "Cliente (Cotización)", path: "clientName" },
+      { key: "quote.salePriceMonthly", label: "Precio Venta Mensual", path: "salePriceMonthly", type: "currency" },
+      { key: "quote.salePriceUF", label: "Precio Venta en UF", path: "salePriceUF" },
+      { key: "quote.contractMonths", label: "Meses de Contrato", path: "contractMonths", type: "number" },
+      { key: "quote.contractAmount", label: "Monto Total Contrato", path: "contractAmount", type: "currency" },
+      { key: "quote.positionsTable", label: "Tabla de Posiciones", path: "positionsTable", type: "table" },
+      { key: "quote.installationsTable", label: "Tabla de Instalaciones", path: "installationsTable", type: "table" },
+      { key: "quote.dotacionResumen", label: "Resumen Dotación", path: "dotacionResumen" },
+    ],
+  },
+  {
+    key: "contract",
+    label: "Contrato",
+    icon: "FileSignature",
+    description: "Datos del contrato de servicio con cliente",
+    tokens: [
+      { key: "contract.effectiveDate", label: "Fecha de Inicio", path: "effectiveDate", type: "date" },
+      { key: "contract.expirationDate", label: "Fecha de Término", path: "expirationDate", type: "date" },
+      { key: "contract.durationMonths", label: "Duración (meses)", path: "durationMonths", type: "number" },
+      { key: "contract.title", label: "Título del Contrato", path: "title" },
     ],
   },
   {
@@ -240,6 +262,7 @@ export function getAllTokenKeys(): string[] {
 /** Document categories by module */
 export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = {
   crm: [
+    { key: "contrato_cliente", label: "Contrato Cliente" },
     { key: "contrato_servicio", label: "Contrato de Servicio" },
     { key: "contrato_confidencialidad", label: "Acuerdo de Confidencialidad (NDA)" },
     { key: "acuerdo_nivel_servicio", label: "Acuerdo de Nivel de Servicio (SLA)" },

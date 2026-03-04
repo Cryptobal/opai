@@ -28,6 +28,7 @@ export interface EntityData {
   installation?: Record<string, any> | null;
   deal?: Record<string, any> | null;
   quote?: Record<string, any> | null;
+  contract?: Record<string, any> | null;
   guardia?: Record<string, any> | null;
   labor_event?: Record<string, any> | null;
 }
@@ -127,6 +128,15 @@ export function resolveTokenValue(
       "substituteNoticeAmount",
       "totalSettlementAmount",
     ].includes(field)
+  ) {
+    const num = Number(value);
+    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
+  }
+
+  // Currency formatting for quote pricing fields
+  if (
+    module === "quote" &&
+    ["monthlyCost", "salePriceMonthly", "contractAmount"].includes(field)
   ) {
     const num = Number(value);
     if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
@@ -629,6 +639,103 @@ export function buildEmpresaEntityData(settings: Array<{ key: string; value: str
 /**
  * Build entity data for a labor event (finiquito).
  */
+/**
+ * Build enriched quote entity data with positions table, installations table, and pricing.
+ * Used for contract generation from CRM accounts.
+ */
+export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<string, any>> {
+  const { prisma } = await import("@/lib/prisma");
+
+  const quote = await prisma.cpqQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      positions: {
+        include: {
+          puestoTrabajo: true,
+          cargo: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      parameters: true,
+      account: { select: { installations: { select: { name: true, address: true, commune: true, city: true }, where: { isActive: true } } } },
+    },
+  });
+
+  if (!quote) return {};
+
+  const params = quote.parameters;
+
+  // Build positions table HTML
+  const posRows = quote.positions.map((p: any) => {
+    const name = p.customName || p.puestoTrabajo?.name || p.cargo?.name || "Puesto";
+    const days = Array.isArray(p.weekdays) ? (p.weekdays as string[]).join(", ") : "L-D";
+    const schedule = `${p.startTime || "00:00"} - ${p.endTime || "00:00"}`;
+    return `<tr><td>${name}</td><td>${days} ${schedule}</td><td>${p.numGuards ?? 1}</td><td>${p.numPuestos ?? 1}</td></tr>`;
+  });
+  const positionsTable = posRows.length > 0
+    ? `<table><thead><tr><th>Puesto</th><th>Horario</th><th>Guardias</th><th>Puestos</th></tr></thead><tbody>${posRows.join("")}</tbody></table>`
+    : "";
+
+  // Build installations table HTML
+  const installations = quote.account?.installations ?? [];
+  const instRows = installations.map((i: any) =>
+    `<tr><td>${i.name}</td><td>${i.address || ""}${i.commune ? `, ${i.commune}` : ""}</td></tr>`
+  );
+  const installationsTable = instRows.length > 0
+    ? `<table><thead><tr><th>Instalación</th><th>Dirección</th></tr></thead><tbody>${instRows.join("")}</tbody></table>`
+    : "";
+
+  // Build dotación resumen text
+  const dotacionResumen = quote.positions.map((p: any) => {
+    const name = p.customName || p.puestoTrabajo?.name || p.cargo?.name || "Puesto";
+    const guards = p.numGuards ?? 1;
+    const puestos = p.numPuestos ?? 1;
+    const days = Array.isArray(p.weekdays) ? (p.weekdays as string[]).join(", ") : "L-D";
+    const schedule = `${p.startTime || "00:00"} - ${p.endTime || "00:00"}`;
+    return `${guards * puestos}x ${name} (${days} ${schedule})`;
+  }).join(", ");
+
+  // Sale price
+  const salePriceMonthly = params?.salePriceMonthly
+    ? Number(params.salePriceMonthly)
+    : (params?.salePriceBase ? Number(params.salePriceBase) : Number(quote.monthlyCost ?? 0));
+
+  const contractMonths = params?.contractMonths ?? 12;
+  const contractAmount = salePriceMonthly * contractMonths;
+
+  return {
+    code: quote.code,
+    monthlyCost: Number(quote.monthlyCost ?? 0),
+    totalPositions: quote.totalPositions ?? 0,
+    totalGuards: quote.totalGuards ?? 0,
+    clientName: quote.clientName ?? "",
+    salePriceMonthly,
+    salePriceUF: "", // Will be filled if UF conversion is available
+    contractMonths,
+    contractAmount,
+    positionsTable,
+    installationsTable,
+    dotacionResumen,
+  };
+}
+
+/**
+ * Build contract entity data from dates provided by the user.
+ */
+export function buildContractEntityData(data: {
+  title?: string;
+  effectiveDate?: string | null;
+  expirationDate?: string | null;
+  durationMonths?: number | null;
+}): Record<string, any> {
+  return {
+    title: data.title ?? "",
+    effectiveDate: formatDateOnly(data.effectiveDate),
+    expirationDate: formatDateOnly(data.expirationDate),
+    durationMonths: data.durationMonths ?? null,
+  };
+}
+
 export function buildLaborEventEntityData(event: Record<string, any>): Record<string, any> {
   const causal = CAUSALES_DT.find((c) => c.code === event.causalDtCode);
   return {
