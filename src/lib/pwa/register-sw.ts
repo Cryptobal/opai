@@ -11,6 +11,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       if (!newWorker) return;
 
       newWorker.addEventListener('statechange', () => {
+        // controller is null on first install — only dispatch for genuine SW updates
         if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
           window.dispatchEvent(new CustomEvent('sw-updated'));
         }

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { registerServiceWorker } from './register-sw';
 
 export function useServiceWorker() {
@@ -14,12 +14,12 @@ export function useServiceWorker() {
     return () => window.removeEventListener('sw-updated', handleUpdate);
   }, []);
 
-  const applyUpdate = () => {
+  const applyUpdate = useCallback(() => {
     if (registration?.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
     window.location.reload();
-  };
+  }, [registration]);
 
   return { registration, updateAvailable, applyUpdate };
 }
