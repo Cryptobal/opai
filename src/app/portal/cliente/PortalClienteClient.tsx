@@ -17,6 +17,7 @@ import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
 import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { PortalAlertas } from "@/components/portal/cliente/PortalAlertas";
 import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizaciones";
+import { PortalDemoOverlay } from "@/components/portal/cliente/PortalDemoOverlay";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
 
 /* ── Helpers ── */
@@ -250,8 +251,13 @@ export function PortalClienteClient() {
         </div>
       </header>
 
+      {/* Demo overlay for prospects */}
+      {session?.isProspect && (
+        <PortalDemoOverlay onCTA={() => setActiveSection("cotizaciones")} />
+      )}
+
       {/* Main content */}
-      <main className="flex-1 pb-20">
+      <main className={`flex-1 pb-20${session?.isProspect ? " pt-10" : ""}`}>
         {session && (
           <PushPermissionPrompt
             portalType="cliente"
