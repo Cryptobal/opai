@@ -651,7 +651,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 className="relative group/rc inline-flex h-8 w-8 items-center justify-center rounded-md border border-emerald-600/30 bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 transition-colors"
               >
                 <UserPlus className="h-4 w-4" />
-                <span className="absolute hidden group-hover/rc:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-md border border-border bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300 shadow-lg z-50 pointer-events-none">
+                <span className="absolute hidden group-hover/rc:block top-full left-1/2 -translate-x-1/2 mt-1.5 whitespace-nowrap rounded-md border border-border bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300 shadow-lg z-50 pointer-events-none">
                   Recontratar guardia
                 </span>
               </button>
