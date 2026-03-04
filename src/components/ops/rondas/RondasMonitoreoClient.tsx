@@ -133,6 +133,13 @@ export function RondasMonitoreoClient({
         lng: m.lng,
         fotoEvidenciaUrl: m.fotoEvidenciaUrl,
       })),
+      incidentes: (r.incidentes ?? []).map((inc: any) => ({
+        id: inc.id,
+        tipo: inc.tipo,
+        descripcion: inc.descripcion,
+        fotoUrl: inc.fotoUrl,
+        createdAt: inc.createdAt,
+      })),
     }));
   }, [filtered]);
 

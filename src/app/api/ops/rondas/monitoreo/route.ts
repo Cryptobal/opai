@@ -39,6 +39,10 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
           take: 3,
         },
+        incidentes: {
+          select: { id: true, tipo: true, descripcion: true, fotoUrl: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { scheduledAt: "asc" },
       take: 50,

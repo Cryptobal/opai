@@ -6,6 +6,14 @@ import { RondaProgress } from "@/components/ops/rondas/ronda-progress";
 import { TrustScoreBadge } from "@/components/ops/rondas/trust-score-badge";
 import { cn } from "@/lib/utils";
 
+interface Incidente {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  fotoUrl?: string | null;
+  createdAt: string;
+}
+
 interface GuardRonda {
   id: string;
   ejecucionId: string;
@@ -28,7 +36,17 @@ interface GuardRonda {
     lng?: number | null;
     fotoEvidenciaUrl?: string | null;
   }>;
+  incidentes?: Incidente[];
 }
+
+const INCIDENT_TYPE_LABELS: Record<string, string> = {
+  incendio: "🔥 Incendio",
+  fuga_agua: "💧 Fuga de agua",
+  acceso_forzado: "🚪 Acceso forzado",
+  persona_sospechosa: "👤 Persona sospechosa",
+  falla_electrica: "💡 Falla eléctrica",
+  otro: "⚠️ Otro",
+};
 
 interface Props {
   rondas: GuardRonda[];
@@ -68,6 +86,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
       {rondas.map((r) => {
         const isExpanded = expandedId === r.id;
         const hasAlerts = r.alerts.length > 0;
+        const hasIncidents = (r.incidentes?.length ?? 0) > 0;
         const isNoting = noteRondaId === r.id;
         const pct = r.checkpointsTotal > 0 ? Math.round((r.checkpointsCompletados / r.checkpointsTotal) * 100) : 0;
 
@@ -96,6 +115,11 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   <span className="text-muted-foreground">
                     {new Date(r.startedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                   </span>
+                  {hasIncidents && (
+                    <span className="rounded-full bg-red-500/20 border border-red-500/30 px-1.5 py-0.5 text-[10px] text-red-400 font-medium">
+                      {r.incidentes!.length} incidente{r.incidentes!.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -179,6 +203,28 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                     <p className="text-[10px] text-muted-foreground">Sin marcaciones aún</p>
                   )}
                 </div>
+
+                {hasIncidents && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-red-400 font-medium">Incidentes reportados:</p>
+                    {r.incidentes!.map((inc) => (
+                      <div key={inc.id} className="rounded-lg bg-red-500/10 border border-red-500/20 p-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium text-red-400">
+                            {INCIDENT_TYPE_LABELS[inc.tipo] ?? inc.tipo}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(inc.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-foreground">{inc.descripcion}</p>
+                        {inc.fotoUrl && (
+                          <img src={inc.fotoUrl} alt="Foto incidente" className="h-20 w-full rounded object-cover" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
