@@ -2,6 +2,19 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
+ * Escapa caracteres HTML para prevenir XSS
+ */
+export function esc(text: string): string {
+  if (!text) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
  * Combina clases de Tailwind evitando conflictos
  */
 export function cn(...inputs: ClassValue[]) {

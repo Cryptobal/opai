@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { esc } from "@/lib/utils";
 import { Pencil, Trash2, Star, StarOff, Plus, Eye, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import DOMPurify from "dompurify";
 
 type Signature = {
   id: string;
@@ -42,7 +44,7 @@ function tiptapToHtml(doc: any): string {
         return (node.content || []).map(renderNode).join("");
 
       case "paragraph": {
-        const style = node.attrs?.textAlign ? `text-align:${node.attrs.textAlign}` : "";
+        const style = node.attrs?.textAlign ? `text-align:${esc(node.attrs.textAlign)}` : "";
         const inner = (node.content || []).map(renderNode).join("");
         return inner
           ? `<p style="margin:0 0 4px;${style}">${inner}</p>`
@@ -50,15 +52,13 @@ function tiptapToHtml(doc: any): string {
       }
 
       case "heading": {
-        const level = node.attrs?.level || 2;
+        const level = node.attrs?.level ? esc(String(node.attrs.level)) : "2";
         const inner = (node.content || []).map(renderNode).join("");
         return `<h${level} style="margin:0 0 4px;">${inner}</h${level}>`;
       }
 
       case "text": {
-        let text = node.text || "";
-        // Escapar HTML
-        text = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        let text = esc(node.text || "");
         const marks = node.marks || [];
         for (const mark of marks) {
           switch (mark.type) {
@@ -72,11 +72,11 @@ function tiptapToHtml(doc: any): string {
               text = `<u>${text}</u>`;
               break;
             case "link":
-              text = `<a href="${mark.attrs?.href || "#"}" style="color:#0059A3;text-decoration:none;" target="_blank">${text}</a>`;
+              text = `<a href="${esc(mark.attrs?.href || "#")}" style="color:#0059A3;text-decoration:none;" target="_blank">${text}</a>`;
               break;
             case "textStyle":
               if (mark.attrs?.color) {
-                text = `<span style="color:${mark.attrs.color}">${text}</span>`;
+                text = `<span style="color:${esc(mark.attrs.color)}">${text}</span>`;
               }
               break;
           }
@@ -94,11 +94,11 @@ function tiptapToHtml(doc: any): string {
         return `<div style="page-break-before:always"></div>`;
 
       case "image":
-        return `<img src="${node.attrs?.src || ""}" alt="${node.attrs?.alt || ""}" width="${node.attrs?.width || "auto"}" style="max-width:100%;"/>`;
+        return `<img src="${esc(node.attrs?.src || "")}" alt="${esc(node.attrs?.alt || "")}" width="${esc(String(node.attrs?.width || "auto"))}" style="max-width:100%;"/>`;
 
       case "contractToken":
         // Los tokens se muestran como placeholder en la firma
-        return `<span style="color:#1e40af;font-weight:500;">{{${node.attrs?.tokenKey || ""}}}</span>`;
+        return `<span style="color:#1e40af;font-weight:500;">{{${esc(node.attrs?.tokenKey || "")}}}</span>`;
 
       default:
         return (node.content || []).map(renderNode).join("");
@@ -303,7 +303,7 @@ export function SignatureManagerClient({
               {sig.htmlContent && (
                 <div
                   className="text-xs text-muted-foreground border border-border rounded-md p-3 bg-muted/30 max-h-24 overflow-hidden"
-                  dangerouslySetInnerHTML={{ __html: sig.htmlContent }}
+                  dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(sig.htmlContent) : '' }}
                 />
               )}
 
@@ -413,7 +413,7 @@ export function SignatureManagerClient({
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-border p-6 bg-white">
-            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(previewHtml) : '' }} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>
