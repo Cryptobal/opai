@@ -657,11 +657,18 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
         orderBy: { createdAt: "asc" },
       },
       parameters: true,
-      account: { select: { installations: { select: { name: true, address: true, commune: true, city: true }, where: { isActive: true } } } },
     },
   });
 
   if (!quote) return {};
+
+  // CpqQuote has no direct account relation — fetch separately via accountId
+  const accountWithInstallations = quote.accountId
+    ? await prisma.crmAccount.findUnique({
+        where: { id: quote.accountId },
+        select: { installations: { select: { name: true, address: true, commune: true, city: true }, where: { isActive: true } } },
+      })
+    : null;
 
   const params = quote.parameters;
 
@@ -677,7 +684,7 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
     : "";
 
   // Build installations table HTML
-  const installations = quote.account?.installations ?? [];
+  const installations = accountWithInstallations?.installations ?? [];
   const instRows = installations.map((i: any) =>
     `<tr><td>${i.name}</td><td>${i.address || ""}${i.commune ? `, ${i.commune}` : ""}</td></tr>`
   );
