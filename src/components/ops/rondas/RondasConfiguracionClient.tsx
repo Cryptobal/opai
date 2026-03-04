@@ -227,6 +227,37 @@ export function RondasConfiguracionClient({
         onTabChange={setActiveTab}
       />
 
+      {!loading && installationId && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-6 text-sm">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <strong>{checkpoints.filter((c: any) => c.isActive).length}</strong> checkpoints
+            </span>
+            <span className="flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <strong>{templates.length}</strong> plantillas
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <strong>{programaciones.filter((p: any) => p.isActive).length}</strong> programaciones activas
+            </span>
+          </div>
+          {checkpoints.length === 0 && templates.length === 0 && programaciones.length === 0 && (
+            <div className="mt-3 rounded-lg bg-blue-950/20 border border-blue-800/30 p-3">
+              <p className="text-sm text-blue-300">
+                <strong>¿Primera vez?</strong> Configura rondas en 3 pasos:
+              </p>
+              <ol className="mt-1.5 text-xs text-blue-300/80 list-decimal list-inside space-y-0.5">
+                <li>Crea <strong>checkpoints</strong> (puntos de control en el mapa)</li>
+                <li>Arma una <strong>plantilla</strong> con los checkpoints a recorrer</li>
+                <li>Define la <strong>programación</strong> (días, horario, frecuencia)</li>
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
+
       {loading && <p className="text-sm text-muted-foreground py-4">Cargando...</p>}
 
       {!loading && activeTab === "checkpoints" && installationId && (
