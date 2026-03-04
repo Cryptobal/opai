@@ -4,11 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Loader2, BarChart3, User, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { KpiCard, KpiGrid, FilterBar } from "@/components/opai";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChipTabs } from "@/components/ui/chip-tabs";
 import { RondasComplianceChart } from "./RondasComplianceChart";
 import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
 import { RondasReportesPorGuardia } from "./RondasReportesPorGuardia";
@@ -246,10 +242,11 @@ export function RondasReportesClient({
 
   return (
     <div className="space-y-4">
-      {/* Filtros globales */}
-      <FilterBar>
-        <div className="flex flex-wrap items-end gap-3 w-full">
+      {/* Global filters */}
+      <div className="rounded-xl border border-[#1e293b] bg-[#111827] p-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-56">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Instalación</p>
             <SearchableSelect
               value={installationId}
               options={instOptions}
@@ -257,25 +254,8 @@ export function RondasReportesClient({
               onChange={(id) => setInstallationId(id)}
             />
           </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Desde</Label>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="mt-0.5 h-9 w-36"
-            />
-          </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Hasta</Label>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="mt-0.5 h-9 w-36"
-            />
-          </div>
           <div className="w-full sm:w-56">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Guardia</p>
             <SearchableSelect
               value={guardiaFilterId}
               options={guardiaFilterOptions}
@@ -284,35 +264,89 @@ export function RondasReportesClient({
             />
           </div>
           <div>
-            <Label className="text-[10px] text-muted-foreground">Estado</Label>
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Desde</p>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+            />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Hasta</p>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+            />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Estado</p>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="mt-0.5 h-9 rounded border border-border bg-background px-2 text-sm"
+              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
             >
               {STATUS_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
+                <option key={o.id} value={o.id}>{o.label}</option>
               ))}
             </select>
           </div>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {loading && (
+            <div className="flex items-center gap-1.5 text-[#64748b]">
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#2dd4bf] border-t-transparent animate-spin" />
+              <span className="text-[11px]">Actualizando...</span>
+            </div>
+          )}
         </div>
-      </FilterBar>
+      </div>
 
-      {/* KPIs */}
-      <KpiGrid columns={3}>
-        <KpiCard title="Total rondas" value={totals.total} />
-        <KpiCard title="Completadas" value={totals.completadas} variant="emerald" />
-        <KpiCard title="Incompletas" value={totals.incompletas} variant="amber" />
-        <KpiCard title="No realizadas" value={totals.noRealizadas} variant="red" />
-        <KpiCard title="Cumplimiento %" value={`${totals.compliance}%`} variant="emerald" />
-        <KpiCard title="Trust promedio" value={totals.trustPromedio} variant="blue" />
-      </KpiGrid>
+      {/* Trend KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Total",         value: totals.total,           color: "#94a3b8" },
+          { label: "Completadas",   value: totals.completadas,     color: "#22c55e" },
+          { label: "Incompletas",   value: totals.incompletas,     color: "#f59e0b" },
+          { label: "No realizadas", value: totals.noRealizadas,    color: "#ef4444" },
+          { label: "Cumplimiento",  value: `${totals.compliance}%`, color: "#22c55e" },
+          { label: "Trust Score",   value: totals.trustPromedio,   color: "#2dd4bf" },
+        ].map((kpi) => (
+          <div
+            key={kpi.label}
+            className="rounded-xl border bg-[#111827] p-3 relative overflow-hidden"
+            style={{ borderColor: `${kpi.color}20`, borderLeftColor: kpi.color, borderLeftWidth: 3 }}
+          >
+            <p className="text-[11px] uppercase tracking-wider font-semibold mb-1" style={{ color: `${kpi.color}99` }}>
+              {kpi.label}
+            </p>
+            <p className="text-2xl font-extrabold tracking-tight" style={{ color: kpi.color }}>
+              {kpi.value}
+            </p>
+          </div>
+        ))}
+      </div>
 
       {/* Tabs */}
-      <ChipTabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex rounded-xl border border-[#1e293b] overflow-hidden">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={[
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold transition-colors border-r border-[#1e293b] last:border-r-0",
+                isActive ? "bg-[#2dd4bf]/10 text-[#2dd4bf]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
+              ].join(" ")}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Tab: Por instalación */}
       {activeTab === "instalacion" && (
@@ -335,12 +369,14 @@ export function RondasReportesClient({
             onSort={handleSort}
           />
 
+          {/* Export buttons */}
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleExportCsv}
               disabled={exporting !== null}
+              className="border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40"
             >
               {exporting === "csv" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -354,6 +390,7 @@ export function RondasReportesClient({
               size="sm"
               onClick={handleExportPdf}
               disabled={exporting !== null}
+              className="border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40"
             >
               {exporting === "pdf" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
