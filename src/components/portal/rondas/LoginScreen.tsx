@@ -11,9 +11,6 @@ interface Props {
 export function LoginScreen({ onLogin }: Props) {
   const [rut, setRut] = useState("");
   const [pin, setPin] = useState("");
-  const [installationId, setInstallationId] = useState("");
-  const [installations, setInstallations] = useState<{ id: string; name: string }[]>([]);
-  const [step, setStep] = useState<"credentials" | "select-installation">("credentials");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,64 +42,32 @@ export function LoginScreen({ onLogin }: Props) {
 
       const { guardiaId, tenantId, nombre, currentInstallationId, installations: instList } = json.data;
 
-      if (instList.length === 0) {
-        setError("No tiene instalaciones asignadas");
+      if (!instList || instList.length === 0) {
+        setError("No tienes instalación asignada. Contacta a tu supervisor.");
         return;
       }
 
-      if (instList.length === 1) {
-        const inst = instList[0];
-        const session: RondasSession = {
-          guardiaId,
-          tenantId,
-          installationId: inst.id,
-          nombre,
-          installationName: inst.name,
-          authenticatedAt: new Date().toISOString(),
-        };
-        sessionStorage.setItem("rondas_portal_session", JSON.stringify(session));
-        onLogin(session);
-        return;
-      }
+      // 1 guard = 1 installation: pick the current one or fall back to the first
+      const inst =
+        (currentInstallationId && instList.find((i: { id: string }) => i.id === currentInstallationId)) ||
+        instList[0];
 
-      // Multiple installations — save auth data and show selector
-      setInstallations(instList);
-      sessionStorage.setItem("rondas_portal_auth_temp", JSON.stringify({ guardiaId, tenantId, nombre }));
-      if (currentInstallationId) setInstallationId(currentInstallationId);
-      setStep("select-installation");
+      const session: RondasSession = {
+        guardiaId,
+        tenantId,
+        installationId: inst.id,
+        nombre,
+        installationName: inst.name,
+        authenticatedAt: new Date().toISOString(),
+      };
+      sessionStorage.setItem("rondas_portal_session", JSON.stringify(session));
+      onLogin(session);
     } catch {
       setError("Error de conexión");
     } finally {
       setLoading(false);
     }
   }, [rut, pin, onLogin]);
-
-  const handleSelectInstallation = useCallback(() => {
-    // This requires auth data from the previous step — stored temporarily
-    const authDataStr = sessionStorage.getItem("rondas_portal_auth_temp");
-    if (!authDataStr || !installationId) return;
-    let authData: { guardiaId: string; tenantId: string; nombre: string };
-    try {
-      authData = JSON.parse(authDataStr);
-    } catch {
-      setError("Error al recuperar datos de sesión");
-      setStep("credentials");
-      return;
-    }
-    const inst = installations.find(i => i.id === installationId);
-    if (!inst) return;
-
-    const session: RondasSession = {
-      guardiaId: authData.guardiaId,
-      tenantId: authData.tenantId,
-      installationId: inst.id,
-      nombre: authData.nombre,
-      installationName: inst.name,
-      authenticatedAt: new Date().toISOString(),
-    };
-    sessionStorage.setItem("rondas_portal_session", JSON.stringify(session));
-    onLogin(session);
-  }, [installationId, installations, onLogin]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-6">
@@ -118,67 +83,56 @@ export function LoginScreen({ onLogin }: Props) {
           </div>
         )}
 
-        {step === "credentials" ? (
-          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-5">
-            <div>
-              <label htmlFor="rondas-rut" className="mb-2 block text-base text-gray-300">RUT</label>
-              <input
-                id="rondas-rut"
-                type="text"
-                inputMode="numeric"
-                value={rut}
-                onChange={(e) => setRut(formatRut(e.target.value))}
-                placeholder="12.345.678-9"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
-                autoComplete="off"
-              />
-            </div>
-            <div>
-              <label htmlFor="rondas-pin" className="mb-2 block text-base text-gray-300">PIN</label>
-              <input
-                id="rondas-pin"
-                type="password"
-                inputMode="numeric"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="****"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl tracking-[0.3em] text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
-                autoComplete="off"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-teal-600 py-4 text-xl font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-50"
-            >
-              {loading ? "Verificando..." : "Ingresar"}
-            </button>
-          </form>
-        ) : (
-          <div className="space-y-5">
-            <label className="mb-2 block text-base text-gray-300">Seleccione instalación</label>
-            {installations.map(inst => (
-              <button
-                key={inst.id}
-                onClick={() => { setInstallationId(inst.id); }}
-                className={`w-full rounded-xl border px-4 py-4 text-left text-lg transition-colors ${
-                  installationId === inst.id
-                    ? "border-teal-500 bg-teal-900/30 text-white"
-                    : "border-gray-700 bg-gray-900 text-gray-300"
-                }`}
-              >
-                {inst.name}
-              </button>
-            ))}
-            <button
-              onClick={handleSelectInstallation}
-              disabled={!installationId}
-              className="w-full rounded-xl bg-teal-600 py-4 text-xl font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-50"
-            >
-              Continuar
-            </button>
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-5">
+          <div>
+            <label htmlFor="rondas-rut" className="mb-2 block text-base text-gray-300">RUT</label>
+            <input
+              id="rondas-rut"
+              type="text"
+              inputMode="numeric"
+              value={rut}
+              onChange={(e) => setRut(formatRut(e.target.value))}
+              placeholder="12.345.678-9"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+              autoComplete="off"
+            />
           </div>
-        )}
+
+          <div>
+            <label htmlFor="rondas-pin" className="mb-2 block text-base text-gray-300">PIN</label>
+            <input
+              id="rondas-pin"
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="****"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl tracking-[0.3em] text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+              autoComplete="off"
+            />
+            {/* PIN dots visualization */}
+            <div className="flex justify-center gap-3 my-4">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full border-2 transition-all ${
+                    i < pin.length
+                      ? "bg-teal-400 border-teal-400 scale-110"
+                      : "bg-transparent border-zinc-600"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-teal-600 py-4 text-xl font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-50"
+          >
+            {loading ? "Verificando..." : "Ingresar"}
+          </button>
+        </form>
       </div>
     </div>
   );
