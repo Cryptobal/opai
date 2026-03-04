@@ -170,16 +170,10 @@ export function AddressAutocomplete({
     onChange(result);
   }, [onChange]);
 
-  // Fix: Google Places .pac-container se renderiza en <body>, fuera del Dialog de Radix.
-  // Necesita z-index alto para mostrarse sobre el modal.
+  // Fix: Google Places .pac-container CSS is in globals.css for z-index.
+  // We still need this useEffect to prevent Radix UI dialogs from closing
+  // when clicking on Google Places suggestions.
   useEffect(() => {
-    const styleId = "pac-container-fix";
-    if (document.getElementById(styleId)) return;
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `.pac-container { z-index: 10000 !important; pointer-events: auto !important; }`;
-    document.head.appendChild(style);
-
     // Evitar que otros listeners intercepten el click en las sugerencias
     const handler = (e: PointerEvent | MouseEvent) => {
       const target = e.target as HTMLElement;

@@ -435,3 +435,13 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+  /* ============================================
+     Google Places Autocomplete
+     Fix: .pac-container is rendered in <body>, outside Radix Dialog.
+     Needs high z-index to show above the modal.
+     ============================================ */
+  .pac-container {
+    z-index: 10000 !important;
+    pointer-events: auto !important;
+  }
