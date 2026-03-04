@@ -29,6 +29,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -97,7 +98,7 @@ export function GuardPortalClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto">
+    <div className="min-h-screen bg-background flex flex-col w-full">
       {/* Top bar */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
         <div className="min-w-0 flex-1">
@@ -119,7 +120,7 @@ export function GuardPortalClient() {
       </header>
 
       {/* Active section content */}
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto pb-20 px-4 sm:px-6">
         {activeSection === "inicio" && (
           <InicioSection session={session} onNavigate={setActiveSection} />
         )}
@@ -152,7 +153,7 @@ export function GuardPortalClient() {
       </main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t max-w-md mx-auto">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t w-full">
         <div className="flex items-center justify-around py-2">
           {PORTAL_BOTTOM_NAV.map((sectionKey) => {
             const navItem = PORTAL_NAV_ITEMS.find((n) => n.key === sectionKey);
@@ -243,8 +244,8 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6 max-w-md mx-auto">
-      <div className="w-full space-y-8">
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6 w-full">
+      <div className="w-full max-w-md space-y-8">
         {/* Logo / Icon */}
         <div className="flex flex-col items-center gap-3">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -257,6 +258,14 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
             </p>
           </div>
         </div>
+
+        <PWAInstallBanner
+          appName="OPAI Guardias"
+          appDescription="Turnos, chat y más desde tu celular"
+          iconSrc="/iconos_azul/icon-192x192.png"
+          variant="inline"
+          dismissKey="guardia"
+        />
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">

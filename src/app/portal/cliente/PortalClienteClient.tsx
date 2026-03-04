@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
   Shield, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, XCircle,
-  Clock, Download, Loader2, LogOut, ChevronDown, MessageCircle,
+  Clock, Download, Loader2, LogOut, ChevronDown, MessageCircle, FileText,
 } from "lucide-react";
 import { ChatClienteSection } from "@/components/portales/ChatClienteSection";
+import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
 import { cn } from "@/lib/utils";
 
 /* ── Types ── */
@@ -94,7 +96,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export function PortalClienteClient() {
   const [session, setSession] = useState<ClienteSession | null>(null);
   const [screen, setScreen] = useState<"login" | "dashboard">("login");
-  const [activeTab, setActiveTab] = useState<"dashboard" | "chat">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "contratos">("dashboard");
 
   /* ── Login state ── */
   const [rut, setRut] = useState("");
@@ -191,6 +193,14 @@ export function PortalClienteClient() {
             <p className="text-sm text-zinc-400 mt-1">Ingrese con el RUT de su empresa y el PIN proporcionado</p>
           </div>
 
+          <PWAInstallBanner
+            appName="OPAI Clientes"
+            appDescription="Tu portal de seguridad siempre disponible"
+            iconSrc="/iconos_azul/icon-192x192.png"
+            variant="inline"
+            dismissKey="cliente"
+          />
+
           <div className="space-y-3">
             <div>
               <label className="text-xs text-zinc-400 mb-1 block">RUT Empresa</label>
@@ -281,6 +291,14 @@ export function PortalClienteClient() {
           Dashboard
         </button>
         <button
+          onClick={() => setActiveTab("contratos")}
+          className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-medium transition-colors border-b-2",
+            activeTab === "contratos" ? "border-teal-500 text-teal-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+        >
+          <FileText className="h-4 w-4" />
+          Contratos
+        </button>
+        <button
           onClick={() => setActiveTab("chat")}
           className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-medium transition-colors border-b-2",
             activeTab === "chat" ? "border-teal-500 text-teal-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
@@ -294,6 +312,13 @@ export function PortalClienteClient() {
       {activeTab === "chat" && session && (
         <div className="flex-1">
           <ChatClienteSection session={session} />
+        </div>
+      )}
+
+      {/* Contratos tab */}
+      {activeTab === "contratos" && session && (
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 sm:py-6">
+          <PortalContractsSection tenantId={session.tenantId} accountId={session.accountId} />
         </div>
       )}
 

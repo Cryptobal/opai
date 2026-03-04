@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { formatRut, isValidRut } from "@/lib/guard-portal";
 import type { RondasSession } from "./RondasPortalClient";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 
 interface Props {
   onLogin: (session: RondasSession) => void;
@@ -76,6 +77,14 @@ export function LoginScreen({ onLogin }: Props) {
           <h1 className="text-3xl font-bold text-white">Rondas</h1>
           <p className="mt-2 text-lg text-gray-400">Ingrese su RUT y PIN</p>
         </div>
+
+        <PWAInstallBanner
+          appName="OPAI Rondas"
+          appDescription="Rondas y marcaciones sin complicaciones"
+          iconSrc="/iconos_azul/icon-192x192.png"
+          variant="inline"
+          dismissKey="rondas"
+        />
 
         {error && (
           <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
