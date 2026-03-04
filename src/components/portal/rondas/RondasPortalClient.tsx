@@ -219,12 +219,14 @@ export function RondasPortalClient() {
         <RondaActiva
           session={session}
           rondaData={activeRondaData}
-          onMark={handleMark}
           onComplete={handleRondaComplete}
           onBack={() => {
             setActiveRondaData(null);
             setActiveEjecucionId(null);
             setScreen("mis-rondas");
+          }}
+          onReportIncident={() => {
+            // TODO: implement incident reporting screen
           }}
         />
       )}
