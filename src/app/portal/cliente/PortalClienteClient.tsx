@@ -17,6 +17,7 @@ import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
 import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { PortalAlertas } from "@/components/portal/cliente/PortalAlertas";
 import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizaciones";
+import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalDemoOverlay } from "@/components/portal/cliente/PortalDemoOverlay";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
 
@@ -127,6 +128,8 @@ export function PortalClienteClient() {
             <PortalContractsSection tenantId={session.tenantId} accountId={session.accountId} />
           </div>
         );
+      case "reportes":
+        return <PortalReportes session={session} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-600">
