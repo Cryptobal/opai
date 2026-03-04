@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,22 +23,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get today's ejecuciones for this guard
+    // Get today's ejecuciones for this guard (Chile timezone)
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayChile(now);
+    const endOfDay = endOfDayChile(now);
 
+    // Show ALL pending/in-progress rounds for this installation today.
+    // Any authenticated guard can take any round, regardless of assignment.
     const ejecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         tenantId,
         rondaTemplateId: { in: templates.map(t => t.id) },
         scheduledAt: { gte: startOfDay, lte: endOfDay },
-        OR: [
-          { guardiaId },
-          { guardiaId: null, status: "pendiente" },
-        ],
+        status: { in: ["pendiente", "en_curso", "incompleta"] },
       },
       include: {
         marcaciones: {

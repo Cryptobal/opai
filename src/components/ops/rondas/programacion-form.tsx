@@ -51,34 +51,59 @@ export function ProgramacionForm({
         }
       }}
     >
+      <p className="text-xs text-muted-foreground">
+        Define cuándo ejecutar rondas automáticamente. Selecciona la plantilla, el horario, los días y la frecuencia.
+      </p>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-        <select
-          className="h-9 rounded border border-border bg-background px-2 text-sm"
-          value={templateId}
-          onChange={(e) => setTemplateId(e.target.value)}
-          required
-        >
-          <option value="">Selecciona plantilla</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
-        <Input type="time" className="h-9" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
-        <Input type="time" className="h-9" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
-        <Input
-          type="number"
-          className="h-9"
-          value={String(frecuenciaMinutos)}
-          onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
-          placeholder="Frecuencia min"
-        />
-        <Input
-          type="number"
-          className="h-9"
-          value={String(toleranciaMinutos)}
-          onChange={(e) => setToleranciaMinutos(Number(e.target.value))}
-          placeholder="Tolerancia min"
-        />
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground">Plantilla</label>
+          <select
+            className="h-9 w-full rounded border border-border bg-background px-2 text-sm"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            required
+          >
+            <option value="">Selecciona plantilla</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground">Hora inicio</label>
+          <Input type="time" className="h-9" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground">Hora fin</label>
+          <Input type="time" className="h-9" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Cada cuántos minutos se genera una ronda dentro del horario. Ej: 120 = una ronda cada 2 horas.">
+            Frecuencia (min)
+            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
+          </label>
+          <Input
+            type="number"
+            className="h-9"
+            value={String(frecuenciaMinutos)}
+            onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
+            placeholder="Ej: 120"
+          />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Minutos de gracia antes de que la ronda se considere atrasada y genere alerta.">
+            Tolerancia (min)
+            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
+          </label>
+          <Input
+            type="number"
+            className="h-9"
+            value={String(toleranciaMinutos)}
+            onChange={(e) => setToleranciaMinutos(Number(e.target.value))}
+            placeholder="Ej: 10"
+          />
+        </div>
       </div>
 
       <div className="flex gap-2">

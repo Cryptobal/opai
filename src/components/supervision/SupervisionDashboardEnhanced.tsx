@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -11,7 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { KpiCard, KpiGrid } from "@/components/opai";
 import {
   BarChart,
@@ -24,12 +22,8 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
-  Clock,
-  Minus,
   Star,
   Shield,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 
 type DashboardData = {
@@ -61,39 +55,12 @@ type DashboardData = {
   };
 };
 
-type Visit = {
-  id: string;
-  checkInAt: Date;
-  status: string;
-  installationState: string | null;
-  durationMinutes: number | null;
-  installation: { id: string; name: string; commune: string | null };
-  supervisor: { id: string; name: string };
-  _count?: { guardEvaluations: number; findings: number; photos: number };
-};
-
 type Props = {
-  visitas: Visit[];
   periodLabel: string;
   periodOptions: { value: string; label: string }[];
   canViewAll: boolean;
-  canEdit: boolean;
-  canDelete: boolean;
   dateFrom: string;
   dateTo: string;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  in_progress: "En progreso",
-  completed: "Completada",
-  cancelled: "Cancelada",
-};
-
-const INSTALLATION_STATE_LABELS: Record<string, string> = {
-  normal: "Normal",
-  incidencia: "Con observaciones",
-  critico: "Crítico",
-  sin_estado: "Sin estado",
 };
 
 const CHART_COLORS = {
@@ -103,7 +70,6 @@ const CHART_COLORS = {
 };
 
 export function SupervisionDashboardEnhanced({
-  visitas,
   periodLabel,
   periodOptions,
   canViewAll,
@@ -136,7 +102,7 @@ export function SupervisionDashboardEnhanced({
   function setPeriod(value: string) {
     const params = new URLSearchParams();
     params.set("period", value);
-    router.push(`/ops/supervision?${params.toString()}`);
+    router.push(`/ops/supervision/dashboard?${params.toString()}`);
   }
 
   const t = dashData?.totals;
@@ -359,60 +325,6 @@ export function SupervisionDashboardEnhanced({
         )}
       </div>
 
-      {/* Row 4: Recent visits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Últimas visitas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {visitas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay visitas en este período.</p>
-          ) : (
-            visitas.map((v) => (
-              <Link
-                key={v.id}
-                href={`/ops/supervision/${v.id}`}
-                className="flex items-center justify-between gap-2 rounded-md border p-3 transition hover:bg-muted/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{v.installation.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Intl.DateTimeFormat("es-CL", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    }).format(new Date(v.checkInAt))}
-                    {v.durationMinutes != null && ` · ${v.durationMinutes}min`}
-                  </p>
-                  {canViewAll && (
-                    <p className="text-xs text-muted-foreground">
-                      {v.supervisor.name}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {v.installationState && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {INSTALLATION_STATE_LABELS[v.installationState] ?? v.installationState}
-                    </Badge>
-                  )}
-                  <Badge
-                    variant={
-                      v.status === "completed"
-                        ? "success"
-                        : v.status === "cancelled"
-                          ? "destructive"
-                          : "secondary"
-                    }
-                    className="text-[10px]"
-                  >
-                    {STATUS_LABELS[v.status] ?? v.status}
-                  </Badge>
-                </div>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

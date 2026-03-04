@@ -183,7 +183,8 @@ export async function POST(request: NextRequest) {
         asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
       );
 
-      await createOpsAuditLog(ctx, "ops.pauta.serie_rotativa_painted", "ops_pauta", undefined, {
+      await createOpsAuditLog(ctx, "ops.pauta.serie_rotativa_painted", "ops_pauta", puesto.installationId, {
+        installationId: puesto.installationId,
         puestoId: body.puestoId,
         slotNumber: body.slotNumber,
         rotatePuestoId: body.rotatePuestoId,
@@ -254,7 +255,8 @@ export async function POST(request: NextRequest) {
       asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
     );
 
-    await createOpsAuditLog(ctx, "ops.pauta.serie_painted", "ops_pauta", undefined, {
+    await createOpsAuditLog(ctx, "ops.pauta.serie_painted", "ops_pauta", puesto.installationId, {
+      installationId: puesto.installationId,
       puestoId: body.puestoId,
       slotNumber: body.slotNumber,
       guardiaId: asignacion?.guardiaId ?? null,

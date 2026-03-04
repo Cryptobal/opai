@@ -18,8 +18,10 @@ type Props = {
   evaluations: GuardEvaluation[];
   findings: Finding[];
   installationState: string;
+  installationStateNotes: string;
   onEvaluationsChange: (evals: GuardEvaluation[]) => void;
   onInstallationStateChange: (state: string) => void;
+  onInstallationStateNotesChange: (notes: string) => void;
   onFindingCreated: (finding: Finding) => void;
   onNext: () => void;
   onPrev: () => void;
@@ -114,8 +116,10 @@ export function Step2Evaluation({
   evaluations,
   findings,
   installationState,
+  installationStateNotes,
   onEvaluationsChange,
   onInstallationStateChange,
+  onInstallationStateNotesChange,
   onFindingCreated,
   onNext,
   onPrev,
@@ -201,6 +205,20 @@ export function Step2Evaluation({
                 ))}
               </SelectContent>
             </Select>
+            {(installationState === "incidencia" || installationState === "critico") && (
+              <div className="mt-3">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Observaciones de la instalación
+                </label>
+                <Textarea
+                  value={installationStateNotes}
+                  onChange={(e) => onInstallationStateNotesChange(e.target.value)}
+                  placeholder="Describe las observaciones encontradas..."
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
 
           {/* Guard evaluations */}

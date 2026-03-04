@@ -34,6 +34,18 @@ export default async function CrmAccountDetailPage({
           orderBy: { createdAt: "desc" },
         },
         installations: { orderBy: { createdAt: "desc" } },
+        encuestasCliente: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            contactName: true,
+            averageScore: true,
+            npsScore: true,
+            createdAt: true,
+            visitId: true,
+          },
+        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }),
@@ -68,6 +80,18 @@ export default async function CrmAccountDetailPage({
         contacts: { orderBy: { createdAt: "desc" } },
         deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
         installations: { orderBy: { createdAt: "desc" } },
+        encuestasCliente: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            contactName: true,
+            averageScore: true,
+            npsScore: true,
+            createdAt: true,
+            visitId: true,
+          },
+        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }) ?? account;

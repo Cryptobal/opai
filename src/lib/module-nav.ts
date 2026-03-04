@@ -113,10 +113,11 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Turnos Refuerzo", icon: Clock3, subKey: "turnos_extra" },
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
-  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
+  { key: "ops-audit-pautas", href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
+  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
@@ -177,13 +178,13 @@ const DOCS_ITEMS: BottomNavItem[] = [
 const FINANCE_ITEMS: (BottomNavItem & {
   subKey: "rendiciones" | "facturacion" | "proveedores" | "contabilidad" | "reportes";
 })[] = [
-  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
-  { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
-  { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
-  { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
-  { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
-  { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
-];
+    { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
+    { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
+    { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
+    { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
+    { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
+    { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
+  ];
 
 /* ── Config sub-items (top 5 for bottom nav) ── */
 

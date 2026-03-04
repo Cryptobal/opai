@@ -164,9 +164,9 @@ export function NotesPanel() {
           // Mobile: bottom sheet
           "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t shadow-2xl",
           // Desktop: right slide-in
-          "sm:inset-y-0 sm:right-0 sm:left-auto sm:bottom-auto sm:w-[380px] sm:max-h-none sm:rounded-t-none sm:rounded-l-xl sm:border-l sm:border-t-0 sm:shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
+          "sm:bottom-0 sm:right-6 sm:left-auto sm:top-auto sm:w-[600px] sm:max-h-[75vh] sm:rounded-t-2xl sm:rounded-b-none sm:border sm:border-b-0 sm:shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
           // Animation
-          ctx.isPanelOpen ? "translate-y-0 sm:translate-x-0" : "translate-y-full sm:translate-y-0 sm:translate-x-full",
+          ctx.isPanelOpen ? "translate-y-0" : "translate-y-full",
         )}
         style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
         role="dialog"

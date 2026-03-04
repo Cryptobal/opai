@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    await createOpsAuditLog(ctx, "ops.pauta.generated", "ops_pauta", undefined, {
+    await createOpsAuditLog(ctx, "ops.pauta.generated", "ops_pauta", body.installationId, {
       installationId: body.installationId,
       month: body.month,
       year: body.year,

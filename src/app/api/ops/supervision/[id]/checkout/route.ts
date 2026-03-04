@@ -17,6 +17,7 @@ const checkoutSchema = z.object({
   // New wizard fields
   generalComments: z.string().max(4000).optional().nullable(),
   installationState: z.enum(["normal", "incidencia", "critico"]).optional().nullable(),
+  installationStateNotes: z.string().max(2000).optional().nullable(),
   guardsExpected: z.number().int().min(0).optional().nullable(),
   guardsFound: z.number().int().min(0).optional().nullable(),
   bookUpToDate: z.boolean().optional().nullable(),
@@ -27,6 +28,18 @@ const checkoutSchema = z.object({
   clientSatisfaction: z.number().optional().nullable(),
   clientComment: z.string().max(2000).optional().nullable(),
   clientValidationUrl: z.string().max(500).optional().nullable(),
+  surveyData: z.object({
+    serviceQuality: z.number().int().min(1).max(5).nullable(),
+    scheduleCompliance: z.number().int().min(1).max(5).nullable(),
+    personalPresentation: z.number().int().min(1).max(5).nullable(),
+    professionalism: z.number().int().min(1).max(5).nullable(),
+    supervisionPresence: z.number().int().min(1).max(5).nullable(),
+    incidentResponse: z.number().int().min(1).max(5).nullable(),
+    hasUrgentRisk: z.boolean().nullable(),
+    urgentRiskDetail: z.string().max(2000).optional().nullable(),
+    npsScore: z.number().int().min(0).max(10).nullable(),
+    additionalComments: z.string().max(2000).optional().nullable(),
+  }).optional().nullable(),
 });
 
 export async function POST(
@@ -59,6 +72,7 @@ export async function POST(
         id: true,
         checkInAt: true,
         status: true,
+        installationId: true,
         installation: {
           select: { lat: true, lng: true, geoRadiusM: true },
         },
@@ -125,6 +139,7 @@ export async function POST(
       isExpressFlagged,
       draftData: Prisma.DbNull,
       wizardStep: 5,
+      ...(body.installationStateNotes !== undefined ? { installationStateNotes: body.installationStateNotes } : {}),
       ...(body.guardsExpected !== undefined ? { guardsExpected: body.guardsExpected } : {}),
       ...(body.guardsFound !== undefined ? { guardsFound: body.guardsFound } : {}),
       ...(body.bookUpToDate !== undefined ? { bookUpToDate: body.bookUpToDate } : {}),
@@ -153,6 +168,55 @@ export async function POST(
         data: safeData,
         select: { id: true, status: true },
       });
+    }
+
+    // Create encuesta if client was contacted and survey data provided
+    if (body.clientContacted && body.surveyData) {
+      try {
+        const installation = await prisma.crmInstallation.findUnique({
+          where: { id: visit.installationId },
+          select: { accountId: true },
+        });
+
+        const scores = [
+          body.surveyData.serviceQuality,
+          body.surveyData.scheduleCompliance,
+          body.surveyData.personalPresentation,
+          body.surveyData.professionalism,
+          body.surveyData.supervisionPresence,
+          body.surveyData.incidentResponse,
+        ].filter((s): s is number => s !== null);
+
+        const averageScore = scores.length > 0
+          ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100
+          : null;
+
+        await prisma.opsEncuestaCliente.create({
+          data: {
+            tenantId: ctx.tenantId,
+            visitId: id,
+            installationId: visit.installationId,
+            accountId: installation?.accountId ?? null,
+            contactName: body.clientContactName ?? "",
+            contactRole: null,
+            serviceQuality: body.surveyData.serviceQuality,
+            scheduleCompliance: body.surveyData.scheduleCompliance,
+            personalPresentation: body.surveyData.personalPresentation,
+            professionalism: body.surveyData.professionalism,
+            supervisionPresence: body.surveyData.supervisionPresence,
+            incidentResponse: body.surveyData.incidentResponse,
+            hasUrgentRisk: body.surveyData.hasUrgentRisk,
+            urgentRiskDetail: body.surveyData.urgentRiskDetail ?? null,
+            npsScore: body.surveyData.npsScore,
+            additionalComments: body.surveyData.additionalComments ?? null,
+            signatureUrl: body.clientValidationUrl ?? null,
+            averageScore,
+          },
+        });
+      } catch (encErr) {
+        console.warn("[SUPERVISION] Failed to create encuesta:", encErr);
+        // Non-blocking — don't fail the checkout
+      }
     }
 
     return NextResponse.json({ success: true, data: updated });

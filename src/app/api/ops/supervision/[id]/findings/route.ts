@@ -130,6 +130,7 @@ export async function POST(
 
     // Auto-create ticket for critical and major findings
     let ticketId: string | null = null;
+    let ticketCode: string | null = null;
     if (severity === "critical" || severity === "major") {
       try {
         const ticketSlug = severity === "critical" ? "hallazgo_supervision_critico" : "hallazgo_supervision";
@@ -181,6 +182,7 @@ export async function POST(
           });
 
           ticketId = ticket.id;
+          ticketCode = ticket.code;
 
           // Send notification (non-blocking)
           import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
@@ -217,7 +219,7 @@ export async function POST(
         },
       });
 
-      return NextResponse.json({ success: true, data: { ...finding, ticketId } }, { status: 201 });
+      return NextResponse.json({ success: true, data: { ...finding, ticketId, ticketCode } }, { status: 201 });
     } catch (tableErr: unknown) {
       // P2021: table does not exist — migration not applied yet
       const errCode = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
@@ -232,6 +234,7 @@ export async function POST(
           installationId: visit.installationId,
           status: "open",
           ticketId,
+          ticketCode,
           createdAt: new Date().toISOString(),
         },
       }, { status: 201 });

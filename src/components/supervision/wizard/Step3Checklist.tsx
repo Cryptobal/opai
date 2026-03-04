@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ClipboardCheck,
   BookOpen,
@@ -85,6 +86,8 @@ export function Step3Checklist({
   saving,
 }: Props) {
   const [showFindingModal, setShowFindingModal] = useState(false);
+  const [bookAutoFindingId, setBookAutoFindingId] = useState<string | null>(null);
+  const [bookAutoTicketCode, setBookAutoTicketCode] = useState<string | null>(null);
   const bookPhotoInputRef = useRef<HTMLInputElement>(null);
   const puestoPhotoInputRef = useRef<HTMLInputElement>(null);
   const docPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -110,13 +113,122 @@ export function Step3Checklist({
     return checklistResults.find((r) => r.checklistItemId === itemId)?.isChecked ?? false;
   }
 
-  // Document type handlers — Sí/No toggle
-  function setDocumentChecked(code: string, checked: boolean) {
+  // Document type handlers — unified Sí/No + auto-finding
+  function updateDocResult(code: string, updates: Partial<DocumentCheckResult>) {
     onDocumentResultsChange(
       documentResults.map((dr) =>
-        dr.code === code ? { ...dr, isChecked: checked } : dr,
+        dr.code === code ? { ...dr, ...updates } : dr,
       ),
     );
+  }
+
+  async function handleDocCheck(code: string, present: boolean) {
+    // Update checked status
+    onDocumentResultsChange(
+      documentResults.map((dr) =>
+        dr.code === code
+          ? {
+              ...dr,
+              isChecked: present,
+              autoFindingId: present ? null : dr.autoFindingId,
+              autoTicketCode: present ? null : dr.autoTicketCode,
+            }
+          : dr,
+      ),
+    );
+
+    // Sync libro_novedades with bookUpToDate prop
+    if (code === "libro_novedades") {
+      onBookChange({
+        bookUpToDate: present,
+        bookLastEntryDate,
+        bookNotes,
+      });
+    }
+
+    // If "No" and haven't already created a finding, auto-create
+    const existingResult = documentResults.find((dr) => dr.code === code);
+    if (!present && visit.id && !existingResult?.autoFindingId) {
+      const docType = documentTypes.find((d) => d.code === code);
+      const docLabel = docType?.label ?? code;
+
+      try {
+        const res = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: "documentation",
+            severity: "critical",
+            description: `${docLabel} no presente`,
+          }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          onDocumentResultsChange(
+            documentResults.map((dr) =>
+              dr.code === code
+                ? {
+                    ...dr,
+                    isChecked: false,
+                    autoFindingId: json.data.id,
+                    autoTicketCode: json.data.ticketCode ?? null,
+                  }
+                : dr,
+            ),
+          );
+          // Also notify parent about the finding
+          onFindingCreated({
+            ...json.data,
+            ticketCode: json.data.ticketCode ?? null,
+          });
+          toast.success(
+            `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
+          );
+        }
+      } catch {
+        toast.error("Error al crear hallazgo automático");
+      }
+    }
+  }
+
+  // Libro de novedades Sí/No handler (when not part of documentTypes)
+  async function handleBookCheck(present: boolean) {
+    onBookChange({ bookUpToDate: present, bookLastEntryDate, bookNotes });
+
+    if (present) {
+      setBookAutoFindingId(null);
+      setBookAutoTicketCode(null);
+      return;
+    }
+
+    // Auto-create finding when "No" and not already created
+    if (!bookAutoFindingId && visit.id) {
+      try {
+        const res = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: "documentation",
+            severity: "critical",
+            description: "Libro de novedades no presente",
+          }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          setBookAutoFindingId(json.data.id);
+          setBookAutoTicketCode(json.data.ticketCode ?? null);
+          onFindingCreated({
+            ...json.data,
+            ticketCode: json.data.ticketCode ?? null,
+          });
+          toast.success(
+            `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
+          );
+        }
+      } catch {
+        toast.error("Error al crear hallazgo automático");
+      }
+    }
   }
 
   function handleDocPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
@@ -160,14 +272,26 @@ export function Step3Checklist({
         ? "bg-amber-500/10 border-amber-500/30"
         : "bg-red-500/10 border-red-500/30";
 
-  const bookRequiredFilled = bookUpToDate !== null;
-  const bookNotesRequired = bookUpToDate === false;
-  const bookPhotoRequired = bookUpToDate === true;
+  // If libro_novedades is in documentTypes, book validation is handled by doc results
+  const libroInDocTypes = documentTypes.some((d) => d.code === "libro_novedades");
+  const bookRequiredFilled = libroInDocTypes || bookUpToDate !== null;
+  const bookNotesRequired = !libroInDocTypes && bookUpToDate === false;
+  const bookPhotoRequired = !libroInDocTypes && bookUpToDate === true;
   const bookPhotoFulfilled = bookPhotoRequired ? !!bookPhotoPreview : true;
-  const whenBookNoRequireFinding = bookUpToDate === false;
-  const findingRequiredFulfilled = !whenBookNoRequireFinding || findingsCount > 0;
+  const whenBookNoRequireFinding = !libroInDocTypes && bookUpToDate === false;
+  const findingRequiredFulfilled = !whenBookNoRequireFinding || findingsCount > 0 || !!bookAutoFindingId;
   const puestoPhotoFulfilled = !!puestoPhotoPreview;
 
+  // Document results validation: all required docs must be answered (Sí with photo, or No with auto-finding)
+  const allRequiredDocsAnswered = documentTypes
+    .filter((d) => d.required)
+    .every((d) => {
+      const result = documentResults.find((dr) => dr.code === d.code);
+      if (!result) return false;
+      if (result.isChecked === true) return !!result.photoPreview; // Sí requires photo
+      if (result.isChecked === false) return !!result.autoFindingId; // No requires auto-finding created
+      return false;
+    });
   function handlePuestoPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -259,7 +383,7 @@ export function Step3Checklist({
             )}
           </div>
 
-          {/* Document types from configuration — Sí/No buttons */}
+          {/* Document types from configuration — unified Sí/No + date/photo or auto-finding */}
           {documentTypes.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm font-medium">
@@ -314,7 +438,7 @@ export function Step3Checklist({
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setDocumentChecked(doc.code, true)}
+                          onClick={() => handleDocCheck(doc.code, true)}
                           className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                             isChecked
                               ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
@@ -326,7 +450,7 @@ export function Step3Checklist({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setDocumentChecked(doc.code, false)}
+                          onClick={() => handleDocCheck(doc.code, false)}
                           className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
                             isNo
                               ? "border-red-500 bg-red-500/20 text-red-400"
@@ -338,36 +462,67 @@ export function Step3Checklist({
                         </button>
                       </div>
 
-                      {/* Photo for this document */}
-                      <div className="mt-2 flex items-center gap-2">
-                        {result?.photoPreview ? (
-                          <div className="relative">
-                            <img
-                              src={result.photoPreview}
-                              alt={doc.label}
-                              className="h-14 w-14 rounded-md object-cover"
+                      {/* Sí: date + mandatory photo */}
+                      {result?.isChecked === true && (
+                        <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30 mt-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Fecha ultima entrada</label>
+                            <Input
+                              type="date"
+                              value={result.lastEntryDate ?? ""}
+                              onChange={(e) => updateDocResult(doc.code, { lastEntryDate: e.target.value })}
+                              className="h-11 mt-1"
                             />
-                            <button
-                              type="button"
-                              onClick={() => removeDocPhoto(doc.code)}
-                              className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
                           </div>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveDocCode(doc.code);
-                            docPhotoInputRef.current?.click();
-                          }}
-                          className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40"
-                        >
-                          <Camera className="h-3 w-3" />
-                          {result?.photoPreview ? "Retomar foto" : "Tomar foto"}
-                        </button>
-                      </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Foto ultima pagina (obligatoria)</label>
+                            <div className="mt-1 flex items-center gap-2">
+                              {result.photoPreview ? (
+                                <div className="relative">
+                                  <img
+                                    src={result.photoPreview}
+                                    alt={doc.label}
+                                    className="h-14 w-14 rounded-md object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDocPhoto(doc.code)}
+                                    className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDocCode(doc.code);
+                                  docPhotoInputRef.current?.click();
+                                }}
+                                className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40"
+                              >
+                                <Camera className="h-3 w-3" />
+                                {result.photoPreview ? "Retomar foto" : "Tomar foto"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* No: auto-finding confirmation */}
+                      {result?.isChecked === false && (
+                        <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
+                          {result.autoFindingId ? (
+                            <p className="text-emerald-400">
+                              &#10003; Hallazgo creado{result.autoTicketCode ? ` — Ticket #${result.autoTicketCode}` : ""}
+                            </p>
+                          ) : (
+                            <p className="text-red-400">
+                              Se creara hallazgo critico: &quot;{doc.label} no presente&quot;
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -437,7 +592,8 @@ export function Step3Checklist({
             </div>
           )}
 
-          {/* Logbook section */}
+          {/* Logbook section — only if libro_novedades is NOT in documentTypes (handled above) */}
+          {!documentTypes.some((d) => d.code === "libro_novedades") && (
           <div className="rounded-lg border p-3 space-y-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <BookOpen className="h-4 w-4" />
@@ -449,7 +605,7 @@ export function Step3Checklist({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => onBookChange({ bookUpToDate: true, bookLastEntryDate, bookNotes })}
+                  onClick={() => handleBookCheck(true)}
                   className={`flex-1 rounded-lg border-2 p-3 text-center text-sm font-medium transition ${
                     bookUpToDate === true
                       ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
@@ -461,7 +617,7 @@ export function Step3Checklist({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onBookChange({ bookUpToDate: false, bookLastEntryDate, bookNotes })}
+                  onClick={() => handleBookCheck(false)}
                   className={`flex-1 rounded-lg border-2 p-3 text-center text-sm font-medium transition ${
                     bookUpToDate === false
                       ? "border-red-500 bg-red-500/20 text-red-400"
@@ -474,105 +630,120 @@ export function Step3Checklist({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs">Fecha ultima entrada</Label>
-              <Input
-                type="date"
-                value={bookLastEntryDate}
-                onChange={(e) =>
-                  onBookChange({ bookUpToDate, bookLastEntryDate: e.target.value, bookNotes })
-                }
-                className="h-12"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">
-                Novedades relevantes
-                {bookNotesRequired && <span className="ml-1 text-amber-400">(obligatorio)</span>}
-              </Label>
-              <Textarea
-                value={bookNotes}
-                onChange={(e) =>
-                  onBookChange({ bookUpToDate, bookLastEntryDate, bookNotes: e.target.value })
-                }
-                placeholder={bookNotesRequired ? "Indica por que el libro no esta al dia..." : "Novedades relevantes del libro..."}
-                rows={2}
-                className="text-sm"
-              />
-              {bookNotesRequired && !bookNotes.trim() && (
-                <p className="text-xs text-amber-400">
-                  Debes indicar por que el libro no esta al dia
-                </p>
-              )}
-            </div>
-
-            {/* Book photo — solo cuando el libro está presente (Sí) */}
+            {/* Sí: date + notes + photo */}
             {bookUpToDate === true && (
-              <div className="space-y-2">
-                <Label className="text-xs">Foto última página del libro</Label>
-                <input
-                  ref={bookPhotoInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleBookPhotoCapture}
-                />
+              <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30">
+                <div className="space-y-2">
+                  <Label className="text-xs">Fecha ultima entrada</Label>
+                  <Input
+                    type="date"
+                    value={bookLastEntryDate}
+                    onChange={(e) =>
+                      onBookChange({ bookUpToDate, bookLastEntryDate: e.target.value, bookNotes })
+                    }
+                    className="h-12"
+                  />
+                </div>
 
-                {bookPhotoPreview ? (
-                  <div className="relative inline-block">
-                    <img
-                      src={bookPhotoPreview}
-                      alt="Libro de novedades"
-                      className="h-24 w-auto rounded-lg border object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveBookPhoto}
-                      className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                <div className="space-y-2">
+                  <Label className="text-xs">Novedades relevantes</Label>
+                  <Textarea
+                    value={bookNotes}
+                    onChange={(e) =>
+                      onBookChange({ bookUpToDate, bookLastEntryDate, bookNotes: e.target.value })
+                    }
+                    placeholder="Novedades relevantes del libro..."
+                    rows={2}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Foto ultima pagina del libro (obligatoria)</Label>
+                  <input
+                    ref={bookPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleBookPhotoCapture}
+                  />
+
+                  {bookPhotoPreview ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={bookPhotoPreview}
+                        alt="Libro de novedades"
+                        className="h-24 w-auto rounded-lg border object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveBookPhoto}
+                        className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 w-full text-xs"
+                        onClick={() => bookPhotoInputRef.current?.click()}
+                      >
+                        Retomar foto
+                      </Button>
+                    </div>
+                  ) : (
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="mt-2 w-full text-xs"
+                      className="w-full"
                       onClick={() => bookPhotoInputRef.current?.click()}
                     >
-                      Retomar foto
+                      <Camera className="mr-2 h-4 w-4" />
+                      Fotografiar ultima pagina del libro
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => bookPhotoInputRef.current?.click()}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Fotografiar última página del libro
-                  </Button>
-                )}
+                  )}
+                </div>
               </div>
             )}
 
+            {/* No: auto-finding */}
             {bookUpToDate === false && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
-                <p className="font-medium">Libro no presente</p>
-                <p className="mt-1">
-                  Debes registrar un hallazgo (ticket/incidente) y agregar fotos adicionales en el paso de Evidencia.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowFindingModal(true)}
-                  className="mt-2 flex items-center gap-1 rounded border border-amber-500/50 px-2 py-1.5 text-amber-400 hover:bg-amber-500/10"
-                >
-                  <AlertTriangle className="h-3 w-3" />
-                  Registrar hallazgo
-                </button>
+              <div className="space-y-2">
+                <div className="space-y-2">
+                  <Label className="text-xs">
+                    Novedades relevantes
+                    <span className="ml-1 text-amber-400">(obligatorio)</span>
+                  </Label>
+                  <Textarea
+                    value={bookNotes}
+                    onChange={(e) =>
+                      onBookChange({ bookUpToDate, bookLastEntryDate, bookNotes: e.target.value })
+                    }
+                    placeholder="Indica por que el libro no esta al dia..."
+                    rows={2}
+                    className="text-sm"
+                  />
+                  {!bookNotes.trim() && (
+                    <p className="text-xs text-amber-400">
+                      Debes indicar por que el libro no esta al dia
+                    </p>
+                  )}
+                </div>
+                <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
+                  {bookAutoFindingId ? (
+                    <p className="text-emerald-400">
+                      &#10003; Hallazgo creado{bookAutoTicketCode ? ` — Ticket #${bookAutoTicketCode}` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-red-400">
+                      Se creara hallazgo critico: &quot;Libro de novedades no presente&quot;
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
+          )}
 
           {/* Open findings from previous visits */}
           <div className="space-y-2">
@@ -652,7 +823,8 @@ export function Step3Checklist({
                 (bookNotesRequired && !bookNotes.trim()) ||
                 !bookPhotoFulfilled ||
                 !findingRequiredFulfilled ||
-                !puestoPhotoFulfilled
+                !puestoPhotoFulfilled ||
+                !allRequiredDocsAnswered
               }
               className="flex-1"
               size="lg"
@@ -661,12 +833,13 @@ export function Step3Checklist({
             </Button>
           </div>
 
-          {(!bookRequiredFilled || !bookPhotoFulfilled || !findingRequiredFulfilled || !puestoPhotoFulfilled) && (
+          {(!bookRequiredFilled || !bookPhotoFulfilled || !findingRequiredFulfilled || !puestoPhotoFulfilled || !allRequiredDocsAnswered) && (
             <p className="text-center text-xs text-amber-400">
-              {!bookRequiredFilled && "Debes indicar si el libro de novedades está al día. "}
+              {!bookRequiredFilled && "Debes indicar si el libro de novedades esta al dia. "}
               {!puestoPhotoFulfilled && "Debes tomar la foto del puesto de guardia. "}
-              {bookUpToDate === true && !bookPhotoFulfilled && "Debes fotografiar la última página del libro. "}
+              {bookUpToDate === true && !bookPhotoFulfilled && "Debes fotografiar la ultima pagina del libro. "}
               {bookUpToDate === false && !findingRequiredFulfilled && "Debes registrar un hallazgo (libro no presente). "}
+              {!allRequiredDocsAnswered && "Documentos obligatorios requieren respuesta con foto (Si) o hallazgo creado (No). "}
             </p>
           )}
         </CardContent>

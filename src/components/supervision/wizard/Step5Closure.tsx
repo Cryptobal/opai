@@ -5,7 +5,6 @@ import {
   FileText,
   CheckCircle2,
   Clock,
-  Users,
   ClipboardCheck,
   Star,
   AlertTriangle,
@@ -50,6 +49,7 @@ type Props = {
   validationPhotoPreview: string | null;
   validationType: "signature" | "photo" | null;
   bookUpToDate: boolean | null;
+  installationStateNotes: string;
   onGeneralCommentsChange: (v: string) => void;
   onClientContactedChange: (v: boolean) => void;
   onClientContactNameChange: (v: string) => void;
@@ -189,6 +189,7 @@ export function Step5Closure({
   validationPhotoPreview,
   validationType,
   bookUpToDate,
+  installationStateNotes,
   onGeneralCommentsChange,
   onClientContactedChange,
   onClientContactNameChange,
@@ -232,11 +233,6 @@ export function Step5Closure({
 
   const newFindings = findings.filter((f) => f.status === "open");
 
-  const guardsOk =
-    visit.guardsExpected === null ||
-    visit.guardsFound === null ||
-    visit.guardsExpected === visit.guardsFound;
-
   // Survey average (Q1-Q6, scale 1-5)
   const surveyScores = [
     surveyData.serviceQuality,
@@ -271,7 +267,6 @@ export function Step5Closure({
   // Tags
   const tags: { label: string; color: string }[] = [];
   if (isExpress) tags.push({ label: "Express (<15 min)", color: "text-amber-400 bg-amber-500/10" });
-  if (!guardsOk) tags.push({ label: "Discrepancia dotacion", color: "text-amber-400 bg-amber-500/10" });
   if (newFindings.length > 0) tags.push({ label: `${newFindings.length} hallazgo(s) nuevo(s)`, color: "text-red-400 bg-red-500/10" });
   if (surveyData.hasUrgentRisk) tags.push({ label: "Riesgo urgente", color: "text-red-400 bg-red-500/10" });
 
@@ -588,21 +583,6 @@ export function Step5Closure({
 
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Users className="h-3 w-3 text-muted-foreground" />
-                Guardias
-              </span>
-              <span className="flex items-center gap-1">
-                {visit.guardsFound ?? "—"}/{visit.guardsExpected ?? "—"}
-                {guardsOk ? (
-                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                ) : (
-                  <AlertTriangle className="h-3 w-3 text-amber-400" />
-                )}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
                 <Star className="h-3 w-3 text-muted-foreground" />
                 Calificacion
               </span>
@@ -692,6 +672,20 @@ export function Step5Closure({
               </div>
             )}
           </div>
+
+          {generalComments && (
+            <div className="pt-1 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">Comentarios generales</p>
+              <p className="text-xs whitespace-pre-wrap mt-0.5">{generalComments}</p>
+            </div>
+          )}
+
+          {installationStateNotes && (
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">Observaciones</p>
+              <p className="text-sm whitespace-pre-wrap">{installationStateNotes}</p>
+            </div>
+          )}
 
           {/* Tags */}
           {tags.length > 0 && (

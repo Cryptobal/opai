@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MonitoreoMap } from "@/components/ops/rondas/monitoreo-map";
 import { MonitoreoGuardPanel } from "@/components/ops/rondas/MonitoreoGuardPanel";
 import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHeader";
 import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
+import { toast } from "sonner";
 
 interface Installation {
   id: string;
@@ -98,21 +99,18 @@ export function RondasMonitoreoClient({
   }, [filtered]);
 
   const mapCenter = useMemo(() => {
-    if (selectedRondaId) {
-      const r = filtered.find((r: any) => r.id === selectedRondaId);
-      const lastMark = r?.marcaciones?.[0];
-      if (lastMark?.lat) return { lat: lastMark.lat, lng: lastMark.lng };
-      if (r?.rondaTemplate?.installation?.lat) return { lat: r.rondaTemplate.installation.lat, lng: r.rondaTemplate.installation.lng };
-    }
     if (filtered[0]?.rondaTemplate?.installation?.lat) {
       return { lat: filtered[0].rondaTemplate.installation.lat, lng: filtered[0].rondaTemplate.installation.lng };
     }
     return null;
-  }, [filtered, selectedRondaId]);
+  }, [filtered]);
 
   const guardPanelData = useMemo(() => {
     return filtered.map((r: any) => ({
       id: r.id,
+      ejecucionId: r.id,
+      guardiaId: r.guardiaId ?? r.guardia?.id ?? null,
+      installationId: r.rondaTemplate?.installation?.id ?? null,
       templateName: r.rondaTemplate?.name ?? "Ronda",
       installationName: r.rondaTemplate?.installation?.name ?? "",
       guardiaNombre: r.guardia ? formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName) : "Sin asignar",
@@ -138,6 +136,24 @@ export function RondasMonitoreoClient({
     }));
   }, [filtered]);
 
+  const handleAddNote = useCallback(async (ejecucionId: string, guardiaId: string, installationId: string, note: string) => {
+    try {
+      const res = await fetch("/api/ops/rondas/monitoreo/nota", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ejecucionId, guardiaId, installationId, descripcion: note }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Nota guardada");
+      } else {
+        toast.error(json.error ?? "Error al guardar nota");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }, []);
+
   return (
     <div className="space-y-4 min-w-0">
       <MonitoreoTurnoHeader
@@ -158,6 +174,14 @@ export function RondasMonitoreoClient({
             onChange={setInstallationFilter}
           />
         </div>
+        {selectedRondaId && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+            onClick={() => setSelectedRondaId(null)}
+          >
+            Ver todos
+          </button>
+        )}
       </div>
 
       <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4" : "grid grid-cols-1 lg:grid-cols-10 gap-4"}>
@@ -167,6 +191,7 @@ export function RondasMonitoreoClient({
             guards={mapGuards}
             routes={mapRoutes}
             center={mapCenter}
+            selectedGuardId={selectedRondaId}
             isFullscreen={isFullscreen}
             onFullscreenToggle={() => setIsFullscreen((prev) => !prev)}
           />
@@ -177,6 +202,7 @@ export function RondasMonitoreoClient({
               rondas={guardPanelData}
               onSelectGuard={setSelectedRondaId}
               selectedId={selectedRondaId}
+              onAddNote={handleAddNote}
             />
           </div>
         )}

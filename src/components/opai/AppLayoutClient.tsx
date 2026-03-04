@@ -31,6 +31,7 @@ import {
   Package,
   BookText,
   Inbox,
+  ClipboardList,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -74,7 +75,7 @@ export function AppLayoutClient({
           setActivityUnreadTotal(typeof unreadCounts.data.total === 'number' ? unreadCounts.data.total : 0);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export function AppLayoutClient({
 
   // Compute per-module unread note totals for parent sidebar badges
   const crmNotesBadge = (notesByModule.account || 0) + (notesByModule.contact || 0) + (notesByModule.deal || 0) + (notesByModule.installation || 0) + (notesByModule.lead || 0) + (notesByModule.quotation || 0);
-  const opsNotesBadge = (notesByModule.ticket || 0) + (notesByModule.operation || 0) + (notesByModule.supervision_visit || 0);
+  const opsNotesBadge = (notesByModule.ticket || 0) + (notesByModule.operation || 0) + (notesByModule.supervision_visit || 0) + (notesByModule.marcacion || 0);
   const payrollNotesBadge = notesByModule.payroll_record || 0;
   const docsNotesBadge = notesByModule.document || 0;
   const financeNotesBadge = notesByModule.rendicion || 0;
@@ -146,21 +147,14 @@ export function AppLayoutClient({
           href: '/ops/pautas',
           label: 'Pautas',
           icon: CalendarDays,
-          children: [
-            canView(permissions, 'ops', 'pauta_mensual') && { href: '/ops/pauta-mensual', label: 'Mensual', icon: CalendarDays },
-            canView(permissions, 'ops', 'pauta_diaria') && { href: '/ops/pauta-diaria', label: 'Diaria', icon: UserRoundCheck },
-            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/turnos-extra', label: 'Turnos Extra', icon: Receipt },
-            canView(permissions, 'ops', 'turnos_extra') && { href: '/ops/refuerzos', label: 'Refuerzos', icon: Clock3 },
-            canView(permissions, 'ops', 'ppc') && { href: '/ops/ppc', label: 'PPC', icon: ShieldAlert },
-          ].filter(Boolean) as NavItem['children'],
+          badge: notesByModule.marcacion,
         },
         // ── Ítems individuales ──
-        canView(permissions, 'ops', 'marcaciones') && { href: '/ops/marcaciones', label: 'Marcaciones', icon: Fingerprint },
+        canView(permissions, 'ops', 'supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
+        canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
         canView(permissions, 'ops', 'control_nocturno') && { href: '/ops/control-nocturno', label: 'Control Nocturno', icon: Moon, badge: notesByModule.operation },
-        canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
         canView(permissions, 'ops', 'inventario') && { href: '/ops/inventario', label: 'Inventario', icon: Package },
-        canView(permissions, 'ops', 'supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
       ].filter(Boolean) as NavItem['children'],
     },
     {

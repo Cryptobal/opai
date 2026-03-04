@@ -3,7 +3,7 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Plus, RefreshCw, Search, Settings, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
+import { Activity, Menu, Plus, RefreshCw, Search, Settings, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
@@ -29,6 +29,7 @@ const MOBILE_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof 
   { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
   { label: "Nueva Persona", type: null, icon: Shield, navigateHref: "/personas/guardias" },
   { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
+  { label: "Nueva Visita", type: null, icon: Activity, navigateHref: "/ops/supervision/nueva-visita" },
 ];
 
 export interface AppShellProps {

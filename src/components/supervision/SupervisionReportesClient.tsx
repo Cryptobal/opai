@@ -34,7 +34,7 @@ export function SupervisionReportesClient({
   function setPeriod(value: string) {
     const params = new URLSearchParams();
     params.set("period", value);
-    router.push(`/ops/supervision/reportes?${params.toString()}`);
+    router.push(`/ops/supervision/dashboard?${params.toString()}`);
   }
 
   return (

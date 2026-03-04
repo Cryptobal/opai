@@ -72,8 +72,11 @@ export async function POST(request: NextRequest) {
         })
       )
     );
+    const firstItem = body.items[0];
+    const installationId = firstItem ? puestoById.get(firstItem.puestoId)?.installationId : undefined;
 
-    await createOpsAuditLog(ctx, "ops.pauta.bulk_saved", "ops_pauta", undefined, {
+    await createOpsAuditLog(ctx, "ops.pauta.bulk_saved", "ops_pauta", installationId, {
+      installationId: installationId ?? null,
       total: results.length,
     });
 

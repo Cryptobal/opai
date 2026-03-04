@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const puesto = await prisma.opsPuestoOperativo.findFirst({
       where: { id: puestoId, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, installationId: true },
     });
     if (!puesto) {
       return NextResponse.json(
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
         ctx,
         "ops.pauta.eliminar_dia",
         "ops_pauta_mensual",
-        puestoId,
-        { slotNumber, date, mode: "single_day" }
+        puesto.installationId,
+        { installationId: puesto.installationId, puestoId, slotNumber, date, mode: "single_day" }
       );
       return NextResponse.json({
         success: true,
@@ -97,8 +97,10 @@ export async function POST(request: NextRequest) {
       ctx,
       "ops.pauta.eliminar_serie",
       "ops_pauta_mensual",
-      puestoId,
+      puesto.installationId,
       {
+        installationId: puesto.installationId,
+        puestoId,
         slotNumber,
         date,
         mode: "from_forward",

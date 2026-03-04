@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
   Building2,
   Clock3,
   Contact,
@@ -49,6 +50,7 @@ const QUICK_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof T
   { label: "Nuevo Refuerzo", type: null, icon: Shield, navigateHref: "/ops/refuerzos?crear=refuerzo" },
   { label: "Nueva Persona", type: null, icon: Users, navigateHref: "/personas/guardias" },
   { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
+  { label: "Nueva Visita", type: null, icon: Activity, navigateHref: "/ops/supervision/nueva-visita" },
 ];
 
 export function TopbarActions({

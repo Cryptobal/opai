@@ -64,6 +64,25 @@ const SHIFT_COLORS: Record<string, string> = {
   TE: "bg-rose-800/30 text-rose-400 border-rose-600/30",
 };
 
+const PAUTA_ACTIVITY_LABELS: Record<string, string> = {
+  "ops.pauta.generated": "Generó pauta mensual",
+  "ops.pauta.bulk_saved": "Guardó cambios masivos",
+  "ops.pauta.upsert": "Actualizó celda",
+  "ops.pauta.serie_painted": "Pintó serie fija",
+  "ops.pauta.serie_rotativa_painted": "Pintó serie rotativa",
+  "ops.pauta.eliminar_dia": "Eliminó día",
+  "ops.pauta.eliminar_serie": "Eliminó serie",
+  "ops.pauta.auto_sync_created": "Auto-sync creó filas",
+  "ops.pauta.auto_sync_projected": "Auto-sync proyectó series",
+  "ops.pauta.export_pdf": "Exportó PDF",
+  "ops.pauta.export_excel": "Exportó Excel",
+  "ops.refuerzo.created": "Creó refuerzo",
+  "ops.refuerzo.updated": "Actualizó refuerzo",
+  "ops.refuerzo.deleted": "Eliminó refuerzo",
+  "ops.refuerzo.post_api": "Refuerzo vía API",
+  "ops.refuerzos.export_csv": "Exportó refuerzos CSV",
+};
+
 /* ── types ─────────────────────────────────────── */
 
 type ClientOption = {
@@ -156,6 +175,16 @@ type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
 type ShiftType = "day" | "night" | "rotativo";
 
+type PautaActivityItem = {
+  id: string;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  details?: Record<string, unknown> | null;
+  userEmail?: string | null;
+  createdAt: string;
+};
+
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
   shiftPatterns?: ShiftPatternOption[];
@@ -216,6 +245,20 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
 function buildPuestoDisplayName(puesto: { name: string; cargo?: { name: string } | null; puestoTrabajo?: { name: string } | null }): string {
   const parts = [puesto.cargo?.name, puesto.puestoTrabajo?.name].filter(Boolean);
   return parts.length > 0 ? parts.join(" - ") : puesto.name;
+}
+
+function formatPautaActivityDetails(details?: Record<string, unknown> | null): string[] {
+  if (!details || typeof details !== "object") return [];
+  const lines: string[] = [];
+  if (typeof details.installationName === "string") lines.push(`Instalación: ${details.installationName}`);
+  if (details.month != null && details.year != null) lines.push(`Periodo: ${details.month}/${details.year}`);
+  if (details.rowCount != null) lines.push(`Filas: ${details.rowCount}`);
+  if (details.generatedRows != null) lines.push(`Generadas: ${details.generatedRows}`);
+  if (details.cellCount != null) lines.push(`Celdas: ${details.cellCount}`);
+  if (details.seriesCount != null) lines.push(`Series: ${details.seriesCount}`);
+  if (details.puestoId && details.slotNumber) lines.push(`Puesto: ${details.puestoId} · Slot S${details.slotNumber}`);
+  if (details.date) lines.push(`Fecha: ${String(details.date).slice(0, 10)}`);
+  return lines;
 }
 
 function timeAgo(date: Date): string {
@@ -307,6 +350,8 @@ export function OpsPautaMensualClient({
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
+  const [activityItems, setActivityItems] = useState<PautaActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
   const [allPuestos, setAllPuestos] = useState<PuestoInfo[]>([]);
   const [holidayDates, setHolidayDates] = useState<Map<string, string>>(new Map());
@@ -498,9 +543,37 @@ export function OpsPautaMensualClient({
     }
   }, [installationId, month, year]);
 
+  const fetchActivity = useCallback(async () => {
+    if (!installationId) {
+      setActivityItems([]);
+      return;
+    }
+    setActivityLoading(true);
+    try {
+      const res = await fetch(
+        `/api/ops/pauta-mensual/activity?installationId=${installationId}&month=${month}&year=${year}&take=180`,
+        { cache: "no-store" }
+      );
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo obtener actividad");
+      }
+      setActivityItems((payload.data || []) as PautaActivityItem[]);
+    } catch (error) {
+      console.error(error);
+      setActivityItems([]);
+      toast.error("No se pudo cargar la actividad de pauta");
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [installationId, month, year]);
+
   useEffect(() => {
     if (pageView === "detail") void fetchPauta();
   }, [fetchPauta, pageView]);
+  useEffect(() => {
+    if (pageView === "detail") void fetchActivity();
+  }, [fetchActivity, pageView]);
 
   // Load holidays for the current month/year
   useEffect(() => {
@@ -1512,6 +1585,40 @@ export function OpsPautaMensualClient({
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Actividad contextual de pauta */}
+          <div className="rounded-md border border-border/60 bg-muted/20 p-2.5">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-medium">Actividad</p>
+              {activityLoading ? (
+                <span className="text-[10px] text-muted-foreground">Cargando...</span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">{activityItems.length} eventos</span>
+              )}
+            </div>
+            {activityItems.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">Sin actividad registrada para este período.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
+                {activityItems.slice(0, 20).map((event) => {
+                  const label = PAUTA_ACTIVITY_LABELS[event.action] || event.action;
+                  const details = formatPautaActivityDetails(event.details);
+                  return (
+                    <div key={event.id} className="rounded border border-border/50 bg-background/60 px-2 py-1.5">
+                      <p className="text-[11px] font-medium">{label}</p>
+                      {details.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground">{details.join(" · ")}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/80">
+                        {new Date(event.createdAt).toLocaleString("es-CL")}
+                        {event.userEmail ? ` · ${event.userEmail.split("@")[0]}` : ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* View mode toggle: Semana / Mes */}

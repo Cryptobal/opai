@@ -29,7 +29,7 @@ export default async function CrmInstallationDetailPage({
     };
   };
   const hasRefuerzosModel = Boolean(prismaAny.opsRefuerzoSolicitud);
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount, contactsOfAccount, activityLogs] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales, refuerzos, dealsOfAccount, contactsOfAccount, activityLogs, encuestasCliente] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       select: {
@@ -211,6 +211,19 @@ export default async function CrmInstallationDetailPage({
       orderBy: { createdAt: "desc" },
       take: 120,
     }),
+    prisma.opsEncuestaCliente.findMany({
+      where: { tenantId, installationId: id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contactName: true,
+        averageScore: true,
+        npsScore: true,
+        createdAt: true,
+        visitId: true,
+      },
+    }),
   ]);
 
   if (!installation) {
@@ -228,6 +241,7 @@ export default async function CrmInstallationDetailPage({
       refuerzos,
       dealsOfAccount: dealsOfAccount ?? [],
       contactsOfAccount: contactsOfAccount ?? [],
+      encuestasCliente: encuestasCliente ?? [],
     })
   );
 

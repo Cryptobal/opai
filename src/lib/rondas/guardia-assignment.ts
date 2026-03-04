@@ -8,6 +8,26 @@ export interface GuardiaAssignmentResult {
   source: AssignmentSource | null;
 }
 
+/**
+ * Check if a scheduled time falls within a shift defined by HH:mm start/end strings.
+ * Handles overnight shifts (e.g. 22:00 - 06:00).
+ */
+function isWithinShift(scheduledAt: Date, shiftStart: string, shiftEnd: string): boolean {
+  const scheduled = toChileTime(scheduledAt);
+  const schedH = scheduled.getHours() * 60 + scheduled.getMinutes();
+  const [startH, startM] = shiftStart.split(":").map(Number);
+  const [endH, endM] = shiftEnd.split(":").map(Number);
+  const startMin = startH * 60 + startM;
+  const endMin = endH * 60 + endM;
+
+  if (startMin <= endMin) {
+    // Day shift (e.g. 08:00 - 20:00)
+    return schedH >= startMin && schedH < endMin;
+  }
+  // Overnight shift (e.g. 22:00 - 06:00)
+  return schedH >= startMin || schedH < endMin;
+}
+
 export async function resolveOnDutyGuardiaForInstallation(input: {
   tenantId: string;
   installationId: string;
@@ -28,16 +48,23 @@ export async function resolveOnDutyGuardiaForInstallation(input: {
       actualGuardiaId: true,
       replacementGuardiaId: true,
       checkInAt: true,
+      plannedShiftStart: true,
+      plannedShiftEnd: true,
     },
     orderBy: [{ checkInAt: "desc" }, { slotNumber: "asc" }],
   });
 
-  // Filter attendance by shift that covers scheduledAt
+  // Filter attendance by shift that covers scheduledAt.
+  // Prefer using plannedShiftStart/End when available; fall back to checkIn-based heuristic.
   const scheduledHour = toChileTime(input.scheduledAt).getHours();
   const relevantAttendance = attendanceRows.filter((row) => {
+    // Use real shift times if available
+    if (row.plannedShiftStart && row.plannedShiftEnd) {
+      return isWithinShift(input.scheduledAt, row.plannedShiftStart, row.plannedShiftEnd);
+    }
+    // Fallback: heuristic based on checkIn time
     if (!row.checkInAt) return false;
     const checkInHour = toChileTime(row.checkInAt).getHours();
-    // Simple heuristic: day shift = checkIn before 14:00, night shift = checkIn after 14:00
     const isNightShift = checkInHour >= 14;
     const isNightRonda = scheduledHour >= 14 || scheduledHour < 6;
     return isNightShift === isNightRonda;

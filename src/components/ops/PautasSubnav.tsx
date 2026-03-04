@@ -10,6 +10,7 @@ import {
   Shield,
   ShieldAlert,
   ClipboardList,
+  Fingerprint,
 } from "lucide-react";
 
 const PAUTAS_ITEMS: (SubNavItem & { subKey: string })[] = [
@@ -18,6 +19,7 @@ const PAUTAS_ITEMS: (SubNavItem & { subKey: string })[] = [
   { href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, subKey: "turnos_extra" },
   { href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
+  { href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
 ];
 

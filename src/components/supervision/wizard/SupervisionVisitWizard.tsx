@@ -39,6 +39,7 @@ export function SupervisionVisitWizard() {
   // Step 2: Evaluations
   const [evaluations, setEvaluations] = useState<GuardEvaluation[]>([]);
   const [installationState, setInstallationState] = useState("normal");
+  const [installationStateNotes, setInstallationStateNotes] = useState("");
   const [findings, setFindings] = useState<Finding[]>([]);
 
   // Step 3: Checklist + Book
@@ -158,8 +159,11 @@ export function SupervisionVisitWizard() {
           json.data.map((d: InstalacionDocumentType) => ({
             code: d.code,
             isChecked: false,
+            lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
+            autoFindingId: null,
+            autoTicketCode: null,
           })),
         );
       }
@@ -188,7 +192,7 @@ export function SupervisionVisitWizard() {
       const stateRes = await fetch(`/api/ops/supervision/${visit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installationState, wizardStep: 3 }),
+        body: JSON.stringify({ installationState, installationStateNotes: installationStateNotes || null, wizardStep: 3 }),
       });
       if (!stateRes.ok) {
         const err = await stateRes.json().catch(() => ({}));
@@ -460,8 +464,7 @@ export function SupervisionVisitWizard() {
           completedVia: "mobile",
           generalComments: generalComments || null,
           installationState,
-          guardsExpected: visit.guardsExpected,
-          guardsFound: visit.guardsFound,
+          installationStateNotes: installationStateNotes || null,
           bookUpToDate,
           bookLastEntryDate: bookLastEntryDate || null,
           bookNotes: bookNotes || null,
@@ -470,6 +473,7 @@ export function SupervisionVisitWizard() {
           clientSatisfaction,
           clientComment: surveyData.additionalComments || null,
           ...(clientValidationUrl ? { clientValidationUrl } : {}),
+          surveyData: clientContacted ? surveyData : null,
         }),
       });
 
@@ -479,7 +483,7 @@ export function SupervisionVisitWizard() {
       }
 
       toast.success("Visita finalizada correctamente");
-      router.push("/ops/supervision/mis-visitas");
+      router.push("/ops/supervision/historial");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al finalizar visita";
       toast.error(message);
@@ -548,6 +552,7 @@ export function SupervisionVisitWizard() {
       const draftPayload: Record<string, unknown> = {
         generalComments: generalComments || null,
         installationState,
+        installationStateNotes: installationStateNotes || null,
         bookUpToDate,
         bookLastEntryDate: bookLastEntryDate || null,
         bookNotes: bookNotes || null,
@@ -611,7 +616,7 @@ export function SupervisionVisitWizard() {
         throw new Error(err.error ?? "Error al cancelar visita");
       }
       toast.success("Visita cancelada");
-      router.push("/ops/supervision/mis-visitas");
+      router.push("/ops/supervision/historial");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al cancelar visita";
       toast.error(message);
@@ -630,10 +635,6 @@ export function SupervisionVisitWizard() {
   // Count alerts for stepper
   const stepAlerts: Record<number, boolean> = {};
   if (visit) {
-    // Step 1: geofence issue or dotation mismatch
-    if (visit.guardsExpected != null && visit.guardsFound != null && visit.guardsExpected !== visit.guardsFound) {
-      stepAlerts[1] = true;
-    }
     // Step 2: low evaluation
     const ratedEvals = evaluations.filter(
       (e) => e.presentationScore !== null && e.orderScore !== null && e.protocolScore !== null,
@@ -695,8 +696,10 @@ export function SupervisionVisitWizard() {
           evaluations={evaluations}
           findings={findings}
           installationState={installationState}
+          installationStateNotes={installationStateNotes}
           onEvaluationsChange={setEvaluations}
           onInstallationStateChange={setInstallationState}
+          onInstallationStateNotesChange={setInstallationStateNotes}
           onFindingCreated={handleFindingCreated}
           onNext={handleStep2Next}
           onPrev={() => setCurrentStep(1)}
@@ -748,8 +751,10 @@ export function SupervisionVisitWizard() {
           visit={visit}
           photoCategories={photoCategories}
           capturedPhotos={capturedPhotos}
+          findings={findings}
           onPhotoCapture={handlePhotoCapture}
           onPhotoRemove={handlePhotoRemove}
+          onFindingCreated={handleFindingCreated}
           onNext={handleStep4Next}
           onPrev={() => setCurrentStep(3)}
           saving={saving}
@@ -775,6 +780,7 @@ export function SupervisionVisitWizard() {
           validationPhotoPreview={validationPhotoPreview}
           validationType={validationType}
           bookUpToDate={bookUpToDate}
+          installationStateNotes={installationStateNotes}
           onGeneralCommentsChange={setGeneralComments}
           onClientContactedChange={setClientContacted}
           onClientContactNameChange={setClientContactName}

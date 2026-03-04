@@ -31,12 +31,20 @@ export interface MonitoreoMapProps {
   guards: GuardPosition[];
   routes: RoutePoint[][];
   center?: { lat: number; lng: number } | null;
+  /** When set, map will auto-fit all these points (checkpoints + guards + routes). */
+  selectedGuardId?: string | null;
   onFullscreenToggle?: () => void;
   isFullscreen?: boolean;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type GMapInstance = { panTo: (c: { lat: number; lng: number }) => void; setZoom: (z: number) => void };
+type GLatLngBounds = { extend: (p: { lat: number; lng: number }) => void; isEmpty: () => boolean };
+type GMapInstance = {
+  panTo: (c: { lat: number; lng: number }) => void;
+  setZoom: (z: number) => void;
+  fitBounds: (b: GLatLngBounds, padding?: number | Record<string, number>) => void;
+  getZoom: () => number;
+};
 type GMarker = { setMap: (m: unknown) => void; addListener: (e: string, cb: () => void) => void };
 type GCircle = { setMap: (m: unknown) => void };
 type GPolyline = { setMap: (m: unknown) => void };
@@ -47,8 +55,10 @@ type GMaps = {
   Circle: new (...a: any[]) => GCircle;
   Polyline: new (...a: any[]) => GPolyline;
   InfoWindow: new (...a: any[]) => GInfoWindow;
+  LatLngBounds: new () => GLatLngBounds;
   SymbolPath: { CIRCLE: number };
   ControlPosition: { TOP_RIGHT: number };
+  event: { addListenerOnce: (m: any, e: string, cb: () => void) => void };
 };
 type GWindow = { google?: { maps?: GMaps } };
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -92,6 +102,7 @@ export function MonitoreoMap({
   guards,
   routes,
   center,
+  selectedGuardId,
   onFullscreenToggle,
   isFullscreen,
 }: MonitoreoMapProps) {
@@ -100,6 +111,7 @@ export function MonitoreoMap({
   const markersRef = useRef<GMarker[]>([]);
   const circlesRef = useRef<GCircle[]>([]);
   const polylinesRef = useRef<GPolyline[]>([]);
+  const hasAutoFitRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,6 +147,30 @@ export function MonitoreoMap({
       mapTypeControlOptions: { position: gm.ControlPosition.TOP_RIGHT },
     });
   }, [ready, center]);
+
+  /** Fit the map to show all given points with comfortable padding. */
+  const fitToPoints = useCallback((points: Array<{ lat: number; lng: number }>) => {
+    const map = mapRef.current;
+    if (!map || points.length === 0) return;
+    const w = window as unknown as GWindow;
+    if (!w.google?.maps) return;
+    const gm = w.google.maps;
+
+    if (points.length === 1) {
+      map.panTo(points[0]);
+      map.setZoom(17);
+      return;
+    }
+
+    const bounds = new gm.LatLngBounds();
+    points.forEach((p) => bounds.extend(p));
+    map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+
+    // Cap max zoom after fitBounds settles
+    gm.event.addListenerOnce(map, "idle", () => {
+      if (map.getZoom() > 18) map.setZoom(18);
+    });
+  }, []);
 
   const updateMarkers = useCallback(() => {
     const map = mapRef.current;
@@ -213,18 +249,49 @@ export function MonitoreoMap({
       });
       polylinesRef.current.push(polyline);
     });
-  }, [checkpoints, guards, routes]);
+
+    // Auto-fit bounds on first load when there are points to show
+    if (!hasAutoFitRef.current && (checkpoints.length > 0 || guards.length > 0)) {
+      hasAutoFitRef.current = true;
+      const allPoints: Array<{ lat: number; lng: number }> = [
+        ...checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
+        ...guards.map((g) => ({ lat: g.lat, lng: g.lng })),
+      ];
+      fitToPoints(allPoints);
+    }
+  }, [checkpoints, guards, routes, fitToPoints]);
 
   useEffect(() => {
     updateMarkers();
   }, [updateMarkers]);
 
+  // When a guard is selected, fit their checkpoint area + position; when deselected, fit all
   useEffect(() => {
-    if (center && mapRef.current) {
+    if (!mapRef.current) return;
+
+    if (selectedGuardId) {
+      // Fit to selected guard position + their route points
+      const guardPos = guards.find((g) => g.id === selectedGuardId);
+      if (!guardPos) return;
+
+      const points: Array<{ lat: number; lng: number }> = [{ lat: guardPos.lat, lng: guardPos.lng }];
+      // Add nearby checkpoints (all checkpoints if single installation)
+      checkpoints.forEach((cp) => points.push({ lat: cp.lat, lng: cp.lng }));
+
+      fitToPoints(points);
+    } else if (center) {
+      // Fallback to center prop
       mapRef.current.panTo(center);
-      mapRef.current.setZoom(17);
+      mapRef.current.setZoom(15);
+    } else {
+      // No selection, fit all
+      const allPoints: Array<{ lat: number; lng: number }> = [
+        ...checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
+        ...guards.map((g) => ({ lat: g.lat, lng: g.lng })),
+      ];
+      if (allPoints.length > 0) fitToPoints(allPoints);
     }
-  }, [center]);
+  }, [selectedGuardId, center, guards, checkpoints, fitToPoints]);
 
   if (error) {
     return (
@@ -243,6 +310,11 @@ export function MonitoreoMap({
           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
           En vivo · 30s
         </span>
+        {guards.length > 0 && (
+          <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-sm px-2.5 py-1 text-[10px] text-foreground shadow">
+            {guards.length} {guards.length === 1 ? "guardia" : "guardias"}
+          </span>
+        )}
       </div>
 
       {onFullscreenToggle && (

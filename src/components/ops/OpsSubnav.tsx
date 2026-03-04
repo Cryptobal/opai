@@ -28,11 +28,11 @@ const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   // ── Otros módulos ──
   { href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
+  { href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
+  { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
-  { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
-  { href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
 ];
 
 function filterByPermissions(perms: RolePermissions) {

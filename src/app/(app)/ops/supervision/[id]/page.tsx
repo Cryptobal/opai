@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VisitaDetailActions } from "@/components/supervision/VisitaDetailActions";
+import { PhotoGallery } from "@/components/supervision/PhotoGallery";
 import { NotesProvider } from "@/components/notes";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -401,39 +402,23 @@ export default async function VisitaSupervisionDetailPage({
           <CardTitle className="text-base">Evidencia fotográfica</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Show categorized photos first if available */}
-          {visit.photos && visit.photos.length > 0 ? (
-            <div className="space-y-3">
-              {visit.photos.map((photo: { id: string; categoryName: string | null; photoUrl: string }) => (
-                <div key={photo.id} className="overflow-hidden rounded-md border">
-                  {photo.categoryName && (
-                    <div className="border-b bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                      {photo.categoryName}
-                    </div>
-                  )}
-                  <a href={photo.photoUrl} target="_blank" rel="noreferrer">
-                    <img src={photo.photoUrl} alt={photo.categoryName ?? "Evidencia"} className="h-48 w-full object-cover" />
-                  </a>
-                </div>
-              ))}
-            </div>
-          ) : visit.images.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin imágenes adjuntas.</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {visit.images.map((img) => (
-                <a
-                  key={img.id}
-                  href={img.publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block overflow-hidden rounded-md border"
-                >
-                  <img src={img.publicUrl} alt={img.caption ?? "Evidencia"} className="h-40 w-full object-cover" />
-                </a>
-              ))}
-            </div>
-          )}
+          <PhotoGallery
+            photos={
+              visit.photos && visit.photos.length > 0
+                ? visit.photos.map((p: { id: string; photoUrl: string; categoryName: string | null }) => ({
+                    id: p.id,
+                    url: p.photoUrl,
+                    alt: p.categoryName ?? "Evidencia",
+                    categoryName: p.categoryName,
+                  }))
+                : visit.images.map((img: { id: string; publicUrl: string; caption: string | null }) => ({
+                    id: img.id,
+                    url: img.publicUrl,
+                    alt: img.caption ?? "Evidencia",
+                    categoryName: null,
+                  }))
+            }
+          />
         </CardContent>
       </Card>
     </div>

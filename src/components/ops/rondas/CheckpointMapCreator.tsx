@@ -1,0 +1,631 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, Plus, Trash2, Download, X, Info } from "lucide-react";
+import QRCode from "qrcode";
+
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
+export interface CheckpointFormValue {
+  installationId: string;
+  name: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
+  geoRadiusM: number;
+  verificationType?: string;
+  isCritical?: boolean;
+}
+
+interface ExistingCheckpoint {
+  id: string;
+  name: string;
+  description?: string;
+  lat?: number | null;
+  lng?: number | null;
+  geoRadiusM: number;
+  verificationType: string;
+  isCritical: boolean;
+  isActive: boolean;
+  qrCode?: string;
+}
+
+interface Props {
+  installationId: string;
+  installationName?: string;
+  installationLat?: number | null;
+  installationLng?: number | null;
+  checkpoints: ExistingCheckpoint[];
+  onSubmit: (payload: CheckpointFormValue) => Promise<void> | void;
+  onToggleActive: (id: string, isActive: boolean) => void;
+  onDelete: (id: string) => void;
+}
+
+/* ------------------------------------------------------------------ */
+/* Google Maps loader                                                  */
+/* ------------------------------------------------------------------ */
+
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+function loadMapsScript(): Promise<void> {
+  return new Promise((resolve) => {
+    const w = window as unknown as { google?: { maps?: { Map?: unknown } } };
+    if (w.google?.maps?.Map) { resolve(); return; }
+    const existing = document.getElementById("google-maps-picker-script");
+    if (existing) { existing.addEventListener("load", () => resolve(), { once: true }); return; }
+    const script = document.createElement("script");
+    script.id = "google-maps-picker-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&language=es&region=CL`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    document.head.appendChild(script);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Verification type helpers                                           */
+/* ------------------------------------------------------------------ */
+
+const VERIFICATION_TYPES = [
+  { value: "GEOFENCE", label: "Geocerca", icon: "📍", color: "emerald" },
+  { value: "QR", label: "QR", icon: "🔲", color: "blue" },
+  { value: "BOTH", label: "Ambos", icon: "📍🔲", color: "purple" },
+] as const;
+
+function verificationBadge(type: string) {
+  const t = VERIFICATION_TYPES.find((v) => v.value === type) ?? VERIFICATION_TYPES[0];
+  const colorMap: Record<string, string> = {
+    emerald: "border-emerald-500/30 text-emerald-500",
+    blue: "border-blue-500/30 text-blue-500",
+    purple: "border-purple-500/30 text-purple-500",
+  };
+  return (
+    <Badge variant="outline" className={colorMap[t.color]}>
+      {t.icon} {t.label}
+    </Badge>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Main Component                                                      */
+/* ------------------------------------------------------------------ */
+
+export function CheckpointMapCreator({
+  installationId,
+  installationName,
+  installationLat,
+  installationLng,
+  checkpoints,
+  onSubmit,
+  onToggleActive,
+  onDelete,
+}: Props) {
+  // Map refs
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const circlesRef = useRef<any[]>([]);
+  const draftMarkerRef = useRef<any>(null);
+  const draftCircleRef = useRef<any>(null);
+
+  const [mapReady, setMapReady] = useState(false);
+  const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+
+  // New checkpoint draft state
+  const [isCreating, setIsCreating] = useState(false);
+  const [draftLat, setDraftLat] = useState<number | null>(null);
+  const [draftLng, setDraftLng] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftVerificationType, setDraftVerificationType] = useState("GEOFENCE");
+  const [draftRadius, setDraftRadius] = useState(30);
+  const [draftCritical, setDraftCritical] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
+
+  // Initialize map
+  useEffect(() => {
+    if (!MAPS_KEY || !mapContainerRef.current) return;
+    let mounted = true;
+
+    void loadMapsScript().then(() => {
+      const w = window as unknown as { google?: { maps?: any } };
+      if (!mounted || !mapContainerRef.current || !w.google?.maps) return;
+
+      const gm = w.google.maps;
+      const center = new gm.LatLng(
+        installationLat ?? -33.4489,
+        installationLng ?? -70.6693,
+      );
+
+      const map = new gm.Map(mapContainerRef.current, {
+        center,
+        zoom: 17,
+        mapTypeId: "roadmap",
+        streetViewControl: false,
+        fullscreenControl: true,
+        mapTypeControl: false,
+        styles: [
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+        ],
+      });
+
+      // Click on map to place new checkpoint
+      map.addListener("click", (ev: any) => {
+        if (!ev.latLng) return;
+        const lat = ev.latLng.lat();
+        const lng = ev.latLng.lng();
+        placeDraftMarker(lat, lng, gm, map);
+      });
+
+      mapRef.current = map;
+      setMapReady(true);
+    });
+
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installationId]);
+
+  // Draw existing checkpoints on map
+  useEffect(() => {
+    if (!mapReady) return;
+    const w = window as unknown as { google?: { maps?: any } };
+    const gm = w.google?.maps;
+    const map = mapRef.current;
+    if (!gm || !map) return;
+
+    // Clear old markers/circles
+    markersRef.current.forEach((m) => m.setMap(null));
+    circlesRef.current.forEach((c) => c.setMap(null));
+    markersRef.current = [];
+    circlesRef.current = [];
+
+    const activeCheckpoints = checkpoints.filter((cp) => cp.isActive && cp.lat != null && cp.lng != null);
+
+    activeCheckpoints.forEach((cp, idx) => {
+      const pos = new gm.LatLng(cp.lat!, cp.lng!);
+
+      const marker = new gm.Marker({
+        position: pos,
+        map,
+        title: cp.name,
+        label: {
+          text: String(idx + 1),
+          color: "#fff",
+          fontSize: "11px",
+          fontWeight: "bold",
+        },
+        icon: {
+          path: gm.SymbolPath.CIRCLE,
+          fillColor: cp.isCritical ? "#ef4444" : "#10b981",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+          scale: 14,
+        },
+      });
+
+      const circle = new gm.Circle({
+        center: pos,
+        radius: cp.geoRadiusM,
+        map,
+        fillColor: cp.isCritical ? "#ef4444" : "#10b981",
+        fillOpacity: 0.08,
+        strokeColor: cp.isCritical ? "#ef4444" : "#10b981",
+        strokeOpacity: 0.3,
+        strokeWeight: 1,
+      });
+
+      // Info window on click
+      const infoWindow = new gm.InfoWindow({
+        content: `<div style="font-family:system-ui;font-size:13px;max-width:200px">
+          <strong>${cp.name}</strong><br/>
+          <span style="color:#666">${cp.verificationType === "GEOFENCE" ? "📍 Geocerca" : cp.verificationType === "QR" ? "🔲 QR" : "📍🔲 Ambos"}</span><br/>
+          <span style="color:#666">Radio: ${cp.geoRadiusM}m</span>
+          ${cp.isCritical ? '<br/><span style="color:#ef4444">⚠ Crítico</span>' : ""}
+        </div>`,
+      });
+      marker.addListener("click", () => infoWindow.open(map, marker));
+
+      markersRef.current.push(marker);
+      circlesRef.current.push(circle);
+    });
+
+    // Fit bounds to show all checkpoints
+    if (activeCheckpoints.length > 0) {
+      const bounds = new gm.LatLngBounds();
+      activeCheckpoints.forEach((cp) => bounds.extend(new gm.LatLng(cp.lat!, cp.lng!)));
+      if (installationLat != null && installationLng != null) {
+        bounds.extend(new gm.LatLng(installationLat, installationLng));
+      }
+      map.fitBounds(bounds);
+      if (activeCheckpoints.length === 1) map.setZoom(17);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady, checkpoints]);
+
+  // Sync map type
+  useEffect(() => {
+    if (mapRef.current) mapRef.current.setMapTypeId(mapType);
+  }, [mapType]);
+
+  // Place draft marker
+  const placeDraftMarker = useCallback((lat: number, lng: number, gm?: any, map?: any) => {
+    const w = window as unknown as { google?: { maps?: any } };
+    const googleMaps = gm ?? w.google?.maps;
+    const mapInstance = map ?? mapRef.current;
+    if (!googleMaps || !mapInstance) return;
+
+    // Remove previous draft
+    draftMarkerRef.current?.setMap(null);
+    draftCircleRef.current?.setMap(null);
+
+    const pos = new googleMaps.LatLng(lat, lng);
+
+    const marker = new googleMaps.Marker({
+      position: pos,
+      map: mapInstance,
+      draggable: true,
+      icon: {
+        path: googleMaps.SymbolPath.CIRCLE,
+        fillColor: "#f59e0b",
+        fillOpacity: 1,
+        strokeColor: "#fff",
+        strokeWeight: 2,
+        scale: 14,
+      },
+      label: {
+        text: "+",
+        color: "#fff",
+        fontSize: "16px",
+        fontWeight: "bold",
+      },
+      zIndex: 999,
+    });
+
+    const circle = new googleMaps.Circle({
+      center: pos,
+      radius: draftRadius,
+      map: mapInstance,
+      fillColor: "#f59e0b",
+      fillOpacity: 0.12,
+      strokeColor: "#f59e0b",
+      strokeOpacity: 0.4,
+      strokeWeight: 1,
+    });
+
+    marker.addListener("dragend", (ev: any) => {
+      if (!ev.latLng) return;
+      setDraftLat(ev.latLng.lat());
+      setDraftLng(ev.latLng.lng());
+      circle.setCenter(ev.latLng);
+    });
+
+    draftMarkerRef.current = marker;
+    draftCircleRef.current = circle;
+    setDraftLat(lat);
+    setDraftLng(lng);
+    setIsCreating(true);
+  }, [draftRadius]);
+
+  // Update draft circle radius
+  useEffect(() => {
+    if (draftCircleRef.current) {
+      draftCircleRef.current.setRadius(draftRadius);
+    }
+  }, [draftRadius]);
+
+  // Cancel creating
+  const cancelDraft = () => {
+    draftMarkerRef.current?.setMap(null);
+    draftCircleRef.current?.setMap(null);
+    draftMarkerRef.current = null;
+    draftCircleRef.current = null;
+    setIsCreating(false);
+    setDraftLat(null);
+    setDraftLng(null);
+    setDraftName("");
+    setDraftVerificationType("GEOFENCE");
+    setDraftRadius(30);
+    setDraftCritical(false);
+  };
+
+  // Save checkpoint
+  const handleSave = async () => {
+    if (!draftName.trim() || draftLat == null || draftLng == null) return;
+    setSaving(true);
+    try {
+      await onSubmit({
+        installationId,
+        name: draftName.trim(),
+        lat: draftLat,
+        lng: draftLng,
+        geoRadiusM: draftRadius,
+        verificationType: draftVerificationType,
+        isCritical: draftCritical,
+      });
+      cancelDraft();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Download all QR codes
+  const handleDownloadQrs = async () => {
+    const activeWithQr = checkpoints.filter((cp) => cp.isActive && cp.qrCode);
+    if (activeWithQr.length === 0) return;
+
+    setDownloadingQr(true);
+    try {
+      // Create a canvas-based PDF-like printable HTML
+      const qrImages = await Promise.all(
+        activeWithQr.map(async (cp) => {
+          const dataUrl = await QRCode.toDataURL(cp.qrCode!, { width: 200, margin: 1 });
+          return { name: cp.name, code: cp.qrCode!, dataUrl };
+        }),
+      );
+
+      // Create printable HTML
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>QR Checkpoints - ${installationName ?? "Instalación"}</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; }
+  h1 { font-size: 18px; text-align: center; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 16px; break-inside: avoid; }
+  .card img { width: 150px; height: 150px; }
+  .card .name { font-weight: 600; font-size: 14px; margin-top: 8px; }
+  .card .code { font-size: 10px; color: #666; margin-top: 4px; word-break: break-all; }
+  @media print { .grid { grid-template-columns: repeat(3, 1fr); } }
+</style></head>
+<body>
+  <h1>Checkpoints QR — ${installationName ?? "Instalación"}</h1>
+  <div class="grid">
+    ${qrImages.map((q) => `
+      <div class="card">
+        <img src="${q.dataUrl}" alt="${q.name}" />
+        <div class="name">${q.name}</div>
+        <div class="code">${q.code}</div>
+      </div>
+    `).join("")}
+  </div>
+</body></html>`;
+
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (win) {
+        win.onload = () => {
+          setTimeout(() => win.print(), 500);
+        };
+      }
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingQr(false);
+    }
+  };
+
+  if (!MAPS_KEY) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        <MapPin className="mx-auto mb-2 h-8 w-8 opacity-50" />
+        <p>Falta <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> para usar el mapa interactivo.</p>
+      </div>
+    );
+  }
+
+  const activeCheckpoints = checkpoints.filter((cp) => cp.isActive);
+
+  return (
+    <div className="space-y-3">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={mapType === "roadmap" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMapType("roadmap")}
+          >
+            Mapa
+          </Button>
+          <Button
+            type="button"
+            variant={mapType === "satellite" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMapType("satellite")}
+          >
+            Satélite
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          {activeCheckpoints.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleDownloadQrs}
+              disabled={downloadingQr}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {downloadingQr ? "Generando..." : "Descargar QRs"}
+            </Button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            Click en el mapa para agregar checkpoint
+          </span>
+        </div>
+      </div>
+
+      {/* Map + Side Panel layout */}
+      <div className="flex gap-3">
+        {/* Map */}
+        <div className="flex-1 min-w-0">
+          <div ref={mapContainerRef} className="h-[480px] w-full rounded-lg border border-border" />
+        </div>
+
+        {/* Creation Panel (when placing a new checkpoint) */}
+        {isCreating && (
+          <div className="w-72 shrink-0 rounded-lg border border-amber-500/30 bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Plus className="h-4 w-4 text-amber-500" />
+                Nuevo checkpoint
+              </h4>
+              <button type="button" onClick={cancelDraft} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="text-[11px] text-muted-foreground">
+              {draftLat != null && draftLng != null
+                ? `${draftLat.toFixed(6)}, ${draftLng.toFixed(6)}`
+                : "Selecciona punto en el mapa"}
+            </div>
+
+            <div className="space-y-2">
+              <Input
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                placeholder="Nombre del checkpoint"
+                className="h-8 text-sm"
+                autoFocus
+              />
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Verificación</label>
+                <div className="flex gap-1">
+                  {VERIFICATION_TYPES.map((vt) => (
+                    <button
+                      key={vt.value}
+                      type="button"
+                      onClick={() => setDraftVerificationType(vt.value)}
+                      className={`flex-1 rounded border px-2 py-1.5 text-[11px] transition-colors ${
+                        draftVerificationType === vt.value
+                          ? "border-primary/40 bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:border-border/60"
+                      }`}
+                    >
+                      {vt.icon} {vt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  Radio geocerca: {draftRadius}m
+                </label>
+                <input
+                  type="range"
+                  min={10}
+                  max={500}
+                  step={5}
+                  value={draftRadius}
+                  onChange={(e) => setDraftRadius(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>10m</span>
+                  <span>500m</span>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draftCritical}
+                  onChange={(e) => setDraftCritical(e.target.checked)}
+                  className="rounded"
+                />
+                <span>⚠ Checkpoint crítico</span>
+              </label>
+            </div>
+
+            <Button
+              type="button"
+              className="w-full h-9"
+              onClick={handleSave}
+              disabled={saving || !draftName.trim() || draftLat == null}
+            >
+              {saving ? "Guardando..." : "Crear checkpoint"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Checkpoint List */}
+      {checkpoints.length > 0 && (
+        <div className="space-y-1.5">
+          <h4 className="text-xs font-medium text-muted-foreground">
+            Checkpoints ({activeCheckpoints.length} activos)
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {checkpoints.map((cp, idx) => (
+              <div
+                key={cp.id}
+                className={`rounded-lg border p-3 space-y-1 ${
+                  cp.isActive ? "border-border bg-card" : "border-border/50 bg-card/50 opacity-60"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold shrink-0">
+                        {idx + 1}
+                      </span>
+                      {cp.name}
+                    </p>
+                    {cp.description && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{cp.description}</p>
+                    )}
+                  </div>
+                  {cp.isCritical && (
+                    <Badge variant="outline" className="border-red-500/30 text-red-500 text-[10px] shrink-0">
+                      ⚠ Crítico
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  {verificationBadge(cp.verificationType)}
+                  <span>{cp.geoRadiusM}m</span>
+                  {cp.lat != null && cp.lng != null && (
+                    <span className="truncate">
+                      {cp.lat.toFixed(5)}, {cp.lng.toFixed(5)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-1 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => onToggleActive(cp.id, !cp.isActive)}
+                  >
+                    {cp.isActive ? "Desactivar" : "Activar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2 text-red-500"
+                    onClick={() => onDelete(cp.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

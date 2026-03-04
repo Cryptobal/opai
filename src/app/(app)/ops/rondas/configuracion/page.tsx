@@ -15,11 +15,24 @@ export default async function RondasConfiguracionPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const installations = await prisma.crmInstallation.findMany({
-    where: { tenantId, isActive: true },
-    select: { id: true, name: true, address: true, commune: true, lat: true, lng: true },
-    orderBy: { name: "asc" },
-  });
+  const [installations, accounts] = await Promise.all([
+    prisma.crmInstallation.findMany({
+      where: { tenantId, isActive: true },
+      select: {
+        id: true, name: true, address: true, commune: true, lat: true, lng: true,
+        accountId: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.crmAccount.findMany({
+      where: {
+        tenantId,
+        installations: { some: { isActive: true } },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6 min-w-0">
@@ -30,6 +43,7 @@ export default async function RondasConfiguracionPage() {
       <RondasSubnav />
       <RondasConfiguracionClient
         installations={JSON.parse(JSON.stringify(installations))}
+        clients={JSON.parse(JSON.stringify(accounts))}
       />
     </div>
   );

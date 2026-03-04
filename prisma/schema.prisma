@@ -38,6 +38,7 @@ model Tenant {
   opsSupervisionCheckResults  OpsSupervisionChecklistResult[]
   opsInstPhotoCategories      OpsInstallationPhotoCategory[]
   opsSupervisionPhotos        OpsSupervisionPhoto[]
+  opsEncuestasCliente         OpsEncuestaCliente[]
   opsInstHealthScores         OpsInstallationHealthScore[]
   inventoryProducts           InventoryProduct[]
   inventoryWarehouses         InventoryWarehouse[]
@@ -1274,6 +1275,7 @@ model CrmAccount {
   deals                  CrmDeal[]
   installations          CrmInstallation[]
   opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
+  encuestasCliente       OpsEncuestaCliente[]
 
   @@index([tenantId], map: "idx_crm_accounts_tenant")
   @@index([status], map: "idx_crm_accounts_status")
@@ -1340,6 +1342,7 @@ model CrmInstallation {
   rondaIncidentes                 OpsRondaIncidente[]              @relation("IncidenteInstallation")
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
+  encuestasCliente                OpsEncuestaCliente[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2408,8 +2411,9 @@ model OpsVisitaSupervision {
   clientContactName   String?   @map("client_contact_name")
   clientSatisfaction  Int?      @map("client_satisfaction")
   clientComment       String?   @map("client_comment") @db.Text
-  clientValidationUrl String?   @map("client_validation_url")
-  healthScore         Int?      @map("health_score")
+  clientValidationUrl    String?   @map("client_validation_url")
+  installationStateNotes String?   @map("installation_state_notes") @db.Text
+  healthScore            Int?      @map("health_score")
   isExpressFlagged    Boolean   @default(false) @map("is_express_flagged")
   draftData           Json?     @map("draft_data") @db.JsonB
   wizardStep          Int       @default(1) @map("wizard_step")
@@ -2425,6 +2429,7 @@ model OpsVisitaSupervision {
   verifiedFindings   OpsSupervisionFinding[]        @relation("supervision_finding_verified_visit")
   checklistResults   OpsSupervisionChecklistResult[]
   photos             OpsSupervisionPhoto[]
+  encuestaCliente    OpsEncuestaCliente?
 
   @@index([tenantId], map: "idx_ops_visitas_supervision_tenant")
   @@index([supervisorId], map: "idx_ops_visitas_supervision_supervisor")
@@ -2596,6 +2601,41 @@ model OpsSupervisionPhoto {
   @@index([visitId], map: "idx_supervision_photos_visit")
   @@index([categoryId], map: "idx_supervision_photos_category")
   @@map("supervision_photos")
+  @@schema("ops")
+}
+
+model OpsEncuestaCliente {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  visitId              String    @unique @map("visit_id") @db.Uuid
+  installationId       String    @map("installation_id") @db.Uuid
+  accountId            String?   @map("account_id") @db.Uuid
+  contactName          String    @map("contact_name")
+  contactRole          String?   @map("contact_role")
+  serviceQuality       Int?      @map("service_quality")
+  scheduleCompliance   Int?      @map("schedule_compliance")
+  personalPresentation Int?      @map("personal_presentation")
+  professionalism      Int?
+  supervisionPresence  Int?      @map("supervision_presence")
+  incidentResponse     Int?      @map("incident_response")
+  hasUrgentRisk        Boolean?  @map("has_urgent_risk")
+  urgentRiskDetail     String?   @map("urgent_risk_detail") @db.Text
+  npsScore             Int?      @map("nps_score")
+  additionalComments   String?   @map("additional_comments") @db.Text
+  signatureUrl         String?   @map("signature_url")
+  clientPhotoUrl       String?   @map("client_photo_url")
+  averageScore         Float?    @map("average_score")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit        OpsVisitaSupervision @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  installation CrmInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  account      CrmAccount?          @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_encuestas_cliente_tenant")
+  @@index([installationId], map: "idx_encuestas_cliente_installation")
+  @@index([accountId], map: "idx_encuestas_cliente_account")
+  @@map("encuestas_cliente")
   @@schema("ops")
 }
 
@@ -4989,6 +5029,7 @@ enum NoteContextType {
   PUESTO // OpsPuestoOperativo
   PAUTA_MENSUAL // OpsPautaMensual
   SUPERVISION_VISIT // OpsVisitaSupervision
+  SUPERVISION       // Supervision module-level notes
 
   @@schema("notes")
 }

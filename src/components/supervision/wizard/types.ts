@@ -59,6 +59,7 @@ export type Finding = {
   guardId: string | null;
   photoUrl: string | null;
   createdAt: string;
+  ticketCode: string | null;
 };
 
 export type PhotoCategory = {
@@ -86,6 +87,7 @@ export type VisitData = {
   guardsExpected: number | null;
   guardsFound: number | null;
   installationState: string | null;
+  installationStateNotes: string | null;
   generalComments: string | null;
   bookUpToDate: boolean | null;
   bookLastEntryDate: string | null;
@@ -119,8 +121,11 @@ export type InstalacionDocumentType = {
 export type DocumentCheckResult = {
   code: string;
   isChecked: boolean;
+  lastEntryDate: string | null;
   photoFile: File | null;
   photoPreview: string | null;
+  autoFindingId: string | null;
+  autoTicketCode: string | null;
 };
 
 export const FINDING_CATEGORIES = [

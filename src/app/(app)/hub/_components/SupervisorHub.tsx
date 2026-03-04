@@ -122,7 +122,7 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
             </Link>
           </Button>
           <Button asChild variant="outline" className="justify-start">
-            <Link href="/ops/supervision/mis-visitas">
+            <Link href="/ops/supervision/historial">
               <ClipboardList className="mr-2 h-4 w-4" /> Mis visitas
             </Link>
           </Button>

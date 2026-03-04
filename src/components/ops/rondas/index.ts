@@ -1,4 +1,3 @@
-export * from "./checkpoint-form";
 export * from "./ronda-template-form";
 export * from "./programacion-form";
 export * from "./RondasDashboardClient";
@@ -15,7 +14,7 @@ export * from "./qr-scanner";
 export * from "./checkpoint-qr-generator";
 export * from "./monitoreo-map";
 export * from "./RondasConfiguracionClient";
-export * from "./PatrullajeLink";
+export * from "./CheckpointMapCreator";
 export * from "./MonitoreoGuardPanel";
 export * from "./MonitoreoTurnoHeader";
 export * from "./CerrarTurnoModal";

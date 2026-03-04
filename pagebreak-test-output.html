@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Test saltos de página</title>
+  <style>
+    body { font-family: Georgia, serif; padding: 24px; max-width: 210mm; margin: 0 auto; }
+    .doc-content p { margin: 0 0 10px; }
+    .doc-content h1 { font-size: 20px; margin: 20px 0 8px; }
+    .doc-content h2 { font-size: 17px; margin: 18px 0 6px; }
+    @media print {
+      div[style*="page-break-before:always"] { page-break-before: always !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-content"><h1>CONTRATO DE TRABAJO</h1><p>Página 1 - Contenido inicial del contrato.</p><p>Más texto en la primera página...</p><div style="page-break-before:always;break-before:page;display:block"><h2>SEGUNDO</h2><p>Página 2 - Este contenido debe aparecer en una nueva página al imprimir/PDF.</p></div><div style="page-break-before:always;break-before:page;display:block"><h2>TERCERO</h2><p>Página 3 - Otra página más.</p></div></div>
+  <p style="margin-top: 24px; font-size: 12px; color: #666;">
+    Instrucciones: Ctrl+P (Imprimir) o Guardar como PDF. Deberías ver 3 páginas separadas.
+  </p>
+</body>
+</html>

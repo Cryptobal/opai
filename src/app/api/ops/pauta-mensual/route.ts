@@ -590,6 +590,7 @@ export async function POST(request: NextRequest) {
     });
 
     await createOpsAuditLog(ctx, "ops.pauta.upsert", "ops_pauta", pauta.id, {
+      installationId: puesto.installationId,
       puestoId: body.puestoId,
       slotNumber: body.slotNumber,
       date: body.date,

@@ -30,11 +30,18 @@ export async function GET() {
           },
         },
         marcaciones: {
+          include: { checkpoint: { select: { name: true } } },
           orderBy: { timestamp: "desc" },
-          take: 1,
+          take: 20,
+        },
+        alertasRows: {
+          where: { resuelta: false },
+          orderBy: { createdAt: "desc" },
+          take: 3,
         },
       },
       orderBy: { scheduledAt: "asc" },
+      take: 50,
     });
 
     return NextResponse.json({ success: true, data: active });

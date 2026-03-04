@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { MapPin, AlertTriangle, CheckCircle2, Users, Shield, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +27,6 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
     totalExpected: 0,
   });
   const [loadingDotacion, setLoadingDotacion] = useState(false);
-  const [guardsPresent, setGuardsPresent] = useState<string>("");
   const [geofenceReason, setGeofenceReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -151,12 +149,10 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
 
       // Save guards expected
       const guardsExpected = dotacion.totalExpected;
-      const guardsFound = guardsPresent ? Number(guardsPresent) : null;
 
       // Build patch data
       const patchData: Record<string, unknown> = {
         guardsExpected,
-        guardsFound,
         wizardStep: 2,
       };
 
@@ -174,7 +170,7 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
 
       const allGuards = [...dotacion.regular, ...dotacion.reinforcement];
       onCheckedIn(
-        { ...json.data, guardsExpected, guardsFound, wizardStep: 2 },
+        { ...json.data, guardsExpected, wizardStep: 2 },
         allGuards,
         guardsExpected,
       );
@@ -185,11 +181,6 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
       setSubmitting(false);
     }
   }
-
-  const guardsMismatch =
-    guardsPresent !== "" &&
-    dotacion.totalExpected > 0 &&
-    Number(guardsPresent) !== dotacion.totalExpected;
 
   // Build searchable options with searchText including client name, address, commune
   const installationOptions = useMemo(
@@ -452,26 +443,6 @@ export function Step1CheckIn({ onCheckedIn }: Props) {
             )}
           </div>
         )}
-
-        {/* Guards present input */}
-        <div className="space-y-2">
-          <Label>Guardias presentes encontrados</Label>
-          <Input
-            type="number"
-            min={0}
-            inputMode="numeric"
-            value={guardsPresent}
-            onChange={(e) => setGuardsPresent(e.target.value)}
-            placeholder={`Esperados: ${dotacion.totalExpected}`}
-            className="h-12 text-lg"
-          />
-          {guardsMismatch && (
-            <div className="flex items-center gap-2 rounded-md bg-amber-500/10 p-2 text-xs text-amber-400">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              Discrepancia de dotacion: esperados {dotacion.totalExpected}, encontrados {guardsPresent}
-            </div>
-          )}
-        </div>
 
         {/* Start button */}
         <Button

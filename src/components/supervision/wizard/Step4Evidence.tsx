@@ -1,18 +1,21 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, X, Image as ImageIcon } from "lucide-react";
+import { Camera, CheckCircle2, X, Image as ImageIcon, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { PhotoCategory, CapturedPhoto, VisitData } from "./types";
+import type { PhotoCategory, CapturedPhoto, VisitData, Finding } from "./types";
+import { FindingModal } from "./FindingModal";
 
 type Props = {
   visit: VisitData;
   photoCategories: PhotoCategory[];
   capturedPhotos: CapturedPhoto[];
+  findings: Finding[];
   onPhotoCapture: (photo: CapturedPhoto) => void;
   onPhotoRemove: (index: number) => void;
+  onFindingCreated: (finding: Finding) => void;
   onNext: () => void;
   onPrev: () => void;
   saving: boolean;
@@ -77,8 +80,10 @@ export function Step4Evidence({
   visit,
   photoCategories,
   capturedPhotos,
+  findings,
   onPhotoCapture,
   onPhotoRemove,
+  onFindingCreated,
   onNext,
   onPrev,
   saving,
@@ -86,6 +91,7 @@ export function Step4Evidence({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState<string>("");
+  const [showFindingModal, setShowFindingModal] = useState(false);
 
   const mandatory = photoCategories.filter((c) => c.isMandatory);
   const optional = photoCategories.filter((c) => !c.isMandatory);
@@ -139,193 +145,248 @@ export function Step4Evidence({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Camera className="h-4 w-4 text-primary" />
-          Evidencia
-          <Badge variant="outline" className="ml-auto text-xs">
-            Paso 4/5
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
-        />
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Camera className="h-4 w-4 text-primary" />
+            Evidencia
+            <Badge variant="outline" className="ml-auto text-xs">
+              Paso 4/5
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFileChange}
+          />
 
-        {/* Mandatory photos */}
-        {mandatory.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Fotos requeridas</p>
+          {/* Mandatory photos */}
+          {mandatory.length > 0 && (
             <div className="space-y-2">
-              {mandatory.map((cat) => {
-                const photos = getPhotosForCategory(cat.id);
-                const hasPhoto = photos.length > 0;
-                return (
-                  <div key={cat.id} className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{cat.name}</p>
-                        <p className="text-[10px] text-amber-400">obligatorio</p>
+              <p className="text-sm font-medium">Fotos requeridas</p>
+              <div className="space-y-2">
+                {mandatory.map((cat) => {
+                  const photos = getPhotosForCategory(cat.id);
+                  const hasPhoto = photos.length > 0;
+                  return (
+                    <div key={cat.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{cat.name}</p>
+                          <p className="text-[10px] text-amber-400">obligatorio</p>
+                        </div>
+                        {hasPhoto ? (
+                          <Badge variant="success" className="text-[10px]">
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            {photos.length} foto(s)
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">
+                            pendiente
+                          </Badge>
+                        )}
                       </div>
-                      {hasPhoto ? (
-                        <Badge variant="success" className="text-[10px]">
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                          {photos.length} foto(s)
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]">
-                          pendiente
-                        </Badge>
-                      )}
-                    </div>
 
-                    {/* Thumbnails */}
-                    {photos.length > 0 && (
-                      <div className="mt-2 flex gap-2 overflow-x-auto">
-                        {photos.map((photo, idx) => {
-                          const globalIdx = capturedPhotos.indexOf(photo);
-                          return (
-                            <div key={idx} className="relative flex-shrink-0">
-                              <img
-                                src={photo.previewUrl}
-                                alt={cat.name}
-                                className="h-16 w-16 rounded-md object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => onPhotoRemove(globalIdx)}
-                                className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 w-full"
-                      onClick={() => handleCaptureClick(cat.id, cat.name)}
-                    >
-                      <Camera className="mr-2 h-3 w-3" />
-                      Tomar foto
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Optional photos */}
-        {optional.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Fotos opcionales</p>
-            <div className="space-y-2">
-              {optional.map((cat) => {
-                const photos = getPhotosForCategory(cat.id);
-                return (
-                  <div key={cat.id} className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm">{cat.name}</p>
+                      {/* Thumbnails */}
                       {photos.length > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          {photos.length} foto(s)
-                        </Badge>
+                        <div className="mt-2 flex gap-2 overflow-x-auto">
+                          {photos.map((photo, idx) => {
+                            const globalIdx = capturedPhotos.indexOf(photo);
+                            return (
+                              <div key={idx} className="relative flex-shrink-0">
+                                <img
+                                  src={photo.previewUrl}
+                                  alt={cat.name}
+                                  className="h-16 w-16 rounded-md object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => onPhotoRemove(globalIdx)}
+                                  className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 w-full"
+                        onClick={() => handleCaptureClick(cat.id, cat.name)}
+                      >
+                        <Camera className="mr-2 h-3 w-3" />
+                        Tomar foto
+                      </Button>
                     </div>
-
-                    {photos.length > 0 && (
-                      <div className="mt-2 flex gap-2 overflow-x-auto">
-                        {photos.map((photo, idx) => {
-                          const globalIdx = capturedPhotos.indexOf(photo);
-                          return (
-                            <div key={idx} className="relative flex-shrink-0">
-                              <img
-                                src={photo.previewUrl}
-                                alt={cat.name}
-                                className="h-16 w-16 rounded-md object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => onPhotoRemove(globalIdx)}
-                                className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 w-full"
-                      onClick={() => handleCaptureClick(cat.id, cat.name)}
-                    >
-                      <Camera className="mr-2 h-3 w-3" />
-                      Tomar foto
-                    </Button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
+          )}
+
+          {/* Optional photos */}
+          {optional.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Fotos opcionales</p>
+              <div className="space-y-2">
+                {optional.map((cat) => {
+                  const photos = getPhotosForCategory(cat.id);
+                  return (
+                    <div key={cat.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">{cat.name}</p>
+                        {photos.length > 0 && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {photos.length} foto(s)
+                          </Badge>
+                        )}
+                      </div>
+
+                      {photos.length > 0 && (
+                        <div className="mt-2 flex gap-2 overflow-x-auto">
+                          {photos.map((photo, idx) => {
+                            const globalIdx = capturedPhotos.indexOf(photo);
+                            return (
+                              <div key={idx} className="relative flex-shrink-0">
+                                <img
+                                  src={photo.previewUrl}
+                                  alt={cat.name}
+                                  className="h-16 w-16 rounded-md object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => onPhotoRemove(globalIdx)}
+                                  className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 w-full"
+                        onClick={() => handleCaptureClick(cat.id, cat.name)}
+                      >
+                        <Camera className="mr-2 h-3 w-3" />
+                        Tomar foto
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          <div className="rounded-lg bg-muted/50 p-3 text-center">
+            <p className="flex items-center justify-center gap-2 text-sm font-medium">
+              <ImageIcon className="h-4 w-4" />
+              Total: {capturedPhotos.length} fotos
+              {totalMandatory > 0 && (
+                <span className={fulfilledMandatory === totalMandatory ? "text-emerald-400" : "text-amber-400"}>
+                  ({fulfilledMandatory}/{totalMandatory} obligatorias
+                  {fulfilledMandatory === totalMandatory ? " ✓" : ""})
+                </span>
+              )}
+            </p>
           </div>
-        )}
 
-        {/* Summary */}
-        <div className="rounded-lg bg-muted/50 p-3 text-center">
-          <p className="flex items-center justify-center gap-2 text-sm font-medium">
-            <ImageIcon className="h-4 w-4" />
-            Total: {capturedPhotos.length} fotos
-            {totalMandatory > 0 && (
-              <span className={fulfilledMandatory === totalMandatory ? "text-emerald-400" : "text-amber-400"}>
-                ({fulfilledMandatory}/{totalMandatory} obligatorias
-                {fulfilledMandatory === totalMandatory ? " ✓" : ""})
-              </span>
-            )}
-          </p>
-        </div>
+          {/* Hallazgos */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                Hallazgos
+                {findings.length > 0 && (
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {findings.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* List of created findings */}
+              {findings.filter(f => f.category !== "documentation").map((f) => (
+                <div key={f.id} className="flex items-center justify-between rounded-lg border p-2.5 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{f.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {f.category} · {f.severity}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="ml-2 flex-shrink-0 text-[10px]">
+                    {f.ticketCode ? `Ticket #${f.ticketCode}` : f.severity}
+                  </Badge>
+                </div>
+              ))}
 
-        {/* Navigation */}
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={onPrev} className="flex-1" size="lg">
-            ← Anterior
-          </Button>
-          <Button
-            onClick={onNext}
-            disabled={saving || !canProceed}
-            className="flex-1"
-            size="lg"
-          >
-            {saving ? "Guardando..." : "Siguiente →"}
-          </Button>
-        </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowFindingModal(true)}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Agregar hallazgo
+              </Button>
+            </CardContent>
+          </Card>
 
-        {totalMandatory > 0 && !mandatoryFulfilled && (
-          <p className="text-center text-xs text-amber-400">
-            Faltan {totalMandatory - fulfilledMandatory} foto(s) obligatoria(s)
-          </p>
-        )}
-        {requireExtraPhotos && !hasExtraPhotos && (
-          <p className="text-center text-xs text-amber-400">
-            Libro no presente: debes agregar al menos una foto del hallazgo o evidencia adicional
-          </p>
-        )}
-      </CardContent>
-    </Card>
+          {/* Navigation */}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onPrev} className="flex-1" size="lg">
+              ← Anterior
+            </Button>
+            <Button
+              onClick={onNext}
+              disabled={saving || !canProceed}
+              className="flex-1"
+              size="lg"
+            >
+              {saving ? "Guardando..." : "Siguiente →"}
+            </Button>
+          </div>
+
+          {totalMandatory > 0 && !mandatoryFulfilled && (
+            <p className="text-center text-xs text-amber-400">
+              Faltan {totalMandatory - fulfilledMandatory} foto(s) obligatoria(s)
+            </p>
+          )}
+          {requireExtraPhotos && !hasExtraPhotos && (
+            <p className="text-center text-xs text-amber-400">
+              Libro no presente: debes agregar al menos una foto del hallazgo o evidencia adicional
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {showFindingModal && (
+        <FindingModal
+          visitId={visit.id}
+          guardId={null}
+          onClose={() => setShowFindingModal(false)}
+          onCreated={(finding) => {
+            onFindingCreated(finding);
+            setShowFindingModal(false);
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -146,17 +146,29 @@ export function RondaTemplateForm({
           <option value="flexible">Orden flexible</option>
           <option value="strict">Orden estricto (secuencial)</option>
         </select>
-        <div className="flex gap-1">
-          <Input
-            value={estimatedDurationMin}
-            onChange={(e) => setEstimatedDurationMin(e.target.value)}
-            placeholder="Duración (min)"
-            className="h-9 flex-1"
-            type="number"
-          />
-          <Button type="button" variant="outline" className="h-9 text-xs shrink-0" onClick={calcDuration}>
-            Auto
-          </Button>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Tiempo estimado total para completar la ronda. Usado para calcular puntualidad del guardia.">
+            Duración estimada (min)
+            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
+          </label>
+          <div className="flex gap-1">
+            <Input
+              value={estimatedDurationMin}
+              onChange={(e) => setEstimatedDurationMin(e.target.value)}
+              placeholder="Ej: 40"
+              className="h-9 flex-1"
+              type="number"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-xs shrink-0"
+              onClick={calcDuration}
+              title="Calcula automáticamente: 8 minutos por checkpoint"
+            >
+              Auto
+            </Button>
+          </div>
         </div>
       </div>
 

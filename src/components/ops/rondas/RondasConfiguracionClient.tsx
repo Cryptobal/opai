@@ -6,14 +6,18 @@ import { MapPin, FileText, Clock } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { FilterBar } from "@/components/opai";
-import { CheckpointForm } from "@/components/ops/rondas/checkpoint-form";
+import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreator";
 import { RondaTemplateForm } from "@/components/ops/rondas/ronda-template-form";
 import { ProgramacionForm } from "@/components/ops/rondas/programacion-form";
-import { PatrullajeLink } from "@/components/ops/rondas/PatrullajeLink";
 import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+interface Client {
+  id: string;
+  name: string;
+}
 
 interface Installation {
   id: string;
@@ -22,6 +26,7 @@ interface Installation {
   commune?: string | null;
   lat?: number | null;
   lng?: number | null;
+  accountId?: string | null;
 }
 
 const TABS = [
@@ -32,17 +37,24 @@ const TABS = [
 
 export function RondasConfiguracionClient({
   installations,
+  clients,
 }: {
   installations: Installation[];
+  clients: Client[];
 }) {
-  const stored = typeof window !== "undefined" ? sessionStorage.getItem("rondas_config_inst") : null;
-  const [installationId, setInstallationId] = useState(stored || installations[0]?.id || "");
+  const [clientId, setClientId] = useState("");
+  const [installationId, setInstallationId] = useState("");
   const [activeTab, setActiveTab] = useState("checkpoints");
 
   const [checkpoints, setCheckpoints] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [programaciones, setProgramaciones] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const filteredInstallations = useMemo(
+    () => clientId ? installations.filter((i) => i.accountId === clientId) : installations,
+    [installations, clientId],
+  );
 
   const selectedInstallation = useMemo(
     () => installations.find((i) => i.id === installationId),
@@ -86,7 +98,6 @@ export function RondasConfiguracionClient({
 
   useEffect(() => {
     if (installationId) {
-      sessionStorage.setItem("rondas_config_inst", installationId);
       void loadData(installationId);
     }
   }, [installationId, loadData]);
@@ -96,88 +107,6 @@ export function RondasConfiguracionClient({
     const tab = params.get("tab");
     if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
   }, []);
-
-  const checkpointColumns: DataTableColumn[] = [
-    { key: "sortOrder", label: "#", render: (v) => v ?? 0 },
-    {
-      key: "name",
-      label: "Nombre",
-      render: (_v, row) => (
-        <div>
-          <p className="font-medium">{row.name}</p>
-          {row.description && <p className="text-xs text-muted-foreground">{row.description}</p>}
-        </div>
-      ),
-    },
-    {
-      key: "verificationType",
-      label: "Tipo",
-      render: (v) => (
-        <Badge variant="outline" className={
-          v === "GEOFENCE" ? "border-emerald-500/30 text-emerald-500" :
-          v === "QR" ? "border-blue-500/30 text-blue-500" :
-          "border-purple-500/30 text-purple-500"
-        }>
-          {v === "GEOFENCE" ? "📍 Geocerca" : v === "QR" ? "🔲 QR" : "📍🔲 Ambos"}
-        </Badge>
-      ),
-    },
-    {
-      key: "coords",
-      label: "Coordenadas",
-      render: (_v, row) =>
-        row.lat && row.lng ? `${Number(row.lat).toFixed(5)}, ${Number(row.lng).toFixed(5)}` : "—",
-    },
-    { key: "geoRadiusM", label: "Radio", render: (v) => `${v}m` },
-    {
-      key: "isCritical",
-      label: "Crítico",
-      render: (v) => v ? <Badge variant="outline" className="border-red-500/30 text-red-500">⚠ Sí</Badge> : "—",
-    },
-    { key: "isActive", label: "Estado", render: (v) => v ? "Activo" : "Inactivo" },
-    {
-      key: "actions",
-      label: "",
-      className: "text-right",
-      render: (_v, row) => (
-        <div className="flex gap-1 justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={async () => {
-              const newState = !row.isActive;
-              const res = await fetch(`/api/ops/rondas/checkpoints/${row.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isActive: newState }),
-              });
-              if (res.ok) {
-                setCheckpoints((prev) => prev.map((c) => c.id === row.id ? { ...c, isActive: newState } : c));
-                toast.success(newState ? "Activado" : "Desactivado");
-              }
-            }}
-          >
-            {row.isActive ? "Desactivar" : "Activar"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs text-red-500"
-            onClick={async () => {
-              const res = await fetch(`/api/ops/rondas/checkpoints/${row.id}`, { method: "DELETE" });
-              if (res.ok) {
-                setCheckpoints((prev) => prev.filter((c) => c.id !== row.id));
-                toast.success("Eliminado");
-              }
-            }}
-          >
-            Eliminar
-          </Button>
-        </div>
-      ),
-    },
-  ];
 
   const programacionColumns: DataTableColumn[] = [
     { key: "rondaTemplate", label: "Plantilla", render: (_v, row) => row.rondaTemplate?.name ?? "—" },
@@ -263,18 +192,31 @@ export function RondasConfiguracionClient({
   return (
     <div className="space-y-4">
       <FilterBar>
-        <SearchableSelect
-          value={installationId}
-          options={installations.map((inst) => ({
-            id: inst.id,
-            label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
-          }))}
-          placeholder="Seleccionar instalación..."
-          onChange={(val) => setInstallationId(val)}
-        />
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Cliente</label>
+          <SearchableSelect
+            value={clientId}
+            options={clients.map((c) => ({ id: c.id, label: c.name }))}
+            placeholder="Buscar cliente..."
+            onChange={(val) => {
+              setClientId(val);
+              setInstallationId("");
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Instalación</label>
+          <SearchableSelect
+            value={installationId}
+            options={filteredInstallations.map((inst) => ({
+              id: inst.id,
+              label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
+            }))}
+            placeholder="Seleccionar instalación..."
+            onChange={(val) => setInstallationId(val)}
+          />
+        </div>
       </FilterBar>
-
-      {installationId && <PatrullajeLink installationId={installationId} installationName={selectedInstallation?.name ?? ""} />}
 
       <ChipTabs
         tabs={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
@@ -285,27 +227,42 @@ export function RondasConfiguracionClient({
       {loading && <p className="text-sm text-muted-foreground py-4">Cargando...</p>}
 
       {!loading && activeTab === "checkpoints" && installationId && (
-        <div className="space-y-4">
-          <CheckpointForm
-            installationId={installationId}
-            installationName={selectedInstallation?.name}
-            installationAddress={selectedInstallation?.address ?? undefined}
-            installationLat={selectedInstallation?.lat}
-            installationLng={selectedInstallation?.lng}
-            onSubmit={async (payload) => {
-              const res = await fetch("/api/ops/rondas/checkpoints", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const json = await res.json();
-              if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
-              setCheckpoints((prev) => [json.data, ...prev]);
-              toast.success("Checkpoint creado");
-            }}
-          />
-          <DataTable columns={checkpointColumns} data={checkpoints} emptyMessage="Sin checkpoints." />
-        </div>
+        <CheckpointMapCreator
+          installationId={installationId}
+          installationName={selectedInstallation?.name}
+          installationLat={selectedInstallation?.lat}
+          installationLng={selectedInstallation?.lng}
+          checkpoints={checkpoints}
+          onSubmit={async (payload) => {
+            const res = await fetch("/api/ops/rondas/checkpoints", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+            setCheckpoints((prev) => [json.data, ...prev]);
+            toast.success("Checkpoint creado");
+          }}
+          onToggleActive={async (id, isActive) => {
+            const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isActive }),
+            });
+            if (res.ok) {
+              setCheckpoints((prev) => prev.map((c) => c.id === id ? { ...c, isActive } : c));
+              toast.success(isActive ? "Activado" : "Desactivado");
+            }
+          }}
+          onDelete={async (id) => {
+            const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, { method: "DELETE" });
+            if (res.ok) {
+              setCheckpoints((prev) => prev.filter((c) => c.id !== id));
+              toast.success("Eliminado");
+            }
+          }}
+        />
       )}
 
       {!loading && activeTab === "plantillas" && installationId && (

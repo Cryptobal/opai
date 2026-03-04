@@ -161,6 +161,15 @@ export type InstallationDetail = {
     roleTitle?: string | null;
     isPrimary?: boolean;
   }>;
+  /** Encuestas de cliente vinculadas a esta instalación */
+  encuestasCliente?: Array<{
+    id: string;
+    contactName: string;
+    averageScore: number | null;
+    npsScore: number | null;
+    createdAt: string;
+    visitId: string;
+  }>;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -2107,6 +2116,53 @@ export function CrmInstallationDetailClient({
             <h3 className="text-sm font-medium mb-3">Marcación rondas</h3>
             <MarcacionRondasSection installation={installation} />
           </div>
+        </div>
+      ),
+    },
+    {
+      id: "encuestas",
+      label: "Encuestas Cliente",
+      icon: ClipboardList,
+      count: installation.encuestasCliente?.length ?? 0,
+      content: (
+        <div className="space-y-2">
+          {installation.encuestasCliente && installation.encuestasCliente.length > 0 ? (
+            installation.encuestasCliente.map((enc) => (
+              <Link
+                key={enc.id}
+                href={`/ops/supervision/${enc.visitId}`}
+                className="flex items-center justify-between rounded-lg border p-3 text-sm hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{enc.contactName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(new Date(enc.createdAt))}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 ml-2">
+                  {enc.averageScore !== null && (
+                    <span className={`text-sm font-medium ${
+                      enc.averageScore >= 4 ? "text-emerald-400" : enc.averageScore >= 3 ? "text-amber-400" : "text-red-400"
+                    }`}>
+                      {enc.averageScore.toFixed(1)}/5
+                    </span>
+                  )}
+                  {enc.npsScore !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      NPS: {enc.npsScore}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))
+          ) : (
+            <EmptyState
+              icon={<ClipboardList className="h-8 w-8" />}
+              title="Sin encuestas"
+              description="No hay encuestas de cliente registradas."
+              compact
+            />
+          )}
         </div>
       ),
     },

@@ -31,7 +31,6 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
-  if (pathname.startsWith('/patrullaje/')) return true; // Patrullaje standalone (auth propia con PIN)
   if (pathname.startsWith('/portal/')) return true; // Portal del guardia (auth propia con PIN)
 
   // API (rutas reales en /api/)

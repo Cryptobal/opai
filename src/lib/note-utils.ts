@@ -58,6 +58,7 @@ const CONTEXT_LINKS: Record<NoteContextType, (id: string) => string> = {
   PUESTO: (id) => `/ops/puestos?id=${id}`,
   PAUTA_MENSUAL: (id) => `/ops/pauta-mensual?installationId=${id}`,
   SUPERVISION_VISIT: (id) => `/ops/supervision/${id}`,
+  SUPERVISION: () => `/ops/supervision`,
 };
 
 export function buildNoteContextLink(
@@ -90,6 +91,7 @@ const CONTEXT_MODULE: Record<NoteContextType, string> = {
   PUESTO: "ops",
   PAUTA_MENSUAL: "ops",
   SUPERVISION_VISIT: "ops",
+  SUPERVISION: "ops",
 };
 
 export function getContextModule(contextType: NoteContextType): string {
@@ -118,6 +120,7 @@ export const CONTEXT_LABELS: Record<NoteContextType, string> = {
   PUESTO: "Puesto",
   PAUTA_MENSUAL: "Pauta Mensual",
   SUPERVISION_VISIT: "Visita Supervisión",
+  SUPERVISION: "Supervisión",
 };
 
 // ── Entity reference pattern parsing (#Entity:id, /Entity/label) ──
