@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingSpinner } from "@/components/opai";
-import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock } from "lucide-react";
+import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
+import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
   Dialog,
   DialogContent,
@@ -160,6 +161,7 @@ export function OpsPautaDiariaClient({
     return toDateInput(new Date());
   });
   const [shiftFilter, setShiftFilter] = useState<"todos" | "dia" | "noche">("todos");
+  const [kpiFilter, setKpiFilter] = useState<"todos" | "cubiertos" | "ppc" | "te">("todos");
   const [loading, setLoading] = useState<boolean>(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
@@ -175,6 +177,17 @@ export function OpsPautaDiariaClient({
   // Modal para marcar Asistió: obliga a ingresar horas antes de guardar (no hay entrada inline)
   const [asistioModalItem, setAsistioModalItem] = useState<AsistenciaItem | null>(null);
   const [asistioModalHours, setAsistioModalHours] = useState<{ checkIn: string; checkOut: string }>({ checkIn: "", checkOut: "" });
+  const [allSectionsState, setAllSectionsState] = useState<"default" | "all-collapsed" | "all-expanded">("default");
+
+  const handleKpiClick = useCallback((kpi: "todos" | "cubiertos" | "ppc" | "te") => {
+    const finalKpi = kpiFilter === kpi && kpi !== "todos" ? "todos" : kpi;
+    setLoading(true);
+    setTimeout(() => {
+      setKpiFilter(finalKpi);
+      setLoading(false);
+    }, 150);
+  }, [kpiFilter]);
+
   // Sync date from URL when navigating with params
   useEffect(() => {
     if (urlDate && DATE_INPUT_REGEX.test(urlDate)) {
@@ -265,8 +278,8 @@ export function OpsPautaDiariaClient({
       .slice(0, 20);
   }, [guardias, replacementSearch]);
 
-  // Filter by guardiaId (from URL), shift (todos/día/noche), and group by installation
-  const { filteredItems, grouped } = useMemo(() => {
+  // Filter by guardiaId (from URL) and shift (todos/día/noche)
+  const shiftFilteredItems = useMemo(() => {
     let base = items;
     if (urlGuardiaId) {
       base = base.filter(
@@ -276,15 +289,28 @@ export function OpsPautaDiariaClient({
           item.replacementGuardiaId === urlGuardiaId
       );
     }
-    const filtered =
-      shiftFilter === "todos"
-        ? base
-        : base.filter((item) => {
-            const isDay = isDayShift(item.puesto.shiftStart);
-            return shiftFilter === "dia" ? isDay : !isDay;
-          });
+    return shiftFilter === "todos"
+      ? base
+      : base.filter((item) => {
+        const isDay = isDayShift(item.puesto.shiftStart);
+        return shiftFilter === "dia" ? isDay : !isDay;
+      });
+  }, [items, shiftFilter, urlGuardiaId]);
+
+  // Aplica filtro KPI
+  const { filteredItems, grouped } = useMemo(() => {
+    let result = shiftFilteredItems;
+    if (kpiFilter !== "todos") {
+      result = result.filter(item => {
+        if (kpiFilter === "cubiertos") return item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo";
+        if (kpiFilter === "ppc") return !item.plannedGuardiaId;
+        if (kpiFilter === "te") return item.turnosExtra?.some((t: { status: string }) => t.status !== "rejected");
+        return true;
+      });
+    }
+
     const map = new Map<string, { name: string; items: AsistenciaItem[] }>();
-    for (const item of filtered) {
+    for (const item of result) {
       const key = item.installation.id;
       if (!map.has(key)) {
         map.set(key, { name: item.installation.name, items: [] });
@@ -292,15 +318,15 @@ export function OpsPautaDiariaClient({
       map.get(key)!.items.push(item);
     }
     const groupedResult = Array.from(map.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name));
-    return { filteredItems: filtered, grouped: groupedResult };
-  }, [items, shiftFilter, urlGuardiaId]);
+    return { filteredItems: result, grouped: groupedResult };
+  }, [shiftFilteredItems, kpiFilter]);
 
   const openReplacementItem = replacementOpenId ? items.find((i) => i.id === replacementOpenId) ?? null : null;
 
-  // Summary (usa items filtrados por turno)
+  // Summary (sin filtro KPI para mantener los números estables al clickear)
   const summary = useMemo(() => {
     let total = 0, cubiertos = 0, ppc = 0, te = 0;
-    for (const item of filteredItems) {
+    for (const item of shiftFilteredItems) {
       total++;
       if (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") cubiertos++;
       if (!item.plannedGuardiaId) ppc++;
@@ -308,7 +334,7 @@ export function OpsPautaDiariaClient({
     }
     const cobertura = total > 0 ? Math.round((cubiertos / total) * 100) : 0;
     return { total, cubiertos, ppc, te, cobertura };
-  }, [filteredItems]);
+  }, [shiftFilteredItems]);
 
   const patchAsistencia = async (
     id: string,
@@ -369,11 +395,10 @@ export function OpsPautaDiariaClient({
                 <button
                   key={opt}
                   type="button"
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    shiftFilter === opt
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${shiftFilter === opt
                       ? "bg-primary text-primary-foreground"
                       : "bg-background text-muted-foreground hover:bg-muted"
-                  }`}
+                    }`}
                   onClick={() => setShiftFilter(opt)}
                 >
                   {opt === "todos" ? "Todos" : opt === "dia" ? "Día" : "Noche"}
@@ -445,6 +470,20 @@ export function OpsPautaDiariaClient({
                   <CalendarCheck2 className="h-4 w-4" aria-hidden />
                 </span>
               ) : null}
+              {items.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setAllSectionsState((prev) => prev === "all-collapsed" ? "all-expanded" : "all-collapsed")}
+                >
+                  {allSectionsState === "all-collapsed" ? (
+                    <>Expandir <ChevronDown className="ml-1 h-3 w-3" /></>
+                  ) : (
+                    <>Contraer <ChevronUp className="ml-1 h-3 w-3" /></>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -492,13 +531,26 @@ export function OpsPautaDiariaClient({
       {items.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {[
-            { label: "Total", value: summary.total, color: "text-foreground" },
-            { label: "Cubiertos", value: summary.cubiertos, color: "text-emerald-400" },
-            { label: "PPC", value: summary.ppc, color: "text-amber-400" },
-            { label: "TE", value: summary.te, color: "text-rose-400" },
-            { label: "Cobertura", value: `${summary.cobertura}%`, color: summary.cobertura >= 80 ? "text-emerald-400" : "text-amber-400" },
+            { id: "todos", label: "Total", value: summary.total, color: "text-foreground" },
+            { id: "cubiertos", label: "Cubiertos", value: summary.cubiertos, color: "text-emerald-400" },
+            { id: "ppc", label: "PPC", value: summary.ppc, color: "text-amber-400" },
+            { id: "te", label: "TE", value: summary.te, color: "text-rose-400" },
+            { id: "cobertura", label: "Cobertura", value: `${summary.cobertura}%`, color: summary.cobertura >= 80 ? "text-emerald-400" : "text-amber-400" },
           ].map((s) => (
-            <Card key={s.label}>
+            <Card
+              key={s.label}
+              className={`transition-colors ${s.id === "cobertura"
+                  ? ""
+                  : kpiFilter === s.id
+                    ? "ring-2 ring-primary/80 bg-primary/10 cursor-pointer pointer-events-auto"
+                    : "cursor-pointer hover:bg-muted/50 pointer-events-auto"
+                }`}
+              onClick={() => {
+                if (s.id !== "cobertura") {
+                  handleKpiClick(s.id as any);
+                }
+              }}
+            >
               <CardContent className="pt-2.5 pb-2.5 text-center">
                 <p className="text-[11px] sm:text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
                 <p className={`text-base sm:text-lg font-bold ${s.color}`}>{s.value}</p>
@@ -525,16 +577,20 @@ export function OpsPautaDiariaClient({
           </CardContent>
         </Card>
       ) : (
-        <div className={loading ? "opacity-80 transition-opacity" : "opacity-100 transition-opacity"}>
-        {grouped.map(([instId, group]) => (
-          <Card key={instId} className="overflow-visible">
-            <CardContent className="pt-4 pb-3 space-y-3 overflow-visible">
-              <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wide">
-                {group.name}
-              </h3>
-
+        <div className={`space-y-2 ${loading ? "opacity-80 transition-opacity" : "opacity-100 transition-opacity"}`}>
+          {grouped.map(([instId, group]) => (
+            <CollapsibleSection
+              key={instId}
+              title={group.name}
+              count={group.items.length}
+              badge={`${group.items.filter((i) => i.attendanceStatus === "asistio" || i.attendanceStatus === "reemplazo").length}/${group.items.length}`}
+              defaultOpen={true}
+              open={allSectionsState === "all-collapsed" ? false : allSectionsState === "all-expanded" ? true : undefined}
+              onToggle={() => setAllSectionsState("default")}
+              className="overflow-visible"
+            >
               {/* Desktop: encabezados de columna para filas angostas */}
-              <div className="hidden md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,180px)_auto] md:gap-x-4 md:pb-1 md:border-b md:border-border/60">
+              <div className="hidden md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,150px)_auto] md:gap-x-3 md:pb-1 md:border-b md:border-border/60">
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Puesto</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Planificado</span>
                 <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Reemplazo</span>
@@ -543,7 +599,7 @@ export function OpsPautaDiariaClient({
               </div>
 
               {/* Card-based layout: cada item es una fila (desktop) o tarjeta vertical (móvil) */}
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {group.items.map((item) => {
                   const te = item.turnosExtra?.[0];
                   const isLocked = Boolean(item.lockedAt);
@@ -571,21 +627,39 @@ export function OpsPautaDiariaClient({
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-lg border border-border/60 p-3 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,180px)_auto] md:gap-x-4 md:gap-y-0 gap-y-2.5 md:items-start`}
+                      className={`rounded-lg border border-border/60 p-2 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-1 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,150px)_auto] md:gap-x-3 md:gap-y-0 gap-y-2 md:items-start`}
                     >
-                      {/* Col 1: Puesto + Slot (en desktop va a la izquierda) */}
+                      {/* Col 1: Puesto + Slot + Horas inline */}
                       <div className="flex items-start md:items-center justify-between gap-2 min-w-0">
                         <div className="min-w-0">
-                          <div className="font-medium text-sm">{item.puesto.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="font-medium text-sm leading-tight">{item.puesto.name}</div>
+                          <div className="text-xs text-muted-foreground leading-tight">
                             S{item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}
                             {" "}
                             <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
                               {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
                             </span>
                           </div>
+                          {item.plannedGuardiaId && (
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">
+                                P:{item.puesto.shiftStart}-{item.puesto.shiftEnd}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                T:{((item.workedMinutes ?? 0) / 60).toFixed(1)}h
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                J:{((item.plannedMinutes ?? 0) / 60).toFixed(1)}h
+                              </span>
+                              {(item.overtimeMinutes ?? 0) > 0 && (
+                                <span className="text-[10px] text-amber-300 font-medium">
+                                  HE:{((item.overtimeMinutes ?? 0) / 60).toFixed(1)}h
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <span title={item.attendanceStatus} className="text-lg shrink-0 md:order-first md:mr-2">
+                        <span title={item.attendanceStatus} className="text-base shrink-0 md:order-first md:mr-1.5">
                           {STATUS_ICONS[item.attendanceStatus] ?? "—"}
                         </span>
                       </div>
@@ -789,159 +863,137 @@ export function OpsPautaDiariaClient({
 
                       {/* Col 4: Aviso asistencia previa + Acciones (en desktop una sola columna) */}
                       <div className="md:flex md:flex-col md:items-end md:justify-center md:gap-2 space-y-2.5 md:space-y-0">
-                      {/* Asistencia previa warning */}
-                      {showAsistenciaPreviaWarning && (
-                        <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
-                          <p className="font-medium">Asistencia registrada ({asistenciaPreviaGuardiaName}).</p>
-                          <div className="flex gap-2 mt-1.5">
+                        {/* Asistencia previa warning */}
+                        {showAsistenciaPreviaWarning && (
+                          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
+                            <p className="font-medium">Asistencia registrada ({asistenciaPreviaGuardiaName}).</p>
+                            <div className="flex gap-2 mt-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                                disabled={savingId === item.id || isLocked || !canExecuteOps}
+                                onClick={() =>
+                                  void patchAsistencia(
+                                    item.id,
+                                    { plannedGuardiaId: item.actualGuardiaId ?? undefined },
+                                    "Asistencia validada (planificado alineado)"
+                                  )
+                                }
+                              >
+                                Validar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                                disabled={savingId === item.id || isLocked || !canExecuteOps}
+                                onClick={() => {
+                                  const te2 = item.turnosExtra?.[0];
+                                  if (te2?.status === "paid" && !canManagePaidTeReset) {
+                                    toast.error("No puedes resetear: este TE ya está pagado.");
+                                    return;
+                                  }
+                                  if (te2?.status === "paid" && canManagePaidTeReset) {
+                                    const reason = (window.prompt("Motivo para eliminar TE pagado:") || "").trim();
+                                    if (!reason) { toast.error("Debes indicar un motivo."); return; }
+                                    void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
+                                    return;
+                                  }
+                                  if (te2 && (te2.status === "pending" || te2.status === "approved")) {
+                                    if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
+                                  }
+                                  void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
+                                }}
+                              >
+                                Corregir
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions row */}
+                        <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                          {showAsistioNoAsistio && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`h-7 w-7 p-0 ${item.attendanceStatus === "asistio"
+                                    ? "border-emerald-500 bg-emerald-500/25 text-emerald-300"
+                                    : "border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                                  }`}
+                                disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
+                                onClick={() => {
+                                  setAsistioModalItem(item);
+                                  setAsistioModalHours({
+                                    checkIn: timeFromISO(item.checkInAt) || item.puesto.shiftStart,
+                                    checkOut: timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
+                                  });
+                                }}
+                                title="Asistió"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`h-7 w-7 p-0 ${item.attendanceStatus === "no_asistio"
+                                    ? "border-rose-500 bg-rose-500/25 text-rose-300"
+                                    : "border-rose-500/50 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
+                                  }`}
+                                disabled={savingId === item.id || isLocked}
+                                onClick={() =>
+                                  void patchAsistencia(
+                                    item.id,
+                                    { attendanceStatus: "no_asistio", actualGuardiaId: null },
+                                    "No asistió"
+                                  )
+                                }
+                                title="No asistió"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                          {/* Con reemplazo asignado no se muestran Asistió/No asistió/Asistió(reemplazo), solo Resetear */}
+                          {hasChanges && (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
-                              disabled={savingId === item.id || isLocked || !canExecuteOps}
-                              onClick={() =>
-                                void patchAsistencia(
-                                  item.id,
-                                  { plannedGuardiaId: item.actualGuardiaId ?? undefined },
-                                  "Asistencia validada (planificado alineado)"
-                                )
-                              }
-                            >
-                              Validar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                              variant="ghost"
+                              className="h-8 text-xs px-2 text-muted-foreground"
                               disabled={savingId === item.id || isLocked || !canExecuteOps}
                               onClick={() => {
                                 const te2 = item.turnosExtra?.[0];
-                                if (te2?.status === "paid" && !canManagePaidTeReset) {
-                                  toast.error("No puedes resetear: este TE ya está pagado.");
+                                if (!te2) {
+                                  void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
                                   return;
                                 }
-                                if (te2?.status === "paid" && canManagePaidTeReset) {
-                                  const reason = (window.prompt("Motivo para eliminar TE pagado:") || "").trim();
+                                if (te2.status === "paid") {
+                                  if (!canManagePaidTeReset) { toast.error("TE pagado. Solicita override a un admin."); return; }
+                                  if (!window.confirm("TE pagado. Se forzará eliminación. ¿Continuar?")) return;
+                                  const reason = (window.prompt("Motivo:") || "").trim();
                                   if (!reason) { toast.error("Debes indicar un motivo."); return; }
                                   void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
                                   return;
                                 }
-                                if (te2 && (te2.status === "pending" || te2.status === "approved")) {
-                                  if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
-                                }
+                                if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
                                 void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
                               }}
+                              title="Resetear"
                             >
-                              Corregir
+                              <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
-                          </div>
+                          )}
                         </div>
-                      )}
-
-                      {/* Actions row */}
-                      <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
-                        {showAsistioNoAsistio && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`h-8 text-xs px-3 ${
-                                item.attendanceStatus === "asistio"
-                                  ? "border-emerald-500 bg-emerald-500/25 text-emerald-300"
-                                  : "border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
-                              }`}
-                              disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
-                              onClick={() => {
-                                setAsistioModalItem(item);
-                                setAsistioModalHours({
-                                  checkIn: timeFromISO(item.checkInAt) || item.puesto.shiftStart,
-                                  checkOut: timeFromISO(item.checkOutAt) || item.puesto.shiftEnd,
-                                });
-                              }}
-                            >
-                              Asistió
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`h-8 text-xs px-3 ${
-                                item.attendanceStatus === "no_asistio"
-                                  ? "border-rose-500 bg-rose-500/25 text-rose-300"
-                                  : "border-rose-500/50 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
-                              }`}
-                              disabled={savingId === item.id || isLocked}
-                              onClick={() =>
-                                void patchAsistencia(
-                                  item.id,
-                                  { attendanceStatus: "no_asistio", actualGuardiaId: null },
-                                  "No asistió"
-                                )
-                              }
-                            >
-                              No asistió
-                            </Button>
-                          </>
-                        )}
-                        {/* Con reemplazo asignado no se muestran Asistió/No asistió/Asistió(reemplazo), solo Resetear */}
-                        {hasChanges && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 text-xs px-2 text-muted-foreground"
-                            disabled={savingId === item.id || isLocked || !canExecuteOps}
-                            onClick={() => {
-                              const te2 = item.turnosExtra?.[0];
-                              if (!te2) {
-                                void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
-                                return;
-                              }
-                              if (te2.status === "paid") {
-                                if (!canManagePaidTeReset) { toast.error("TE pagado. Solicita override a un admin."); return; }
-                                if (!window.confirm("TE pagado. Se forzará eliminación. ¿Continuar?")) return;
-                                const reason = (window.prompt("Motivo:") || "").trim();
-                                if (!reason) { toast.error("Debes indicar un motivo."); return; }
-                                void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
-                                return;
-                              }
-                              if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
-                              void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
-                            }}
-                            title="Resetear"
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
                       </div>
 
-                      {/* Resumen de horas + Editar horas (solo modal, sin entrada inline) */}
-                      {item.plannedGuardiaId && (
-                        <div className="md:col-span-5 mt-2 rounded-md border border-border/60 bg-muted/20 p-2.5">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
-                              Plan: {item.puesto.shiftStart}-{item.puesto.shiftEnd}
-                            </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
-                              Trabajadas: {((item.workedMinutes ?? 0) / 60).toFixed(2)}h
-                            </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
-                              Jornada: {((item.plannedMinutes ?? 0) / 60).toFixed(2)}h
-                            </span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                              (item.overtimeMinutes ?? 0) > 0 ? "bg-amber-500/20 text-amber-300" : "bg-muted text-muted-foreground"
-                            }`}>
-                              HE: {((item.overtimeMinutes ?? 0) / 60).toFixed(2)}h
-                            </span>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </CollapsibleSection>
+          ))}
         </div>
       )}
 
