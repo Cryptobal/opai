@@ -12,6 +12,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "OPAI - Presentaciones Comerciales",
   description: "Suite de aplicaciones inteligentes",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/iconos_azul/icon-48x48.png", sizes: "48x48", type: "image/png" },
@@ -26,8 +27,8 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
+    statusBarStyle: "black-translucent",
     title: "OPAI",
-    statusBarStyle: "default",
   },
 };
 

@@ -9,22 +9,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "OPAI Clientes — Gard Security",
-  description: "Portal de clientes de seguridad.",
-  manifest: "/manifest-cliente.json",
+  title: "OPAI Guardias — Gard Security",
+  description: "Portal de guardias de seguridad.",
+  manifest: "/manifest-guardia.json",
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "OPAI Clientes",
+    title: "OPAI Guardias",
   },
   icons: { apple: "/iconos_azul/icon-192x192.png" },
 };
 
-export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-dvh bg-[#0a0a0f] text-white">
-      {children}
-    </div>
-  );
+export default function PortalGuardiaLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
