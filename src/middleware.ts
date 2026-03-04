@@ -31,7 +31,10 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)
-  if (pathname.startsWith('/portal/')) return true; // Portal del guardia (auth propia con PIN)
+  // Portal guardia y cliente usan auth propia (PIN). Supervisor usa NextAuth.
+  if (pathname.startsWith('/portal/guardia')) return true;
+  if (pathname.startsWith('/portal/cliente')) return true;
+  if (pathname.startsWith('/portal/rondas')) return true;
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
 
   // API (rutas reales en /api/)
@@ -47,7 +50,10 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/fx/sync')) return true; // FX sync cron (protegido por CRON_SECRET)
   if (pathname.startsWith('/api/public')) return true;
   if (pathname.startsWith('/api/patrol')) return true; // Patrol API (auth propia con PIN)
-  if (pathname.startsWith('/api/portal')) return true; // Portal del guardia (auth propia con PIN)
+  // Portal guardia y cliente usan auth propia (PIN). Supervisor usa NextAuth.
+  if (pathname.startsWith('/api/portal/guardia')) return true;
+  if (pathname.startsWith('/api/portal/cliente')) return true;
+  if (pathname.startsWith('/api/portal/rondas')) return true;
   // Firma electrónica pública: GET/POST por token sin sesión
   if (pathname.startsWith('/api/docs/sign')) return true;
   // Vista pública de documento firmado (por viewToken)
