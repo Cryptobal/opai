@@ -4,15 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MapPin, FileText, Clock } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChipTabs } from "@/components/ui/chip-tabs";
-import { FilterBar } from "@/components/opai";
 import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreator";
 import { RondaTemplateForm, type EditingTemplate } from "@/components/ops/rondas/ronda-template-form";
 import { ProgramacionForm, type EditingProgramacion } from "@/components/ops/rondas/programacion-form";
 import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface Client {
   id: string;
@@ -194,72 +191,116 @@ export function RondasConfiguracionClient({
 
   return (
     <div className="space-y-4">
-      <FilterBar>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Cliente</label>
-          <SearchableSelect
-            value={clientId}
-            options={clients.map((c) => ({ id: c.id, label: c.name }))}
-            placeholder="Buscar cliente..."
-            onChange={(val) => {
-              setClientId(val);
-              setInstallationId("");
-            }}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Instalación</label>
-          <SearchableSelect
-            value={installationId}
-            options={filteredInstallations.map((inst) => ({
-              id: inst.id,
-              label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
-            }))}
-            placeholder="Seleccionar instalación..."
-            onChange={(val) => setInstallationId(val)}
-          />
-        </div>
-      </FilterBar>
-
-      <ChipTabs
-        tabs={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-
-      {!loading && installationId && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-6 text-sm">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <strong>{checkpoints.filter((c: any) => c.isActive).length}</strong> checkpoints
-            </span>
-            <span className="flex items-center gap-1.5">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <strong>{templates.length}</strong> plantillas
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <strong>{programaciones.filter((p: any) => p.isActive).length}</strong> programaciones activas
-            </span>
+      {/* Sticky header: selectors + summary badges */}
+      <div className="sticky top-0 z-10 bg-[#0a0e1a] pb-2 space-y-3">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="w-48">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Cliente</p>
+            <SearchableSelect
+              value={clientId}
+              options={clients.map((c) => ({ id: c.id, label: c.name }))}
+              placeholder="Buscar cliente..."
+              onChange={(val) => {
+                setClientId(val);
+                setInstallationId("");
+              }}
+            />
           </div>
-          {checkpoints.length === 0 && templates.length === 0 && programaciones.length === 0 && (
-            <div className="mt-3 rounded-lg bg-blue-950/20 border border-blue-800/30 p-3">
-              <p className="text-sm text-blue-300">
-                <strong>¿Primera vez?</strong> Configura rondas en 3 pasos:
-              </p>
-              <ol className="mt-1.5 text-xs text-blue-300/80 list-decimal list-inside space-y-0.5">
-                <li>Crea <strong>checkpoints</strong> (puntos de control en el mapa)</li>
-                <li>Arma una <strong>plantilla</strong> con los checkpoints a recorrer</li>
-                <li>Define la <strong>programación</strong> (días, horario, frecuencia)</li>
-              </ol>
+          <div className="w-64">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Instalación</p>
+            <SearchableSelect
+              value={installationId}
+              options={filteredInstallations.map((inst) => ({
+                id: inst.id,
+                label: `${inst.name}${inst.address ? ` — ${inst.address}` : ""}`,
+              }))}
+              placeholder="Seleccionar instalación..."
+              onChange={(val) => setInstallationId(val)}
+            />
+          </div>
+          {installationId && !loading && (
+            <div className="flex gap-2 flex-wrap ml-auto">
+              {[
+                { label: "checkpoints", value: checkpoints.filter((c: any) => c.isActive).length, color: "#a855f7" },
+                { label: "plantillas",  value: templates.length,    color: "#2dd4bf" },
+                { label: "programaciones activas", value: programaciones.filter((p: any) => p.isActive).length, color: "#3b82f6" },
+              ].map((s) => (
+                <span key={s.label} className="text-[11px] text-[#94a3b8] border border-[#1e293b] rounded-full px-2.5 py-0.5">
+                  <span className="font-bold" style={{ color: s.color }}>{s.value}</span>{" "}{s.label}
+                </span>
+              ))}
             </div>
           )}
         </div>
+
+        {/* Wizard step tabs */}
+        {installationId && (
+          <div className="flex rounded-xl border border-[#1e293b] overflow-hidden">
+            {TABS.map((step, i) => {
+              const isActive = activeTab === step.id;
+              const stepDone = {
+                checkpoints: checkpoints.filter((c: any) => c.isActive).length > 0,
+                plantillas: templates.length > 0,
+                programacion: programaciones.length > 0,
+              }[step.id] ?? false;
+              const Icon = step.icon;
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveTab(step.id)}
+                  className={[
+                    "flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 px-3 py-3 text-center transition-colors border-r border-[#1e293b] last:border-r-0",
+                    isActive ? "bg-[#2dd4bf]/10 text-[#2dd4bf]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
+                  ].join(" ")}
+                >
+                  <span className={[
+                    "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                    stepDone ? "bg-green-500/20 text-green-400" : isActive ? "bg-[#2dd4bf]/20 text-[#2dd4bf]" : "bg-white/10 text-[#64748b]",
+                  ].join(" ")}>
+                    {stepDone ? "✓" : i + 1}
+                  </span>
+                  <div className="flex flex-col items-center sm:items-start">
+                    <span className="text-[13px] font-semibold">{step.label}</span>
+                    <span className="text-[10px] text-[#64748b] hidden lg:block">
+                      {step.id === "checkpoints" ? "Define los puntos de control" : step.id === "plantillas" ? "Agrupa checkpoints en rutas" : "Programa cuándo se ejecutan"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* First-time wizard prompt */}
+      {!loading && installationId && checkpoints.length === 0 && templates.length === 0 && programaciones.length === 0 && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-[13px] text-blue-300 font-semibold mb-2">¿Primera vez? Configura rondas en 3 pasos:</p>
+          <ol className="space-y-1">
+            {[
+              "Crea checkpoints (puntos de control en el mapa)",
+              "Arma una plantilla con los checkpoints a recorrer",
+              "Define la programación (días, horario, frecuencia)",
+            ].map((step, i) => (
+              <li key={i} className="flex items-center gap-2 text-[12px] text-blue-300/80">
+                <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {i + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground py-4">Cargando...</p>}
+      {loading && (
+        <div className="flex items-center gap-2 py-4 text-[#64748b]">
+          <div className="w-4 h-4 rounded-full border-2 border-[#2dd4bf] border-t-transparent animate-spin" />
+          <span className="text-[13px]">Cargando...</span>
+        </div>
+      )}
 
+      {/* CHECKPOINTS TAB */}
       {!loading && activeTab === "checkpoints" && installationId && (
         <CheckpointMapCreator
           installationId={installationId}
@@ -302,6 +343,7 @@ export function RondasConfiguracionClient({
         />
       )}
 
+      {/* PLANTILLAS TAB */}
       {!loading && activeTab === "plantillas" && installationId && (
         <div className="space-y-4">
           <RondaTemplateForm
@@ -336,18 +378,25 @@ export function RondasConfiguracionClient({
             }}
           />
 
-          {templates.length === 0 && <p className="text-sm text-muted-foreground">Sin plantillas creadas.</p>}
+          {templates.length === 0 && (
+            <p className="text-[13px] text-[#94a3b8] py-2">Sin plantillas creadas.</p>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templates.map((tpl) => (
-              <div key={tpl.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm">{tpl.name}</h4>
-                  <Badge variant="outline" className={tpl.isActive !== false ? "text-emerald-500 border-emerald-500/30" : "text-muted-foreground"}>
+              <div key={tpl.id} className="rounded-xl border border-[#1e293b] bg-[#111827] p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-[13px] font-semibold text-[#f1f5f9] truncate">{tpl.name}</h4>
+                  <span className={[
+                    "text-[10px] font-semibold rounded-full border px-2 py-0.5 shrink-0",
+                    tpl.isActive !== false
+                      ? "bg-green-500/10 text-green-400 border-green-500/20"
+                      : "bg-white/5 text-[#94a3b8] border-white/10",
+                  ].join(" ")}>
                     {tpl.isActive !== false ? "Activa" : "Inactiva"}
-                  </Badge>
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-[#94a3b8]">
                   {tpl.orderMode === "strict" ? "Secuencial" : "Flexible"}
                   {tpl.estimatedDurationMin ? ` · ~${tpl.estimatedDurationMin} min` : ""}
                   {` · ${tpl.checkpoints?.length ?? 0} checkpoints`}
@@ -355,41 +404,47 @@ export function RondasConfiguracionClient({
                 {tpl.checkpoints?.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {tpl.checkpoints.map((tc: any, i: number) => (
-                      <span key={tc.checkpoint?.id ?? i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                      <span key={tc.checkpoint?.id ?? i} className="inline-flex items-center gap-1 rounded-full bg-[#2dd4bf]/10 border border-[#2dd4bf]/20 px-2 py-0.5 text-[10px] text-[#2dd4bf]">
                         <span className="font-bold">{i + 1}</span>
                         {tc.checkpoint?.name ?? "?"}
                         {i < tpl.checkpoints.length - 1 && tpl.orderMode === "strict" && (
-                          <span className="text-muted-foreground ml-0.5">→</span>
+                          <span className="text-[#2dd4bf]/50 ml-0.5">→</span>
                         )}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="flex gap-1 pt-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                    setEditingTemplate({
-                      id: tpl.id,
-                      name: tpl.name,
-                      description: tpl.description,
-                      orderMode: tpl.orderMode,
-                      estimatedDurationMin: tpl.estimatedDurationMin,
-                      checkpoints: tpl.checkpoints?.map((tc: any, i: number) => ({
-                        checkpointId: tc.checkpoint?.id ?? tc.checkpointId,
-                        orderIndex: tc.orderIndex ?? i,
-                      })) ?? [],
-                    });
-                  }}>
+                <div className="flex gap-1.5 pt-0.5">
+                  <button
+                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40 transition-colors"
+                    onClick={() => {
+                      setEditingTemplate({
+                        id: tpl.id,
+                        name: tpl.name,
+                        description: tpl.description,
+                        orderMode: tpl.orderMode,
+                        estimatedDurationMin: tpl.estimatedDurationMin,
+                        checkpoints: tpl.checkpoints?.map((tc: any, i: number) => ({
+                          checkpointId: tc.checkpoint?.id ?? tc.checkpointId,
+                          orderIndex: tc.orderIndex ?? i,
+                        })) ?? [],
+                      });
+                    }}
+                  >
                     Editar
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs text-red-500" onClick={async () => {
-                    const res = await fetch(`/api/ops/rondas/templates/${tpl.id}`, { method: "DELETE" });
-                    if (res.ok) {
-                      setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
-                      toast.success("Eliminada");
-                    }
-                  }}>
+                  </button>
+                  <button
+                    className="text-[11px] px-2.5 py-1 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+                    onClick={async () => {
+                      const res = await fetch(`/api/ops/rondas/templates/${tpl.id}`, { method: "DELETE" });
+                      if (res.ok) {
+                        setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
+                        toast.success("Eliminada");
+                      }
+                    }}
+                  >
                     Eliminar
-                  </Button>
+                  </button>
                 </div>
               </div>
             ))}
@@ -397,6 +452,7 @@ export function RondasConfiguracionClient({
         </div>
       )}
 
+      {/* PROGRAMACIÓN TAB */}
       {!loading && activeTab === "programacion" && installationId && (
         <div className="space-y-4">
           <ProgramacionForm
@@ -434,8 +490,15 @@ export function RondasConfiguracionClient({
         </div>
       )}
 
+      {/* No installation selected */}
       {!installationId && (
-        <p className="text-sm text-muted-foreground py-8 text-center">Selecciona una instalación para configurar rondas.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#2dd4bf]/10 flex items-center justify-center mb-4">
+            <MapPin className="w-6 h-6 text-[#2dd4bf]" />
+          </div>
+          <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Selecciona una instalación</p>
+          <p className="text-[13px] text-[#94a3b8]">Elige un cliente e instalación para configurar sus rondas.</p>
+        </div>
       )}
     </div>
   );
