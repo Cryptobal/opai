@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DOCUMENT_TYPES } from "@/lib/personas";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
 const DOC_LABEL: Record<string, string> = {
   certificado_antecedentes: "Cert. antecedentes",
@@ -93,6 +94,7 @@ export default function DocumentosSection({
   const expiresAtRef = useRef<HTMLInputElement | null>(null);
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<GuardiaDocument | null>(null);
 
   const hasExpirationByType = useMemo(() => {
     const map = new Map<string, boolean>();
@@ -257,10 +259,13 @@ export default function DocumentosSection({
                   </span>
                 )}
                 {doc.fileUrl ? (
-                  <a href={doc.fileUrl} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-[#1a2332] bg-[#111822] px-2 py-1 text-[11px] text-[#e8edf4] hover:bg-[#1a2332] transition-colors shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDoc(doc)}
+                    className="inline-flex items-center gap-1 rounded-md border border-[#1a2332] bg-[#111822] px-2 py-1 text-[11px] text-[#e8edf4] hover:bg-[#1a2332] transition-colors shrink-0 cursor-pointer"
+                  >
                     <ExternalLink className="h-3 w-3" /> Ver
-                  </a>
+                  </button>
                 ) : (
                   <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
                 )}
@@ -289,6 +294,17 @@ export default function DocumentosSection({
       )}
 
       <p className="text-[11px] text-[#4a5568]">{documents.length} documento(s)</p>
+
+      {/* ── Fullscreen preview modal ── */}
+      {previewDoc?.fileUrl && (
+        <FilePreviewModal
+          open={!!previewDoc}
+          onOpenChange={(open) => !open && setPreviewDoc(null)}
+          url={previewDoc.fileUrl}
+          fileName={DOC_LABEL[previewDoc.type] || previewDoc.type}
+          mimeType={previewDoc.fileUrl.endsWith(".pdf") ? "application/pdf" : previewDoc.fileUrl.match(/\.(jpe?g|png|gif|webp)$/i) ? `image/${(previewDoc.fileUrl.match(/\.(jpe?g|png|gif|webp)$/i)?.[1] || "jpeg").replace("jpg", "jpeg")}` : ""}
+        />
+      )}
     </div>
   );
 }

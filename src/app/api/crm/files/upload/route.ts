@@ -21,7 +21,7 @@ const ALLOWED_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
 ]);
 
-const ALLOWED_ENTITY_TYPES = ["lead", "deal", "account", "contact", "installation"] as const;
+const ALLOWED_ENTITY_TYPES = ["lead", "deal", "account", "contact", "installation", "guardia"] as const;
 
 export async function POST(request: NextRequest) {
   try {

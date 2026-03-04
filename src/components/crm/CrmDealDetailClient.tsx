@@ -230,7 +230,7 @@ export function CrmDealDetailClient({
         const sig = data.data.find((s: any) => s.isDefault) || data.data[0];
         if (sig?.htmlContent) setSignatureHtml(sig.htmlContent);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const router = useRouter();
@@ -427,7 +427,7 @@ export function CrmDealDetailClient({
   }, [linkedQuotes, quotesById]);
   const activeQuotationSelectValue =
     activeQuotationId &&
-    sentLinkedQuotes.some(({ quoteInfo }) => quoteInfo.id === activeQuotationId)
+      sentLinkedQuotes.some(({ quoteInfo }) => quoteInfo.id === activeQuotationId)
       ? activeQuotationId
       : "__auto__";
   const rawAmountClp = Number(deal.activeQuoteSummary?.amountClp ?? 0);
@@ -645,10 +645,10 @@ export function CrmDealDetailClient({
   const statusBadge = deal.status === "won"
     ? { label: "Ganado", variant: "success" as const }
     : deal.status === "lost"
-    ? { label: "Perdido", variant: "destructive" as const }
-    : currentStage
-    ? { label: currentStage.name, color: currentStageColor }
-    : undefined;
+      ? { label: "Perdido", variant: "destructive" as const }
+      : currentStage
+        ? { label: currentStage.name, color: currentStageColor }
+        : undefined;
 
   // ── Sections ──
   const generalSection = {
@@ -895,147 +895,147 @@ export function CrmDealDetailClient({
       </DropdownMenu>
     ) : undefined,
     children: (
-        !deal.proposalSentAt && !deal.proposalLink && localFollowUpLogs.length === 0 ? (
-          <EmptyState
-            icon={<Clock3 className="h-8 w-8" />}
-            title="Sin flujo activo"
-            description="El seguimiento automático se activa cuando se envía una propuesta."
-            compact
-          />
-        ) : (
-          <div className="space-y-4">
-            {/* ── Inline summary ── */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Badge variant="outline" className={followUpConfig?.isActive === false ? "text-[10px] border-amber-500/30 text-amber-500" : "text-[10px] border-emerald-500/30 text-emerald-500"}>
-                {followUpConfig?.isActive === false ? "Pausada" : "Activa"}
-              </Badge>
-              {sentFollowUpsCount > 0 && (
-                <span className="text-muted-foreground">{sentFollowUpsCount} enviado{sentFollowUpsCount !== 1 ? "s" : ""}</span>
-              )}
-              {pendingFollowUps.length > 0 && (
-                <span className={overdueFollowUpsCount > 0 ? "text-amber-500" : "text-muted-foreground"}>
-                  {pendingFollowUps.length} pendiente{pendingFollowUps.length !== 1 ? "s" : ""}
-                  {overdueFollowUpsCount > 0 && ` (${overdueFollowUpsCount} vencido${overdueFollowUpsCount !== 1 ? "s" : ""})`}
-                </span>
-              )}
-              {failedFollowUpsCount > 0 && (
-                <span className="text-red-500">{failedFollowUpsCount} fallido{failedFollowUpsCount !== 1 ? "s" : ""}</span>
-              )}
-            </div>
-
-            {/* ── Timeline stepper S1 → S2 → S3 ── */}
-            <div className="flex items-start gap-0">
-              {[1, 2, 3].map((sequence, idx) => {
-                const log = latestFollowUpBySequence[sequence];
-                const status = log?.status || "none";
-                const isSent = status === "sent";
-                const isPending = status === "pending" || status === "paused";
-                const isFailed = status === "failed";
-
-                const dotColor = isSent
-                  ? "bg-emerald-500"
-                  : isFailed
-                    ? "bg-red-500"
-                    : isPending
-                      ? "bg-blue-500 animate-pulse"
-                      : "bg-muted-foreground/30";
-
-                const lineColor = isSent ? "bg-emerald-500/40" : "bg-border";
-
-                return (
-                  <div key={sequence} className="flex-1 flex flex-col items-center relative">
-                    {/* Connector line */}
-                    {idx > 0 && (
-                      <div className={`absolute top-[7px] right-1/2 w-full h-px ${lineColor}`} />
-                    )}
-
-                    {/* Dot */}
-                    <div className={`relative z-10 h-3.5 w-3.5 rounded-full ${dotColor} flex items-center justify-center`}>
-                      {isSent && <Check className="h-2 w-2 text-white" />}
-                      {isFailed && <AlertCircle className="h-2 w-2 text-white" />}
-                    </div>
-
-                    {/* Label */}
-                    <p className="mt-1 text-[10px] font-medium text-foreground">S{sequence}</p>
-
-                    {/* Date / status */}
-                    <p className="text-[10px] text-muted-foreground leading-tight text-center">
-                      {isSent && log?.sentAt
-                        ? formatDealDate(log.sentAt)
-                        : isPending && log
-                          ? formatDealDate(log.scheduledAt)
-                          : isFailed
-                            ? "Fallido"
-                            : "—"}
-                    </p>
-
-                    {/* Send now (only place) */}
-                    {isPending && log && (
-                      <button
-                        type="button"
-                        className="mt-0.5 text-[10px] text-primary hover:underline disabled:opacity-50"
-                        disabled={sendingLogId === log.id}
-                        onClick={() => handleSendFollowUpNow(log.id)}
-                      >
-                        {sendingLogId === log.id ? "Enviando…" : "Enviar ahora"}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ── Collapsible history ── */}
-            {localFollowUpLogsDesc.length > 0 && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setHistoryOpen((o) => !o)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {historyOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                  Historial ({localFollowUpLogsDesc.length})
-                </button>
-
-                {historyOpen && (
-                  <div className="mt-2 space-y-1">
-                    {localFollowUpLogsDesc.map((log) => {
-                      const statusMeta = getFollowUpStatusMeta(log.status);
-                      const borderColor = log.status === "sent"
-                        ? "border-l-emerald-500"
-                        : log.status === "failed"
-                          ? "border-l-red-500"
-                          : log.status === "pending"
-                            ? "border-l-blue-500"
-                            : log.status === "paused"
-                              ? "border-l-amber-500"
-                              : "border-l-muted";
-                      return (
-                        <div key={log.id} className={cn("flex items-center justify-between gap-3 rounded-md border-l-2 px-2.5 py-1.5 text-xs hover:bg-muted/40 transition-colors", borderColor)}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-medium shrink-0">S{log.sequence}</span>
-                            <span className="text-muted-foreground truncate">
-                              {log.sentAt ? formatDealDateTime(log.sentAt) : formatDealDateTime(log.scheduledAt)}
-                            </span>
-                            {log.emailMessage && (
-                              <span className="text-muted-foreground/60 truncate hidden sm:inline">
-                                {log.emailMessage.openCount > 0 && `${log.emailMessage.openCount} apert.`}
-                                {log.emailMessage.clickCount > 0 && ` · ${log.emailMessage.clickCount} clic${log.emailMessage.clickCount !== 1 ? "s" : ""}`}
-                              </span>
-                            )}
-                          </div>
-                          <Badge variant="outline" className={statusMeta.className}>
-                            {statusMeta.badge}
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+      !deal.proposalSentAt && !deal.proposalLink && localFollowUpLogs.length === 0 ? (
+        <EmptyState
+          icon={<Clock3 className="h-8 w-8" />}
+          title="Sin flujo activo"
+          description="El seguimiento automático se activa cuando se envía una propuesta."
+          compact
+        />
+      ) : (
+        <div className="space-y-4">
+          {/* ── Inline summary ── */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="outline" className={followUpConfig?.isActive === false ? "text-[10px] border-amber-500/30 text-amber-500" : "text-[10px] border-emerald-500/30 text-emerald-500"}>
+              {followUpConfig?.isActive === false ? "Pausada" : "Activa"}
+            </Badge>
+            {sentFollowUpsCount > 0 && (
+              <span className="text-muted-foreground">{sentFollowUpsCount} enviado{sentFollowUpsCount !== 1 ? "s" : ""}</span>
+            )}
+            {pendingFollowUps.length > 0 && (
+              <span className={overdueFollowUpsCount > 0 ? "text-amber-500" : "text-muted-foreground"}>
+                {pendingFollowUps.length} pendiente{pendingFollowUps.length !== 1 ? "s" : ""}
+                {overdueFollowUpsCount > 0 && ` (${overdueFollowUpsCount} vencido${overdueFollowUpsCount !== 1 ? "s" : ""})`}
+              </span>
+            )}
+            {failedFollowUpsCount > 0 && (
+              <span className="text-red-500">{failedFollowUpsCount} fallido{failedFollowUpsCount !== 1 ? "s" : ""}</span>
             )}
           </div>
-        )
+
+          {/* ── Timeline stepper S1 → S2 → S3 ── */}
+          <div className="flex items-start gap-0">
+            {[1, 2, 3].map((sequence, idx) => {
+              const log = latestFollowUpBySequence[sequence];
+              const status = log?.status || "none";
+              const isSent = status === "sent";
+              const isPending = status === "pending" || status === "paused";
+              const isFailed = status === "failed";
+
+              const dotColor = isSent
+                ? "bg-emerald-500"
+                : isFailed
+                  ? "bg-red-500"
+                  : isPending
+                    ? "bg-blue-500 animate-pulse"
+                    : "bg-muted-foreground/30";
+
+              const lineColor = isSent ? "bg-emerald-500/40" : "bg-border";
+
+              return (
+                <div key={sequence} className="flex-1 flex flex-col items-center relative">
+                  {/* Connector line */}
+                  {idx > 0 && (
+                    <div className={`absolute top-[7px] right-1/2 w-full h-px ${lineColor}`} />
+                  )}
+
+                  {/* Dot */}
+                  <div className={`relative z-10 h-3.5 w-3.5 rounded-full ${dotColor} flex items-center justify-center`}>
+                    {isSent && <Check className="h-2 w-2 text-white" />}
+                    {isFailed && <AlertCircle className="h-2 w-2 text-white" />}
+                  </div>
+
+                  {/* Label */}
+                  <p className="mt-1 text-[10px] font-medium text-foreground">S{sequence}</p>
+
+                  {/* Date / status */}
+                  <p className="text-[10px] text-muted-foreground leading-tight text-center">
+                    {isSent && log?.sentAt
+                      ? formatDealDate(log.sentAt)
+                      : isPending && log
+                        ? formatDealDate(log.scheduledAt)
+                        : isFailed
+                          ? "Fallido"
+                          : "—"}
+                  </p>
+
+                  {/* Send now (only place) */}
+                  {isPending && log && (
+                    <button
+                      type="button"
+                      className="mt-0.5 text-[10px] text-primary hover:underline disabled:opacity-50"
+                      disabled={sendingLogId === log.id}
+                      onClick={() => handleSendFollowUpNow(log.id)}
+                    >
+                      {sendingLogId === log.id ? "Enviando…" : "Enviar ahora"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Collapsible history ── */}
+          {localFollowUpLogsDesc.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((o) => !o)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {historyOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                Historial ({localFollowUpLogsDesc.length})
+              </button>
+
+              {historyOpen && (
+                <div className="mt-2 space-y-1">
+                  {localFollowUpLogsDesc.map((log) => {
+                    const statusMeta = getFollowUpStatusMeta(log.status);
+                    const borderColor = log.status === "sent"
+                      ? "border-l-emerald-500"
+                      : log.status === "failed"
+                        ? "border-l-red-500"
+                        : log.status === "pending"
+                          ? "border-l-blue-500"
+                          : log.status === "paused"
+                            ? "border-l-amber-500"
+                            : "border-l-muted";
+                    return (
+                      <div key={log.id} className={cn("flex items-center justify-between gap-3 rounded-md border-l-2 px-2.5 py-1.5 text-xs hover:bg-muted/40 transition-colors", borderColor)}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-medium shrink-0">S{log.sequence}</span>
+                          <span className="text-muted-foreground truncate">
+                            {log.sentAt ? formatDealDateTime(log.sentAt) : formatDealDateTime(log.scheduledAt)}
+                          </span>
+                          {log.emailMessage && (
+                            <span className="text-muted-foreground/60 truncate hidden sm:inline">
+                              {log.emailMessage.openCount > 0 && `${log.emailMessage.openCount} apert.`}
+                              {log.emailMessage.clickCount > 0 && ` · ${log.emailMessage.clickCount} clic${log.emailMessage.clickCount !== 1 ? "s" : ""}`}
+                            </span>
+                          )}
+                        </div>
+                        <Badge variant="outline" className={statusMeta.className}>
+                          {statusMeta.badge}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )
     ),
   };
 
@@ -1172,23 +1172,23 @@ export function CrmDealDetailClient({
             }}
           />
           <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
-                <div className="space-y-2">
-                  <Label>Cotización</Label>
-                  <SearchableSelect
-                    value={selectedQuoteId}
-                    options={quotes.map((q) => ({ id: q.id, label: `${q.code} — ${q.name || q.clientName || "Sin nombre"}` }))}
-                    placeholder="Selecciona cotización"
-                    disabled={linking}
-                    onChange={setSelectedQuoteId}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
+              <div className="space-y-2">
+                <Label>Cotización</Label>
+                <SearchableSelect
+                  value={selectedQuoteId}
+                  options={quotes.map((q) => ({ id: q.id, label: `${q.code} — ${q.name || q.clientName || "Sin nombre"}` }))}
+                  placeholder="Selecciona cotización"
+                  disabled={linking}
+                  onChange={setSelectedQuoteId}
+                />
+              </div>
+              <DialogFooter>
+                <Button onClick={linkQuote} disabled={linking}>{linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar vínculo</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           {linkedQuotes.length === 0 ? (
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a este negocio." compact />
           ) : (
@@ -1200,8 +1200,8 @@ export function CrmDealDetailClient({
                 const quoteDate = info?.status === "sent" && info?.updatedAt
                   ? `Enviada: ${formatDealDate(info.updatedAt)}`
                   : info?.createdAt
-                  ? `Creada: ${formatDealDate(info.createdAt)}`
-                  : undefined;
+                    ? `Creada: ${formatDealDate(info.createdAt)}`
+                    : undefined;
                 const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
                 return (
                   <CrmRelatedRecordCard
@@ -1229,8 +1229,8 @@ export function CrmDealDetailClient({
     { id: "general", label: "General", icon: Info },
     { id: "followup", label: "Seguimiento", icon: CalendarClock },
     { id: "communication", label: "Comunicación", icon: Mail },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
   const headerActions: EntityHeaderAction[] = [

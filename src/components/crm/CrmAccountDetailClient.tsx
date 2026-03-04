@@ -597,8 +597,8 @@ export function CrmAccountDetailClient({
     lifecycle === "prospect"
       ? { label: "Prospecto", variant: "warning" as const }
       : lifecycle === "client_active"
-      ? { label: "Cliente activo", variant: "success" as const }
-      : { label: "Ex cliente", variant: "destructive" as const };
+        ? { label: "Cliente activo", variant: "success" as const }
+        : { label: "Ex cliente", variant: "destructive" as const };
 
   // ── Extra actions (lifecycle toggles + quick contact) ──
   const primaryPhone = account.contacts.find(c => c.isPrimary)?.phone || account.contacts[0]?.phone;
@@ -643,9 +643,9 @@ export function CrmAccountDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "portal", label: "Portal", icon: Shield },
     { id: "files", label: "Archivos", icon: FileText },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
   const associatedSections: AssociatedSection[] = [
@@ -718,8 +718,8 @@ export function CrmAccountDetailClient({
                     deal.status === "won"
                       ? { label: "Ganado", variant: "success" }
                       : deal.status === "lost"
-                      ? { label: "Perdido", variant: "destructive" }
-                      : undefined
+                        ? { label: "Perdido", variant: "destructive" }
+                        : undefined
                   }
                   href={`/crm/deals/${deal.id}`}
                 />
@@ -778,113 +778,113 @@ export function CrmAccountDetailClient({
 
   // ── Tab content: General ──
   const generalContent = (
-        <div className="space-y-6 rounded-lg border border-border bg-card p-4 sm:p-5">
-          <DetailFieldGrid columns={3}>
-            <DetailField
-              label="Tipo"
-              value={
-                <Badge variant="outline" className={lifecycle !== "prospect" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
-                  {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
-                </Badge>
-              }
-            />
-            <DetailField
-              label="Estado"
-              value={
-                <Badge variant="outline" className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}>
-                  {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
-                </Badge>
-              }
-            />
-            <DetailField
-              label="Página web"
-              value={account.website ? (
-                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
-                  {account.website}<ExternalLink className="h-3 w-3 shrink-0" />
-                </a>
-              ) : undefined}
-            />
-            <DetailField label="RUT" value={account.rut} mono copyable />
-            <DetailField label="Razón social" value={account.legalName} />
-            <DetailField label="Industria" value={account.industry} />
-            <DetailField label="Representante legal" value={account.legalRepresentativeName} />
-            <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
-            <DetailField label="Segmento" value={account.segment} />
-            <DetailField
-              label="Dirección"
-              value={account.address}
-              icon={account.address ? <MapPin className="h-3 w-3" /> : undefined}
-            />
-            <DetailField label="Comuna" value={account.commune} />
-            <DetailField
-              label="Fecha inicio"
-              value={account.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.startDate)) : undefined}
-            />
-            <DetailField
-              label="Fecha término"
-              value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
-            />
-            <DetailField label="Fecha creación" value={account.createdAt ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-            <DetailField label="Última modificación" value={account.updatedAt ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-          </DetailFieldGrid>
+    <div className="space-y-6 rounded-lg border border-border bg-card p-4 sm:p-5">
+      <DetailFieldGrid columns={3}>
+        <DetailField
+          label="Tipo"
+          value={
+            <Badge variant="outline" className={lifecycle !== "prospect" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
+              {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
+            </Badge>
+          }
+        />
+        <DetailField
+          label="Estado"
+          value={
+            <Badge variant="outline" className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}>
+              {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
+            </Badge>
+          }
+        />
+        <DetailField
+          label="Página web"
+          value={account.website ? (
+            <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
+              {account.website}<ExternalLink className="h-3 w-3 shrink-0" />
+            </a>
+          ) : undefined}
+        />
+        <DetailField label="RUT" value={account.rut} mono copyable />
+        <DetailField label="Razón social" value={account.legalName} />
+        <DetailField label="Industria" value={account.industry} />
+        <DetailField label="Representante legal" value={account.legalRepresentativeName} />
+        <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
+        <DetailField label="Segmento" value={account.segment} />
+        <DetailField
+          label="Dirección"
+          value={account.address}
+          icon={account.address ? <MapPin className="h-3 w-3" /> : undefined}
+        />
+        <DetailField label="Comuna" value={account.commune} />
+        <DetailField
+          label="Fecha inicio"
+          value={account.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.startDate)) : undefined}
+        />
+        <DetailField
+          label="Fecha término"
+          value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
+        />
+        <DetailField label="Fecha creación" value={account.createdAt ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+        <DetailField label="Última modificación" value={account.updatedAt ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+      </DetailFieldGrid>
 
-          {/* ── Información empresa (web + IA) ── */}
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {accountLogoUrl && (
-                  <img
-                    src={accountLogoUrl}
-                    alt={`Logo ${account.name}`}
-                    className="h-8 w-8 rounded-md border border-border bg-background object-contain shrink-0"
-                  />
-                )}
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {!account.website && (
-                  <Input
-                    value={enrichWebsiteInput}
-                    onChange={(e) => setEnrichWebsiteInput(e.target.value)}
-                    placeholder="https://www.empresa.cl"
-                    className={`h-7 text-xs w-44 ${inputCn}`}
-                  />
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={enrichCompanyInfoFromWebsite}
-                  disabled={enrichingCompanyInfo || !(account.website || enrichWebsiteInput)?.trim()}
-                >
-                  {enrichingCompanyInfo && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-                  Traer datos
-                </Button>
-              </div>
-            </div>
-            {stripAccountLogoMarker(account.notes) ? (
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {stripAccountLogoMarker(account.notes)}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground/60 italic">Sin descripción. Usa &quot;Traer datos&quot; para obtener información automáticamente.</p>
-            )}
-            <div className="flex items-center gap-2">
-              <Input
-                value={regenerateInstruction}
-                onChange={(e) => setRegenerateInstruction(e.target.value)}
-                placeholder="Instrucción para IA (opcional)..."
-                className={`h-7 text-xs flex-1 ${inputCn}`}
+      {/* ── Información empresa (web + IA) ── */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {accountLogoUrl && (
+              <img
+                src={accountLogoUrl}
+                alt={`Logo ${account.name}`}
+                className="h-8 w-8 rounded-md border border-border bg-background object-contain shrink-0"
               />
-              <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={regenerateNotesWithAi} disabled={regenerating}>
-                {regenerating && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-                <Sparkles className="mr-1 h-3 w-3" />
-                Regenerar
-              </Button>
-            </div>
+            )}
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {!account.website && (
+              <Input
+                value={enrichWebsiteInput}
+                onChange={(e) => setEnrichWebsiteInput(e.target.value)}
+                placeholder="https://www.empresa.cl"
+                className={`h-7 text-xs w-44 ${inputCn}`}
+              />
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={enrichCompanyInfoFromWebsite}
+              disabled={enrichingCompanyInfo || !(account.website || enrichWebsiteInput)?.trim()}
+            >
+              {enrichingCompanyInfo && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+              Traer datos
+            </Button>
           </div>
         </div>
+        {stripAccountLogoMarker(account.notes) ? (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {stripAccountLogoMarker(account.notes)}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground/60 italic">Sin descripción. Usa &quot;Traer datos&quot; para obtener información automáticamente.</p>
+        )}
+        <div className="flex items-center gap-2">
+          <Input
+            value={regenerateInstruction}
+            onChange={(e) => setRegenerateInstruction(e.target.value)}
+            placeholder="Instrucción para IA (opcional)..."
+            className={`h-7 text-xs flex-1 ${inputCn}`}
+          />
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={regenerateNotesWithAi} disabled={regenerating}>
+            {regenerating && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+            <Sparkles className="mr-1 h-3 w-3" />
+            Regenerar
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 
   return (

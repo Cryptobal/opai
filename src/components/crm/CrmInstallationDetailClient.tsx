@@ -498,9 +498,9 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
           setAssignWarning(null);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignGuardiaId, installation.id]);
 
   /* ── Open assign modal ── */
@@ -634,11 +634,10 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
             <div key={puesto.id} className="rounded-lg border border-border p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium">{puesto.name}</p>
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold border ${
-                  isNight
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold border ${isNight
                     ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
                     : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                }`}>
+                  }`}>
                   {isNight ? "Noche" : "Día"}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
@@ -652,11 +651,10 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                   return (
                     <div
                       key={slotNum}
-                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
-                        assignment
+                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${assignment
                           ? "border border-border/60 bg-card"
                           : "border border-dashed border-amber-500/30 bg-amber-500/5"
-                      }`}
+                        }`}
                     >
                       <span className="text-muted-foreground font-mono text-[10px] w-10 shrink-0">
                         Slot {slotNum}
@@ -672,9 +670,8 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                           {assignment.guardia.code && (
                             <span className="text-muted-foreground shrink-0">({assignment.guardia.code})</span>
                           )}
-                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border shrink-0 ${
-                            LIFECYCLE_COLORS[assignment.guardia.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
-                          }`}>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border shrink-0 ${LIFECYCLE_COLORS[assignment.guardia.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
+                            }`}>
                             {LIFECYCLE_LABELS[assignment.guardia.lifecycleStatus] ?? assignment.guardia.lifecycleStatus}
                           </span>
                           {assignment.guardia.persona.rut && (
@@ -745,9 +742,8 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                   {formatPersonName(g.persona.firstName, g.persona.lastName)}
                 </span>
                 {g.code && <span className="text-muted-foreground">({g.code})</span>}
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${
-                  LIFECYCLE_COLORS[g.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${LIFECYCLE_COLORS[g.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
+                  }`}>
                   {LIFECYCLE_LABELS[g.lifecycleStatus] ?? g.lifecycleStatus}
                 </span>
                 {g.persona.rut && (
@@ -822,11 +818,10 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                     key={g.id}
                     type="button"
                     onClick={() => setAssignGuardiaId(g.id)}
-                    className={`w-full text-left flex items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
-                      assignGuardiaId === g.id
+                    className={`w-full text-left flex items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors ${assignGuardiaId === g.id
                         ? "bg-primary/15 text-primary border border-primary/30"
                         : "hover:bg-accent text-foreground"
-                    }`}
+                      }`}
                   >
                     <span className="font-medium truncate">
                       {formatPersonName(g.persona.firstName, g.persona.lastName)}
@@ -1286,7 +1281,7 @@ function StaffingSection({
           <Plus className="h-3.5 w-3.5" />
           Agregar puesto
         </Button>
-        
+
       </div>
 
       {/* Puestos */}
@@ -1309,11 +1304,10 @@ function StaffingSection({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm truncate">{cargoName}</p>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${
-                          isNight
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0 ${isNight
                             ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
                             : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                        }`}>
+                          }`}>
                           {isNight ? "Noche" : "Día"}
                         </span>
                       </div>
@@ -1402,11 +1396,10 @@ function StaffingSection({
                             const startH = parseInt(item.shiftStart.split(":")[0], 10);
                             const isNight = startH >= 18 || startH < 6;
                             return (
-                              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                                isNight
+                              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isNight
                                   ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
                                   : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                              }`}>
+                                }`}>
                                 {isNight ? "Noche" : "Día"}
                               </span>
                             );
@@ -1470,8 +1463,8 @@ function StaffingSection({
           {/* Mobile cards */}
           <div className="md:hidden space-y-2 min-w-0">
             {installation.puestosHistorial.map((item) => {
-              const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
-              const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+              const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`; })() : "—";
+              const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`; })() : "—";
               return (
                 <div key={item.id} className="rounded-lg border border-border/50 p-3 space-y-1">
                   <p className="font-medium text-sm text-muted-foreground">{item.cargo?.name ?? "—"}</p>
@@ -1499,8 +1492,8 @@ function StaffingSection({
               </thead>
               <tbody>
                 {installation.puestosHistorial.map((item) => {
-                  const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
-                  const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+                  const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`; })() : "—";
+                  const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`; })() : "—";
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
                       <td className="px-3 py-2 font-medium text-muted-foreground">{item.cargo?.name ?? "—"}</td>
@@ -1622,10 +1615,10 @@ export function CrmInstallationDetailClient({
 
   const dotacionDesdeCotizacion = (
     installation.metadata &&
-    typeof installation.metadata === "object" &&
-    "dotacionActiva" in installation.metadata &&
-    (installation.metadata.dotacionActiva as Record<string, unknown>) &&
-    typeof installation.metadata.dotacionActiva === "object"
+      typeof installation.metadata === "object" &&
+      "dotacionActiva" in installation.metadata &&
+      (installation.metadata.dotacionActiva as Record<string, unknown>) &&
+      typeof installation.metadata.dotacionActiva === "object"
       ? (installation.metadata.dotacionActiva as Record<string, unknown>)
       : null
   );
@@ -1842,8 +1835,8 @@ export function CrmInstallationDetailClient({
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
   const headerActions: EntityHeaderAction[] = [
@@ -1852,212 +1845,209 @@ export function CrmInstallationDetailClient({
   ];
 
   const generalContent = (
-        <div className="flex flex-col lg:flex-row lg:gap-6 rounded-lg border border-border bg-card p-4 sm:p-5">
-          <DetailFieldGrid columns={3} className="flex-1">
-            <DetailField
-              label="Dirección"
-              value={installation.address}
-              icon={installation.address ? <MapPin className="h-3 w-3" /> : undefined}
-            />
-            <DetailField
-              label="Comuna / Ciudad"
-              value={
-                (installation.commune || installation.city)
-                  ? [installation.commune, installation.city].filter(Boolean).join(", ")
-                  : undefined
-              }
-            />
-            <DetailField
-              label="Valor turno extra"
-              value={
-                installation.teMontoClp != null && Number(installation.teMontoClp) > 0
-                  ? `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
-                  : "No definido"
-              }
-            />
-            <DetailField
-              label="Fecha inicio"
-              value={installation.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.startDate)) : undefined}
-            />
-            <DetailField
-              label="Fecha término"
-              value={installation.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.endDate)) : undefined}
-            />
-            {installation.notes && (
-              <DetailField
-                label="Notas"
-                value={installation.notes}
-                fullWidth
-              />
-            )}
-            <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-            <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-            {/* Control Nocturno toggle */}
-            <div className="col-span-full">
-              <button
-                type="button"
-                onClick={() => openNocturnoToggle(!nocturnoEnabled)}
-                disabled={nocturnoSaving}
-                className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                  nocturnoEnabled
-                    ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
-                    : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-indigo-400" : "text-muted-foreground"}`} />
-                <div className="flex-1 text-left">
-                  <span className="font-medium">Control nocturno</span>
-                  <span className="ml-2 text-xs opacity-70">
-                    {nocturnoEnabled ? "Incluida en reportes nocturnos" : "Excluida de reportes nocturnos"}
-                  </span>
-                </div>
-                <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                  nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
-                }`}>
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                    nocturnoEnabled ? "translate-x-4" : "translate-x-0"
-                  }`} />
-                </div>
-              </button>
+    <div className="flex flex-col lg:flex-row lg:gap-6 rounded-lg border border-border bg-card p-4 sm:p-5">
+      <DetailFieldGrid columns={3} className="flex-1">
+        <DetailField
+          label="Dirección"
+          value={installation.address}
+          icon={installation.address ? <MapPin className="h-3 w-3" /> : undefined}
+        />
+        <DetailField
+          label="Comuna / Ciudad"
+          value={
+            (installation.commune || installation.city)
+              ? [installation.commune, installation.city].filter(Boolean).join(", ")
+              : undefined
+          }
+        />
+        <DetailField
+          label="Valor turno extra"
+          value={
+            installation.teMontoClp != null && Number(installation.teMontoClp) > 0
+              ? `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
+              : "No definido"
+          }
+        />
+        <DetailField
+          label="Fecha inicio"
+          value={installation.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.startDate)) : undefined}
+        />
+        <DetailField
+          label="Fecha término"
+          value={installation.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.endDate)) : undefined}
+        />
+        {installation.notes && (
+          <DetailField
+            label="Notas"
+            value={installation.notes}
+            fullWidth
+          />
+        )}
+        <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+        <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+        {/* Control Nocturno toggle */}
+        <div className="col-span-full">
+          <button
+            type="button"
+            onClick={() => openNocturnoToggle(!nocturnoEnabled)}
+            disabled={nocturnoSaving}
+            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${nocturnoEnabled
+                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
+                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              }`}
+          >
+            <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-indigo-400" : "text-muted-foreground"}`} />
+            <div className="flex-1 text-left">
+              <span className="font-medium">Control nocturno</span>
+              <span className="ml-2 text-xs opacity-70">
+                {nocturnoEnabled ? "Incluida en reportes nocturnos" : "Excluida de reportes nocturnos"}
+              </span>
             </div>
-          </DetailFieldGrid>
-
-          {/* Mapa */}
-          {hasCoords && MAPS_KEY ? (
-            <a
-              href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 transition-opacity lg:w-[220px] lg:h-[160px]"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
-                alt={`Mapa de ${installation.name}`}
-                className="w-full h-[140px] lg:h-[130px] object-cover"
-              />
-              <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-                <ExternalLink className="h-3 w-3" />
-                Google Maps
-              </div>
-            </a>
-          ) : (
-            <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
-              <p className="text-xs text-muted-foreground text-center">
-                {hasCoords && !MAPS_KEY ? "Configura GOOGLE_MAPS_API_KEY" : "Sin ubicación"}
-              </p>
+            <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
+              }`}>
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${nocturnoEnabled ? "translate-x-4" : "translate-x-0"
+                }`} />
             </div>
-          )}
+          </button>
         </div>
+      </DetailFieldGrid>
+
+      {/* Mapa */}
+      {hasCoords && MAPS_KEY ? (
+        <a
+          href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 transition-opacity lg:w-[220px] lg:h-[160px]"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
+            alt={`Mapa de ${installation.name}`}
+            className="w-full h-[140px] lg:h-[130px] object-cover"
+          />
+          <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <ExternalLink className="h-3 w-3" />
+            Google Maps
+          </div>
+        </a>
+      ) : (
+        <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
+          <p className="text-xs text-muted-foreground text-center">
+            {hasCoords && !MAPS_KEY ? "Configura GOOGLE_MAPS_API_KEY" : "Sin ubicación"}
+          </p>
+        </div>
+      )}
+    </div>
   );
 
   const accountContent = installation.account ? (
-        <CrmRelatedRecordCard
-          module="accounts"
-          title={installation.account.name}
-          badge={
-            installation.account.type === "client"
-              ? { label: "Cliente", variant: "success" }
-              : { label: "Prospecto", variant: "warning" }
-          }
-          href={`/crm/accounts/${installation.account.id}`}
-        />
-      ) : (
-        <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
+    <CrmRelatedRecordCard
+      module="accounts"
+      title={installation.account.name}
+      badge={
+        installation.account.type === "client"
+          ? { label: "Cliente", variant: "success" }
+          : { label: "Prospecto", variant: "warning" }
+      }
+      href={`/crm/accounts/${installation.account.id}`}
+    />
+  ) : (
+    <EmptyState icon={<AccountIcon className="h-8 w-8" />} title="Sin cuenta" description="Esta instalación no está vinculada a una cuenta." compact />
   );
 
   const contactsContent = !installation.account ? (
-        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
-      ) : !installation.contactsOfAccount?.length ? (
-        <EmptyState
-          icon={<ContactsIcon className="h-8 w-8" />}
-          title="Sin contactos"
-          description="No hay contactos asociados a la cuenta de esta instalación."
-          compact
-          action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/crm/contacts">Ver contactos</Link>
-            </Button>
-          }
+    <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los contactos vinculados." compact />
+  ) : !installation.contactsOfAccount?.length ? (
+    <EmptyState
+      icon={<ContactsIcon className="h-8 w-8" />}
+      title="Sin contactos"
+      description="No hay contactos asociados a la cuenta de esta instalación."
+      compact
+      action={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/crm/contacts">Ver contactos</Link>
+        </Button>
+      }
+    />
+  ) : (
+    <CrmRelatedRecordGrid>
+      {installation.contactsOfAccount.map((c) => (
+        <CrmRelatedRecordCard
+          key={c.id}
+          module="contacts"
+          title={formatPersonName(c.firstName, c.lastName) || "Sin nombre"}
+          subtitle={c.roleTitle || "Sin cargo"}
+          meta={[c.email, c.phone].filter(Boolean).join(" · ") || undefined}
+          badge={c.isPrimary ? { label: "Principal", variant: "default" } : undefined}
+          href={`/crm/contacts/${c.id}`}
         />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {installation.contactsOfAccount.map((c) => (
-            <CrmRelatedRecordCard
-              key={c.id}
-              module="contacts"
-              title={formatPersonName(c.firstName, c.lastName) || "Sin nombre"}
-              subtitle={c.roleTitle || "Sin cargo"}
-              meta={[c.email, c.phone].filter(Boolean).join(" · ") || undefined}
-              badge={c.isPrimary ? { label: "Principal", variant: "default" } : undefined}
-              href={`/crm/contacts/${c.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
+      ))}
+    </CrmRelatedRecordGrid>
   );
 
   const dealsContent = !installation.account ? (
-        <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
-      ) : !installation.dealsOfAccount?.length ? (
-        <EmptyState
-          icon={<DealsIcon className="h-8 w-8" />}
-          title="Sin negocios"
-          description="No hay negocios asociados a la cuenta de esta instalación."
-          compact
-          action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/crm/deals">Ver negocios</Link>
-            </Button>
+    <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin cuenta" description="Asocia una cuenta a esta instalación para ver los negocios vinculados." compact />
+  ) : !installation.dealsOfAccount?.length ? (
+    <EmptyState
+      icon={<DealsIcon className="h-8 w-8" />}
+      title="Sin negocios"
+      description="No hay negocios asociados a la cuenta de esta instalación."
+      compact
+      action={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/crm/deals">Ver negocios</Link>
+        </Button>
+      }
+    />
+  ) : (
+    <CrmRelatedRecordGrid>
+      {installation.dealsOfAccount.map((deal) => (
+        <CrmRelatedRecordCard
+          key={deal.id}
+          module="deals"
+          title={deal.title}
+          subtitle={deal.stage?.name || "Sin etapa"}
+          meta={deal.amount ? `$${Number(deal.amount).toLocaleString("es-CL")}` : undefined}
+          badge={
+            deal.status === "won"
+              ? { label: "Ganado", variant: "success" }
+              : deal.status === "lost"
+                ? { label: "Perdido", variant: "destructive" }
+                : undefined
           }
+          href={`/crm/deals/${deal.id}`}
         />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {installation.dealsOfAccount.map((deal) => (
-            <CrmRelatedRecordCard
-              key={deal.id}
-              module="deals"
-              title={deal.title}
-              subtitle={deal.stage?.name || "Sin etapa"}
-              meta={deal.amount ? `$${Number(deal.amount).toLocaleString("es-CL")}` : undefined}
-              badge={
-                deal.status === "won"
-                  ? { label: "Ganado", variant: "success" }
-                  : deal.status === "lost"
-                    ? { label: "Perdido", variant: "destructive" }
-                    : undefined
-              }
-              href={`/crm/deals/${deal.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
+      ))}
+    </CrmRelatedRecordGrid>
   );
 
   const quotesContent = !installation.quotesInstalacion?.length ? (
-        <EmptyState
-          icon={<QuotesIcon className="h-8 w-8" />}
-          title="Sin cotizaciones"
-          description="No hay cotizaciones asociadas a esta instalación."
-          compact
-          action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/crm/cotizaciones">Ver cotizaciones</Link>
-            </Button>
-          }
+    <EmptyState
+      icon={<QuotesIcon className="h-8 w-8" />}
+      title="Sin cotizaciones"
+      description="No hay cotizaciones asociadas a esta instalación."
+      compact
+      action={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/crm/cotizaciones">Ver cotizaciones</Link>
+        </Button>
+      }
+    />
+  ) : (
+    <CrmRelatedRecordGrid>
+      {installation.quotesInstalacion.map((q) => (
+        <CrmRelatedRecordCard
+          key={q.id}
+          module="quotes"
+          title={q.code}
+          subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+          meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+          badge={{ label: q.status, variant: "secondary" }}
+          href={`/crm/cotizaciones/${q.id}`}
         />
-      ) : (
-        <CrmRelatedRecordGrid>
-          {installation.quotesInstalacion.map((q) => (
-            <CrmRelatedRecordCard
-              key={q.id}
-              module="quotes"
-              title={q.code}
-              subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
-              meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
-              badge={{ label: q.status, variant: "secondary" }}
-              href={`/crm/cotizaciones/${q.id}`}
-            />
-          ))}
-        </CrmRelatedRecordGrid>
+      ))}
+    </CrmRelatedRecordGrid>
   );
 
   const associatedSections: AssociatedSection[] = [
@@ -2128,13 +2118,13 @@ export function CrmInstallationDetailClient({
     },
     ...(hasInventarioAccess
       ? [
-          {
-            id: "uniformes",
-            label: "Uniformes",
-            icon: Package,
-            content: <InventarioInstallationSection installationId={installation.id} />,
-          } as AssociatedSection,
-        ]
+        {
+          id: "uniformes",
+          label: "Uniformes",
+          icon: Package,
+          content: <InventarioInstallationSection installationId={installation.id} />,
+        } as AssociatedSection,
+      ]
       : []),
   ];
 
@@ -2173,11 +2163,10 @@ export function CrmInstallationDetailClient({
                     <button
                       key={id}
                       onClick={() => setProtocolSubTab(id)}
-                      className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                        protocolSubTab === id
+                      className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${protocolSubTab === id
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                      }`}
+                        }`}
                     >
                       {labels[id]}
                     </button>

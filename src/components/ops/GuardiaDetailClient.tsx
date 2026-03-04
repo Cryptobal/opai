@@ -66,6 +66,7 @@ import AsignacionSection from "@/components/ops/guardia-sections/AsignacionSecti
 import MarcacionSection from "@/components/ops/guardia-sections/MarcacionSection";
 import RondasSection from "@/components/ops/guardia-sections/RondasSection";
 import DocumentosSection from "@/components/ops/guardia-sections/DocumentosSection";
+import { FileAttachments } from "@/components/crm/FileAttachments";
 import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
@@ -521,6 +522,9 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 canManageDocs={canManageDocs} guardiaDocConfig={guardiaDocConfig}
                 onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
               />
+            </CollapsibleSection>
+            <CollapsibleSection title="Archivos adicionales" defaultOpen>
+              <FileAttachments entityType="guardia" entityId={guardia.id} title="Archivos libres" />
             </CollapsibleSection>
           </div>
         );

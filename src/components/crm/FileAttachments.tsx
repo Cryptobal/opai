@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileListSkeleton } from "@/components/ui/skeleton";
+import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
 export type FileAttachmentItem = {
   id: string;
@@ -39,7 +40,7 @@ function formatSize(bytes: number): string {
 }
 
 interface FileAttachmentsProps {
-  entityType: "lead" | "deal" | "account" | "contact" | "installation";
+  entityType: "lead" | "deal" | "account" | "contact" | "installation" | "guardia";
   entityId: string;
   /** Si true, no se muestra el área de subida (solo lista) */
   readOnly?: boolean;
@@ -60,6 +61,7 @@ export function FileAttachments({
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileAttachmentItem | null>(null);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -161,170 +163,183 @@ export function FileAttachments({
   }, []);
 
   return (
-    <Card className={cn(className)}>
-      <CardHeader className="pb-0">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Paperclip className="h-4 w-4" />
-          {title}
-          {files.length > 0 && (
-            <span className="text-[10px] font-normal text-muted-foreground">
-              ({files.length})
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {loading ? (
-          <FileListSkeleton />
-        ) : (
-          <>
-            {!readOnly && (
-              <div
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                className={cn(
-                  "mb-4 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-                  dragOver
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                )}
-              >
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  id={`file-attachments-${entityId}`}
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
-                  onChange={(e) => {
-                    handleUpload(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <label
-                  htmlFor={`file-attachments-${entityId}`}
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  {uploading ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Paperclip className="h-8 w-8 text-muted-foreground" />
-                  )}
-                  <span className="text-sm text-muted-foreground">
-                    {uploading
-                      ? "Subiendo..."
-                      : "Arrastra archivos aquí o haz clic para seleccionar"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    PDF, imágenes, Word, Excel (máx. 10 MB)
-                  </span>
-                </label>
-              </div>
+    <>
+      <Card className={cn(className)}>
+        <CardHeader className="pb-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Paperclip className="h-4 w-4" />
+            {title}
+            {files.length > 0 && (
+              <span className="text-[10px] font-normal text-muted-foreground">
+                ({files.length})
+              </span>
             )}
-
-            {files.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">
-                No hay archivos adjuntos
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {files.map((file) => (
-                  <li
-                    key={file.id}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {loading ? (
+            <FileListSkeleton />
+          ) : (
+            <>
+              {!readOnly && (
+                <div
+                  onDrop={onDrop}
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  className={cn(
+                    "mb-4 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+                    dragOver
+                      ? "border-primary bg-primary/5"
+                      : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                  )}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    id={`file-attachments-${entityId}`}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                    onChange={(e) => {
+                      handleUpload(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                  <label
+                    htmlFor={`file-attachments-${entityId}`}
+                    className="cursor-pointer flex flex-col items-center gap-2"
                   >
-                    {IMAGE_MIMES.has(file.mimeType) && file.publicUrl ? (
-                      <a
-                        href={file.publicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 w-10 h-10 rounded overflow-hidden border bg-muted"
-                      >
-                        <img
-                          src={file.publicUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </a>
+                    {uploading ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     ) : (
-                      <div className="shrink-0 w-10 h-10 rounded flex items-center justify-center bg-muted">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                      </div>
+                      <Paperclip className="h-8 w-8 text-muted-foreground" />
                     )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate" title={file.fileName}>
-                        {file.fileName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatSize(file.size)}
-                        {" · "}
-                        {new Date(file.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {file.publicUrl && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            asChild
-                          >
-                            <a
-                              href={file.publicUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                    <span className="text-sm text-muted-foreground">
+                      {uploading
+                        ? "Subiendo..."
+                        : "Arrastra archivos aquí o haz clic para seleccionar"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      PDF, imágenes, Word, Excel (máx. 10 MB)
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {files.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  No hay archivos adjuntos
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {files.map((file) => (
+                    <li
+                      key={file.id}
+                      className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      {IMAGE_MIMES.has(file.mimeType) && file.publicUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFile(file)}
+                          className="shrink-0 w-10 h-10 rounded overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
+                        >
+                          <img
+                            src={file.publicUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => file.publicUrl && setPreviewFile(file)}
+                          className={cn(
+                            "shrink-0 w-10 h-10 rounded flex items-center justify-center bg-muted",
+                            file.publicUrl && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
+                          )}
+                        >
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                        </button>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate" title={file.fileName}>
+                          {file.fileName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatSize(file.size)}
+                          {" · "}
+                          {new Date(file.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {file.publicUrl && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
                               title="Ver archivo"
+                              onClick={() => setPreviewFile(file)}
                             >
                               <Eye className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            asChild
-                          >
-                            <a
-                              href={`${file.publicUrl}?download=true`}
-                              download={file.fileName}
-                              title="Descargar"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              asChild
                             >
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </>
-                      )}
-                      {!readOnly && (
-                        <>
-                          <ConfirmDialog
-                            open={deleteId === file.id}
-                            onOpenChange={(open) =>
-                              setDeleteId(open ? file.id : null)
-                            }
-                            title="Eliminar archivo"
-                            description={`¿Eliminar "${file.fileName}"?`}
-                            onConfirm={() => handleDelete(file.id)}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            title="Eliminar"
-                            onClick={() => setDeleteId(file.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+                              <a
+                                href={`${file.publicUrl}?download=true`}
+                                download={file.fileName}
+                                title="Descargar"
+                              >
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          </>
+                        )}
+                        {!readOnly && (
+                          <>
+                            <ConfirmDialog
+                              open={deleteId === file.id}
+                              onOpenChange={(open) =>
+                                setDeleteId(open ? file.id : null)
+                              }
+                              title="Eliminar archivo"
+                              description={`¿Eliminar "${file.fileName}"?`}
+                              onConfirm={() => handleDelete(file.id)}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Eliminar"
+                              onClick={() => setDeleteId(file.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Fullscreen preview modal ── */}
+      {previewFile?.publicUrl && (
+        <FilePreviewModal
+          open={!!previewFile}
+          onOpenChange={(open) => !open && setPreviewFile(null)}
+          url={previewFile.publicUrl}
+          fileName={previewFile.fileName}
+          mimeType={previewFile.mimeType}
+        />
+      )}
+    </>
   );
 }

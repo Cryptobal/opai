@@ -222,7 +222,7 @@ export function CrmContactDetailClient({
           if (sig?.htmlContent) setSignatureHtml(sig.htmlContent);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -382,10 +382,10 @@ export function CrmContactDetailClient({
       prev.map((deal) =>
         deal.id === dealId
           ? {
-              ...deal,
-              stage: { id: nextStage.id, name: nextStage.name },
-              status: nextStage.isClosedWon ? "won" : nextStage.isClosedLost ? "lost" : "open",
-            }
+            ...deal,
+            stage: { id: nextStage.id, name: nextStage.name },
+            status: nextStage.isClosedWon ? "won" : nextStage.isClosedLost ? "lost" : "open",
+          }
           : deal
       )
     );
@@ -404,12 +404,12 @@ export function CrmContactDetailClient({
         prev.map((deal) =>
           deal.id === dealId
             ? {
-                ...deal,
-                stage: payload.data?.stage
-                  ? { id: payload.data.stage.id, name: payload.data.stage.name }
-                  : deal.stage,
-                status: payload.data?.status || deal.status,
-              }
+              ...deal,
+              stage: payload.data?.stage
+                ? { id: payload.data.stage.id, name: payload.data.stage.name }
+                : deal.stage,
+              status: payload.data?.status || deal.status,
+            }
             : deal
         )
       );
@@ -452,9 +452,9 @@ export function CrmContactDetailClient({
 
   const phoneBase = contact.phone
     ? (() => {
-        const digits = contact.phone.replace(/\D/g, "").replace(/^0/, "");
-        return digits.startsWith("56") ? digits : `56${digits}`;
-      })()
+      const digits = contact.phone.replace(/\D/g, "").replace(/^0/, "");
+      return digits.startsWith("56") ? digits : `56${digits}`;
+    })()
     : null;
 
   // ── Tab state & definitions ──
@@ -463,8 +463,8 @@ export function CrmContactDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Archivos", icon: FileText },
+    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
   const headerActions: EntityHeaderAction[] = [
@@ -558,8 +558,8 @@ export function CrmContactDetailClient({
                       deal.status === "won"
                         ? { label: "Ganado", variant: "success" }
                         : deal.status === "lost"
-                        ? { label: "Perdido", variant: "destructive" }
-                        : undefined
+                          ? { label: "Perdido", variant: "destructive" }
+                          : undefined
                     }
                     href={`/crm/deals/${deal.id}`}
                     actions={
@@ -625,37 +625,37 @@ export function CrmContactDetailClient({
 
   // ── Tab content: General ──
   const generalContent = (
-        <DetailFieldGrid columns={3} className="rounded-lg border border-border bg-card p-4 sm:p-5">
-          <DetailField label="Nombre completo" value={fullName} />
-          <DetailField
-            label="Email"
-            value={contact.email ? (
-              <a href={`mailto:${contact.email}`} className="text-primary hover:underline">{contact.email}</a>
-            ) : undefined}
-            icon={contact.email ? <Mail className="h-3 w-3" /> : undefined}
-          />
-          <DetailField
-            label="Teléfono"
-            value={contact.phone ? (
-              <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
-            ) : undefined}
-            icon={contact.phone ? <Phone className="h-3 w-3" /> : undefined}
-            mono
-          />
-          <DetailField
-            label="Cargo"
-            value={contact.roleTitle}
-            icon={contact.roleTitle ? <Briefcase className="h-3 w-3" /> : undefined}
-          />
-          <DetailField
-            label="Tipo"
-            value={contact.isPrimary ? (
-              <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
-            ) : "Secundario"}
-          />
-          <DetailField label="Fecha creación" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-          <DetailField label="Última modificación" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        </DetailFieldGrid>
+    <DetailFieldGrid columns={3} className="rounded-lg border border-border bg-card p-4 sm:p-5">
+      <DetailField label="Nombre completo" value={fullName} />
+      <DetailField
+        label="Email"
+        value={contact.email ? (
+          <a href={`mailto:${contact.email}`} className="text-primary hover:underline">{contact.email}</a>
+        ) : undefined}
+        icon={contact.email ? <Mail className="h-3 w-3" /> : undefined}
+      />
+      <DetailField
+        label="Teléfono"
+        value={contact.phone ? (
+          <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
+        ) : undefined}
+        icon={contact.phone ? <Phone className="h-3 w-3" /> : undefined}
+        mono
+      />
+      <DetailField
+        label="Cargo"
+        value={contact.roleTitle}
+        icon={contact.roleTitle ? <Briefcase className="h-3 w-3" /> : undefined}
+      />
+      <DetailField
+        label="Tipo"
+        value={contact.isPrimary ? (
+          <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
+        ) : "Secundario"}
+      />
+      <DetailField label="Fecha creación" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+      <DetailField label="Última modificación" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
+    </DetailFieldGrid>
   );
 
   return (
