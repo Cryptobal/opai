@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  LayoutDashboard, Building2, MapPin, MessageSquare, Ticket,
+  LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente'
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
 export type PortalSection =
-  | 'dashboard' | 'instalaciones' | 'rondas' | 'chat'
+  | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas'
 
@@ -22,6 +22,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
   { id: 'rondas', label: 'Rondas', icon: MapPin, configKey: 'rondas' },
+  { id: 'posta', label: 'Posta', icon: BookOpen, configKey: 'posta' },
   { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion' },
   { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets' },
   { id: 'documentacion', label: 'Documentos', icon: FileText, configKey: 'documentacion' },
