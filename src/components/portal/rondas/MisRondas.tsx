@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import type { RondasSession } from "./RondasPortalClient";
+import type { MapCheckpoint } from "./RondaMap";
+
+// Lazy-load RondaMap to avoid SSR issues with Leaflet
+const RondaMap = dynamic(() => import("./RondaMap"), {
+  ssr: false,
+  loading: () => <div className="h-[120px] animate-pulse rounded-lg bg-zinc-900" />,
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -9,9 +17,15 @@ import type { RondasSession } from "./RondasPortalClient";
 
 interface CheckpointItem {
   id: string;
-  nombre: string;
-  orden: number;
-  completado: boolean;
+  name: string;
+  qrCode: string | null;
+  lat: number | null;
+  lng: number | null;
+  geoRadiusM: number | null;
+  verificationType: string;
+  orderIndex: number;
+  isRequired: boolean;
+  completed: boolean;
 }
 
 interface RondaItem {
@@ -26,6 +40,9 @@ interface RondaItem {
   qrRequerido: boolean;
   orderMode: string; // "flexible" | "secuencial"
   estimatedDurationMin: number | null;
+  toleranciaMinutos: number;
+  trustScore?: number;
+  porcentajeCompletado?: number;
   checkpoints: CheckpointItem[];
 }
 
@@ -33,6 +50,7 @@ interface Props {
   session: RondasSession;
   onLogout: () => void;
   onIniciarRonda: (ejecucionId: string) => void;
+  onReportIncident: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -50,51 +68,86 @@ function formatTime(isoString: string): string {
   }
 }
 
-function statusLabel(status: string): string {
-  switch (status) {
-    case "completada":
-      return "Completada";
-    case "en_curso":
-      return "En Curso";
-    case "pendiente":
-      return "Pendiente";
-    case "atrasada":
-      return "Atrasada";
-    case "incompleta":
-      return "Incompleta";
-    default:
-      return status;
-  }
+/** Returns "Xh Ym" from a duration in ms */
+function formatDuration(ms: number): string {
+  const totalMin = Math.floor(Math.abs(ms) / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
-function statusColor(status: string): string {
-  switch (status) {
-    case "completada":
-      return "bg-green-500/20 text-green-400";
-    case "en_curso":
-      return "bg-teal-500/20 text-teal-400";
-    case "pendiente":
-      return "bg-gray-500/20 text-gray-400";
-    case "atrasada":
-      return "bg-red-500/20 text-red-400";
-    case "incompleta":
-      return "bg-red-500/20 text-red-400";
-    default:
-      return "bg-gray-500/20 text-gray-400";
-  }
+/** Returns "MM:SS" from a duration in ms */
+function formatMMSS(ms: number): string {
+  const totalSec = Math.floor(Math.abs(ms) / 1000);
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+  const ss = String(totalSec % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
 }
+
+/** Check if ronda has checkpoints with valid coordinates */
+function hasValidCoords(checkpoints: CheckpointItem[]): boolean {
+  return checkpoints.some((cp) => cp.lat != null && cp.lng != null);
+}
+
+/** Map CheckpointItem[] to MapCheckpoint[] (only those with valid coords) */
+function toMapCheckpoints(checkpoints: CheckpointItem[], rondaStatus: string): MapCheckpoint[] {
+  return checkpoints
+    .filter((cp) => cp.lat != null && cp.lng != null)
+    .map((cp) => ({
+      id: cp.id,
+      name: cp.name,
+      lat: cp.lat!,
+      lng: cp.lng!,
+      status: cp.completed
+        ? "completed" as const
+        : rondaStatus === "en_curso" && !cp.completed
+          ? "pending" as const
+          : "pending" as const,
+      orderIndex: cp.orderIndex,
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// Section types
+// ---------------------------------------------------------------------------
+
+type SectionKey = "en_curso" | "atrasadas" | "listas" | "proximas" | "completadas";
+
+interface SectionDef {
+  key: SectionKey;
+  icon: string;
+  label: string;
+  collapsible: boolean;
+}
+
+const SECTIONS: SectionDef[] = [
+  { key: "en_curso", icon: "\u26A1", label: "EN CURSO", collapsible: false },
+  { key: "atrasadas", icon: "\uD83D\uDD34", label: "ATRASADAS", collapsible: false },
+  { key: "listas", icon: "\u2705", label: "LISTAS PARA INICIAR", collapsible: false },
+  { key: "proximas", icon: "\u23F3", label: "PR\u00D3XIMAS", collapsible: false },
+  { key: "completadas", icon: "\u2705", label: "COMPLETADAS", collapsible: true },
+];
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
+export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident }: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
+  const [now, setNow] = useState(() => Date.now());
+  const [completadasOpen, setCompletadasOpen] = useState(false);
+
+  // ---- Live clock (1s) for countdowns/timers ----
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // ---- Online/offline listeners ----
   useEffect(() => {
@@ -120,9 +173,11 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
       });
       const res = await fetch(`/api/portal/rondas/mis-rondas?${params.toString()}`);
       if (!res.ok) {
-        setError(res.status === 401 || res.status === 403
-          ? "Sesión expirada. Vuelva a ingresar."
-          : `Error del servidor (${res.status})`);
+        setError(
+          res.status === 401 || res.status === 403
+            ? "Sesi\u00F3n expirada. Vuelva a ingresar."
+            : `Error del servidor (${res.status})`,
+        );
         setRondas([]);
         return;
       }
@@ -136,7 +191,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
 
       setRondas(json.data ?? []);
     } catch {
-      setError("Error de conexión. Revise su señal.");
+      setError("Error de conexi\u00F3n. Revise su se\u00F1al.");
     } finally {
       setLoading(false);
     }
@@ -146,11 +201,55 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
     fetchRondas();
   }, [fetchRondas]);
 
+  // ---- Group rondas into sections ----
+  const grouped = useMemo(() => {
+    const enCurso: RondaItem[] = [];
+    const atrasadas: RondaItem[] = [];
+    const listas: RondaItem[] = [];
+    const proximas: RondaItem[] = [];
+    const completadas: RondaItem[] = [];
+
+    for (const r of rondas) {
+      if (r.status === "en_curso") {
+        enCurso.push(r);
+      } else if (r.status === "atrasada") {
+        atrasadas.push(r);
+      } else if (r.status === "pendiente") {
+        const scheduledMs = new Date(r.scheduledAt).getTime();
+        const toleranceMs = (r.toleranciaMinutos ?? 10) * 60000;
+        if (now >= scheduledMs - toleranceMs) {
+          listas.push(r);
+        } else {
+          proximas.push(r);
+        }
+      } else if (r.status === "completada" || r.status === "incompleta") {
+        completadas.push(r);
+      }
+    }
+
+    return { en_curso: enCurso, atrasadas, listas, proximas, completadas };
+  }, [rondas, now]);
+
+  // ---- Date header ----
+  const dateHeader = useMemo(() => {
+    const d = new Date();
+    const formatted = d.toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    // Capitalize first letter
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }, []);
+
   // ---- Render ----
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#0a0a0f" }}>
       {/* ============ Header ============ */}
-      <header className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3" style={{ backgroundColor: "#0a0a0f" }}>
+      <header
+        className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
+        style={{ backgroundColor: "#0a0a0f" }}
+      >
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold text-white">{session.nombre}</h1>
@@ -165,7 +264,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
                 }`}
               />
               <span className={isOnline ? "text-green-400" : "text-red-400"}>
-                {isOnline ? "En línea" : "Sin conexión"}
+                {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
               </span>
             </span>
             {/* Logout */}
@@ -182,14 +281,13 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
       {/* ============ Content ============ */}
       <main className="flex-1 px-4 pb-8 pt-4">
         {/* Title row + refresh */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
           <button
             onClick={fetchRondas}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 active:bg-gray-600 disabled:opacity-50"
           >
-            {/* Refresh icon (inline SVG) */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -207,6 +305,9 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
             Actualizar
           </button>
         </div>
+
+        {/* Date header */}
+        <p className="mb-4 text-sm text-gray-500">{dateHeader}</p>
 
         {/* Error */}
         {error && (
@@ -263,14 +364,88 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
           </div>
         )}
 
-        {/* Ronda cards */}
+        {/* Grouped sections */}
         {rondas.length > 0 && (
-          <div className="space-y-4">
-            {rondas.map((ronda) => (
-              <RondaCard key={ronda.ejecucionId} ronda={ronda} onIniciar={onIniciarRonda} />
-            ))}
+          <div className="space-y-6">
+            {SECTIONS.map((section) => {
+              const items = grouped[section.key];
+              if (items.length === 0) return null;
+
+              const isCompletadas = section.key === "completadas";
+              const isOpen = !isCompletadas || completadasOpen;
+
+              return (
+                <div key={section.key}>
+                  {/* Section header */}
+                  <button
+                    type="button"
+                    onClick={isCompletadas ? () => setCompletadasOpen((v) => !v) : undefined}
+                    className={`mb-3 flex w-full items-center gap-2 text-left text-sm font-bold uppercase tracking-wider ${
+                      isCompletadas ? "cursor-pointer" : "cursor-default"
+                    }`}
+                  >
+                    <span>{section.icon}</span>
+                    <span
+                      className={
+                        section.key === "atrasadas"
+                          ? "text-red-400"
+                          : section.key === "en_curso"
+                            ? "text-teal-400"
+                            : section.key === "listas"
+                              ? "text-green-400"
+                              : "text-gray-400"
+                      }
+                    >
+                      {section.label}
+                      {isCompletadas && ` (${items.length})`}
+                    </span>
+                    {isCompletadas && (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className={`ml-auto h-4 w-4 text-gray-500 transition-transform ${
+                          completadasOpen ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Cards */}
+                  {isOpen && (
+                    <div className="space-y-3">
+                      {items.map((ronda) => (
+                        <RondaCard
+                          key={ronda.ejecucionId}
+                          ronda={ronda}
+                          sectionKey={section.key}
+                          now={now}
+                          onIniciar={onIniciarRonda}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
+
+        {/* Report incident button */}
+        <div className="mt-8">
+          <button
+            onClick={onReportIncident}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/30 py-4 text-lg font-semibold text-red-400 transition-colors hover:bg-red-900/40 active:bg-red-900/60"
+            style={{ minHeight: 56 }}
+          >
+            <span className="text-xl">{"\uD83D\uDEA8"}</span>
+            Reportar Incidente
+          </button>
+        </div>
       </main>
     </div>
   );
@@ -282,109 +457,196 @@ export function MisRondas({ session, onLogout, onIniciarRonda }: Props) {
 
 function RondaCard({
   ronda,
+  sectionKey,
+  now,
   onIniciar,
 }: {
   ronda: RondaItem;
+  sectionKey: SectionKey;
+  now: number;
   onIniciar: (ejecucionId: string) => void;
 }) {
-  const isCompleted = ronda.status === "completada";
-  const isEnCurso = ronda.status === "en_curso";
-  const isPendiente = ronda.status === "pendiente";
-  const isAtrasada = ronda.status === "atrasada";
+  const isEnCurso = sectionKey === "en_curso";
+  const isAtrasada = sectionKey === "atrasadas";
+  const isLista = sectionKey === "listas";
+  const isProxima = sectionKey === "proximas";
+  const isCompletada = sectionKey === "completadas";
+
+  const scheduledMs = new Date(ronda.scheduledAt).getTime();
+  const startedMs = ronda.startedAt ? new Date(ronda.startedAt).getTime() : null;
+
+  // Time info
+  let timeInfo = "";
+  if (isEnCurso && startedMs) {
+    const elapsed = now - startedMs;
+    timeInfo = `\u23F1\uFE0F ${formatMMSS(elapsed)} transcurridos`;
+  } else if (isAtrasada) {
+    const elapsed = now - scheduledMs;
+    timeInfo = `hace ${formatDuration(elapsed)}`;
+  } else if (isProxima) {
+    const remaining = scheduledMs - now;
+    timeInfo = `en ${formatDuration(remaining)}`;
+  } else if (isCompletada && ronda.startedAt) {
+    timeInfo = `Completada a las ${formatTime(ronda.startedAt)}`;
+  }
+
+  // Progress for en_curso
+  const progress =
+    ronda.checkpointsTotal > 0
+      ? (ronda.checkpointsCompletados / ronda.checkpointsTotal) * 100
+      : 0;
+
+  // Mini-map checkpoints
+  const showMap = hasValidCoords(ronda.checkpoints);
+  const mapCheckpoints = useMemo(
+    () => (showMap ? toMapCheckpoints(ronda.checkpoints, ronda.status) : []),
+    [ronda.checkpoints, ronda.status, showMap],
+  );
+
+  // Card border styling
+  const borderClass = isEnCurso
+    ? "border-teal-700/60 bg-teal-950/20"
+    : isAtrasada
+      ? "border-red-800/50 bg-red-950/20"
+      : isCompletada
+        ? "border-gray-800/50 bg-gray-900/30"
+        : "border-gray-800 bg-gray-900/60";
 
   return (
-    <div
-      className={`rounded-2xl border p-4 transition-colors ${
-        isCompleted
-          ? "border-green-900/50 bg-green-950/20"
-          : "border-gray-800 bg-gray-900/60"
-      }`}
-    >
-      {/* Top row: name + status badge */}
+    <div className={`rounded-2xl border p-4 transition-colors ${borderClass}`}>
+      {/* Top row: name + scheduled time */}
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3
           className={`text-lg font-semibold ${
-            isCompleted ? "text-gray-500" : "text-white"
+            isCompletada ? "text-gray-500" : "text-white"
           }`}
         >
           {ronda.templateName}
         </h3>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${statusColor(ronda.status)}`}
-        >
-          {statusLabel(ronda.status)}
-        </span>
-      </div>
-
-      {/* Info row */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
-        {/* Scheduled time */}
-        <span className={isCompleted ? "text-gray-600" : "text-gray-300"}>
+        <span className={`shrink-0 text-sm ${isCompletada ? "text-gray-600" : "text-gray-400"}`}>
           {formatTime(ronda.scheduledAt)}
         </span>
-
-        {/* Checkpoints progress */}
-        <span className={isCompleted ? "text-gray-600" : "text-gray-400"}>
-          {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
-        </span>
-
-        {/* Estimated duration */}
-        {ronda.estimatedDurationMin != null && ronda.estimatedDurationMin > 0 && (
-          <span className={isCompleted ? "text-gray-600" : "text-gray-500"}>
-            ~{ronda.estimatedDurationMin} min
-          </span>
-        )}
       </div>
 
-      {/* Completed: checkmark row */}
-      {isCompleted && (
-        <div className="flex items-center gap-2 text-green-500">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="text-sm">
-            Completada — programada {formatTime(ronda.scheduledAt)}
+      {/* Time info */}
+      {timeInfo && (
+        <p
+          className={`mb-2 text-sm font-medium ${
+            isEnCurso
+              ? "text-teal-400"
+              : isAtrasada
+                ? "text-red-400"
+                : isProxima
+                  ? "text-gray-400"
+                  : "text-gray-500"
+          }`}
+        >
+          {timeInfo}
+        </p>
+      )}
+
+      {/* Progress bar for en_curso */}
+      {isEnCurso && (
+        <div className="mb-3">
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+            <span>
+              {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
+            </span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+            <div
+              className="h-full rounded-full bg-teal-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Checkpoint info for non-en_curso */}
+      {!isEnCurso && !isCompletada && (
+        <p className="mb-2 text-sm text-gray-500">
+          {ronda.checkpointsTotal} checkpoints
+          {ronda.estimatedDurationMin ? ` \u00B7 ~${ronda.estimatedDurationMin} min` : ""}
+        </p>
+      )}
+
+      {/* Completada: score */}
+      {isCompletada && (
+        <div className="mb-2 flex items-center gap-3 text-sm">
+          <span className="text-gray-500">
+            {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
           </span>
+          {ronda.porcentajeCompletado != null && (
+            <span className="text-gray-500">
+              {Math.round(ronda.porcentajeCompletado)}%
+            </span>
+          )}
+          {ronda.trustScore != null && (
+            <span
+              className={`font-medium ${
+                ronda.trustScore >= 80
+                  ? "text-green-400"
+                  : ronda.trustScore >= 50
+                    ? "text-yellow-400"
+                    : "text-red-400"
+              }`}
+            >
+              Score: {ronda.trustScore}
+            </span>
+          )}
+          {ronda.status === "incompleta" && (
+            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+              Incompleta
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Mini-map */}
+      {showMap && (
+        <div className="mb-3 overflow-hidden rounded-lg">
+          <RondaMap
+            checkpoints={mapCheckpoints}
+            height="120px"
+            interactive={false}
+            showRoute={true}
+          />
         </div>
       )}
 
       {/* Action buttons */}
-      {isPendiente && (
+      {isEnCurso && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-2 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
+          className="mt-1 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
           style={{ minHeight: 56 }}
         >
-          Iniciar Ronda
+          Continuar Ronda
         </button>
       )}
 
       {isAtrasada && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-2 w-full rounded-xl bg-red-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-red-500 active:bg-red-700"
+          className="mt-1 w-full rounded-xl bg-red-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-red-500 active:bg-red-700"
           style={{ minHeight: 56 }}
         >
           Iniciar Ronda (Atrasada)
         </button>
       )}
 
-      {isEnCurso && (
+      {isLista && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-2 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
+          className="mt-1 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
           style={{ minHeight: 56 }}
         >
-          Continuar Ronda
+          Iniciar Ronda
         </button>
       )}
+
+      {/* Proximas: NO button */}
     </div>
   );
 }

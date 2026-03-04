@@ -35,12 +35,13 @@ export async function GET(request: NextRequest) {
         tenantId,
         rondaTemplateId: { in: templates.map(t => t.id) },
         scheduledAt: { gte: startOfDay, lte: endOfDay },
-        status: { in: ["pendiente", "en_curso", "incompleta"] },
+        status: { in: ["pendiente", "en_curso", "incompleta", "completada"] },
       },
       include: {
         marcaciones: {
           select: { checkpointId: true, status: true, timestamp: true },
         },
+        programacion: { select: { toleranciaMinutos: true } },
       },
       orderBy: { scheduledAt: "asc" },
     });
@@ -59,6 +60,9 @@ export async function GET(request: NextRequest) {
         qrRequerido: template?.qrRequerido ?? false,
         orderMode: template?.orderMode ?? "flexible",
         estimatedDurationMin: template?.estimatedDurationMin ?? null,
+        toleranciaMinutos: ej.programacion?.toleranciaMinutos ?? 10,
+        trustScore: ej.trustScore,
+        porcentajeCompletado: ej.porcentajeCompletado,
         checkpoints: template?.checkpoints.map(tc => ({
           id: tc.checkpoint.id,
           name: tc.checkpoint.name,

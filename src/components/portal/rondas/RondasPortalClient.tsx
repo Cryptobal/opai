@@ -191,6 +191,9 @@ export function RondasPortalClient() {
             session={session}
             onLogout={handleLogout}
             onIniciarRonda={handleIniciarRonda}
+            onReportIncident={() => {
+              // TODO: implement incident reporting screen
+            }}
           />
           {loadingRonda && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
