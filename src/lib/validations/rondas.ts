@@ -6,6 +6,7 @@ export const checkpointSchema = z.object({
   installationId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional().nullable(),
+  instrucciones: z.string().trim().max(500).optional().nullable(),
   qrCode: z.string().trim().min(4).max(32).optional().nullable(),
   lat: z.number().optional().nullable(),
   lng: z.number().optional().nullable(),

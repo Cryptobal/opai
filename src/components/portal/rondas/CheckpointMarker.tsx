@@ -12,6 +12,7 @@ import { savePendingMark, getPendingMarks, clearPendingMarks } from "@/lib/ronda
 export interface CheckpointInfo {
   id: string;
   name: string;
+  instrucciones?: string | null;
   lat: number;
   lng: number;
   geoRadiusM: number;
@@ -483,6 +484,14 @@ export function CheckpointMarker({
           <div className="space-y-4 px-4 pb-8">
             {/* ---- Checkpoint name ---- */}
             <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
+
+            {/* ---- Instructions ---- */}
+            {checkpoint.instrucciones && (
+              <div className="rounded-lg bg-blue-950/30 border border-blue-800/30 p-3">
+                <p className="text-xs font-medium text-blue-400 mb-1">Instrucciones</p>
+                <p className="text-sm text-gray-300">{checkpoint.instrucciones}</p>
+              </div>
+            )}
 
             {/* ---- GPS Status ---- */}
             <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">

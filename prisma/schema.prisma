@@ -1255,6 +1255,8 @@ model CrmAccount {
   legalName               String?   @map("legal_name") // Razón social
   legalRepresentativeName String?   @map("legal_representative_name")
   legalRepresentativeRut  String?   @map("legal_representative_rut")
+  notaryName              String?   @map("notary_name")
+  notaryDate              String?   @map("notary_date")
   industry                String?
   size                    String?
   segment                 String?
@@ -3026,6 +3028,7 @@ model OpsCheckpoint {
   installationId String   @map("installation_id") @db.Uuid
   name           String
   description    String?
+  instrucciones  String?  @map("instrucciones")
   qrCode         String   @map("qr_code")
   lat            Float?
   lng            Float?
@@ -3665,6 +3668,7 @@ model Document {
   pdfUrl          String?   @map("pdf_url")
   pdfGeneratedAt  DateTime? @map("pdf_generated_at") @db.Timestamptz(6)
   signedViewToken String?   @unique @map("signed_view_token")
+  portalVisible   Boolean   @default(false) @map("portal_visible")
   createdBy       String    @map("created_by")
   approvedBy      String?   @map("approved_by")
   approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
@@ -3681,6 +3685,7 @@ model Document {
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([expirationDate], map: "idx_documents_expiration")
   @@index([uniqueId], map: "idx_documents_unique_id")
+  @@index([tenantId, portalVisible], map: "idx_documents_portal_visible")
   @@map("documents")
   @@schema("docs")
 }

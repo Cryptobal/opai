@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         installationId: parsed.data.installationId,
         name: parsed.data.name,
         description: parsed.data.description ?? null,
+        instrucciones: parsed.data.instrucciones ?? null,
         qrCode,
         lat: parsed.data.lat ?? null,
         lng: parsed.data.lng ?? null,

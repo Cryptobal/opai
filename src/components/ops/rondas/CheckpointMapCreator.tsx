@@ -17,6 +17,7 @@ export interface CheckpointFormValue {
   installationId: string;
   name: string;
   description?: string;
+  instrucciones?: string;
   lat?: number;
   lng?: number;
   geoRadiusM: number;
@@ -120,7 +121,7 @@ export function CheckpointMapCreator({
   const hasAutocenteredRef = useRef(false);
 
   const [mapReady, setMapReady] = useState(false);
-  const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+  const [mapType, setMapType] = useState<"roadmap" | "satellite">("satellite");
 
   // Geolocation
   const { position: geoPos, requestPermission } = useGeolocation(true, 5000);
@@ -133,6 +134,7 @@ export function CheckpointMapCreator({
   const [draftVerificationType, setDraftVerificationType] = useState("GEOFENCE");
   const [draftRadius, setDraftRadius] = useState(30);
   const [draftCritical, setDraftCritical] = useState(false);
+  const [draftInstrucciones, setDraftInstrucciones] = useState("");
   const [saving, setSaving] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -163,7 +165,7 @@ export function CheckpointMapCreator({
       const map = new gm.Map(mapContainerRef.current, {
         center,
         zoom: 17,
-        mapTypeId: "roadmap",
+        mapTypeId: "satellite",
         streetViewControl: false,
         fullscreenControl: true,
         mapTypeControl: false,
@@ -261,11 +263,11 @@ export function CheckpointMapCreator({
         bounds.extend(new gm.LatLng(installationLat, installationLng));
       }
       map.fitBounds(bounds);
-      // Cap zoom: min 14 (~3km radius), max 17 for single checkpoints
+      // Cap zoom: min 16, max 19 for single checkpoints
       const listener = gm.event.addListenerOnce(map, "idle", () => {
         const z = map.getZoom();
-        if (z != null && z < 14) map.setZoom(14);
-        else if (activeCheckpoints.length === 1 && z != null && z > 17) map.setZoom(17);
+        if (z != null && z < 16) map.setZoom(16);
+        else if (activeCheckpoints.length === 1 && z != null && z > 19) map.setZoom(19);
       });
       // cleanup if effect re-runs before idle fires
       return () => gm.event.removeListener(listener);
@@ -409,6 +411,7 @@ export function CheckpointMapCreator({
     setDraftVerificationType("GEOFENCE");
     setDraftRadius(30);
     setDraftCritical(false);
+    setDraftInstrucciones("");
   };
 
   // Save checkpoint
@@ -424,6 +427,7 @@ export function CheckpointMapCreator({
         geoRadiusM: draftRadius,
         verificationType: draftVerificationType,
         isCritical: draftCritical,
+        instrucciones: draftInstrucciones.trim() || undefined,
       });
       cancelDraft();
     } finally {
@@ -562,6 +566,23 @@ export function CheckpointMapCreator({
           />
           <span>⚠ Checkpoint crítico</span>
         </label>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Instrucciones para el guardia
+          </label>
+          <textarea
+            className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm resize-none"
+            rows={3}
+            placeholder="Ej: Verificar que la puerta esté cerrada. Revisar cámara #3."
+            value={draftInstrucciones}
+            onChange={(e) => setDraftInstrucciones(e.target.value)}
+            maxLength={500}
+          />
+          <p className="text-[10px] text-muted-foreground">
+            El guardia verá estas instrucciones al marcar este checkpoint.
+          </p>
+        </div>
       </div>
 
       <Button

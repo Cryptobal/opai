@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       where: { tenantId, installationId, isActive: true },
       include: {
         checkpoints: {
-          include: { checkpoint: { select: { id: true, name: true, qrCode: true, lat: true, lng: true, geoRadiusM: true, verificationType: true } } },
+          include: { checkpoint: { select: { id: true, name: true, instrucciones: true, qrCode: true, lat: true, lng: true, geoRadiusM: true, verificationType: true } } },
           orderBy: { orderIndex: "asc" },
         },
       },
