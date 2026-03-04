@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { LoginScreen } from "./LoginScreen";
 import { MisRondas } from "./MisRondas";
 import { RondaActiva } from "./RondaActiva";
 import type { RondaData, CompletionData } from "./RondaActiva";
 import { RondaCompletada } from "./RondaCompletada";
-import { CheckpointMarker } from "./CheckpointMarker";
-import type { CheckpointInfo, MarcarResult } from "./CheckpointMarker";
+import { ReportarIncidente } from "./ReportarIncidente";
 import { InstallBanner } from "./InstallBanner";
 import { ChatRondasSection } from "./ChatRondasSection";
 
-export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "marcar" | "completada" | "chat";
+export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat";
 
 export interface RondasSession {
   guardiaId: string;
@@ -27,10 +26,10 @@ export function RondasPortalClient() {
   const [session, setSession] = useState<RondasSession | null>(null);
   const [activeEjecucionId, setActiveEjecucionId] = useState<string | null>(null);
   const [activeRondaData, setActiveRondaData] = useState<RondaData | null>(null);
-  const [activeCheckpointId, setActiveCheckpointId] = useState<string | null>(null);
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
   const [loadingRonda, setLoadingRonda] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
@@ -56,7 +55,6 @@ export function RondasPortalClient() {
           const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
           if (elapsed > MAX_SESSION_MS) {
             sessionStorage.removeItem("rondas_portal_session");
-            sessionStorage.removeItem("rondas_portal_auth_temp");
             return;
           }
           setSession(parsed);
@@ -77,11 +75,10 @@ export function RondasPortalClient() {
     setSession(null);
     setActiveRondaData(null);
     setActiveEjecucionId(null);
-    setActiveCheckpointId(null);
     setCompletionData(null);
+    setShowIncidentModal(false);
     setScreen("login");
     sessionStorage.removeItem("rondas_portal_session");
-    sessionStorage.removeItem("rondas_portal_auth_temp");
   };
 
   // Fetch fresh ronda data for the active ejecucion
@@ -122,28 +119,6 @@ export function RondasPortalClient() {
     [fetchRondaData],
   );
 
-  // Navigate: ronda-activa -> marcar
-  const handleMark = (checkpointId: string) => {
-    setActiveCheckpointId(checkpointId);
-    setScreen("marcar");
-  };
-
-  // Navigate: marcar -> ronda-activa (after successful marking)
-  const handleMarcarComplete = useCallback(
-    async (_result: MarcarResult) => {
-      // Refresh ronda data to get updated checkpoint statuses
-      if (activeEjecucionId) {
-        const data = await fetchRondaData(activeEjecucionId);
-        if (data) {
-          setActiveRondaData(data);
-        }
-      }
-      setActiveCheckpointId(null);
-      setScreen("ronda-activa");
-    },
-    [activeEjecucionId, fetchRondaData],
-  );
-
   // Navigate: ronda-activa -> completada
   const handleRondaComplete = (data: CompletionData) => {
     setCompletionData(data);
@@ -154,31 +129,15 @@ export function RondasPortalClient() {
   const handleBackToRondas = () => {
     setActiveRondaData(null);
     setActiveEjecucionId(null);
-    setActiveCheckpointId(null);
     setCompletionData(null);
     setScreen("mis-rondas");
   };
-
-  // Build CheckpointInfo from rondaData for the active checkpoint
-  const activeCheckpoint = useMemo<CheckpointInfo | null>(() => {
-    if (!activeRondaData || !activeCheckpointId) return null;
-    const cp = activeRondaData.checkpoints.find((c) => c.id === activeCheckpointId);
-    if (!cp) return null;
-    return {
-      id: cp.id,
-      name: cp.name,
-      lat: cp.lat,
-      lng: cp.lng,
-      geoRadiusM: cp.geoRadiusM,
-      verificationType: cp.verificationType,
-    };
-  }, [activeRondaData, activeCheckpointId]);
 
   return (
     <div className="flex min-h-dvh flex-col">
       {isOffline && (
         <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white" role="status">
-          Sin conexión — modo offline
+          Sin conexion — modo offline
         </div>
       )}
       {isOffline && <div className="h-10 shrink-0" aria-hidden="true" />}
@@ -191,9 +150,7 @@ export function RondasPortalClient() {
             session={session}
             onLogout={handleLogout}
             onIniciarRonda={handleIniciarRonda}
-            onReportIncident={() => {
-              // TODO: implement incident reporting screen
-            }}
+            onReportIncident={() => setShowIncidentModal(true)}
           />
           {loadingRonda && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -225,23 +182,7 @@ export function RondasPortalClient() {
             setActiveEjecucionId(null);
             setScreen("mis-rondas");
           }}
-          onReportIncident={() => {
-            // TODO: implement incident reporting screen
-          }}
-        />
-      )}
-
-      {screen === "marcar" && session && activeCheckpoint && activeRondaData && activeEjecucionId && (
-        <CheckpointMarker
-          checkpoint={activeCheckpoint}
-          ejecucionId={activeEjecucionId}
-          guardiaId={session.guardiaId}
-          qrRequerido={activeRondaData.qrRequerido}
-          onComplete={handleMarcarComplete}
-          onBack={() => {
-            setActiveCheckpointId(null);
-            setScreen("ronda-activa");
-          }}
+          onReportIncident={() => setShowIncidentModal(true)}
         />
       )}
 
@@ -274,6 +215,16 @@ export function RondasPortalClient() {
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
         </button>
+      )}
+
+      {/* Incident reporting modal overlay */}
+      {showIncidentModal && session && (
+        <ReportarIncidente
+          session={session}
+          activeEjecucionId={activeEjecucionId ?? undefined}
+          onClose={() => setShowIncidentModal(false)}
+          onSubmitted={() => setShowIncidentModal(false)}
+        />
       )}
 
       <InstallBanner />
