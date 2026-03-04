@@ -16,6 +16,7 @@ import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
 import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
 import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { PortalAlertas } from "@/components/portal/cliente/PortalAlertas";
+import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizaciones";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
 
 /* ── Helpers ── */
@@ -113,6 +114,12 @@ export function PortalClienteClient() {
         return <ChatClienteSection session={session} />;
       case "alertas":
         return <PortalAlertas session={session} />;
+      case "cotizaciones":
+        return (
+          <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
+            <PortalCotizaciones session={session} />
+          </div>
+        );
       case "documentacion":
         return (
           <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
