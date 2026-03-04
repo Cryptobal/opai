@@ -34,6 +34,7 @@ import {
   ClipboardList,
   Monitor,
   MessageCircle,
+  Shield,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -105,11 +106,13 @@ function AppLayoutClientInner({
     const interval = setInterval(() => {
       fetchUnreadCounters();
     }, 30000);
-    const onNoteSeen = () => fetchUnreadCounters();
-    window.addEventListener('opai-note-seen', onNoteSeen as EventListener);
+    const onRefresh = () => fetchUnreadCounters();
+    window.addEventListener('opai-note-seen', onRefresh as EventListener);
+    window.addEventListener('opai-notification-read', onRefresh as EventListener);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('opai-note-seen', onNoteSeen as EventListener);
+      window.removeEventListener('opai-note-seen', onRefresh as EventListener);
+      window.removeEventListener('opai-notification-read', onRefresh as EventListener);
     };
   }, [fetchUnreadCounters]);
 
@@ -236,6 +239,11 @@ function AppLayoutClientInner({
       label: 'Portales',
       icon: Monitor,
       show: isAdmin,
+      children: [
+        { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
+        { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
+        { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
+      ],
     },
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
 
