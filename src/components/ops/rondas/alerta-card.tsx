@@ -1,8 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Eye, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Eye, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
 
@@ -34,21 +32,24 @@ interface Props {
   onResolve?: (id: string) => void;
 }
 
-const SEVERITY_STYLES: Record<string, { badge: string; border: string; icon: string }> = {
+const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string; label: string }> = {
   critical: {
-    badge: "bg-red-500/15 text-red-400 border-red-500/30",
-    border: "border-red-500/20",
-    icon: "text-red-400",
+    dot: "bg-red-400 animate-pulse",
+    border: "border-red-500/20 border-l-red-500",
+    bg: "bg-red-500/5",
+    label: "Crítica",
   },
   warning: {
-    badge: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    border: "border-amber-500/20",
-    icon: "text-amber-400",
+    dot: "bg-amber-400",
+    border: "border-amber-500/20 border-l-amber-500",
+    bg: "bg-amber-500/5",
+    label: "Warning",
   },
   info: {
-    badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    border: "border-blue-500/20",
-    icon: "text-blue-400",
+    dot: "bg-blue-400",
+    border: "border-blue-500/20 border-l-blue-500",
+    bg: "bg-blue-500/5",
+    label: "Info",
   },
 };
 
@@ -66,7 +67,7 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
-  const sev = SEVERITY_STYLES[alerta.severidad] ?? SEVERITY_STYLES.info;
+  const sev = SEVERITY_CONFIG[alerta.severidad] ?? SEVERITY_CONFIG.info;
   const guardiaNombre = alerta.ejecucion?.guardia?.persona
     ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
     : null;
@@ -74,68 +75,84 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 space-y-2 transition-opacity",
+        "rounded-xl border border-l-2 p-3.5 space-y-2.5 transition-all",
         sev.border,
+        sev.bg,
         alerta.resuelta && "opacity-50",
       )}
     >
+      {/* Header: severity dot + tipo + timestamp */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <AlertTriangle className={cn("h-4 w-4 shrink-0", sev.icon)} />
-          <Badge variant="outline" className={cn("text-[10px] shrink-0", sev.badge)}>
-            {alerta.severidad.toUpperCase()}
-          </Badge>
-          <span className="text-xs font-medium truncate">
-            {TIPO_LABELS[alerta.tipo] ?? alerta.tipo}
-          </span>
+          <span className={cn("w-2 h-2 rounded-full shrink-0 mt-0.5", sev.dot)} />
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[#f1f5f9] truncate">
+              {TIPO_LABELS[alerta.tipo] ?? alerta.tipo}
+            </p>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{
+              color: alerta.severidad === "critical" ? "#ef4444" : alerta.severidad === "warning" ? "#f59e0b" : "#3b82f6"
+            }}>
+              {sev.label}
+            </span>
+          </div>
         </div>
-        <span className="text-[10px] text-muted-foreground shrink-0">
+        <span className="text-[11px] text-[#64748b] shrink-0 tabular-nums">
           {new Date(alerta.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
 
-      <p className="text-xs text-muted-foreground">{alerta.mensaje}</p>
+      {/* Message */}
+      <p className="text-[12px] text-[#94a3b8] leading-snug">{alerta.mensaje}</p>
 
-      <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
+      {/* Meta */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {guardiaNombre && (
-          <span className="flex items-center gap-0.5">
+          <span className="flex items-center gap-1 text-[11px] text-[#94a3b8]">
             <Shield className="h-3 w-3" /> {guardiaNombre}
           </span>
         )}
         {alerta.installation?.name && (
-          <span>· {alerta.installation.name}</span>
+          <span className="text-[11px] text-[#64748b]">{alerta.installation.name}</span>
         )}
         {alerta.ejecucion?.rondaTemplate?.name && (
-          <span>· {alerta.ejecucion.rondaTemplate.name}</span>
+          <span className="text-[11px] text-[#64748b]">{alerta.ejecucion.rondaTemplate.name}</span>
         )}
       </div>
 
+      {/* Status line */}
       {alerta.isAcknowledged && !alerta.resuelta && (
-        <div className="flex items-center gap-1.5 text-[10px] text-emerald-500/70">
+        <div className="flex items-center gap-1.5 text-[11px] text-green-400">
           <Eye className="h-3 w-3" />
           Reconocida{alerta.acknowledgedBy ? ` por ${alerta.acknowledgedBy}` : ""}
-          {alerta.acknowledgedAt && ` · ${new Date(alerta.acknowledgedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`}
         </div>
       )}
-
       {alerta.resuelta && (
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-[11px] text-[#94a3b8]">
           <CheckCircle2 className="h-3 w-3" />
-          Resuelta{alerta.resueltaAt && ` · ${new Date(alerta.resueltaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`}
+          Resuelta{alerta.resueltaAt
+            ? ` · ${new Date(alerta.resueltaAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`
+            : ""}
         </div>
       )}
 
+      {/* Actions */}
       {!alerta.resuelta && (
-        <div className="flex gap-1.5 pt-1">
+        <div className="flex gap-1.5 pt-0.5">
           {!alerta.isAcknowledged && onAcknowledge && (
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onAcknowledge(alerta.id)}>
+            <button
+              onClick={() => onAcknowledge(alerta.id)}
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40 transition-colors flex items-center gap-1"
+            >
               <Eye className="h-3 w-3" /> Reconocer
-            </Button>
+            </button>
           )}
           {onResolve && (
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onResolve(alerta.id)}>
+            <button
+              onClick={() => onResolve(alerta.id)}
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-green-500/20 text-green-400 hover:bg-green-500/10 transition-colors flex items-center gap-1"
+            >
               <CheckCircle2 className="h-3 w-3" /> Resolver
-            </Button>
+            </button>
           )}
         </div>
       )}
