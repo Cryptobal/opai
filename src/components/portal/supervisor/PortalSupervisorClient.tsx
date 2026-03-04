@@ -12,6 +12,13 @@ import { SupervisorVisitaWizard } from "./SupervisorVisitaWizard";
 import { SupervisorPautas } from "./SupervisorPautas";
 import { SupervisorMiEquipo } from "./SupervisorMiEquipo";
 import { SupervisorNovedadRapida } from "./SupervisorNovedadRapida";
+import { SupervisorTurnosExtra } from "./SupervisorTurnosExtra";
+import { SupervisorCrearTE } from "./SupervisorCrearTE";
+import { SupervisorRendiciones } from "./SupervisorRendiciones";
+import { SupervisorCrearRendicion } from "./SupervisorCrearRendicion";
+import { SupervisorRefuerzos } from "./SupervisorRefuerzos";
+import { SupervisorTickets } from "./SupervisorTickets";
+import { SupervisorChat } from "./SupervisorChat";
 
 export function PortalSupervisorClient() {
   const [session, setSession] = useState<SupervisorSession | null>(null);
@@ -24,6 +31,8 @@ export function PortalSupervisorClient() {
   );
   const [wizardOpen, setWizardOpen] = useState(false);
   const [activeInstallationId, setActiveInstallationId] = useState<string | undefined>();
+  const [showCrearTE, setShowCrearTE] = useState(false);
+  const [showCrearRendicion, setShowCrearRendicion] = useState(false);
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -127,6 +136,46 @@ export function PortalSupervisorClient() {
       case "mi-equipo":
         return <SupervisorMiEquipo installations={session!.installations} />;
 
+      case "turnos-extra":
+        if (showCrearTE) {
+          return (
+            <SupervisorCrearTE
+              installations={session!.installations}
+              onBack={() => setShowCrearTE(false)}
+              onCreated={() => { setShowCrearTE(false); }}
+            />
+          );
+        }
+        return (
+          <SupervisorTurnosExtra onCreateTE={() => setShowCrearTE(true)} />
+        );
+
+      case "rendiciones":
+        if (showCrearRendicion) {
+          return (
+            <SupervisorCrearRendicion
+              installations={session!.installations}
+              onBack={() => setShowCrearRendicion(false)}
+              onCreated={() => { setShowCrearRendicion(false); }}
+            />
+          );
+        }
+        return (
+          <SupervisorRendiciones
+            adminId={session!.adminId}
+            onCreateRendicion={() => setShowCrearRendicion(true)}
+          />
+        );
+
+      case "refuerzos":
+        return <SupervisorRefuerzos installations={session!.installations} />;
+
+      case "tickets":
+        return <SupervisorTickets installations={session!.installations} />;
+
+      case "chat":
+        return <SupervisorChat session={session!} />;
+
       case "instalaciones":
         if (selectedInstallation) {
           return (
@@ -163,6 +212,8 @@ export function PortalSupervisorClient() {
         onChange={(s) => {
           setActiveSection(s);
           if (s !== "instalaciones") setSelectedInstallation(null);
+          setShowCrearTE(false);
+          setShowCrearRendicion(false);
         }}
       />
 
