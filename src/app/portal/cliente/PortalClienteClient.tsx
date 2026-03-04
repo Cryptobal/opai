@@ -12,6 +12,7 @@ import { PortalContractsSection } from "@/components/portales/PortalContractsSec
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
 import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
 import { PortalInstallations } from "@/components/portal/cliente/PortalInstallations";
+import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente";
 
 /* ── Helpers ── */
@@ -82,6 +83,13 @@ export function PortalClienteClient() {
               setSelectedInstallation(id);
               setActiveSection("dashboard");
             }}
+          />
+        );
+      case "rondas":
+        return (
+          <PortalRondas
+            session={session}
+            selectedInstallation={selectedInstallation}
           />
         );
       case "chat":
