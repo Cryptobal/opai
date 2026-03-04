@@ -14,7 +14,11 @@ interface ChatMessageListProps {
   onLoadMore: () => Promise<void>;
   onReply: (message: ChatMessageData) => void;
   onOpenThread?: (messageId: string) => void;
+  onEdit?: (messageId: string, content: string) => void;
+  onDelete?: (messageId: string) => void;
+  channelId?: string;
   currentUserId?: string;
+  getReadByCount?: (message: ChatMessageData) => number;
 }
 
 /**
@@ -67,7 +71,11 @@ export function ChatMessageList({
   onLoadMore,
   onReply,
   onOpenThread,
+  onEdit,
+  onDelete,
+  channelId,
   currentUserId,
+  getReadByCount,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -199,7 +207,11 @@ export function ChatMessageList({
                 isOwn={isOwnMessage(msg)}
                 onReply={() => onReply(msg)}
                 onOpenThread={onOpenThread}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                channelId={channelId}
                 currentUserId={currentUserId}
+                readByCount={getReadByCount?.(msg)}
               />
             )
           )}

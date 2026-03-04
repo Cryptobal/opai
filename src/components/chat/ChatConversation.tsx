@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type Pusher from "pusher-js";
 import type { ChatMessageData, SendMessagePayload } from "@/lib/chat-types";
 import { ChatPresenceBar } from "./ChatPresenceBar";
@@ -37,6 +37,8 @@ export function ChatConversation({
     hasMore,
     loadMore,
     sendMessage,
+    editMessage,
+    deleteMessage,
     setMessages: setApiMessages,
   } = useChatMessages(channelId);
 
@@ -46,6 +48,13 @@ export function ChatConversation({
     typingUsers,
     appendMessage: rtAppendMessage,
   } = useChatChannel(channelId, pusher);
+
+  const [readCursors, setReadCursors] = useState<{ readerId: string; lastReadAt: string; lastReadMessageId: string | null }[]>([]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ChatMessageData[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [replyTo, setReplyTo] = useState<{
     id: string;
@@ -67,6 +76,29 @@ export function ChatConversation({
     });
   }, [rtMessages, setApiMessages]);
 
+  // Fetch read cursors
+  useEffect(() => {
+    if (!channelId) return;
+    const fetchCursors = async () => {
+      try {
+        const res = await fetch(`/api/chat/channels/${channelId}/read/cursors`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) setReadCursors(json.data);
+        }
+      } catch {}
+    };
+    fetchCursors();
+    const interval = setInterval(fetchCursors, 15000);
+    return () => clearInterval(interval);
+  }, [channelId]);
+
+  const getReadByCount = useCallback((message: ChatMessageData) => {
+    return readCursors.filter(
+      (c) => new Date(c.lastReadAt) >= new Date(message.createdAt)
+    ).length;
+  }, [readCursors]);
+
   const handleSend = useCallback(
     async (payload: SendMessagePayload) => {
       const prefix = autoContextPrefix?.() || "";
@@ -87,6 +119,42 @@ export function ChatConversation({
     });
   }, []);
 
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+      if (!query.trim()) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      searchDebounceRef.current = setTimeout(async () => {
+        try {
+          const params = new URLSearchParams({
+            search: query,
+            limit: "50",
+          });
+          const res = await fetch(
+            `/api/chat/channels/${channelId}/messages?${params.toString()}`
+          );
+          if (!res.ok) throw new Error("Search failed");
+          const json = await res.json();
+          if (json.success) {
+            setSearchResults(json.data);
+          }
+        } catch (err) {
+          console.error("Search error:", err);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 400);
+    },
+    [channelId]
+  );
+
   const onlineCount = members.length;
 
   return (
@@ -97,15 +165,21 @@ export function ChatConversation({
           channelName={channelName}
           onlineCount={onlineCount}
           onBack={onBack}
+          onSearch={handleSearch}
+          isSearching={isSearching}
         />
 
         <ChatMessageList
-          messages={apiMessages}
-          isLoading={isLoading}
-          hasMore={hasMore}
+          messages={searchQuery.trim() ? searchResults : apiMessages}
+          isLoading={searchQuery.trim() ? isSearching : isLoading}
+          hasMore={searchQuery.trim() ? false : hasMore}
           onLoadMore={loadMore}
           onReply={handleReply}
           onOpenThread={setActiveThreadId}
+          onEdit={editMessage}
+          onDelete={deleteMessage}
+          channelId={channelId}
+          getReadByCount={getReadByCount}
         />
 
         <ChatTypingIndicator typingUsers={typingUsers} />

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import type { SendMessagePayload, ChatAttachment, PusherTypingEvent } from "@/lib/chat-types";
 
@@ -63,9 +64,14 @@ export function ChatInput({
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef(0);
+
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // @mention state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -93,6 +99,37 @@ export function ChatInput({
       textareaRef.current?.focus();
     }
   }, [replyTo]);
+
+  // Close emoji picker on outside click
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
+
+  // Insert emoji at cursor position
+  const handleEmojiSelect = useCallback((emojiData: { emoji: string }) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newContent = content.slice(0, start) + emojiData.emoji + content.slice(end);
+      setContent(newContent);
+      setTimeout(() => {
+        const pos = start + emojiData.emoji.length;
+        textarea.setSelectionRange(pos, pos);
+        textarea.focus();
+      }, 0);
+    } else {
+      setContent(prev => prev + emojiData.emoji);
+    }
+    setShowEmojiPicker(false);
+  }, [content]);
 
   // Trigger typing indicator
   const triggerTyping = useCallback(() => {
@@ -265,23 +302,36 @@ export function ChatInput({
   const handleSend = useCallback(async () => {
     const trimmedContent = content.trim();
     if (!trimmedContent && files.length === 0) return;
-    if (isSending) return;
+    if (isSending || isUploading) return;
 
     setIsSending(true);
 
     try {
-      // Build attachments from files (in real implementation, files would be
-      // uploaded first and URLs returned. Here we create placeholder attachments.)
-      const attachments: ChatAttachment[] | undefined =
-        files.length > 0
-          ? files.map((f, i) => ({
-              id: `att-${Date.now()}-${i}`,
-              fileName: f.file.name,
-              fileUrl: f.previewUrl || "",
-              fileType: f.file.type,
-              fileSize: f.file.size,
-            }))
-          : undefined;
+      // Upload files to server before sending message
+      let attachments: ChatAttachment[] | undefined;
+      if (files.length > 0) {
+        setIsUploading(true);
+        try {
+          const formData = new FormData();
+          files.forEach((f) => formData.append("files", f.file));
+          const uploadRes = await fetch("/api/chat/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            console.error("[ChatInput] upload failed:", uploadRes.status);
+            return;
+          }
+          const uploadJson = await uploadRes.json();
+          if (!uploadJson.success) {
+            console.error("[ChatInput] upload error:", uploadJson.error);
+            return;
+          }
+          attachments = uploadJson.data;
+        } finally {
+          setIsUploading(false);
+        }
+      }
 
       const payload: SendMessagePayload = {
         content: trimmedContent,
@@ -307,7 +357,7 @@ export function ChatInput({
     } finally {
       setIsSending(false);
     }
-  }, [content, files, isSending, replyTo, onSend]);
+  }, [content, files, isSending, isUploading, replyTo, onSend]);
 
   // Build filterable mention options (users + @todos)
   const mentionOptions = mentionQuery !== null
@@ -316,7 +366,11 @@ export function ChatInput({
         ...(mentionQuery === "" || "todos".startsWith(mentionQuery.toLowerCase())
           ? [{ id: "todos", name: "@todos", email: "Notificar a todos" }]
           : []),
-        ...mentionUsers,
+        ...mentionUsers.filter(u =>
+          mentionQuery === "" ||
+          u.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+          u.email.toLowerCase().includes(mentionQuery.toLowerCase())
+        ),
       ]
     : [];
 
@@ -419,6 +473,14 @@ export function ChatInput({
         </div>
       )}
 
+      {/* Upload indicator */}
+      {isUploading && (
+        <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-zinc-400 border-b border-zinc-800">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-blue-400" />
+          Subiendo archivos...
+        </div>
+      )}
+
       {/* Input area */}
       <div className="flex items-end gap-2 px-4 py-3">
         {/* File upload */}
@@ -446,15 +508,30 @@ export function ChatInput({
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
         />
 
-        {/* Emoji button (placeholder) */}
-        <button
-          type="button"
-          className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-          aria-label="Emoji"
-          title="Emoji"
-        >
-          <Smile className="h-4.5 w-4.5" />
-        </button>
+        {/* Emoji picker */}
+        <div className="relative" ref={emojiPickerRef}>
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+            aria-label="Emoji"
+            title="Emoji"
+          >
+            <Smile className="h-4.5 w-4.5" />
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute bottom-full left-0 mb-2 z-50">
+              <EmojiPicker
+                theme={Theme.DARK}
+                onEmojiClick={handleEmojiSelect}
+                width={320}
+                height={400}
+                searchPlaceholder="Buscar emoji..."
+                previewConfig={{ showPreview: false }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Textarea + mention popup */}
         <div className="flex-1 min-w-0 relative">
@@ -505,7 +582,7 @@ export function ChatInput({
             rows={1}
             className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-colors leading-6"
             style={{ maxHeight: `${5 * 24}px` }}
-            disabled={isSending}
+            disabled={isSending || isUploading}
           />
         </div>
 
@@ -513,10 +590,10 @@ export function ChatInput({
         <button
           type="button"
           onClick={handleSend}
-          disabled={isEmpty || isSending}
+          disabled={isEmpty || isSending || isUploading}
           className={cn(
             "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-            isEmpty || isSending
+            isEmpty || isSending || isUploading
               ? "text-zinc-600 cursor-not-allowed"
               : "bg-blue-600 text-white hover:bg-blue-500"
           )}

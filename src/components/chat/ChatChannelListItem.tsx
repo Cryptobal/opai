@@ -85,7 +85,11 @@ export function ChatChannelListItem({
             : undefined,
         }}
       >
-        {channel.channelType === "GROUP" && channel.group?.color ? (
+        {channel.channelType === "DIRECT" ? (
+          <span className="text-xs font-semibold uppercase bg-blue-500/20 text-blue-400 rounded-full h-full w-full flex items-center justify-center">
+            {(channel.dmParticipant?.name ?? channel.name).charAt(0).toUpperCase()}
+          </span>
+        ) : channel.channelType === "GROUP" && channel.group?.color ? (
           <span
             className="text-xs font-semibold uppercase"
             style={{ color: channel.group.color }}
@@ -108,7 +112,9 @@ export function ChatChannelListItem({
               hasUnread ? "font-semibold text-zinc-100" : "font-medium text-zinc-300"
             )}
           >
-            {channel.name}
+            {channel.channelType === "DIRECT" && channel.dmParticipant
+              ? channel.dmParticipant.name
+              : channel.name}
           </span>
           <span className="shrink-0 text-xs text-zinc-500">
             {formatRelativeTime(channel.lastMessageAt)}

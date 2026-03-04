@@ -1,5 +1,6 @@
 /**
  * API Route: /api/chat/channels/[id]/messages/[messageId]
+ * GET    — Fetch single message by ID.
  * PATCH  — Edit message (only own messages).
  * DELETE — Soft-delete message.
  */
@@ -10,6 +11,119 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId } from "@/lib/chat";
 
 type RouteParams = { params: Promise<{ id: string; messageId: string }> };
+
+// ── GET — Fetch single message ──
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const { id: channelId, messageId } = await params;
+
+    // Verify channel belongs to tenant
+    const channel = await prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId: ctx.tenantId },
+      select: { id: true },
+    });
+
+    if (!channel) {
+      return NextResponse.json(
+        { success: false, error: "Canal no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const message = await prisma.chatMessage.findFirst({
+      where: {
+        id: messageId,
+        channelId,
+        deletedAt: null,
+      },
+      include: {
+        reactions: {
+          select: {
+            id: true,
+            emoji: true,
+            senderId: true,
+            senderName: true,
+            senderType: true,
+          },
+        },
+        replyTo: {
+          select: {
+            id: true,
+            senderName: true,
+            content: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      return NextResponse.json(
+        { success: false, error: "Mensaje no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Format the message to match ChatMessageData (same shape as list endpoint)
+    const formatted = {
+      id: message.id,
+      channelId: message.channelId,
+      senderType: message.senderType,
+      senderId: getSenderId(message),
+      senderName: message.senderName,
+      senderAvatar: message.senderAvatar,
+      content: message.content,
+      contentHtml: message.contentHtml,
+      replyTo: message.replyTo
+        ? {
+            id: message.replyTo.id,
+            senderName: message.replyTo.senderName,
+            content: message.replyTo.content,
+          }
+        : null,
+      threadRootId: message.threadRootId,
+      replyCount: message.replyCount,
+      lastReplyAt: message.lastReplyAt?.toISOString() ?? null,
+      attachments: message.attachments as any[] | null,
+      reactions: Array.from(
+        message.reactions
+          .reduce(
+            (map, r) => {
+              const existing = map.get(r.emoji);
+              if (existing) {
+                existing.count += 1;
+                existing.senders.push({ id: r.senderId, name: r.senderName, type: r.senderType });
+              } else {
+                map.set(r.emoji, {
+                  emoji: r.emoji,
+                  count: 1,
+                  senders: [{ id: r.senderId, name: r.senderName, type: r.senderType }],
+                });
+              }
+              return map;
+            },
+            new Map<string, { emoji: string; count: number; senders: { id: string; name: string; type: string }[] }>()
+          )
+          .values()
+      ),
+      systemEventType: message.systemEventType,
+      systemEventData: message.systemEventData as Record<string, unknown> | null,
+      isEdited: message.isEdited,
+      createdAt: message.createdAt.toISOString(),
+    };
+
+    return NextResponse.json({ success: true, data: formatted });
+  } catch (err: any) {
+    console.error("Error fetching chat message:", err);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}
 
 // ── PATCH — Edit message ──
 

@@ -82,10 +82,29 @@ export default async function CrmAccountDetailPage({
       })
     : [];
   const actorMap = new Map(actors.map((user) => [user.id, user.name]));
-  const activityEvents = activityLogs.map((log) => ({
+  const logEvents = activityLogs.map((log) => ({
     ...log,
     createdByName: log.createdBy ? actorMap.get(log.createdBy) ?? null : null,
   }));
+
+  // Eventos de "Último acceso al portal" desde contactos de la cuenta (para la pestaña Actividad)
+  const portalAccessEvents = (account.contacts ?? [])
+    .filter((c) => c.portalLastAccessAt)
+    .map((c) => ({
+      id: `portal-access-${c.id}`,
+      action: "portal_cliente_access",
+      createdAt: c.portalLastAccessAt!.toISOString(),
+      createdBy: null as string | null,
+      createdByName: null as string | null,
+      details: {
+        contactName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || "Contacto",
+        ip: c.portalLastAccessIp ?? null,
+      },
+    }));
+
+  const activityEvents = [...logEvents, ...portalAccessEvents].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   const lifecycle =
     account.status === "prospect" || account.status === "client_active" || account.status === "client_inactive"

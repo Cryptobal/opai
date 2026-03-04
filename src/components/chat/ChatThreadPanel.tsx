@@ -39,15 +39,18 @@ export function ChatThreadPanel({
     try {
       setLoading(true);
 
-      // Fetch the root message
-      const rootRes = await fetch(
-        `/api/chat/channels/${channelId}/messages?limit=1&direction=newer&cursor=&threadRootId=`
-      );
+      // Fetch the root message by ID and thread replies in parallel
+      const [rootRes, repliesRes] = await Promise.all([
+        fetch(`/api/chat/channels/${channelId}/messages/${threadRootId}`),
+        fetch(`/api/chat/channels/${channelId}/messages?threadRootId=${threadRootId}&limit=100&direction=newer`),
+      ]);
 
-      // Fetch thread replies
-      const repliesRes = await fetch(
-        `/api/chat/channels/${channelId}/messages?threadRootId=${threadRootId}&limit=100&direction=newer`
-      );
+      if (rootRes.ok) {
+        const rootJson = await rootRes.json();
+        if (rootJson.success && rootJson.data) {
+          setRootMessage(rootJson.data);
+        }
+      }
 
       if (repliesRes.ok) {
         const repliesJson = await repliesRes.json();
@@ -55,9 +58,6 @@ export function ChatThreadPanel({
           setReplies(repliesJson.data);
         }
       }
-
-      // Find root message from main channel messages or fetch separately
-      // The root message should already be known from the parent context
     } catch (err) {
       console.error("Error fetching thread:", err);
     } finally {

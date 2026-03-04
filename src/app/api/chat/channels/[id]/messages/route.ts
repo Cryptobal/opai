@@ -64,12 +64,24 @@ export async function GET(
       ? { threadRootId }
       : { threadRootId: null };
 
+    // Search filtering: search in content and senderName
+    const search = sp.get("search") || null;
+    const searchFilter = search
+      ? {
+          OR: [
+            { content: { contains: search, mode: "insensitive" as const } },
+            { senderName: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
     const messages = await prisma.chatMessage.findMany({
       where: {
         channelId,
         deletedAt: null,
         ...threadFilter,
         ...cursorFilter,
+        ...searchFilter,
       },
       orderBy: {
         createdAt: direction === "older" ? "desc" : "asc",

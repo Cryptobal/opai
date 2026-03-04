@@ -5262,6 +5262,7 @@ enum ChatSenderType {
 enum ChatChannelType {
   INSTALLATION
   GROUP
+  DIRECT
 
   @@map("channel_type")
   @@schema("chat")
@@ -5287,6 +5288,7 @@ model ChatChannel {
   messages                ChatMessage[]
   readCursors             ChatReadCursor[]
   notificationPreferences ChatNotificationPreference[]
+  dmParticipants          ChatDmParticipant[]
 
   @@index([tenantId], map: "idx_chat_channels_tenant")
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
@@ -5438,5 +5440,21 @@ model ChatPushSubscription {
   @@unique([endpoint], map: "uq_chat_push_subscription_endpoint")
   @@index([tenantId, subscriberType, subscriberId], map: "idx_chat_push_subscriptions_subscriber")
   @@map("push_subscriptions")
+  @@schema("chat")
+}
+
+// ── ChatDmParticipant ──
+
+model ChatDmParticipant {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  channelId String   @map("channel_id") @db.Uuid
+  adminId   String   @map("admin_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, adminId], map: "uq_chat_dm_participant")
+  @@index([adminId], map: "idx_chat_dm_participants_admin")
+  @@map("dm_participants")
   @@schema("chat")
 }

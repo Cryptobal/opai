@@ -12,7 +12,7 @@ export type { ChatSenderType };
 export type ChatChannelData = {
   id: string;
   tenantId: string;
-  channelType: "INSTALLATION" | "GROUP";
+  channelType: "INSTALLATION" | "GROUP" | "DIRECT";
   installationId: string | null;
   groupId: string | null;
   name: string;
@@ -31,6 +31,12 @@ export type ChatChannelData = {
     id: string;
     color: string;
     slug: string;
+  } | null;
+  dmParticipant?: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
   } | null;
   unreadCount?: number;
 };

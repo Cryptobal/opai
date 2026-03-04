@@ -1,8 +1,9 @@
 /**
  * API Route: /api/chat/channels
  * GET — List channels for admin's tenant, sorted by lastMessageAt DESC.
- *        Supports ?type=GROUP|INSTALLATION (default: all).
+ *        Supports ?type=GROUP|INSTALLATION|DIRECT (default: all).
  *        GROUP channels filtered by admin's group membership.
+ *        DIRECT channels filtered by admin's DM participation.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -36,11 +37,16 @@ export async function GET(request: NextRequest) {
       where.groupId = { in: memberGroupIds };
     } else if (typeFilter === "INSTALLATION") {
       where.channelType = "INSTALLATION";
+    } else if (typeFilter === "DIRECT") {
+      // DM channels - only show channels where current admin is a participant
+      where.channelType = "DIRECT";
+      where.dmParticipants = { some: { adminId: ctx.userId } };
     } else {
-      // Show installation channels + only group channels the user belongs to
+      // Show installation channels + group channels the user belongs to + DM channels
       where.OR = [
         { channelType: "INSTALLATION" },
         { channelType: "GROUP", groupId: { in: memberGroupIds } },
+        { channelType: "DIRECT", dmParticipants: { some: { adminId: ctx.userId } } },
       ];
     }
 
@@ -139,6 +145,40 @@ export async function GET(request: NextRequest) {
       groupMap = new Map(groups.map((g) => [g.id, g]));
     }
 
+    // For DIRECT channels, fetch other participant's info
+    const directChannelIds = channels
+      .filter((ch) => ch.channelType === "DIRECT")
+      .map((ch) => ch.id);
+
+    let dmParticipantMap = new Map<string, { id: string; name: string; email: string; image: null }>();
+    if (directChannelIds.length > 0) {
+      const participants = await prisma.chatDmParticipant.findMany({
+        where: {
+          channelId: { in: directChannelIds },
+          adminId: { not: ctx.userId }, // Get the OTHER participant
+        },
+        select: {
+          channelId: true,
+          adminId: true,
+        },
+      });
+
+      const otherAdminIds = participants.map((p) => p.adminId);
+      if (otherAdminIds.length > 0) {
+        const admins = await prisma.admin.findMany({
+          where: { id: { in: otherAdminIds } },
+          select: { id: true, name: true, email: true },
+        });
+        const adminMap = new Map(admins.map((a) => [a.id, a]));
+        for (const p of participants) {
+          const admin = adminMap.get(p.adminId);
+          if (admin) {
+            dmParticipantMap.set(p.channelId, { ...admin, image: null });
+          }
+        }
+      }
+    }
+
     const data = channels.map((ch) => ({
       id: ch.id,
       tenantId: ch.tenantId,
@@ -163,6 +203,9 @@ export async function GET(request: NextRequest) {
         : null,
       group: ch.groupId && groupMap.has(ch.groupId)
         ? groupMap.get(ch.groupId)!
+        : null,
+      dmParticipant: ch.channelType === "DIRECT" && dmParticipantMap.has(ch.id)
+        ? dmParticipantMap.get(ch.id)!
         : null,
       unreadCount: unreadMap.get(ch.id) ?? 0,
     }));
