@@ -1,4 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import dynamic from "next/dynamic";
+
+const PwaRegistrar = dynamic(
+  () => import("@/components/portal/cliente/PwaRegistrar").then((m) => ({ default: m.PwaRegistrar })),
+  { ssr: false }
+);
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -24,6 +30,7 @@ export const metadata: Metadata = {
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-white">
+      <PwaRegistrar />
       {children}
     </div>
   );
