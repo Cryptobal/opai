@@ -8,9 +8,11 @@ import {
   ensureOpsAccess,
   generateSerieForMonth,
   getMonthDateRange,
+  getWeekdayKey,
   listDatesBetween,
   parseDateOnly,
   toDateKeyUTC,
+  weekdayMatches,
 } from "@/lib/ops";
 
 export async function GET(request: NextRequest) {
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
     // create the missing OpsPautaMensual rows so they appear in the UI.
     const activePuestos = await prisma.opsPuestoOperativo.findMany({
       where: { tenantId: ctx.tenantId, installationId, active: true },
-      select: { id: true, requiredGuards: true, activeFrom: true, activeUntil: true },
+      select: { id: true, requiredGuards: true, activeFrom: true, activeUntil: true, weekdays: true },
     });
 
     // Build a set of existing puesto+slot+date combos for fast lookup
@@ -108,6 +110,12 @@ export async function GET(request: NextRequest) {
         // Respect active date range
         if (puesto.activeFrom && date < puesto.activeFrom) continue;
         if (puesto.activeUntil && date >= puesto.activeUntil) continue;
+
+        // Respect weekdays
+        if (puesto.weekdays && puesto.weekdays.length > 0) {
+          const weekdayKey = getWeekdayKey(date);
+          if (!weekdayMatches(puesto.weekdays, weekdayKey)) continue;
+        }
 
         const dateKey = date.toISOString().slice(0, 10);
         for (let slot = 1; slot <= puesto.requiredGuards; slot++) {
