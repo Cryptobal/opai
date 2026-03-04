@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createOpsAuditLog, parseDateOnly, toISODate } from "@/lib/ops";
 import type { AuthContext } from "@/lib/api-auth";
+import { normalizeNullable } from "@/lib/personas";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -194,7 +195,11 @@ export async function executeAsignar(
     },
   });
 
+  // Track if this slot had a previous occupant (for series reset logic)
+  let slotHadPreviousOccupant = false;
+
   if (existingSlotAssignment) {
+    slotHadPreviousOccupant = true;
     await prisma.opsAsignacionGuardia.update({
       where: { id: existingSlotAssignment.id },
       data: {
@@ -211,6 +216,18 @@ export async function executeAsignar(
       existingSlotAssignment.guardiaId,
       startDate
     );
+  } else {
+    // Check if slot had a previously deactivated assignment (e.g. from finiquito)
+    const prevDeactivated = await prisma.opsAsignacionGuardia.findFirst({
+      where: {
+        puestoId: body.puestoId,
+        slotNumber: body.slotNumber,
+        tenantId: ctx.tenantId,
+        isActive: false,
+      },
+      orderBy: { endDate: "desc" },
+    });
+    if (prevDeactivated) slotHadPreviousOccupant = true;
   }
 
   // 3. Create new assignment
@@ -235,30 +252,48 @@ export async function executeAsignar(
         },
       },
       puesto: { select: { id: true, name: true } },
+      installation: { select: { name: true } },
     },
   });
 
-  // 4. Write plannedGuardiaId on all "T" days from startDate forward.
-  // Only fill empty cells (or same guard) to avoid overwriting
-  // manually painted rotative lines that belong to another guard.
-  await prisma.opsPautaMensual.updateMany({
-    where: {
-      tenantId: ctx.tenantId,
-      puestoId: body.puestoId,
-      slotNumber: body.slotNumber,
-      shiftCode: "T",
-      date: { gte: startDate },
-      OR: [
-        { plannedGuardiaId: null },
-        { plannedGuardiaId: body.guardiaId },
-      ],
-    },
-    data: {
-      plannedGuardiaId: body.guardiaId,
-    },
-  });
+  if (slotHadPreviousOccupant) {
+    // 4a. Slot had a previous guard (finiquito, reemplazo, etc.)
+    // Clear old shiftCode data so user must repaint the series manually.
+    // The pattern may change for the new guard.
+    await prisma.opsPautaMensual.updateMany({
+      where: {
+        tenantId: ctx.tenantId,
+        puestoId: body.puestoId,
+        slotNumber: body.slotNumber,
+        date: { gte: startDate },
+        plannedGuardiaId: null, // only clear unassigned cells (from finiquito cleanup)
+      },
+      data: {
+        shiftCode: null,
+        plannedGuardiaId: null,
+      },
+    });
+  } else {
+    // 4b. Fresh slot: assign guard to all existing T cells from startDate forward
+    await prisma.opsPautaMensual.updateMany({
+      where: {
+        tenantId: ctx.tenantId,
+        puestoId: body.puestoId,
+        slotNumber: body.slotNumber,
+        shiftCode: "T",
+        date: { gte: startDate },
+        OR: [
+          { plannedGuardiaId: null },
+          { plannedGuardiaId: body.guardiaId },
+        ],
+      },
+      data: {
+        plannedGuardiaId: body.guardiaId,
+      },
+    });
+  }
 
-  // Also update the serie to reference the new guard
+  // Also update the serie to reference the new guard (if any active)
   await prisma.opsSerieAsignacion.updateMany({
     where: {
       tenantId: ctx.tenantId,
@@ -267,6 +302,23 @@ export async function executeAsignar(
       isActive: true,
     },
     data: { guardiaId: body.guardiaId },
+  });
+
+  // 4c. Log assignment in guard history
+  await prisma.opsGuardiaHistory.create({
+    data: {
+      tenantId: ctx.tenantId,
+      guardiaId: body.guardiaId,
+      eventType: "assigned",
+      newValue: {
+        puestoName: asignacion.puesto.name,
+        installationName: asignacion.installation.name,
+        slotNumber: body.slotNumber,
+        startDate: toISODate(startDate),
+      },
+      reason: normalizeNullable(body.reason),
+      createdBy: ctx.userId,
+    },
   });
 
   // 5. Auto-sync currentInstallationId on guard profile
@@ -437,13 +489,13 @@ export async function executeCheck(
       hasActiveAssignment: !!existing,
       assignment: existing
         ? {
-            id: existing.id,
-            puestoName: existing.puesto.name,
-            installationName: existing.installation.name,
-            accountName: existing.installation.account?.name ?? null,
-            slotNumber: existing.slotNumber,
-            startDate: existing.startDate,
-          }
+          id: existing.id,
+          puestoName: existing.puesto.name,
+          installationName: existing.installation.name,
+          accountName: existing.installation.account?.name ?? null,
+          slotNumber: existing.slotNumber,
+          startDate: existing.startDate,
+        }
         : null,
     },
   };

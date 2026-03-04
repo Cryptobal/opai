@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updateGuardiaLifecycleSchema } from "@/lib/validations/ops";
-import { createOpsAuditLog, ensureOpsCapability, parseDateOnly } from "@/lib/ops";
+import { createOpsAuditLog, ensureOpsCapability, parseDateOnly, toISODate } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { lifecycleToLegacyStatus, normalizeNullable } from "@/lib/personas";
 
@@ -81,6 +81,22 @@ export async function PATCH(
           createdBy: ctx.userId,
         },
       });
+
+      // Log a separate "rehired" event for clear visibility in history
+      if (isRecontratar) {
+        await tx.opsGuardiaHistory.create({
+          data: {
+            tenantId: ctx.tenantId,
+            guardiaId: id,
+            eventType: "rehired",
+            newValue: {
+              effectiveAt: body.effectiveAt ?? toISODate(effectiveAt),
+            },
+            reason: `Recontratación desde ${body.effectiveAt ?? toISODate(effectiveAt)}`,
+            createdBy: ctx.userId,
+          },
+        });
+      }
 
       return guardia;
     });
