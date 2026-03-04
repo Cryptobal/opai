@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Plus, Trash2, Download, X, Info } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { MapPin, Plus, Trash2, Download, X } from "lucide-react";
 import QRCode from "qrcode";
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +128,15 @@ export function CheckpointMapCreator({
   const [draftCritical, setDraftCritical] = useState(false);
   const [saving, setSaving] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 767px)");
+    setIsMobile(m.matches);
+    const on = () => setIsMobile(m.matches);
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -421,10 +431,88 @@ export function CheckpointMapCreator({
 
   const activeCheckpoints = checkpoints.filter((cp) => cp.isActive);
 
+  const creationFormContent = (
+    <>
+      <div className="text-[11px] text-muted-foreground">
+        {draftLat != null && draftLng != null
+          ? `${draftLat.toFixed(6)}, ${draftLng.toFixed(6)}`
+          : "Selecciona punto en el mapa"}
+      </div>
+
+      <div className="space-y-2">
+        <Input
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          placeholder="Nombre del checkpoint"
+          className="h-9 text-sm"
+          autoFocus={!isMobile}
+        />
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Verificación</label>
+          <div className="flex gap-1">
+            {VERIFICATION_TYPES.map((vt) => (
+              <button
+                key={vt.value}
+                type="button"
+                onClick={() => setDraftVerificationType(vt.value)}
+                className={`flex-1 rounded border px-2 py-2 text-xs transition-colors touch-manipulation ${
+                  draftVerificationType === vt.value
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground hover:border-border/60"
+                }`}
+              >
+                {vt.icon} {vt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+            Radio geocerca: {draftRadius}m
+          </label>
+          <input
+            type="range"
+            min={10}
+            max={500}
+            step={5}
+            value={draftRadius}
+            onChange={(e) => setDraftRadius(Number(e.target.value))}
+            className="w-full accent-primary touch-manipulation"
+          />
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>10m</span>
+            <span>500m</span>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm cursor-pointer touch-manipulation min-h-[44px]">
+          <input
+            type="checkbox"
+            checked={draftCritical}
+            onChange={(e) => setDraftCritical(e.target.checked)}
+            className="rounded w-4 h-4"
+          />
+          <span>⚠ Checkpoint crítico</span>
+        </label>
+      </div>
+
+      <Button
+        type="button"
+        className="w-full h-11 text-base touch-manipulation"
+        onClick={handleSave}
+        disabled={saving || !draftName.trim() || draftLat == null}
+      >
+        {saving ? "Guardando..." : "Crear checkpoint"}
+      </Button>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -457,21 +545,33 @@ export function CheckpointMapCreator({
               {downloadingQr ? "Generando..." : "Descargar QRs"}
             </Button>
           )}
-          <span className="text-xs text-muted-foreground">
-            Click en el mapa para agregar checkpoint
-          </span>
+          {!isMobile && (
+            <span className="text-xs text-muted-foreground">
+              Click en el mapa para agregar checkpoint
+            </span>
+          )}
         </div>
       </div>
 
       {/* Map + Side Panel layout */}
-      <div className="flex gap-3">
-        {/* Map */}
+      <div className={`flex gap-3 ${isMobile ? "flex-col" : "flex-row"}`}>
+        {/* Map - full width on mobile, taller for touch */}
         <div className="flex-1 min-w-0">
-          <div ref={mapContainerRef} className="h-[480px] w-full rounded-lg border border-border" />
+          <div
+            ref={mapContainerRef}
+            className={`w-full rounded-lg border border-border ${
+              isMobile ? "min-h-[50vh] h-[55vh]" : "h-[480px]"
+            }`}
+          />
+          {isMobile && !isCreating && (
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Toca el mapa para agregar un checkpoint
+            </p>
+          )}
         </div>
 
-        {/* Creation Panel (when placing a new checkpoint) */}
-        {isCreating && (
+        {/* Desktop: creation panel as sidebar */}
+        {isCreating && !isMobile && (
           <div className="w-72 shrink-0 rounded-lg border border-amber-500/30 bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
@@ -482,83 +582,28 @@ export function CheckpointMapCreator({
                 <X className="h-4 w-4" />
               </button>
             </div>
-
-            <div className="text-[11px] text-muted-foreground">
-              {draftLat != null && draftLng != null
-                ? `${draftLat.toFixed(6)}, ${draftLng.toFixed(6)}`
-                : "Selecciona punto en el mapa"}
-            </div>
-
-            <div className="space-y-2">
-              <Input
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                placeholder="Nombre del checkpoint"
-                className="h-8 text-sm"
-                autoFocus
-              />
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Verificación</label>
-                <div className="flex gap-1">
-                  {VERIFICATION_TYPES.map((vt) => (
-                    <button
-                      key={vt.value}
-                      type="button"
-                      onClick={() => setDraftVerificationType(vt.value)}
-                      className={`flex-1 rounded border px-2 py-1.5 text-[11px] transition-colors ${
-                        draftVerificationType === vt.value
-                          ? "border-primary/40 bg-primary/10 text-foreground"
-                          : "border-border text-muted-foreground hover:border-border/60"
-                      }`}
-                    >
-                      {vt.icon} {vt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  Radio geocerca: {draftRadius}m
-                </label>
-                <input
-                  type="range"
-                  min={10}
-                  max={500}
-                  step={5}
-                  value={draftRadius}
-                  onChange={(e) => setDraftRadius(Number(e.target.value))}
-                  className="w-full accent-primary"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>10m</span>
-                  <span>500m</span>
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draftCritical}
-                  onChange={(e) => setDraftCritical(e.target.checked)}
-                  className="rounded"
-                />
-                <span>⚠ Checkpoint crítico</span>
-              </label>
-            </div>
-
-            <Button
-              type="button"
-              className="w-full h-9"
-              onClick={handleSave}
-              disabled={saving || !draftName.trim() || draftLat == null}
-            >
-              {saving ? "Guardando..." : "Crear checkpoint"}
-            </Button>
+            {creationFormContent}
           </div>
         )}
       </div>
+
+      {/* Mobile: bottom sheet with form */}
+      <Sheet open={isCreating && isMobile} onOpenChange={(open) => !open && cancelDraft()}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-h-[85vh] overflow-y-auto pb-8"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="flex items-center gap-1.5">
+              <Plus className="h-4 w-4 text-amber-500" />
+              Nuevo checkpoint
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-3 pt-4">
+            {creationFormContent}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Checkpoint List */}
       {checkpoints.length > 0 && (
