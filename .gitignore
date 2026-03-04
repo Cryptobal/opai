@@ -52,3 +52,4 @@ gard-docs/
 .claude/
 node_modules_bad_1771520600/
 .next_old/
+.worktrees/
