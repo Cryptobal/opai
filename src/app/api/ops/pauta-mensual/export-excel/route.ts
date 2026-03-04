@@ -19,6 +19,8 @@ const SHIFT_LABELS: Record<string, string> = {
   V: "V",
   L: "L",
   P: "P",
+  PCG: "PCG",
+  PSG: "PSG",
 };
 
 const SHIFT_FILLS: Record<string, string> = {
@@ -27,6 +29,8 @@ const SHIFT_FILLS: Record<string, string> = {
   V: "DCFCE7",
   L: "FEF3C7",
   P: "FFEDD5",
+  PCG: "FEF3C7",
+  PSG: "FFEDD5",
 };
 
 const EXEC_BADGE: Record<ExecutionState, string> = {

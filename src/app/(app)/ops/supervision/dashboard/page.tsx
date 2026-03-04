@@ -5,8 +5,6 @@ import { PageHeader } from "@/components/opai";
 import { SupervisionDashboardEnhanced } from "@/components/supervision/SupervisionDashboardEnhanced";
 import { SupervisionReportes } from "@/components/supervision/SupervisionReportes";
 import { getPeriodBounds, PERIOD_OPTIONS } from "@/lib/supervision-periods";
-import { NotesProvider } from "@/components/notes";
-
 export default async function SupervisionDashboardPage({
   searchParams,
 }: {
@@ -29,33 +27,25 @@ export default async function SupervisionDashboardPage({
   const canViewAll = hasCapability(perms, "supervision_view_all");
 
   return (
-    <NotesProvider
-      contextType="SUPERVISION"
-      contextId="supervision-module"
-      contextLabel="Supervisión"
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-4 min-w-0">
-        <PageHeader title="Dashboard" description="KPIs, tendencias y reportes consolidados." />
+    <div className="space-y-4 min-w-0">
+      <PageHeader title="Dashboard" description="KPIs, tendencias y reportes consolidados." />
 
-        <SupervisionDashboardEnhanced
-          periodLabel={periodLabel}
-          periodOptions={PERIOD_OPTIONS}
-          canViewAll={canViewAll}
-          dateFrom={dateFrom.toISOString().slice(0, 10)}
-          dateTo={dateTo.toISOString().slice(0, 10)}
-        />
+      <SupervisionDashboardEnhanced
+        periodLabel={periodLabel}
+        periodOptions={PERIOD_OPTIONS}
+        canViewAll={canViewAll}
+        dateFrom={dateFrom.toISOString().slice(0, 10)}
+        dateTo={dateTo.toISOString().slice(0, 10)}
+      />
 
-        {/* Reportes consolidados */}
-        <SupervisionReportes
-          periodLabel={periodLabel}
-          periodOptions={PERIOD_OPTIONS}
-          canViewAll={canViewAll}
-          dateFrom={dateFrom.toISOString().slice(0, 10)}
-          dateTo={dateTo.toISOString().slice(0, 10)}
-        />
-      </div>
-    </NotesProvider>
+      {/* Reportes consolidados */}
+      <SupervisionReportes
+        periodLabel={periodLabel}
+        periodOptions={PERIOD_OPTIONS}
+        canViewAll={canViewAll}
+        dateFrom={dateFrom.toISOString().slice(0, 10)}
+        dateTo={dateTo.toISOString().slice(0, 10)}
+      />
+    </div>
   );
 }

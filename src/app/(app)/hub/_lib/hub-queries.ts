@@ -506,7 +506,7 @@ export async function getOpsMetrics(
         tenantId,
         OR: [
           { plannedGuardiaId: null, shiftCode: { not: '-' } },
-          { shiftCode: { in: ['V', 'L', 'P'] } },
+          { shiftCode: { in: ['V', 'L', 'P', 'PCG', 'PSG'] } },
         ],
       },
     }),

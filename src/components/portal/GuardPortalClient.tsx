@@ -26,7 +26,9 @@ import {
   Check,
   X,
   ChevronDown,
+  MessageCircle,
 } from "lucide-react";
+import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -58,6 +60,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   Ticket: <Ticket className="h-5 w-5" />,
   CalendarDays: <CalendarDays className="h-5 w-5" />,
   User: <User className="h-5 w-5" />,
+  MessageCircle: <MessageCircle className="h-5 w-5" />,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -135,6 +138,16 @@ export function GuardPortalClient() {
         )}
         {activeSection === "resultados" && (
           <ResultadosSection session={session} onBack={() => setActiveSection("inicio")} />
+        )}
+        {activeSection === "chat" && session.currentInstallationId && (
+          <ChatGuardSection session={session} />
+        )}
+        {activeSection === "chat" && !session.currentInstallationId && (
+          <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+            <MessageCircle className="h-12 w-12 text-zinc-600 mb-3" />
+            <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
+            <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
+          </div>
         )}
       </main>
 

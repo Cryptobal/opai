@@ -15,8 +15,6 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
-import { NotesProvider } from "@/components/notes";
-
 export default async function HistorialPage() {
   const session = await auth();
   if (!session?.user) {
@@ -238,14 +236,7 @@ export default async function HistorialPage() {
   };
 
   return (
-    <NotesProvider
-      contextType="SUPERVISION"
-      contextId="supervision-module"
-      contextLabel="Supervisión"
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-6 min-w-0">
+    <div className="space-y-6 min-w-0">
       <PageHeader
         title="Historial de visitas"
         description={canViewAll ? "Todas las visitas registradas, KPIs y sugerencias de ruta." : "Tu historial, KPIs personales y sugerencias de ruta."}
@@ -440,7 +431,6 @@ export default async function HistorialPage() {
           )}
         </CardContent>
       </Card>
-      </div>
-    </NotesProvider>
+    </div>
   );
 }

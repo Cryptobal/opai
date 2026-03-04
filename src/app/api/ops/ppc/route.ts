@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
           OR: [
             { plannedGuardiaId: null, shiftCode: null },
             { plannedGuardiaId: null, shiftCode: { notIn: ["-"] } },
-            { shiftCode: { in: ["V", "L", "P"] } },
+            { shiftCode: { in: ["V", "L", "P", "PCG", "PSG"] } },
           ],
         },
         include: {
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
           ? "vacaciones"
           : item.shiftCode === "L"
             ? "licencia"
-            : item.shiftCode === "P"
+            : (item.shiftCode === "P" || item.shiftCode === "PCG" || item.shiftCode === "PSG")
               ? "permiso"
               : "sin_guardia";
       byReason[reason] = (byReason[reason] || 0) + 1;

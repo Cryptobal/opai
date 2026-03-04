@@ -9,8 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { CrmContactDetailClient } from "@/components/crm/CrmContactDetailClient";
-import { NotesProvider } from "@/components/notes";
-
 export default async function CrmContactDetailPage({
   params,
 }: {
@@ -173,26 +171,18 @@ export default async function CrmContactDetailPage({
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
   return (
-    <NotesProvider
-      contextType="CONTACT"
-      contextId={id}
-      contextLabel={fullName || "Contacto"}
+    <CrmContactDetailClient
+      contact={data}
+      deals={initialDeals}
+      installations={initialInstallations}
+      quotes={initialQuotes}
+      activityEvents={JSON.parse(JSON.stringify(activityEvents))}
+      pipelineStages={initialPipelineStages}
+      gmailConnected={!!gmailAccount}
+      docTemplatesMail={initialDocTemplatesMail}
+      docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
+      initialEmailCount={initialEmailCount}
       currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <CrmContactDetailClient
-        contact={data}
-        deals={initialDeals}
-        installations={initialInstallations}
-        quotes={initialQuotes}
-        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
-        pipelineStages={initialPipelineStages}
-        gmailConnected={!!gmailAccount}
-        docTemplatesMail={initialDocTemplatesMail}
-        docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
-        initialEmailCount={initialEmailCount}
-        currentUserId={session.user.id}
-      />
-    </NotesProvider>
+    />
   );
 }

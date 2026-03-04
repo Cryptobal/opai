@@ -183,6 +183,36 @@ export async function PATCH(
       return updatedInstallation;
     });
 
+    // Auto-manage chat channel when chatEnabled changes
+    if (payload.chatEnabled !== undefined) {
+      if (payload.chatEnabled) {
+        // Create or reactivate channel
+        const existingChannel = await prisma.chatChannel.findUnique({
+          where: { installationId: id },
+        });
+        if (existingChannel) {
+          await prisma.chatChannel.update({
+            where: { id: existingChannel.id },
+            data: { isActive: true, name: installation.name },
+          });
+        } else {
+          await prisma.chatChannel.create({
+            data: {
+              tenantId: ctx.tenantId,
+              installationId: id,
+              name: installation.name,
+            },
+          });
+        }
+      } else {
+        // Deactivate channel
+        await prisma.chatChannel.updateMany({
+          where: { installationId: id },
+          data: { isActive: false },
+        });
+      }
+    }
+
     revalidatePath(`/crm/installations`);
     revalidatePath(`/crm/installations/${id}`);
     if (installation.accountId) {

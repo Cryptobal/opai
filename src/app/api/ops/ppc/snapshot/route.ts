@@ -24,7 +24,7 @@ export async function POST() {
           OR: [
             { plannedGuardiaId: null, shiftCode: null },
             { plannedGuardiaId: null, shiftCode: { notIn: ["-"] } },
-            { shiftCode: { in: ["V", "L", "P"] } },
+            { shiftCode: { in: ["V", "L", "P", "PCG", "PSG"] } },
           ],
         },
         select: {
@@ -61,7 +61,7 @@ export async function POST() {
           ? "vacaciones"
           : row.shiftCode === "L"
             ? "licencia"
-            : row.shiftCode === "P"
+            : (row.shiftCode === "P" || row.shiftCode === "PCG" || row.shiftCode === "PSG")
               ? "permiso"
               : "sin_guardia";
       byReason[reason] = (byReason[reason] || 0) + 1;

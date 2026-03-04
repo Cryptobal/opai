@@ -6,8 +6,9 @@ import {
 } from "recharts";
 import {
   Shield, TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, XCircle,
-  Clock, Download, Loader2, LogOut, ChevronDown,
+  Clock, Download, Loader2, LogOut, ChevronDown, MessageCircle,
 } from "lucide-react";
+import { ChatClienteSection } from "@/components/portales/ChatClienteSection";
 import { cn } from "@/lib/utils";
 
 /* ── Types ── */
@@ -18,6 +19,7 @@ interface ClienteSession {
   accountId: string;
   accountName: string;
   firstName: string;
+  lastName?: string;
   installations: Array<{ id: string; name: string }>;
 }
 
@@ -92,6 +94,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export function PortalClienteClient() {
   const [session, setSession] = useState<ClienteSession | null>(null);
   const [screen, setScreen] = useState<"login" | "dashboard">("login");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "chat">("dashboard");
 
   /* ── Login state ── */
   const [rut, setRut] = useState("");
@@ -236,9 +239,9 @@ export function PortalClienteClient() {
 
   /* ══════════════════════════════════════ DASHBOARD ══════════════════════════════════════ */
   return (
-    <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+    <div className="min-h-dvh flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-teal-400" />
           <div>
@@ -247,7 +250,7 @@ export function PortalClienteClient() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {session && session.installations.length > 1 && (
+          {session && session.installations.length > 1 && activeTab === "dashboard" && (
             <div className="relative">
               <select
                 value={installationId}
@@ -261,12 +264,42 @@ export function PortalClienteClient() {
               <ChevronDown className="absolute right-2 top-2 h-3.5 w-3.5 pointer-events-none text-zinc-400" />
             </div>
           )}
-          <button onClick={() => { setSession(null); setScreen("login"); }} className="p-2 rounded hover:bg-white/5 transition-colors">
+          <button onClick={() => { setSession(null); setScreen("login"); setActiveTab("dashboard"); }} className="p-2 rounded hover:bg-white/5 transition-colors">
             <LogOut className="h-4 w-4 text-zinc-400" />
           </button>
         </div>
       </header>
 
+      {/* Tab bar */}
+      <div className="flex border-b border-zinc-800/50 bg-zinc-900/30">
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-medium transition-colors border-b-2",
+            activeTab === "dashboard" ? "border-teal-500 text-teal-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+        >
+          <Shield className="h-4 w-4" />
+          Dashboard
+        </button>
+        <button
+          onClick={() => setActiveTab("chat")}
+          className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-medium transition-colors border-b-2",
+            activeTab === "chat" ? "border-teal-500 text-teal-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+        >
+          <MessageCircle className="h-4 w-4" />
+          Chat
+        </button>
+      </div>
+
+      {/* Chat tab */}
+      {activeTab === "chat" && session && (
+        <div className="flex-1">
+          <ChatClienteSection session={session} />
+        </div>
+      )}
+
+      {/* Dashboard tab */}
+      {activeTab === "dashboard" && (
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 sm:py-6">
       {installationId && instName && (
         <p className="text-sm text-zinc-300 mb-4 font-medium">{instName}</p>
       )}
@@ -378,6 +411,8 @@ export function PortalClienteClient() {
           <footer className="text-center text-[10px] text-zinc-600 pt-4 pb-8">
             Powered by Gard Security · Última actualización: {new Date().toLocaleString("es-CL")}
           </footer>
+        </div>
+      )}
         </div>
       )}
     </div>

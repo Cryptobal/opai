@@ -67,7 +67,7 @@ export function calculateRondaTrustScore(input: {
   let sequenceScore = 100;
   if (template.orderMode === "strict" && templateCheckpoints && sorted.length > 1) {
     const expectedOrder = [...templateCheckpoints].sort((a, b) => a.orderIndex - b.orderIndex);
-    const actualOrder = sorted.map(m => m.checkpointId);
+    const actualOrder = sorted.map(m => m.checkpointId).filter((id): id is string => id != null);
     let matches = 0;
     for (let i = 0; i < Math.min(actualOrder.length, expectedOrder.length); i++) {
       if (actualOrder[i] === expectedOrder[i].checkpointId) matches++;

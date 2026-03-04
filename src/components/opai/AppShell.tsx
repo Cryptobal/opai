@@ -12,6 +12,7 @@ import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
+import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
 import {
   DropdownMenu,
@@ -108,127 +109,127 @@ export function AppShell({
 
   const mobileSidebar = isValidElement(sidebar)
     ? cloneElement(
-        sidebar as ReactElement<{
-          className?: string;
-          onNavigate?: () => void;
-          onToggleSidebar?: () => void;
-          isSidebarOpen?: boolean;
-          showCloseButton?: boolean;
-          onClose?: () => void;
-        }>,
-        {
-          className: cn(
-            (sidebar as ReactElement<{ className?: string }>).props.className,
-            'z-50 transition-transform duration-300 ease-out',
-            'top-0 h-[100dvh] max-h-[100dvh]',
-            isMobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
-          ),
-          onNavigate: () => setIsMobileOpen(false),
-          onToggleSidebar: () => setIsSidebarOpen((o) => !o),
-          isSidebarOpen: true,
-          showCloseButton: isMobileOpen,
-          onClose: () => setIsMobileOpen(false),
-        }
-      )
+      sidebar as ReactElement<{
+        className?: string;
+        onNavigate?: () => void;
+        onToggleSidebar?: () => void;
+        isSidebarOpen?: boolean;
+        showCloseButton?: boolean;
+        onClose?: () => void;
+      }>,
+      {
+        className: cn(
+          (sidebar as ReactElement<{ className?: string }>).props.className,
+          'z-50 transition-transform duration-300 ease-out',
+          'top-0 h-[100dvh] max-h-[100dvh]',
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+        ),
+        onNavigate: () => setIsMobileOpen(false),
+        onToggleSidebar: () => setIsSidebarOpen((o) => !o),
+        isSidebarOpen: true,
+        showCloseButton: isMobileOpen,
+        onClose: () => setIsMobileOpen(false),
+      }
+    )
     : sidebar;
 
   return (
     <CommandPaletteProvider>
-    <div className="relative min-h-screen overflow-x-hidden">
-      {/* ── Mobile topbar (fixed como la barra inferior) ── */}
-      {sidebar && (
-        <header
-          className="fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between border-b border-border/60 bg-card/95 py-2 shadow-sm backdrop-blur lg:hidden"
-          style={{
-            paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
-            paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
-            paddingTop: 'env(safe-area-inset-top)',
-          }}
-        >
-          <div className="flex shrink-0 items-center gap-2">
-            <Link href="/hub" className="flex items-center gap-2 hover:opacity-80">
-              <ThemeLogo width={28} height={28} className="h-7 w-7" />
-              <span className="text-sm font-semibold tracking-tight">OPAI</span>
-            </Link>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                  aria-label="Crear nuevo"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
-                {MOBILE_CREATE_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <DropdownMenuItem
-                      key={item.label}
-                      onClick={() => {
-                        if (item.navigateHref) {
-                          router.push(item.navigateHref);
-                        } else if (item.type) {
-                          setMobileCreateType(item.type);
-                        }
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Icon className="h-4 w-4 mr-2" />
-                      {item.label}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="flex min-w-0 items-center justify-end gap-1.5">
-            <Link
-              href="/opai/configuracion"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-              aria-label="Configuración"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-            <ThemeToggle compact />
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-              onClick={() => setIsMobileSearchOpen(true)}
-              aria-label="Buscar"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={handleMobileRefresh}
-              disabled={isRefreshing}
-              aria-label="Actualizar pantalla"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              type="button"
-              className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-              onClick={() => setIsMobileOpen(true)}
-              aria-label="Abrir menú"
-            >
-              <Menu className="h-5 w-5" />
-              {notificationUnreadCount > 0 && (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
-              )}
-            </button>
-          </div>
-        </header>
-      )}
+      <div className="relative min-h-screen overflow-x-hidden">
+        {/* ── Mobile topbar (fixed como la barra inferior) ── */}
+        {sidebar && (
+          <header
+            className="fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between border-b border-border/60 bg-card/95 py-2 shadow-sm backdrop-blur lg:hidden"
+            style={{
+              paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
+              paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
+              paddingTop: 'env(safe-area-inset-top)',
+            }}
+          >
+            <div className="flex shrink-0 items-center gap-2">
+              <Link href="/hub" className="flex items-center gap-2 hover:opacity-80">
+                <ThemeLogo width={28} height={28} className="h-7 w-7" />
+                <span className="text-sm font-semibold tracking-tight">OPAI</span>
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                    aria-label="Crear nuevo"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  {MOBILE_CREATE_ITEMS.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.label}
+                        onClick={() => {
+                          if (item.navigateHref) {
+                            router.push(item.navigateHref);
+                          } else if (item.type) {
+                            setMobileCreateType(item.type);
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Icon className="h-4 w-4 mr-2" />
+                        {item.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex min-w-0 items-center justify-end gap-1.5">
+              <Link
+                href="/opai/configuracion"
+                className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+                aria-label="Configuración"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+              <ThemeToggle compact />
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+                onClick={() => setIsMobileSearchOpen(true)}
+                aria-label="Buscar"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleMobileRefresh}
+                disabled={isRefreshing}
+                aria-label="Actualizar pantalla"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                type="button"
+                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+                onClick={() => setIsMobileOpen(true)}
+                aria-label="Abrir menú"
+              >
+                <Menu className="h-5 w-5" />
+                {notificationUnreadCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+                )}
+              </button>
+            </div>
+          </header>
+        )}
 
-      {/* ── Desktop sidebar (solo iconos, colapsado permanente) ── */}
-      {sidebar && (
-        <div className="hidden lg:block">
-          {isValidElement(sidebar)
-            ? cloneElement(
+        {/* ── Desktop sidebar (solo iconos, colapsado permanente) ── */}
+        {sidebar && (
+          <div className="hidden lg:block">
+            {isValidElement(sidebar)
+              ? cloneElement(
                 sidebar as ReactElement<{
                   onToggleSidebar?: () => void;
                   isSidebarOpen?: boolean;
@@ -237,82 +238,84 @@ export function AppShell({
                   isSidebarOpen: false,
                 }
               )
-            : sidebar}
-        </div>
-      )}
-
-      {/* ── Mobile drawer overlay ── */}
-      {sidebar && (
-        <div className={cn('lg:hidden', isMobileOpen ? 'pointer-events-auto' : 'pointer-events-none')}>
-          <div
-            className={cn(
-              'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
-              isMobileOpen ? 'opacity-100' : 'opacity-0'
-            )}
-            onClick={() => setIsMobileOpen(false)}
-            aria-hidden="true"
-          />
-          {/* Sidebar móvil: de arriba a abajo (anclado arriba), X arriba */}
-          <div
-            className="fixed left-0 top-0 z-50 w-[320px] max-w-[88vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
-            style={{ pointerEvents: isMobileOpen ? 'auto' : 'none' }}
-          >
-            {mobileSidebar}
+              : sidebar}
           </div>
-        </div>
-      )}
-
-      {/* ── Mobile search overlay ── */}
-      {isMobileSearchOpen && (
-        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <GlobalSearch compact className="flex-1" onNavigate={() => setIsMobileSearchOpen(false)} />
-            <button
-              type="button"
-              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => setIsMobileSearchOpen(false)}
-              aria-label="Cerrar búsqueda"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Main content ── */}
-      <div
-        className={cn(
-          'transition-[padding] duration-200 ease-out min-w-0 w-full',
-          'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
-          isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
-          className
         )}
-      >
-        {/* Topbar actions desktop — búsqueda + tema + avatar */}
-        <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0">
-          <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
-        </div>
-        <main className="flex-1 min-w-0 w-full">
-          <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
-            {children}
+
+        {/* ── Mobile drawer overlay ── */}
+        {sidebar && (
+          <div className={cn('lg:hidden', isMobileOpen ? 'pointer-events-auto' : 'pointer-events-none')}>
+            <div
+              className={cn(
+                'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
+                isMobileOpen ? 'opacity-100' : 'opacity-0'
+              )}
+              onClick={() => setIsMobileOpen(false)}
+              aria-hidden="true"
+            />
+            {/* Sidebar móvil: de arriba a abajo (anclado arriba), X arriba */}
+            <div
+              className="fixed left-0 top-0 z-50 w-[320px] max-w-[88vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
+              style={{ pointerEvents: isMobileOpen ? 'auto' : 'none' }}
+            >
+              {mobileSidebar}
+            </div>
           </div>
-        </main>
+        )}
+
+        {/* ── Mobile search overlay ── */}
+        {isMobileSearchOpen && (
+          <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <GlobalSearch compact className="flex-1" onNavigate={() => setIsMobileSearchOpen(false)} />
+              <button
+                type="button"
+                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => setIsMobileSearchOpen(false)}
+                aria-label="Cerrar búsqueda"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Main content ── */}
+        <div
+          className={cn(
+            'transition-[padding] duration-200 ease-out min-w-0 w-full',
+            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
+            isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
+            className
+          )}
+        >
+          {/* Topbar actions desktop — búsqueda + tema + avatar */}
+          <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0">
+            <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
+          </div>
+          {/* Simulation Banner — visible when simulating a different role */}
+          <SimulationBanner />
+          <main className="flex-1 min-w-0 w-full">
+            <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
+              {children}
+            </div>
+          </main>
+        </div>
+
+        {/* ── Bottom Nav (mobile) ── */}
+        <BottomNav userRole={userRole} />
+
+        {/* ── Command Palette ── */}
+        <CommandPalette userRole={userRole} />
+
+        {/* ── Asistente IA ── */}
+        <AiHelpChatWidget />
+
+        {/* ── Mobile Quick Create Modal ── */}
+        {mobileCreateType && (
+          <QuickCreateModal type={mobileCreateType} onClose={() => setMobileCreateType(null)} />
+        )}
       </div>
-
-      {/* ── Bottom Nav (mobile) ── */}
-      <BottomNav userRole={userRole} />
-
-      {/* ── Command Palette ── */}
-      <CommandPalette userRole={userRole} />
-
-      {/* ── Asistente IA ── */}
-      <AiHelpChatWidget />
-
-      {/* ── Mobile Quick Create Modal ── */}
-      {mobileCreateType && (
-        <QuickCreateModal type={mobileCreateType} onClose={() => setMobileCreateType(null)} />
-      )}
-    </div>
     </CommandPaletteProvider>
   );
 }

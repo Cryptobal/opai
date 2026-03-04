@@ -101,6 +101,24 @@ export async function PATCH(
       updatedAt: group.updatedAt.toISOString(),
     };
 
+    // Sync chat channel name and active status
+    try {
+      const chatChannel = await prisma.chatChannel.findFirst({
+        where: { groupId: id, channelType: "GROUP" },
+      });
+      if (chatChannel) {
+        await prisma.chatChannel.update({
+          where: { id: chatChannel.id },
+          data: {
+            name: group.name,
+            isActive: group.isActive,
+          },
+        });
+      }
+    } catch (chatErr) {
+      console.error("[GROUPS] Error syncing chat channel:", chatErr);
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("[GROUPS] Error updating group:", error);
@@ -139,6 +157,16 @@ export async function DELETE(
       });
     } else {
       await prisma.adminGroup.delete({ where: { id } });
+    }
+
+    // Deactivate associated chat channel
+    try {
+      await prisma.chatChannel.updateMany({
+        where: { groupId: id, channelType: "GROUP" },
+        data: { isActive: false },
+      });
+    } catch (chatErr) {
+      console.error("[GROUPS] Error deactivating chat channel:", chatErr);
     }
 
     return NextResponse.json({ success: true, data: { id, deleted: true } });

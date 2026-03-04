@@ -32,9 +32,13 @@ import {
   BookText,
   Inbox,
   ClipboardList,
+  Monitor,
+  MessageCircle,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
+import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
+import { ChatFloatingProvider } from '@/components/chat/ChatFloatingProvider';
 
 interface AppLayoutClientProps {
   children: ReactNode;
@@ -42,28 +46,43 @@ interface AppLayoutClientProps {
   userEmail?: string;
   userRole: string;
   permissions: RolePermissions;
+  currentUserId?: string;
 }
 
-export function AppLayoutClient({
+export function AppLayoutClient(props: AppLayoutClientProps) {
+  return (
+    <RoleSimulationProvider realRole={props.userRole} realPermissions={props.permissions}>
+      <AppLayoutClientInner {...props} />
+    </RoleSimulationProvider>
+  );
+}
+
+function AppLayoutClientInner({
   children,
   userName,
   userEmail,
   userRole,
-  permissions,
+  permissions: realPermissions,
+  currentUserId,
 }: AppLayoutClientProps) {
+  const { isSimulating, effectiveRole, effectivePermissions } = useRoleSimulation();
+  // Use simulated permissions when active, otherwise real permissions
+  const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
   const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
+  const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
 
   const fetchUnreadCounters = useCallback(() => {
     Promise.all([
       fetch('/api/notifications?limit=1').then((r) => r.json()),
       fetch('/api/notifications?limit=1&types=mention,mention_direct,mention_group').then((r) => r.json()),
       fetch('/api/notes/unread-counts', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/chat/unread-counts', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([allData, noteData, unreadCounts]) => {
+      .then(([allData, noteData, unreadCounts, chatCounts]) => {
         if (allData?.success && typeof allData?.meta?.unreadCount === 'number') {
           setNotificationUnreadCount(allData.meta.unreadCount);
         }
@@ -73,6 +92,9 @@ export function AppLayoutClient({
         if (unreadCounts?.success && unreadCounts?.data?.byModule) {
           setNotesByModule(unreadCounts.data.byModule);
           setActivityUnreadTotal(typeof unreadCounts.data.total === 'number' ? unreadCounts.data.total : 0);
+        }
+        if (chatCounts?.success && typeof chatCounts?.data?.total === 'number') {
+          setChatUnreadTotal(chatCounts.data.total);
         }
       })
       .catch(() => { });
@@ -107,11 +129,11 @@ export function AppLayoutClient({
       show: hasModuleAccess(permissions, 'hub'),
     },
     {
-      href: '/opai/actividad',
-      label: 'Actividad',
-      icon: Inbox,
+      href: '/chat',
+      label: 'Chat',
+      icon: MessageCircle,
       show: true,
-      badge: activityUnreadTotal,
+      badge: chatUnreadTotal,
     },
     {
       href: '/opai/notificaciones',
@@ -208,23 +230,32 @@ export function AppLayoutClient({
         { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
       ],
     },
-  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, activityUnreadTotal]);
+    // ── Portales (solo owner/admin) ──
+    {
+      href: '/portales',
+      label: 'Portales',
+      icon: Monitor,
+      show: isAdmin,
+    },
+  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
 
   return (
-    <AppShell
-      sidebar={
-        <AppSidebar
-          navItems={navItems}
-          userName={userName ?? undefined}
-          userEmail={userEmail ?? undefined}
-        />
-      }
-      userName={userName ?? undefined}
-      userEmail={userEmail ?? undefined}
-      userRole={userRole}
-      notificationUnreadCount={notificationUnreadCount}
-    >
-      {children}
-    </AppShell>
+    <ChatFloatingProvider currentUserId={currentUserId ?? ''}>
+      <AppShell
+        sidebar={
+          <AppSidebar
+            navItems={navItems}
+            userName={userName ?? undefined}
+            userEmail={userEmail ?? undefined}
+          />
+        }
+        userName={userName ?? undefined}
+        userEmail={userEmail ?? undefined}
+        userRole={userRole}
+        notificationUnreadCount={notificationUnreadCount}
+      >
+        {children}
+      </AppShell>
+    </ChatFloatingProvider>
   );
 }

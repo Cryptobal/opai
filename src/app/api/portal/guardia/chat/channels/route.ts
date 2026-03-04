@@ -1,0 +1,150 @@
+/**
+ * API Route: /api/portal/guardia/chat/channels
+ * GET — List channels for the guard's current installation(s).
+ *        Includes installation name, account name, and unread count.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getGuardSession } from "@/lib/portal-chat-auth";
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = getGuardSession(request);
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Find the guard's current installation and active assignments
+    const guardia = await prisma.opsGuardia.findUnique({
+      where: { id: session.guardiaId },
+      select: {
+        currentInstallationId: true,
+        asignaciones: {
+          where: { isActive: true },
+          select: { installationId: true },
+        },
+      },
+    });
+
+    if (!guardia) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Collect all installation IDs the guard has access to
+    const installationIds = new Set<string>();
+    if (guardia.currentInstallationId) {
+      installationIds.add(guardia.currentInstallationId);
+    }
+    for (const a of guardia.asignaciones) {
+      installationIds.add(a.installationId);
+    }
+
+    if (installationIds.size === 0) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        meta: { total: 0 },
+      });
+    }
+
+    const channels = await prisma.chatChannel.findMany({
+      where: {
+        tenantId: session.tenantId,
+        isActive: true,
+        installationId: { in: Array.from(installationIds) },
+      },
+      orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
+      include: {
+        installation: {
+          select: {
+            id: true,
+            name: true,
+            account: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Fetch read cursors for this guard in one query
+    const channelIds = channels.map((ch) => ch.id);
+
+    const readCursors = await prisma.chatReadCursor.findMany({
+      where: {
+        channelId: { in: channelIds },
+        readerType: "GUARD",
+        readerId: session.guardiaId,
+      },
+      select: {
+        channelId: true,
+        lastReadAt: true,
+      },
+    });
+
+    const cursorMap = new Map(
+      readCursors.map((c) => [c.channelId, c.lastReadAt])
+    );
+
+    // Compute unread counts per channel
+    const unreadCounts = await Promise.all(
+      channels.map(async (ch) => {
+        const lastReadAt = cursorMap.get(ch.id);
+        const count = await prisma.chatMessage.count({
+          where: {
+            channelId: ch.id,
+            deletedAt: null,
+            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+          },
+        });
+        return { channelId: ch.id, count };
+      })
+    );
+
+    const unreadMap = new Map(
+      unreadCounts.map((u) => [u.channelId, u.count])
+    );
+
+    const data = channels.map((ch) => ({
+      id: ch.id,
+      tenantId: ch.tenantId,
+      installationId: ch.installationId,
+      name: ch.name,
+      isActive: ch.isActive,
+      lastMessageAt: ch.lastMessageAt?.toISOString() ?? null,
+      lastMessagePreview: ch.lastMessagePreview,
+      messageCount: ch.messageCount,
+      createdAt: ch.createdAt.toISOString(),
+      updatedAt: ch.updatedAt.toISOString(),
+      installation: ch.installation
+        ? {
+            id: ch.installation.id,
+            name: ch.installation.name,
+            account: ch.installation.account
+              ? { id: ch.installation.account.id, name: ch.installation.account.name }
+              : null,
+          }
+        : undefined,
+      unreadCount: unreadMap.get(ch.id) ?? 0,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      data,
+      meta: { total: data.length },
+    });
+  } catch (err: any) {
+    console.error("[Portal Guardia] Error listing chat channels:", err);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}

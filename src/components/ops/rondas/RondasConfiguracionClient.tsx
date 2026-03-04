@@ -257,9 +257,12 @@ export function RondasConfiguracionClient({
           }}
           onDelete={async (id) => {
             const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, { method: "DELETE" });
+            const json = await res.json().catch(() => ({}));
             if (res.ok) {
               setCheckpoints((prev) => prev.filter((c) => c.id !== id));
-              toast.success("Eliminado");
+              toast.success("Checkpoint eliminado");
+            } else {
+              toast.error(json?.error ?? "No se pudo eliminar el checkpoint");
             }
           }}
         />

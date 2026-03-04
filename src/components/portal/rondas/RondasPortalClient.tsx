@@ -9,8 +9,9 @@ import { RondaCompletada } from "./RondaCompletada";
 import { CheckpointMarker } from "./CheckpointMarker";
 import type { CheckpointInfo, MarcarResult } from "./CheckpointMarker";
 import { InstallBanner } from "./InstallBanner";
+import { ChatRondasSection } from "./ChatRondasSection";
 
-export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "marcar" | "completada";
+export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "marcar" | "completada" | "chat";
 
 export interface RondasSession {
   guardiaId: string;
@@ -247,6 +248,24 @@ export function RondasPortalClient() {
           missed={completionData.missed}
           onBackToRondas={handleBackToRondas}
         />
+      )}
+
+      {screen === "chat" && session && (
+        <ChatRondasSection
+          session={session}
+          onBack={() => setScreen("mis-rondas")}
+        />
+      )}
+
+      {/* Chat FAB - only show when logged in and not in chat */}
+      {session && screen !== "login" && screen !== "chat" && (
+        <button
+          onClick={() => setScreen("chat")}
+          className="fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg hover:bg-blue-500 transition-colors"
+          aria-label="Abrir chat"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+        </button>
       )}
 
       <InstallBanner />

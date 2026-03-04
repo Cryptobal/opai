@@ -10,8 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VisitaDetailActions } from "@/components/supervision/VisitaDetailActions";
 import { PhotoGallery } from "@/components/supervision/PhotoGallery";
-import { NotesProvider } from "@/components/notes";
-
 const STATUS_LABELS: Record<string, string> = {
   in_progress: "En progreso",
   completed: "Completada",
@@ -160,13 +158,6 @@ export default async function VisitaSupervisionDetailPage({
   const ratings = (visit.ratings as Record<string, number> | null) ?? null;
 
   return (
-    <NotesProvider
-      contextType="SUPERVISION_VISIT"
-      contextId={id}
-      contextLabel={`Visita ${visit.installation.name}`}
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
     <div className="space-y-6 min-w-0">
       <PageHeader
         title={`Visita ${visit.installation.name}`}
@@ -422,6 +413,5 @@ export default async function VisitaSupervisionDetailPage({
         </CardContent>
       </Card>
     </div>
-    </NotesProvider>
   );
 }

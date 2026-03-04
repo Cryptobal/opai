@@ -56,6 +56,7 @@ export default async function AppLayout({
         userEmail={dbUser?.email ?? session.user?.email}
         userRole={session.user.role}
         permissions={permissions}
+        currentUserId={session.user.id}
       >
         {children}
       </AppLayoutClient>
