@@ -11,7 +11,6 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  // Main nav
   Grid3x3,
   FileText,
   Building2,
@@ -23,42 +22,26 @@ import {
   Landmark,
   BookText,
   ClipboardCheck,
-  // CRM
   Users,
   User,
   MapPin,
   TrendingUp,
   Contact,
   DollarSign,
-  // Ops
   Activity,
   CalendarDays,
-  Clock3,
-  UserRoundCheck,
-  ShieldAlert,
-  Fingerprint,
   Route,
-  Radio,
   Moon,
   Ticket,
   Package,
-  Shirt,
-  Warehouse,
-  Layers,
-  Smartphone,
-  // TE
   CheckCircle2,
   Banknote,
   Wallet,
-  // Personas
-  Shield,
-  // Docs
+  Layers,
   FolderOpen,
-  // Config
   Plug,
   Bell,
   Sparkles,
-  Brain,
 } from "lucide-react";
 import {
   type RolePermissions,
@@ -102,43 +85,15 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
 ];
 
-/* ── Ops sub-items ── */
+/* ── Ops sub-items (alineados con sidebar) ── */
 
-/* Pauta: Mensual, Diaria, Turnos Extra, Refuerzo, PPC agrupados */
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, subKey: "pauta_mensual" },
-  { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Pauta Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
-  { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Pauta Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
-  { key: "ops-turnos-extra", href: "/ops/turnos-extra", label: "Turnos Extra", icon: Receipt, subKey: "turnos_extra" },
-  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Turnos Refuerzo", icon: Clock3, subKey: "turnos_extra" },
-  { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
-  { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
-  { key: "ops-audit-pautas", href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
+  { key: "ops-pautas", href: "/ops/pautas", label: "Pautas", icon: CalendarDays, subKey: "pautas" },
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
+  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Control Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
-];
-
-const RONDAS_ITEMS: BottomNavItem[] = [
-  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
-  { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
-  { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
-  { key: "rondas-config", href: "/ops/rondas/configuracion", label: "Config", icon: Settings },
-  { key: "rondas-reportes", href: "/ops/rondas/reportes", label: "Reportes", icon: BarChart3 },
-  { key: "rondas-ia", href: "/ops/rondas/centro-ia", label: "Centro IA", icon: Brain },
-];
-
-const INVENTARIO_ITEMS: BottomNavItem[] = [
-  { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3 },
-  { key: "inv-dashboard", href: "/ops/inventario", label: "Inventario", icon: Package },
-  { key: "inv-productos", href: "/ops/inventario/productos", label: "Productos", icon: Shirt },
-  { key: "inv-bodegas", href: "/ops/inventario/bodegas", label: "Bodegas", icon: Warehouse },
-  { key: "inv-compras", href: "/ops/inventario/compras", label: "Compras", icon: Receipt },
-  { key: "inv-entregas", href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
-  { key: "inv-stock", href: "/ops/inventario/stock", label: "Stock", icon: Layers },
-  { key: "inv-activos", href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
 ];
 
 /* ── TE sub-items ── */
@@ -209,15 +164,6 @@ interface ModuleDetection {
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
   {
-    test: (p) => p.startsWith("/ops/rondas"),
-    getItems: () => RONDAS_ITEMS,
-  },
-  {
-    test: (p) => p.startsWith("/ops/inventario"),
-    getItems: (perms) =>
-      INVENTARIO_ITEMS.filter((item) => canView(perms, "ops", "inventario")),
-  },
-  {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
     getItems: (perms) =>
       CRM_ITEMS.filter((item) => canView(perms, "crm", item.subKey)),
@@ -225,7 +171,17 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) => p === "/ops" || p.startsWith("/ops/"),
     getItems: (perms) =>
-      OPS_ITEMS.filter((item) => canView(perms, "ops", item.subKey)),
+      OPS_ITEMS.filter((item) => {
+        if (item.subKey === "pautas") {
+          return (
+            canView(perms, "ops", "pauta_mensual") ||
+            canView(perms, "ops", "pauta_diaria") ||
+            canView(perms, "ops", "turnos_extra") ||
+            canView(perms, "ops", "ppc")
+          );
+        }
+        return canView(perms, "ops", item.subKey);
+      }),
   },
   {
     test: (p) => p === "/te" || p.startsWith("/te/"),
