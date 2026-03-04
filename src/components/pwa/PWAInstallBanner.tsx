@@ -23,6 +23,7 @@ export function PWAInstallBanner({
 
   useEffect(() => {
     if (!dismissKey) return;
+    setDismissed(false);
     const stored = localStorage.getItem(`pwa-dismiss-${dismissKey}`);
     if (stored) {
       const dismissedAt = new Date(stored);

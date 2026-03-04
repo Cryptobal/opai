@@ -132,6 +132,9 @@ module.exports = {
         'normal': '200ms',
         'emphasis': '300ms',
       },
+      padding: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
     },
   },
   plugins: [
