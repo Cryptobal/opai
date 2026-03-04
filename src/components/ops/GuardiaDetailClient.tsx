@@ -579,10 +579,10 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     },
     ...(hasInventarioAccess
       ? [{
-          id: "uniformes",
-          label: "Uniformes",
-          content: <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />,
-        }]
+        id: "uniformes",
+        label: "Uniformes",
+        content: <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />,
+      }]
       : []),
     {
       id: "sueldo",
@@ -596,10 +596,10 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     },
     ...(personaAdminId
       ? [{
-          id: "rendiciones",
-          label: "Rendiciones",
-          content: <PersonaRendicionesTab adminId={personaAdminId} />,
-        }]
+        id: "rendiciones",
+        label: "Rendiciones",
+        content: <PersonaRendicionesTab adminId={personaAdminId} />,
+      }]
       : []),
     {
       id: "comunicacion",
@@ -644,6 +644,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 </a>
               </>
             )}
+            {puedeRecontratar && (
+              <button
+                type="button"
+                onClick={() => { setRecontratarDate(new Date().toISOString().slice(0, 10)); setRecontratarModalOpen(true); }}
+                className="relative group/rc inline-flex h-8 w-8 items-center justify-center rounded-md border border-emerald-600/30 bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 transition-colors"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="absolute hidden group-hover/rc:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-md border border-border bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300 shadow-lg z-50 pointer-events-none">
+                  Recontratar guardia
+                </span>
+              </button>
+            )}
             {canManageGuardias && (
               <Button variant="outline" size="sm" className="h-8 w-8 px-0 border-[#1a2332] bg-[#111822]" onClick={openEditPersonal} title="Editar datos">
                 <Pencil className="h-4 w-4" />
@@ -656,17 +668,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {canChangeLifecycle && getLifecycleTransitions(guardia.lifecycleStatus).map((status) => (
+                {canChangeLifecycle && guardia.lifecycleStatus !== "inactivo" && getLifecycleTransitions(guardia.lifecycleStatus).map((status) => (
                   <DropdownMenuItem key={status} onClick={() => void handleLifecycleChange(status)} disabled={lifecycleChanging}>
                     {lifecycleChanging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : null}
                     Cambiar a {LIFECYCLE_LABELS[status] || status}
                   </DropdownMenuItem>
                 ))}
-                {puedeRecontratar && (
-                  <DropdownMenuItem onClick={() => { setRecontratarDate(new Date().toISOString().slice(0, 10)); setRecontratarModalOpen(true); }}>
-                    <UserPlus className="h-3.5 w-3.5 mr-2" />Recontratar guardia
-                  </DropdownMenuItem>
-                )}
                 {canManageGuardias && (
                   <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => void handleEliminar()}>
                     <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar guardia
