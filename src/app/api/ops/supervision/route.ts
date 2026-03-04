@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
       // $queryRawUnsafe + $N::uuid: Prisma.sql/CAST no funcionan bien con params en Vercel.
       const now = new Date();
       const startedVia = body.startedVia ?? "ops_supervision";
-      const rows = await prisma.$queryRawUnsafe<
+      const rows = await prisma.$queryRaw<
         Array<{
           id: string;
           tenant_id: string;
@@ -238,29 +238,31 @@ export async function POST(request: NextRequest) {
           started_via: string | null;
           created_at: Date;
         }>
-      >(
-        `INSERT INTO ops.visitas_supervision (
+      >`
+        INSERT INTO ops.visitas_supervision (
           tenant_id, supervisor_id, installation_id,
           check_in_at, check_in_lat, check_in_lng,
           check_in_geo_validada, check_in_distancia_m,
           status, started_via, created_at, updated_at
         )
-        VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, 'in_progress', $9, $10, $11)
+        VALUES (
+          ${ctx.tenantId},
+          ${ctx.userId},
+          CAST(${body.installationId} AS uuid),
+          ${now},
+          ${body.lat},
+          ${body.lng},
+          ${checkInGeoValidada},
+          ${checkInDistanciaM},
+          'in_progress',
+          ${startedVia},
+          ${now},
+          ${now}
+        )
         RETURNING id, tenant_id, supervisor_id, installation_id,
           check_in_at, check_in_geo_validada, check_in_distancia_m,
-          status, started_via, created_at`,
-        ctx.tenantId,
-        ctx.userId,
-        body.installationId,
-        now,
-        body.lat,
-        body.lng,
-        checkInGeoValidada,
-        checkInDistanciaM,
-        startedVia,
-        now,
-        now,
-      );
+          status, started_via, created_at
+      `;
       const row = rows[0];
       if (!row) throw new Error("INSERT returned no rows");
 
