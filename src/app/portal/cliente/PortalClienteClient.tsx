@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
+import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
   Shield, Loader2, LogOut, ChevronDown,
 } from "lucide-react";
@@ -217,6 +218,14 @@ export function PortalClienteClient() {
 
       {/* Main content */}
       <main className="flex-1 pb-20">
+        {session && (
+          <PushPermissionPrompt
+            portalType="cliente"
+            userType="contact"
+            userId={session.contactId}
+            tenantId={session.tenantId}
+          />
+        )}
         {renderSection()}
       </main>
 

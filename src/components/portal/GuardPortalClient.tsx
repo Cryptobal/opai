@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
+import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -121,6 +122,12 @@ export function GuardPortalClient() {
 
       {/* Active section content */}
       <main className="flex-1 overflow-y-auto pb-20 px-4 sm:px-6">
+        <PushPermissionPrompt
+          portalType="guardia"
+          userType="guardia"
+          userId={session.guardiaId}
+          tenantId={session.tenantId}
+        />
         {activeSection === "inicio" && (
           <InicioSection session={session} onNavigate={setActiveSection} />
         )}
