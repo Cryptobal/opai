@@ -454,86 +454,79 @@ export function CheckpointMarker({
   }
 
   // ------------------------------------------------------------------
-  // Render: Main screen
+  // Render: Bottom sheet
   // ------------------------------------------------------------------
   return (
-    <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#0a0a0f" }}>
-      {/* ============ Header ============ */}
-      <header
-        className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
-        style={{ backgroundColor: "#0a0a0f" }}
-      >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 rounded-lg bg-gray-800 px-3 py-2 text-base text-gray-300 transition-colors hover:bg-gray-700 active:bg-gray-600"
-            style={{ minHeight: 44 }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver
-          </button>
-          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-white">
-            {checkpoint.name}
-          </h1>
-        </div>
-      </header>
+    <>
+      <style>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
 
-      {/* ============ Content ============ */}
-      <main className="flex-1 space-y-5 px-4 pb-8 pt-5">
-        {/* ---- GPS Status ---- */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
-          <div className="flex items-start gap-3">
-            {/* GPS icon */}
-            <div className="mt-0.5 shrink-0">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-6 w-6 ${
-                  gpsStatus === "loading"
-                    ? "animate-pulse text-yellow-400"
-                    : gpsStatus === "success"
-                      ? "text-teal-400"
-                      : "text-red-400"
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-medium text-gray-200">
-                GPS:{" "}
-                {gpsStatus === "loading" && (
-                  <span className="text-yellow-400">Obteniendo...</span>
-                )}
-                {gpsStatus === "success" && (
-                  <span className="text-teal-400">Listo</span>
-                )}
-                {gpsStatus === "error" && (
-                  <span className="text-red-400">Error</span>
-                )}
-              </p>
+      <div className="fixed inset-0 z-50 flex items-end">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/50" onClick={onBack} />
+
+        {/* Sheet */}
+        <div className="relative w-full max-h-[75vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+          {/* Drag handle */}
+          <div className="flex justify-center py-3 sticky top-0 bg-zinc-900 z-10">
+            <div className="w-10 h-1 bg-zinc-600 rounded-full" />
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4 px-4 pb-8">
+            {/* ---- Checkpoint name ---- */}
+            <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
+
+            {/* ---- GPS Status ---- */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+              <div className="flex items-center gap-3">
+                {/* GPS icon */}
+                <div className="shrink-0">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 ${
+                      gpsStatus === "loading"
+                        ? "animate-pulse text-yellow-400"
+                        : gpsStatus === "success"
+                          ? "text-teal-400"
+                          : "text-red-400"
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  {gpsStatus === "loading" && (
+                    <span className="text-sm text-yellow-400">Obteniendo...</span>
+                  )}
+                  {gpsStatus === "success" && (
+                    <span className="text-sm text-teal-400">Listo</span>
+                  )}
+                  {gpsStatus === "error" && (
+                    <span className="text-sm text-red-400">Error</span>
+                  )}
+                </div>
+              </div>
 
               {gpsStatus === "error" && gpsError && (
                 <p className="mt-1 text-sm text-red-400">{gpsError}</p>
@@ -541,18 +534,12 @@ export function CheckpointMarker({
 
               {gpsStatus === "success" && distanceM != null && (
                 <p className="mt-1 text-sm">
-                  <span className="text-gray-400">Distancia: </span>
-                  <span
-                    className={
-                      withinRadius ? "font-medium text-teal-400" : "font-medium text-yellow-400"
-                    }
-                  >
-                    {distanceM < 1000
-                      ? `${Math.round(distanceM)}m`
-                      : `${(distanceM / 1000).toFixed(1)}km`}
-                  </span>
                   {withinRadius ? (
-                    <span className="ml-1.5 text-teal-400">
+                    <span className="font-medium text-teal-400">
+                      {distanceM < 1000
+                        ? `${Math.round(distanceM)}m`
+                        : `${(distanceM / 1000).toFixed(1)}km`}
+                      {" "}
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="ml-0.5 inline-block h-4 w-4"
@@ -565,8 +552,11 @@ export function CheckpointMarker({
                       </svg>
                     </span>
                   ) : (
-                    <span className="ml-1.5 text-sm text-yellow-400">
-                      (fuera del radio de {checkpoint.geoRadiusM}m)
+                    <span className="font-medium text-yellow-400">
+                      Estas a {distanceM < 1000
+                        ? `${Math.round(distanceM)}m`
+                        : `${(distanceM / 1000).toFixed(1)}km`}
+                      {" "}&mdash; radio: {checkpoint.geoRadiusM}m
                     </span>
                   )}
                 </p>
@@ -581,186 +571,186 @@ export function CheckpointMarker({
                 </button>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* ---- QR Status (only if required) ---- */}
-        {needsQr && (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
-            <div className="flex items-start gap-3">
-              {/* QR icon */}
-              <div className="mt-0.5 shrink-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-6 w-6 ${qrCode ? "text-teal-400" : "text-gray-500"}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                  />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-medium text-gray-200">
-                  QR:{" "}
-                  {qrCode ? (
-                    <span className="text-teal-400">
-                      Escaneado
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="ml-1 inline-block h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
+            {/* ---- QR Status (only if required) ---- */}
+            {needsQr && (
+              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+                <div className="flex items-center gap-3">
+                  {/* QR icon */}
+                  <div className="shrink-0">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-5 w-5 ${qrCode ? "text-teal-400" : "text-gray-500"}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-200">
+                      QR:{" "}
+                      {qrCode ? (
+                        <span className="text-teal-400">
+                          Escaneado
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="ml-1 inline-block h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Pendiente</span>
+                      )}
+                    </p>
+
+                    {!qrCode && (
+                      <button
+                        onClick={() => setShowQr(true)}
+                        className="mt-2 rounded-xl bg-teal-600/20 px-4 py-3 text-base font-medium text-teal-400 transition-colors hover:bg-teal-600/30 active:bg-teal-600/40"
+                        style={{ minHeight: 48 }}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">Pendiente</span>
-                  )}
-                </p>
-
-                {!qrCode && (
-                  <button
-                    onClick={() => setShowQr(true)}
-                    className="mt-2 rounded-xl bg-teal-600/20 px-4 py-3 text-base font-medium text-teal-400 transition-colors hover:bg-teal-600/30 active:bg-teal-600/40"
-                    style={{ minHeight: 48 }}
-                  >
-                    Escanear QR
-                  </button>
-                )}
+                        Escanear QR
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* ---- Photo ---- */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
-          {photoPreview ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-base font-medium text-gray-200">Foto Evidencia</p>
+            {/* ---- Photo ---- */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+              {photoPreview ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-base font-medium text-gray-200">Foto Evidencia</p>
+                    <button
+                      onClick={removePhoto}
+                      className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-gray-700"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                  <img
+                    src={photoPreview}
+                    alt="Evidencia"
+                    className="h-40 w-full rounded-xl object-cover"
+                  />
+                </div>
+              ) : (
                 <button
-                  onClick={removePhoto}
-                  className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-gray-700"
+                  onClick={() => setShowCamera(true)}
+                  className="flex w-full items-center gap-3 rounded-xl bg-gray-800/50 px-4 py-4 text-left transition-colors hover:bg-gray-800 active:bg-gray-700"
+                  style={{ minHeight: 56 }}
                 >
-                  Eliminar
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6 shrink-0 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span className="text-base text-gray-300">Agregar Foto</span>
                 </button>
-              </div>
-              <img
-                src={photoPreview}
-                alt="Evidencia"
-                className="h-40 w-full rounded-xl object-cover"
+              )}
+            </div>
+
+            {/* ---- Notes ---- */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+              <label htmlFor="checkpoint-note" className="mb-2 block text-base font-medium text-gray-200">
+                Notas (opcional)
+              </label>
+              <textarea
+                id="checkpoint-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Observaciones del punto..."
+                rows={3}
+                maxLength={500}
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
               />
             </div>
-          ) : (
+
+            {/* ---- Error ---- */}
+            {submitError && (
+              <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
+                {submitError}
+              </div>
+            )}
+
+            {/* ---- Submit Button ---- */}
             <button
-              onClick={() => setShowCamera(true)}
-              className="flex w-full items-center gap-3 rounded-xl bg-gray-800/50 px-4 py-4 text-left transition-colors hover:bg-gray-800 active:bg-gray-700"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
               style={{ minHeight: 56 }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 shrink-0 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span className="text-base text-gray-300">Agregar Foto</span>
+              {submitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="h-5 w-5 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Registrando...
+                </span>
+              ) : (
+                "Confirmar Marcacion"
+              )}
             </button>
-          )}
-        </div>
 
-        {/* ---- Notes ---- */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
-          <label htmlFor="checkpoint-note" className="mb-2 block text-base font-medium text-gray-200">
-            Notas (opcional)
-          </label>
-          <textarea
-            id="checkpoint-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Observaciones del punto..."
-            rows={3}
-            maxLength={500}
-            className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
-          />
-        </div>
-
-        {/* ---- Error ---- */}
-        {submitError && (
-          <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
-            {submitError}
+            {/* ---- Disabled reason hint ---- */}
+            {!canSubmit && !submitting && (
+              <p className="text-center text-sm text-gray-500">
+                {gpsStatus !== "success" && "Esperando ubicacion GPS"}
+                {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
+              </p>
+            )}
           </div>
-        )}
-
-        {/* ---- Submit Button ---- */}
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
-          style={{ minHeight: 56 }}
-        >
-          {submitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg
-                className="h-5 w-5 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Registrando...
-            </span>
-          ) : (
-            "Confirmar Marcacion"
-          )}
-        </button>
-
-        {/* ---- Disabled reason hint ---- */}
-        {!canSubmit && !submitting && (
-          <p className="text-center text-sm text-gray-500">
-            {gpsStatus !== "success" && "Esperando ubicacion GPS"}
-            {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
-          </p>
-        )}
-      </main>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
