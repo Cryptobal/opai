@@ -198,8 +198,29 @@ export async function PATCH(
             guardiaId: id,
             eventType: "lifecycle_changed",
             previousValue: { lifecycleStatus: prevLifecycle },
-            newValue: { lifecycleStatus: nextLifecycle },
+            newValue: { lifecycleStatus: nextLifecycle, from: prevLifecycle, to: nextLifecycle },
             reason: normalizeNullable(body.terminationReason),
+            createdBy: ctx.userId,
+          },
+        });
+      }
+
+      // Log personal data changes
+      const personalFields = [
+        "firstName", "lastName", "rut", "email", "phoneMobile", "sex", "nacionalidad",
+        "birthDate", "afp", "healthSystem", "isapreName", "isapreHasExtraPercent",
+        "isapreExtraPercent", "hasMobilization", "addressFormatted", "commune", "city",
+        "region", "regimenPrevisional", "tipoPension", "isJubilado", "cotizaAFP",
+        "cotizaAFC", "cotizaSalud", "availableExtraShifts",
+      ];
+      const changedFields = personalFields.filter((f) => (body as Record<string, unknown>)[f] !== undefined);
+      if (changedFields.length > 0) {
+        await tx.opsGuardiaHistory.create({
+          data: {
+            tenantId: ctx.tenantId,
+            guardiaId: id,
+            eventType: "personal_data_updated",
+            newValue: { changedFields },
             createdBy: ctx.userId,
           },
         });

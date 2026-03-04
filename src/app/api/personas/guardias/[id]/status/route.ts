@@ -71,7 +71,12 @@ export async function PATCH(
           guardiaId: id,
           eventType: "lifecycle_changed",
           previousValue: { lifecycleStatus: existing.lifecycleStatus },
-          newValue: { lifecycleStatus: body.lifecycleStatus },
+          newValue: {
+            lifecycleStatus: body.lifecycleStatus,
+            from: existing.lifecycleStatus,
+            to: body.lifecycleStatus,
+            effectiveAt: body.effectiveAt ?? undefined,
+          },
           reason: terminationReason,
           createdBy: ctx.userId,
         },
