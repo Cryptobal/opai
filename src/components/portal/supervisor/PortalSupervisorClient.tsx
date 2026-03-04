@@ -7,6 +7,11 @@ import { PortalSupervisorNav, SupervisorSection } from "./PortalSupervisorNav";
 import { SupervisorDashboard } from "./SupervisorDashboard";
 import { SupervisorInstalaciones } from "./SupervisorInstalaciones";
 import { SupervisorInstalacionDetail } from "./SupervisorInstalacionDetail";
+import { SupervisorVisitas } from "./SupervisorVisitas";
+import { SupervisorVisitaWizard } from "./SupervisorVisitaWizard";
+import { SupervisorPautas } from "./SupervisorPautas";
+import { SupervisorMiEquipo } from "./SupervisorMiEquipo";
+import { SupervisorNovedadRapida } from "./SupervisorNovedadRapida";
 
 export function PortalSupervisorClient() {
   const [session, setSession] = useState<SupervisorSession | null>(null);
@@ -17,6 +22,8 @@ export function PortalSupervisorClient() {
   const [selectedInstallation, setSelectedInstallation] = useState<SupervisorInstallation | null>(
     null
   );
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [activeInstallationId, setActiveInstallationId] = useState<string | undefined>();
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -51,10 +58,7 @@ export function PortalSupervisorClient() {
             {error ?? "No tienes instalaciones asignadas como supervisor."}
           </p>
         </div>
-        <a
-          href="/opai/login"
-          className="text-sm text-blue-400 underline underline-offset-2"
-        >
+        <a href="/opai/login" className="text-sm text-blue-400 underline underline-offset-2">
           Iniciar sesión con otra cuenta
         </a>
       </div>
@@ -67,9 +71,7 @@ export function PortalSupervisorClient() {
     switch (action) {
       case "nueva-visita":
         setActiveSection("visitas");
-        break;
-      case "novedad":
-        // TODO: open novedad FAB
+        setWizardOpen(true);
         break;
       case "turno-extra":
         setActiveSection("turnos-extra");
@@ -77,16 +79,19 @@ export function PortalSupervisorClient() {
       case "rendicion":
         setActiveSection("rendiciones");
         break;
+      // "novedad" is handled by FAB
     }
   }
 
   function handleInstallationAction(
     action: "nueva-visita" | "turno-extra" | "ticket" | "novedad",
-    _installationId: string
+    installationId: string
   ) {
+    setActiveInstallationId(installationId);
     switch (action) {
       case "nueva-visita":
         setActiveSection("visitas");
+        setWizardOpen(true);
         break;
       case "turno-extra":
         setActiveSection("turnos-extra");
@@ -94,9 +99,7 @@ export function PortalSupervisorClient() {
       case "ticket":
         setActiveSection("tickets");
         break;
-      case "novedad":
-        // TODO: open novedad FAB
-        break;
+      // "novedad" is handled by FAB
     }
     setSelectedInstallation(null);
   }
@@ -105,11 +108,24 @@ export function PortalSupervisorClient() {
     switch (activeSection) {
       case "dashboard":
         return (
-          <SupervisorDashboard
-            session={session!}
-            onAction={handleDashboardAction}
+          <SupervisorDashboard session={session!} onAction={handleDashboardAction} />
+        );
+
+      case "visitas":
+        return (
+          <SupervisorVisitas
+            onNewVisit={() => setWizardOpen(true)}
+            onSelectVisit={(_id) => {
+              // TODO: show visit detail
+            }}
           />
         );
+
+      case "pautas":
+        return <SupervisorPautas installations={session!.installations} />;
+
+      case "mi-equipo":
+        return <SupervisorMiEquipo installations={session!.installations} />;
 
       case "instalaciones":
         if (selectedInstallation) {
@@ -141,6 +157,7 @@ export function PortalSupervisorClient() {
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-white">
       <main className="pb-20">{renderSection()}</main>
+
       <PortalSupervisorNav
         active={activeSection}
         onChange={(s) => {
@@ -148,6 +165,28 @@ export function PortalSupervisorClient() {
           if (s !== "instalaciones") setSelectedInstallation(null);
         }}
       />
+
+      {/* Novedad FAB — available in all sections */}
+      <SupervisorNovedadRapida
+        installations={session.installations}
+        defaultInstallationId={
+          selectedInstallation?.id ?? activeInstallationId ?? session.installations[0]?.id
+        }
+      />
+
+      {/* Visit wizard — full-screen overlay */}
+      {wizardOpen && (
+        <SupervisorVisitaWizard
+          onClose={() => {
+            setWizardOpen(false);
+            setActiveSection("visitas");
+          }}
+          onComplete={() => {
+            setWizardOpen(false);
+            setActiveSection("visitas");
+          }}
+        />
+      )}
     </div>
   );
 }
