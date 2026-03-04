@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle } from "lucide-react";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ export type InstallationDetail = {
   geoRadiusM?: number;
   metadata?: Record<string, unknown> | null;
   nocturnoEnabled?: boolean;
+  chatEnabled?: boolean;
   startDate?: string | null;
   endDate?: string | null;
   puestosActivos?: Array<{
@@ -1731,6 +1732,42 @@ export function CrmInstallationDetailClient({
     }
   };
 
+  // ── Chat toggle ──
+  const [chatEnabled, setChatEnabled] = useState(installation.chatEnabled === true);
+  const [chatConfirmOpen, setChatConfirmOpen] = useState(false);
+  const [chatNextValue, setChatNextValue] = useState(false);
+  const [chatSaving, setChatSaving] = useState(false);
+
+  const openChatToggle = (nextVal: boolean) => {
+    setChatNextValue(nextVal);
+    setChatConfirmOpen(true);
+  };
+
+  const confirmChatToggle = async () => {
+    setChatSaving(true);
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatEnabled: chatNextValue }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar");
+      setChatEnabled(chatNextValue);
+      setChatConfirmOpen(false);
+      toast.success(
+        chatNextValue
+          ? "Chat habilitado para esta instalación"
+          : "Chat deshabilitado para esta instalación"
+      );
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error?.message || "Error al actualizar chat");
+    } finally {
+      setChatSaving(false);
+    }
+  };
+
   // ── Edit state ──
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -1915,6 +1952,31 @@ export function CrmInstallationDetailClient({
             <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
               }`}>
               <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${nocturnoEnabled ? "translate-x-4" : "translate-x-0"
+                }`} />
+            </div>
+          </button>
+        </div>
+        {/* Chat toggle */}
+        <div className="col-span-full">
+          <button
+            type="button"
+            onClick={() => openChatToggle(!chatEnabled)}
+            disabled={chatSaving}
+            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${chatEnabled
+                ? "border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/15"
+                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              }`}
+          >
+            <MessageCircle className={`h-4 w-4 shrink-0 ${chatEnabled ? "text-teal-400" : "text-muted-foreground"}`} />
+            <div className="flex-1 text-left">
+              <span className="font-medium">Chat de instalación</span>
+              <span className="ml-2 text-xs opacity-70">
+                {chatEnabled ? "Chat grupal habilitado" : "Chat grupal deshabilitado"}
+              </span>
+            </div>
+            <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${chatEnabled ? "bg-teal-500" : "bg-muted-foreground/30"
+              }`}>
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${chatEnabled ? "translate-x-4" : "translate-x-0"
                 }`} />
             </div>
           </button>
@@ -2444,6 +2506,21 @@ export function CrmInstallationDetailClient({
         loading={nocturnoSaving}
         loadingLabel="Guardando..."
         onConfirm={confirmNocturnoToggle}
+      />
+      <ConfirmDialog
+        open={chatConfirmOpen}
+        onOpenChange={setChatConfirmOpen}
+        title={chatNextValue ? "Habilitar chat" : "Deshabilitar chat"}
+        description={
+          chatNextValue
+            ? "Se creará un canal de chat grupal para esta instalación. Guardias, clientes y admins podrán comunicarse en tiempo real."
+            : "El canal de chat de esta instalación se desactivará. Los mensajes existentes se conservan."
+        }
+        confirmLabel={chatNextValue ? "Habilitar" : "Deshabilitar"}
+        variant="default"
+        loading={chatSaving}
+        loadingLabel="Guardando..."
+        onConfirm={confirmChatToggle}
       />
 
       {/* New Contact modal */}

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MapPin, Plus, Trash2, Download, X } from "lucide-react";
+import { MapPin, Plus, Trash2, Download, X, LocateFixed } from "lucide-react";
+import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
 import QRCode from "qrcode";
 
 /* ------------------------------------------------------------------ */
@@ -114,9 +115,15 @@ export function CheckpointMapCreator({
   const circlesRef = useRef<any[]>([]);
   const draftMarkerRef = useRef<any>(null);
   const draftCircleRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const userCircleRef = useRef<any>(null);
+  const hasAutocenteredRef = useRef(false);
 
   const [mapReady, setMapReady] = useState(false);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+
+  // Geolocation
+  const { position: geoPos, requestPermission } = useGeolocation(true, 5000);
 
   // New checkpoint draft state
   const [isCreating, setIsCreating] = useState(false);
@@ -254,7 +261,14 @@ export function CheckpointMapCreator({
         bounds.extend(new gm.LatLng(installationLat, installationLng));
       }
       map.fitBounds(bounds);
-      if (activeCheckpoints.length === 1) map.setZoom(17);
+      // Cap zoom: min 14 (~3km radius), max 17 for single checkpoints
+      const listener = gm.event.addListenerOnce(map, "idle", () => {
+        const z = map.getZoom();
+        if (z != null && z < 14) map.setZoom(14);
+        else if (activeCheckpoints.length === 1 && z != null && z > 17) map.setZoom(17);
+      });
+      // cleanup if effect re-runs before idle fires
+      return () => gm.event.removeListener(listener);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady, checkpoints]);
@@ -263,6 +277,58 @@ export function CheckpointMapCreator({
   useEffect(() => {
     if (mapRef.current) mapRef.current.setMapTypeId(mapType);
   }, [mapType]);
+
+  // Show user position as blue dot + auto-center on first fix
+  useEffect(() => {
+    if (!mapReady || !geoPos) return;
+    const w = window as unknown as { google?: { maps?: any } };
+    const gm = w.google?.maps;
+    const map = mapRef.current;
+    if (!gm || !map) return;
+
+    const pos = new gm.LatLng(geoPos.lat, geoPos.lng);
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setPosition(pos);
+      userCircleRef.current?.setCenter(pos);
+      userCircleRef.current?.setRadius(geoPos.accuracy);
+    } else {
+      userMarkerRef.current = new gm.Marker({
+        position: pos,
+        map,
+        icon: {
+          path: gm.SymbolPath.CIRCLE,
+          fillColor: "#4285F4",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+          scale: 8,
+        },
+        zIndex: 998,
+        clickable: false,
+      });
+      userCircleRef.current = new gm.Circle({
+        center: pos,
+        radius: geoPos.accuracy,
+        map,
+        fillColor: "#4285F4",
+        fillOpacity: 0.15,
+        strokeColor: "#4285F4",
+        strokeOpacity: 0.3,
+        strokeWeight: 1,
+        clickable: false,
+      });
+    }
+
+    // Auto-center on first fix when installation has no coords
+    if (!hasAutocenteredRef.current) {
+      hasAutocenteredRef.current = true;
+      if (installationLat == null || installationLng == null) {
+        map.panTo(pos);
+        map.setZoom(16);
+      }
+    }
+  }, [mapReady, geoPos, installationLat, installationLng]);
 
   // Place draft marker
   const placeDraftMarker = useCallback((lat: number, lng: number, gm?: any, map?: any) => {
@@ -556,13 +622,31 @@ export function CheckpointMapCreator({
       {/* Map + Side Panel layout */}
       <div className={`flex gap-3 ${isMobile ? "flex-col" : "flex-row"}`}>
         {/* Map - full width on mobile, taller for touch */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative">
           <div
             ref={mapContainerRef}
             className={`w-full rounded-lg border border-border ${
               isMobile ? "min-h-[50vh] h-[55vh]" : "h-[480px]"
             }`}
           />
+          {/* Locate me button */}
+          <button
+            type="button"
+            title="Mi ubicación"
+            className="absolute bottom-24 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            onClick={() => {
+              const map = mapRef.current;
+              if (!map) return;
+              if (geoPos) {
+                map.panTo({ lat: geoPos.lat, lng: geoPos.lng });
+                map.setZoom(17);
+              } else {
+                requestPermission();
+              }
+            }}
+          >
+            <LocateFixed className="h-5 w-5 text-gray-600" />
+          </button>
           {isMobile && !isCreating && (
             <p className="text-xs text-muted-foreground mt-2 text-center">
               Toca el mapa para agregar un checkpoint

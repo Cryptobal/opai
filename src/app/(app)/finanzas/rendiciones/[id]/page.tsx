@@ -9,8 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { RendicionDetail } from "@/components/finance/RendicionDetail";
-import { NotesProvider } from "@/components/notes";
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -149,28 +147,20 @@ export default async function RendicionDetailPage({ params }: PageProps) {
   };
 
   return (
-    <NotesProvider
-      contextType="RENDICION"
-      contextId={id}
-      contextLabel={`Rendición ${rendicion.code}`}
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-6 min-w-0">
-        <PageHeader
-          title={`Rendición ${rendicion.code}`}
-          description="Detalle de la rendición de gasto."
-        />
-        <RendicionDetail
-          rendicion={data}
-          permissions={{
-            canApprove: canApprove && isApprover,
-            canPay,
-            canEdit: canSubmit && isOwner,
-            isOwner,
-          }}
-        />
-      </div>
-    </NotesProvider>
+    <div className="space-y-6 min-w-0">
+      <PageHeader
+        title={`Rendición ${rendicion.code}`}
+        description="Detalle de la rendición de gasto."
+      />
+      <RendicionDetail
+        rendicion={data}
+        permissions={{
+          canApprove: canApprove && isApprover,
+          canPay,
+          canEdit: canSubmit && isOwner,
+          isOwner,
+        }}
+      />
+    </div>
   );
 }

@@ -215,6 +215,8 @@ export async function GET(request: NextRequest) {
       if (code === "V") return "shift-v";
       if (code === "L") return "shift-l";
       if (code === "P") return "shift-p";
+      if (code === "PCG") return "shift-pcg";
+      if (code === "PSG") return "shift-psg";
       return "shift-empty";
     };
 
@@ -283,6 +285,8 @@ export async function GET(request: NextRequest) {
     .shift-v { background: #dcfce7; color: #166534; }
     .shift-l { background: #fef3c7; color: #92400e; }
     .shift-p { background: #ffedd5; color: #9a3412; }
+    .shift-pcg { background: #fef3c7; color: #92400e; }
+    .shift-psg { background: #ffedd5; color: #9a3412; }
     .shift-empty { background: #ffffff; color: #94a3b8; }
     .badge { position: absolute; right: -1px; bottom: -1px; font-size: 7px; line-height: 1; padding: 1px 2px; border-radius: 3px; color: #fff; }
     .badge-asi { background: #16a34a; }
@@ -328,7 +332,8 @@ export async function GET(request: NextRequest) {
       <div class="legend-row"><span class="sw" style="background:#e5e7eb"></span>- = Descanso</div>
       <div class="legend-row"><span class="sw" style="background:#dcfce7"></span>V = Vacaciones</div>
       <div class="legend-row"><span class="sw" style="background:#fef3c7"></span>L = Licencia</div>
-      <div class="legend-row"><span class="sw" style="background:#ffedd5"></span>P = Permiso</div>
+      <div class="legend-row"><span class="sw" style="background:#fef3c7"></span>PCG = Permiso con goce</div>
+      <div class="legend-row"><span class="sw" style="background:#ffedd5"></span>PSG = Permiso sin goce</div>
     </div>
     <div>
       <h4>Ejecución real (badge)</h4>

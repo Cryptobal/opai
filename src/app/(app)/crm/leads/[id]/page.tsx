@@ -8,8 +8,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmLeadDetailClient } from "@/components/crm";
-import { NotesProvider } from "@/components/notes";
-
 export default async function CrmLeadDetailPage({
   params,
 }: {
@@ -35,16 +33,8 @@ export default async function CrmLeadDetailPage({
   const initialLead = JSON.parse(JSON.stringify(lead));
 
   return (
-    <NotesProvider
-      contextType="LEAD"
-      contextId={id}
-      contextLabel={lead.companyName || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Lead"}
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-4">
-        <CrmLeadDetailClient lead={initialLead} />
-      </div>
-    </NotesProvider>
+    <div className="space-y-4">
+      <CrmLeadDetailClient lead={initialLead} />
+    </div>
   );
 }

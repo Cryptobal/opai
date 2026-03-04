@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         puestoId: true,
         slotNumber: true,
         plannedGuardiaId: true,
+        replacementGuardiaId: true,
         installationId: true,
         puesto: {
           select: {
@@ -93,12 +94,12 @@ export async function GET(request: NextRequest) {
     const withLinkedTe =
       candidateGhostIds.length > 0
         ? await prisma.opsTurnoExtra.findMany({
-            where: {
-              asistenciaId: { in: candidateGhostIds },
-              status: { in: ["pending", "approved", "paid"] },
-            },
-            select: { asistenciaId: true },
-          })
+          where: {
+            asistenciaId: { in: candidateGhostIds },
+            status: { in: ["pending", "approved", "paid"] },
+          },
+          select: { asistenciaId: true },
+        })
         : [];
     const protectedIds = new Set(withLinkedTe.map((t) => t.asistenciaId).filter(Boolean));
     const ghostIds = candidateGhostIds.filter((id) => !protectedIds.has(id));
@@ -133,8 +134,8 @@ export async function GET(request: NextRequest) {
           puestoId: item.puestoId,
           slotNumber: item.slotNumber,
           date,
-          plannedGuardiaId: item.plannedGuardiaId,
-          attendanceStatus: item.plannedGuardiaId ? "pendiente" : "ppc",
+          plannedGuardiaId: item.replacementGuardiaId ?? item.plannedGuardiaId,
+          attendanceStatus: (item.replacementGuardiaId ?? item.plannedGuardiaId) ? "pendiente" : "ppc",
           createdBy: ctx.userId,
         })),
         skipDuplicates: true,
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
             date,
           },
           data: {
-            plannedGuardiaId: item.plannedGuardiaId,
+            plannedGuardiaId: item.replacementGuardiaId ?? item.plannedGuardiaId,
             plannedShiftStart: item.puesto.shiftStart,
             plannedShiftEnd: item.puesto.shiftEnd,
             plannedMinutes: computeAttendanceMetrics({
@@ -161,7 +162,8 @@ export async function GET(request: NextRequest) {
             }).plannedMinutes,
           },
         });
-        if (item.plannedGuardiaId != null) {
+        const effectivePlannedGuardiaId = item.replacementGuardiaId ?? item.plannedGuardiaId;
+        if (effectivePlannedGuardiaId != null) {
           // Hay guardia planificado: solo tocar status si la fila sigue en estado inicial
           await prisma.opsAsistenciaDiaria.updateMany({
             where: {
@@ -284,31 +286,31 @@ export async function GET(request: NextRequest) {
     const marcaciones =
       guardiaIds.length > 0 && instIds.length > 0
         ? await prisma.opsMarcacion.findMany({
-            where: {
-              tenantId: ctx.tenantId,
-              guardiaId: { in: guardiaIds },
-              installationId: { in: instIds },
-              timestamp: {
-                gte: new Date(date.getTime()),
-                lt: new Date(date.getTime() + 24 * 60 * 60 * 1000),
-              },
+          where: {
+            tenantId: ctx.tenantId,
+            guardiaId: { in: guardiaIds },
+            installationId: { in: instIds },
+            timestamp: {
+              gte: new Date(date.getTime()),
+              lt: new Date(date.getTime() + 24 * 60 * 60 * 1000),
             },
-            select: {
-              id: true,
-              guardiaId: true,
-              installationId: true,
-              tipo: true,
-              timestamp: true,
-              hashIntegridad: true,
-              geoValidada: true,
-              geoDistanciaM: true,
-              lat: true,
-              lng: true,
-              ipAddress: true,
-              userAgent: true,
-            },
-            orderBy: { timestamp: "asc" },
-          })
+          },
+          select: {
+            id: true,
+            guardiaId: true,
+            installationId: true,
+            tipo: true,
+            timestamp: true,
+            hashIntegridad: true,
+            geoValidada: true,
+            geoDistanciaM: true,
+            lat: true,
+            lng: true,
+            ipAddress: true,
+            userAgent: true,
+          },
+          orderBy: { timestamp: "asc" },
+        })
         : [];
 
     const marcacionesByKey = new Map<string, typeof marcaciones>();
@@ -338,9 +340,14 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("[OPS] Error listing asistencia:", error);
     return NextResponse.json(
-      { success: false, error: "No se pudo obtener la asistencia diaria" },
+      {
+        success: false,
+        error: "No se pudo obtener la asistencia diaria",
+        errorDetail: process.env.NODE_ENV === "development" ? message : undefined,
+      },
       { status: 500 }
     );
   }

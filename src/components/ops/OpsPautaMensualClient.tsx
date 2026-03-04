@@ -61,26 +61,9 @@ const SHIFT_COLORS: Record<string, string> = {
   V: "bg-green-800/30 text-green-400 border-green-600/30",
   L: "bg-yellow-800/30 text-yellow-400 border-yellow-600/30",
   P: "bg-orange-800/30 text-orange-400 border-orange-600/30",
+  PCG: "bg-amber-800/30 text-amber-400 border-amber-600/30",
+  PSG: "bg-orange-800/30 text-orange-400 border-orange-600/30",
   TE: "bg-rose-800/30 text-rose-400 border-rose-600/30",
-};
-
-const PAUTA_ACTIVITY_LABELS: Record<string, string> = {
-  "ops.pauta.generated": "Generó pauta mensual",
-  "ops.pauta.bulk_saved": "Guardó cambios masivos",
-  "ops.pauta.upsert": "Actualizó celda",
-  "ops.pauta.serie_painted": "Pintó serie fija",
-  "ops.pauta.serie_rotativa_painted": "Pintó serie rotativa",
-  "ops.pauta.eliminar_dia": "Eliminó día",
-  "ops.pauta.eliminar_serie": "Eliminó serie",
-  "ops.pauta.auto_sync_created": "Auto-sync creó filas",
-  "ops.pauta.auto_sync_projected": "Auto-sync proyectó series",
-  "ops.pauta.export_pdf": "Exportó PDF",
-  "ops.pauta.export_excel": "Exportó Excel",
-  "ops.refuerzo.created": "Creó refuerzo",
-  "ops.refuerzo.updated": "Actualizó refuerzo",
-  "ops.refuerzo.deleted": "Eliminó refuerzo",
-  "ops.refuerzo.post_api": "Refuerzo vía API",
-  "ops.refuerzos.export_csv": "Exportó refuerzos CSV",
 };
 
 /* ── types ─────────────────────────────────────── */
@@ -124,6 +107,20 @@ type PautaItem = {
     terminatedAt?: string | null;
     persona: { firstName: string; lastName: string; rut?: string | null };
   } | null;
+  replacementGuardiaId?: string | null;
+  replacementReason?: string | null;
+  guardEventId?: string | null;
+  replacementGuardia?: {
+    id: string;
+    persona: { firstName: string; lastName: string; rut?: string | null };
+  } | null;
+};
+
+type AbsenceInfo = {
+  eventId: string;
+  subtype: string;
+  startDate: string;
+  endDate: string;
 };
 
 type SerieInfo = {
@@ -174,16 +171,6 @@ type SlotAsignacion = {
 type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
 type ShiftType = "day" | "night" | "rotativo";
-
-type PautaActivityItem = {
-  id: string;
-  action: string;
-  entity: string;
-  entityId?: string | null;
-  details?: Record<string, unknown> | null;
-  userEmail?: string | null;
-  createdAt: string;
-};
 
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
@@ -245,20 +232,6 @@ function getCurrentWeekDays(monthDays: Date[]): Date[] {
 function buildPuestoDisplayName(puesto: { name: string; cargo?: { name: string } | null; puestoTrabajo?: { name: string } | null }): string {
   const parts = [puesto.cargo?.name, puesto.puestoTrabajo?.name].filter(Boolean);
   return parts.length > 0 ? parts.join(" - ") : puesto.name;
-}
-
-function formatPautaActivityDetails(details?: Record<string, unknown> | null): string[] {
-  if (!details || typeof details !== "object") return [];
-  const lines: string[] = [];
-  if (typeof details.installationName === "string") lines.push(`Instalación: ${details.installationName}`);
-  if (details.month != null && details.year != null) lines.push(`Periodo: ${details.month}/${details.year}`);
-  if (details.rowCount != null) lines.push(`Filas: ${details.rowCount}`);
-  if (details.generatedRows != null) lines.push(`Generadas: ${details.generatedRows}`);
-  if (details.cellCount != null) lines.push(`Celdas: ${details.cellCount}`);
-  if (details.seriesCount != null) lines.push(`Series: ${details.seriesCount}`);
-  if (details.puestoId && details.slotNumber) lines.push(`Puesto: ${details.puestoId} · Slot S${details.slotNumber}`);
-  if (details.date) lines.push(`Fecha: ${String(details.date).slice(0, 10)}`);
-  return lines;
 }
 
 function timeAgo(date: Date): string {
@@ -350,11 +323,10 @@ export function OpsPautaMensualClient({
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
-  const [activityItems, setActivityItems] = useState<PautaActivityItem[]>([]);
-  const [activityLoading, setActivityLoading] = useState(false);
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
   const [allPuestos, setAllPuestos] = useState<PuestoInfo[]>([]);
   const [holidayDates, setHolidayDates] = useState<Map<string, string>>(new Map());
+  const [absencesByGuardia, setAbsencesByGuardia] = useState<Record<string, AbsenceInfo[]>>({});
 
   // View mode: month on desktop (>=768px), week on mobile; sync on resize
   const [viewMode, setViewMode] = useState<"week" | "month">(() => {
@@ -413,6 +385,22 @@ export function OpsPautaMensualClient({
 
   // Puestos contraíbles: Set de puestoIds colapsados
   const [collapsedPuestos, setCollapsedPuestos] = useState<Set<string>>(new Set());
+
+  // Assign replacement modal
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignForm, setAssignForm] = useState({
+    puestoId: "",
+    puestoName: "",
+    slotNumber: 1,
+    guardEventId: "",
+    startDate: "",
+    endDate: "",
+    replacementGuardiaId: "",
+    replacementReason: "",
+    guardiaName: "",
+  });
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [availableGuardias, setAvailableGuardias] = useState<{ id: string, name: string, rut?: string | null }[]>([]);
 
   // Último sync exitoso + tick para refrescar timeAgo
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
@@ -504,6 +492,8 @@ export function OpsPautaMensualClient({
               if (d2.asignaciones) setSlotAsignaciones(d2.asignaciones as SlotAsignacion[]);
               setExecutionByCell((d2.executionByCell || {}) as Record<string, ExecutionCell>);
               if (d2.allPuestos) setAllPuestos(d2.allPuestos as PuestoInfo[]);
+              if (d2.absencesByGuardia) setAbsencesByGuardia(d2.absencesByGuardia as Record<string, AbsenceInfo[]>);
+              else setAbsencesByGuardia({});
               setLastSyncAt(new Date());
               setLoading(false);
               return;
@@ -533,6 +523,8 @@ export function OpsPautaMensualClient({
           setSlotAsignaciones(data.asignaciones as SlotAsignacion[]);
         }
         setExecutionByCell((data.executionByCell || {}) as Record<string, ExecutionCell>);
+        if (data.absencesByGuardia) setAbsencesByGuardia(data.absencesByGuardia as Record<string, AbsenceInfo[]>);
+        else setAbsencesByGuardia({});
         setLastSyncAt(new Date());
       }
     } catch (error) {
@@ -543,37 +535,9 @@ export function OpsPautaMensualClient({
     }
   }, [installationId, month, year]);
 
-  const fetchActivity = useCallback(async () => {
-    if (!installationId) {
-      setActivityItems([]);
-      return;
-    }
-    setActivityLoading(true);
-    try {
-      const res = await fetch(
-        `/api/ops/pauta-mensual/activity?installationId=${installationId}&month=${month}&year=${year}&take=180`,
-        { cache: "no-store" }
-      );
-      const payload = await res.json();
-      if (!res.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo obtener actividad");
-      }
-      setActivityItems((payload.data || []) as PautaActivityItem[]);
-    } catch (error) {
-      console.error(error);
-      setActivityItems([]);
-      toast.error("No se pudo cargar la actividad de pauta");
-    } finally {
-      setActivityLoading(false);
-    }
-  }, [installationId, month, year]);
-
   useEffect(() => {
     if (pageView === "detail") void fetchPauta();
   }, [fetchPauta, pageView]);
-  useEffect(() => {
-    if (pageView === "detail") void fetchActivity();
-  }, [fetchActivity, pageView]);
 
   // Load holidays for the current month/year
   useEffect(() => {
@@ -1168,7 +1132,7 @@ export function OpsPautaMensualClient({
           puestoId: item.puestoId,
           slotNumber: item.slotNumber,
           date: toDateKey(item.date),
-          plannedGuardiaId: ["V", "L", "P"].includes(newCode) ? null : item.plannedGuardiaId,
+          plannedGuardiaId: ["V", "L", "P", "PCG", "PSG"].includes(newCode) ? null : item.plannedGuardiaId,
           shiftCode: newCode,
           status: "planificado",
         }),
@@ -1252,11 +1216,128 @@ export function OpsPautaMensualClient({
     }
   };
 
+  const handleAssignReplacement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignForm.puestoId || !assignForm.replacementGuardiaId) return;
+    setAssignSaving(true);
+    try {
+      const res = await fetch("/api/ops/pauta-mensual/assign-replacement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          puestoId: assignForm.puestoId,
+          slotNumber: assignForm.slotNumber,
+          guardEventId: assignForm.guardEventId,
+          startDate: assignForm.startDate,
+          endDate: assignForm.endDate,
+          replacementGuardiaId: assignForm.replacementGuardiaId,
+          replacementReason: assignForm.replacementReason || undefined,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        toast.error(payload.error || "Error al asignar reemplazo");
+        return;
+      }
+      toast.success(payload.message || "Reemplazo asignado");
+      setAssignModalOpen(false);
+      await fetchPauta();
+    } catch {
+      toast.error("Error al asignar reemplazo");
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const openAssignModal = async (warning: any) => {
+    setAssignForm({
+      puestoId: warning.puestoId,
+      puestoName: warning.puestoName,
+      slotNumber: warning.slotNumber,
+      guardEventId: warning.absence.eventId,
+      startDate: warning.absence.startDate,
+      endDate: warning.absence.endDate,
+      replacementGuardiaId: "",
+      replacementReason: warning.absence.subtype,
+      guardiaName: warning.guardiaName,
+    });
+    setAssignModalOpen(true);
+    try {
+      const res = await fetch('/api/crm/guardias?status=active');
+      const payload = await res.json();
+      if (res.ok && payload.success) {
+        setAvailableGuardias(payload.data.filter((g: any) => g.id !== warning.guardiaId));
+      }
+    } catch {
+      toast.error("No se pudieron cargar los guardias");
+    }
+  };
+
   // Visible days based on view mode
   const visibleDays = useMemo(() => {
     if (viewMode === "week") return getCurrentWeekDays(monthDays);
     return monthDays;
   }, [viewMode, monthDays]);
+
+  const activeAbsenceWarnings = useMemo(() => {
+    if (!items.length) return [];
+
+    // We want to find cases where an absence is active for a given guardia, and they have 'T' slots in that range, and no replacementGuardiaId.
+    const warnings: {
+      guardiaId: string;
+      guardiaName: string;
+      puestoId: string;
+      puestoName: string;
+      slotNumber: number;
+      absence: AbsenceInfo;
+      affectedDates: string[];
+    }[] = [];
+
+    for (const [guardiaId, absences] of Object.entries(absencesByGuardia)) {
+      if (!absences.length) continue;
+
+      const guardiaPautas = items.filter(i => i.plannedGuardiaId === guardiaId);
+      if (!guardiaPautas.length) continue;
+
+      const guardiaName = guardiaPautas[0].plannedGuardia ? formatPersonName(guardiaPautas[0].plannedGuardia.persona.firstName, guardiaPautas[0].plannedGuardia.persona.lastName) : "Guardia";
+
+      for (const absence of absences) {
+        // Collect dates affected in this month
+        const affectedPautas = guardiaPautas.filter(p =>
+          (p.shiftCode === "T" || p.shiftCode === "V" || p.shiftCode === "L" || p.shiftCode === "P" || p.shiftCode === "PCG" || p.shiftCode === "PSG") &&
+          !p.replacementGuardiaId &&
+          p.date >= absence.startDate.slice(0, 10) &&
+          p.date <= absence.endDate.slice(0, 10)
+        );
+
+        if (affectedPautas.length > 0) {
+          // Group by puestoId+slotNumber
+          const affectedGroups = new Map<string, { puestoId: string, puestoName: string, slotNumber: number, dates: string[] }>();
+          for (const p of affectedPautas) {
+            const key = `${p.puestoId}-${p.slotNumber}`;
+            if (!affectedGroups.has(key)) {
+              affectedGroups.set(key, { puestoId: p.puestoId, puestoName: p.puesto?.name ?? "Puesto", slotNumber: p.slotNumber, dates: [] });
+            }
+            affectedGroups.get(key)!.dates.push(p.date);
+          }
+
+          for (const group of affectedGroups.values()) {
+            warnings.push({
+              guardiaId,
+              guardiaName,
+              puestoId: group.puestoId,
+              puestoName: group.puestoName,
+              slotNumber: group.slotNumber,
+              absence,
+              affectedDates: group.dates.sort()
+            });
+          }
+        }
+      }
+    }
+
+    return warnings.sort((a, b) => a.absence.startDate.localeCompare(b.absence.startDate));
+  }, [items, absencesByGuardia]);
 
   /* ── render ── */
 
@@ -1587,39 +1668,37 @@ export function OpsPautaMensualClient({
             </div>
           </div>
 
-          {/* Actividad contextual de pauta */}
-          <div className="rounded-md border border-border/60 bg-muted/20 p-2.5">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium">Actividad</p>
-              {activityLoading ? (
-                <span className="text-[10px] text-muted-foreground">Cargando...</span>
-              ) : (
-                <span className="text-[10px] text-muted-foreground">{activityItems.length} eventos</span>
-              )}
-            </div>
-            {activityItems.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">Sin actividad registrada para este período.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
-                {activityItems.slice(0, 20).map((event) => {
-                  const label = PAUTA_ACTIVITY_LABELS[event.action] || event.action;
-                  const details = formatPautaActivityDetails(event.details);
-                  return (
-                    <div key={event.id} className="rounded border border-border/50 bg-background/60 px-2 py-1.5">
-                      <p className="text-[11px] font-medium">{label}</p>
-                      {details.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground">{details.join(" · ")}</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground/80">
-                        {new Date(event.createdAt).toLocaleString("es-CL")}
-                        {event.userEmail ? ` · ${event.userEmail.split("@")[0]}` : ""}
+          {/* Alertas de Ausencia (Banner) */}
+          {activeAbsenceWarnings.length > 0 && (
+            <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs sm:text-[11px]">
+                <AlertTriangle className="h-4 w-4" />
+                Ausencias detectadas sin reemplazo asignado
+              </div>
+              <div className="space-y-1.5 max-h-40 overflow-auto pr-1">
+                {activeAbsenceWarnings.map((warning, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded bg-background/60 border border-cyan-500/20 text-[11px]">
+                    <div className="leading-tight">
+                      <p>
+                        <span className="font-semibold text-foreground text-xs">{warning.guardiaName}</span>
+                        <span className="text-muted-foreground ml-1">({warning.puestoName}, Slot {warning.slotNumber})</span>
+                      </p>
+                      <p className="text-cyan-300/80 mt-1 uppercase text-[10px] font-medium tracking-wide">
+                        {warning.absence.subtype.replace("_", " ")} — {warning.affectedDates.length} día(s) afectado(s)
                       </p>
                     </div>
-                  );
-                })}
+                    <Button
+                      size="sm"
+                      onClick={() => openAssignModal(warning)}
+                      className="bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600 hover:text-white border border-cyan-500/50 h-7 text-[10px] shrink-0"
+                    >
+                      Asignar Reemplazo
+                    </Button>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* View mode toggle: Semana / Mes */}
           {matrix.length > 0 && (
@@ -1932,6 +2011,31 @@ export function OpsPautaMensualClient({
                                         </span>
                                       )}
                                     </div>
+                                    {(() => {
+                                      const replacementCell = Array.from(row.cells.values()).find((c) => c.item?.replacementGuardiaId);
+                                      if (replacementCell?.item?.replacementGuardia) {
+                                        const rg = replacementCell.item.replacementGuardia;
+                                        return (
+                                          <div className="mt-1 text-[10px] flex flex-col gap-0.5 leading-tight bg-cyan-500/10 border border-cyan-500/30 rounded p-1 mx-0.5">
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-cyan-400 font-semibold px-1 bg-cyan-500/20 rounded">PR</span>
+                                              <Link
+                                                href={`/personas/guardias/${rg.id}`}
+                                                className="text-cyan-300 hover:text-cyan-100 hover:underline truncate"
+                                              >
+                                                {formatPersonName(rg.persona.firstName, rg.persona.lastName)}
+                                              </Link>
+                                            </div>
+                                            {replacementCell.item.replacementReason && (
+                                              <span className="text-cyan-400/70 text-[9px] ml-6">
+                                                Motivo: {replacementCell.item.replacementReason.replace('_', ' ')}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </td>
 
                                   {/* Day cells */}
@@ -1997,7 +2101,8 @@ export function OpsPautaMensualClient({
 
                                     // A work cell with no planned guard, or a post-finiquito cell, is PPC
                                     // Allow PPC display when execution state is also "ppc" (from pauta diaria)
-                                    const isUnassignedWork = isTrabajo && !cell?.plannedGuardiaId && !cell?.plannedGuardia;
+                                    // Make sure not to mark as PPC if a replacement is already assigned
+                                    const isUnassignedWork = isTrabajo && !cell?.plannedGuardiaId && !cell?.plannedGuardia && !cell?.replacementGuardiaId;
                                     const showAsPpc = (isUnassignedWork || isPostFiniquito) && (!execution || execution.state === "ppc");
 
                                     return (
@@ -2011,14 +2116,18 @@ export function OpsPautaMensualClient({
                                               ? "border-dashed border-zinc-500/40 bg-zinc-500/10 text-zinc-400"
                                               : isEmpty
                                                 ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
-                                                : colorClass
+                                                : cell?.replacementGuardiaId
+                                                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                                                  : colorClass
                                               }`}
                                             title={
                                               showAsPpc
                                                 ? "Puesto por cubrir (PPC)"
-                                                : cell?.plannedGuardia
-                                                  ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
-                                                  : "Sin asignar"
+                                                : cell?.replacementGuardia
+                                                  ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`
+                                                  : cell?.plannedGuardia
+                                                    ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
+                                                    : "Sin asignar"
                                             }
                                             onPointerDown={() => {
                                               longPressTargetRef.current = {
@@ -2079,7 +2188,7 @@ export function OpsPautaMensualClient({
                                               });
                                             }}
                                           >
-                                            {showAsPpc ? "PPC" : displayCode}
+                                            {showAsPpc ? "PPC" : cell?.replacementGuardiaId ? "PR" : displayCode}
                                             {!showAsPpc && displayBadge ? (
                                               <span
                                                 className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${displayBadge === "N"
@@ -2224,7 +2333,8 @@ export function OpsPautaMensualClient({
                       { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
                       { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
                       { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
-                      { code: "P", label: "Permiso", cls: "bg-orange-800/30 border-orange-600/30" },
+                      { code: "PCG", label: "Permiso con goce", cls: "bg-amber-800/30 border-amber-600/30" },
+                      { code: "PSG", label: "Permiso sin goce", cls: "bg-orange-800/30 border-orange-600/30" },
                     ].map((l) => (
                       <span key={l.code} className="flex items-center gap-1">
                         <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />
@@ -2611,6 +2721,64 @@ export function OpsPautaMensualClient({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Asignar Reemplazo Modal */}
+      <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleAssignReplacement}>
+            <DialogHeader>
+              <DialogTitle>Asignar Reemplazo Transitorio</DialogTitle>
+              <DialogDescription>
+                Asignará un reemplazo para <strong>{assignForm.guardiaName}</strong> en el puesto <strong>{assignForm.puestoName}</strong> (S{assignForm.slotNumber}) debido a: <strong>{assignForm.replacementReason.replace('_', ' ')}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Desde</Label>
+                  <Input type="date" value={assignForm.startDate.slice(0, 10)} disabled className="bg-muted text-muted-foreground" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Hasta</Label>
+                  <Input type="date" value={assignForm.endDate.slice(0, 10)} disabled className="bg-muted text-muted-foreground" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Guardia de Reemplazo <span className="text-red-500">*</span></Label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={assignForm.replacementGuardiaId}
+                  onChange={(e) => setAssignForm((prev) => ({ ...prev, replacementGuardiaId: e.target.value }))}
+                  required
+                >
+                  <option value="" disabled>Seleccionar guardia...</option>
+                  {availableGuardias.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} {g.rut ? `(${g.rut})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Motivo / Observación (Opcional)</Label>
+                <Input
+                  value={assignForm.replacementReason}
+                  onChange={(e) => setAssignForm((prev) => ({ ...prev, replacementReason: e.target.value }))}
+                  placeholder="Ej: Reemplazo por Vacaciones"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setAssignModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={assignSaving || !assignForm.replacementGuardiaId}>
+                {assignSaving ? "Asignando..." : "Asignar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

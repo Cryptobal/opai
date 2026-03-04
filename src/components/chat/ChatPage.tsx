@@ -1,0 +1,83 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { cn } from "@/lib/utils";
+import { ChatChannelList } from "./ChatChannelList";
+import { ChatConversation } from "./ChatConversation";
+import { usePusher } from "./hooks/usePusher";
+import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
+
+/**
+ * Full-page chat layout with two panels:
+ * - Left: ChatChannelList (320px width, border-right)
+ * - Right: ChatConversation (flex-1)
+ *
+ * On mobile (< lg): shows only channel list OR conversation,
+ * toggled on channel select with a back button to return.
+ */
+export function ChatPage() {
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [selectedChannelName, setSelectedChannelName] = useState<string>("");
+  const pusher = usePusher("/api/chat/pusher/auth");
+  const { channels: unreadChannels, refresh: refreshUnread } = useChatUnreadCounts();
+
+  const handleSelectChannel = useCallback(
+    (channelId: string, channelName: string) => {
+      setSelectedChannelId(channelId);
+      setSelectedChannelName(channelName);
+    },
+    []
+  );
+
+  const handleBack = useCallback(() => {
+    setSelectedChannelId(null);
+    setSelectedChannelName("");
+    refreshUnread();
+  }, [refreshUnread]);
+
+  return (
+    <div className="flex h-[calc(100dvh-48px)] lg:h-[calc(100dvh-48px)] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+      {/* Left panel: Channel list */}
+      <div
+        className={cn(
+          "w-full lg:w-80 lg:min-w-[320px] shrink-0 border-r border-zinc-800 flex flex-col",
+          // On mobile, hide when a channel is selected
+          selectedChannelId ? "hidden lg:flex" : "flex"
+        )}
+      >
+        <ChatChannelList
+          selectedChannelId={selectedChannelId}
+          unreadCounts={unreadChannels}
+          onSelectChannel={handleSelectChannel}
+        />
+      </div>
+
+      {/* Right panel: Conversation */}
+      <div
+        className={cn(
+          "flex-1 min-w-0 flex flex-col",
+          // On mobile, hide when no channel is selected
+          !selectedChannelId ? "hidden lg:flex" : "flex"
+        )}
+      >
+        {selectedChannelId ? (
+          <ChatConversation
+            channelId={selectedChannelId}
+            channelName={selectedChannelName}
+            pusher={pusher}
+            onBack={handleBack}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-zinc-500">
+            <div className="text-center">
+              <p className="text-lg font-medium">Selecciona una conversacion</p>
+              <p className="mt-1 text-sm text-zinc-600">
+                Elige un canal del listado para comenzar
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

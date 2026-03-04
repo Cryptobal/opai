@@ -8,8 +8,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
-import { NotesProvider } from "@/components/notes";
-
 export default async function CrmAccountDetailPage({
   params,
 }: {
@@ -34,18 +32,6 @@ export default async function CrmAccountDetailPage({
           orderBy: { createdAt: "desc" },
         },
         installations: { orderBy: { createdAt: "desc" } },
-        encuestasCliente: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-          select: {
-            id: true,
-            contactName: true,
-            averageScore: true,
-            npsScore: true,
-            createdAt: true,
-            visitId: true,
-          },
-        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }),
@@ -80,18 +66,6 @@ export default async function CrmAccountDetailPage({
         contacts: { orderBy: { createdAt: "desc" } },
         deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
         installations: { orderBy: { createdAt: "desc" } },
-        encuestasCliente: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-          select: {
-            id: true,
-            contactName: true,
-            averageScore: true,
-            npsScore: true,
-            createdAt: true,
-            visitId: true,
-          },
-        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }) ?? account;
@@ -123,19 +97,11 @@ export default async function CrmAccountDetailPage({
       : "client_inactive";
 
   return (
-    <NotesProvider
-      contextType="ACCOUNT"
-      contextId={id}
-      contextLabel={account.name || "Cuenta"}
+    <CrmAccountDetailClient
+      account={data}
+      quotes={data.quotes || []}
+      activityEvents={JSON.parse(JSON.stringify(activityEvents))}
       currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <CrmAccountDetailClient
-        account={data}
-        quotes={data.quotes || []}
-        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
-        currentUserId={session.user.id}
-      />
-    </NotesProvider>
+    />
   );
 }

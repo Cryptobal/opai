@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { ThemeToggle } from "./ThemeToggle";
+import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "./Avatar";
 import { QuickCreateModal, type QuickCreateType } from "./QuickCreateModal";
 import {
@@ -121,6 +122,9 @@ export function TopbarActions({
       >
         <Settings className="h-4 w-4" />
       </Link>
+
+      {/* Role Switcher (solo owner/admin) */}
+      <RoleSwitcher />
 
       <ThemeToggle />
 

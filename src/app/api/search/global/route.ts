@@ -307,6 +307,8 @@ export async function GET(request: NextRequest) {
             id: true,
             code: true,
             lifecycleStatus: true,
+            marcacionPin: true,
+            marcacionPinVisible: true,
             persona: {
               select: { firstName: true, lastName: true, rut: true },
             },
@@ -319,9 +321,16 @@ export async function GET(request: NextRequest) {
           const primerNombre = g.persona.firstName?.trim().split(/\s+/)[0] ?? "";
           const apellidos = g.persona.lastName?.trim() ?? "";
           const title = apellidos ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}` : (g.persona.firstName ?? "").trim() || "Guardia";
+          const hasPin = Boolean(g.marcacionPin || g.marcacionPinVisible);
+          const pinText = g.marcacionPinVisible
+            ? `PIN: ${g.marcacionPinVisible}`
+            : g.marcacionPin
+              ? "PIN: Configurado"
+              : "";
           const subtitleParts = [
             g.currentInstallation?.name,
             g.persona.rut ?? "",
+            pinText,
           ].filter(Boolean);
           const lifecycleBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
           results.push({
@@ -330,8 +339,8 @@ export async function GET(request: NextRequest) {
             title,
             subtitle: subtitleParts.join(" · "),
             href: `/personas/guardias/${g.id}`,
-            badgeLabel: lifecycleBadge.label,
-            badgeClass: lifecycleBadge.class,
+            badgeLabel: hasPin ? lifecycleBadge.label : "PIN No creado",
+            badgeClass: hasPin ? lifecycleBadge.class : "bg-rose-500/20 text-rose-400",
           });
         }
       }

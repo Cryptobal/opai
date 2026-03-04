@@ -90,6 +90,7 @@ export async function POST() {
 
     const cpMap = new Map<string, { name: string; instName: string; count: number }>();
     for (const m of checkpoints) {
+      if (m.checkpointId == null || !m.checkpoint) continue;
       const entry = cpMap.get(m.checkpointId) ?? { name: m.checkpoint.name, instName: m.checkpoint.installation.name, count: 0 };
       entry.count++;
       cpMap.set(m.checkpointId, entry);

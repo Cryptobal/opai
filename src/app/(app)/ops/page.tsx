@@ -46,7 +46,7 @@ export default async function OpsDashboardPage() {
         tenantId,
         OR: [
           { plannedGuardiaId: null, shiftCode: { not: "-" } },
-          { shiftCode: { in: ["V", "L", "P"] } },
+          { shiftCode: { in: ["V", "L", "P", "PCG", "PSG"] } },
         ],
       },
     }),

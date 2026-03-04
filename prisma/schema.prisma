@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_DATABASE_URL")
-  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes"]
+  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat"]
 }
 
 model Tenant {
@@ -1304,6 +1304,7 @@ model CrmInstallation {
   notes           String?
   metadata        Json?     @db.JsonB // dotacion sugerida, datos extra
   nocturnoEnabled Boolean   @default(true) @map("nocturno_enabled") // incluir en control nocturno
+  chatEnabled     Boolean   @default(false) @map("chat_enabled") // habilitar chat grupal de instalación
   startDate       DateTime? @map("start_date") @db.Date
   endDate         DateTime? @map("end_date") @db.Date
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1343,6 +1344,7 @@ model CrmInstallation {
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
   encuestasCliente                OpsEncuestaCliente[]
+  chatChannel                     ChatChannel?
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2100,6 +2102,7 @@ model OpsGuardia {
   historyEvents               OpsGuardiaHistory[]
   guardEvents                 OpsGuardEvent[]
   pautas                      OpsPautaMensual[]            @relation("ops_pauta_guardia")
+  pautasReemplazo             OpsPautaMensual[]            @relation("ops_pauta_reemplazo_guardia")
   asistenciasPlanificadas     OpsAsistenciaDiaria[]        @relation("ops_asistencia_planificada_guardia")
   asistenciasReales           OpsAsistenciaDiaria[]        @relation("ops_asistencia_real_guardia")
   asistenciasReemplazo        OpsAsistenciaDiaria[]        @relation("ops_asistencia_reemplazo_guardia")
@@ -2289,18 +2292,28 @@ model OpsPautaMensual {
   shiftCode        String?  @map("shift_code")
   status           String   @default("planificado")
   notes            String?
+
+  // ── Reemplazo transitorio ──
+  replacementGuardiaId String?  @map("replacement_guardia_id") @db.Uuid
+  replacementReason    String?  @map("replacement_reason")   // "vacaciones" | "licencia_medica" | "permiso"
+  guardEventId         String?  @map("guard_event_id") @db.Uuid
+
   createdBy        String?  @map("created_by")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  installation   CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  puesto         OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
-  plannedGuardia OpsGuardia?        @relation("ops_pauta_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
+  installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
+  plannedGuardia     OpsGuardia?        @relation("ops_pauta_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
+  replacementGuardia OpsGuardia?        @relation("ops_pauta_reemplazo_guardia", fields: [replacementGuardiaId], references: [id], onDelete: SetNull)
+  guardEvent         OpsGuardEvent?     @relation(fields: [guardEventId], references: [id], onDelete: SetNull)
 
   @@unique([puestoId, slotNumber, date], map: "uq_ops_pauta_puesto_slot_fecha")
   @@index([tenantId], map: "idx_ops_pauta_tenant")
   @@index([installationId, date], map: "idx_ops_pauta_installation_date")
   @@index([plannedGuardiaId], map: "idx_ops_pauta_guardia")
+  @@index([replacementGuardiaId], map: "idx_ops_pauta_reemplazo_guardia")
+  @@index([guardEventId], map: "idx_ops_pauta_guard_event")
   @@map("pauta_mensual")
   @@schema("ops")
 }
@@ -2768,7 +2781,8 @@ model OpsGuardEvent {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardia OpsGuardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  guardia          OpsGuardia       @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  pautasReemplazo  OpsPautaMensual[]
 
   @@index([tenantId], map: "idx_ops_guard_events_tenant")
   @@index([guardiaId], map: "idx_ops_guard_events_guardia")
@@ -3161,7 +3175,7 @@ model OpsMarcacionCheckpoint {
   id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String   @map("tenant_id")
   ejecucionId      String   @map("ejecucion_id") @db.Uuid
-  checkpointId     String   @map("checkpoint_id") @db.Uuid
+  checkpointId     String?  @map("checkpoint_id") @db.Uuid
   guardiaId        String   @map("guardia_id") @db.Uuid
   timestamp        DateTime @default(now()) @db.Timestamptz(6)
   lat              Float?
@@ -3183,7 +3197,7 @@ model OpsMarcacionCheckpoint {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ejecucion  OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
-  checkpoint OpsCheckpoint     @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
+  checkpoint OpsCheckpoint?    @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
   guardia    OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
 
   @@index([tenantId], map: "idx_ops_marcacion_checkpoint_tenant")
@@ -5230,4 +5244,199 @@ model AiContextSummary {
   @@index([tenantId, periodEnd(sort: Desc)], map: "idx_ai_context_summaries_period")
   @@map("ai_context_summaries")
   @@schema("notes")
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ██  CHAT — Sistema de Chat por Instalación
+// ══════════════════════════════════════════════════════════════════
+
+enum ChatSenderType {
+  ADMIN
+  GUARD
+  CLIENT
+  SYSTEM
+
+  @@schema("chat")
+}
+
+enum ChatChannelType {
+  INSTALLATION
+  GROUP
+
+  @@map("channel_type")
+  @@schema("chat")
+}
+
+// ── ChatChannel ──
+
+model ChatChannel {
+  id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String          @map("tenant_id")
+  channelType        ChatChannelType @default(INSTALLATION) @map("channel_type")
+  installationId     String?         @unique @map("installation_id") @db.Uuid
+  groupId            String?         @map("group_id")
+  name               String
+  isActive           Boolean         @default(true) @map("is_active")
+  lastMessageAt      DateTime?       @map("last_message_at") @db.Timestamptz(6)
+  lastMessagePreview String?         @map("last_message_preview") @db.Text
+  messageCount       Int             @default(0) @map("message_count")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation            CrmInstallation?              @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  messages                ChatMessage[]
+  readCursors             ChatReadCursor[]
+  notificationPreferences ChatNotificationPreference[]
+
+  @@index([tenantId], map: "idx_chat_channels_tenant")
+  @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
+  @@index([tenantId, lastMessageAt(sort: Desc)], map: "idx_chat_channels_tenant_last_msg")
+  @@index([installationId], map: "idx_chat_channels_installation")
+  @@index([groupId], map: "idx_chat_channels_group")
+  @@map("channels")
+  @@schema("chat")
+}
+
+// ── ChatMessage ──
+
+model ChatMessage {
+  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String         @map("tenant_id")
+  channelId       String         @map("channel_id") @db.Uuid
+  senderType      ChatSenderType @map("sender_type")
+  senderAdminId   String?        @map("sender_admin_id")
+  senderGuardiaId String?        @map("sender_guardia_id") @db.Uuid
+  senderContactId String?        @map("sender_contact_id") @db.Uuid
+  senderName      String         @map("sender_name")
+  senderAvatar    String?        @map("sender_avatar")
+  content         String         @db.Text
+  contentHtml     String?        @map("content_html") @db.Text
+  replyToId       String?        @map("reply_to_id") @db.Uuid
+  threadRootId    String?        @map("thread_root_id") @db.Uuid
+  replyCount      Int            @default(0) @map("reply_count")
+  lastReplyAt     DateTime?      @map("last_reply_at") @db.Timestamptz(6)
+  attachments     Json?          @db.JsonB
+  systemEventType String?        @map("system_event_type")
+  systemEventData Json?          @map("system_event_data") @db.JsonB
+  isEdited        Boolean        @default(false) @map("is_edited")
+  editedAt        DateTime?      @map("edited_at") @db.Timestamptz(6)
+  deletedAt       DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  deletedBy       String?        @map("deleted_by")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  channel       ChatChannel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  replyTo       ChatMessage?          @relation("ChatMessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies       ChatMessage[]         @relation("ChatMessageReply")
+  threadRoot    ChatMessage?          @relation("ChatMessageThread", fields: [threadRootId], references: [id], onDelete: Cascade)
+  threadReplies ChatMessage[]         @relation("ChatMessageThread")
+  reactions     ChatMessageReaction[]
+  mentions      ChatMention[]
+
+  @@index([tenantId, channelId, createdAt(sort: Desc)], map: "idx_chat_messages_channel_created")
+  @@index([channelId, createdAt], map: "idx_chat_messages_channel_asc")
+  @@index([senderAdminId], map: "idx_chat_messages_sender_admin")
+  @@index([senderGuardiaId], map: "idx_chat_messages_sender_guardia")
+  @@index([senderContactId], map: "idx_chat_messages_sender_contact")
+  @@index([replyToId], map: "idx_chat_messages_reply_to")
+  @@index([threadRootId, createdAt], map: "idx_chat_messages_thread_root")
+  @@map("messages")
+  @@schema("chat")
+}
+
+// ── ChatMessageReaction ──
+
+model ChatMessageReaction {
+  id         String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String         @map("tenant_id")
+  messageId  String         @map("message_id") @db.Uuid
+  senderType ChatSenderType @map("sender_type")
+  senderId   String         @map("sender_id")
+  senderName String         @map("sender_name")
+  emoji      String
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, senderId, emoji], map: "uq_chat_reaction_user_emoji")
+  @@index([messageId], map: "idx_chat_reactions_message")
+  @@map("message_reactions")
+  @@schema("chat")
+}
+
+// ── ChatReadCursor ──
+
+model ChatReadCursor {
+  id                String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String         @map("tenant_id")
+  channelId         String         @map("channel_id") @db.Uuid
+  readerType        ChatSenderType @map("reader_type")
+  readerId          String         @map("reader_id")
+  lastReadAt        DateTime       @map("last_read_at") @db.Timestamptz(6)
+  lastReadMessageId String?        @map("last_read_message_id") @db.Uuid
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, readerType, readerId], map: "uq_chat_read_cursor_user_channel")
+  @@index([tenantId, readerId, readerType], map: "idx_chat_read_cursors_reader")
+  @@map("read_cursors")
+  @@schema("chat")
+}
+
+// ── ChatMention ──
+
+model ChatMention {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  messageId       String   @map("message_id") @db.Uuid
+  mentionType     String   @map("mention_type") // 'USER' or 'ALL'
+  mentionedUserId String?  @map("mentioned_user_id") // admin cuid if USER
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId], map: "idx_chat_mentions_message")
+  @@index([mentionedUserId, createdAt(sort: Desc)], map: "idx_chat_mentions_user")
+  @@map("mentions")
+  @@schema("chat")
+}
+
+// ── ChatNotificationPreference ──
+
+model ChatNotificationPreference {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  channelId  String   @map("channel_id") @db.Uuid
+  userType   String   @map("user_type") // 'ADMIN', 'GUARD', 'CLIENT'
+  userId     String   @map("user_id")
+  preference String   @default("ALL") // 'ALL', 'MENTIONS_ONLY', 'MUTED'
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userType, userId], map: "uq_chat_notif_pref_channel_user")
+  @@index([userId, userType], map: "idx_chat_notif_prefs_user")
+  @@map("notification_preferences")
+  @@schema("chat")
+}
+
+// ── ChatPushSubscription ──
+
+model ChatPushSubscription {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String         @map("tenant_id")
+  subscriberType ChatSenderType @map("subscriber_type")
+  subscriberId   String         @map("subscriber_id")
+  endpoint       String         @db.Text
+  p256dh         String         @map("p256dh") @db.Text
+  auth           String         @db.Text
+  userAgent      String?        @map("user_agent")
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([endpoint], map: "uq_chat_push_subscription_endpoint")
+  @@index([tenantId, subscriberType, subscriberId], map: "idx_chat_push_subscriptions_subscriber")
+  @@map("push_subscriptions")
+  @@schema("chat")
 }

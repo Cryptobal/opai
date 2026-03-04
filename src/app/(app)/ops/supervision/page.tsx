@@ -3,8 +3,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { SupervisionGrilla } from "@/components/supervision/SupervisionGrilla";
-import { NotesProvider } from "@/components/notes";
-
 export default async function OpsSupervisionPage({
   searchParams,
 }: {
@@ -26,20 +24,12 @@ export default async function OpsSupervisionPage({
   const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
 
   return (
-    <NotesProvider
-      contextType="SUPERVISION"
-      contextId="supervision-module"
-      contextLabel="Supervisión"
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-4 min-w-0">
-        <PageHeader
-          title="Grilla de supervisión"
-          description="Visitas por instalación y día del mes."
-        />
-        <SupervisionGrilla year={year} month={month} />
-      </div>
-    </NotesProvider>
+    <div className="space-y-4 min-w-0">
+      <PageHeader
+        title="Grilla de supervisión"
+        description="Visitas por instalación y día del mes."
+      />
+      <SupervisionGrilla year={year} month={month} />
+    </div>
   );
 }

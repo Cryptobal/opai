@@ -63,11 +63,29 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       return NextResponse.json({ success: false, error: "Checkpoint no encontrado" }, { status: 404 });
     }
 
+    // Desvincular marcaciones de rondas (quedan en BD con checkpointId null)
+    await prisma.opsMarcacionCheckpoint.updateMany({
+      where: { checkpointId: id },
+      data: { checkpointId: null },
+    });
+
     await prisma.opsCheckpoint.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Error desconocido";
     console.error("[RONDAS] DELETE checkpoint", error);
-    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+    const isConstraint =
+      typeof message === "string" &&
+      (message.includes("foreign key") || message.includes("violates") || message.includes("constraint"));
+    return NextResponse.json(
+      {
+        success: false,
+        error: isConstraint
+          ? "No se pudo eliminar: la base de datos aún no permite desvincular marcaciones. Ejecuta: npx prisma db push"
+          : "Error al eliminar el checkpoint",
+      },
+      { status: 500 }
+    );
   }
 }
 

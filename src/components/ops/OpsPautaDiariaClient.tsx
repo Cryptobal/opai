@@ -223,11 +223,12 @@ export function OpsPautaDiariaClient({
       });
       const payload = await res.json();
       if (!res.ok || !payload.success)
-        throw new Error(payload.error || "Error cargando asistencia");
+        throw new Error((payload as { error?: string; errorDetail?: string }).errorDetail || (payload as { error?: string }).error || "Error cargando asistencia");
       setItems(payload.data.items as AsistenciaItem[]);
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo cargar la asistencia diaria");
+      const msg = error instanceof Error ? error.message : "No se pudo cargar la asistencia diaria";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

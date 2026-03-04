@@ -194,9 +194,11 @@ export async function resolveMonthlyAttendance(
       } else if (sc === "L") {
         code = "LME";
         daysMedicalLeave++;
-      } else if (sc === "P") {
-        code = "P1";
+      } else if (sc === "PSG" || sc === "P") {
+        code = "PSG";
         daysUnpaidLeave++;
+      } else if (sc === "PCG") {
+        code = "PCG";
       } else {
         code = "+"; // descanso
       }

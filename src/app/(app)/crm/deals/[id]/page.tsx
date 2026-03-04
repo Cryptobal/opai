@@ -10,8 +10,6 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { getUfValue } from "@/lib/uf";
 import { resolveDealActiveQuotationSummary } from "@/lib/crm-deal-active-quotation";
 import { CrmDealDetailClient, type DealDetail } from "@/components/crm";
-import { NotesProvider } from "@/components/notes";
-
 export default async function CrmDealDetailPage({
   params,
 }: {
@@ -287,32 +285,24 @@ export default async function CrmDealDetailPage({
   const initialFollowUpLogs = JSON.parse(JSON.stringify(followUpLogs));
 
   return (
-    <NotesProvider
-      contextType="DEAL"
-      contextId={id}
-      contextLabel={deal.title || "Negocio"}
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <div className="space-y-4">
-        <CrmDealDetailClient
-          deal={initialDeal}
-          quotes={initialQuotes}
-          pipelineStages={initialPipelineStages}
-          dealContacts={initialDealContacts}
-          accountContacts={initialAccountContacts}
-          accountInstallations={initialAccountInstallations}
-          gmailConnected={Boolean(gmailAccount)}
-          docTemplatesMail={initialDocTemplatesMail}
-          docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
-          followUpConfig={initialFollowUpConfig}
-          followUpLogs={initialFollowUpLogs}
-          activityEvents={JSON.parse(JSON.stringify(activityEvents))}
-          ufValue={ufValue}
-          canConfigureCrm={canConfigureCrm}
-          currentUserId={session.user.id}
-        />
-      </div>
-    </NotesProvider>
+    <div className="space-y-4">
+      <CrmDealDetailClient
+        deal={initialDeal}
+        quotes={initialQuotes}
+        pipelineStages={initialPipelineStages}
+        dealContacts={initialDealContacts}
+        accountContacts={initialAccountContacts}
+        accountInstallations={initialAccountInstallations}
+        gmailConnected={Boolean(gmailAccount)}
+        docTemplatesMail={initialDocTemplatesMail}
+        docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
+        followUpConfig={initialFollowUpConfig}
+        followUpLogs={initialFollowUpLogs}
+        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
+        ufValue={ufValue}
+        canConfigureCrm={canConfigureCrm}
+        currentUserId={session.user.id}
+      />
+    </div>
   );
 }

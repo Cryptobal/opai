@@ -105,6 +105,20 @@ export async function POST(request: NextRequest) {
       updatedAt: group.updatedAt.toISOString(),
     };
 
+    // Auto-create chat channel for the new group
+    try {
+      await prisma.chatChannel.create({
+        data: {
+          tenantId: ctx.tenantId,
+          channelType: "GROUP",
+          groupId: group.id,
+          name: group.name,
+        },
+      });
+    } catch (chatErr) {
+      console.error("[GROUPS] Error auto-creating chat channel:", chatErr);
+    }
+
     return NextResponse.json({ success: true, data }, { status: 201 });
   } catch (error) {
     console.error("[GROUPS] Error creating group:", error);

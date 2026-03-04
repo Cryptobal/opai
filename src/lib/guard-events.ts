@@ -142,8 +142,8 @@ export const EVENT_SUBTYPES: Record<
   ausencia: [
     { value: "vacaciones", label: "Vacaciones", shiftCode: "V" },
     { value: "licencia_medica", label: "Licencia médica", shiftCode: "L" },
-    { value: "permiso_con_goce", label: "Permiso con goce de sueldo", shiftCode: "P" },
-    { value: "permiso_sin_goce", label: "Permiso sin goce de sueldo", shiftCode: "P" },
+    { value: "permiso_con_goce", label: "Permiso con goce de sueldo", shiftCode: "PCG" },
+    { value: "permiso_sin_goce", label: "Permiso sin goce de sueldo", shiftCode: "PSG" },
   ],
   finiquito: [
     { value: "finiquito", label: "Finiquito / Término" },

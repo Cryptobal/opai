@@ -8,8 +8,6 @@ import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmInstallationDetailClient } from "@/components/crm";
-import { NotesProvider } from "@/components/notes";
-
 export default async function CrmInstallationDetailPage({
   params,
 }: {
@@ -47,6 +45,7 @@ export default async function CrmInstallationDetailPage({
         notes: true,
         metadata: true,
         nocturnoEnabled: true,
+        chatEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,
@@ -211,19 +210,8 @@ export default async function CrmInstallationDetailPage({
       orderBy: { createdAt: "desc" },
       take: 120,
     }),
-    prisma.opsEncuestaCliente.findMany({
-      where: { tenantId, installationId: id },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        contactName: true,
-        averageScore: true,
-        npsScore: true,
-        createdAt: true,
-        visitId: true,
-      },
-    }),
+    // ops.encuestas_cliente puede no existir en la BD; evitar fallo hasta que la tabla exista
+    Promise.resolve([] as Awaited<ReturnType<typeof prisma.opsEncuestaCliente.findMany>>),
   ]);
 
   if (!installation) {
@@ -264,21 +252,13 @@ export default async function CrmInstallationDetailPage({
   }));
 
   return (
-    <NotesProvider
-      contextType="INSTALLATION"
-      contextId={id}
-      contextLabel={data.name || "Instalación"}
-      currentUserId={session.user.id}
-      currentUserRole={session.user.role}
-    >
-      <CrmInstallationDetailClient
-        installation={data}
-        canEditDotacion={canEditDotacion}
-        canForceDeletePuesto={canForceDeletePuesto}
-        hasInventarioAccess={hasInventarioAccess}
-        activityEvents={JSON.parse(JSON.stringify(activityEvents))}
-        currentUserId={session.user.id ?? ""}
-      />
-    </NotesProvider>
+    <CrmInstallationDetailClient
+      installation={data}
+      canEditDotacion={canEditDotacion}
+      canForceDeletePuesto={canForceDeletePuesto}
+      hasInventarioAccess={hasInventarioAccess}
+      activityEvents={JSON.parse(JSON.stringify(activityEvents))}
+      currentUserId={session.user.id ?? ""}
+    />
   );
 }

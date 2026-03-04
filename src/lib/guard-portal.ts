@@ -93,7 +93,8 @@ export type PortalSection =
   | "perfil"
   | "protocolo"
   | "examenes"
-  | "resultados";
+  | "resultados"
+  | "chat";
 
 export interface PortalNavItem {
   key: PortalSection;
@@ -114,12 +115,14 @@ export const PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "protocolo", label: "Mi Protocolo", icon: "BookOpen", description: "Protocolo de la instalación" },
   { key: "examenes", label: "Exámenes", icon: "ClipboardCheck", description: "Evaluaciones pendientes" },
   { key: "resultados", label: "Mis Resultados", icon: "BarChart3", description: "Historial de resultados" },
+  { key: "chat", label: "Chat", icon: "MessageCircle", description: "Chat de instalación" },
 ];
 
 // Bottom nav: only 4 items for mobile
 export const PORTAL_BOTTOM_NAV: PortalSection[] = [
   "inicio",
   "solicitudes",
+  "chat",
   "pauta",
   "perfil",
 ];

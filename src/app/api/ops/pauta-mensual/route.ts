@@ -73,6 +73,15 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        replacementGuardia: {
+          select: {
+            id: true,
+            code: true,
+            persona: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+        },
       },
       orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
     });
@@ -172,6 +181,13 @@ export async function GET(request: NextRequest) {
               lifecycleStatus: true,
               terminatedAt: true,
               persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          },
+          replacementGuardia: {
+            select: {
+              id: true,
+              code: true,
+              persona: { select: { firstName: true, lastName: true } },
             },
           },
         },
@@ -328,6 +344,13 @@ export async function GET(request: NextRequest) {
                 persona: { select: { firstName: true, lastName: true, rut: true } },
               },
             },
+            replacementGuardia: {
+              select: {
+                id: true,
+                code: true,
+                persona: { select: { firstName: true, lastName: true } },
+              },
+            },
           },
           orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
         });
@@ -448,6 +471,38 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Fetch absences (OpsGuardEvent) for planned guardias in this pauta
+    const plannedGuardiaIds = [...new Set(pauta.map((p) => p.plannedGuardiaId).filter((id): id is string => id !== null))];
+    const ausencias = await prisma.opsGuardEvent.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        guardiaId: { in: plannedGuardiaIds },
+        category: "ausencia",
+        status: "approved",
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+      select: {
+        id: true,
+        guardiaId: true,
+        subtype: true,
+        startDate: true,
+        endDate: true,
+      },
+    });
+
+    // Group ausencias by guardiaId for easy client consumption
+    const absencesByGuardia = ausencias.reduce<Record<string, { eventId: string; subtype: string; startDate: Date; endDate: Date }[]>>((acc, a) => {
+      if (!acc[a.guardiaId]) acc[a.guardiaId] = [];
+      acc[a.guardiaId].push({
+        eventId: a.id,
+        subtype: a.subtype,
+        startDate: a.startDate!,
+        endDate: a.endDate!,
+      });
+      return acc;
+    }, {});
+
     const asistencia = await prisma.opsAsistenciaDiaria.findMany({
       where: {
         tenantId: ctx.tenantId,
@@ -488,6 +543,7 @@ export async function GET(request: NextRequest) {
         asignaciones,
         executionByCell,
         allPuestos,
+        absencesByGuardia,
       },
     });
   } catch (error) {
@@ -567,6 +623,10 @@ export async function POST(request: NextRequest) {
         shiftCode: body.shiftCode ?? null,
         status: body.status,
         notes: body.notes ?? null,
+        // (body.any as Record<string, unknown>) is used to handle additional fields from client request
+        replacementGuardiaId: (body as any).replacementGuardiaId ?? null,
+        replacementReason: (body as any).replacementReason ?? null,
+        guardEventId: (body as any).guardEventId ?? null,
         createdBy: ctx.userId,
       },
       update: {
@@ -574,12 +634,22 @@ export async function POST(request: NextRequest) {
         shiftCode: body.shiftCode ?? null,
         status: body.status,
         notes: body.notes ?? null,
+        replacementGuardiaId: (body as any).replacementGuardiaId !== undefined ? (body as any).replacementGuardiaId : undefined,
+        replacementReason: (body as any).replacementReason !== undefined ? (body as any).replacementReason : undefined,
+        guardEventId: (body as any).guardEventId !== undefined ? (body as any).guardEventId : undefined,
       },
       include: {
         puesto: {
           select: { id: true, name: true, shiftStart: true, shiftEnd: true },
         },
         plannedGuardia: {
+          select: {
+            id: true,
+            code: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
+        replacementGuardia: {
           select: {
             id: true,
             code: true,
@@ -596,6 +666,7 @@ export async function POST(request: NextRequest) {
       date: body.date,
       plannedGuardiaId: body.plannedGuardiaId ?? null,
       shiftCode: body.shiftCode ?? null,
+      replacementGuardiaId: (body as any).replacementGuardiaId ?? null,
     });
 
     return NextResponse.json({ success: true, data: pauta });

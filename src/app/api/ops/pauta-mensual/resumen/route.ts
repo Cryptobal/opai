@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         tenantId: ctx.tenantId,
         installationId: { in: installationIds },
         date: { gte: start, lte: end },
-        shiftCode: { in: ["V", "L", "P"] },
+        shiftCode: { in: ["V", "L", "P", "PCG", "PSG"] },
       },
       select: {
         installationId: true,

@@ -93,7 +93,7 @@ export default async function RondasReportesPage() {
     durationMinutes: row.durationMinutes,
     marcaciones: row.marcaciones.map((m) => ({
       id: m.id,
-      checkpointName: m.checkpoint.name,
+      checkpointName: m.checkpoint?.name ?? "Checkpoint eliminado",
       timestamp: m.timestamp.toISOString(),
       status: m.status,
       hasPhoto: !!m.fotoEvidenciaUrl,
