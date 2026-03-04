@@ -120,6 +120,9 @@ export function PWAInstallBanner({
             <span>Agregar a Inicio</span>
           </div>
         )}
+        <button onClick={handleDismiss} className="text-zinc-500 hover:text-zinc-300 shrink-0 ml-1">
+          <X className="w-4 h-4" />
+        </button>
       </div>
     );
   }
