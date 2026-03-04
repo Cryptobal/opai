@@ -217,9 +217,14 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
       } else if (r.status === "pendiente") {
         const scheduledMs = new Date(r.scheduledAt).getTime();
         const toleranceMs = (r.toleranciaMinutos ?? 10) * 60000;
-        if (now >= scheduledMs - toleranceMs) {
+        if (now > scheduledMs + toleranceMs) {
+          // Past due: scheduled time + tolerance window has passed
+          atrasadas.push(r);
+        } else if (now >= scheduledMs - toleranceMs) {
+          // Within tolerance window: ready to start
           listas.push(r);
         } else {
+          // Future: not yet within tolerance window
           proximas.push(r);
         }
       } else if (r.status === "completada" || r.status === "incompleta") {
