@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ import {
   Shield,
   History,
   ClipboardList,
+  ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -50,6 +51,7 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { AccountPortalSection } from "./AccountPortalSection";
+import { AccountContractsSection } from "./AccountContractsSection";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
@@ -136,6 +138,8 @@ type AccountDetail = {
   website?: string | null;
   address?: string | null;
   commune?: string | null;
+  notaryName?: string | null;
+  notaryDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
@@ -214,6 +218,8 @@ export function CrmAccountDetailClient({
     website: account.website || "",
     address: account.address || "",
     commune: account.commune || "",
+    notaryName: account.notaryName || "",
+    notaryDate: account.notaryDate || "",
     startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
@@ -264,6 +270,8 @@ export function CrmAccountDetailClient({
       website: account.website || "",
       address: account.address || "",
       commune: account.commune || "",
+      notaryName: account.notaryName || "",
+      notaryDate: account.notaryDate || "",
       startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
       endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
@@ -649,12 +657,53 @@ export function CrmAccountDetailClient({
   const DealsIcon = CRM_MODULES.deals.icon;
   const QuotesIcon = CRM_MODULES.quotes.icon;
 
+  const ACTIVITY_SEEN_KEY = "opai-activity-seen-";
+  const [unreadActivityCount, setUnreadActivityCount] = useState(() => {
+    if (typeof window === "undefined") return activityEvents.length;
+    const seen = localStorage.getItem(ACTIVITY_SEEN_KEY + account.id);
+    const t = seen ? new Date(seen).getTime() : 0;
+    return activityEvents.filter((e) => new Date(e.createdAt).getTime() > t).length;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const seen = localStorage.getItem(ACTIVITY_SEEN_KEY + account.id);
+    const t = seen ? new Date(seen).getTime() : 0;
+    const count = activityEvents.filter((e) => new Date(e.createdAt).getTime() > t).length;
+    setUnreadActivityCount(count);
+  }, [account.id, activityEvents]);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ accountId?: string }>) => {
+      if (e.detail?.accountId === account.id) setUnreadActivityCount(0);
+    };
+    window.addEventListener("opai-activity-seen", handler as EventListener);
+    return () => window.removeEventListener("opai-activity-seen", handler as EventListener);
+  }, [account.id]);
+
+  const handleTabChange = useCallback(
+    (tab: string) => {
+      if (tab === "activity") {
+        if (typeof window !== "undefined") {
+          const latest = activityEvents.length
+            ? Math.max(...activityEvents.map((e) => new Date(e.createdAt).getTime()))
+            : Date.now();
+          localStorage.setItem(ACTIVITY_SEEN_KEY + account.id, new Date(latest).toISOString());
+        }
+        setUnreadActivityCount(0);
+      }
+      setActiveTab(tab);
+    },
+    [account.id, activityEvents, setActiveTab]
+  );
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "portal", label: "Portal", icon: Shield },
+    { id: "contracts", label: "Contratos", icon: ScrollText },
     { id: "files", label: "Archivos", icon: FileText },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
+    { id: "activity", label: "Actividad", icon: History, count: unreadActivityCount },
   ];
 
   const associatedSections: AssociatedSection[] = [
@@ -865,6 +914,8 @@ export function CrmAccountDetailClient({
         <DetailField label="Industria" value={account.industry} />
         <DetailField label="Representante legal" value={account.legalRepresentativeName} />
         <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
+        <DetailField label="Notaría" value={account.notaryName} />
+        <DetailField label="Fecha escritura" value={account.notaryDate} />
         <DetailField label="Segmento" value={account.segment} />
         <DetailField
           label="Dirección"
@@ -957,7 +1008,7 @@ export function CrmAccountDetailClient({
         }}
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && generalContent}
@@ -971,9 +1022,18 @@ export function CrmAccountDetailClient({
 
         {activeTab === "portal" && (
           <AccountPortalSection
+            accountId={account.id}
             contacts={account.contacts.map(c => ({ ...c, email: c.email ?? null, phone: c.phone ?? null, isPrimary: c.isPrimary ?? false }))}
             accountStatus={account.status ?? (account.isActive ? "client_active" : "prospect")}
             accountIsActive={account.isActive}
+            onRefresh={() => router.refresh()}
+          />
+        )}
+
+        {activeTab === "contracts" && (
+          <AccountContractsSection
+            accountId={account.id}
+            accountName={account.name}
             onRefresh={() => router.refresh()}
           />
         )}
@@ -1025,6 +1085,24 @@ export function CrmAccountDetailClient({
                 }
                 className={inputCn}
                 placeholder="12.345.678-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Notaría (personería)</Label>
+              <Input
+                value={accountForm.notaryName}
+                onChange={(e) => setAccountForm((p) => ({ ...p, notaryName: e.target.value }))}
+                className={inputCn}
+                placeholder="Ej: Notaría de Santiago, Notario Juan Pérez"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha escritura pública</Label>
+              <Input
+                value={accountForm.notaryDate}
+                onChange={(e) => setAccountForm((p) => ({ ...p, notaryDate: e.target.value }))}
+                className={inputCn}
+                placeholder="Ej: 15 de marzo de 2024"
               />
             </div>
             <div className="space-y-1.5">

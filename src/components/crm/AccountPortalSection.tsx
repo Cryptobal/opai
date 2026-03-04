@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
-  Shield, Key, Copy, Send, RefreshCw, Loader2, ToggleLeft, ToggleRight, XCircle,
+  Shield, Key, Copy, Send, RefreshCw, Loader2, ToggleLeft, ToggleRight, XCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_PORTAL_CONFIG, PortalConfig } from "@/lib/portal-cliente";
 
 interface Contact {
   id: string;
@@ -24,14 +26,63 @@ interface Contact {
 }
 
 interface Props {
+  accountId: string;
   contacts: Contact[];
   accountStatus: string;
   accountIsActive: boolean;
   onRefresh: () => void;
 }
 
-export function AccountPortalSection({ contacts, accountStatus, accountIsActive, onRefresh }: Props) {
+const MODULE_LABELS: Record<keyof PortalConfig, string> = {
+  dashboard: 'Dashboard',
+  guardias: 'Guardias',
+  liquidaciones: 'Liquidaciones',
+  asistencia: 'Asistencia',
+  pautas: 'Pautas',
+  examenes: 'Exámenes',
+  rondas: 'Rondas',
+  posta: 'Posta / Bitácora',
+  documentacion: 'Documentación',
+  cotizaciones: 'Cotizaciones',
+  chat_instalacion: 'Chat por instalación',
+  chat_grupos: 'Chat grupos Gard',
+  tickets: 'Tickets',
+  encuestas: 'Encuestas',
+  reportes: 'Reportes',
+  comparativa: 'Vista comparativa',
+  alertas: 'Alertas',
+}
+
+export function AccountPortalSection({ accountId, contacts, accountStatus, accountIsActive, onRefresh }: Props) {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  /** Optimistic toggle: contactId -> portalEnabled, para que el botón cambie de color al instante */
+  const [portalEnabledOverride, setPortalEnabledOverride] = useState<Record<string, boolean>>({});
+  const [portalConfig, setPortalConfig] = useState<PortalConfig>(DEFAULT_PORTAL_CONFIG);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
+
+  useEffect(() => {
+    if (!accountId) return;
+    fetch(`/api/crm/accounts/${accountId}/portal-config`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.portalConfig) setPortalConfig(data.portalConfig);
+      })
+      .catch(console.error);
+  }, [accountId]);
+
+  async function savePortalConfig(newConfig: PortalConfig) {
+    setSavingConfig(true);
+    try {
+      await fetch(`/api/crm/accounts/${accountId}/portal-config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portalConfig: newConfig }),
+      });
+    } finally {
+      setSavingConfig(false);
+    }
+  }
   const isClientActive = accountStatus === "client_active" || (accountIsActive && accountStatus !== "client_inactive");
 
   const portalUrl = typeof window !== "undefined"
@@ -63,6 +114,7 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
   }, [onRefresh]);
 
   const toggleAccess = useCallback(async (contactId: string, enabled: boolean) => {
+    setPortalEnabledOverride((prev) => ({ ...prev, [contactId]: enabled }));
     setContactLoading(contactId, true);
     try {
       const res = await fetch(`/api/crm/contacts/${contactId}/portal`, {
@@ -74,11 +126,26 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
       if (json.success) {
         toast.success(enabled ? "Acceso habilitado" : "Acceso deshabilitado");
         onRefresh();
+        setPortalEnabledOverride((prev) => {
+          const next = { ...prev };
+          delete next[contactId];
+          return next;
+        });
       } else {
         toast.error(json.error || "Error");
+        setPortalEnabledOverride((prev) => {
+          const next = { ...prev };
+          delete next[contactId];
+          return next;
+        });
       }
     } catch {
       toast.error("Error de conexión");
+      setPortalEnabledOverride((prev) => {
+        const next = { ...prev };
+        delete next[contactId];
+        return next;
+      });
     } finally {
       setContactLoading(contactId, false);
     }
@@ -185,12 +252,13 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
               {contacts.map((c) => {
                 const isLoading = loading[c.id] ?? false;
                 const hasPin = !!c.portalPinVisible;
+                const portalEnabled = portalEnabledOverride[c.id] ?? c.portalEnabled;
                 return (
                   <div
                     key={c.id}
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-                      c.portalEnabled ? "border-border bg-card" : "border-border/40 bg-muted/10",
+                      portalEnabled ? "border-border bg-card" : "border-border/40 bg-muted/10",
                     )}
                   >
                     <div className="flex-1 min-w-0">
@@ -201,7 +269,7 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
                         {c.isPrimary && (
                           <Badge className="text-[9px] bg-primary/15 text-primary">Principal</Badge>
                         )}
-                        {c.portalEnabled && (
+                        {portalEnabled && (
                           <Badge className="text-[9px] bg-emerald-500/15 text-emerald-400">Portal activo</Badge>
                         )}
                       </div>
@@ -216,15 +284,17 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
                           </code>
                         </div>
                       )}
-                      {c.portalLastAccessAt && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Último acceso: {new Date(c.portalLastAccessAt).toLocaleString("es-CL")}
-                          {c.portalLastAccessIp ? ` · IP: ${c.portalLastAccessIp}` : ""}
-                        </p>
-                      )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      {hasPin && (
+                        <span className="flex items-center gap-1.5 text-xs">
+                          <span className="text-muted-foreground">PIN:</span>
+                          <code className="font-mono bg-muted px-2 py-1 rounded text-foreground">
+                            {c.portalPinVisible}
+                          </code>
+                        </span>
+                      )}
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       ) : (
@@ -250,19 +320,25 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
                                 <RefreshCw className="h-3 w-3" />
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant={portalEnabled ? "secondary" : "ghost"}
                                 size="sm"
-                                className="h-7 w-7 p-0"
-                                title={c.portalEnabled ? "Deshabilitar acceso" : "Habilitar acceso"}
-                                onClick={() => toggleAccess(c.id, !c.portalEnabled)}
-                              >
-                                {c.portalEnabled ? (
-                                  <ToggleRight className="h-4 w-4 text-emerald-400" />
-                                ) : (
-                                  <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                                className={cn(
+                                  "h-7 min-w-[7rem] gap-1",
+                                  portalEnabled
+                                    ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-emerald-500/30"
+                                    : "text-muted-foreground",
                                 )}
+                                title={portalEnabled ? "Deshabilitar acceso" : "Habilitar acceso"}
+                                onClick={() => toggleAccess(c.id, !portalEnabled)}
+                              >
+                                {portalEnabled ? (
+                                  <ToggleRight className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ToggleLeft className="h-3.5 w-3.5" />
+                                )}
+                                <span className="text-xs">{portalEnabled ? "Habilitado" : "Deshabilitado"}</span>
                               </Button>
-                              {c.email && c.portalEnabled && (
+                              {c.email && portalEnabled && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -292,6 +368,41 @@ export function AccountPortalSection({ contacts, accountStatus, accountIsActive,
               })}
             </div>
           )}
+
+          {/* Module visibility section */}
+          <div className="border-t border-zinc-800 pt-4 mt-4">
+            <button
+              type="button"
+              onClick={() => setConfigOpen(!configOpen)}
+              className="flex items-center gap-2 text-zinc-400 hover:text-zinc-200 text-sm w-full text-left mb-3"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Módulos visibles en el portal</span>
+              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${configOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {configOpen && (
+              <div className="grid grid-cols-2 gap-3">
+                {(Object.keys(MODULE_LABELS) as (keyof PortalConfig)[]).map(key => (
+                  <div key={key} className="flex items-center gap-2">
+                    <Switch
+                      id={`module-${key}`}
+                      checked={portalConfig[key]}
+                      disabled={savingConfig}
+                      onCheckedChange={checked => {
+                        const updated = { ...portalConfig, [key]: checked };
+                        setPortalConfig(updated);
+                        savePortalConfig(updated);
+                      }}
+                    />
+                    <label htmlFor={`module-${key}`} className="text-zinc-300 text-sm cursor-pointer select-none">
+                      {MODULE_LABELS[key]}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+            {savingConfig && <p className="text-zinc-500 text-xs mt-2">Guardando...</p>}
+          </div>
         </CardContent>
       </Card>
     </div>
