@@ -79,10 +79,7 @@ export function ProgramacionForm({
           <Input type="time" className="h-9" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
         </div>
         <div className="space-y-0.5">
-          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Cada cuántos minutos se genera una ronda dentro del horario. Ej: 120 = una ronda cada 2 horas.">
-            Frecuencia (min)
-            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
-          </label>
+          <label className="text-[11px] text-muted-foreground">Frecuencia (min)</label>
           <Input
             type="number"
             className="h-9"
@@ -90,12 +87,12 @@ export function ProgramacionForm({
             onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
             placeholder="Ej: 120"
           />
+          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+            Cada cuántos minutos se genera una ronda. Ej: 120 = cada 2 horas.
+          </p>
         </div>
         <div className="space-y-0.5">
-          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Minutos de gracia antes de que la ronda se considere atrasada y genere alerta.">
-            Tolerancia (min)
-            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
-          </label>
+          <label className="text-[11px] text-muted-foreground">Tolerancia (min)</label>
           <Input
             type="number"
             className="h-9"
@@ -103,6 +100,9 @@ export function ProgramacionForm({
             onChange={(e) => setToleranciaMinutos(Number(e.target.value))}
             placeholder="Ej: 10"
           />
+          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+            Minutos antes de la hora en que el guardia puede iniciar. Pasado este margen, se marca atrasada.
+          </p>
         </div>
       </div>
 

@@ -138,19 +138,22 @@ export function RondaTemplateForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre plantilla" className="h-9" />
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
-        <select
-          value={orderMode}
-          onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
-          className="h-9 rounded border border-border bg-background px-2 text-sm"
-        >
-          <option value="flexible">Orden flexible</option>
-          <option value="strict">Orden estricto (secuencial)</option>
-        </select>
         <div className="space-y-0.5">
-          <label className="text-[11px] text-muted-foreground flex items-center gap-1" title="Tiempo estimado total para completar la ronda. Usado para calcular puntualidad del guardia.">
-            Duración estimada (min)
-            <span className="cursor-help text-muted-foreground/60">&#9432;</span>
-          </label>
+          <label className="text-[11px] text-muted-foreground">Modo de orden</label>
+          <select
+            value={orderMode}
+            onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
+            className="h-9 rounded border border-border bg-background px-2 text-sm"
+          >
+            <option value="flexible">Orden flexible</option>
+            <option value="strict">Orden estricto (secuencial)</option>
+          </select>
+          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+            Flexible: checkpoints en cualquier orden. Secuencial: deben seguirse en orden.
+          </p>
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[11px] text-muted-foreground">Duración estimada (min)</label>
           <div className="flex gap-1">
             <Input
               value={estimatedDurationMin}
@@ -169,6 +172,9 @@ export function RondaTemplateForm({
               Auto
             </Button>
           </div>
+          <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+            Tiempo aproximado en minutos. &quot;Auto&quot; calcula 8 min por checkpoint.
+          </p>
         </div>
       </div>
 
