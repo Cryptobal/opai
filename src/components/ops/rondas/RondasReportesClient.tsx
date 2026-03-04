@@ -337,7 +337,7 @@ export function RondasReportesClient({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold transition-colors border-r border-[#1e293b] last:border-r-0",
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] text-[13px] font-semibold transition-colors border-r border-[#1e293b] last:border-r-0",
                 isActive ? "bg-[#2dd4bf]/10 text-[#2dd4bf]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
               ].join(" ")}
             >

@@ -246,7 +246,7 @@ export function RondasMonitoreoClient({
                   if (firstId) setCloseTurnoId(firstId);
                 }}
                 disabled={filtered.length === 0}
-                className="w-full py-2.5 rounded-lg bg-[#2dd4bf] text-black text-[13px] font-semibold hover:bg-[#2dd4bf]/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full min-h-[44px] py-2.5 rounded-lg bg-[#2dd4bf] text-black text-[13px] font-semibold hover:bg-[#2dd4bf]/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cerrar turno con resumen IA
               </button>
