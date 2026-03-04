@@ -5,6 +5,7 @@
 
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
@@ -36,6 +37,8 @@ interface CpqQuoteEmailProps {
   website?: string;
   emailContact?: string;
   brandTagline?: string;
+  // Portal access
+  portalUrl?: string;
 }
 
 export const CpqQuoteEmail = ({
@@ -56,6 +59,7 @@ export const CpqQuoteEmail = ({
   website = "https://www.gard.cl",
   emailContact = "comercial@gard.cl",
   brandTagline = "Servicios de Seguridad Profesional",
+  portalUrl,
 }: CpqQuoteEmailProps) => {
   const previewText = `Propuesta económica ${quoteCode} - ${brandName}`;
 
@@ -158,6 +162,20 @@ export const CpqQuoteEmail = ({
               Quedamos atentos a cualquier consulta.
             </Text>
 
+            {portalUrl && (
+              <Section style={portalSection}>
+                <Text style={portalText}>
+                  Accede a tu Portal de Cliente para revisar y aprobar esta cotización:
+                </Text>
+                <Button
+                  href={portalUrl}
+                  style={portalButton}
+                >
+                  Ver cotización en el portal
+                </Button>
+              </Section>
+            )}
+
             <Text style={signature}>
               {senderName}
               <br />
@@ -258,4 +276,27 @@ const contextItem = {
 const contextLabel = {
   color: "#14b8a6",
   fontWeight: "bold" as const,
+};
+const portalSection = {
+  textAlign: "center" as const,
+  margin: "24px 0",
+  padding: "20px",
+  backgroundColor: "#1a1a1a",
+  borderRadius: "8px",
+  border: "1px solid #333333",
+};
+const portalText = {
+  color: "#d4d4d4",
+  fontSize: "14px",
+  lineHeight: "1.6",
+  margin: "0 0 16px",
+};
+const portalButton = {
+  backgroundColor: "#2563eb",
+  color: "#ffffff",
+  padding: "12px 24px",
+  borderRadius: "6px",
+  fontWeight: "600" as const,
+  textDecoration: "none",
+  display: "inline-block",
 };

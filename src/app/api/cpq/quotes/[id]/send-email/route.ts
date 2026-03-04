@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
@@ -56,7 +57,7 @@ export async function POST(
 
     const contact = await prisma.crmContact.findUnique({
       where: { id: quote.contactId },
-      select: { firstName: true, lastName: true, email: true },
+      select: { firstName: true, lastName: true, email: true, portalEnabled: true },
     });
 
     if (!contact?.email) {
@@ -147,6 +148,21 @@ ${serviceDetailHtml}
 <div class="footer">Generado el ${new Date().toLocaleDateString("es-CL")} · www.gard.cl · contacto@gard.cl</div>
 </body></html>`;
 
+    // Generate portal magic token for contact
+    let portalUrl: string | undefined;
+    const magicToken = randomUUID();
+    const tokenExp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+    await prisma.crmContact.update({
+      where: { id: quote.contactId },
+      data: {
+        portalMagicToken: magicToken,
+        portalMagicTokenExp: tokenExp,
+        portalEnabled: true,
+      },
+    });
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://app.gardsecurity.cl";
+    portalUrl = `${baseUrl}/portal/cliente/setup?token=${magicToken}`;
+
     // Render email HTML
     const emailHtml = await render(
       CpqQuoteEmail({
@@ -161,6 +177,7 @@ ${serviceDetailHtml}
         serviceDetail: quote.serviceDetail || "",
         businessName: dealName,
         installationName,
+        portalUrl,
       })
     );
 
@@ -243,6 +260,7 @@ ${serviceDetailHtml}
           contactName,
           quoteCode: quote.code,
           emailId: emailResult?.data?.id || null,
+          portalUrl: portalUrl ?? null,
         },
         createdBy: ctx.userId,
       },
