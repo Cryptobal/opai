@@ -40,6 +40,7 @@ import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { ChatFloatingProvider } from '@/components/chat/ChatFloatingProvider';
+import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 
 interface AppLayoutClientProps {
   children: ReactNode;
@@ -48,6 +49,7 @@ interface AppLayoutClientProps {
   userRole: string;
   permissions: RolePermissions;
   currentUserId?: string;
+  tenantId?: string;
 }
 
 export function AppLayoutClient(props: AppLayoutClientProps) {
@@ -62,6 +64,7 @@ function AppLayoutClientInner({
   children,
   userName,
   userEmail,
+  tenantId,
   userRole,
   permissions: realPermissions,
   currentUserId,
@@ -263,6 +266,14 @@ function AppLayoutClientInner({
         userRole={userRole}
         notificationUnreadCount={notificationUnreadCount}
       >
+        {currentUserId && tenantId && (
+          <PushPermissionPrompt
+            portalType="app"
+            userType="admin"
+            userId={currentUserId}
+            tenantId={tenantId}
+          />
+        )}
         {children}
       </AppShell>
     </ChatFloatingProvider>

@@ -186,3 +186,172 @@ export async function sendPushToSpecificAdmins(
     )
   );
 }
+
+// ── Chat message push notifications ──
+
+interface ChatPushRecipient {
+  subscriberType: 'ADMIN' | 'GUARD' | 'CLIENT';
+  subscriberId: string;
+}
+
+/**
+ * Resolves all push-eligible recipients for a chat channel, excluding the sender.
+ */
+async function getChatChannelRecipients(
+  channelId: string,
+  tenantId: string,
+  senderType: string,
+  senderId: string,
+): Promise<ChatPushRecipient[]> {
+  const channel = await prisma.chatChannel.findUnique({
+    where: { id: channelId },
+    select: {
+      channelType: true,
+      installationId: true,
+      groupId: true,
+    },
+  });
+  if (!channel) return [];
+
+  const recipients: ChatPushRecipient[] = [];
+
+  if (channel.channelType === 'INSTALLATION' && channel.installationId) {
+    // Guards assigned to this installation
+    const guards = await prisma.opsAsignacionGuardia.findMany({
+      where: { tenantId, installationId: channel.installationId, isActive: true },
+      select: { guardiaId: true },
+      distinct: ['guardiaId'],
+    });
+    for (const g of guards) {
+      recipients.push({ subscriberType: 'GUARD', subscriberId: g.guardiaId });
+    }
+
+    // Contacts linked to this installation's account
+    const installation = await prisma.crmInstallation.findUnique({
+      where: { id: channel.installationId },
+      select: { accountId: true },
+    });
+    if (installation?.accountId) {
+      const contacts = await prisma.crmContact.findMany({
+        where: { tenantId, accountId: installation.accountId, portalEnabled: true },
+        select: { id: true },
+      });
+      for (const c of contacts) {
+        recipients.push({ subscriberType: 'CLIENT', subscriberId: c.id });
+      }
+    }
+
+    // Admins who have participated (have a read cursor)
+    const adminCursors = await prisma.chatReadCursor.findMany({
+      where: { channelId, readerType: 'ADMIN' },
+      select: { readerId: true },
+      distinct: ['readerId'],
+    });
+    for (const c of adminCursors) {
+      recipients.push({ subscriberType: 'ADMIN', subscriberId: c.readerId });
+    }
+  } else if (channel.channelType === 'GROUP' && channel.groupId) {
+    // All group members (admins only)
+    const members = await prisma.adminGroupMembership.findMany({
+      where: { groupId: channel.groupId },
+      select: { adminId: true },
+    });
+    for (const m of members) {
+      recipients.push({ subscriberType: 'ADMIN', subscriberId: m.adminId });
+    }
+  } else if (channel.channelType === 'DIRECT') {
+    // DM participants (admins only for now)
+    const participants = await prisma.chatDmParticipant.findMany({
+      where: { channelId },
+      select: { adminId: true },
+    });
+    for (const p of participants) {
+      recipients.push({ subscriberType: 'ADMIN', subscriberId: p.adminId });
+    }
+  }
+
+  // Exclude sender
+  return recipients.filter(
+    (r) => !(r.subscriberType === senderType && r.subscriberId === senderId)
+  );
+}
+
+const SUBSCRIBER_TYPE_TO_USER: Record<string, UserType> = {
+  ADMIN: 'admin',
+  GUARD: 'guardia',
+  CLIENT: 'contact',
+};
+const SUBSCRIBER_TYPE_TO_PORTAL: Record<string, 'app' | 'guardia' | 'cliente'> = {
+  ADMIN: 'app',
+  GUARD: 'guardia',
+  CLIENT: 'cliente',
+};
+
+interface SendChatPushParams {
+  tenantId: string;
+  channelId: string;
+  channelName: string;
+  senderType: string;  // 'ADMIN' | 'GUARD' | 'CLIENT'
+  senderId: string;
+  senderName: string;
+  messagePreview: string;
+}
+
+/**
+ * Send push notifications to all eligible recipients of a chat channel message.
+ * Respects per-channel notification preferences (ALL, MENTIONS_ONLY, MUTED).
+ * Non-blocking — all errors are swallowed to avoid affecting message delivery.
+ */
+export async function sendChatPushNotifications({
+  tenantId,
+  channelId,
+  channelName,
+  senderType,
+  senderId,
+  senderName,
+  messagePreview,
+}: SendChatPushParams): Promise<void> {
+  try {
+    const recipients = await getChatChannelRecipients(channelId, tenantId, senderType, senderId);
+    if (recipients.length === 0) return;
+
+    // Fetch per-channel notification preferences for all recipients at once
+    const prefs = await prisma.chatNotificationPreference.findMany({
+      where: { channelId },
+      select: { userType: true, userId: true, preference: true },
+    });
+    const prefMap = new Map(prefs.map((p) => [`${p.userType}:${p.userId}`, p.preference]));
+
+    const body = messagePreview.length > 120
+      ? messagePreview.slice(0, 120) + '…'
+      : messagePreview;
+
+    await Promise.allSettled(
+      recipients.map((r) => {
+        // Check per-channel preference: MUTED users get no push
+        const pref = prefMap.get(`${r.subscriberType}:${r.subscriberId}`) || 'ALL';
+        if (pref === 'MUTED') return Promise.resolve();
+
+        const userType = SUBSCRIBER_TYPE_TO_USER[r.subscriberType];
+        const portalType = SUBSCRIBER_TYPE_TO_PORTAL[r.subscriberType];
+        if (!userType || !portalType) return Promise.resolve();
+
+        return sendPushToPortalUser({
+          tenantId,
+          notifKey: 'chat_message',
+          userType,
+          userId: r.subscriberId,
+          portalType,
+          title: `${senderName} · ${channelName}`,
+          body,
+          url: portalType === 'app'
+            ? `/opai/chat?channel=${channelId}`
+            : `/portal/${portalType}/chat?channel=${channelId}`,
+          tag: `chat-${channelId}`,
+        });
+      })
+    );
+  } catch (err) {
+    console.error('[push] sendChatPushNotifications error:', err);
+  }
+}

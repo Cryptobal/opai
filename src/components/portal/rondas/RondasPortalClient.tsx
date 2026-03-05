@@ -9,6 +9,7 @@ import { RondaCompletada } from "./RondaCompletada";
 import { ReportarIncidente } from "./ReportarIncidente";
 import { InstallBanner } from "./InstallBanner";
 import { ChatRondasSection } from "./ChatRondasSection";
+import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat";
 
@@ -146,6 +147,14 @@ export function RondasPortalClient() {
 
       {screen === "mis-rondas" && session && (
         <>
+          <div className="px-4 pt-2">
+            <PushPermissionPrompt
+              portalType="rondas"
+              userType="guardia"
+              userId={session.guardiaId}
+              tenantId={session.tenantId}
+            />
+          </div>
           <MisRondas
             session={session}
             onLogout={handleLogout}
