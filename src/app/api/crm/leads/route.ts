@@ -67,6 +67,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Push: new CRM lead — notify admins
+    try {
+      const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
+      await sendPushToAdmins(
+        ctx.tenantId,
+        'lead_new',
+        'Nuevo lead registrado',
+        `${lead.firstName} ${lead.lastName}${lead.companyName ? ` — ${lead.companyName}` : ''}`,
+        `/opai/crm/leads`,
+      );
+    } catch (err) {
+      console.error('[CRM] Error sending lead_new push:', err);
+    }
+
     return NextResponse.json({ success: true, data: lead }, { status: 201 });
   } catch (error) {
     console.error("Error creating CRM lead:", error);
