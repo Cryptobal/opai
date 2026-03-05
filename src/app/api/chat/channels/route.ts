@@ -1,9 +1,11 @@
 /**
  * API Route: /api/chat/channels
  * GET — List channels for admin's tenant, sorted by lastMessageAt DESC.
- *        Supports ?type=GROUP|INSTALLATION|DIRECT (default: all).
+ *        Supports ?type=GROUP|INSTALLATION|DIRECT|EXTERNAL (default: all).
  *        GROUP channels filtered by admin's group membership.
  *        DIRECT channels filtered by admin's DM participation.
+ *        EXTERNAL channels filtered by admin's ChatChannelParticipant membership.
+ *        Supports ?archived=true to show only archived channels (default: exclude archived).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -41,12 +43,17 @@ export async function GET(request: NextRequest) {
       // DM channels - only show channels where current admin is a participant
       where.channelType = "DIRECT";
       where.dmParticipants = { some: { adminId: ctx.userId } };
+    } else if (typeFilter === "EXTERNAL") {
+      // EXTERNAL channels - only show channels where current admin is a participant
+      where.channelType = "EXTERNAL";
+      where.participants = { some: { participantType: "ADMIN", participantId: ctx.userId } };
     } else {
-      // Show installation channels + group channels the user belongs to + DM channels
+      // Show installation channels + group channels the user belongs to + DM channels + EXTERNAL channels
       where.OR = [
         { channelType: "INSTALLATION" },
         { channelType: "GROUP", groupId: { in: memberGroupIds } },
         { channelType: "DIRECT", dmParticipants: { some: { adminId: ctx.userId } } },
+        { channelType: "EXTERNAL", participants: { some: { participantType: "ADMIN", participantId: ctx.userId } } },
       ];
     }
 
@@ -76,7 +83,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const channels = await prisma.chatChannel.findMany({
+    const allChannels = await prisma.chatChannel.findMany({
       where,
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       include: {
@@ -91,6 +98,25 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Fetch archived channel IDs for this admin
+    const archivedSet = new Set(
+      (
+        await prisma.chatChannelArchive.findMany({
+          where: {
+            adminId: ctx.userId,
+            channelId: { in: allChannels.map((c) => c.id) },
+          },
+          select: { channelId: true },
+        })
+      ).map((a) => a.channelId)
+    );
+
+    // Filter by archived param: ?archived=true shows only archived, default excludes archived
+    const showArchived = sp.get("archived") === "true";
+    const channels = showArchived
+      ? allChannels.filter((c) => archivedSet.has(c.id))
+      : allChannels.filter((c) => !archivedSet.has(c.id));
 
     // Fetch read cursors for this admin in one query
     const channelIds = channels.map((ch) => ch.id);
@@ -179,6 +205,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // For EXTERNAL channels, fetch account info
+    const externalAccountIds = channels
+      .filter((c) => c.channelType === "EXTERNAL" && c.accountId)
+      .map((c) => c.accountId as string);
+
+    const accountsMap =
+      externalAccountIds.length > 0
+        ? new Map(
+            (
+              await prisma.crmAccount.findMany({
+                where: { id: { in: externalAccountIds } },
+                select: { id: true, name: true, status: true },
+              })
+            ).map((a) => [a.id, a])
+          )
+        : new Map<string, { id: string; name: string; status: string }>();
+
     const data = channels.map((ch) => ({
       id: ch.id,
       tenantId: ch.tenantId,
@@ -208,6 +251,10 @@ export async function GET(request: NextRequest) {
         ? dmParticipantMap.get(ch.id)!
         : null,
       unreadCount: unreadMap.get(ch.id) ?? 0,
+      isArchivedByMe: archivedSet.has(ch.id),
+      account: ch.channelType === "EXTERNAL" && ch.accountId
+        ? (accountsMap.get(ch.accountId) ?? null)
+        : null,
     }));
 
     return NextResponse.json({

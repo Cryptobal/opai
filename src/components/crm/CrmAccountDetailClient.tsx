@@ -41,6 +41,7 @@ import {
   History,
   ClipboardList,
   ScrollText,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -53,6 +54,8 @@ import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/
 import { AccountPortalSection } from "./AccountPortalSection";
 import { AccountContractsSection } from "./AccountContractsSection";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
+import { NewExternalChatModal } from "@/components/chat/NewExternalChatModal";
+import { useChatFloatingContext } from "@/components/chat/ChatFloatingProvider";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -90,6 +93,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  portalEnabled?: boolean;
 };
 
 type DealRow = {
@@ -193,6 +197,7 @@ export function CrmAccountDetailClient({
   currentUserId: string;
 }) {
   const router = useRouter();
+  const chatCtx = useChatFloatingContext();
   const [account, setAccount] = useState(initialAccount);
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
     extractAccountLogoUrl(initialAccount.notes)
@@ -224,6 +229,9 @@ export function CrmAccountDetailClient({
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
   });
+
+  // ── Chat modal state ──
+  const [chatModalOpen, setChatModalOpen] = useState(false);
 
   // ── Contact edit state ──
   const [editContact, setEditContact] = useState<ContactRow | null>(null);
@@ -619,6 +627,7 @@ export function CrmAccountDetailClient({
 
   // ── Extra actions (lifecycle toggles + quick contact) ──
   const primaryPhone = account.contacts.find(c => c.isPrimary)?.phone || account.contacts[0]?.phone;
+  const hasPortalContacts = account.contacts.some(c => c.portalEnabled);
   const extraActions = (
     <div className="flex items-center gap-1.5">
       {primaryPhone && (
@@ -648,6 +657,10 @@ export function CrmAccountDetailClient({
           {updatingAccountStatus ? "Guardando..." : account.isActive ? "Desactivar" : "Activar"}
         </Button>
       )}
+      <Button size="sm" variant="outline" onClick={() => setChatModalOpen(true)} disabled={!hasPortalContacts} title={!hasPortalContacts ? "Sin contactos con portal activo" : "Iniciar chat externo"}>
+        <MessageCircle className="h-4 w-4 mr-1.5" />
+        Chat
+      </Button>
     </div>
   );
 
@@ -1040,6 +1053,23 @@ export function CrmAccountDetailClient({
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
       </EntityDetailLayout>
+
+      {/* ── New External Chat Modal ── */}
+      <NewExternalChatModal
+        open={chatModalOpen}
+        defaultStatus={
+          account.status === "prospect" || account.status === "client_active"
+            ? account.status
+            : undefined
+        }
+        onClose={() => setChatModalOpen(false)}
+        onCreated={async (channelId) => {
+          setChatModalOpen(false);
+          await chatCtx.refreshChannels?.();
+          chatCtx.openPanel();
+          chatCtx.selectChannel(channelId);
+        }}
+      />
 
       {/* ── Account Edit Modal ── */}
       <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>

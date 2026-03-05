@@ -11,13 +11,20 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createContactSchema, updateContactSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
+    const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
+    const portalEnabled = request.nextUrl.searchParams.get("portalEnabled");
+
     const contacts = await prisma.crmContact.findMany({
-      where: { tenantId: ctx.tenantId },
+      where: {
+        tenantId: ctx.tenantId,
+        ...(accountId ? { accountId } : {}),
+        ...(portalEnabled === "true" ? { portalEnabled: true } : {}),
+      },
       include: { account: true },
       orderBy: { createdAt: "desc" },
     });

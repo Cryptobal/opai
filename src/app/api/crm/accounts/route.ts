@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
 
     const type = request.nextUrl.searchParams.get("type") || undefined;
     const active = request.nextUrl.searchParams.get("active");
+    const status = request.nextUrl.searchParams.get("status") || undefined;
+    const search = request.nextUrl.searchParams.get("search") || undefined;
 
     const accounts = await prisma.crmAccount.findMany({
       where: {
@@ -56,6 +58,8 @@ export async function GET(request: NextRequest) {
         ...(type ? { type } : {}),
         ...(active === "true" ? { isActive: true } : {}),
         ...(active === "false" ? { isActive: false } : {}),
+        ...(status ? { status } : {}),
+        ...(search ? { name: { contains: search, mode: "insensitive" as const } } : {}),
       },
       orderBy: { createdAt: "desc" },
     });
