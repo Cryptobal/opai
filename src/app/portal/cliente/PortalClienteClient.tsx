@@ -23,6 +23,7 @@ import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
+import { TourOverlay } from "@/components/portal/cliente/tour/TourOverlay";
 
 /* ── Helpers ── */
 
@@ -364,14 +365,7 @@ export function PortalClienteClient() {
       )}
 
       {/* Tour overlay */}
-      {showTour && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-zinc-800 rounded-2xl p-6 mx-4 max-w-md text-center">
-            <p className="text-white mb-4">Tour guiado - Coming soon</p>
-            <button onClick={handleTourComplete} className="text-teal-400">Cerrar</button>
-          </div>
-        </div>
-      )}
+      {showTour && <TourOverlay onComplete={handleTourComplete} />}
     </div>
   );
 }
