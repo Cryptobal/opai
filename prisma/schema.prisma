@@ -5432,6 +5432,13 @@ enum ChatChannelType {
   @@schema("chat")
 }
 
+enum ChatParticipantType {
+  ADMIN
+  CONTACT
+
+  @@schema("chat")
+}
+
 // ── ChatChannel ──
 
 model ChatChannel {
@@ -5633,7 +5640,7 @@ model ChatDmParticipant {
 model ChatChannelParticipant {
   id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   channelId       String      @map("channel_id") @db.Uuid
-  participantType String      @map("participant_type") // "ADMIN" | "CONTACT"
+  participantType ChatParticipantType @map("participant_type")
   participantId   String      @map("participant_id")
   joinedAt        DateTime    @default(now()) @map("joined_at") @db.Timestamptz(6)
 
@@ -5641,7 +5648,6 @@ model ChatChannelParticipant {
 
   @@unique([channelId, participantType, participantId], map: "uq_chat_channel_participant")
   @@index([participantType, participantId], map: "idx_chat_channel_participants_participant")
-  @@index([channelId], map: "idx_chat_channel_participants_channel")
   @@map("channel_participants")
   @@schema("chat")
 }
