@@ -1,13 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import dynamic from "next/dynamic";
-
-const ServiceWorkerRegistrar = dynamic(
-  () =>
-    import("@/components/portal/rondas/ServiceWorkerRegistrar").then((m) => ({
-      default: m.ServiceWorkerRegistrar,
-    })),
-  { ssr: false }
-);
+import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 
 export const viewport: Viewport = {
   width: "device-width",

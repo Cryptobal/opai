@@ -1,10 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import dynamic from "next/dynamic";
-
-const PwaRegistrar = dynamic(
-  () => import("@/components/portal/cliente/PwaRegistrar").then((m) => ({ default: m.PwaRegistrar })),
-  { ssr: false }
-);
+import { PwaRegistrar } from "@/components/portal/cliente/PwaRegistrar";
 
 export const viewport: Viewport = {
   width: "device-width",
