@@ -36,7 +36,6 @@ import type {
   CpqQuoteVehicle,
   CpqQuoteInfrastructure,
 } from "@/types/cpq";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -46,10 +45,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink, Shield } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Building2, Shield } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
+import { DatosSection } from "@/components/cpq/DatosSection";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -148,115 +146,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [aiCustomInstruction, setAiCustomInstruction] = useState("");
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
-
-  // Inline creation modals
-  const [inlineCreateType, setInlineCreateType] = useState<"account" | "installation" | "contact" | "deal" | null>(null);
-  const [inlineForm, setInlineForm] = useState({
-    name: "",
-    firstName: "",
-    lastName: "",
-    email: "",
-    title: "",
-    address: "",
-    city: "",
-    commune: "",
-    lat: null as number | null,
-    lng: null as number | null,
-  });
-  const [inlineCreating, setInlineCreating] = useState(false);
-
-  const createInline = async () => {
-    if (!inlineCreateType) return;
-    setInlineCreating(true);
-    try {
-      let endpoint = "";
-      let body: Record<string, unknown> = {};
-
-      switch (inlineCreateType) {
-        case "account":
-          endpoint = "/api/crm/accounts";
-          body = { name: inlineForm.name, type: "prospect" };
-          break;
-        case "installation":
-          endpoint = "/api/crm/installations";
-          body = {
-            accountId: crmContext.accountId,
-            name: inlineForm.name,
-            address: inlineForm.address || null,
-            city: inlineForm.city || null,
-            commune: inlineForm.commune || null,
-            lat: inlineForm.lat ?? null,
-            lng: inlineForm.lng ?? null,
-          };
-          break;
-        case "contact":
-          endpoint = "/api/crm/contacts";
-          body = { accountId: crmContext.accountId, firstName: inlineForm.firstName, lastName: inlineForm.lastName, email: inlineForm.email };
-          break;
-        case "deal":
-          endpoint = "/api/crm/deals";
-          body = { accountId: crmContext.accountId, title: inlineForm.title || `Oportunidad ${quoteForm.clientName}` };
-          break;
-      }
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const err = new Error(data.error || "Error") as Error & { status?: number };
-        err.status = res.status;
-        throw err;
-      }
-
-      const created = data.data;
-
-      // Auto-select and refresh lists
-      switch (inlineCreateType) {
-        case "account":
-          setCrmAccounts((prev) => [...prev, { id: created.id, name: created.name }]);
-          saveCrmContext({ accountId: created.id, installationId: "", contactId: "", dealId: "" });
-          setQuoteForm((prev) => ({ ...prev, clientName: created.name }));
-          setQuoteDirty(true);
-          break;
-        case "installation":
-          setCrmInstallations((prev) => [
-            ...prev,
-            {
-              id: created.id,
-              name: created.name,
-              address: created.address ?? null,
-              commune: created.commune ?? null,
-              city: created.city ?? null,
-              lat: created.lat ?? null,
-              lng: created.lng ?? null,
-            },
-          ]);
-          saveCrmContext({ installationId: created.id });
-          break;
-        case "contact":
-          setCrmContacts((prev) => [...prev, { id: created.id, firstName: created.firstName, lastName: created.lastName, email: created.email }]);
-          saveCrmContext({ contactId: created.id });
-          break;
-        case "deal":
-          setCrmDeals((prev) => [...prev, { id: created.id, title: created.title }]);
-          saveCrmContext({ dealId: created.id });
-          break;
-      }
-
-      setInlineCreateType(null);
-      setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null });
-      toast.success("Creado exitosamente");
-    } catch (error: unknown) {
-      console.error(error);
-      const msg = error instanceof Error ? error.message : "No se pudo crear";
-      toast.error(msg);
-    } finally {
-      setInlineCreating(false);
-    }
-  };
 
   const isLocked = quote?.status === "sent";
   const steps = ["Datos", "Puestos", "Costos", "Resumen", "Enviar"];
@@ -922,32 +811,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     return map;
   }, [positions, positionSalePrices, monthlyHours]);
 
-  const selectedInstallation = useMemo(
-    () =>
-      crmContext.installationId
-        ? crmInstallations.find((installation) => installation.id === crmContext.installationId) ?? null
-        : null,
-    [crmContext.installationId, crmInstallations]
-  );
-
-  const selectedInstallationAddress = useMemo(() => {
-    if (!selectedInstallation) return "";
-    return [selectedInstallation.address, selectedInstallation.commune, selectedInstallation.city]
-      .filter((part): part is string => Boolean(part && part.trim()))
-      .join(", ");
-  }, [selectedInstallation]);
-
-  const selectedInstallationMapsUrl = useMemo(() => {
-    if (!selectedInstallation) return "";
-    if (selectedInstallation.lat != null && selectedInstallation.lng != null) {
-      return `https://www.google.com/maps/search/?api=1&query=${selectedInstallation.lat},${selectedInstallation.lng}`;
-    }
-    if (selectedInstallationAddress) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedInstallationAddress)}`;
-    }
-    return "";
-  }, [selectedInstallation, selectedInstallationAddress]);
-
   const saveLabel = savingQuote
     ? "Guardando..."
     : quoteDirty
@@ -1081,284 +944,26 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       />
 
       {activeStep === 0 && (
-        <div className="space-y-2">
-          <div className="space-y-2" inert={isLocked}>
-            {/* ── CRM Context: compact 2-col grid ── */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
-              <div className="flex gap-0.5">
-                <SearchableSelect
-                  value={crmContext.accountId || ""}
-                  options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
-                  placeholder="Seleccionar..."
-                  onChange={(val) => {
-                    const account = crmAccounts.find((a) => a.id === val);
-                    saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
-                    if (account) {
-                      setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
-                      setQuoteDirty(true);
-                    }
-                  }}
-                />
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("account"); }}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
-              <div className="flex gap-0.5">
-                <SearchableSelect
-                  value={crmContext.installationId || ""}
-                  options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
-                  placeholder="Seleccionar..."
-                  disabled={!crmContext.accountId}
-                  onChange={(val) => saveCrmContext({ installationId: val })}
-                />
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("installation"); }}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
-              <div className="flex gap-0.5">
-                <SearchableSelect
-                  value={crmContext.contactId || ""}
-                  options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
-                  placeholder="Seleccionar..."
-                  disabled={!crmContext.accountId}
-                  onChange={(val) => saveCrmContext({ contactId: val })}
-                />
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("contact"); }}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
-              <div className="flex gap-0.5">
-                <SearchableSelect
-                  value={crmContext.dealId || ""}
-                  options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
-                  placeholder="Seleccionar..."
-                  disabled={!crmContext.accountId}
-                  onChange={(val) => saveCrmContext({ dealId: val })}
-                />
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null }); setInlineCreateType("deal"); }}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ── Inline Create Modal (unchanged logic) ── */}
-          <Dialog open={!!inlineCreateType} onOpenChange={(v) => !v && setInlineCreateType(null)}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {inlineCreateType === "account" && "Nueva cuenta"}
-                  {inlineCreateType === "installation" && "Nueva instalación"}
-                  {inlineCreateType === "contact" && "Nuevo contacto"}
-                  {inlineCreateType === "deal" && "Nuevo negocio"}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                {(inlineCreateType === "account" || inlineCreateType === "installation") && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Nombre *</Label>
-                      <Input
-                        value={inlineForm.name}
-                        onChange={(e) => setInlineForm((p) => ({ ...p, name: e.target.value }))}
-                        placeholder={inlineCreateType === "account" ? "Nombre de empresa" : "Nombre de instalación"}
-                        className="bg-background"
-                        autoFocus
-                      />
-                    </div>
-                    {inlineCreateType === "installation" && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Dirección * (Google Maps)</Label>
-                        <AddressAutocomplete
-                          value={inlineForm.address}
-                          onChange={(result: AddressResult) =>
-                            setInlineForm((p) => ({
-                              ...p,
-                              address: result.address,
-                              city: result.city ?? p.city,
-                              commune: result.commune ?? p.commune,
-                              lat: result.lat,
-                              lng: result.lng,
-                            }))
-                          }
-                          placeholder="Buscar dirección en Google Maps..."
-                          className="bg-background"
-                          showMap={false}
-                        />
-                        <MapsUrlPasteInput
-                          onResolve={(result) =>
-                            setInlineForm((p) => ({
-                              ...p,
-                              address: result.address,
-                              city: result.city ?? p.city,
-                              commune: result.commune ?? p.commune,
-                              lat: result.lat,
-                              lng: result.lng,
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-                {inlineCreateType === "contact" && (
-                  <>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-                      El email identifica al contacto. Es obligatorio y evita duplicados.
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Nombre *</Label>
-                        <Input value={inlineForm.firstName} onChange={(e) => setInlineForm((p) => ({ ...p, firstName: e.target.value }))} className="bg-background" autoFocus />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Apellido *</Label>
-                        <Input value={inlineForm.lastName} onChange={(e) => setInlineForm((p) => ({ ...p, lastName: e.target.value }))} className="bg-background" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Email *</Label>
-                      <Input value={inlineForm.email} onChange={(e) => setInlineForm((p) => ({ ...p, email: e.target.value }))} placeholder="correo@empresa.com" className="bg-background" />
-                    </div>
-                  </>
-                )}
-                {inlineCreateType === "deal" && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Título del negocio</Label>
-                    <Input
-                      value={inlineForm.title}
-                      onChange={(e) => setInlineForm((p) => ({ ...p, title: e.target.value }))}
-                      placeholder={`Oportunidad ${quoteForm.clientName}`}
-                      className="bg-background"
-                      autoFocus
-                    />
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setInlineCreateType(null)}>Cancelar</Button>
-                <Button
-                  onClick={createInline}
-                  disabled={
-                    inlineCreating ||
-                    (inlineCreateType === "account" && !inlineForm.name.trim()) ||
-                    (inlineCreateType === "installation" && (!inlineForm.name.trim() || !inlineForm.address.trim())) ||
-                    (inlineCreateType === "contact" && (!inlineForm.firstName.trim() || !inlineForm.lastName.trim() || !inlineForm.email.trim()))
-                  }
-                >
-                  {inlineCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Crear
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* ── Quote name (optional identifier) ── */}
-          <div>
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
-            <Input
-              value={quoteForm.name}
-              onChange={(e) => {
-                setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
-                setQuoteDirty(true);
-              }}
-              placeholder="Ej: Propuesta guardias planta norte"
-              className="h-8 bg-background text-xs"
-            />
-          </div>
-
-          {/* ── Date + Currency in a single compact row ── */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Válida hasta</Label>
-              <Input
-                type="date"
-                value={quoteForm.validUntil}
-                onChange={(e) => {
-                  setQuoteForm((prev) => ({ ...prev, validUntil: e.target.value }));
-                  setQuoteDirty(true);
-                }}
-                className="h-8 bg-background text-xs text-foreground [color-scheme:dark]"
-              />
-            </div>
-            <div className="shrink-0">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Moneda</Label>
-              <div className="flex gap-0.5">
-                {["CLP", "UF"].map((cur) => (
-                  <button
-                    key={cur}
-                    type="button"
-                    onClick={() => saveCrmContext({ currency: cur })}
-                    className={cn(
-                      "rounded-md px-3 h-8 text-xs font-medium border transition-colors",
-                      crmContext.currency === cur
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : "bg-background text-muted-foreground border-input hover:bg-accent/50"
-                    )}
-                  >
-                    {cur}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Button
-              size="sm"
-              variant={quoteDirty ? "default" : "outline"}
-              className="h-8 px-3 text-xs shrink-0"
-              onClick={() => saveQuoteBasics()}
-              disabled={!quoteDirty || savingQuote}
-            >
-              {savingQuote ? "..." : quoteDirty ? "Guardar" : "Guardado"}
-            </Button>
-          </div>
-
-          {quoteError && (
-            <div className="text-[11px] text-red-400">{quoteError}</div>
-          )}
-
-          </div>
-
-          {crmContext.installationId && (
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                    Ubicación de instalación
-                  </p>
-                  <p className="mt-0.5 text-xs font-medium text-foreground truncate">
-                    {selectedInstallation?.name || "Instalación seleccionada"}
-                  </p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground break-words">
-                    {selectedInstallationAddress || "Sin dirección registrada"}
-                  </p>
-                </div>
-                {selectedInstallationMapsUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => window.open(selectedInstallationMapsUrl, "_blank", "noopener,noreferrer")}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <MapPin className="h-3 w-3" />
-                    Ver dirección de instalación
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </div>
+        <DatosSection
+          crmAccounts={crmAccounts}
+          crmInstallations={crmInstallations}
+          crmContacts={crmContacts}
+          crmDeals={crmDeals}
+          crmContext={crmContext}
+          quoteForm={quoteForm}
+          quoteDirty={quoteDirty}
+          savingQuote={savingQuote}
+          quoteError={quoteError}
+          isLocked={isLocked}
+          saveCrmContext={saveCrmContext}
+          setQuoteForm={setQuoteForm}
+          setQuoteDirty={setQuoteDirty}
+          saveQuoteBasics={saveQuoteBasics}
+          setCrmAccounts={setCrmAccounts}
+          setCrmInstallations={setCrmInstallations}
+          setCrmContacts={setCrmContacts}
+          setCrmDeals={setCrmDeals}
+        />
       )}
 
       {activeStep === 1 && (
