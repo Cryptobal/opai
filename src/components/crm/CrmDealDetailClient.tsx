@@ -324,6 +324,8 @@ export function CrmDealDetailClient({
   const [addingContact, setAddingContact] = useState(false);
   const [currentStage, setCurrentStage] = useState<DealDetail["stage"]>(deal.stage || null);
   const [changingStage, setChangingStage] = useState(false);
+  const [wonConfirmOpen, setWonConfirmOpen] = useState(false);
+  const [pendingWonStageId, setPendingWonStageId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -747,6 +749,25 @@ export function CrmDealDetailClient({
     }
   };
 
+  const handleWonClick = () => {
+    const wonStage = pipelineStages.find((s) => s.isClosedWon);
+    if (!wonStage) return;
+    setPendingWonStageId(wonStage.id);
+    setWonConfirmOpen(true);
+  };
+
+  const confirmWon = async () => {
+    if (!pendingWonStageId) return;
+    setWonConfirmOpen(false);
+    await updateStage(pendingWonStageId);
+    setPendingWonStageId(null);
+  };
+
+  const handleLostClick = () => {
+    const lostStage = pipelineStages.find((s) => s.isClosedLost);
+    if (lostStage) updateStage(lostStage.id);
+  };
+
   // ── Helpers ──
   const ContactsIcon = CRM_MODULES.contacts.icon;
   const InstallationsIcon = CRM_MODULES.installations.icon;
@@ -863,24 +884,12 @@ export function CrmDealDetailClient({
           <DetailField
             label="Etapa"
             value={
-              <div className="flex items-center gap-2 min-w-0">
-                <Select
-                  value={currentStage?.id || ""}
-                  onValueChange={(value) => updateStage(value)}
-                  disabled={changingStage || pipelineStages.length === 0}
-                >
-                  <SelectTrigger className="h-8 text-xs min-w-0 max-w-[180px]">
-                    <SelectValue placeholder="Sin etapas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
-                      <SelectItem value={currentStage.id}>{currentStage.name}</SelectItem>
-                    )}
-                    {pipelineStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: currentStageColor }}
+                />
+                <span className="text-sm">{currentStage?.name || "Sin etapa"}</span>
                 {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </div>
             }
@@ -1377,6 +1386,17 @@ export function CrmDealDetailClient({
             </div>
           ) : undefined,
         }}
+        pipelineBar={
+          <DealPipelineStepper
+            stages={pipelineStages}
+            currentStageId={currentStage?.id}
+            dealStatus={deal.status}
+            onStageClick={updateStage}
+            onWonClick={handleWonClick}
+            onLostClick={handleLostClick}
+            disabled={changingStage}
+          />
+        }
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -1509,6 +1529,19 @@ export function CrmDealDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar negocio" description="Se eliminarán las cotizaciones vinculadas y el historial." onConfirm={deleteDeal} />
+
+      <ConfirmDialog
+        open={wonConfirmOpen}
+        onOpenChange={setWonConfirmOpen}
+        title="Marcar como ganado"
+        description={"Al marcar este negocio como ganado se cancelarán los seguimientos pendientes y se generará una notificación de contrato. ¿Está seguro?"}
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        onConfirm={confirmWon}
+        variant="default"
+        loading={changingStage}
+        loadingLabel="Procesando..."
+      />
     </>
   );
 }
