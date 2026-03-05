@@ -69,6 +69,14 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: "participantType y participantId son requeridos" }, { status: 400 });
   }
 
+  // Verify channel belongs to tenant before mutating
+  const channel = await prisma.chatChannel.findFirst({
+    where: { id: channelId, tenantId: ctx.tenantId },
+  });
+  if (!channel) {
+    return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
+  }
+
   await prisma.chatChannelParticipant.deleteMany({
     where: { channelId, participantType, participantId },
   });
