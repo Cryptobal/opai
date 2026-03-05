@@ -7,15 +7,18 @@ export async function POST(req: Request) {
   if (!ctx) return unauthorized();
 
   const body = await req.json();
-  const { accountId, contactIds, adminIds, name } = body as {
+  const { accountId, uniqueContactIds, adminIds, name } = body as {
     accountId: string;
-    contactIds: string[];
+    uniqueContactIds: string[];
     adminIds?: string[];
     name?: string;
   };
 
+  // Deduplicate contact IDs to avoid false validation errors
+  const uniqueContactIds = [...new Set(uniqueContactIds ?? [])];
+
   // Validate required fields
-  if (!accountId || !contactIds?.length) {
+  if (!accountId || !uniqueContactIds.length) {
     return NextResponse.json(
       { success: false, error: "accountId y al menos un contactId son requeridos" },
       { status: 400 }
@@ -34,13 +37,13 @@ export async function POST(req: Request) {
   // Verify all contacts exist, belong to account, and have portal enabled
   const contacts = await prisma.crmContact.findMany({
     where: {
-      id: { in: contactIds },
+      id: { in: uniqueContactIds },
       accountId,
       portalEnabled: true,
     },
     select: { id: true, firstName: true, lastName: true },
   });
-  if (contacts.length !== contactIds.length) {
+  if (contacts.length !== uniqueContactIds.length) {
     return NextResponse.json(
       { success: false, error: "Uno o más contactos no tienen portal activo o no pertenecen a la cuenta" },
       { status: 400 }
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
     const sameAdmins =
       JSON.stringify(existingAdmins) === JSON.stringify([...allAdminIds].sort());
     const sameContacts =
-      JSON.stringify(existingContacts) === JSON.stringify([...contactIds].sort());
+      JSON.stringify(existingContacts) === JSON.stringify([...uniqueContactIds].sort());
     if (sameAdmins && sameContacts) {
       return NextResponse.json({ success: true, data: { channelId: ch.id, existed: true } });
     }
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
         participantType: "ADMIN" as const,
         participantId: adminId,
       })),
-      ...contactIds.map((contactId) => ({
+      ...uniqueContactIds.map((contactId) => ({
         channelId: ch.id,
         participantType: "CONTACT" as const,
         participantId: contactId,
