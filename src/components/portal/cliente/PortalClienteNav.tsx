@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList
 } from 'lucide-react'
-import { PortalConfig } from '@/lib/portal-cliente'
+import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
