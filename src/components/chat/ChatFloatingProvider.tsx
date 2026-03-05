@@ -148,6 +148,16 @@ export function ChatFloatingProvider({
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
+  const selectChannel = useCallback((id: string | null) => {
+    setSelectedChannelId(id);
+    if (id) {
+      // Optimistic update: clear unread count locally so the badge drops immediately
+      setChannels(prev =>
+        prev.map(ch => ch.id === id ? { ...ch, unreadCount: 0 } : ch)
+      );
+    }
+  }, []);
+
   const value: ChatFloatingContextValue = {
     isPanelOpen,
     openPanel,
@@ -157,7 +167,7 @@ export function ChatFloatingProvider({
     loading,
     totalUnread,
     selectedChannelId,
-    selectChannel: setSelectedChannelId,
+    selectChannel,
     currentUserId,
     autoContext: autoContext ?? null,
     refreshChannels: fetchChannels,

@@ -3,7 +3,7 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Activity, Menu, Plus, RefreshCw, Search, Settings, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
+import { Activity, Menu, MessageCircle, Plus, Search, Settings, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
@@ -15,6 +15,7 @@ import { AiHelpChatWidget } from './AiHelpChatWidget';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
+import { useChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,9 +67,9 @@ export function AppShell({
 }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const chatCtx = useChatFloatingContext();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [mobileCreateType, setMobileCreateType] = useState<QuickCreateType>(null);
 
@@ -80,17 +81,6 @@ export function AppShell({
       setIsMobileSearchOpen(false);
     }
   }, [pathname]);
-
-  const handleMobileRefresh = () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-
-    // Refresh suave para mantener la experiencia móvil fluida.
-    router.refresh();
-    window.setTimeout(() => {
-      setIsRefreshing(false);
-    }, 700);
-  };
 
   useEffect(() => {
     if (!isMobileOpen) return;
@@ -207,12 +197,14 @@ export function AppShell({
               </button>
               <button
                 type="button"
-                className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleMobileRefresh}
-                disabled={isRefreshing}
-                aria-label="Actualizar pantalla"
+                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 sm:hidden"
+                onClick={chatCtx.togglePanel}
+                aria-label="Abrir chat"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <MessageCircle className="h-4 w-4" />
+                {chatCtx.totalUnread > 0 && (
+                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-card" />
+                )}
               </button>
               <button
                 type="button"

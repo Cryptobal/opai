@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Check, Loader2, Search } from "lucide-react";
+import { Check, Loader2, MapPin, Search, Users } from "lucide-react";
 
 interface Supervisor {
   id: string;
@@ -38,6 +38,8 @@ interface Props {
   installations: Installation[];
 }
 
+type GroupBy = "client" | "region";
+
 export function SupervisorAssignmentsClient({ supervisors, installations }: Props) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +47,10 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
   const [search, setSearch] = useState("");
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [groupBy, setGroupBy] = useState<GroupBy>("client");
 
-  const fetchAssignments = useCallback(async () => {
-    setLoading(true);
+  const fetchAssignments = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/ops/supervision/assignments");
       const json = await res.json();
@@ -55,9 +58,9 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
         setAssignments(json.data);
       }
     } catch {
-      toast.error("Error al cargar asignaciones");
+      if (!silent) toast.error("Error al cargar asignaciones");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -88,16 +91,20 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
   const groupedFilteredInstallations = useMemo(() => {
     const grouped: Record<string, Installation[]> = {};
     for (const inst of filteredInstallations) {
-      const key = inst.accountName || "Sin cliente";
+      const key =
+        groupBy === "region"
+          ? inst.commune || "Sin región"
+          : inst.accountName || "Sin cliente";
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(inst);
     }
-    return grouped;
-  }, [filteredInstallations]);
+    // Sort keys alphabetically
+    return Object.fromEntries(Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)));
+  }, [filteredInstallations, groupBy]);
 
   const handleToggle = async (installationId: string, checked: boolean) => {
     if (!selectedSupervisor) {
-      toast.error("Selecciona un supervisor primero");
+      toast.error("Selecciona un usuario primero");
       return;
     }
     setUpdatingIds((prev) => {
@@ -149,10 +156,23 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Error");
+        // Replace temp assignment with real one from API response
+        if (json.data) {
+          setAssignments((prev) =>
+            prev.map((a) =>
+              a.id === `temp-${selectedSupervisor}-${installationId}` ? json.data : a,
+            ),
+          );
+        }
         toast.success("Instalación asignada");
       } else {
         const assignment = assignedByInstallationId.get(installationId);
         if (!assignment) throw new Error("No se encontró la asignación para remover");
+        // If it was a temp (just created and toggled back quickly), just clear it
+        if (assignment.id.startsWith("temp-")) {
+          toast.success("Asignación removida");
+          return;
+        }
         const res = await fetch(`/api/ops/supervision/assignments?id=${assignment.id}`, {
           method: "DELETE",
         });
@@ -160,7 +180,6 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
         if (!res.ok) throw new Error(json.error ?? "Error");
         toast.success("Asignación removida");
       }
-      void fetchAssignments();
     } catch (err) {
       setAssignments(prevAssignments);
       toast.error(err instanceof Error ? err.message : "No se pudo actualizar la asignación");
@@ -175,7 +194,7 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
 
   const handleSetAllVisible = async (assign: boolean) => {
     if (!selectedSupervisor) {
-      toast.error("Selecciona un supervisor primero");
+      toast.error("Selecciona un usuario primero");
       return;
     }
 
@@ -241,24 +260,35 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error ?? "Error");
+            return json.data as Assignment | undefined;
           }),
         );
-        void results;
+        // Replace temp IDs with real ones from responses
+        setAssignments((prev) => {
+          const realById = new Map<string, Assignment>();
+          for (const a of results) {
+            if (a) realById.set(a.installationId, a);
+          }
+          return prev.map((a) => {
+            if (a.id.startsWith("temp-") && realById.has(a.installationId)) {
+              return realById.get(a.installationId)!;
+            }
+            return a;
+          });
+        });
       } else {
-        const results = await Promise.all(
+        await Promise.all(
           targetIds.map(async (installationId) => {
             const assignment = assignmentMap.get(installationId);
-            if (!assignment) return;
+            if (!assignment || assignment.id.startsWith("temp-")) return;
             const res = await fetch(`/api/ops/supervision/assignments?id=${assignment.id}`, { method: "DELETE" });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error ?? "Error");
           }),
         );
-        void results;
       }
 
       toast.success(assign ? `Asignadas ${targetIds.length} instalaciones` : `Removidas ${targetIds.length} asignaciones`);
-      void fetchAssignments();
     } catch (err) {
       setAssignments(prevAssignments);
       toast.error(err instanceof Error ? err.message : "No se pudo completar la operación masiva");
@@ -272,27 +302,27 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
     }
   };
 
-  const selectedSupervisorName =
+  const selectedUserName =
     supervisors.find((s) => s.id === selectedSupervisor)?.name ??
     supervisors.find((s) => s.id === selectedSupervisor)?.email ??
-    "Supervisor";
+    "Usuario";
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Asignar instalaciones por supervisor</CardTitle>
+          <CardTitle className="text-base">Asignar instalaciones por usuario</CardTitle>
           <CardDescription>
-            Selecciona un supervisor y activa/desactiva instalaciones con un click.
+            Selecciona un usuario y activa/desactiva instalaciones con un click.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 items-end">
             <div>
-              <Label className="text-xs">Supervisor</Label>
+              <Label className="text-xs">Usuario</Label>
               <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Seleccionar supervisor" />
+                  <SelectValue placeholder="Seleccionar usuario" />
                 </SelectTrigger>
                 <SelectContent>
                   {supervisors.map((s) => (
@@ -333,6 +363,34 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
             >
               Quitar todas visibles
             </Button>
+            <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
+              <button
+                type="button"
+                onClick={() => setGroupBy("client")}
+                className={[
+                  "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs transition-colors",
+                  groupBy === "client"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                <Users className="h-3 w-3" />
+                Por cliente
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupBy("region")}
+                className={[
+                  "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs transition-colors",
+                  groupBy === "region"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                <MapPin className="h-3 w-3" />
+                Por región
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -341,7 +399,7 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
         <CardHeader>
           <CardTitle className="text-base">Instalaciones</CardTitle>
           <CardDescription>
-            {assignmentsForSupervisor.length} de {installations.length} asignadas a {selectedSupervisorName}
+            {assignmentsForSupervisor.length} de {installations.length} asignadas a {selectedUserName}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -353,15 +411,23 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
             <p className="text-sm text-muted-foreground py-4 text-center">Sin resultados para tu búsqueda.</p>
           ) : (
             <div className="space-y-4">
-              {Object.entries(groupedFilteredInstallations).map(([clientName, clientInstallations]) => (
-                <div key={clientName}>
-                  <div className="px-1 pb-2">
+              {Object.entries(groupedFilteredInstallations).map(([groupKey, groupInstallations]) => (
+                <div key={groupKey}>
+                  <div className="px-1 pb-2 flex items-center gap-1.5">
+                    {groupBy === "region" ? (
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <Users className="h-3 w-3 text-muted-foreground" />
+                    )}
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {clientName}
+                      {groupKey}
                     </p>
+                    <span className="text-xs text-muted-foreground/60 ml-auto">
+                      {groupInstallations.filter((i) => assignedByInstallationId.has(i.id)).length}/{groupInstallations.length}
+                    </span>
                   </div>
                   <div className="space-y-2">
-                    {clientInstallations.map((inst) => {
+                    {groupInstallations.map((inst) => {
                       const assigned = assignedByInstallationId.has(inst.id);
                       const isUpdating = updatingIds.has(inst.id);
                       return (
@@ -372,8 +438,11 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
                           <div className="min-w-0 pr-3">
                             <p className="text-sm font-medium truncate">{inst.name}</p>
                             <p className="text-xs text-muted-foreground truncate">
-                              {inst.commune ? `${inst.commune} · ` : ""}
-                              {inst.address ?? "Sin dirección"}
+                              {groupBy === "region"
+                                ? inst.accountName
+                                : inst.commune
+                                ? `${inst.commune} · ${inst.address ?? "Sin dirección"}`
+                                : (inst.address ?? "Sin dirección")}
                             </p>
                           </div>
                           <button
@@ -404,7 +473,7 @@ export function SupervisorAssignmentsClient({ supervisors, installations }: Prop
                         </div>
                       );
                     })}
-                    </div>
+                  </div>
                 </div>
               ))}
             </div>

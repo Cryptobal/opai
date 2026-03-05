@@ -21,7 +21,7 @@ export function ChatFloatingButton() {
       type="button"
       onClick={ctx.togglePanel}
       className={cn(
-        "fixed z-[55] flex items-center justify-center rounded-full shadow-lg transition-all duration-200",
+        "hidden sm:fixed sm:flex z-[55] items-center justify-center rounded-full shadow-lg transition-all duration-200",
         "h-12 w-12 bg-teal-600 text-white hover:bg-teal-700 active:scale-95",
         "bottom-[calc(theme(spacing.14)+theme(spacing.4)+env(safe-area-inset-bottom))] right-4",
         "sm:bottom-6 sm:right-6",

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
 type ContractDataBody = {
   quoteId: string;
@@ -34,16 +34,11 @@ export async function POST(request: NextRequest) {
   try {
     // ── Session ──────────────────────────────────────────────
     const cookieStore = await cookies();
-    const raw = cookieStore.get("portal_cliente_session")?.value;
-    if (!raw) {
+    const session = parsePortalClienteSessionCookie(
+      cookieStore.get("portal_cliente_session")?.value
+    );
+    if (!session) {
       return NextResponse.json({ error: "No session" }, { status: 401 });
-    }
-
-    let session: ClienteSession;
-    try {
-      session = JSON.parse(raw);
-    } catch {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     // ── Body ─────────────────────────────────────────────────

@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { validateClienteSession } from "@/lib/portal-cliente";
+import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import type { ClienteSession } from "@/lib/portal-cliente-types";
+
+const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
+const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 días
+
+function setSessionCookie(session: ClienteSession) {
+  const value = Buffer.from(JSON.stringify(session), "utf-8").toString("base64url");
+  return {
+    name: PORTAL_CLIENTE_SESSION_COOKIE,
+    value,
+    path: "/",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+  };
+}
+
+export async function GET() {
+  const cookieStore = await cookies();
+  const session = parsePortalClienteSessionCookie(
+    cookieStore.get(PORTAL_CLIENTE_SESSION_COOKIE)?.value
+  );
+  if (!session?.installations?.length)
+    return NextResponse.json({ success: false }, { status: 401 });
+  return NextResponse.json({ success: true, data: session });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -125,7 +153,9 @@ export async function POST(request: NextRequest) {
       console.warn("[Portal Cliente] Audit log skipped:", (e as Error)?.message);
     }
 
-    return NextResponse.json({ success: true, data: result.session });
+    const res = NextResponse.json({ success: true, data: result.session });
+    res.cookies.set(setSessionCookie(result.session));
+    return res;
   } catch (error) {
     console.error("[Portal Cliente] Auth error:", error);
     return NextResponse.json({ success: false, error: "Error al autenticar" }, { status: 500 });

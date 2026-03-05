@@ -21,14 +21,7 @@ export default async function SupervisionAsignacionesPage() {
 
   const [supervisors, installations] = await Promise.all([
     prisma.admin.findMany({
-      where: {
-        tenantId,
-        status: "active",
-        OR: [
-          { role: "supervisor" },
-          { roleTemplate: { slug: "supervisor" } },
-        ],
-      },
+      where: { tenantId, status: "active" },
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
     }),
@@ -48,8 +41,8 @@ export default async function SupervisionAsignacionesPage() {
   return (
     <div className="space-y-6 min-w-0">
       <PageHeader
-        title="Asignaciones de supervisores"
-        description="Asigna instalaciones a supervisores para habilitar check-in y visitas de supervisión."
+        title="Asignaciones de instalaciones"
+        description="Asigna instalaciones a usuarios para habilitar check-in y visitas de supervisión."
       />
       <SupervisorAssignmentsClient
         supervisors={JSON.parse(JSON.stringify(supervisors))}

@@ -5,6 +5,19 @@ import { PortalConfig, DEFAULT_PORTAL_CONFIG, ClienteSession } from "@/lib/porta
 export type { PortalConfig, ClienteSession };
 export { DEFAULT_PORTAL_CONFIG };
 
+/** Decodifica la cookie de sesión del portal cliente (base64url). Usar en rutas API que lean portal_cliente_session. */
+export function parsePortalClienteSessionCookie(raw: string | undefined): ClienteSession | null {
+  if (!raw) return null;
+  try {
+    const decoded = Buffer.from(raw, "base64url").toString("utf-8");
+    const session = JSON.parse(decoded) as ClienteSession;
+    if (!session?.contactId || !session?.tenantId || !session?.accountId) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
 export function sanitizeGuardName(firstName: string, lastName: string): string {
   const first = firstName?.trim() || "";
   const lastInitial = lastName?.trim()?.[0] || "";

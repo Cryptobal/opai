@@ -16,7 +16,6 @@ import {
   Building2,
   Calculator,
   ClipboardList,
-  Settings,
   Receipt,
   BarChart3,
   Landmark,
@@ -73,7 +72,6 @@ const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, app: "payroll" },
   { key: "finance", href: "/finanzas", label: "Finanzas", icon: Landmark, app: "finance" },
   { key: "docs", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, app: "docs" },
-  { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
 
 /* ── CRM sub-items ── */

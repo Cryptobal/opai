@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { ClienteSession } from "@/lib/portal-cliente";
+import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
 const STATIC_DEMO_DATA = {
   installations: [
@@ -18,15 +18,10 @@ const STATIC_DEMO_DATA = {
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const raw = cookieStore.get("portal_cliente_session")?.value;
-    if (!raw) return NextResponse.json({ error: "No session" }, { status: 401 });
-
-    let session: ClienteSession;
-    try {
-      session = JSON.parse(raw);
-    } catch {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
+    const session = parsePortalClienteSessionCookie(
+      cookieStore.get("portal_cliente_session")?.value
+    );
+    if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
     const existing = await prisma.portalClienteDemoData.findUnique({
       where: { contactId: session.contactId },

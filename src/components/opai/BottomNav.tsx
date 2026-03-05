@@ -34,7 +34,7 @@ interface BottomNavProps {
  * BottomNav — Barra de navegación inferior contextual (mobile-first).
  *
  * Patrón Salesforce/HubSpot Mobile:
- * - En rutas generales: muestra módulos principales (Inicio, Docs, CRM, Payroll, Ops, Config)
+ * - En rutas generales: muestra módulos principales (Inicio, Chat, Comercial, Ops, etc.; Config solo en top bar)
  * - Dentro de un módulo: muestra subcategorías del módulo con iconos
  * - En páginas de detalle CRM: muestra las secciones del registro (scroll a anclas)
  *

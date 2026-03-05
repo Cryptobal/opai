@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
@@ -54,6 +54,29 @@ export function PortalClienteClient() {
   const [selectedInstallation, setSelectedInstallation] = useState("");
 
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
+  const [restoringSession, setRestoringSession] = useState(true);
+
+  /* ── Restaurar sesión desde cookie al montar ── */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/cliente/auth", { method: "GET" });
+        const json = await res.json();
+        if (cancelled || !json.success || !json.data) return;
+        setSession(json.data);
+        setSelectedInstallation(json.data.installations[0]?.id ?? "");
+        setScreen("dashboard");
+      } catch {
+        // Sin sesión válida; se muestra login
+      } finally {
+        if (!cancelled) setRestoringSession(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* ── Login ── */
   async function handleLogin() {
@@ -147,6 +170,18 @@ export function PortalClienteClient() {
           </div>
         );
     }
+  }
+
+  /* ── Mientras se restaura la sesión desde la cookie ── */
+  if (restoringSession) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-zinc-400">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm">Cargando sesión...</p>
+        </div>
+      </div>
+    );
   }
 
   /* ══════════════════════════════════════ LOGIN ══════════════════════════════════════ */
@@ -255,7 +290,8 @@ export function PortalClienteClient() {
             <PortalUserMenu
               session={session}
               onNotificaciones={() => setNotifSheetOpen(true)}
-              onLogout={() => {
+              onLogout={async () => {
+                await fetch("/api/portal/cliente/logout", { method: "POST" });
                 setSession(null);
                 setScreen("login");
                 setActiveSection("dashboard");
