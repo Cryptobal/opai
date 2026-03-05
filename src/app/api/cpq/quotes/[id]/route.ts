@@ -94,6 +94,25 @@ export async function PATCH(
     }
 
     const quote = await prisma.cpqQuote.findUnique({ where: { id } });
+
+    // Push: quote accepted or rejected
+    if (body.status === 'accepted' || body.status === 'rejected') {
+      try {
+        const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
+        const notifKey = body.status === 'accepted' ? 'quote_accepted' : 'quote_rejected';
+        const statusLabel = body.status === 'accepted' ? 'aceptada' : 'rechazada';
+        await sendPushToAdmins(
+          ctx.tenantId,
+          notifKey,
+          `Cotización ${statusLabel}`,
+          `La cotización "${quote?.name || quote?.clientName || quote?.id}" fue ${statusLabel}`,
+          `/opai/cpq/cotizaciones/${id}`,
+        );
+      } catch (err) {
+        console.error('[CPQ] Error sending quote status push:', err);
+      }
+    }
+
     return NextResponse.json({ success: true, data: quote });
   } catch (error) {
     console.error("Error updating CPQ quote:", error);
