@@ -847,6 +847,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   return (
     <div className="space-y-2 pb-20 lg:pb-4">
       {/* -- Compact header -- */}
+      <div className="sticky top-[53px] z-30 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -855,7 +856,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold truncate">{quote.code}</h1>
+            <h1 className="text-base font-bold tracking-tight truncate">{quote.code}</h1>
             {quote.name && <span className="text-sm font-medium truncate text-foreground/80">— {quote.name}</span>}
             <Badge variant="outline" className="text-[10px] h-5 shrink-0">
               {quote.status}
@@ -910,6 +911,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </div>
         </div>
       </div>
+      </div>{/* end sticky header */}
 
       {/* -- 2-column layout: scrollable editor + sticky sidebar -- */}
       <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-0">
