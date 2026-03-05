@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Resend } from 'resend'
+import { resend, EMAIL_CONFIG } from '@/lib/resend'
 import crypto from 'crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Dominio verificado en Resend es gard.cl (no gardsecurity.cl). Forzamos from con gard.cl.
+const FROM_PORTAL_PIN = 'OPAI Portal <opai@gard.cl>'
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,8 +42,9 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? 'https://opai.gard.cl'
     const setupUrl = `${baseUrl}/portal/cliente/setup?token=${token}`
 
-    await resend.emails.send({
-      from: 'Gard Security <noreply@gardsecurity.cl>',
+    const emailResult = await resend.emails.send({
+      from: FROM_PORTAL_PIN,
+      replyTo: EMAIL_CONFIG.replyTo,
       to: contact.email,
       subject: 'Restablecer PIN — Portal Gard Security',
       html: `
@@ -60,9 +62,14 @@ export async function POST(req: NextRequest) {
       `,
     })
 
+    if (emailResult.error) {
+      console.error('[portal/forgot-pin] Resend error:', emailResult.error.message, emailResult.error)
+      throw new Error(`Resend: ${emailResult.error.message}`)
+    }
+
     return SUCCESS
   } catch (err) {
     console.error('[portal/forgot-pin]', err)
-    return NextResponse.json({ success: true }) // Still return success
+    return NextResponse.json({ success: true }) // Still return success to avoid enumeration
   }
 }

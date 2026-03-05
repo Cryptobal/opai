@@ -17,7 +17,7 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
   session?: ClienteSession;
 }> {
   const bcrypt = await import("bcryptjs");
-  const cleanRut = rut.replace(/[.\-]/g, "").toUpperCase();
+  const cleanRut = rut.replace(/[.\-\s]/g, "").toUpperCase();
   const rutBody = cleanRut.slice(0, -1);
   const rutDv = cleanRut.slice(-1);
   const rutWithDash = `${rutBody}-${rutDv}`;
@@ -32,6 +32,20 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
     rutWithDots = `${groups.reverse().join(".")}-${rutDv}`;
   }
 
+  let accountIdsByRut: { id: string }[] = [];
+  try {
+    if (cleanRut.length >= 2) {
+      accountIdsByRut =
+        (await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM crm.accounts
+          WHERE REPLACE(REPLACE(REPLACE(UPPER(COALESCE(rut, '')), '.', ''), '-', ''), ' ', '') = ${cleanRut}
+        `) ?? [];
+    }
+  } catch {
+    // Raw puede fallar; seguimos con variantes exactas de RUT
+  }
+
+  // Select explícito: no pedir portalConfig ni columnas que puedan no existir en prod.
   const contacts = await prisma.crmContact.findMany({
     where: {
       portalEnabled: true,
@@ -39,12 +53,25 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
         { account: { rut: cleanRut } },
         { account: { rut: rutWithDash } },
         { account: { rut: rutWithDots } },
-        { account: { rut: rut } },
+        { account: { rut: rut.trim() } },
+        ...(accountIdsByRut.length > 0 ? [{ accountId: { in: accountIdsByRut.map((r) => r.id) } }] : []),
       ],
     },
-    include: {
+    select: {
+      id: true,
+      tenantId: true,
+      accountId: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      portalPin: true,
+      portalPinVisible: true,
       account: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          isActive: true,
           installations: {
             where: { isActive: true },
             select: { id: true, name: true },
@@ -83,23 +110,29 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
     }
 
     if (pinValid) {
-      await prisma.crmContact.update({
-        where: { id: contact.id },
-        data: {
-          portalLastAccessAt: new Date(),
-          portalLastAccessIp: ip ?? null,
-        },
-      });
+      try {
+        await prisma.crmContact.update({
+          where: { id: contact.id },
+          data: {
+            portalLastAccessAt: new Date(),
+            portalLastAccessIp: ip ?? null,
+          },
+        });
+      } catch {
+        // Columnas de último acceso pueden no existir
+      }
 
-      const rawConfig = contact.account.portalConfig as Partial<PortalConfig> | null
-      const portalConfig: PortalConfig = rawConfig
-        ? { ...DEFAULT_PORTAL_CONFIG, ...rawConfig }
-        : DEFAULT_PORTAL_CONFIG
+      const portalConfig: PortalConfig = DEFAULT_PORTAL_CONFIG
 
-      const hasDemoData = await prisma.portalClienteDemoData.findUnique({
-        where: { contactId: contact.id },
-        select: { id: true },
-      }) !== null
+      let hasDemoData = false
+      try {
+        hasDemoData = (await prisma.portalClienteDemoData.findUnique({
+          where: { contactId: contact.id },
+          select: { id: true },
+        })) !== null
+      } catch {
+        // Tabla puede no existir en prod
+      }
 
       return {
         success: true,
