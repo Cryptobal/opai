@@ -7,37 +7,28 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: NextRequest) {
   try {
-    const { rut } = await req.json()
+    const body = await req.json()
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
 
     // Always return success to avoid user enumeration
     const SUCCESS = NextResponse.json({ success: true })
 
-    if (!rut) return SUCCESS
+    if (!email) return SUCCESS
 
-    const cleanRut = rut.replace(/\./g, '').replace(/-/g, '').toUpperCase()
-
-    const account = await prisma.crmAccount.findFirst({
+    // Buscar el contacto por email: así sabemos a quién mandar el enlace (un contacto = un usuario con PIN)
+    const contact = await prisma.crmContact.findFirst({
       where: {
-        OR: [
-          { rut },
-          { rut: cleanRut },
-          { rut: rut.toUpperCase() },
-        ],
-      },
-      include: {
-        contacts: {
-          where: { portalEnabled: true },
-          select: { id: true, email: true, firstName: true },
-          take: 1,
-          orderBy: { createdAt: 'asc' },
+        portalEnabled: true,
+        email: { equals: email, mode: 'insensitive' },
+        account: {
+          status: { in: ['client_active', 'prospect'] },
+          isActive: true,
         },
       },
+      select: { id: true, email: true, firstName: true },
     })
 
-    if (!account || account.contacts.length === 0) return SUCCESS
-
-    const contact = account.contacts[0]
-    if (!contact.email) return SUCCESS
+    if (!contact?.email) return SUCCESS
 
     const token = crypto.randomUUID()
     const exp = new Date(Date.now() + 48 * 60 * 60 * 1000) // 48 hours
@@ -47,7 +38,7 @@ export async function POST(req: NextRequest) {
       data: { portalMagicToken: token, portalMagicTokenExp: exp },
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://app.gardsecurity.cl'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? 'https://opai.gard.cl'
     const setupUrl = `${baseUrl}/portal/cliente/setup?token=${token}`
 
     await resend.emails.send({

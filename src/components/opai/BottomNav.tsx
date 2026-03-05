@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
+import { ChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -79,6 +80,10 @@ function LinkBottomNav({
   const navRef = useRef<HTMLElement>(null);
   useBottomNavHeight(navRef);
 
+  // Read chat unread count from context (null-safe — returns 0 if no provider)
+  const chatCtx = useContext(ChatFloatingContext);
+  const chatUnread = chatCtx?.totalUnread ?? 0;
+
   return (
     <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
       <div
@@ -93,6 +98,7 @@ function LinkBottomNav({
           const isActive =
             pathname === item.href || pathname?.startsWith(item.href + '/');
           const Icon = item.icon;
+          const unread = item.key === 'chat' && chatUnread > 0 ? chatUnread : 0;
           return (
             <Link
               key={item.key}
@@ -110,8 +116,13 @@ function LinkBottomNav({
               {isActive && (
                 <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-primary" />
               )}
-              <span className={cn("flex items-center justify-center rounded-lg", isActive && "bg-primary/10 p-1")}>
+              <span className={cn("relative flex items-center justify-center rounded-lg", isActive && "bg-primary/10 p-1")}>
                 <Icon className={cn("shrink-0", useWrap || compact ? "h-4 w-4" : "h-5 w-5")} />
+                {unread > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white leading-none">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
               </span>
               <span
                 className={cn(

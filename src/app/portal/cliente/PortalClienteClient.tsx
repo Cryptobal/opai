@@ -160,7 +160,7 @@ export function PortalClienteClient() {
               <span className="text-xl font-bold tracking-tight">Gard Security</span>
             </div>
             <h1 className="text-lg font-semibold">Portal de Seguridad</h1>
-            <p className="text-sm text-zinc-400 mt-1">Ingrese con el RUT de su empresa y el PIN proporcionado</p>
+            <p className="text-sm text-zinc-400 mt-1">RUT de la empresa + tu PIN de acceso (el que te asignaron)</p>
           </div>
 
           <PWAInstallBanner
@@ -185,7 +185,7 @@ export function PortalClienteClient() {
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">PIN</label>
+              <label className="text-xs text-zinc-400 mb-1 block">Tu PIN (6 dígitos)</label>
               <input
                 id="pin-input"
                 type="password"

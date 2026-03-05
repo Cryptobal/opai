@@ -8,20 +8,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function ForgotPinPage() {
-  const [rut, setRut] = useState('')
+  const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!rut.trim()) return
+    const value = email.trim()
+    if (!value) return
+    setError('')
     setLoading(true)
-    await fetch('/api/portal/cliente/forgot-pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rut: rut.trim() }),
-    })
-    setSent(true)
+    try {
+      const res = await fetch('/api/portal/cliente/forgot-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value }),
+      })
+      if (!res.ok) setError('No se pudo enviar. Intenta de nuevo más tarde.')
+      else setSent(true)
+    } catch {
+      setError('Error de conexión. Revisa tu internet e intenta de nuevo.')
+    }
     setLoading(false)
   }
 
@@ -34,25 +42,28 @@ export default function ForgotPinPage() {
           </div>
           <CardTitle className="text-white text-xl">Recuperar acceso</CardTitle>
           <CardDescription className="text-zinc-400 text-sm">
-            Te enviaremos un enlace para crear un nuevo PIN
+            Ingresa el correo con el que accedes al portal. Te enviaremos un enlace para crear un nuevo PIN.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">RUT de la empresa</label>
+                <label className="text-zinc-400 text-xs mb-1.5 block">Correo electrónico</label>
                 <Input
-                  value={rut}
-                  onChange={e => setRut(e.target.value)}
-                  placeholder="12.345.678-9"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="tu@empresa.com"
                   className="bg-zinc-800 border-zinc-700 text-white"
                   autoFocus
+                  autoComplete="email"
                 />
               </div>
+              {error && <p className="text-xs text-red-400">{error}</p>}
               <Button
                 type="submit"
-                disabled={loading || !rut.trim()}
+                disabled={loading || !email.trim()}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {loading ? (
@@ -74,7 +85,7 @@ export default function ForgotPinPage() {
             <div className="text-center space-y-4 py-4">
               <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
               <p className="text-zinc-300 text-sm">
-                Si existe una cuenta asociada a ese RUT, recibirás un correo con instrucciones para restablecer tu PIN.
+                Si ese correo tiene acceso al portal, recibirás un email con el enlace para restablecer tu PIN. Revisa también la carpeta de spam.
               </p>
               <Link href="/portal/cliente">
                 <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">

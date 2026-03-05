@@ -42,6 +42,7 @@ import {
   Plug,
   Bell,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import {
   type RolePermissions,
@@ -65,6 +66,7 @@ export interface BottomNavItem {
 
 const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
+  { key: "chat", href: "/chat", label: "Chat", icon: MessageSquare, app: "hub" },
   { key: "crm", href: "/crm", label: "Comercial", icon: TrendingUp, app: "crm" },
   { key: "ops", href: "/ops", label: "Operaciones", icon: Activity, app: "ops" },
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: User, app: "ops" },

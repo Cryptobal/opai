@@ -52,7 +52,7 @@ interface ChatFloatingContextValue {
   refreshChannels: () => Promise<void>;
 }
 
-const ChatFloatingContext = createContext<ChatFloatingContextValue | null>(null);
+export const ChatFloatingContext = createContext<ChatFloatingContextValue | null>(null);
 
 export function useChatFloatingContext() {
   const ctx = useContext(ChatFloatingContext);
