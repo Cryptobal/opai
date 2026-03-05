@@ -169,6 +169,121 @@ type InstallationRow = { id: string; name: string; address?: string | null; city
 type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
+function DealPipelineStepper({
+  stages,
+  currentStageId,
+  dealStatus,
+  onStageClick,
+  onWonClick,
+  onLostClick,
+  disabled,
+}: {
+  stages: PipelineStageOption[];
+  currentStageId: string | undefined;
+  dealStatus: string | undefined;
+  onStageClick: (stageId: string) => void;
+  onWonClick: () => void;
+  onLostClick: () => void;
+  disabled?: boolean;
+}) {
+  const openStages = stages.filter((s) => !s.isClosedWon && !s.isClosedLost);
+  const wonStage = stages.find((s) => s.isClosedWon);
+  const lostStage = stages.find((s) => s.isClosedLost);
+  const currentIdx = openStages.findIndex((s) => s.id === currentStageId);
+  const isWon = dealStatus === "won";
+  const isLost = dealStatus === "lost";
+  const isClosed = isWon || isLost;
+
+  return (
+    <div className="flex items-center gap-2 py-2 overflow-x-auto scrollbar-thin">
+      {/* Open stages as chevron steps */}
+      <div className="flex items-stretch min-w-0">
+        {openStages.map((stage, idx) => {
+          const isCurrent = !isClosed && stage.id === currentStageId;
+          const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
+          const isFuture = !isClosed && currentIdx >= 0 && idx > currentIdx;
+          const isFirst = idx === 0;
+          const isLast = idx === openStages.length - 1;
+          const stageColor = stage.color || "#94a3b8";
+
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              disabled={disabled || isClosed}
+              onClick={() => onStageClick(stage.id)}
+              className={cn(
+                "relative flex items-center justify-center px-4 py-1.5 text-xs font-medium whitespace-nowrap transition-all min-w-0",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                isFirst && "rounded-l-md",
+                isLast && "rounded-r-md",
+                !isFirst && "ml-[2px]",
+                isClosed && "opacity-50 cursor-not-allowed",
+                !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
+                isCurrent && "text-white shadow-sm",
+                isPast && "text-white/80",
+                isFuture && "bg-muted text-muted-foreground",
+              )}
+              style={
+                isCurrent
+                  ? { backgroundColor: stageColor }
+                  : isPast
+                    ? { backgroundColor: `${stageColor}60` }
+                    : undefined
+              }
+              title={stage.name}
+            >
+              {isPast && <Check className="h-3 w-3 mr-1 shrink-0" />}
+              <span className="truncate max-w-[120px]">{stage.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Separator */}
+      <div className="h-5 w-px bg-border shrink-0" />
+
+      {/* Ganado button */}
+      {wonStage && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onWonClick}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isWon
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+              : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
+          )}
+        >
+          <Check className="h-3 w-3" />
+          Ganado
+        </button>
+      )}
+
+      {/* Perdido button */}
+      {lostStage && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onLostClick}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isLost
+              ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
+              : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+          )}
+        >
+          <XCircle className="h-3 w-3" />
+          Perdido
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function CrmDealDetailClient({
   deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
 }: {
