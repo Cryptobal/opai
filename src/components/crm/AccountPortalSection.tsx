@@ -83,7 +83,10 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
       setSavingConfig(false);
     }
   }
-  const isClientActive = accountStatus === "client_active" || (accountIsActive && accountStatus !== "client_inactive");
+  const hasPortalAccess =
+    accountStatus === "client_active" ||
+    accountStatus === "prospect" ||
+    (accountIsActive && accountStatus !== "client_inactive");
 
   const portalUrl = typeof window !== "undefined"
     ? `${window.location.origin}/portal/cliente`
@@ -193,7 +196,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
     }
   }, []);
 
-  if (!isClientActive) {
+  if (!hasPortalAccess) {
     return (
       <div className="space-y-3">
         <h3 className="text-sm font-medium">Portal del cliente</h3>
@@ -201,7 +204,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
           <CardContent className="py-6 text-center">
             <Shield className="h-8 w-8 text-amber-400/40 mx-auto mb-2" />
             <p className="text-sm text-amber-400">
-              El portal del cliente solo está disponible para cuentas con estado "Cliente activo".
+              El portal del cliente está disponible para cuentas con estado &quot;Prospecto&quot; o &quot;Cliente activo&quot;.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Cambie el estado de la cuenta para habilitar el acceso al portal.

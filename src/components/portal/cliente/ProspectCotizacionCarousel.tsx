@@ -6,12 +6,11 @@ interface Quote {
   id: string;
   code: string;
   status: string;
-  monthlyCostUf: number | null;
-  monthlyCostClp: number | null;
+  monthlyCost: number;
   currency: string;
   totalPositions: number;
   totalGuards: number;
-  name: string;
+  name: string | null;
 }
 
 interface Props {
@@ -28,7 +27,8 @@ export function ProspectCotizacionCarousel({ onViewDetail, onChat }: Props) {
     fetch("/api/portal/cliente/cotizaciones")
       .then(r => r.json())
       .then(data => {
-        setQuotes(data.quotes || data || []);
+        const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data?.quotes) ? data.quotes : [];
+        setQuotes(arr);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -82,8 +82,8 @@ export function ProspectCotizacionCarousel({ onViewDetail, onChat }: Props) {
 
 function CotizacionCard({ quote, onViewDetail, onChat }: { quote: Quote; onViewDetail: () => void; onChat: () => void }) {
   const displayCost = quote.currency === "UF"
-    ? `${quote.monthlyCostUf?.toLocaleString("es-CL") ?? "\u2014"} UF/mes`
-    : `$${quote.monthlyCostClp?.toLocaleString("es-CL") ?? "\u2014"}/mes`;
+    ? `${quote.monthlyCost?.toLocaleString("es-CL") ?? "\u2014"} UF/mes`
+    : `$${quote.monthlyCost?.toLocaleString("es-CL") ?? "\u2014"}/mes`;
 
   return (
     <div
@@ -100,7 +100,7 @@ function CotizacionCard({ quote, onViewDetail, onChat }: { quote: Quote; onViewD
         </span>
       </div>
       <div className="text-lg font-bold text-white mb-1">{displayCost}</div>
-      <div className="text-xs text-zinc-400 mb-1">{quote.name}</div>
+      <div className="text-xs text-zinc-400 mb-1">{quote.name ?? quote.code}</div>
       <div className="text-xs text-zinc-500 mb-3">
         {quote.totalPositions} puesto{quote.totalPositions !== 1 ? "s" : ""} · {quote.totalGuards} guardia{quote.totalGuards !== 1 ? "s" : ""}
       </div>

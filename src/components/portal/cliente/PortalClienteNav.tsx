@@ -47,6 +47,9 @@ interface Props {
   isProspect?: boolean
 }
 
+// Fixed 4 tabs for prospect mode per spec: Inicio, Propuesta, Nosotros, Chat
+const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'propuesta', 'nosotros', 'chat']
+
 export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
 
@@ -58,8 +61,13 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
     return true
   })
 
-  const mainItems = visibleItems.slice(0, 4)
-  const extraItems = visibleItems.slice(4)
+  // Prospect mode: fixed 4 tabs with no "More" menu
+  const mainItems = isProspect
+    ? ALL_NAV_ITEMS.filter(item => PROSPECT_MAIN_IDS.includes(item.id))
+    : visibleItems.slice(0, 4)
+  const extraItems = isProspect
+    ? []
+    : visibleItems.slice(4)
   const hasExtra = extraItems.length > 0
 
   return (
@@ -75,7 +83,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 active
-                  ? 'text-blue-400 bg-blue-500/10'
+                  ? 'text-teal-400 bg-teal-500/10'
                   : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
               )}
             >
@@ -92,7 +100,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 moreOpen || extraItems.some(i => i.id === activeSection)
-                  ? 'text-blue-400 bg-blue-500/10'
+                  ? 'text-teal-400 bg-teal-500/10'
                   : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
               )}
             >
@@ -110,7 +118,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
                       onClick={() => { onSection(item.id); setMoreOpen(false) }}
                       className={cn(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-300 hover:bg-zinc-700'
+                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />

@@ -100,7 +100,10 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
   }
 
   const activeContacts = contacts.filter(
-    (c) => c.account.status === "client_active" || (c.account.isActive && c.account.status !== "client_inactive"),
+    (c) =>
+      c.account.status === "client_active" ||
+      c.account.status === "prospect" ||
+      (c.account.isActive && c.account.status !== "client_inactive"),
   );
 
   if (activeContacts.length === 0) {

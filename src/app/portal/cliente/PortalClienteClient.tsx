@@ -23,6 +23,7 @@ import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
+import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
@@ -193,7 +194,7 @@ export function PortalClienteClient() {
           />
         );
       case "nosotros":
-        return <div className="p-4 text-zinc-400">Nosotros - Coming soon</div>;
+        return <PortalNosotros />;
       case "empresa":
         return <PortalEmpresa session={session} />;
       default:

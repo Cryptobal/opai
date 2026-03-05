@@ -144,6 +144,21 @@ export async function POST(
             link: `/opai/documentos/nuevo?accountId=${updated.accountId}&dealId=${deal.id}`,
           },
         });
+
+        // Transición portal: prospect → client_active
+        if (updated.account.status === "prospect") {
+          try {
+            await tx.crmAccount.update({
+              where: { id: updated.accountId },
+              data: {
+                status: "client_active",
+                portalTourShown: false, // reset tour for active mode
+              },
+            });
+          } catch (e) {
+            console.error("Error transitioning portal prospect to active:", e);
+          }
+        }
       }
 
       return updated;
