@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
-  Shield, Loader2, LogOut, ChevronDown,
+  Shield, Loader2, ChevronDown,
 } from "lucide-react";
 import { ChatClienteSection } from "@/components/portales/ChatClienteSection";
 import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
@@ -21,6 +21,8 @@ import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalDemoOverlay } from "@/components/portal/cliente/PortalDemoOverlay";
+import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
+import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 
 /* ── Helpers ── */
@@ -50,6 +52,8 @@ export function PortalClienteClient() {
 
   /* ── Selected installation ── */
   const [selectedInstallation, setSelectedInstallation] = useState("");
+
+  const [notifSheetOpen, setNotifSheetOpen] = useState(false);
 
   /* ── Login ── */
   async function handleLogin() {
@@ -247,16 +251,17 @@ export function PortalClienteClient() {
               <ChevronDown className="absolute right-2 top-2 h-3.5 w-3.5 pointer-events-none text-zinc-400" />
             </div>
           )}
-          <button
-            onClick={() => {
-              setSession(null);
-              setScreen("login");
-              setActiveSection("dashboard");
-            }}
-            className="p-2 rounded hover:bg-white/5 transition-colors"
-          >
-            <LogOut className="h-4 w-4 text-zinc-400" />
-          </button>
+          {session && (
+            <PortalUserMenu
+              session={session}
+              onNotificaciones={() => setNotifSheetOpen(true)}
+              onLogout={() => {
+                setSession(null);
+                setScreen("login");
+                setActiveSection("dashboard");
+              }}
+            />
+          )}
         </div>
       </header>
 
@@ -284,6 +289,15 @@ export function PortalClienteClient() {
         activeSection={activeSection}
         onSection={setActiveSection}
       />
+
+      {/* Notificaciones sheet */}
+      {session && (
+        <PortalNotificacionesSheet
+          session={session}
+          open={notifSheetOpen}
+          onClose={() => setNotifSheetOpen(false)}
+        />
+      )}
     </div>
   );
 }
