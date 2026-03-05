@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { SubNav, type SubNavItem } from "@/components/opai/SubNav";
 import { Button } from "@/components/ui/button";
-import { LayoutGrid, BarChart2, History, Plus, AlertTriangle } from "lucide-react";
+import { LayoutGrid, BarChart2, History, Plus, AlertTriangle, Users } from "lucide-react";
 
 const ITEMS: SubNavItem[] = [
   { href: "/ops/supervision", label: "Grilla", icon: LayoutGrid, exactMatch: true },
   { href: "/ops/supervision/hallazgos", label: "Hallazgos", icon: AlertTriangle },
   { href: "/ops/supervision/dashboard", label: "Dashboard", icon: BarChart2 },
   { href: "/ops/supervision/historial", label: "Historial", icon: History },
+  { href: "/ops/supervision/asignaciones", label: "Asignaciones", icon: Users },
 ];
 
 export function SupervisionSubnav() {
