@@ -13,6 +13,7 @@ import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
+import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
 import {
   DropdownMenu,
@@ -146,11 +147,14 @@ export function AppShell({
               paddingTop: 'env(safe-area-inset-top)',
             }}
           >
-            <div className="flex shrink-0 items-center gap-2">
-              <Link href="/hub" className="flex items-center gap-2 hover:opacity-80">
+            <div className="flex shrink-0 items-center gap-2 min-w-0">
+              <Link href="/hub" className="flex items-center gap-2 hover:opacity-80 shrink-0">
                 <ThemeLogo width={28} height={28} className="h-7 w-7" />
                 <span className="text-sm font-semibold tracking-tight">OPAI</span>
               </Link>
+              <div className="shrink-0 flex items-center min-h-[44px] -my-1">
+                <RoleSwitcher />
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -296,9 +300,16 @@ export function AppShell({
           {/* Simulation Banner — visible when simulating a different role */}
           <SimulationBanner />
           <main className="flex-1 min-w-0 w-full">
-            <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
-              {children}
-            </div>
+            {pathname.startsWith('/chat') ? (
+              /* Chat route: no padding — chat manages its own height/scroll */
+              <div className="w-full min-w-0 overflow-hidden" role="region">
+                {children}
+              </div>
+            ) : (
+              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
+                {children}
+              </div>
+            )}
           </main>
         </div>
 

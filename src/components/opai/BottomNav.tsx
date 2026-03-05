@@ -7,6 +7,24 @@ import { cn } from '@/lib/utils';
 import { getBottomNavItems } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
 
+/** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
+function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      document.documentElement.style.setProperty('--bottom-nav-height', `${el.offsetHeight}px`);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty('--bottom-nav-height');
+    };
+  }, [ref]);
+}
+
 interface BottomNavProps {
   userRole?: string;
 }
@@ -58,9 +76,11 @@ function LinkBottomNav({
   const manyItems = items.length > 6;
   // Con muchos items: flex-wrap en 2 filas para evitar scroll horizontal
   const useWrap = manyItems;
+  const navRef = useRef<HTMLElement>(null);
+  useBottomNavHeight(navRef);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
+    <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
       <div
         className={cn(
           "flex items-stretch px-1 pb-[env(safe-area-inset-bottom)]",
@@ -182,9 +202,11 @@ function SectionBottomNav({
 
   const manyItems = items.length > 6;
   const useWrap = manyItems;
+  const navRef = useRef<HTMLElement>(null);
+  useBottomNavHeight(navRef);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
+    <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
       <div
         className={cn(
           "flex items-stretch px-1 pb-[env(safe-area-inset-bottom)]",

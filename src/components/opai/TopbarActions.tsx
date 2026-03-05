@@ -112,10 +112,14 @@ export function TopbarActions({
         />
       )}
 
+      {/* Role Switcher a la izquierda (solo owner/admin) */}
+      <RoleSwitcher />
+
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right: Settings gear */}
+      {/* Tema + Configuración juntos */}
+      <ThemeToggle />
       <Link
         href="/opai/configuracion"
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -123,11 +127,6 @@ export function TopbarActions({
       >
         <Settings className="h-4 w-4" />
       </Link>
-
-      {/* Role Switcher (solo owner/admin) */}
-      <RoleSwitcher />
-
-      <ThemeToggle />
 
       {/* Avatar + User Menu */}
       {!mounted ? (

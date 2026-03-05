@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor, Users } from 'lucide-react';
+import { Shield, Route, Monitor, Users, LayoutDashboard } from 'lucide-react';
 import { PageHeader } from '@/components/opai';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
@@ -48,6 +48,15 @@ const PORTALS: PortalDef[] = [
         href: '/portal/cliente',
         icon: Users,
         accentColor: 'from-teal-500/25 to-teal-400/5',
+    },
+    {
+        id: 'app',
+        name: 'Aplicación OPAI',
+        description:
+            'Panel principal para administradores y operaciones. Gestión de envíos, documentos, CRM, operaciones y finanzas.',
+        href: '/opai/inicio',
+        icon: LayoutDashboard,
+        accentColor: 'from-violet-500/25 to-violet-400/5',
     },
 ];
 

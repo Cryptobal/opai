@@ -256,6 +256,19 @@
   .text-shadow-lg {
     text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
   }
+
+  /* Chat full-height: fills exactly between topbar and bottom nav on mobile,
+     and between desktop topbar and bottom of viewport on lg+. */
+  .chat-full-height {
+    /* mobile: viewport minus mobile topbar (4rem) and safe areas */
+    height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - 3.5rem - env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 1024px) {
+    .chat-full-height {
+      /* desktop: viewport minus desktop sticky topbar (3rem = h-12) */
+      height: calc(100dvh - 3rem);
+    }
+  }
 }
 
 /* Page content: constrain children to avoid horizontal overflow on mobile */

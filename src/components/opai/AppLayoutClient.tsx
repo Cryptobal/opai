@@ -35,6 +35,7 @@ import {
   Monitor,
   MessageCircle,
   Shield,
+  LayoutDashboard,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -243,6 +244,7 @@ function AppLayoutClientInner({
         { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
         { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
         { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
+        { href: '/opai/inicio', label: 'Aplicación OPAI', icon: LayoutDashboard },
       ],
     },
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);

@@ -105,6 +105,7 @@ export function ChatInput({
   // #hashtag entity search state
   const [hashtagQuery, setHashtagQuery] = useState<string | null>(null);
   const [hashtagResults, setHashtagResults] = useState<GlobalSearchResult[]>([]);
+  const [hashtagLoading, setHashtagLoading] = useState(false);
   const [hashtagIndex, setHashtagIndex] = useState(0);
   const [hashtagStartPos, setHashtagStartPos] = useState(0);
   const hashtagFetchRef = useRef<AbortController | null>(null);
@@ -297,10 +298,19 @@ export function ChatInput({
 
   // Fetch hashtag entity results when query changes (debounced 300ms, min 1 char)
   useEffect(() => {
-    if (hashtagQuery === null || hashtagQuery.length < 1) {
+    if (hashtagQuery === null) {
       setHashtagResults([]);
+      setHashtagLoading(false);
       return;
     }
+
+    if (hashtagQuery.length < 1) {
+      setHashtagResults([]);
+      setHashtagLoading(false);
+      return;
+    }
+
+    setHashtagLoading(true);
 
     // Clear previous debounce
     if (hashtagDebounceRef.current) {
@@ -324,6 +334,8 @@ export function ChatInput({
           }
         } catch {
           // Ignore abort errors
+        } finally {
+          setHashtagLoading(false);
         }
       };
 
@@ -854,33 +866,46 @@ export function ChatInput({
         {/* Textarea + mention/hashtag popup */}
         <div className="flex-1 min-w-0 relative">
           {/* #hashtag entity popup */}
-          {hashtagQuery !== null && hashtagResults.length > 0 && (
+          {hashtagQuery !== null && (
             <div className="absolute bottom-full left-0 right-0 mb-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl z-50">
-              {hashtagResults.map((result, idx) => (
-                <button
-                  key={`${result.type}-${result.id}`}
-                  type="button"
-                  className={cn(
-                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                    idx === hashtagIndex
-                      ? "bg-zinc-700 text-zinc-100"
-                      : "text-zinc-300 hover:bg-zinc-700/50"
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    insertHashtagEntity(result);
-                  }}
-                  onMouseEnter={() => setHashtagIndex(idx)}
-                >
-                  <span className="shrink-0 text-base leading-none">
-                    {ENTITY_TYPE_ICONS[result.type]}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-xs">{result.title}</p>
-                    <p className="truncate text-[10px] text-zinc-500">{result.subtitle}</p>
-                  </div>
-                </button>
-              ))}
+              {hashtagQuery.length === 0 ? (
+                <div className="px-3 py-2.5 text-xs text-zinc-500">
+                  Escribe para buscar canales, clientes, guardias...
+                </div>
+              ) : hashtagLoading ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-zinc-500">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-blue-400" />
+                  Buscando...
+                </div>
+              ) : hashtagResults.length === 0 ? (
+                <div className="px-3 py-2.5 text-xs text-zinc-500">Sin resultados</div>
+              ) : (
+                hashtagResults.map((result, idx) => (
+                  <button
+                    key={`${result.type}-${result.id}`}
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+                      idx === hashtagIndex
+                        ? "bg-zinc-700 text-zinc-100"
+                        : "text-zinc-300 hover:bg-zinc-700/50"
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      insertHashtagEntity(result);
+                    }}
+                    onMouseEnter={() => setHashtagIndex(idx)}
+                  >
+                    <span className="shrink-0 text-base leading-none">
+                      {ENTITY_TYPE_ICONS[result.type]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-xs">{result.title}</p>
+                      <p className="truncate text-[10px] text-zinc-500">{result.subtitle}</p>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           )}
 

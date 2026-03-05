@@ -1,11 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, MessageCircle, Plus, Search, Users } from "lucide-react";
+import {
+  ArrowDownAZ,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  MessageCircle,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData, ChannelsResponse } from "@/lib/chat-types";
 import { ChatChannelListItem } from "./ChatChannelListItem";
 import { ChatNewDmModal } from "./ChatNewDmModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type Filter = "all" | "unread";
+type SortKey = "recent" | "alpha" | "unread_first";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  recent: "Más recientes",
+  alpha: "A → Z",
+  unread_first: "No leídos primero",
+};
 
 interface ChatChannelListProps {
   selectedChannelId: string | null;
@@ -71,6 +97,8 @@ export function ChatChannelList({
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showNewDm, setShowNewDm] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<SortKey>("recent");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     direct: false,
     group: true,
@@ -115,26 +143,106 @@ export function ChatChannelList({
 
   const isSearching = search.trim().length > 0;
 
-  const { directChannels, groupChannels, installationChannels } = useMemo(() => ({
-    directChannels: channels.filter((ch) => ch.channelType === "DIRECT"),
-    groupChannels: channels.filter((ch) => ch.channelType === "GROUP"),
-    installationChannels: channels.filter((ch) => ch.channelType === "INSTALLATION"),
-  }), [channels]);
-
-  const getDisplayName = (channel: ChatChannelData) => {
+  const getDisplayName = useCallback((channel: ChatChannelData) => {
     if (channel.channelType === "DIRECT" && channel.dmParticipant) return channel.dmParticipant.name;
     if (channel.channelType === "INSTALLATION" && (channel as any).installation) return (channel as any).installation.name;
     return channel.name;
-  };
+  }, []);
 
   const sectionUnread = (chs: ChatChannelData[]) =>
     chs.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0);
 
+  // Apply filter + sort client-side
+  const processedChannels = useMemo(() => {
+    let list = channels;
+
+    // Filter
+    if (filter === "unread") {
+      list = list.filter((ch) => (unreadCounts[ch.id] || 0) > 0);
+    }
+
+    // Sort
+    list = [...list].sort((a, b) => {
+      if (sort === "alpha") {
+        return getDisplayName(a).localeCompare(getDisplayName(b), "es", { sensitivity: "base" });
+      }
+      if (sort === "unread_first") {
+        const uA = unreadCounts[a.id] || 0;
+        const uB = unreadCounts[b.id] || 0;
+        if (uA !== uB) return uB - uA;
+        // fallback: most recent
+        return (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? "");
+      }
+      // recent (default): by lastMessageAt desc, nulls last
+      if (!a.lastMessageAt && !b.lastMessageAt) return 0;
+      if (!a.lastMessageAt) return 1;
+      if (!b.lastMessageAt) return -1;
+      return b.lastMessageAt.localeCompare(a.lastMessageAt);
+    });
+
+    return list;
+  }, [channels, filter, sort, unreadCounts, getDisplayName]);
+
+  const { directChannels, groupChannels, installationChannels } = useMemo(() => ({
+    directChannels: processedChannels.filter((ch) => ch.channelType === "DIRECT"),
+    groupChannels: processedChannels.filter((ch) => ch.channelType === "GROUP"),
+    installationChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION"),
+  }), [processedChannels]);
+
+  const totalUnread = useMemo(
+    () => channels.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0),
+    [channels, unreadCounts]
+  );
+
+  const isEmpty = processedChannels.length === 0;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-100 mb-3">Chat</h2>
+      <div className="shrink-0 px-4 pt-3 pb-2 border-b border-zinc-800 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-100">Chat</h2>
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                title="Ordenar"
+              >
+                {sort === "alpha" ? (
+                  <ArrowDownAZ className="h-3.5 w-3.5" />
+                ) : sort === "unread_first" ? (
+                  <MessageCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <Clock className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">{SORT_LABELS[sort]}</span>
+                <SlidersHorizontal className="h-3 w-3 opacity-50" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 z-[200]">
+              {(["recent", "alpha", "unread_first"] as SortKey[]).map((key) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => setSort(key)}
+                  className={cn(sort === key && "bg-accent")}
+                >
+                  {key === "alpha" ? (
+                    <ArrowDownAZ className="mr-2 h-3.5 w-3.5" />
+                  ) : key === "unread_first" ? (
+                    <MessageCircle className="mr-2 h-3.5 w-3.5" />
+                  ) : (
+                    <Clock className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  <span>{SORT_LABELS[key]}</span>
+                  {sort === key && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         {/* Search input */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
@@ -146,6 +254,42 @@ export function ChatChannelList({
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-8 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-colors"
           />
         </div>
+
+        {/* Filter chips */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={cn(
+              "rounded-full px-3 py-0.5 text-xs font-medium transition-colors",
+              filter === "all"
+                ? "bg-zinc-700 text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-300"
+            )}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("unread")}
+            className={cn(
+              "flex items-center gap-1 rounded-full px-3 py-0.5 text-xs font-medium transition-colors",
+              filter === "unread"
+                ? "bg-teal-600 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            )}
+          >
+            No leídos
+            {totalUnread > 0 && (
+              <span className={cn(
+                "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold",
+                filter === "unread" ? "bg-white/20 text-white" : "bg-teal-600 text-white"
+              )}>
+                {totalUnread > 99 ? "99+" : totalUnread}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Channel list */}
@@ -154,9 +298,13 @@ export function ChatChannelList({
           <div className="flex items-center justify-center py-12">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
           </div>
-        ) : channels.length === 0 ? (
+        ) : isEmpty ? (
           <div className="px-4 py-8 text-center text-sm text-zinc-500">
-            {search ? "Sin resultados" : "Sin canales disponibles"}
+            {filter === "unread"
+              ? "✓ Todo al día"
+              : search
+                ? "Sin resultados"
+                : "Sin canales disponibles"}
           </div>
         ) : (
           <div className="py-1">
@@ -168,7 +316,7 @@ export function ChatChannelList({
                   icon={<MessageCircle className="h-3.5 w-3.5" />}
                   count={directChannels.length}
                   unreadCount={sectionUnread(directChannels)}
-                  collapsed={isSearching ? false : collapsed["direct"]}
+                  collapsed={isSearching || filter === "unread" ? false : collapsed["direct"]}
                   onToggle={() => toggleSection("direct")}
                   action={
                     <button
@@ -181,7 +329,7 @@ export function ChatChannelList({
                     </button>
                   }
                 />
-                {(isSearching ? true : !collapsed["direct"]) && (
+                {(isSearching || filter === "unread" ? true : !collapsed["direct"]) && (
                   <div>
                     {directChannels.map((channel) => (
                       <ChatChannelListItem
@@ -205,10 +353,10 @@ export function ChatChannelList({
                   icon={<Users className="h-3.5 w-3.5" />}
                   count={groupChannels.length}
                   unreadCount={sectionUnread(groupChannels)}
-                  collapsed={isSearching ? false : collapsed["group"]}
+                  collapsed={isSearching || filter === "unread" ? false : collapsed["group"]}
                   onToggle={() => toggleSection("group")}
                 />
-                {(isSearching ? true : !collapsed["group"]) && (
+                {(isSearching || filter === "unread" ? true : !collapsed["group"]) && (
                   <div>
                     {groupChannels.map((channel) => (
                       <ChatChannelListItem
@@ -232,10 +380,10 @@ export function ChatChannelList({
                   icon={<Building2 className="h-3.5 w-3.5" />}
                   count={installationChannels.length}
                   unreadCount={sectionUnread(installationChannels)}
-                  collapsed={isSearching ? false : collapsed["installation"]}
+                  collapsed={isSearching || filter === "unread" ? false : collapsed["installation"]}
                   onToggle={() => toggleSection("installation")}
                 />
-                {(isSearching ? true : !collapsed["installation"]) && (
+                {(isSearching || filter === "unread" ? true : !collapsed["installation"]) && (
                   <div>
                     {installationChannels.map((channel) => (
                       <ChatChannelListItem

@@ -40,7 +40,7 @@ export function ChatPage({ currentUserId }: ChatPageProps) {
   }, [refreshUnread]);
 
   return (
-    <div className="flex h-[calc(100dvh-48px)] lg:h-[calc(100dvh-48px)] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+    <div className="chat-full-height flex overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
       {/* Left panel: Channel list */}
       <div
         className={cn(

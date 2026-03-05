@@ -76,17 +76,19 @@ export function RoleSwitcher() {
                 <ChevronDown className={cn('h-3 w-3 opacity-60 transition-transform duration-200', open && 'rotate-180')} />
             </button>
 
-            {/* Dropdown */}
+            {/* Dropdown: abre hacia abajo; en móvil altura limitada para no tapar todo */}
             {open && (
                 <div
                     className={cn(
-                        'absolute right-0 top-full mt-1.5 z-50 w-60 rounded-lg border border-border bg-popover shadow-xl',
-                        'animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200',
+                        'absolute z-[100] rounded-lg border border-border bg-popover shadow-xl',
+                        'animate-in fade-in-0 zoom-in-95 duration-200',
+                        'right-0 top-full mt-1.5 w-60',
+                        'max-sm:left-0 max-sm:right-auto max-sm:w-[min(16rem,92vw)] max-sm:max-h-[55vh] max-sm:flex max-sm:flex-col',
                     )}
                 >
                     {/* Header */}
-                    <div className="px-3 py-2.5 border-b border-border/50">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                    <div className="px-3 py-2.5 border-b border-border/50 shrink-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70 sm:whitespace-nowrap">
                             Simular vista de rol
                         </p>
                         {isSimulating && (
@@ -96,8 +98,8 @@ export function RoleSwitcher() {
                         )}
                     </div>
 
-                    {/* Role list */}
-                    <div className="max-h-[280px] overflow-y-auto py-1">
+                    {/* Role list: en móvil crece y hace scroll dentro del panel */}
+                    <div className="max-h-[280px] overflow-y-auto py-1 max-sm:flex-1 max-sm:min-h-0 max-sm:max-h-none max-sm:py-2">
                         {SYSTEM_ROLES.map((role) => {
                             const isActive = effectiveRole === role.slug;
                             const isRealRole = realRole === role.slug;
@@ -116,7 +118,8 @@ export function RoleSwitcher() {
                                         setOpen(false);
                                     }}
                                     className={cn(
-                                        'flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors',
+                                        'flex w-full items-center gap-2 px-3 text-sm transition-colors',
+                                        'py-1.5 min-h-[44px] sm:min-h-0 items-center',
                                         isActive
                                             ? 'bg-accent/50 text-foreground'
                                             : 'text-muted-foreground hover:bg-accent/30 hover:text-foreground',
