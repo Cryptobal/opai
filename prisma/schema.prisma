@@ -5426,6 +5426,7 @@ enum ChatChannelType {
   INSTALLATION
   GROUP
   DIRECT
+  EXTERNAL
 
   @@map("channel_type")
   @@schema("chat")
@@ -5439,6 +5440,7 @@ model ChatChannel {
   channelType        ChatChannelType @default(INSTALLATION) @map("channel_type")
   installationId     String?         @unique @map("installation_id") @db.Uuid
   groupId            String?         @map("group_id")
+  accountId          String?         @map("account_id") @db.Uuid
   name               String
   isActive           Boolean         @default(true) @map("is_active")
   lastMessageAt      DateTime?       @map("last_message_at") @db.Timestamptz(6)
@@ -5452,6 +5454,8 @@ model ChatChannel {
   readCursors             ChatReadCursor[]
   notificationPreferences ChatNotificationPreference[]
   dmParticipants          ChatDmParticipant[]
+  participants            ChatChannelParticipant[]
+  archives                ChatChannelArchive[]
 
   @@index([tenantId], map: "idx_chat_channels_tenant")
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
@@ -5619,5 +5623,42 @@ model ChatDmParticipant {
   @@unique([channelId, adminId], map: "uq_chat_dm_participant")
   @@index([adminId], map: "idx_chat_dm_participants_admin")
   @@map("dm_participants")
+  @@schema("chat")
+}
+
+// ── ChatChannelParticipant ──
+// Used by EXTERNAL channels to track mixed ADMIN + CONTACT participants.
+// (Internal DMs use ChatDmParticipant instead.)
+
+model ChatChannelParticipant {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  channelId       String      @map("channel_id") @db.Uuid
+  participantType String      @map("participant_type") // "ADMIN" | "CONTACT"
+  participantId   String      @map("participant_id")
+  joinedAt        DateTime    @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, participantType, participantId], map: "uq_chat_channel_participant")
+  @@index([participantType, participantId], map: "idx_chat_channel_participants_participant")
+  @@index([channelId], map: "idx_chat_channel_participants_channel")
+  @@map("channel_participants")
+  @@schema("chat")
+}
+
+// ── ChatChannelArchive ──
+// Per-user archiving (like Slack). Archiving one channel does NOT affect other participants.
+
+model ChatChannelArchive {
+  id         String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  channelId  String      @map("channel_id") @db.Uuid
+  adminId    String      @map("admin_id")
+  archivedAt DateTime    @default(now()) @map("archived_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, adminId], map: "uq_chat_channel_archive")
+  @@index([adminId], map: "idx_chat_channel_archives_admin")
+  @@map("channel_archives")
   @@schema("chat")
 }
