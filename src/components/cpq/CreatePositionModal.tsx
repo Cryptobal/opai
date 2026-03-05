@@ -15,6 +15,7 @@ import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
 import { Calculator, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 interface CreatePositionModalProps {
   quoteId: string;
@@ -124,7 +125,11 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.weekdays || form.weekdays.length === 0) {
-      alert("Debes seleccionar al menos un día de la semana");
+      toast.error("Debes seleccionar al menos un día de la semana");
+      return;
+    }
+    if (!form.cargoId || !form.puestoTrabajoId || !form.rolId) {
+      toast.error("Debes seleccionar cargo, tipo de puesto y rol");
       return;
     }
     setLoading(true);
@@ -138,12 +143,14 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
         body: JSON.stringify({ ...form, customName: resolvedName || null, healthPlanPct }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Error");
+      if (!data.success) throw new Error(data.error || "Error al crear puesto");
+      toast.success("Puesto creado");
       setOpen(false);
       setPreview(null);
       onCreated?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating position:", err);
+      toast.error(err?.message || "Error al crear el puesto");
     } finally {
       setLoading(false);
     }

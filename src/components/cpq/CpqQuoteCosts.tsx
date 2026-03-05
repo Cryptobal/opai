@@ -7,11 +7,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { KpiCard } from "@/components/opai";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
@@ -27,8 +26,10 @@ import type {
   CpqQuoteUniformItem,
   CpqQuoteVehicle,
 } from "@/types/cpq";
-import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
+/* ── Types ── */
 
 interface CpqQuoteCostsProps {
   quoteId: string;
@@ -36,7 +37,10 @@ interface CpqQuoteCostsProps {
   showFinancial?: boolean;
   readOnly?: boolean;
   onAdditionalLinesChange?: (lines: CpqQuoteAdditionalLine[]) => void;
+  onSaved?: () => void;
 }
+
+/* ── Constants ── */
 
 const DEFAULT_PARAMS: CpqQuoteParameters = {
   monthlyHoursStandard: 180,
@@ -62,7 +66,6 @@ const INFRA_TYPES = ["infrastructure", "fuel"];
 const FINANCIAL_TYPES = ["financial", "policy"];
 
 const toNumber = (value: string) => parseLocalizedNumber(value);
-/** Formatea un número con separador de miles (ej. 750000 → "750.000") */
 const fmtN = (v: number) => formatNumber(v || 0, { minDecimals: 0, maxDecimals: 2 });
 
 const normalizeCostItems = (items: CpqQuoteCostItem[]) =>
@@ -72,12 +75,84 @@ const normalizeCostItems = (items: CpqQuoteCostItem[]) =>
     unitPriceOverride: item.unitPriceOverride ?? null,
   }));
 
+const CATEGORY_META: Record<string, { icon: string; label: string }> = {
+  uniforms: { icon: "\u{1F454}", label: "Uniformes" },
+  exams: { icon: "\u{1F3E5}", label: "Exámenes" },
+  meals: { icon: "\u{1F37D}\uFE0F", label: "Alimentación" },
+  operational: { icon: "\u{1F4FB}", label: "Equipos operativos" },
+  transport: { icon: "\u{1F68C}", label: "Transporte" },
+  vehicles: { icon: "\u{1F697}", label: "Vehículos" },
+  infrastructure: { icon: "\u{1F3D7}\uFE0F", label: "Infraestructura" },
+  systems: { icon: "\u{1F4BB}", label: "Sistemas" },
+};
+
+/* ── Helper: Inline Add-Item Popover ── */
+
+function AddItemPopover({
+  items,
+  onSelect,
+  label,
+}: {
+  items: { id: string; name: string }[];
+  onSelect: (id: string) => void;
+  label: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const filtered = items.filter((i) =>
+    i.name.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) setSearch(""); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 py-2 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+        >
+          <Plus className="h-3 w-3" />
+          Agregar ítem a {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-2 w-64" align="start">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          <Input
+            placeholder="Buscar ítem..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-7 text-xs pl-7"
+            autoFocus
+          />
+        </div>
+        <div className="max-h-[180px] overflow-y-auto mt-1.5 space-y-0.5">
+          {filtered.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => { onSelect(item.id); setOpen(false); }}
+              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors"
+            >
+              + {item.name}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">Sin resultados</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ── Main Component ── */
+
 export function CpqQuoteCosts({
   quoteId,
   variant = "modal",
   showFinancial = true,
   readOnly = false,
   onAdditionalLinesChange,
+  onSaved,
 }: CpqQuoteCostsProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -109,8 +184,7 @@ export function CpqQuoteCosts({
   const [skipDefaultCosts, setSkipDefaultCosts] = useState(false);
   const defaultsApplied = useRef(false);
   const inputClass =
-    "h-8 bg-card text-foreground border-border placeholder:text-muted-foreground text-xs";
-  const sectionBoxClass = "rounded-md border border-border/50 bg-muted/10 p-2";
+    "h-7 bg-card text-foreground border-border placeholder:text-muted-foreground text-xs";
   const isInline = variant === "inline";
   const getDecimalValue = (
     key: string,
@@ -263,7 +337,7 @@ export function CpqQuoteCosts({
   };
 
 
-  const handleSave = async (options?: { close?: boolean }) => {
+  const handleSave = async (options?: { close?: boolean; silent?: boolean }) => {
     setSaving(true);
     try {
       const res = await fetch(`/api/cpq/quotes/${quoteId}/costs`, {
@@ -285,7 +359,8 @@ export function CpqQuoteCosts({
         setSummary(data.data);
         onAdditionalLinesChange?.(additionalLines);
         if (options?.close !== false) setOpen(false);
-        toast.success("Costos guardados");
+        if (!options?.silent) toast.success("Costos guardados");
+        onSaved?.();
         return;
       }
       toast.error("No se pudieron guardar los costos");
@@ -298,17 +373,37 @@ export function CpqQuoteCosts({
   };
 
 
+  const initialLoadDone = useRef(false);
+  const autoSaveTimer = useRef<NodeJS.Timeout>();
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
   useEffect(() => {
-    loadData();
+    initialLoadDone.current = false;
+    loadData().then(() => {
+      setTimeout(() => { initialLoadDone.current = true; }, 100);
+    });
   }, [quoteId]);
 
   useEffect(() => {
     if (open || isInline) {
       defaultsApplied.current = false;
-      loadData();
+      initialLoadDone.current = false;
+      loadData().then(() => {
+        setTimeout(() => { initialLoadDone.current = true; }, 100);
+      });
       setActiveSection("directos");
     }
   }, [open, isInline]);
+
+  // Debounced auto-save: 2s after last change
+  useEffect(() => {
+    if (!initialLoadDone.current || readOnly) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      handleSave({ close: false, silent: true }).then(() => setLastSaved(new Date()));
+    }, 2000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [uniforms, exams, costItems, meals, vehicles, infrastructure, additionalLines]);
 
   useEffect(() => {
     defaultsApplied.current = false;
@@ -707,2275 +802,605 @@ export function CpqQuoteCosts({
       return sum + price * meal.mealsPerDay * meal.daysOfService;
     }, 0);
   }, [meals, mealCatalog]);
+
   const financialTotal = summary ? summary.monthlyFinancial + summary.monthlyPolicy : 0;
-  const holidayAnnualCount = Number(parameters.holidayAnnualCount ?? 12);
-  const holidayCommercialBufferPct = Number(parameters.holidayCommercialBufferPct ?? 10);
-  const holidayMonthlyFactor = holidayAnnualCount / 12;
-  const holidayCommercialFactor = 1 + holidayCommercialBufferPct / 100;
-  const holidayTotalFactor = 0.5 * holidayMonthlyFactor * holidayCommercialFactor;
+
+  // ── Subtotals for new layout ──
+  const holidayAdjustment = summary?.monthlyHolidayAdjustment ?? 0;
+  const operationalTotal = sumCostItemsByType(OPERATIONAL_TYPES);
+  const transportTotal = sumCostItemsByType(TRANSPORT_TYPES);
+  const vehicleTotal = sumCostItemsByType(VEHICLE_TYPES);
+  const infraTotal = sumCostItemsByType(INFRA_TYPES);
+  const systemTotal = sumCostItemsByType(["system"]);
+
+  const directosTotal = uniformTotal + examTotal + mealTotal + holidayAdjustment;
+  const indirectosTotal = operationalTotal + transportTotal + vehicleTotal + infraTotal + systemTotal;
+  const grandTotal = directosTotal + indirectosTotal;
+
+  // ── Category counts ──
+  const uniformCount = uniforms.filter((u) => u.active).length;
+  const examCount = exams.filter((e) => e.active).length;
+  const mealCount = meals.filter((m) => m.isEnabled).length;
+  const operationalCount = costItems.filter((c) => c.isEnabled && OPERATIONAL_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
+  const transportCount = costItems.filter((c) => c.isEnabled && TRANSPORT_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
+  const vehicleCount = costItems.filter((c) => c.isEnabled && VEHICLE_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
+  const infraCount = costItems.filter((c) => c.isEnabled && INFRA_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
+  const systemCount = otherCostItems.filter((c) => c.isEnabled).length;
+
+  // ── Toggle helper ──
+  const toggle = (key: string) =>
+    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const isOpen = (key: string) => !collapsedSections[key];
+
+  // ── Render helpers ──
+
+  /** Renders a category row header (clickable to expand/collapse) */
+  const renderCategoryRow = (
+    key: string,
+    count: number,
+    total: number
+  ) => {
+    const meta = CATEGORY_META[key];
+    const expanded = isOpen(key);
+    const dimmed = total === 0 && count === 0;
+    return (
+      <button
+        type="button"
+        onClick={() => toggle(key)}
+        className={cn(
+          "flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-accent/30",
+          dimmed && "opacity-40"
+        )}
+      >
+        <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
+        <span className="text-sm">{meta.icon}</span>
+        <span className="text-[13px] font-medium">{meta.label}</span>
+        {count > 0 && (
+          <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>
+        )}
+        <span className={cn("ml-auto text-[13px] font-semibold tabular-nums", total > 0 ? "text-foreground" : "text-muted-foreground")}>
+          {formatCurrency(total)}
+        </span>
+      </button>
+    );
+  };
+
+  /** Item card for uniforms/exams (with simple override input) */
+  const renderSimpleItemCard = (
+    item: CpqCatalogItem,
+    overrideValue: number | null | undefined,
+    onOverride: (v: number) => void,
+    onRemove: () => void
+  ) => (
+    <div className="p-2.5 rounded-lg bg-card border border-border/50">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13px] font-semibold truncate">{item.name}</span>
+        <button type="button" onClick={onRemove} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+      <div className="text-[11px] text-muted-foreground mb-1.5">
+        Base: {formatCurrency(Number(item.basePrice))}
+      </div>
+      <Input
+        type="text"
+        inputMode="numeric"
+        placeholder="Precio mensual"
+        value={overrideValue != null ? fmtN(Number(overrideValue)) : ""}
+        onChange={(e) => onOverride(toNumber(e.target.value))}
+        className={inputClass}
+      />
+    </div>
+  );
+
+  /** Item card for cost items (operational, transport, infra, systems) */
+  const renderCostItemCard = (
+    item: CpqCatalogItem,
+    costItem: CpqQuoteCostItem | undefined
+  ) => (
+    <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13px] font-semibold truncate">{item.name}</span>
+        <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+      <div className="text-[11px] text-muted-foreground mb-1.5">
+        Base: {formatCurrency(Number(item.basePrice))}
+      </div>
+      <Input
+        type="text"
+        inputMode="numeric"
+        placeholder="Precio mensual"
+        value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
+        onChange={(e) => upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })}
+        className={inputClass}
+      />
+    </div>
+  );
+
+  /** Vehicle fuel calculator card */
+  const renderFuelCard = (item: CpqCatalogItem, costItem: CpqQuoteCostItem | undefined) => {
+    let fuelParams = { kmPerDay: 0, kmPerLiter: 10, fuelPrice: 1250 };
+    try {
+      if (costItem?.notes) {
+        const parsed = JSON.parse(costItem.notes);
+        fuelParams = { ...fuelParams, ...parsed };
+      }
+    } catch {}
+    const kmMes = fuelParams.kmPerDay * 30;
+    const litrosMes = fuelParams.kmPerLiter > 0 ? kmMes / fuelParams.kmPerLiter : 0;
+    const costoMensual = Math.round(litrosMes * fuelParams.fuelPrice);
+
+    const updateFuelParam = (key: string, value: number) => {
+      const updated = { ...fuelParams, [key]: value };
+      const newKmMes = updated.kmPerDay * 30;
+      const newLitros = updated.kmPerLiter > 0 ? newKmMes / updated.kmPerLiter : 0;
+      const newCosto = Math.round(newLitros * updated.fuelPrice);
+      upsertCostItem(item, {
+        unitPriceOverride: newCosto,
+        notes: JSON.stringify(updated),
+      });
+    };
+
+    return (
+      <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50 col-span-full">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[13px] font-semibold">{item.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">Por fórmula</span>
+            <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        <div className="grid gap-2 grid-cols-3">
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground">Km/día</label>
+            <Input type="text" inputMode="numeric" placeholder="50" value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""} onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))} className={inputClass} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground">Km/litro</label>
+            <Input type="text" inputMode="numeric" placeholder="10" value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""} onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))} className={inputClass} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground">$/litro</label>
+            <Input type="text" inputMode="numeric" placeholder="1250" value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""} onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))} className={inputClass} />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-md bg-muted/40 px-2.5 py-1.5 mt-2 text-[11px]">
+          <span className="text-muted-foreground">
+            {fuelParams.kmPerDay} km/d &times; 30 = <strong>{kmMes.toLocaleString("es-CL")} km/m</strong>
+          </span>
+          <span className="text-muted-foreground">&divide; {fuelParams.kmPerLiter} = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} l/m</strong></span>
+          <span className="ml-auto font-semibold text-foreground">{formatCurrency(costoMensual)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ══════════════════════════════════════════════════════
+  // ── costForm: the main cost editor content ──
+  // ══════════════════════════════════════════════════════
 
   const costForm = loading ? (
-    <div className="text-sm text-muted-foreground">Cargando...</div>
+    <div className="text-sm text-muted-foreground py-8 text-center">Cargando costos...</div>
   ) : (
-    <>
-      <div className="space-y-2 text-xs">
-        {/* Segmented control tabs */}
-        <div className="inline-flex rounded-md border border-border overflow-hidden">
-          <button
-            type="button"
-            className={cn("px-3 py-1.5 text-xs font-medium transition-colors", activeSection === "directos" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
-            onClick={() => setActiveSection("directos")}
-          >
-            Directos
-          </button>
-          <button
-            type="button"
-            className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", activeSection === "indirectos" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
-            onClick={() => setActiveSection("indirectos")}
-          >
-            Indirectos
-          </button>
-          {showFinancial && (
-            <button
-              type="button"
-              className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", activeSection === "financieros" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-accent/50")}
-              onClick={() => setActiveSection("financieros")}
-            >
-              Financieros
-            </button>
-          )}
-        </div>
+    <div className="rounded-xl border bg-card overflow-hidden">
+      {/* ── DIRECTOS ── */}
+      <div className="px-4 py-2.5 flex justify-between items-center bg-emerald-500/5">
+        <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-500">Directos</span>
+        <span className="text-[13px] font-bold tabular-nums text-emerald-500">{formatCurrency(directosTotal)}</span>
+      </div>
 
-        {activeSection === "directos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                uniforms: !prev.uniforms,
-              }))
-            }
-            aria-expanded={!collapsedSections.uniforms}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Uniformes
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(uniformTotal)}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.uniforms ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.uniforms && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    setUniforms((prev) => {
-                      const existing = prev.find((u) => u.catalogItemId === value);
-                      if (existing) {
-                        return prev.map((u) =>
-                          u.catalogItemId === value ? { ...u, active: true } : u
-                        );
-                      }
-                      const catalogItem = catalogById.get(value);
-                      if (!catalogItem) return prev;
-                      return [
-                        ...prev,
-                        {
-                          catalogItemId: value,
-                          unitPriceOverride: null,
-                          active: true,
-                          catalogItem,
-                        },
-                      ];
-                    });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {(catalogByType.uniform || [])
-                    .filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                {(catalogByType.uniform || [])
-                  .filter((item) =>
-                    uniforms.find((u) => u.catalogItemId === item.id && u.active)
-                  )
-                  .map((item) => {
-                    const selected = uniforms.find((u) => u.catalogItemId === item.id);
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() =>
-                                setUniforms((prev) =>
-                                  prev.map((u) =>
-                                    u.catalogItemId === item.id ? { ...u, active: false } : u
-                                  )
-                                )
-                              }
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            setUniforms((prev) =>
-                              prev.map((u) =>
-                                u.catalogItemId === item.id
-                                  ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                                  : u
-                              )
-                            )
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "directos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                exams: !prev.exams,
-              }))
-            }
-            aria-expanded={!collapsedSections.exams}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Exámenes
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(examTotal)}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.exams ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.exams && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    setExams((prev) => {
-                      const existing = prev.find((u) => u.catalogItemId === value);
-                      if (existing) {
-                        return prev.map((u) =>
-                          u.catalogItemId === value ? { ...u, active: true } : u
-                        );
-                      }
-                      const catalogItem = catalogById.get(value);
-                      if (!catalogItem) return prev;
-                      return [
-                        ...prev,
-                        {
-                          catalogItemId: value,
-                          unitPriceOverride: null,
-                          active: true,
-                          catalogItem,
-                        },
-                      ];
-                    });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {(catalogByType.exam || [])
-                    .filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                {(catalogByType.exam || [])
-                  .filter((item) =>
-                    exams.find((u) => u.catalogItemId === item.id && u.active)
-                  )
-                  .map((item) => {
-                    const selected = exams.find((u) => u.catalogItemId === item.id);
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() =>
-                                setExams((prev) =>
-                                  prev.map((u) =>
-                                    u.catalogItemId === item.id ? { ...u, active: false } : u
-                                  )
-                                )
-                              }
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            setExams((prev) =>
-                              prev.map((u) =>
-                                u.catalogItemId === item.id
-                                  ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                                  : u
-                              )
-                            )
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "directos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                meals: !prev.meals,
-              }))
-            }
-            aria-expanded={!collapsedSections.meals}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Alimentación
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(mealTotal)}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.meals ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.meals && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    updateMeal(value, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {mealCatalog
-                    .filter(
-                      (item) =>
-                        !meals.find(
-                          (m) =>
-                            m.mealType.toLowerCase() === item.name.toLowerCase() &&
-                            m.isEnabled
-                        )
-                    )
-                    .map((item) => (
-                      <option key={item.id} value={item.name}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {mealCatalog
-                  .filter((item) =>
-                    meals.find(
-                      (m) =>
-                        m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled
-                    )
-                  )
-                  .map((item) => {
-                    const meal = meals.find(
-                      (m) => m.mealType.toLowerCase() === item.name.toLowerCase()
-                    );
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => updateMeal(item.name, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input
-                            type="text" inputMode="numeric"
-                            placeholder="Comidas/día"
-                            value={fmtN(meal?.mealsPerDay ?? 0)}
-                            onChange={(e) =>
-                              updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
-                            }
-                            className={inputClass}
-                          />
-                          <Input
-                            type="text" inputMode="numeric"
-                            placeholder="Días/mes"
-                            value={fmtN(meal?.daysOfService ?? 0)}
-                            onChange={(e) =>
-                              updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
-                            }
-                            className={inputClass}
-                          />
-                          <Input
-                            type="text" inputMode="numeric"
-                            placeholder="Precio mensual (override)"
-                            value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""}
-                            onChange={(e) =>
-                              updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
-                            }
-                            className={`${inputClass} col-span-2`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                operational: !prev.operational,
-              }))
-            }
-            aria-expanded={!collapsedSections.operational}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Equipos operativos
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(sumCostItemsByType(["phone", "radio", "flashlight"]))}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.operational ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.operational && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {operationalCatalog
-                    .filter((item) => !findCostItem(item.id)?.isEnabled)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {operationalCatalog
-                  .filter((item) => findCostItem(item.id)?.isEnabled)
-                  .map((item) => {
-                    const costItem = findCostItem(item.id);
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => upsertCostItem(item, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                transport: !prev.transport,
-              }))
-            }
-            aria-expanded={!collapsedSections.transport}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Costos de transporte
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(sumCostItemsByType(TRANSPORT_TYPES))}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.transport ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.transport && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {transportCatalog
-                    .filter((item) => !findCostItem(item.id)?.isEnabled)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {transportCatalog
-                  .filter((item) => findCostItem(item.id)?.isEnabled)
-                  .map((item) => {
-                    const costItem = findCostItem(item.id);
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => upsertCostItem(item, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                vehicles: !prev.vehicles,
-              }))
-            }
-            aria-expanded={!collapsedSections.vehicles}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Vehículos
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(sumCostItemsByType(VEHICLE_TYPES))}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.vehicles ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.vehicles && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {vehicleCatalog
-                    .filter((item) => !findCostItem(item.id)?.isEnabled)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {vehicleCatalog
-                  .filter((item) => findCostItem(item.id)?.isEnabled)
-                  .map((item) => {
-                    const costItem = findCostItem(item.id);
-                    const isVehicleFuel = item.type === "vehicle_fuel";
-
-                    if (isVehicleFuel) {
-                      let fuelParams = { kmPerDay: 0, kmPerLiter: 10, fuelPrice: 1250 };
-                      try {
-                        if (costItem?.notes) {
-                          const parsed = JSON.parse(costItem.notes);
-                          fuelParams = { ...fuelParams, ...parsed };
-                        }
-                      } catch {}
-                      const kmMes = fuelParams.kmPerDay * 30;
-                      const litrosMes = fuelParams.kmPerLiter > 0 ? kmMes / fuelParams.kmPerLiter : 0;
-                      const costoMensual = Math.round(litrosMes * fuelParams.fuelPrice);
-
-                      const updateFuelParam = (key: string, value: number) => {
-                        const updated = { ...fuelParams, [key]: value };
-                        const newKmMes = updated.kmPerDay * 30;
-                        const newLitros = updated.kmPerLiter > 0 ? newKmMes / updated.kmPerLiter : 0;
-                        const newCosto = Math.round(newLitros * updated.fuelPrice);
-                        upsertCostItem(item, {
-                          unitPriceOverride: newCosto,
-                          notes: JSON.stringify(updated),
-                        });
-                      };
-
-                      return (
-                        <div key={item.id} className={`${sectionBoxClass} space-y-2 sm:col-span-2 lg:col-span-3`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">{item.name}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Cálculo por fórmula</span>
-                              <button
-                                type="button"
-                                className="rounded-md border border-border px-2 py-1 text-xs"
-                                onClick={() => upsertCostItem(item, { isEnabled: false })}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            <div className="space-y-1">
-                              <label className="text-xs text-muted-foreground">Km recorridos/día</label>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Ej: 50"
-                                value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""}
-                                onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))}
-                                className={inputClass}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs text-muted-foreground">Consumo auto (km/litro)</label>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="10"
-                                value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""}
-                                onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))}
-                                className={inputClass}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs text-muted-foreground">Precio bencina ($/litro)</label>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="1250"
-                                value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""}
-                                onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))}
-                                className={inputClass}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-xs">
-                            <span className="text-muted-foreground">
-                              {fuelParams.kmPerDay} km/día × 30 = <strong>{kmMes.toLocaleString("es-CL")} km/mes</strong>
-                            </span>
-                            <span className="text-muted-foreground">÷ {fuelParams.kmPerLiter} km/l = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} litros/mes</strong></span>
-                            <span className="ml-auto font-semibold text-foreground">
-                              Costo mensual: {formatCurrency(costoMensual)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => upsertCostItem(item, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                infrastructure: !prev.infrastructure,
-              }))
-            }
-            aria-expanded={!collapsedSections.infrastructure}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Infraestructura
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(sumCostItemsByType(INFRA_TYPES))}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.infrastructure ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.infrastructure && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {infraCatalog
-                    .filter((item) => !findCostItem(item.id)?.isEnabled)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {infraCatalog
-                  .filter((item) => findCostItem(item.id)?.isEnabled)
-                  .map((item) => {
-                    const costItem = findCostItem(item.id);
-                    return (
-                      <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => upsertCostItem(item, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {activeSection === "indirectos" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                systems: !prev.systems,
-              }))
-            }
-            aria-expanded={!collapsedSections.systems}
-          >
-            <div>
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Sistemas
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Total: {formatCurrency(sumCostItemsByType(["system"]))}
-              </span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                collapsedSections.systems ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-          {!collapsedSections.systems && (
-            <>
-              <div className="flex items-center gap-2 sm:justify-end">
-                <select
-                  className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    const item = catalogById.get(value);
-                    if (!item) return;
-                    upsertCostItem(item, { isEnabled: true });
-                  }}
-                >
-                  <option value="">Agregar ítem</option>
-                  {extraItemsCatalog
-                    .filter((item) => !findCostItem(item.id)?.isEnabled)
-                    .map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                {otherCostItems
-                  .filter((item) => item.isEnabled)
-                  .map((item) => {
-                    const catalogItem = catalogById.get(item.catalogItemId);
-                    if (!catalogItem) return null;
-                    return (
-                      <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm">{catalogItem.name}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
-                            <button
-                              type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs"
-                              onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                        <Input
-                          type="text" inputMode="numeric"
-                          placeholder="Precio mensual (override)"
-                          value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
-                          onChange={(e) =>
-                            setCostItems((prev) =>
-                              prev.map((c) =>
-                                c.catalogItemId === item.catalogItemId
-                                  ? { ...c, unitPriceOverride: toNumber(e.target.value) }
-                                  : c
-                              )
-                            )
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
-        {showFinancial && activeSection === "financieros" && (
-        <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-              Costos financieros
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Total mensual: {formatCurrency(financialTotal)}
-            </span>
-            {summary?.monthlyTotal === 0 && (
-              <span className="text-xs text-muted-foreground">
-                Se calcula sobre costo + margen.
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <select
-                className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                value=""
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) return;
-                  const item = catalogById.get(value);
-                  if (!item) return;
-                  upsertCostItem(item, { isEnabled: true });
-                }}
-              >
-                <option value="">Agregar ítem</option>
-                {financialCatalog
-                  .filter((item) => !findCostItem(item.id)?.isEnabled)
-                  .map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-            {financialCostItems
-              .filter((item) => item.isEnabled)
+      {/* Uniformes */}
+      {renderCategoryRow("uniforms", uniformCount, uniformTotal)}
+      {isOpen("uniforms") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {(catalogByType.uniform || [])
+              .filter((item) => uniforms.find((u) => u.catalogItemId === item.id && u.active))
               .map((item) => {
-                const catalogItem = catalogById.get(item.catalogItemId);
-                if (!catalogItem) return null;
-                const isPolicy = catalogItem.type === "policy";
+                const sel = uniforms.find((u) => u.catalogItemId === item.id);
                 return (
-                  <div
-                    key={item.catalogItemId}
-                    className={`${sectionBoxClass} space-y-2 ${isPolicy ? "sm:col-span-2 lg:col-span-3" : ""}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{catalogItem.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
-                        </span>
-                        <button
-                          type="button"
-                          className="rounded-md border border-border px-2 py-1 text-xs"
-                          onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
-                        >
-                          ✕
-                        </button>
-                      </div>
+                  <div key={item.id}>
+                    {renderSimpleItemCard(
+                      item,
+                      sel?.unitPriceOverride,
+                      (v) => setUniforms((prev) => prev.map((u) => u.catalogItemId === item.id ? { ...u, unitPriceOverride: v } : u)),
+                      () => setUniforms((prev) => prev.map((u) => u.catalogItemId === item.id ? { ...u, active: false } : u))
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+          <AddItemPopover
+            label="Uniformes"
+            items={(catalogByType.uniform || []).filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))}
+            onSelect={(id) => {
+              setUniforms((prev) => {
+                const existing = prev.find((u) => u.catalogItemId === id);
+                if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
+                const catalogItem = catalogById.get(id);
+                if (!catalogItem) return prev;
+                return [...prev, { catalogItemId: id, unitPriceOverride: null, active: true, catalogItem }];
+              });
+            }}
+          />
+        </div>
+      )}
+
+      {/* Exámenes */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("exams", examCount, examTotal)}
+      {isOpen("exams") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {(catalogByType.exam || [])
+              .filter((item) => exams.find((u) => u.catalogItemId === item.id && u.active))
+              .map((item) => {
+                const sel = exams.find((u) => u.catalogItemId === item.id);
+                return (
+                  <div key={item.id}>
+                    {renderSimpleItemCard(
+                      item,
+                      sel?.unitPriceOverride,
+                      (v) => setExams((prev) => prev.map((u) => u.catalogItemId === item.id ? { ...u, unitPriceOverride: v } : u)),
+                      () => setExams((prev) => prev.map((u) => u.catalogItemId === item.id ? { ...u, active: false } : u))
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+          <AddItemPopover
+            label="Exámenes"
+            items={(catalogByType.exam || []).filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))}
+            onSelect={(id) => {
+              setExams((prev) => {
+                const existing = prev.find((u) => u.catalogItemId === id);
+                if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
+                const catalogItem = catalogById.get(id);
+                if (!catalogItem) return prev;
+                return [...prev, { catalogItemId: id, unitPriceOverride: null, active: true, catalogItem }];
+              });
+            }}
+          />
+        </div>
+      )}
+
+      {/* Alimentación */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("meals", mealCount, mealTotal)}
+      {isOpen("meals") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
+            {mealCatalog
+              .filter((item) => meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled))
+              .map((item) => {
+                const meal = meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase());
+                return (
+                  <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[13px] font-semibold">{item.name}</span>
+                      <button type="button" onClick={() => updateMeal(item.name, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
-                    <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Tasa (%)</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="Ej: 2,50"
-                          value={getDecimalValue(
-                            `rate:${item.catalogItemId}`,
-                            item.unitPriceOverride ?? null,
-                            2,
-                            true
-                          )}
-                          onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
-                          onBlur={() => {
-                            const raw = decimalDrafts[`rate:${item.catalogItemId}`];
-                            if (raw === undefined) return;
-                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
-                            setCostItems((prev) =>
-                              prev.map((c) =>
-                                c.catalogItemId === item.catalogItemId
-                                  ? { ...c, unitPriceOverride: parsed }
-                                  : c
-                              )
-                            );
-                            clearDecimalValue(`rate:${item.catalogItemId}`);
-                          }}
-                          className={inputClass}
-                        />
-                      </div>
-                      {isPolicy && (
-                        <>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Meses a considerar</Label>
-                            <Input
-                              type="text" inputMode="numeric"
-                              value={fmtN(parameters.policyContractMonths)}
-                              onChange={(e) =>
-                                setParameters((prev) => ({
-                                  ...prev,
-                                  policyContractMonths: toNumber(e.target.value),
-                                }))
-                              }
-                              className={inputClass}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Porcentaje contrato (%)</Label>
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={getDecimalValue("policyContractPct", parameters.policyContractPct, 2)}
-                                      onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
-                                      onBlur={() => {
-                                        const raw = decimalDrafts.policyContractPct;
-                                        if (raw === undefined) return;
-                                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                                        setParameters((prev) => ({
-                                          ...prev,
-                                          policyContractPct: parsed,
-                                        }));
-                                        clearDecimalValue("policyContractPct");
-                                      }}
-                                      className={inputClass}
-                                    />
-                          </div>
-                        </>
-                      )}
+                    <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))}</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Input type="text" inputMode="numeric" placeholder="Comidas/día" value={fmtN(meal?.mealsPerDay ?? 0)} onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })} className={inputClass} />
+                      <Input type="text" inputMode="numeric" placeholder="Días/mes" value={fmtN(meal?.daysOfService ?? 0)} onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })} className={inputClass} />
+                      <Input type="text" inputMode="numeric" placeholder="Precio mensual" value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""} onChange={(e) => updateMeal(item.name, { priceOverride: toNumber(e.target.value) })} className={cn(inputClass, "col-span-2")} />
                     </div>
                   </div>
                 );
               })}
           </div>
+          <AddItemPopover
+            label="Alimentación"
+            items={mealCatalog.filter((item) => !meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled))}
+            onSelect={(id) => {
+              const item = catalog.find((c) => c.id === id);
+              if (item) updateMeal(item.name, { isEnabled: true });
+            }}
+          />
         </div>
-        )}
+      )}
 
-        {showFinancial && activeSection === "financieros" && (
-        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-            Margen y parámetros
-          </h3>
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Margen (%)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={getDecimalValue("marginPct", parameters.marginPct, 2)}
-                onChange={(e) => setDecimalValue("marginPct", e.target.value)}
-                onBlur={() => {
-                  const raw = decimalDrafts.marginPct;
-                  if (raw === undefined) return;
-                  const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                  setParameters((prev) => ({
-                    ...prev,
-                    marginPct: parsed,
-                  }));
-                  clearDecimalValue("marginPct");
-                }}
-                className={inputClass}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Meses contrato</Label>
-              <Input
-                type="text" inputMode="numeric"
-                value={fmtN(parameters.contractMonths)}
-                onChange={(e) =>
-                  setParameters((prev) => ({
-                    ...prev,
-                    contractMonths: toNumber(e.target.value),
-                  }))
-                }
-                className={inputClass}
-              />
-            </div>
-          </div>
-        </div>
-        )}
+      {/* Feriados (static, non-expandible) */}
+      <div className="border-t border-border/30" />
+      <div className="flex items-center gap-2.5 px-4 py-2.5">
+        <span className="w-3.5" />
+        <span className="text-sm">{"\u{1F4C5}"}</span>
+        <span className="text-[13px] font-medium">Ajuste feriados</span>
+        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 uppercase">Auto</Badge>
+        <span className={cn("ml-auto text-[13px] font-semibold tabular-nums", holidayAdjustment > 0 ? "text-foreground" : "text-muted-foreground")}>
+          {formatCurrency(holidayAdjustment)}
+        </span>
       </div>
 
-      {/* ── Additional Lines (pass-through, no margin) ── */}
-      <div className="space-y-2 mt-4">
-        <div
-          className="flex items-center justify-between cursor-pointer rounded-lg border-2 border-purple-500/30 bg-purple-500/5 p-2"
-          onClick={() =>
-            setCollapsedSections((prev) => ({
-              ...prev,
-              additionalLines: !prev.additionalLines,
-            }))
-          }
-        >
-          <div className="flex items-center gap-2">
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-purple-400 transition-transform",
-                collapsedSections.additionalLines && "-rotate-90"
-              )}
-            />
-            <span className="text-xs font-semibold text-purple-300">
-              Líneas adicionales
-            </span>
-            <Badge variant="outline" className="border-purple-500/30 text-purple-400 text-[10px]">
-              {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"}
-            </Badge>
+      {/* ── SEPARATOR ── */}
+      <div className="h-[3px] bg-border" />
+
+      {/* ── INDIRECTOS ── */}
+      <div className="px-4 py-2.5 flex justify-between items-center bg-amber-400/5">
+        <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-400">Indirectos</span>
+        <span className="text-[13px] font-bold tabular-nums text-amber-400">{formatCurrency(indirectosTotal)}</span>
+      </div>
+
+      {/* Equipos operativos */}
+      {renderCategoryRow("operational", operationalCount, operationalTotal)}
+      {isOpen("operational") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {operationalCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
           </div>
-          <span className="text-xs font-mono text-purple-300">
-            {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
-          </span>
+          <AddItemPopover
+            label="Equipos operativos"
+            items={operationalCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+          />
         </div>
-        {!collapsedSections.additionalLines && (
-          <div className="space-y-2 pl-1">
-            <p className="text-[11px] text-muted-foreground">
-              Productos o servicios adicionales (casetas, radios, arriendos). Se cobran sin margen.
-            </p>
-            {additionalLines.map((line, idx) => (
-              <div
-                key={line.id || idx}
-                className="grid grid-cols-[1fr_1fr_120px_32px] gap-2 items-start rounded-md border border-border/50 bg-muted/10 p-2"
-              >
-                <Input
-                  placeholder="Nombre"
-                  value={line.nombre}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], nombre: e.target.value };
-                    setAdditionalLines(updated);
-                  }}
-                  className={cn(inputClass, "text-xs")}
-                  disabled={readOnly}
-                />
-                <Input
-                  placeholder="Descripción"
-                  value={line.descripcion}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], descripcion: e.target.value };
-                    setAdditionalLines(updated);
-                  }}
-                  className={cn(inputClass, "text-xs")}
-                  disabled={readOnly}
-                />
-                <Input
-                  placeholder="Precio"
-                  type="text"
-                  inputMode="numeric"
-                  value={fmtN(Number(line.precio || 0))}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], precio: toNumber(e.target.value) };
-                    setAdditionalLines(updated);
-                  }}
-                  className={cn(inputClass, "text-xs text-right font-mono")}
-                  disabled={readOnly}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                  onClick={() => {
-                    setAdditionalLines((prev) => prev.filter((_, i) => i !== idx));
-                  }}
-                  disabled={readOnly}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-            {!readOnly && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                onClick={() =>
-                  setAdditionalLines((prev) => [
-                    ...prev,
-                    { nombre: "", descripcion: "", precio: 0, orden: prev.length },
-                  ])
-                }
-              >
-                <Plus className="h-3.5 w-3.5" /> Agregar línea
-              </Button>
-            )}
-            {additionalLines.length > 0 && (
-              <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
-                <span className="text-[11px] font-medium text-purple-300">
-                  Total líneas adicionales
-                </span>
-                <span className="text-sm font-bold font-mono text-purple-300">
-                  {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
-                </span>
-              </div>
+      )}
+
+      {/* Transporte */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("transport", transportCount, transportTotal)}
+      {isOpen("transport") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {transportCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
+          </div>
+          <AddItemPopover
+            label="Transporte"
+            items={transportCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+          />
+        </div>
+      )}
+
+      {/* Vehículos */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("vehicles", vehicleCount, vehicleTotal)}
+      {isOpen("vehicles") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {vehicleCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) =>
+              item.type === "vehicle_fuel"
+                ? renderFuelCard(item, findCostItem(item.id))
+                : renderCostItemCard(item, findCostItem(item.id))
             )}
           </div>
-        )}
-      </div>
+          <AddItemPopover
+            label="Vehículos"
+            items={vehicleCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+          />
+        </div>
+      )}
 
-      {/* Save button at the end */}
-      <div className="flex justify-end pt-2">
-        <Button
-          size="sm"
-          onClick={() => handleSave()}
-          disabled={saving || readOnly}
-        >
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+      {/* Infraestructura */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("infrastructure", infraCount, infraTotal)}
+      {isOpen("infrastructure") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {infraCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
+          </div>
+          <AddItemPopover
+            label="Infraestructura"
+            items={infraCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+          />
+        </div>
+      )}
+
+      {/* Sistemas */}
+      <div className="border-t border-border/30" />
+      {renderCategoryRow("systems", systemCount, systemTotal)}
+      {isOpen("systems") && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+            {otherCostItems.filter((item) => item.isEnabled).map((item) => {
+              const ci = catalogById.get(item.catalogItemId);
+              if (!ci) return null;
+              return (
+                <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[13px] font-semibold truncate">{ci.name}</span>
+                    <button type="button" onClick={() => upsertCostItem(ci, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci.basePrice))}</div>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Precio mensual"
+                    value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
+                    onChange={(e) => setCostItems((prev) => prev.map((c) => c.catalogItemId === item.catalogItemId ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c))}
+                    className={inputClass}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <AddItemPopover
+            label="Sistemas"
+            items={extraItemsCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => {
+              const item = catalogById.get(id);
+              if (item) upsertCostItem(item, { isEnabled: true });
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── TOTAL FOOTER ── */}
+      <div className="border-t-2 border-primary bg-primary/5 px-4 py-3 flex justify-between items-center">
+        <span className="text-[11px] font-extrabold text-primary uppercase tracking-widest">Total costos adicionales</span>
+        <span className="text-base font-extrabold text-primary tabular-nums">{formatCurrency(grandTotal)}</span>
       </div>
-    </>
+    </div>
   );
 
-  return (
-    <Card className="p-3 sm:p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">Costos adicionales</h2>
-          <p className="text-xs text-muted-foreground">
-            {showFinancial
-              ? "Agrupa por pestañas: directos, indirectos y financieros."
-              : "Agrupa por pestañas: directos e indirectos."}
-          </p>
+  // ══════════════════════════════════════════════════════
+  // ── Financial section (shown in modal/showFinancial mode) ──
+  // ══════════════════════════════════════════════════════
+
+  const financialForm = showFinancial ? (
+    <div className="space-y-3 mt-3">
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-[13px] font-semibold">Costos financieros</h3>
+          <span className="text-xs text-muted-foreground">Total: {formatCurrency(financialTotal)}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => handleSave()} disabled={saving || readOnly}>
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </Button>
-          {!isInline && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Agregar costos</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background text-foreground">
-              <DialogHeader>
-                <DialogTitle>Configurar costos adicionales</DialogTitle>
-              </DialogHeader>
-              {costForm}
-
-              {false && (
-                <>
-              {loading ? (
-                <div className="text-sm text-muted-foreground">Cargando...</div>
-              ) : (
-                <div className="space-y-4 text-sm">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant={activeSection === "directos" ? "default" : "outline"}
-                      className={activeSection === "directos" ? "bg-primary/90" : "bg-transparent"}
-                      onClick={() => setActiveSection("directos")}
-                    >
-                      Directos
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={activeSection === "indirectos" ? "default" : "outline"}
-                      className={activeSection === "indirectos" ? "bg-primary/90" : "bg-transparent"}
-                      onClick={() => setActiveSection("indirectos")}
-                    >
-                      Indirectos
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={activeSection === "financieros" ? "default" : "outline"}
-                      className={activeSection === "financieros" ? "bg-primary/90" : "bg-transparent"}
-                      onClick={() => setActiveSection("financieros")}
-                    >
-                      Financieros
-                    </Button>
+        <div className="px-4 pb-3 grid gap-2 grid-cols-2 lg:grid-cols-3">
+          {financialCostItems.filter((item) => item.isEnabled).map((item) => {
+            const ci = catalogById.get(item.catalogItemId);
+            if (!ci) return null;
+            const isPolicy = ci.type === "policy";
+            return (
+              <div key={item.catalogItemId} className={cn("p-2.5 rounded-lg bg-muted/10 border border-border/50 space-y-2", isPolicy && "col-span-full")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-semibold">{ci.name}</span>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>Tasa base: {formatNumber(Number(ci.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%</span>
+                    <button type="button" className="w-5 h-5 rounded flex items-center justify-center hover:text-destructive hover:bg-destructive/10" onClick={() => upsertCostItem(ci, { isEnabled: false })}>
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </div>
-
-                  {activeSection === "directos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Uniformes
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(uniformTotal)}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            setUniforms((prev) => {
-                              const existing = prev.find((u) => u.catalogItemId === value);
-                              if (existing) {
-                                return prev.map((u) =>
-                                  u.catalogItemId === value ? { ...u, active: true } : u
-                                );
-                              }
-                              const catalogItem = catalogById.get(value);
-                              if (!catalogItem) return prev;
-                              return [
-                                ...prev,
-                                {
-                                  catalogItemId: value,
-                                  unitPriceOverride: null,
-                                  active: true,
-                                  catalogItem,
-                                },
-                              ];
-                            });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {(catalogByType.uniform || [])
-                            .filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
+                </div>
+                <div className={cn("grid gap-2", isPolicy ? "grid-cols-3" : "grid-cols-1")}>
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Tasa (%)</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ej: 2,50"
+                      value={getDecimalValue(`rate:${item.catalogItemId}`, item.unitPriceOverride ?? null, 2, true)}
+                      onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
+                      onBlur={() => {
+                        const raw = decimalDrafts[`rate:${item.catalogItemId}`];
+                        if (raw === undefined) return;
+                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
+                        setCostItems((prev) => prev.map((c) => c.catalogItemId === item.catalogItemId ? { ...c, unitPriceOverride: parsed } : c));
+                        clearDecimalValue(`rate:${item.catalogItemId}`);
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
+                  {isPolicy && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Meses</Label>
+                        <Input type="text" inputMode="numeric" value={fmtN(parameters.policyContractMonths)} onChange={(e) => setParameters((prev) => ({ ...prev, policyContractMonths: toNumber(e.target.value) }))} className={inputClass} />
                       </div>
-                    </div>
-                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                      {(catalogByType.uniform || [])
-                        .filter((item) =>
-                          uniforms.find((u) => u.catalogItemId === item.id && u.active)
-                        )
-                        .map((item) => {
-                          const selected = uniforms.find((u) => u.catalogItemId === item.id);
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() =>
-                                      setUniforms((prev) =>
-                                        prev.map((u) =>
-                                          u.catalogItemId === item.id ? { ...u, active: false } : u
-                                        )
-                                      )
-                                    }
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  setUniforms((prev) =>
-                                    prev.map((u) =>
-                                      u.catalogItemId === item.id
-                                        ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                                        : u
-                                    )
-                                  )
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  
-                  )}
-
-                  {activeSection === "directos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Exámenes
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(examTotal)}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            setExams((prev) => {
-                              const existing = prev.find((u) => u.catalogItemId === value);
-                              if (existing) {
-                                return prev.map((u) =>
-                                  u.catalogItemId === value ? { ...u, active: true } : u
-                                );
-                              }
-                              const catalogItem = catalogById.get(value);
-                              if (!catalogItem) return prev;
-                              return [
-                                ...prev,
-                                {
-                                  catalogItemId: value,
-                                  unitPriceOverride: null,
-                                  active: true,
-                                  catalogItem,
-                                },
-                              ];
-                            });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {(catalogByType.exam || [])
-                            .filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                      {(catalogByType.exam || [])
-                        .filter((item) =>
-                          exams.find((u) => u.catalogItemId === item.id && u.active)
-                        )
-                        .map((item) => {
-                          const selected = exams.find((u) => u.catalogItemId === item.id);
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() =>
-                                      setExams((prev) =>
-                                        prev.map((u) =>
-                                          u.catalogItemId === item.id ? { ...u, active: false } : u
-                                        )
-                                      )
-                                    }
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  setExams((prev) =>
-                                    prev.map((u) =>
-                                      u.catalogItemId === item.id
-                                        ? { ...u, unitPriceOverride: toNumber(e.target.value) }
-                                        : u
-                                    )
-                                  )
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "directos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Alimentación
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(mealTotal)}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            updateMeal(value, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {mealCatalog
-                            .filter(
-                              (item) =>
-                                !meals.find(
-                                  (m) =>
-                                    m.mealType.toLowerCase() === item.name.toLowerCase() &&
-                                    m.isEnabled
-                                )
-                            )
-                            .map((item) => (
-                              <option key={item.id} value={item.name}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {mealCatalog
-                        .filter((item) =>
-                          meals.find(
-                            (m) =>
-                              m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled
-                          )
-                        )
-                        .map((item) => {
-                          const meal = meals.find(
-                            (m) => m.mealType.toLowerCase() === item.name.toLowerCase()
-                          );
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => updateMeal(item.name, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <Input
-                                  type="text" inputMode="numeric"
-                                  placeholder="Comidas/día"
-                                  value={fmtN(meal?.mealsPerDay ?? 0)}
-                                  onChange={(e) =>
-                                    updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
-                                  }
-                                  className={inputClass}
-                                />
-                                <Input
-                                  type="text" inputMode="numeric"
-                                  placeholder="Días/mes"
-                                  value={fmtN(meal?.daysOfService ?? 0)}
-                                  onChange={(e) =>
-                                    updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
-                                  }
-                                  className={inputClass}
-                                />
-                                <Input
-                                  type="text" inputMode="numeric"
-                                  placeholder="Precio mensual (override)"
-                                  value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""}
-                                  onChange={(e) =>
-                                    updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
-                                  }
-                                  className={`${inputClass} col-span-2`}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "indirectos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Equipos operativos
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(sumCostItemsByType(["phone", "radio", "flashlight"]))}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {operationalCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {operationalCatalog
-                        .filter((item) => findCostItem(item.id)?.isEnabled)
-                        .map((item) => {
-                          const costItem = findCostItem(item.id);
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(item, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "indirectos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Costos de transporte
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(sumCostItemsByType(TRANSPORT_TYPES))}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {transportCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {transportCatalog
-                        .filter((item) => findCostItem(item.id)?.isEnabled)
-                        .map((item) => {
-                          const costItem = findCostItem(item.id);
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(item, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "indirectos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Vehículos
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(sumCostItemsByType(VEHICLE_TYPES))}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {vehicleCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {vehicleCatalog
-                        .filter((item) => findCostItem(item.id)?.isEnabled)
-                        .map((item) => {
-                          const costItem = findCostItem(item.id);
-                          const isVehicleFuel = item.type === "vehicle_fuel";
-
-                          if (isVehicleFuel) {
-                            // Parse formula params from notes
-                            let fuelParams = { kmPerDay: 0, kmPerLiter: 10, fuelPrice: 1250 };
-                            try {
-                              if (costItem?.notes) {
-                                const parsed = JSON.parse(costItem.notes);
-                                fuelParams = { ...fuelParams, ...parsed };
-                              }
-                            } catch {}
-                            const kmMes = fuelParams.kmPerDay * 30;
-                            const litrosMes = fuelParams.kmPerLiter > 0 ? kmMes / fuelParams.kmPerLiter : 0;
-                            const costoMensual = Math.round(litrosMes * fuelParams.fuelPrice);
-
-                            const updateFuelParam = (key: string, value: number) => {
-                              const updated = { ...fuelParams, [key]: value };
-                              const newKmMes = updated.kmPerDay * 30;
-                              const newLitros = updated.kmPerLiter > 0 ? newKmMes / updated.kmPerLiter : 0;
-                              const newCosto = Math.round(newLitros * updated.fuelPrice);
-                              upsertCostItem(item, {
-                                unitPriceOverride: newCosto,
-                                notes: JSON.stringify(updated),
-                              });
-                            };
-
-                            return (
-                              <div key={item.id} className={`${sectionBoxClass} space-y-2 sm:col-span-2 lg:col-span-3`}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-medium">{item.name}</span>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>Cálculo por fórmula</span>
-                                    <button
-                                      type="button"
-                                      className="rounded-md border border-border px-2 py-1 text-xs"
-                                      onClick={() => upsertCostItem(item, { isEnabled: false })}
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="grid gap-2 sm:grid-cols-3">
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-muted-foreground">Km recorridos/día</label>
-                                    <Input
-                                      type="text" inputMode="numeric"
-                                      placeholder="Ej: 50"
-                                      value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""}
-                                      onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))}
-                                      className={inputClass}
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-muted-foreground">Consumo auto (km/litro)</label>
-                                    <Input
-                                      type="text" inputMode="numeric"
-                                      placeholder="10"
-                                      value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""}
-                                      onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))}
-                                      className={inputClass}
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-muted-foreground">Precio bencina ($/litro)</label>
-                                    <Input
-                                      type="text" inputMode="numeric"
-                                      placeholder="1250"
-                                      value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""}
-                                      onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))}
-                                      className={inputClass}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-xs">
-                                  <span className="text-muted-foreground">
-                                    {fuelParams.kmPerDay} km/día × 30 = <strong>{kmMes.toLocaleString("es-CL")} km/mes</strong>
-                                  </span>
-                                  <span className="text-muted-foreground">÷ {fuelParams.kmPerLiter} km/l = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} litros/mes</strong></span>
-                                  <span className="ml-auto font-semibold text-foreground">
-                                    Costo mensual: {formatCurrency(costoMensual)}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(item, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "indirectos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Infraestructura
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(sumCostItemsByType(INFRA_TYPES))}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            upsertCostItem(catalogById.get(value)!, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {infraCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {infraCatalog
-                        .filter((item) => findCostItem(item.id)?.isEnabled)
-                        .map((item) => {
-                          const costItem = findCostItem(item.id);
-                          return (
-                            <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{item.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(item.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(item, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {activeSection === "indirectos" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Sistemas
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total: {formatCurrency(sumCostItemsByType(["system"]))}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            const item = catalogById.get(value);
-                            if (!item) return;
-                            upsertCostItem(item, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {extraItemsCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {option.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                      {otherCostItems
-                        .filter((item) => item.isEnabled)
-                        .map((item) => {
-                          const catalogItem = catalogById.get(item.catalogItemId);
-                          if (!catalogItem) return null;
-                          return (
-                            <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{catalogItem.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Base: {formatCurrency(Number(catalogItem.basePrice))}</span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <Input
-                                type="text" inputMode="numeric"
-                                placeholder="Precio mensual (override)"
-                                value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
-                                onChange={(e) =>
-                                  setCostItems((prev) =>
-                                    prev.map((c) =>
-                                      c.catalogItemId === item.catalogItemId
-                                        ? { ...c, unitPriceOverride: toNumber(e.target.value) }
-                                        : c
-                                    )
-                                  )
-                                }
-                                className={inputClass}
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {showFinancial && activeSection === "financieros" && (
-                  <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                        Costos financieros
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Total mensual: {formatCurrency(financialTotal)}
-                      </span>
-                      {summary?.monthlyTotal === 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          Se calcula sobre costo + margen.
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-56"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!value) return;
-                            const item = catalogById.get(value);
-                            if (!item) return;
-                            upsertCostItem(item, { isEnabled: true });
-                          }}
-                        >
-                          <option value="">Agregar ítem</option>
-                          {financialCatalog
-                            .filter((item) => !findCostItem(item.id)?.isEnabled)
-                            .map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {option.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
-                      {financialCostItems
-                        .filter((item) => item.isEnabled)
-                        .map((item) => {
-                          const catalogItem = catalogById.get(item.catalogItemId);
-                          if (!catalogItem) return null;
-                          const isPolicy = catalogItem.type === "policy";
-                          return (
-                            <div key={item.catalogItemId} className={`${sectionBoxClass} space-y-2 ${isPolicy ? "sm:col-span-2 lg:col-span-3" : ""}`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm">{catalogItem.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>
-                                    Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="rounded-md border border-border px-2 py-1 text-xs"
-                                    onClick={() => upsertCostItem(catalogItem, { isEnabled: false })}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs">Tasa (%)</Label>
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    placeholder="Ej: 2,50"
-                                    value={getDecimalValue(
-                                      `rate:${item.catalogItemId}`,
-                                      item.unitPriceOverride ?? null,
-                                      2,
-                                      true
-                                    )}
-                                    onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
-                                    onBlur={() => {
-                                      const raw = decimalDrafts[`rate:${item.catalogItemId}`];
-                                      if (raw === undefined) return;
-                                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
-                                      setCostItems((prev) =>
-                                        prev.map((c) =>
-                                          c.catalogItemId === item.catalogItemId
-                                            ? { ...c, unitPriceOverride: parsed }
-                                            : c
-                                        )
-                                      );
-                                      clearDecimalValue(`rate:${item.catalogItemId}`);
-                                    }}
-                                    className={inputClass}
-                                  />
-                                </div>
-                                {isPolicy && (
-                                  <>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs">Meses a considerar</Label>
-                                      <Input
-                                        type="text" inputMode="numeric"
-                                        value={fmtN(parameters.policyContractMonths)}
-                                        onChange={(e) =>
-                                          setParameters((prev) => ({
-                                            ...prev,
-                                            policyContractMonths: toNumber(e.target.value),
-                                          }))
-                                        }
-                                        className={inputClass}
-                                      />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs">Porcentaje contrato (%)</Label>
-                                      <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={formatNumber(parameters.policyContractPct, { minDecimals: 2, maxDecimals: 2 })}
-                                        onChange={(e) =>
-                                          setParameters((prev) => ({
-                                            ...prev,
-                                            policyContractPct: toNumber(e.target.value),
-                                          }))
-                                        }
-                                        className={inputClass}
-                                      />
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                  )}
-
-                  {showFinancial && activeSection === "financieros" && (
-                  <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-2">
-                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                      Margen y parámetros
-                    </h3>
-                    <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Margen (%)</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">% contrato</Label>
                         <Input
                           type="text"
                           inputMode="decimal"
-                          value={getDecimalValue("marginPct", parameters.marginPct, 2)}
-                          onChange={(e) => setDecimalValue("marginPct", e.target.value)}
+                          value={getDecimalValue("policyContractPct", parameters.policyContractPct, 2)}
+                          onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
                           onBlur={() => {
-                            const raw = decimalDrafts.marginPct;
+                            const raw = decimalDrafts.policyContractPct;
                             if (raw === undefined) return;
                             const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                            setParameters((prev) => ({
-                              ...prev,
-                              marginPct: parsed,
-                            }));
-                            clearDecimalValue("marginPct");
+                            setParameters((prev) => ({ ...prev, policyContractPct: parsed }));
+                            clearDecimalValue("policyContractPct");
                           }}
                           className={inputClass}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Meses contrato</Label>
-                        <Input
-                          type="text" inputMode="numeric"
-                          value={fmtN(parameters.contractMonths)}
-                          onChange={(e) =>
-                            setParameters((prev) => ({
-                              ...prev,
-                              contractMonths: toNumber(e.target.value),
-                            }))
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                    </>
                   )}
                 </div>
-              )}
-
-              <div className="mt-4 flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={() => handleSave()}
-                  disabled={saving || readOnly}
-                >
-                  {saving ? "Guardando..." : "Guardar cambios"}
-                </Button>
               </div>
-                </>
-              )}
-            </DialogContent>
-          </Dialog>
-          )}
+            );
+          })}
+        </div>
+        <div className="px-4 pb-3">
+          <AddItemPopover
+            label="Financieros"
+            items={financialCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+            onSelect={(id) => {
+              const item = catalogById.get(id);
+              if (item) upsertCostItem(item, { isEnabled: true });
+            }}
+          />
         </div>
       </div>
 
-      {isInline && <div className="space-y-2">{costForm}</div>}
-
-      {summary ? (
-        <div className="space-y-1">
-          {/* ── Cost summary list ── */}
-          {[
-            { label: "Uniformes", value: summary.monthlyUniforms, section: "direct" },
-            { label: "Ajuste feriados", value: summary.monthlyHolidayAdjustment, section: "direct" },
-            { label: "Exámenes", value: summary.monthlyExams, section: "direct" },
-            { label: "Alimentación", value: summary.monthlyMeals, section: "direct" },
-            { label: "Equipo operativo", value: sumCostItemsByType(["phone", "radio", "flashlight"]), section: "indirect" },
-            { label: "Transporte", value: sumCostItemsByType(TRANSPORT_TYPES), section: "indirect" },
-            { label: "Vehículos", value: sumCostItemsByType(VEHICLE_TYPES), section: "indirect" },
-            { label: "Infraestructura", value: sumCostItemsByType(INFRA_TYPES), section: "indirect" },
-            { label: "Sistemas", value: sumCostItemsByType(["system"]), section: "indirect" },
-            ...(showFinancial ? [{ label: "Gastos financieros", value: summary.monthlyFinancial + summary.monthlyPolicy, section: "financial" as const }] : []),
-            ...(additionalLines.length > 0 ? [{ label: "Líneas adicionales", value: additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0), section: "additional" as const }] : []),
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className={cn(
-                "flex items-center justify-between py-1 px-1",
-                value > 0 ? "opacity-100" : "opacity-35"
-              )}
-            >
-              <span className="text-[11px] text-muted-foreground">{label}</span>
-              <span
-                className={cn(
-                  "font-mono text-[11px] tabular-nums",
-                  value > 0 ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground/40"
-                )}
-              >
-                {formatCurrency(value)}
-              </span>
-            </div>
-          ))}
-          {/* ── Total ── */}
-          <div className="mt-1 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-2.5 py-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total adicionales</span>
-            <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">
-              {formatCurrency(summary.monthlyExtras)}
-            </span>
+      {/* Margin params */}
+      <div className="rounded-xl border bg-card px-4 py-3 space-y-2">
+        <h3 className="text-[13px] font-semibold">Margen y parámetros</h3>
+        <div className="grid gap-2 grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-[10px]">Margen (%)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={getDecimalValue("marginPct", parameters.marginPct, 2)}
+              onChange={(e) => setDecimalValue("marginPct", e.target.value)}
+              onBlur={() => {
+                const raw = decimalDrafts.marginPct;
+                if (raw === undefined) return;
+                const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
+                setParameters((prev) => ({ ...prev, marginPct: parsed }));
+                clearDecimalValue("marginPct");
+              }}
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px]">Meses contrato</Label>
+            <Input type="text" inputMode="numeric" value={fmtN(parameters.contractMonths)} onChange={(e) => setParameters((prev) => ({ ...prev, contractMonths: toNumber(e.target.value) }))} className={inputClass} />
           </div>
         </div>
-      ) : (
-        <div className="text-sm text-muted-foreground">
-          Agrega costos adicionales para ver el detalle.
-        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // ══════════════════════════════════════════════════════
+  // ── Return ──
+  // ══════════════════════════════════════════════════════
+
+  return (
+    <section className="space-y-1">
+      {/* Save indicator */}
+      <div className="flex justify-end px-1">
+        <span className="text-[10px] text-muted-foreground">
+          {saving ? "Guardando..." : lastSaved ? "Guardado \u2713" : ""}
+        </span>
+      </div>
+
+      {/* Modal mode: button + dialog */}
+      {!isInline && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Agregar costos</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background text-foreground">
+            <DialogHeader>
+              <DialogTitle>Configurar costos adicionales</DialogTitle>
+            </DialogHeader>
+            {costForm}
+            {financialForm}
+          </DialogContent>
+        </Dialog>
       )}
-    </Card>
+
+      {/* Inline mode: render directly */}
+      {isInline && (
+        <>
+          {costForm}
+          {financialForm}
+        </>
+      )}
+    </section>
   );
 }

@@ -783,27 +783,35 @@ export async function PUT(
           })),
         });
       }
-    });
+    }, { timeout: 15000 });
 
-    const [totalPositions, summary] = await Promise.all([
-      prisma.cpqPosition.count({ where: { quoteId: id } }),
-      computeCpqQuoteCosts(id),
-    ]);
+    let summary;
+    try {
+      const [totalPositions, computedSummary] = await Promise.all([
+        prisma.cpqPosition.count({ where: { quoteId: id } }),
+        computeCpqQuoteCosts(id),
+      ]);
+      summary = computedSummary;
 
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: {
-        totalPositions,
-        totalGuards: summary.totalGuards,
-        monthlyCost: summary.monthlyTotal,
-      },
-    });
+      await prisma.cpqQuote.update({
+        where: { id },
+        data: {
+          totalPositions,
+          totalGuards: summary.totalGuards,
+          monthlyCost: summary.monthlyTotal,
+        },
+      });
+    } catch (computeError: any) {
+      console.error("Error computing/updating CPQ quote totals:", computeError?.message, computeError?.code, computeError?.meta);
+      // Transaction succeeded but computation failed — return partial success
+      return NextResponse.json({ success: true, data: null });
+    }
 
     return NextResponse.json({ success: true, data: summary });
-  } catch (error) {
-    console.error("Error updating CPQ costs:", error);
+  } catch (error: any) {
+    console.error("Error updating CPQ costs:", error?.message, error?.code, error?.meta);
     return NextResponse.json(
-      { success: false, error: "Failed to update costs" },
+      { success: false, error: error?.message || "Failed to update costs" },
       { status: 500 }
     );
   }

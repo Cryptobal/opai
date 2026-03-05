@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
@@ -206,14 +206,9 @@ El servicio contempla:
         : ""
     }`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 600,
-      temperature: 0.5,
-    });
-
-    const serviceDetail = completion.choices[0]?.message?.content?.trim() || "";
+    const serviceDetail = (
+      await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 })
+    ).trim();
 
     // Save to quote
     await prisma.cpqQuote.update({
@@ -227,8 +222,9 @@ El servicio contempla:
     });
   } catch (error) {
     console.error("Error generating AI service detail:", error);
+    const message = error instanceof Error ? error.message : "Failed to generate service detail";
     return NextResponse.json(
-      { success: false, error: "Failed to generate service detail" },
+      { success: false, error: message },
       { status: 500 }
     );
   }
