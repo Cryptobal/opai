@@ -2,7 +2,8 @@
 
 import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
-  FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList
+  FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
+  UserCheck, FileCheck2, Building, Briefcase
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
@@ -12,12 +13,14 @@ export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
+  | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
 
 const ALL_NAV_ITEMS: Array<{
   id: PortalSection
   label: string
   icon: React.ComponentType<{ className?: string }>
   configKey?: keyof PortalConfig
+  prospectOnly?: boolean
 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
@@ -31,20 +34,29 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa' },
   { id: 'encuestas', label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
   { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas' },
+  { id: 'personal', label: 'Personal', icon: UserCheck },
+  { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
+  { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
+  { id: 'empresa', label: 'Empresa', icon: Briefcase },
 ]
 
 interface Props {
   portalConfig: PortalConfig
   activeSection: PortalSection
   onSection: (s: PortalSection) => void
+  isProspect?: boolean
 }
 
-export function PortalClienteNav({ portalConfig, activeSection, onSection }: Props) {
+export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
 
-  const visibleItems = ALL_NAV_ITEMS.filter(item =>
-    !item.configKey || portalConfig[item.configKey]
-  )
+  const visibleItems = ALL_NAV_ITEMS.filter(item => {
+    // Hide prospect-only items when not in prospect mode
+    if (item.prospectOnly && !isProspect) return false
+    // Hide config-gated items that are disabled
+    if (item.configKey && !portalConfig[item.configKey]) return false
+    return true
+  })
 
   const mainItems = visibleItems.slice(0, 4)
   const extraItems = visibleItems.slice(4)
