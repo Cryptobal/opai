@@ -1057,9 +1057,15 @@ export function CrmAccountDetailClient({
       {/* ── New External Chat Modal ── */}
       <NewExternalChatModal
         open={chatModalOpen}
+        defaultStatus={
+          account.status === "prospect" || account.status === "client_active"
+            ? account.status
+            : undefined
+        }
         onClose={() => setChatModalOpen(false)}
-        onCreated={(channelId) => {
+        onCreated={async (channelId) => {
           setChatModalOpen(false);
+          await chatCtx.refreshChannels?.();
           chatCtx.openPanel();
           chatCtx.selectChannel(channelId);
         }}

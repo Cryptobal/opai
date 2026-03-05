@@ -21,9 +21,14 @@ export function StartChatButton({ contactId, portalEnabled }: Props) {
       const res = await fetch(`/api/crm/contacts/${contactId}/chat`, { method: "POST" });
       const json = await res.json();
       if (json.success) {
+        await ctx.refreshChannels?.();
         ctx.openPanel();
         ctx.selectChannel(json.data.channelId);
+      } else {
+        console.error("Failed to start chat:", json.error);
       }
+    } catch (err) {
+      console.error("Failed to start chat:", err);
     } finally {
       setLoading(false);
     }
