@@ -1,8 +1,6 @@
 import webPush from 'web-push';
 import { prisma } from '@/lib/prisma';
 
-// Lazy VAPID init — deferred to call time so `next build` succeeds in environments
-// without VAPID keys (e.g., CI pipelines that do not run push delivery).
 let vapidInitialized = false;
 function ensureVapidInitialized() {
   if (vapidInitialized) return;
@@ -15,6 +13,25 @@ function ensureVapidInitialized() {
     process.env.VAPID_PRIVATE_KEY
   );
   vapidInitialized = true;
+}
+
+function globalSettingKey(tenantId: string) {
+  return `notification_preferences:${tenantId}`;
+}
+
+/** Returns false only when the admin has explicitly set pushEnabled = false for this notifKey. Fails open (returns true) on any error to avoid silently dropping pushes. */
+async function isGloballyEnabled(tenantId: string, notifKey: string): Promise<boolean> {
+  try {
+    const setting = await prisma.setting.findFirst({
+      where: { key: globalSettingKey(tenantId) },
+      select: { value: true },
+    });
+    if (!setting?.value) return true;
+    const parsed = JSON.parse(setting.value) as { pushGlobalConfig?: Record<string, { pushEnabled?: boolean }> };
+    return parsed.pushGlobalConfig?.[notifKey]?.pushEnabled !== false;
+  } catch {
+    return true; // fail open — never silently drop pushes on read error
+  }
 }
 
 type UserType = 'contact' | 'guardia' | 'admin';
@@ -49,19 +66,21 @@ export async function sendPushToPortalUser({
 }: SendPushParams) {
   ensureVapidInitialized();
 
-  // 1. Check preferences (only for portal users — admin uses UserNotificationPreference)
+  // 1. Check user-level preferences (portal users only)
   if (userType !== 'admin') {
     const prefs = await prisma.portalNotificationPreference.findUnique({
       where: {
         userType_userId_portalType: { userType, userId, portalType },
       },
     });
-
     if (prefs) {
       const prefMap = prefs.preferences as Record<string, { push?: boolean }>;
       if (prefMap[notifKey]?.push === false) return;
     }
   }
+
+  // 1b. Check global config — admin can disable a notification type for all users
+  if (!(await isGloballyEnabled(tenantId, notifKey))) return;
 
   // 2. Get active push subscriptions
   const senderType = toChatSenderType(userType);
@@ -96,8 +115,9 @@ export async function sendPushToPortalUser({
             data: { url, type: notifKey },
           })
         );
-      } catch (error: any) {
-        if (error.statusCode === 410 || error.statusCode === 404) {
+      } catch (error: unknown) {
+        const err = error as { statusCode?: number };
+        if (err.statusCode === 410 || err.statusCode === 404) {
           await prisma.chatPushSubscription.update({
             where: { id: sub.id },
             data: { isActive: false },
