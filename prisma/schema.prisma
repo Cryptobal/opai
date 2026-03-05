@@ -191,6 +191,7 @@ model Admin {
   supervisionVisits     OpsVisitaSupervision[]    @relation("ops_supervision_visit_supervisor")
   inventoryWarehouses   InventoryWarehouse[]      @relation("inventory_warehouse_supervisor")
   authoredNotes         Note[]                    @relation("note_author")
+  visitasTecnicas       OpsVisitaTecnica[]        @relation("ops_visita_tecnica_supervisor")
 
   @@index([email])
   @@index([status])
@@ -1294,6 +1295,7 @@ model CrmAccount {
   installations          CrmInstallation[]
   opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
   encuestasCliente       OpsEncuestaCliente[]
+  visitasTecnicas        OpsVisitaTecnica[]
 
   @@index([tenantId], map: "idx_crm_accounts_tenant")
   @@index([status], map: "idx_crm_accounts_status")
@@ -1363,6 +1365,7 @@ model CrmInstallation {
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
   encuestasCliente                OpsEncuestaCliente[]
   chatChannel                     ChatChannel?
+  visitasTecnicas                 OpsVisitaTecnica[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1489,7 +1492,8 @@ model CrmDeal {
   quotes         CrmDealQuote[]
   tasks          CrmTask[]
   followUpLogs   CrmFollowUpLog[]
-  dealContacts   CrmDealContact[]
+  dealContacts    CrmDealContact[]
+  visitasTecnicas OpsVisitaTecnica[]
 
   @@index([tenantId], map: "idx_crm_deals_tenant")
   @@index([status], map: "idx_crm_deals_status")
@@ -3657,6 +3661,78 @@ model OpsTicketComment {
 
   @@index([ticketId], map: "idx_ops_ticket_comments_ticket")
   @@map("ops_ticket_comments")
+  @@schema("ops")
+}
+
+model OpsVisitaTecnica {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  userId         String   @map("user_id")
+  installationId String   @map("installation_id") @db.Uuid
+  accountId      String   @map("account_id") @db.Uuid
+  dealId         String?  @map("deal_id") @db.Uuid
+
+  // Check-in
+  checkInAt      DateTime? @map("check_in_at") @db.Timestamptz(6)
+  checkInLat     Float?    @map("check_in_lat")
+  checkInLng     Float?    @map("check_in_lng")
+  checkOutAt     DateTime? @map("check_out_at") @db.Timestamptz(6)
+  status         String    @default("borrador") // borrador | en_curso | completada
+
+  // Seguridad actual
+  currentSecurityCompany String?  @map("current_security_company")
+  hasSecurityCurrently   Boolean? @map("has_security_currently")
+  guardsNeeded           Int?     @map("guards_needed")
+  guardShiftType         String?  @map("guard_shift_type")
+  guardSalaryRange       String?  @map("guard_salary_range")
+
+  // Servicios adicionales
+  requiresTransport  Boolean @default(false) @map("requires_transport")
+  transportNotes     String? @map("transport_notes")
+  requiresMeals      Boolean @default(false) @map("requires_meals")
+  mealNotes          String? @map("meal_notes")
+  requiresExams      Boolean @default(false) @map("requires_exams")
+  examNotes          String? @map("exam_notes")
+  requiresEquipment  Boolean @default(false) @map("requires_equipment")
+  equipmentNotes     String? @map("equipment_notes")
+  requiresUniform    Boolean @default(false) @map("requires_uniform")
+  uniformNotes       String? @map("uniform_notes")
+  additionalCosts    Json?   @map("additional_costs")
+
+  // Contactos in situ
+  contacts Json?
+
+  // Informe
+  generalReport    String? @map("general_report") @db.Text
+  securityRisks    String? @map("security_risks") @db.Text
+  recommendations  String? @map("recommendations") @db.Text
+  photos           Json?
+  durationMinutes  Int?    @map("duration_minutes")
+
+  // Encuesta cliente
+  surveyContactName     String? @map("survey_contact_name")
+  surveyContactRole     String? @map("survey_contact_role")
+  surveyHowDidYouHear   String? @map("survey_how_did_you_hear")
+  surveyVisitOpinion    String? @map("survey_visit_opinion")
+  surveyExpectations    String? @map("survey_expectations") @db.Text
+  surveyCurrentPainPoints String? @map("survey_current_pain_points") @db.Text
+  surveySignatureUrl    String? @map("survey_signature_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         Admin           @relation("ops_visita_tecnica_supervisor", fields: [userId], references: [id])
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  account      CrmAccount      @relation(fields: [accountId], references: [id])
+  deal         CrmDeal?        @relation(fields: [dealId], references: [id])
+
+  @@index([tenantId], map: "idx_ops_visitas_tecnicas_tenant")
+  @@index([userId], map: "idx_ops_visitas_tecnicas_user")
+  @@index([installationId], map: "idx_ops_visitas_tecnicas_installation")
+  @@index([accountId], map: "idx_ops_visitas_tecnicas_account")
+  @@index([status], map: "idx_ops_visitas_tecnicas_status")
+  @@index([createdAt(sort: Desc)], map: "idx_ops_visitas_tecnicas_created")
+  @@map("visitas_tecnicas")
   @@schema("ops")
 }
 
