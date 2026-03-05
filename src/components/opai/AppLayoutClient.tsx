@@ -252,7 +252,7 @@ function AppLayoutClientInner({
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
 
   return (
-    <ChatFloatingProvider currentUserId={currentUserId ?? ''}>
+    <ChatFloatingProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
       <AppShell
         sidebar={
           <AppSidebar

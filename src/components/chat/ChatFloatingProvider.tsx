@@ -78,12 +78,14 @@ export function useChatFloatingContext() {
 
 interface ChatFloatingProviderProps {
   currentUserId: string;
+  userRole?: string;
   autoContext?: { pageUrl: string; pageLabel: string };
   children: ReactNode;
 }
 
 export function ChatFloatingProvider({
   currentUserId,
+  userRole,
   autoContext,
   children,
 }: ChatFloatingProviderProps) {
@@ -227,7 +229,7 @@ export function ChatFloatingProvider({
     <ChatFloatingContext.Provider value={value}>
       {children}
       <ChatFloatingButton />
-      <ChatFloatingPanel />
+      <ChatFloatingPanel userRole={userRole} />
     </ChatFloatingContext.Provider>
   );
 }

@@ -2,13 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Building2,
   ChevronDown,
   ChevronRight,
+  Handshake,
   Loader2,
   MessageCircle,
+  MoreHorizontal,
   Search,
+  Sprout,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -17,12 +23,20 @@ import { cn } from "@/lib/utils";
 import { useChatFloatingContext, type ChatFloatingChannel } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { usePusher } from "./hooks/usePusher";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type AdminUser = { id: string; name: string; email: string };
 
 /* ─── Component ─── */
 
-export function ChatFloatingPanel() {
+export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const ctx = useChatFloatingContext();
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -117,7 +131,11 @@ export function ChatFloatingPanel() {
     group: true,
     installation: true,
     users: true,
+    prospects: false,
+    clients: false,
+    archived: true,
   });
+  const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
 
@@ -137,6 +155,27 @@ export function ChatFloatingPanel() {
       .then((json) => { if (json?.success) setAllUsers(json.data); })
       .catch(() => {});
   }, [ctx.isPanelOpen, allUsers.length]);
+
+  // Derived external channels
+  const prospectChannels = ctx.channels.filter(
+    (c) => c.channelType === "EXTERNAL" && c.account?.status === "prospect"
+  );
+  const clientChannels = ctx.channels.filter(
+    (c) =>
+      c.channelType === "EXTERNAL" &&
+      (c.account?.status === "client_active" || c.account?.status === "client_inactive")
+  );
+
+  const canDeleteChannels = userRole === "owner" || userRole === "admin";
+
+  const handleDeleteChannel = (id: string) => setChannelToDelete(id);
+
+  const confirmDelete = async () => {
+    if (!channelToDelete) return;
+    await ctx.deleteChannel(channelToDelete);
+    if (ctx.selectedChannelId === channelToDelete) ctx.selectChannel(null);
+    setChannelToDelete(null);
+  };
 
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
 
@@ -402,6 +441,62 @@ export function ChatFloatingPanel() {
                       onToggle={() => toggleSection("installation")}
                       onSelectChannel={ctx.selectChannel}
                       getDisplayName={getChannelDisplayName}
+                      onArchive={(id) => ctx.archiveChannel(id)}
+                      canDelete={canDeleteChannels}
+                      onDelete={handleDeleteChannel}
+                    />
+                  )}
+
+                  {/* Prospectos */}
+                  {(prospectChannels.length > 0 || !isSearching) && filter !== "unread" && (
+                    <ChannelSection
+                      label="Prospectos"
+                      icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
+                      channels={prospectChannels}
+                      collapsed={isSearching ? false : !!collapsedSections["prospects"]}
+                      onToggle={() => toggleSection("prospects")}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={(ch) => ch.account?.name ?? ch.name}
+                      onArchive={(id) => ctx.archiveChannel(id)}
+                      canDelete={canDeleteChannels}
+                      onDelete={handleDeleteChannel}
+                    />
+                  )}
+
+                  {/* Clientes */}
+                  {(clientChannels.length > 0 || !isSearching) && filter !== "unread" && (
+                    <ChannelSection
+                      label="Clientes"
+                      icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
+                      channels={clientChannels}
+                      collapsed={isSearching ? false : !!collapsedSections["clients"]}
+                      onToggle={() => toggleSection("clients")}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={(ch) => ch.account?.name ?? ch.name}
+                      onArchive={(id) => ctx.archiveChannel(id)}
+                      canDelete={canDeleteChannels}
+                      onDelete={handleDeleteChannel}
+                    />
+                  )}
+
+                  {/* Archivados */}
+                  {filter !== "unread" && (
+                    <ChannelSection
+                      label="Archivados"
+                      icon={<Archive className="h-3.5 w-3.5 text-muted-foreground" />}
+                      channels={ctx.archivedChannels}
+                      collapsed={isSearching ? false : !!collapsedSections["archived"]}
+                      onToggle={() => {
+                        const wasCollapsed = !!collapsedSections["archived"];
+                        toggleSection("archived");
+                        if (wasCollapsed) ctx.fetchArchivedChannels();
+                      }}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={(ch) => ch.name}
+                      onUnarchive={(id) => ctx.unarchiveChannel(id)}
+                      canDelete={canDeleteChannels}
+                      onDelete={handleDeleteChannel}
+                      isArchivedSection
                     />
                   )}
 
@@ -418,6 +513,17 @@ export function ChatFloatingPanel() {
                 </div>
               )}
             </div>
+
+            {/* Delete confirmation dialog */}
+            <ConfirmDialog
+              open={!!channelToDelete}
+              onOpenChange={(open) => { if (!open) setChannelToDelete(null); }}
+              title="¿Eliminar conversación?"
+              description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
+              confirmLabel="Eliminar permanentemente"
+              onConfirm={confirmDelete}
+              variant="destructive"
+            />
           </>
         )}
       </div>
@@ -436,6 +542,11 @@ function ChannelSection({
   onToggle,
   onSelectChannel,
   getDisplayName,
+  onArchive,
+  onUnarchive,
+  canDelete,
+  onDelete,
+  isArchivedSection,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -444,6 +555,11 @@ function ChannelSection({
   onToggle: () => void;
   onSelectChannel: (id: string) => void;
   getDisplayName: (ch: ChatFloatingChannel) => string;
+  onArchive?: (channelId: string) => void;
+  onUnarchive?: (channelId: string) => void;
+  canDelete?: boolean;
+  onDelete?: (channelId: string) => void;
+  isArchivedSection?: boolean;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
@@ -473,12 +589,61 @@ function ChannelSection({
       {!collapsed && (
         <div className="divide-y divide-border/20">
           {channels.map((ch) => (
-            <ChannelListItem
-              key={ch.id}
-              channel={ch}
-              displayName={getDisplayName(ch)}
-              onClick={() => onSelectChannel(ch.id)}
-            />
+            <div key={ch.id} className="relative group flex items-center">
+              <div className="flex-1 min-w-0">
+                <ChannelListItem
+                  channel={ch}
+                  displayName={getDisplayName(ch)}
+                  onClick={() => onSelectChannel(ch.id)}
+                />
+              </div>
+              {(onArchive || onUnarchive || (canDelete && onDelete)) && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Más opciones"
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      {!isArchivedSection && onArchive && (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); onArchive(ch.id); }}
+                        >
+                          <Archive className="h-3.5 w-3.5 mr-2" />
+                          Archivar conversación
+                        </DropdownMenuItem>
+                      )}
+                      {isArchivedSection && onUnarchive && (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); onUnarchive(ch.id); }}
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
+                          Desarchivar
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && onDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); onDelete(ch.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Eliminar permanentemente
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
