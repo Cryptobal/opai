@@ -39,7 +39,7 @@ export function NotificationConfigClient() {
     void fetchPrefs();
   }, [fetchPrefs]);
 
-  const savePrefs = async (updated: Prefs) => {
+  const savePrefs = async (updated: Prefs, rollbackTo?: Prefs) => {
     setSaving(true);
     try {
       const res = await fetch("/api/notifications/config", {
@@ -52,9 +52,11 @@ export function NotificationConfigClient() {
         toast.success("Guardado");
         if (json.data) setPrefs(json.data);
       } else {
+        if (rollbackTo) setPrefs(rollbackTo);
         toast.error(json.error || "Error al guardar");
       }
     } catch {
+      if (rollbackTo) setPrefs(rollbackTo);
       toast.error("Error al guardar");
     } finally {
       setSaving(false);
@@ -62,13 +64,14 @@ export function NotificationConfigClient() {
   };
 
   const handlePushToggle = (key: string, enabled: boolean) => {
+    const previous = prefs;
     const current = prefs.pushGlobalConfig ?? defaultPushConfig();
     const updated: Prefs = {
       ...prefs,
       pushGlobalConfig: { ...current, [key]: { pushEnabled: enabled } },
     };
     setPrefs(updated);
-    void savePrefs(updated);
+    void savePrefs(updated, previous);
   };
 
   if (loading) {
