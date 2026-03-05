@@ -112,6 +112,22 @@ export async function POST(
       }).catch((err) =>
         console.error("[Finance] Error sending submit notification:", err),
       );
+
+      // Push: expense report submitted — notify approvers
+      try {
+        const { sendPushToSpecificAdmins } = await import('@/lib/pwa/push-service');
+        const submitterName = submitter?.name ?? 'Un supervisor';
+        await sendPushToSpecificAdmins(
+          ctx.tenantId,
+          approverIds,
+          'expense_report_submitted',
+          'Rendición de gastos enviada',
+          `${submitterName} envió una rendición para revisión`,
+          `/opai/finance/rendiciones/${id}`,
+        );
+      } catch (err) {
+        console.error('[FINANCE] Error sending expense_report_submitted push:', err);
+      }
     }
 
     return NextResponse.json({ success: true, data: rendicion });
