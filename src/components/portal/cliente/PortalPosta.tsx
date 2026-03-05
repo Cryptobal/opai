@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { BookOpen, Loader2 } from 'lucide-react'
 import { ClienteSession } from '@/lib/portal-cliente'
 import { cn } from '@/lib/utils'
+import { PreviewBadge } from './PreviewBadge'
+import { DEMO_POSTA } from '@/lib/portal/demo-data'
 
 const STATUS_CONFIG = {
   normal: { label: 'Normal', color: 'text-emerald-400 bg-emerald-500/10' },
@@ -14,13 +16,32 @@ const STATUS_CONFIG = {
 interface Props {
   session: ClienteSession
   selectedInstallation: string
+  isProspect?: boolean
 }
 
-export function PortalPosta({ session, selectedInstallation }: Props) {
+export function PortalPosta({ session, selectedInstallation, isProspect }: Props) {
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isProspect) {
+      setRecords(
+        DEMO_POSTA.map((p, i) => ({
+          id: `demo-${i}`,
+          statusInstalacion: 'normal',
+          guardiasPresentes: 2,
+          guardiasRequeridos: 2,
+          notes: p.novedades,
+          controlNocturno: {
+            date: new Date().toISOString(),
+            centralOperatorName: 'Central OPAI',
+            generalNotes: null,
+          },
+        }))
+      )
+      setLoading(false)
+      return
+    }
     setLoading(true)
     fetch(`/api/portal/cliente/posta?installationId=${selectedInstallation}`, {
       headers: {
@@ -32,7 +53,7 @@ export function PortalPosta({ session, selectedInstallation }: Props) {
       .then(r => r.json())
       .then(j => { if (j.success) setRecords(j.data) })
       .finally(() => setLoading(false))
-  }, [selectedInstallation, session])
+  }, [isProspect, selectedInstallation, session])
 
   if (loading) return (
     <div className="flex items-center justify-center h-48">
@@ -44,6 +65,7 @@ export function PortalPosta({ session, selectedInstallation }: Props) {
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto">
       <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
         <BookOpen className="h-5 w-5 text-blue-400" /> Posta / Bitacora
+        {isProspect && <PreviewBadge />}
       </h2>
       {records.length === 0 ? (
         <p className="text-zinc-500 text-sm text-center py-12">Sin registros de posta recientes</p>

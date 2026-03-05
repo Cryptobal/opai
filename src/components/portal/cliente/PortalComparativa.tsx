@@ -7,6 +7,7 @@ import {
 import { Loader2, GitCompare, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente'
+import { PreviewBadge } from './PreviewBadge'
 
 /* ── Types ── */
 
@@ -38,9 +39,31 @@ const METRIC_SUFFIX: Record<Metric, string> = {
 
 interface Props {
   session: ClienteSession
+  isProspect?: boolean
 }
 
-export function PortalComparativa({ session }: Props) {
+export function PortalComparativa({ session, isProspect }: Props) {
+  if (isProspect) {
+    return (
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
+        <div className="flex items-center gap-2">
+          <GitCompare className="h-5 w-5 text-blue-400" />
+          <h2 className="text-base font-semibold">Vista Comparativa</h2>
+          <PreviewBadge />
+        </div>
+        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
+          <p className="text-sm text-zinc-300 font-medium">Benchmarks del servicio</p>
+          <ul className="space-y-2 text-xs text-zinc-400">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Compara rendimiento entre instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Metricas de rondas, asistencia y tickets</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Ranking automatico de instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Graficos interactivos por periodo</li>
+          </ul>
+        </div>
+      </div>
+    )
+  }
+
   const [metric, setMetric] = useState<Metric>('rondas_cumplimiento')
   const [data, setData] = useState<ComparativaRow[]>([])
   const [loading, setLoading] = useState(false)

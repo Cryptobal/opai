@@ -5,6 +5,7 @@ import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare } from 'lucide-
 import { ClienteSession } from '@/lib/portal-cliente'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
+import { PreviewBadge } from './PreviewBadge'
 
 interface TicketComment {
   id: string
@@ -36,6 +37,7 @@ interface TicketItem {
 interface Props {
   session: ClienteSession
   selectedInstallation: string
+  isProspect?: boolean
 }
 
 const STATUS_FILTERS = [
@@ -76,7 +78,29 @@ function formatDateTime(iso: string) {
   })
 }
 
-export function PortalTickets({ session, selectedInstallation }: Props) {
+export function PortalTickets({ session, selectedInstallation, isProspect }: Props) {
+  if (isProspect) {
+    return (
+      <div className="px-4 py-4 pb-28 max-w-lg mx-auto">
+        <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
+          <Ticket className="h-5 w-5 text-blue-400" />
+          Tickets de Soporte
+          <PreviewBadge />
+        </h2>
+        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
+          <p className="text-sm text-zinc-300 font-medium">Sistema de tickets disponible</p>
+          <ul className="space-y-2 text-xs text-zinc-400">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Crea solicitudes y reporta incidencias</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Seguimiento en tiempo real del estado</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicacion directa con el equipo Gard</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Historial completo de todas tus solicitudes</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Prioridades y SLA automaticos</li>
+          </ul>
+        </div>
+      </div>
+    )
+  }
+
   const [tickets, setTickets] = useState<TicketItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeStatus, setActiveStatus] = useState('')

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bell, Loader2, Mail, Smartphone } from "lucide-react";
 import { ClienteSession } from "@/lib/portal-cliente-types";
+import { PreviewBadge } from "./PreviewBadge";
 
 interface AlertConfig {
   id: string | null;
@@ -48,9 +49,38 @@ const ALERT_LABELS: Record<string, { label: string; desc: string }> = {
 
 interface Props {
   session: ClienteSession;
+  isProspect?: boolean;
 }
 
-export function PortalAlertas({ session }: Props) {
+export function PortalAlertas({ session, isProspect }: Props) {
+  if (isProspect) {
+    return (
+      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Bell className="h-5 w-5 text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-zinc-100">Configuracion de alertas</h2>
+              <PreviewBadge />
+            </div>
+            <p className="text-xs text-zinc-500">Elige que notificaciones recibir y por que canal</p>
+          </div>
+        </div>
+        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
+          <p className="text-sm text-zinc-300 font-medium">Alertas en tiempo real</p>
+          <ul className="space-y-2 text-xs text-zinc-400">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Guardia ausente o ronda incompleta</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Incidentes reportados en tiempo real</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Notificaciones por email y push</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Configuracion personalizada por tipo</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   const [configs, setConfigs] = useState<AlertConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);

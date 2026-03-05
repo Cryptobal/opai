@@ -2,21 +2,31 @@
 
 import { ClienteSession } from '@/lib/portal-cliente'
 import { Building2, ChevronRight } from 'lucide-react'
+import { PreviewBadge } from './PreviewBadge'
+import { DEMO_INSTALACIONES } from '@/lib/portal/demo-data'
 
 interface Props {
   session: ClienteSession
   onSelectInstallation?: (id: string) => void
+  isProspect?: boolean
 }
 
-export function PortalInstallations({ session, onSelectInstallation }: Props) {
+export function PortalInstallations({ session, onSelectInstallation, isProspect }: Props) {
+  const installations = isProspect
+    ? DEMO_INSTALACIONES.map((d, i) => ({ id: `demo-${i}`, name: d.name }))
+    : session.installations
+
   return (
     <div className="p-4 pb-20 space-y-4">
-      <h2 className="text-white font-semibold text-lg">Instalaciones</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-white font-semibold text-lg">Instalaciones</h2>
+        {isProspect && <PreviewBadge />}
+      </div>
       <p className="text-zinc-500 text-sm">
-        {session.installations.length} instalacion{session.installations.length !== 1 ? 'es' : ''} activa{session.installations.length !== 1 ? 's' : ''}
+        {installations.length} instalacion{installations.length !== 1 ? 'es' : ''} activa{installations.length !== 1 ? 's' : ''}
       </p>
       <div className="space-y-2">
-        {session.installations.map(inst => (
+        {installations.map(inst => (
           <button
             key={inst.id}
             onClick={() => onSelectInstallation?.(inst.id)}
