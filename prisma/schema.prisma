@@ -1402,7 +1402,7 @@ model CrmInstallation {
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
   encuestasCliente                OpsEncuestaCliente[]
-  chatChannel                     ChatChannel?
+  chatChannels                    ChatChannel[]
   visitasTecnicas                 OpsVisitaTecnica[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
@@ -5483,7 +5483,8 @@ model ChatChannel {
   id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId           String          @map("tenant_id")
   channelType        ChatChannelType @default(INSTALLATION) @map("channel_type")
-  installationId     String?         @unique @map("installation_id") @db.Uuid
+  installationId     String?         @map("installation_id") @db.Uuid
+  subType            String?         @map("sub_type")
   groupId            String?         @map("group_id")
   accountId          String?         @map("account_id") @db.Uuid
   name               String
@@ -5505,8 +5506,8 @@ model ChatChannel {
   @@index([tenantId], map: "idx_chat_channels_tenant")
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
   @@index([tenantId, lastMessageAt(sort: Desc)], map: "idx_chat_channels_tenant_last_msg")
-  @@index([installationId], map: "idx_chat_channels_installation")
   @@index([groupId], map: "idx_chat_channels_group")
+  @@unique([installationId, subType], map: "chat_channels_installation_sub_type_key")
   @@map("channels")
   @@schema("chat")
 }

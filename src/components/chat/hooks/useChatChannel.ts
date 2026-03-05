@@ -28,6 +28,7 @@ type UseChatChannelReturn = {
   deleteMessage: (id: string) => void;
   addReaction: (messageId: string, emoji: string, sender: { id: string; name: string; type: ChatSenderType }) => void;
   removeReaction: (messageId: string, emoji: string, senderId: string) => void;
+  clearMessages: () => void;
 };
 
 /**
@@ -95,6 +96,10 @@ export function useChatChannel(
     },
     []
   );
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+  }, []);
 
   const removeReaction = useCallback((messageId: string, emoji: string, senderId: string) => {
     setMessages((prev) =>
@@ -183,6 +188,10 @@ export function useChatChannel(
       });
     });
 
+    channel.bind("messages-cleared", () => {
+      clearMessages();
+    });
+
     channel.bind("reaction-removed", (data: PusherReactionEvent) => {
       removeReaction(data.messageId, data.emoji, data.senderId);
     });
@@ -211,7 +220,7 @@ export function useChatChannel(
       typingTimersRef.current.forEach((timer) => clearTimeout(timer));
       typingTimersRef.current.clear();
     };
-  }, [pusher, channelId, appendMessage, editMessage, deleteMessage, addReaction, removeReaction, clearTypingUser]);
+  }, [pusher, channelId, appendMessage, editMessage, deleteMessage, addReaction, removeReaction, clearMessages, clearTypingUser]);
 
   return {
     messages,
@@ -222,5 +231,6 @@ export function useChatChannel(
     deleteMessage,
     addReaction,
     removeReaction,
+    clearMessages,
   };
 }

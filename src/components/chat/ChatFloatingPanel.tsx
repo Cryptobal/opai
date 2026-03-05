@@ -309,6 +309,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
               onBack={() => ctx.selectChannel(null)}
               autoContextPrefix={getAutoContextPrefix}
               currentUserId={ctx.currentUserId}
+              userRole={userRole}
             />
           </div>
         ) : (

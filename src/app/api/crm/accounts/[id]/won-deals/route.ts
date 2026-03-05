@@ -50,7 +50,7 @@ export async function GET(
         select: {
           id: true,
           code: true,
-          name: true,
+          clientName: true,
           monthlyCost: true,
           totalPositions: true,
           totalGuards: true,

@@ -3,5 +3,10 @@ import { auth } from "@/lib/auth";
 
 export default async function ChatPageRoute() {
   const session = await auth();
-  return <ChatPage currentUserId={session?.user?.id ?? ""} />;
+  return (
+    <ChatPage
+      currentUserId={session?.user?.id ?? ""}
+      userRole={session?.user?.role ?? "viewer"}
+    />
+  );
 }

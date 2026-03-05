@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
             checkpoints: {
               include: {
                 checkpoint: {
-                  select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true, qrCode: true },
+                  select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, qrCode: true },
                 },
               },
               orderBy: { orderIndex: "asc" as const },
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       lat: tc.checkpoint.lat,
       lng: tc.checkpoint.lng,
       radius: tc.checkpoint.geoRadiusM,
-      verificationType: tc.checkpoint.verificationType,
+      verificationType: (tc.checkpoint as any).verificationType,
       qrCode: tc.checkpoint.qrCode,
       order: tc.orderIndex,
       isRequired: tc.isRequired,

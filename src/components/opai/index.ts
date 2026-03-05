@@ -21,6 +21,21 @@ export type { PageHeaderProps } from './PageHeader';
 export { KpiCard } from './KpiCard';
 export type { KpiCardProps, TrendType } from './KpiCard';
 
+export { KpiGrid } from './KpiGrid';
+export type { KpiGridProps } from './KpiGrid';
+
+export { DataTable } from './DataTable';
+export type { DataTableColumn, DataTableProps } from './DataTable';
+
+export { FilterBar } from './FilterBar';
+export type { FilterBarProps } from './FilterBar';
+
+export { ModuleCard } from './ModuleCard';
+
+export { LoadingSpinner } from './LoadingSpinner';
+
+export { FormField } from './FormField';
+
 export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 

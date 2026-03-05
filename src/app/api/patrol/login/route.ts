@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
             checkpoints: {
               include: {
                 checkpoint: {
-                  select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true, qrCode: true },
+                  select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, qrCode: true },
                 },
               },
               orderBy: { orderIndex: "asc" },

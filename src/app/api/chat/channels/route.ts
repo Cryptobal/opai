@@ -229,6 +229,7 @@ export async function GET(request: NextRequest) {
       installationId: ch.installationId,
       groupId: ch.groupId,
       name: ch.name,
+      subType: ch.subType,
       isActive: ch.isActive,
       lastMessageAt: ch.lastMessageAt?.toISOString() ?? null,
       lastMessagePreview: ch.lastMessagePreview,

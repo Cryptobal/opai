@@ -422,3 +422,66 @@ export async function POST(
     );
   }
 }
+
+// ── DELETE — Bulk soft-delete all messages in channel (admin/owner only) ──
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden limpiar conversaciones" },
+        { status: 403 }
+      );
+    }
+
+    const { id: channelId } = await params;
+
+    const channel = await prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId: ctx.tenantId },
+      select: { id: true },
+    });
+
+    if (!channel) {
+      return NextResponse.json(
+        { success: false, error: "Canal no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const result = await prisma.chatMessage.updateMany({
+      where: {
+        channelId,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: ctx.userId,
+      },
+    });
+
+    // Trigger Pusher event for connected clients
+    triggerChatEvent(channelId, "messages-cleared", {
+      clearedBy: ctx.userId,
+      count: result.count,
+    }).catch((err) =>
+      console.error("Error triggering messages-cleared event:", err)
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: { deletedCount: result.count },
+    });
+  } catch (err: any) {
+    console.error("Error clearing channel messages:", err);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
+  }
+}

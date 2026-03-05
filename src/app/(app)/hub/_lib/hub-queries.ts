@@ -286,7 +286,7 @@ export async function getCommercialMetrics(
       select: { dealId: true },
       distinct: ['dealId'],
     }),
-    prisma.crmDeal.findMany({
+    (prisma.crmDeal.findMany as any)({
       where: negotiatingDealsWhere,
       select: {
         id: true,
@@ -297,7 +297,7 @@ export async function getCommercialMetrics(
           },
         },
       },
-    }),
+    }) as Promise<Array<{ id: string; activeQuotationId?: string | null; quotes: Array<{ quoteId: string }> }>>,
   ]);
 
   const negotiatingQuoteIds = collectLinkedQuoteIds(negotiatingDeals);

@@ -57,20 +57,11 @@ export default async function VisitaSupervisionDetailPage({
   // select-only query if migration 20260401000000_supervision_module_refactor
   // hasn't been applied yet (avoids selecting new columns/relations that
   // don't exist in the database).
-  let visit: Awaited<ReturnType<typeof prisma.opsVisitaSupervision.findFirst<{
-    where: { id: string; tenantId: string };
-    include: {
-      installation: { select: { name: true; address: true; commune: true } };
-      supervisor: { select: { name: true; email: true } };
-      images: { orderBy: [{ createdAt: "desc" }] };
-      guardEvaluations: { orderBy: [{ createdAt: "asc" }] };
-      findings: { orderBy: [{ createdAt: "desc" }] };
-      photos: { orderBy: [{ takenAt: "asc" }] };
-    };
-  }>>> | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let visit: any = null;
 
   try {
-    visit = await prisma.opsVisitaSupervision.findFirst({
+    visit = await (prisma.opsVisitaSupervision as any).findFirst({
       where: {
         id,
         tenantId,

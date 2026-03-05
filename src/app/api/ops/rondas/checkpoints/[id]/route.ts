@@ -25,9 +25,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         lat: parsed.data.lat ?? undefined,
         lng: parsed.data.lng ?? undefined,
         geoRadiusM: parsed.data.geoRadiusM,
-        verificationType: parsed.data.verificationType,
-        isCritical: parsed.data.isCritical,
-        sortOrder: parsed.data.sortOrder,
         isActive: parsed.data.isActive,
       },
     });

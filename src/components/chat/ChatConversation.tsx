@@ -8,6 +8,8 @@ import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatThreadPanel } from "./ChatThreadPanel";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Trash2 } from "lucide-react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
 
@@ -19,6 +21,7 @@ interface ChatConversationProps {
   /** Optional function returning a context prefix for the first message (auto-context) */
   autoContextPrefix?: () => string;
   currentUserId?: string;
+  userRole?: string;
 }
 
 /**
@@ -32,6 +35,7 @@ export function ChatConversation({
   onBack,
   autoContextPrefix,
   currentUserId: currentUserIdProp,
+  userRole,
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
@@ -49,11 +53,15 @@ export function ChatConversation({
     members,
     typingUsers,
     appendMessage: rtAppendMessage,
+    clearMessages: rtClearMessages,
   } = useChatChannel(channelId, pusher);
 
   const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
   const currentUserId = currentUserIdProp ?? currentUserIdState;
   const [readCursors, setReadCursors] = useState<{ readerId: string; lastReadAt: string; lastReadMessageId: string | null }[]>([]);
+
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const canDeleteAny = userRole === "owner" || userRole === "admin";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ChatMessageData[]>([]);
@@ -229,6 +237,19 @@ export function ChatConversation({
     [channelId]
   );
 
+  const handleClearMessages = useCallback(async () => {
+    setClearConfirmOpen(false);
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}/messages`, { method: "DELETE" });
+      if (res.ok) {
+        setApiMessages([]);
+        rtClearMessages();
+      }
+    } catch (err) {
+      console.error("Error clearing messages:", err);
+    }
+  }, [channelId, setApiMessages, rtClearMessages]);
+
   const onlineCount = members.length;
 
   return (
@@ -242,7 +263,18 @@ export function ChatConversation({
           onSearch={handleSearch}
           isSearching={isSearching}
           channelId={channelId}
-        />
+        >
+          {canDeleteAny && (
+            <button
+              type="button"
+              onClick={() => setClearConfirmOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-colors"
+              title="Limpiar conversacion"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </ChatPresenceBar>
 
         <ChatMessageList
           messages={searchQuery.trim() ? searchResults : apiMessages}
@@ -257,6 +289,7 @@ export function ChatConversation({
           currentUserId={currentUserId ?? undefined}
           getReadByCount={getReadByCount}
           onReaction={handleReaction}
+          canDeleteAny={canDeleteAny}
         />
 
         <ChatTypingIndicator typingUsers={typingUsers} />
@@ -269,6 +302,17 @@ export function ChatConversation({
           pusher={pusher}
         />
       </div>
+
+      {/* Clear messages confirm dialog */}
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="Limpiar conversacion"
+        description="Se eliminaran todos los mensajes de este canal. Esta accion no se puede deshacer."
+        confirmLabel="Eliminar todo"
+        onConfirm={handleClearMessages}
+        variant="destructive"
+      />
 
       {/* Thread panel */}
       {activeThreadId && (
