@@ -97,63 +97,51 @@ interface WaterfallCategory {
   amount: number;
   color: string; // tailwind bg class
   barColor: string; // filled bar color
+  isSeparator?: boolean; // subtotal separator
+  pctLabel?: string; // show % next to label
 }
 
 function buildWaterfallCategories(
   costSummary: CpqQuoteCostSummary,
   breakdown: FinancialPanelProps["costCategoryBreakdown"],
+  additionalLinesTotal: number,
 ): WaterfallCategory[] {
   const cats: WaterfallCategory[] = [];
 
-  const laborAmount = costSummary.monthlyPositions;
-  cats.push({
-    label: "Mano de obra",
-    amount: laborAmount,
-    color: "bg-blue-500/20",
-    barColor: "bg-blue-500",
+  const push = (label: string, amount: number, color: string, barColor: string, extra?: Partial<WaterfallCategory>) => {
+    if (amount > 0) cats.push({ label, amount, color, barColor, ...extra });
+  };
+
+  // Labor
+  push("Mano de obra", costSummary.monthlyPositions, "bg-blue-500/20", "bg-blue-500");
+  push("Feriados", costSummary.monthlyHolidayAdjustment, "bg-blue-400/20", "bg-blue-400");
+
+  // Direct costs
+  push("Uniformes", costSummary.monthlyUniforms, "bg-teal-500/20", "bg-teal-500");
+  push("Exámenes", costSummary.monthlyExams, "bg-teal-400/20", "bg-teal-400");
+  push("Alimentación", costSummary.monthlyMeals, "bg-teal-600/20", "bg-teal-600");
+
+  // Indirect costs
+  push("Equipo", breakdown.equipment, "bg-amber-500/20", "bg-amber-500");
+  push("Transporte", breakdown.transport, "bg-amber-400/20", "bg-amber-400");
+  push("Vehículos", breakdown.vehicle, "bg-amber-600/20", "bg-amber-600");
+  push("Infraestructura", breakdown.infra, "bg-amber-500/20", "bg-amber-500");
+  push("Sistemas", breakdown.system, "bg-amber-400/20", "bg-amber-400");
+
+  // Subtotal base separator
+  const subtotalBase = cats.reduce((s, c) => s + c.amount, 0);
+  cats.push({ label: "Subtotal base", amount: subtotalBase, color: "", barColor: "", isSeparator: true });
+
+  // Financial (percentage-based)
+  push("Financiero", costSummary.monthlyFinancial, "bg-orange-500/20", "bg-orange-500", {
+    pctLabel: costSummary.financialRatePct ? `${costSummary.financialRatePct}%` : undefined,
+  });
+  push("Póliza", costSummary.monthlyPolicy, "bg-purple-500/20", "bg-purple-500", {
+    pctLabel: costSummary.policyRatePct ? `${costSummary.policyRatePct}%` : undefined,
   });
 
-  const directsAmount =
-    costSummary.monthlyHolidayAdjustment +
-    costSummary.monthlyUniforms +
-    costSummary.monthlyExams +
-    costSummary.monthlyMeals +
-    breakdown.equipment;
-  cats.push({
-    label: "Directos",
-    amount: directsAmount,
-    color: "bg-teal-500/20",
-    barColor: "bg-teal-500",
-  });
-
-  const indirectsAmount =
-    breakdown.transport +
-    breakdown.vehicle +
-    breakdown.infra +
-    breakdown.system;
-  cats.push({
-    label: "Indirectos",
-    amount: indirectsAmount,
-    color: "bg-amber-500/20",
-    barColor: "bg-amber-500",
-  });
-
-  const financialAmount = costSummary.monthlyFinancial;
-  cats.push({
-    label: "Financiero",
-    amount: financialAmount,
-    color: "bg-orange-500/20",
-    barColor: "bg-orange-500",
-  });
-
-  if (costSummary.monthlyPolicy > 0) {
-    cats.push({
-      label: "Poliza",
-      amount: costSummary.monthlyPolicy,
-      color: "bg-purple-500/20",
-      barColor: "bg-purple-500",
-    });
-  }
+  // Additional lines
+  push("Líneas adicionales", additionalLinesTotal, "bg-purple-400/20", "bg-purple-400");
 
   return cats;
 }
@@ -212,10 +200,11 @@ export function FinancialPanel(props: FinancialPanelProps) {
 
   /* ── Waterfall data ── */
   const categories = costSummary
-    ? buildWaterfallCategories(costSummary, costCategoryBreakdown)
+    ? buildWaterfallCategories(costSummary, costCategoryBreakdown, additionalLinesTotal)
     : [];
-  const totalCosts = categories.reduce((s, c) => s + c.amount, 0);
-  const maxCategoryAmount = Math.max(...categories.map((c) => c.amount), 1);
+  const realCategories = categories.filter((c) => !c.isSeparator);
+  const totalCosts = realCategories.reduce((s, c) => s + c.amount, 0);
+  const maxCategoryAmount = Math.max(...realCategories.map((c) => c.amount), 1);
 
   return (
     <div className="flex flex-col h-full">
@@ -376,8 +365,16 @@ function DesgloseTab({
 
       {/* ── Waterfall bars ── */}
       {categories.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {categories.map((cat) => {
+            if (cat.isSeparator) {
+              return (
+                <div key={cat.label} className="flex items-center justify-between border-t border-dashed border-border/60 pt-1.5 mt-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground">{cat.label}</span>
+                  <span className="font-mono text-[11px] font-semibold">{formatCurrency(cat.amount)}</span>
+                </div>
+              );
+            }
             const pct = totalSale > 0 ? (cat.amount / totalSale) * 100 : 0;
             const barWidthPct =
               maxCategoryAmount > 0
@@ -386,7 +383,10 @@ function DesgloseTab({
             return (
               <div key={cat.label}>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{cat.label}</span>
+                  <span className="text-muted-foreground">
+                    {cat.label}
+                    {cat.pctLabel && <span className="ml-1 text-[10px] opacity-60">{cat.pctLabel}</span>}
+                  </span>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-[10px]">
                       {pct.toFixed(0)}%
@@ -668,37 +668,17 @@ function PreviewTab({
                     </tr>
                   );
                 })}
-                {additionalLinesTotal > 0 && (
-                  <tr
-                    className="font-semibold border-t"
-                    style={{ borderColor: "#2563eb" }}
-                  >
-                    <td colSpan={5} className="p-1 text-right">
-                      Subtotal guardias
-                    </td>
-                    <td className="p-1 text-right">
-                      {crmContext.currency === "UF" && ufValue && ufValue > 0
-                        ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
-                        : formatCLP(salePriceMonthly)}
-                    </td>
-                  </tr>
-                )}
                 <tr
-                  className="font-bold border-t-2"
+                  className="font-semibold border-t"
                   style={{ borderColor: "#2563eb", background: "#eff6ff" }}
                 >
                   <td colSpan={5} className="p-1 text-right">
-                    Total
+                    Subtotal guardias
                   </td>
                   <td className="p-1 text-right">
                     {crmContext.currency === "UF" && ufValue && ufValue > 0
-                      ? formatUFSuffix(
-                          clpToUf(
-                            salePriceMonthly + additionalLinesTotal,
-                            ufValue,
-                          ),
-                        )
-                      : formatCLP(salePriceMonthly + additionalLinesTotal)}
+                      ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
+                      : formatCLP(salePriceMonthly)}
                   </td>
                 </tr>
               </tbody>
@@ -760,6 +740,19 @@ function PreviewTab({
               </table>
             </div>
           )}
+
+          {/* Total Neto */}
+          <div
+            className="flex items-center justify-between px-1 py-1.5 font-bold text-[11px] border-t-2 mt-1"
+            style={{ borderColor: "#2563eb", background: "#eff6ff" }}
+          >
+            <span>Total Neto Mensual</span>
+            <span>
+              {crmContext.currency === "UF" && ufValue && ufValue > 0
+                ? formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))
+                : formatCLP(salePriceMonthly + additionalLinesTotal)}
+            </span>
+          </div>
 
           {/* Service detail */}
           {serviceDetail && (

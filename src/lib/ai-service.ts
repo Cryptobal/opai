@@ -115,6 +115,32 @@ export class AIService {
   }
 
   /**
+   * Sends a text prompt and returns the raw text response (no JSON parsing).
+   * Used for free-form text generation like descriptions, summaries, etc.
+   */
+  async generateText(
+    prompt: string,
+    opts?: { maxTokens?: number; temperature?: number }
+  ): Promise<string> {
+    const config = await this.getActiveConfig();
+    if (!config) throw new Error("NO_AI_CONFIGURED");
+
+    const maxTokens = opts?.maxTokens ?? 4096;
+    const temperature = opts?.temperature;
+
+    switch (config.providerType) {
+      case "anthropic":
+        return this.callAnthropicText(config, prompt, maxTokens, temperature);
+      case "openai":
+        return this.callOpenAIText(config, prompt, maxTokens, temperature);
+      case "google":
+        return this.callGoogleText(config, prompt, maxTokens, temperature);
+      default:
+        throw new Error(`Proveedor no soportado: ${config.providerType}`);
+    }
+  }
+
+  /**
    * Sends a simple test prompt to verify the provider connection works.
    * Used by the "Test connection" button in the config UI.
    */
@@ -219,6 +245,100 @@ export class AIService {
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Google AI ${res.status}: ${body}`);
+    }
+
+    const data = await res.json();
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  // ── Provider-specific text calls (no JSON mode) ──
+
+  private async callAnthropicText(
+    config: AIConfig,
+    prompt: string,
+    maxTokens: number,
+    temperature?: number
+  ): Promise<string> {
+    const body: Record<string, unknown> = {
+      model: config.modelId,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    };
+    if (temperature !== undefined) body.temperature = temperature;
+
+    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "x-api-key": config.apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Anthropic ${res.status}: ${text}`);
+    }
+
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  private async callOpenAIText(
+    config: AIConfig,
+    prompt: string,
+    maxTokens: number,
+    temperature?: number
+  ): Promise<string> {
+    const body: Record<string, unknown> = {
+      model: config.modelId,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    };
+    if (temperature !== undefined) body.temperature = temperature;
+    // NOTE: No response_format — returns free-form text
+
+    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenAI ${res.status}: ${text}`);
+    }
+
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+
+  private async callGoogleText(
+    config: AIConfig,
+    prompt: string,
+    maxTokens: number,
+    temperature?: number
+  ): Promise<string> {
+    const genConfig: Record<string, unknown> = { maxOutputTokens: maxTokens };
+    if (temperature !== undefined) genConfig.temperature = temperature;
+
+    const url = `${config.baseUrl}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: genConfig,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Google AI ${res.status}: ${text}`);
     }
 
     const data = await res.json();

@@ -40,7 +40,7 @@ export function MobileBottomBar({
     <>
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-40",
+          "fixed bottom-14 left-0 right-0 z-50",
           "bg-background/95 backdrop-blur-xl border-t border-border/60",
           "px-4 py-2.5",
           "flex items-center justify-between gap-3",
@@ -62,7 +62,7 @@ export function MobileBottomBar({
         {/* Right: margin badge + ver detalle + send */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold rounded-md px-2 py-0.5">
-            {marginPct.toFixed(0)}%
+            {Number(marginPct || 0).toFixed(0)}%
           </span>
 
           <button
@@ -82,7 +82,7 @@ export function MobileBottomBar({
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[70vh] overflow-y-auto rounded-t-xl"
+          className="max-h-[85vh] overflow-y-auto rounded-t-xl"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Detalle financiero</SheetTitle>
@@ -90,7 +90,9 @@ export function MobileBottomBar({
               Desglose completo de la cotización
             </SheetDescription>
           </SheetHeader>
-          {financialPanelContent}
+          <div className="[&>div]:h-auto [&>div]:min-h-0">
+            {financialPanelContent}
+          </div>
         </SheetContent>
       </Sheet>
     </>

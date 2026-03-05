@@ -16,6 +16,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import Link from "next/link";
 import type { CpqQuoteStatus } from "@/types/cpq";
 import { Plus, MapPin, ExternalLink, Loader2 } from "lucide-react";
 
@@ -251,6 +252,13 @@ export function DatosSection({
                   }
                 }}
               />
+              {crmContext.accountId && (
+                <Link href={`/crm/accounts/${crmContext.accountId}`} target="_blank">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver cuenta">
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { resetInlineForm(); setInlineCreateType("account"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -266,6 +274,13 @@ export function DatosSection({
                 disabled={!crmContext.accountId}
                 onChange={(val) => saveCrmContext({ installationId: val })}
               />
+              {crmContext.installationId && (
+                <Link href={`/crm/installations/${crmContext.installationId}`} target="_blank">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver instalación">
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("installation"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -281,6 +296,13 @@ export function DatosSection({
                 disabled={!crmContext.accountId}
                 onChange={(val) => saveCrmContext({ contactId: val })}
               />
+              {crmContext.contactId && (
+                <Link href={`/crm/contacts/${crmContext.contactId}`} target="_blank">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver contacto">
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("contact"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -296,6 +318,13 @@ export function DatosSection({
                 disabled={!crmContext.accountId}
                 onChange={(val) => saveCrmContext({ dealId: val })}
               />
+              {crmContext.dealId && (
+                <Link href={`/crm/deals/${crmContext.dealId}`} target="_blank">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver negocio">
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("deal"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -414,23 +443,21 @@ export function DatosSection({
           </DialogContent>
         </Dialog>
 
-        {/* ── Quote name (optional identifier) ── */}
-        <div>
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
-          <Input
-            value={quoteForm.name}
-            onChange={(e) => {
-              setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
-              setQuoteDirty(true);
-            }}
-            placeholder="Ej: Propuesta guardias planta norte"
-            className="h-8 bg-background text-xs"
-          />
-        </div>
-
-        {/* ── Date + Currency in a single compact row ── */}
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
+        {/* ── Quote name + Date + Currency + save indicator — compact row ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] gap-x-2 gap-y-1.5 items-end">
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
+            <Input
+              value={quoteForm.name}
+              onChange={(e) => {
+                setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
+                setQuoteDirty(true);
+              }}
+              placeholder="Ej: Propuesta guardias planta norte"
+              className="h-8 bg-background text-xs"
+            />
+          </div>
+          <div>
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Válida hasta</Label>
             <Input
               type="date"
@@ -462,15 +489,9 @@ export function DatosSection({
               ))}
             </div>
           </div>
-          <Button
-            size="sm"
-            variant={quoteDirty ? "default" : "outline"}
-            className="h-8 px-3 text-xs shrink-0"
-            onClick={() => saveQuoteBasics()}
-            disabled={!quoteDirty || savingQuote}
-          >
-            {savingQuote ? "..." : quoteDirty ? "Guardar" : "Guardado"}
-          </Button>
+          <span className="text-[10px] text-muted-foreground shrink-0 pb-2">
+            {savingQuote ? "Guardando..." : quoteDirty ? "" : "Guardado ✓"}
+          </span>
         </div>
 
         {quoteError && (
@@ -479,31 +500,18 @@ export function DatosSection({
       </div>
 
       {crmContext.installationId && (
-        <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                Ubicación de instalación
-              </p>
-              <p className="mt-0.5 text-xs font-medium text-foreground truncate">
-                {selectedInstallation?.name || "Instalación seleccionada"}
-              </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground break-words">
-                {selectedInstallationAddress || "Sin dirección registrada"}
-              </p>
-            </div>
-            {selectedInstallationMapsUrl ? (
-              <button
-                type="button"
-                onClick={() => window.open(selectedInstallationMapsUrl, "_blank", "noopener,noreferrer")}
-                className="shrink-0 inline-flex items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-              >
-                <MapPin className="h-3 w-3" />
-                Ver dirección de instalación
-                <ExternalLink className="h-3 w-3" />
-              </button>
-            ) : null}
-          </div>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <MapPin className="h-3 w-3 shrink-0" />
+          <span className="truncate">{selectedInstallationAddress || "Sin dirección registrada"}</span>
+          {selectedInstallationMapsUrl && (
+            <button
+              type="button"
+              onClick={() => window.open(selectedInstallationMapsUrl, "_blank", "noopener,noreferrer")}
+              className="shrink-0 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
     </div>

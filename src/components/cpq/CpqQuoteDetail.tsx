@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
@@ -143,6 +143,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   const isLocked = quote?.status === "sent";
+  const [secDatos, setSecDatos] = useState(true);
+  const [secPuestos, setSecPuestos] = useState(true);
+  const [secCostos, setSecCostos] = useState(false);
+  const [secLineas, setSecLineas] = useState(true);
+  const [secFinancieros, setSecFinancieros] = useState(false);
+  const [secMargen, setSecMargen] = useState(true);
+  const initialLoadDone = useRef(false);
+  const skipAutoSave = useRef(false);
+  const financialsAutoSaveTimer = useRef<NodeJS.Timeout>();
+  const quoteFormAutoSaveTimer = useRef<NodeJS.Timeout>();
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
     value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -192,11 +202,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         setPositions(quoteData.data.positions || []);
       }
       if (costsData.success) {
+        skipAutoSave.current = true;
         setCostSummary(costsData.data.summary);
         setCostParams(
-          costsData.data.parameters
-            ? { ...costsData.data.parameters, financialEnabled: true }
-            : null
+          costsData.data.parameters ?? null
         );
         setMarginPct(costsData.data.parameters?.marginPct ?? 13);
         setCostItems(costsData.data.costItems || []);
@@ -206,6 +215,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         setVehicles(costsData.data.vehicles || []);
         setInfrastructure(costsData.data.infrastructure || []);
         setAdditionalLines(costsData.data.additionalLines || []);
+        setTimeout(() => { skipAutoSave.current = false; }, 300);
       }
     } catch (err) {
       console.error("Error loading CPQ quote:", err);
@@ -215,8 +225,31 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   };
 
   useEffect(() => {
-    refresh();
+    initialLoadDone.current = false;
+    refresh().then(() => {
+      setTimeout(() => { initialLoadDone.current = true; }, 200);
+    });
   }, [quoteId]);
+
+  // Debounced auto-save for financial parameters + additional lines
+  useEffect(() => {
+    if (!initialLoadDone.current || skipAutoSave.current || isLocked || !costParams) return;
+    clearTimeout(financialsAutoSaveTimer.current);
+    financialsAutoSaveTimer.current = setTimeout(() => {
+      handleSaveFinancials();
+    }, 2000);
+    return () => clearTimeout(financialsAutoSaveTimer.current);
+  }, [costParams, additionalLines]);
+
+  // Debounced auto-save for quote basics (quoteForm)
+  useEffect(() => {
+    if (!initialLoadDone.current || isLocked) return;
+    clearTimeout(quoteFormAutoSaveTimer.current);
+    quoteFormAutoSaveTimer.current = setTimeout(() => {
+      saveQuoteBasics();
+    }, 2000);
+    return () => clearTimeout(quoteFormAutoSaveTimer.current);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -382,7 +415,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       toast.success(aiCustomInstruction.trim() ? "Descripcion refinada con AI" : "Descripcion generada con AI");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo generar la descripcion AI");
+      toast.error(error instanceof Error ? error.message : "No se pudo generar la descripcion AI");
     } finally {
       setGeneratingAi(false);
     }
@@ -407,7 +440,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       toast.success(serviceDetailInstruction.trim() ? "Detalle refinado con AI" : "Detalle de servicio generado con AI");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo generar el detalle de servicio");
+      toast.error(error instanceof Error ? error.message : "No se pudo generar el detalle de servicio");
     } finally {
       setGeneratingServiceDetail(false);
     }
@@ -450,22 +483,21 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          parameters: { ...costParams, financialEnabled: true },
+          parameters: costParams,
           uniforms,
           exams,
           costItems,
           meals,
           vehicles,
           infrastructure,
+          additionalLines,
         }),
       });
       const data = await res.json();
       if (!data?.success) {
         throw new Error(data?.error || "Error");
       }
-      setCostSummary(data.data);
-      await refresh();
-      toast.success("Financieros guardados");
+      if (data.data) setCostSummary(data.data);
     } catch (error) {
       console.error("Error saving financials:", error);
       setFinancialError("No se pudieron guardar los financieros.");
@@ -716,7 +748,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     };
   }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 
-  // Sale price calculation
+  // Additional lines total
+  const additionalLinesTotal = useMemo(
+    () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
+    [additionalLines]
+  );
+
+  // Sale price calculation (includes additional lines in margin)
   const salePriceMonthly = useMemo(() => {
     if (!costSummary) return 0;
     const margin = marginPct / 100;
@@ -728,12 +766,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       (costSummary.monthlyMeals ?? 0) +
       (costSummary.monthlyVehicles ?? 0) +
       (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0);
+      (costSummary.monthlyCostItems ?? 0) +
+      additionalLinesTotal;
     const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
-  }, [costSummary, marginPct]);
+  }, [costSummary, marginPct, additionalLinesTotal]);
 
-  // Margin amount calculation
+  // Margin amount calculation (includes additional lines)
   const marginAmount = useMemo(() => {
     const margin = marginPct / 100;
     if (!costSummary) return 0;
@@ -745,16 +784,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       (costSummary.monthlyMeals ?? 0) +
       (costSummary.monthlyVehicles ?? 0) +
       (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0);
+      (costSummary.monthlyCostItems ?? 0) +
+      additionalLinesTotal;
     const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
     return baseWithMargin - costsBase;
-  }, [costSummary, marginPct]);
-
-  // Additional lines total (pass-through, no margin)
-  const additionalLinesTotal = useMemo(
-    () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
-    [additionalLines]
-  );
+  }, [costSummary, marginPct, additionalLinesTotal]);
 
   // Per-position sale price allocation from final monthly sale price.
   // This keeps every downstream "valor hora" aligned with the real client sale price.
@@ -917,106 +951,233 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-0">
 
       {/* -- Editor: scrollable left column -- */}
-      <div className="space-y-0 min-w-0 lg:pr-6">
+      <div className="space-y-3 min-w-0 lg:pr-6">
 
       {/* -- Section: Datos -- */}
-      <DatosSection
-        crmAccounts={crmAccounts}
-        crmInstallations={crmInstallations}
-        crmContacts={crmContacts}
-        crmDeals={crmDeals}
-        crmContext={crmContext}
-        quoteForm={quoteForm}
-        quoteDirty={quoteDirty}
-        savingQuote={savingQuote}
-        quoteError={quoteError}
-        isLocked={isLocked}
-        saveCrmContext={saveCrmContext}
-        setQuoteForm={setQuoteForm}
-        setQuoteDirty={setQuoteDirty}
-        saveQuoteBasics={saveQuoteBasics}
-        setCrmAccounts={setCrmAccounts}
-        setCrmInstallations={setCrmInstallations}
-        setCrmContacts={setCrmContacts}
-        setCrmDeals={setCrmDeals}
-      />
-
-      {/* -- Section: Puestos -- */}
-      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[17px] font-bold tracking-tight">Puestos</h2>
-            {positions.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                Total: <span className="font-mono font-semibold text-foreground">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
+      <Card className="shadow-sm overflow-hidden">
+        <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Datos</h2>
+            {!secDatos && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {quoteForm.clientName || "Sin cliente"}{crmContext.currency ? ` · ${crmContext.currency}` : ""}
               </span>
             )}
           </div>
-          <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDatos && "rotate-180")} />
+        </button>
+        {secDatos && (
+          <div className="px-4 pb-4">
+            <DatosSection
+              crmAccounts={crmAccounts}
+              crmInstallations={crmInstallations}
+              crmContacts={crmContacts}
+              crmDeals={crmDeals}
+              crmContext={crmContext}
+              quoteForm={quoteForm}
+              quoteDirty={quoteDirty}
+              savingQuote={savingQuote}
+              quoteError={quoteError}
+              isLocked={isLocked}
+              saveCrmContext={saveCrmContext}
+              setQuoteForm={setQuoteForm}
+              setQuoteDirty={setQuoteDirty}
+              saveQuoteBasics={saveQuoteBasics}
+              setCrmAccounts={setCrmAccounts}
+              setCrmInstallations={setCrmInstallations}
+              setCrmContacts={setCrmContacts}
+              setCrmDeals={setCrmDeals}
+            />
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Puestos -- */}
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors cursor-pointer">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Puestos</h2>
+            {!secPuestos && positions.length > 0 && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {positions.length} {positions.length === 1 ? "puesto" : "puestos"} · {stats.totalGuards} guardias — <span className="font-mono font-semibold text-blue-400">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div onClick={(e) => e.stopPropagation()}>
+              <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
+          </div>
         </div>
-
-        {positions.length === 0 ? (
-          <EmptyState
-            icon={<Users className="h-6 w-6" />}
-            title="Sin puestos"
-            description="Agrega el primer puesto para comenzar."
-            compact
-          />
-        ) : (
-          <div className="space-y-1.5">
-            {positions.map((position) => (
-              <CpqPositionCard
-                key={position.id}
-                position={position}
-                quoteId={quoteId}
-                onUpdated={refresh}
-                readOnly={isLocked}
-                salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
-                clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
+        {secPuestos && (
+          <div className="px-4 pb-4">
+            {positions.length === 0 ? (
+              <EmptyState
+                icon={<Users className="h-6 w-6" />}
+                title="Sin puestos"
+                description="Agrega el primer puesto para comenzar."
+                compact
               />
-            ))}
+            ) : (
+              <div className="space-y-1.5">
+                {positions.map((position) => (
+                  <CpqPositionCard
+                    key={position.id}
+                    position={position}
+                    quoteId={quoteId}
+                    onUpdated={refresh}
+                    readOnly={isLocked}
+                    salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
+                    clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
+                  />
+                ))}
+              </div>
+            )}
+            {positions.length > 0 && (
+              <div className="flex justify-between items-center px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2">
+                <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
+                <span className="text-sm font-bold tabular-nums">
+                  {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
+                </span>
+              </div>
+            )}
           </div>
         )}
-
-        {positions.length > 0 && (
-          <div className="flex justify-between items-center px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2">
-            <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
-            <span className="text-sm font-bold tabular-nums">
-              {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
-            </span>
-          </div>
-        )}
-      </div>
+      </Card>
 
       {/* -- Section: Costos -- */}
-      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
-        <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} />
-      </div>
-
-      {/* -- Section: Margen -- */}
-      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
-        <MarginSection
-          marginPct={marginPct}
-          onMarginChange={handleMarginChange}
-          marginAmount={marginAmount}
-          isLocked={isLocked}
-        />
-      </div>
-
-      {/* -- Section: Financials (financial + policy cards) -- */}
-      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
-        <Card className="p-2.5 space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold">Gastos financieros</h2>
-            <Button
-              size="sm"
-              className="h-7 px-2.5 text-[11px]"
-              onClick={handleSaveFinancials}
-              disabled={savingFinancials || !costParams}
-            >
-              {savingFinancials ? "..." : "Guardar"}
-            </Button>
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
+            {!secCostos && costSummary && (costSummary.monthlyExtras ?? 0) > 0 && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                <span className="font-mono font-semibold text-amber-400">{formatCurrency(costSummary.monthlyExtras ?? 0)}</span>
+              </span>
+            )}
           </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
+        </button>
+        {secCostos && (
+          <div className="px-4 pb-4">
+            <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} onSaved={refresh} />
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Líneas adicionales -- */}
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecLineas(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Líneas adicionales</h2>
+            {!secLineas && additionalLines.length > 0 && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"} — <span className="font-mono font-semibold text-purple-400">{formatCurrency(additionalLinesTotal)}</span>
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secLineas && "rotate-180")} />
+        </button>
+        {secLineas && (
+          <div className="px-4 pb-4 space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Productos o servicios adicionales (casetas, radios, arriendos). Se cobran sin margen.
+            </p>
+            {additionalLines.map((line, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-[1fr_1fr_120px_32px] gap-2 items-start rounded-md border border-border/50 bg-muted/10 p-2"
+              >
+                <Input
+                  placeholder="Nombre"
+                  value={line.nombre}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], nombre: e.target.value };
+                    setAdditionalLines(updated);
+                  }}
+                  className="h-8 bg-card text-foreground border-border text-xs"
+                  disabled={isLocked}
+                />
+                <Input
+                  placeholder="Descripción"
+                  value={line.descripcion}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], descripcion: e.target.value };
+                    setAdditionalLines(updated);
+                  }}
+                  className="h-8 bg-card text-foreground border-border text-xs"
+                  disabled={isLocked}
+                />
+                <Input
+                  placeholder="Precio"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumber(Number(line.precio || 0), { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) => {
+                    const updated = [...additionalLines];
+                    updated[idx] = { ...updated[idx], precio: parseLocalizedNumber(e.target.value) || 0 };
+                    setAdditionalLines(updated);
+                  }}
+                  className="h-8 bg-card text-foreground border-border text-xs text-right font-mono"
+                  disabled={isLocked}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
+                  disabled={isLocked}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            {!isLocked && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                onClick={() =>
+                  setAdditionalLines((prev) => [
+                    ...prev,
+                    { nombre: "", descripcion: "", precio: 0, orden: prev.length },
+                  ])
+                }
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar línea
+              </Button>
+            )}
+            {additionalLines.length > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
+                <span className="text-[11px] font-medium text-purple-300">Total líneas adicionales</span>
+                <span className="text-sm font-bold font-mono text-purple-300">
+                  {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Financials -- */}
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecFinancieros(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
+            {!secFinancieros && costSummary && ((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0)) > 0 && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                <span className="font-mono font-semibold text-orange-400">{formatCurrency((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0))}</span>
+              </span>
+            )}
+            {savingFinancials && <span className="text-[10px] text-muted-foreground">Guardando...</span>}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secFinancieros && "rotate-180")} />
+        </button>
+        {secFinancieros && (
+          <div className="px-4 pb-4 space-y-2">
 
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {/* Costo financiero */}
@@ -1168,8 +1329,35 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           {financialError && (
             <div className="text-[11px] text-red-400">{financialError}</div>
           )}
-        </Card>
-      </div>
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Margen -- */}
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
+            {!secMargen && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                <span className={cn("font-semibold", marginPct >= 15 ? "text-emerald-400" : marginPct >= 10 ? "text-amber-400" : "text-red-400")}>{Number(marginPct || 0).toFixed(1)}%</span>
+                {marginAmount > 0 && <> — <span className="font-mono font-semibold text-emerald-400">{formatCurrency(marginAmount)}</span></>}
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secMargen && "rotate-180")} />
+        </button>
+        {secMargen && (
+          <div className="px-4 pb-4">
+            <MarginSection
+              marginPct={marginPct}
+              onMarginChange={handleMarginChange}
+              marginAmount={marginAmount}
+              isLocked={isLocked}
+            />
+          </div>
+        )}
+      </Card>
 
       </div>{/* end editor column */}
 
@@ -1240,6 +1428,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </aside>
 
       </div>{/* end 2-column grid */}
+
+      {/* Mobile spacer for fixed bottom bar */}
+      <div className="h-28 lg:hidden" />
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar
