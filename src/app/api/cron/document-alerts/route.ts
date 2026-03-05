@@ -100,6 +100,20 @@ export async function GET(request: NextRequest) {
           } catch (e) {
             console.warn("DocAlert: failed to send expiring notification", e);
           }
+
+          // Push: document expiring — notify admins
+          try {
+            const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
+            await sendPushToAdmins(
+              doc.tenantId,
+              'document_expiring',
+              'Documento por vencer',
+              `"${doc.title}" vence en ${daysRemaining} días`,
+              `/opai/docs/documentos/${doc.id}`,
+            );
+          } catch (pushErr) {
+            console.error('[CRON] Error sending document_expiring push:', pushErr);
+          }
         }
       }
     }
