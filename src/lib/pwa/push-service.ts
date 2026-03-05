@@ -127,3 +127,62 @@ export async function sendPushToPortalUser({
     })
   );
 }
+
+/**
+ * Broadcast push to all active owner/admin users in a tenant.
+ * Fails open — individual subscription failures are swallowed.
+ */
+export async function sendPushToAdmins(
+  tenantId: string,
+  notifKey: string,
+  title: string,
+  body: string,
+  url?: string,
+): Promise<void> {
+  const admins = await prisma.admin.findMany({
+    where: { tenantId, role: { in: ['owner', 'admin'] }, status: 'active' },
+    select: { id: true },
+  });
+  await Promise.allSettled(
+    admins.map((admin) =>
+      sendPushToPortalUser({
+        tenantId,
+        notifKey,
+        userType: 'admin',
+        userId: admin.id,
+        portalType: 'app',
+        title,
+        body,
+        url,
+      })
+    )
+  );
+}
+
+/**
+ * Push to a specific list of admin user IDs (e.g., approval group members).
+ */
+export async function sendPushToSpecificAdmins(
+  tenantId: string,
+  adminIds: string[],
+  notifKey: string,
+  title: string,
+  body: string,
+  url?: string,
+): Promise<void> {
+  if (adminIds.length === 0) return;
+  await Promise.allSettled(
+    adminIds.map((userId) =>
+      sendPushToPortalUser({
+        tenantId,
+        notifKey,
+        userType: 'admin',
+        userId,
+        portalType: 'app',
+        title,
+        body,
+        url,
+      })
+    )
+  );
+}
