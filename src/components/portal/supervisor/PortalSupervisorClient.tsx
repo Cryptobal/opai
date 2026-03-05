@@ -19,6 +19,9 @@ import { SupervisorCrearRendicion } from "./SupervisorCrearRendicion";
 import { SupervisorRefuerzos } from "./SupervisorRefuerzos";
 import { SupervisorTickets } from "./SupervisorTickets";
 import { SupervisorChat } from "./SupervisorChat";
+import { SupervisorVisitasTecnicas } from "./SupervisorVisitasTecnicas";
+import { VisitaTecnicaForm } from "./VisitaTecnicaForm";
+import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
 
 export function PortalSupervisorClient() {
   const [session, setSession] = useState<SupervisorSession | null>(null);
@@ -33,6 +36,8 @@ export function PortalSupervisorClient() {
   const [activeInstallationId, setActiveInstallationId] = useState<string | undefined>();
   const [showCrearTE, setShowCrearTE] = useState(false);
   const [showCrearRendicion, setShowCrearRendicion] = useState(false);
+  const [visitaTecnicaMode, setVisitaTecnicaMode] = useState<"list" | "form" | "detail">("list");
+  const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -93,7 +98,7 @@ export function PortalSupervisorClient() {
   }
 
   function handleInstallationAction(
-    action: "nueva-visita" | "turno-extra" | "ticket" | "novedad",
+    action: "nueva-visita" | "turno-extra" | "ticket" | "novedad" | "visita-tecnica",
     installationId: string
   ) {
     setActiveInstallationId(installationId);
@@ -107,6 +112,10 @@ export function PortalSupervisorClient() {
         break;
       case "ticket":
         setActiveSection("tickets");
+        break;
+      case "visita-tecnica":
+        setActiveSection("visita-tecnica");
+        setVisitaTecnicaMode("form");
         break;
       // "novedad" is handled by FAB
     }
@@ -176,6 +185,35 @@ export function PortalSupervisorClient() {
       case "chat":
         return <SupervisorChat session={session!} />;
 
+      case "visita-tecnica":
+        if (visitaTecnicaMode === "form") {
+          return (
+            <VisitaTecnicaForm
+              installations={session!.installations}
+              onBack={() => setVisitaTecnicaMode("list")}
+              onComplete={() => setVisitaTecnicaMode("list")}
+            />
+          );
+        }
+        if (visitaTecnicaMode === "detail" && selectedVisitaTecnicaId) {
+          return (
+            <VisitaTecnicaDetail
+              visitaId={selectedVisitaTecnicaId}
+              onBack={() => setVisitaTecnicaMode("list")}
+            />
+          );
+        }
+        return (
+          <SupervisorVisitasTecnicas
+            installations={session!.installations}
+            onNew={() => setVisitaTecnicaMode("form")}
+            onSelect={(v) => {
+              setSelectedVisitaTecnicaId(v.id);
+              setVisitaTecnicaMode("detail");
+            }}
+          />
+        );
+
       case "instalaciones":
         if (selectedInstallation) {
           return (
@@ -212,6 +250,7 @@ export function PortalSupervisorClient() {
         onChange={(s) => {
           setActiveSection(s);
           if (s !== "instalaciones") setSelectedInstallation(null);
+          if (s !== "visita-tecnica") setVisitaTecnicaMode("list");
           setShowCrearTE(false);
           setShowCrearRendicion(false);
         }}

@@ -14,6 +14,7 @@ import {
   Ticket,
   Loader2,
   ExternalLink,
+  Briefcase,
 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -22,7 +23,7 @@ interface Props {
   installation: SupervisorInstallation;
   onBack: () => void;
   onAction: (
-    action: "nueva-visita" | "turno-extra" | "ticket" | "novedad",
+    action: "nueva-visita" | "turno-extra" | "ticket" | "novedad" | "visita-tecnica",
     installationId: string
   ) => void;
 }
@@ -132,6 +133,15 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
           </button>
         ))}
       </div>
+
+      {/* Visita Técnica CTA */}
+      <button
+        onClick={() => onAction("visita-tecnica", installation.id)}
+        className="flex items-center gap-3 w-full p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-blue-800 hover:bg-blue-950/20 transition-colors"
+      >
+        <Briefcase size={16} className="text-blue-400 flex-shrink-0" />
+        <span className="text-sm text-zinc-300">Nueva visita técnica comercial</span>
+      </button>
 
       {loading ? (
         <div className="flex justify-center py-10">
