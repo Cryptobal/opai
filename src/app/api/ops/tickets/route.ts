@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send notification to approval group members + reporter
+    const approvalTargetIds: string[] = [];
     try {
       const { sendNotificationToUsers } = await import("@/lib/notification-service");
       const targetUserIds: string[] = [];
@@ -265,10 +266,14 @@ export async function POST(request: NextRequest) {
             where: { groupId: firstStep.approverGroupId },
             select: { adminId: true },
           });
-          for (const m of groupMembers) targetUserIds.push(m.adminId);
+          for (const m of groupMembers) {
+            targetUserIds.push(m.adminId);
+            approvalTargetIds.push(m.adminId);
+          }
         }
         if (firstStep.approverUserId) {
           targetUserIds.push(firstStep.approverUserId);
+          approvalTargetIds.push(firstStep.approverUserId);
         }
       }
 
@@ -285,6 +290,23 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       console.error("[OPS] Error sending ticket creation notification:", err);
+    }
+
+    // Push: ticket_needs_approval
+    if (requiresApproval && approvalTargetIds.length > 0) {
+      try {
+        const { sendPushToSpecificAdmins } = await import('@/lib/pwa/push-service');
+        await sendPushToSpecificAdmins(
+          ctx.tenantId,
+          approvalTargetIds,
+          'ticket_needs_approval',
+          `Ticket ${ticket.code} pendiente de aprobación`,
+          `"${ticket.title}" requiere tu aprobación`,
+          `/opai/ops/tickets/${ticket.id}`,
+        );
+      } catch (err) {
+        console.error('[OPS] Error sending ticket_needs_approval push:', err);
+      }
     }
 
     return NextResponse.json(
