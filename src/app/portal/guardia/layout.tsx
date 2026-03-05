@@ -1,4 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import dynamic from "next/dynamic";
+
+const ServiceWorkerRegistrar = dynamic(
+  () =>
+    import("@/components/portal/rondas/ServiceWorkerRegistrar").then((m) => ({
+      default: m.ServiceWorkerRegistrar,
+    })),
+  { ssr: false }
+);
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -22,5 +31,10 @@ export const metadata: Metadata = {
 };
 
 export default function PortalGuardiaLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <ServiceWorkerRegistrar />
+      {children}
+    </>
+  );
 }
