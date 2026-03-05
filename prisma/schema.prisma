@@ -4,52 +4,35 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
-  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat"]
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance"]
 }
 
 model Tenant {
-  id                          String                       @id @default(cuid())
-  slug                        String                       @unique
-  name                        String
-  active                      Boolean                      @default(true)
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
-  admins                      Admin[]
-  auditLogs                   AuditLog[]
-  presentations               Presentation[]
-  settings                    Setting[]
-  templates                   Template[]
-  webhookSessions             WebhookSession[]
-  roleTemplates               RoleTemplate[]
-  aiChatConversations         AiChatConversation[]
-  aiChatMessages              AiChatMessage[]
-  financeConfig               FinanceRendicionConfig?
-  financePayments             FinancePayment[]
-  adminGroups                 AdminGroup[]
-  opsSupervisorAssignments    OpsAsignacionSupervisor[]
-  opsSupervisionVisits        OpsVisitaSupervision[]
-  opsSupervisionVisitImages   OpsVisitaImagen[]
-  opsSupervisionGuardEvals    OpsSupervisionGuardEvaluation[]
-  opsSupervisionFindings      OpsSupervisionFinding[]
-  opsInstChecklistItems       OpsInstallationChecklistItem[]
-  opsSupervisionCheckResults  OpsSupervisionChecklistResult[]
-  opsInstPhotoCategories      OpsInstallationPhotoCategory[]
-  opsSupervisionPhotos        OpsSupervisionPhoto[]
-  opsEncuestasCliente         OpsEncuestaCliente[]
-  opsInstHealthScores         OpsInstallationHealthScore[]
-  inventoryProducts           InventoryProduct[]
-  inventoryWarehouses         InventoryWarehouse[]
-  inventoryPurchases          InventoryPurchase[]
-  inventoryMovements          InventoryMovement[]
-  inventoryStocks             InventoryStock[]
-  inventoryGuardiaAssignments InventoryGuardiaAssignment[]
-  inventoryAssets             InventoryAsset[]
-  inventoryAssetAssignments   InventoryAssetAssignment[]
-  aiProviders                 AiProvider[]
-  globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
+  id                        String                    @id @default(cuid())
+  slug                      String                    @unique
+  name                      String
+  active                    Boolean                   @default(true)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  admins                    Admin[]
+  auditLogs                 AuditLog[]
+  presentations             Presentation[]
+  settings                  Setting[]
+  templates                 Template[]
+  webhookSessions           WebhookSession[]
+  roleTemplates             RoleTemplate[]
+  aiChatConversations       AiChatConversation[]
+  aiChatMessages            AiChatMessage[]
+  financeConfig             FinanceRendicionConfig?
+  financePayments           FinancePayment[]
+  adminGroups               AdminGroup[]
+  opsSupervisorAssignments  OpsAsignacionSupervisor[]
+  opsSupervisionVisits      OpsVisitaSupervision[]
+  opsSupervisionVisitImages OpsVisitaImagen[]
+  opsSupervisionFindings    OpsSupervisionFinding[]
+  aiProviders               AiProvider[]
 
   @@index([slug])
   @@index([active])
@@ -187,11 +170,9 @@ model Admin {
   roleTemplate          RoleTemplate?             @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
   aiChatConversations   AiChatConversation[]
   groupMemberships      AdminGroupMembership[]
-  supervisorAssignments OpsAsignacionSupervisor[] @relation("ops_supervisor_assignment_admin")
-  supervisionVisits     OpsVisitaSupervision[]    @relation("ops_supervision_visit_supervisor")
-  inventoryWarehouses   InventoryWarehouse[]      @relation("inventory_warehouse_supervisor")
-  authoredNotes         Note[]                    @relation("note_author")
-  visitasTecnicas       OpsVisitaTecnica[]        @relation("ops_visita_tecnica_supervisor")
+  supervisorAssignments  OpsAsignacionSupervisor[] @relation("ops_supervisor_assignment_admin")
+  supervisionVisits      OpsVisitaSupervision[]    @relation("ops_supervision_visit_supervisor")
+  portalProspectAccounts CrmAccount[]              @relation("PortalEjecutivo")
 
   @@index([email])
   @@index([status])
@@ -421,21 +402,6 @@ model AiModel {
 
   @@index([providerId], map: "idx_ai_model_provider")
   @@map("ai_models")
-  @@schema("public")
-}
-
-model PortalNotificationPreference {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String   @map("tenant_id")
-  userType    String   @map("user_type")
-  userId      String   @map("user_id")
-  portalType  String   @map("portal_type")
-  preferences Json     @default("{}") @db.JsonB
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([userType, userId, portalType], map: "uq_portal_notif_prefs")
-  @@index([tenantId], map: "idx_portal_notif_prefs_tenant")
-  @@map("portal_notification_preferences")
   @@schema("public")
 }
 
@@ -851,29 +817,28 @@ model PayrollAttendanceRecord {
 // ============================================
 
 model CpqQuote {
-  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId          String    @map("tenant_id")
-  code              String    @unique @map("code")
-  name              String?   @map("name")
-  status            String    @default("draft")
-  clientName        String?   @map("client_name")
-  validUntil        DateTime? @map("valid_until") @db.Date
-  notes             String?
-  totalPositions    Int       @default(0) @map("total_positions")
-  totalGuards       Int       @default(0) @map("total_guards")
-  monthlyCost       Decimal   @default(0) @map("monthly_cost") @db.Decimal(12, 2)
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  code           String    @unique @map("code")
+  status         String    @default("draft")
+  clientName     String?   @map("client_name")
+  validUntil     DateTime? @map("valid_until") @db.Date
+  notes          String?
+  totalPositions Int       @default(0) @map("total_positions")
+  totalGuards    Int       @default(0) @map("total_guards")
+  monthlyCost    Decimal   @default(0) @map("monthly_cost") @db.Decimal(12, 2)
   // CRM context (optional - a quote can exist without CRM)
-  accountId         String?   @map("account_id") @db.Uuid
-  contactId         String?   @map("contact_id") @db.Uuid
-  dealId            String?   @map("deal_id") @db.Uuid
-  installationId    String?   @map("installation_id") @db.Uuid
-  createdFromLeadId String?   @map("created_from_lead_id") @db.Uuid
+  accountId      String?   @map("account_id") @db.Uuid
+  contactId      String?   @map("contact_id") @db.Uuid
+  dealId         String?   @map("deal_id") @db.Uuid
+  installationId String?   @map("installation_id") @db.Uuid
+  createdFromLeadId String? @map("created_from_lead_id") @db.Uuid
   // Currency & AI
-  currency          String    @default("CLP") // "CLP" | "UF"
-  aiDescription     String?   @map("ai_description")
-  serviceDetail     String?   @map("service_detail")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  currency       String    @default("CLP") // "CLP" | "UF"
+  aiDescription  String?   @map("ai_description")
+  serviceDetail  String?   @map("service_detail")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   positions      CpqPosition[]
   parameters     CpqQuoteParameters?
@@ -881,10 +846,9 @@ model CpqQuote {
   examItems      CpqQuoteExamItem[]
   costItems      CpqQuoteCostItem[]
   meals          CpqQuoteMeal[]
-  vehicles         CpqQuoteVehicle[]
-  infrastructure   CpqQuoteInfrastructure[]
-  additionalLines  CpqQuoteAdditionalLine[]
-  installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  vehicles       CpqQuoteVehicle[]
+  infrastructure CpqQuoteInfrastructure[]
+  installation   CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
@@ -1162,23 +1126,6 @@ model CpqQuoteInfrastructure {
   @@schema("cpq")
 }
 
-model CpqQuoteAdditionalLine {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  quoteId     String   @map("quote_id") @db.Uuid
-  nombre      String   @db.VarChar(200)
-  descripcion String?  @db.Text
-  precio      Decimal  @default(0) @db.Decimal(12, 0)
-  orden       Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  quote CpqQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-  @@index([quoteId], map: "idx_cpq_additional_lines_quote")
-  @@map("quote_additional_lines")
-  @@schema("cpq")
-}
-
 // ============================================
 // CRM MODULE (Leads, Accounts, Deals, Email)
 // ============================================
@@ -1271,8 +1218,6 @@ model CrmAccount {
   legalName               String?   @map("legal_name") // Razón social
   legalRepresentativeName String?   @map("legal_representative_name")
   legalRepresentativeRut  String?   @map("legal_representative_rut")
-  notaryName              String?   @map("notary_name")
-  notaryDate              String?   @map("notary_date")
   industry                String?
   size                    String?
   segment                 String?
@@ -1286,16 +1231,19 @@ model CrmAccount {
   notes                   String?
   startDate               DateTime? @map("start_date") @db.Date
   endDate                 DateTime? @map("end_date") @db.Date
-  portalConfig            Json?     @map("portal_config") // Configuración de visibilidad del portal cliente
   createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  portalEjecutivoId      String?   @map("portal_ejecutivo_id")
+  portalTourShown        Boolean   @default(false) @map("portal_tour_shown")
 
   contacts               CrmContact[]
   deals                  CrmDeal[]
   installations          CrmInstallation[]
   opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
-  encuestasCliente       OpsEncuestaCliente[]
-  visitasTecnicas        OpsVisitaTecnica[]
+  portalEjecutivo        Admin?    @relation("PortalEjecutivo", fields: [portalEjecutivoId], references: [id])
+  representantesLegales  AccountRepresentanteLegal[]
+  personeria             AccountPersoneria?
 
   @@index([tenantId], map: "idx_crm_accounts_tenant")
   @@index([status], map: "idx_crm_accounts_status")
@@ -1303,6 +1251,38 @@ model CrmAccount {
   @@index([tenantId, type], map: "idx_crm_accounts_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
   @@map("accounts")
+  @@schema("crm")
+}
+
+model AccountRepresentanteLegal {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  accountId String   @map("account_id") @db.Uuid
+  nombre    String
+  rut       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("account_representantes_legales")
+  @@schema("crm")
+}
+
+model AccountPersoneria {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  accountId      String    @unique @map("account_id") @db.Uuid
+  fechaEscritura DateTime? @map("fecha_escritura")
+  tipoEscritura  String?   @map("tipo_escritura")
+  notaria        String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  account CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_personerias")
   @@schema("crm")
 }
 
@@ -1324,7 +1304,6 @@ model CrmInstallation {
   notes           String?
   metadata        Json?     @db.JsonB // dotacion sugerida, datos extra
   nocturnoEnabled Boolean   @default(true) @map("nocturno_enabled") // incluir en control nocturno
-  chatEnabled     Boolean   @default(false) @map("chat_enabled") // habilitar chat grupal de instalación
   startDate       DateTime? @map("start_date") @db.Date
   endDate         DateTime? @map("end_date") @db.Date
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1347,25 +1326,7 @@ model CrmInstallation {
   opsControlNocturnoInstalaciones OpsControlNocturnoInstalacion[]
   supervisorAssignments           OpsAsignacionSupervisor[]       @relation("ops_supervisor_assignment_installation")
   supervisionVisits               OpsVisitaSupervision[]          @relation("ops_supervision_visit_installation")
-  supervisionFindings             OpsSupervisionFinding[]         @relation("supervision_finding_installation")
-  installationChecklistItems      OpsInstallationChecklistItem[]  @relation("installation_checklist_items")
-  installationPhotoCategories     OpsInstallationPhotoCategory[]  @relation("installation_photo_categories")
-  installationHealthScore         OpsInstallationHealthScore?     @relation("installation_health_score")
-  inventoryWarehouses             InventoryWarehouse[]            @relation("inventory_warehouse_installation")
-  inventoryAssetAssignments       InventoryAssetAssignment[]
-  inventoryMovements              InventoryMovement[]
-  inventoryGuardiaAssignments     InventoryGuardiaAssignment[]
-  protocolSections                ProtocolSection[]
-  protocolDocuments               ProtocolDocument[]
-  protocolVersions                ProtocolVersion[]
-  exams                           Exam[]
-  opsRondaEjecuciones             OpsRondaEjecucion[]              @relation("ejecucionInstallation")
-  rondaIncidentes                 OpsRondaIncidente[]              @relation("IncidenteInstallation")
-  opsDispositivosInstalacion      OpsDispositivoInstalacion[]
-  opsPatrullajeSesiones           OpsPatrullajeSesion[]
-  encuestasCliente                OpsEncuestaCliente[]
-  chatChannel                     ChatChannel?
-  visitasTecnicas                 OpsVisitaTecnica[]
+  opsSupervisionFindings          OpsSupervisionFinding[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -1385,15 +1346,6 @@ model CrmContact {
   phone     String?
   roleTitle String?  @map("role_title")
   isPrimary Boolean  @default(false) @map("is_primary")
-  portalPin          String?   @map("portal_pin") // bcrypt hash del PIN de 4-6 dígitos
-  portalPinVisible   String?   @map("portal_pin_visible") // PIN visible para operación
-  portalEnabled      Boolean   @default(false) @map("portal_enabled")
-  portalLastAccessAt   DateTime? @map("portal_last_access_at") @db.Timestamptz(6)
-  portalLastAccessIp   String?   @map("portal_last_access_ip")
-  portalMagicToken     String?   @map("portal_magic_token")    // Token único para primer acceso / reset PIN
-  portalMagicTokenExp  DateTime? @map("portal_magic_token_exp") @db.Timestamptz(6) // Expiración del magic link (48h)
-  portalLoginAttempts  Int       @default(0) @map("portal_login_attempts")
-  portalLockedUntil    DateTime? @map("portal_locked_until") @db.Timestamptz(6)   // Bloqueo por intentos fallidos (15 min)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1459,7 +1411,6 @@ model CrmDeal {
   primaryContactId    String?   @map("primary_contact_id") @db.Uuid
   title               String
   amount              Decimal   @default(0) @db.Decimal(14, 2)
-  activeQuotationId   String?   @map("active_quotation_id") @db.Uuid
   stageId             String    @map("stage_id") @db.Uuid
   probability         Int       @default(0)
   expectedCloseDate   DateTime? @map("expected_close_date") @db.Date
@@ -1492,8 +1443,7 @@ model CrmDeal {
   quotes         CrmDealQuote[]
   tasks          CrmTask[]
   followUpLogs   CrmFollowUpLog[]
-  dealContacts    CrmDealContact[]
-  visitasTecnicas OpsVisitaTecnica[]
+  dealContacts   CrmDealContact[]
 
   @@index([tenantId], map: "idx_crm_deals_tenant")
   @@index([status], map: "idx_crm_deals_status")
@@ -1761,25 +1711,18 @@ model CrmHistoryLog {
 // ── Notes (shared across modules) ──
 
 model CrmNote {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String   @map("tenant_id")
-  entityType  String   @map("entity_type") // "account", "contact", "deal", "quote"
-  entityId    String   @map("entity_id")
-  parentId    String?  @map("parent_id") @db.Uuid
-  content     String   @db.Text
-  mentions    String[] @default([]) // Array of admin IDs mentioned with @
-  mentionMeta Json?    @map("mention_meta") @db.JsonB // Mentions resolved metadata (groups, @all, recipients)
-  createdBy   String   @map("created_by") // admin ID
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  parent  CrmNote?  @relation("CrmNoteThread", fields: [parentId], references: [id], onDelete: Cascade)
-  replies CrmNote[] @relation("CrmNoteThread")
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  entityType String   @map("entity_type") // "account", "contact", "deal", "quote"
+  entityId   String   @map("entity_id")
+  content    String   @db.Text
+  mentions   String[] @default([]) // Array of admin IDs mentioned with @
+  createdBy  String   @map("created_by") // admin ID
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId], map: "idx_crm_notes_tenant")
   @@index([entityType, entityId], map: "idx_crm_notes_entity")
-  @@index([parentId], map: "idx_crm_notes_parent")
-  @@index([entityType, entityId, parentId], map: "idx_crm_notes_entity_parent")
   @@index([createdAt(sort: Desc)], map: "idx_crm_notes_created_desc")
   @@map("notes")
   @@schema("crm")
@@ -1881,211 +1824,6 @@ model CrmEmailSignature {
   @@schema("crm")
 }
 
-// ── Installation Protocols ──
-
-model ProtocolSection {
-  id             String   @id @default(cuid())
-  installationId String   @map("installation_id") @db.Uuid
-  title          String
-  icon           String   @default("📋")
-  order          Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  items        ProtocolItem[]
-
-  @@index([installationId], map: "idx_protocol_section_installation")
-  @@map("protocol_sections")
-  @@schema("crm")
-}
-
-model ProtocolItem {
-  id          String   @id @default(cuid())
-  sectionId   String   @map("section_id")
-  title       String
-  description String   @db.Text
-  order       Int      @default(0)
-  source      String   @default("manual") // manual | ai_generated | ai_from_pdf
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  section ProtocolSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  @@index([sectionId], map: "idx_protocol_item_section")
-  @@map("protocol_items")
-  @@schema("crm")
-}
-
-model ProtocolDocument {
-  id             String   @id @default(cuid())
-  tenantId       String   @map("tenant_id")
-  installationId String?  @map("installation_id") @db.Uuid
-  scope          String   @default("installation") // "global" | "installation"
-  fileName       String   @map("file_name")
-  fileUrl        String   @map("file_url")
-  storageKey     String?  @map("storage_key")
-  fileSize       Int?     @map("file_size")
-  processed      Boolean  @default(false)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant           @relation("protocol_document_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
-  installation CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, scope], map: "idx_protocol_document_tenant_scope")
-  @@index([installationId], map: "idx_protocol_document_installation")
-  @@map("protocol_documents")
-  @@schema("crm")
-}
-
-model ProtocolVersion {
-  id             String    @id @default(cuid())
-  installationId String    @map("installation_id") @db.Uuid
-  versionNumber  Int       @map("version_number")
-  status         String    @default("draft") // draft | published | archived
-  snapshot       Json      @db.JsonB
-  publishedAt    DateTime? @map("published_at") @db.Timestamptz(6)
-  publishedBy    String?   @map("published_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@index([installationId], map: "idx_protocol_version_installation")
-  @@index([installationId, versionNumber], map: "idx_protocol_version_number")
-  @@map("protocol_versions")
-  @@schema("crm")
-}
-
-// ── Installation Exams ──
-
-model Exam {
-  id              String   @id @default(cuid())
-  installationId  String   @map("installation_id") @db.Uuid
-  title           String
-  type            String   @default("protocol") // protocol | security_general
-  status          String   @default("draft") // draft | active | archived
-  scheduleType    String   @default("manual") @map("schedule_type") // manual | on_assignment | recurring
-  recurringMonths Int?     @map("recurring_months")
-  passingScore    Int      @default(60) @map("passing_score")
-  createdBy       String   @map("created_by")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  installation CrmInstallation  @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  questions    ExamQuestion[]
-  assignments  ExamAssignment[]
-
-  @@index([installationId], map: "idx_exam_installation")
-  @@index([installationId, status], map: "idx_exam_installation_status")
-  @@map("exams")
-  @@schema("crm")
-}
-
-model ExamQuestion {
-  id           String   @id @default(cuid())
-  examId       String   @map("exam_id")
-  questionText String   @map("question_text") @db.Text
-  questionType String   @default("multiple_choice") @map("question_type") // multiple_choice | true_false
-  options      Json     @db.JsonB
-  correctAnswer Int     @map("correct_answer")
-  sectionRef   String?  @map("section_ref")
-  source       String   @default("manual") // manual | ai_generated
-  order        Int      @default(0)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
-
-  @@index([examId], map: "idx_exam_question_exam")
-  @@map("exam_questions")
-  @@schema("crm")
-}
-
-model ExamAssignment {
-  id            String    @id @default(cuid())
-  examId        String    @map("exam_id")
-  guardId       String    @map("guard_id") @db.Uuid
-  status        String    @default("sent") // sent | opened | completed | expired
-  sentAt        DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
-  openedAt      DateTime? @map("opened_at") @db.Timestamptz(6)
-  completedAt   DateTime? @map("completed_at") @db.Timestamptz(6)
-  score         Float?
-  answers       Json?     @db.JsonB
-  timeTakenSecs Int?      @map("time_taken_secs")
-  attemptNumber Int       @default(1) @map("attempt_number")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  exam  Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
-  guard OpsGuardia @relation(fields: [guardId], references: [id], onDelete: Cascade)
-
-  @@index([examId], map: "idx_exam_assignment_exam")
-  @@index([guardId], map: "idx_exam_assignment_guard")
-  @@index([examId, guardId], map: "idx_exam_assignment_exam_guard")
-  @@map("exam_assignments")
-  @@schema("crm")
-}
-
-model PortalClienteAlertConfig {
-  id          String   @id @default(cuid())
-  tenantId    String   @map("tenant_id")
-  contactId   String   @map("contact_id")
-  accountId   String   @map("account_id")
-  alertType   String   @map("alert_type")
-  channels    Json
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_portal_alert_config_tenant")
-  @@index([contactId], map: "idx_portal_alert_config_contact")
-  @@map("portal_cliente_alert_configs")
-  @@schema("crm")
-}
-
-model PortalClienteReporte {
-  id             String    @id @default(cuid())
-  tenantId       String    @map("tenant_id")
-  accountId      String    @map("account_id")
-  installationId String    @map("installation_id")
-  period         String
-  pdfUrl         String?   @map("pdf_url")
-  generatedAt    DateTime? @map("generated_at") @db.Timestamptz(6)
-  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
-  data           Json
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_portal_reporte_tenant")
-  @@index([accountId], map: "idx_portal_reporte_account")
-  @@map("portal_cliente_reportes")
-  @@schema("crm")
-}
-
-model PortalClienteDemoData {
-  id          String   @id @default(cuid())
-  tenantId    String   @map("tenant_id")
-  contactId   String   @unique @map("contact_id")
-  demoData    Json     @map("demo_data")
-  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_portal_demo_data_tenant")
-  @@map("portal_cliente_demo_data")
-  @@schema("crm")
-}
-
-model PortalClienteAuditLog {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  contactId String   @map("contact_id")
-  action    String
-  resource  String?
-  metadata  Json?
-  ip        String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_portal_audit_log_tenant")
-  @@index([contactId], map: "idx_portal_audit_log_contact")
-  @@map("portal_cliente_audit_logs")
-  @@schema("crm")
-}
-
 // ============================================
 // OPS MODULE (Operaciones, TE, Personas)
 // ============================================
@@ -2180,39 +1918,32 @@ model OpsGuardia {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  persona                     OpsPersona                   @relation(fields: [personaId], references: [id], onDelete: Cascade)
-  currentInstallation         CrmInstallation?             @relation("ops_guardia_current_installation", fields: [currentInstallationId], references: [id], onDelete: SetNull)
-  salaryStructure             PayrollSalaryStructure?      @relation("ops_guardia_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
-  bankAccounts                OpsCuentaBancaria[]
-  flags                       OpsGuardiaFlag[]
-  comments                    OpsComentarioGuardia[]
-  documents                   OpsDocumentoPersona[]
-  historyEvents               OpsGuardiaHistory[]
-  guardEvents                 OpsGuardEvent[]
-  pautas                      OpsPautaMensual[]            @relation("ops_pauta_guardia")
-  pautasReemplazo             OpsPautaMensual[]            @relation("ops_pauta_reemplazo_guardia")
-  asistenciasPlanificadas     OpsAsistenciaDiaria[]        @relation("ops_asistencia_planificada_guardia")
-  asistenciasReales           OpsAsistenciaDiaria[]        @relation("ops_asistencia_real_guardia")
-  asistenciasReemplazo        OpsAsistenciaDiaria[]        @relation("ops_asistencia_reemplazo_guardia")
-  turnosExtra                 OpsTurnoExtra[]              @relation("ops_turno_extra_guardia")
-  asignaciones                OpsAsignacionGuardia[]       @relation("ops_asignacion_guardia")
-  seriesAsignadas             OpsSerieAsignacion[]         @relation("ops_serie_guardia")
-  eventosRrhh                 OpsEventoRrhh[]
-  pagoItems                   OpsPagoTeItem[]              @relation("ops_pago_item_guardia")
-  refuerzoSolicitudes         OpsRefuerzoSolicitud[]
-  marcaciones                 OpsMarcacion[]
-  rondaEjecuciones            OpsRondaEjecucion[]
-  rondaMarcaciones            OpsMarcacionCheckpoint[]
-  rondaIncidentes             OpsRondaIncidente[]
-  controlNocturnoGuardias     OpsControlNocturnoGuardia[]
-  tickets                     OpsTicket[]
-  inventoryGuardiaAssignments InventoryGuardiaAssignment[]
-  inventoryMovements          InventoryMovement[]
-  supervisionEvaluations      OpsSupervisionGuardEvaluation[] @relation("supervision_guard_evaluation_guard")
-  supervisionFindings         OpsSupervisionFinding[]         @relation("supervision_finding_guard")
-  examAssignments             ExamAssignment[]
-  rondaAlertas                OpsAlertaRonda[]                @relation("alertaGuardia")
-  patrolSessions              OpsPatrullajeSesion[]
+  persona                 OpsPersona                  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  currentInstallation     CrmInstallation?            @relation("ops_guardia_current_installation", fields: [currentInstallationId], references: [id], onDelete: SetNull)
+  salaryStructure         PayrollSalaryStructure?     @relation("ops_guardia_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
+  bankAccounts            OpsCuentaBancaria[]
+  flags                   OpsGuardiaFlag[]
+  comments                OpsComentarioGuardia[]
+  documents               OpsDocumentoPersona[]
+  historyEvents           OpsGuardiaHistory[]
+  guardEvents             OpsGuardEvent[]
+  pautas                  OpsPautaMensual[]           @relation("ops_pauta_guardia")
+  asistenciasPlanificadas OpsAsistenciaDiaria[]       @relation("ops_asistencia_planificada_guardia")
+  asistenciasReales       OpsAsistenciaDiaria[]       @relation("ops_asistencia_real_guardia")
+  asistenciasReemplazo    OpsAsistenciaDiaria[]       @relation("ops_asistencia_reemplazo_guardia")
+  turnosExtra             OpsTurnoExtra[]             @relation("ops_turno_extra_guardia")
+  asignaciones            OpsAsignacionGuardia[]      @relation("ops_asignacion_guardia")
+  seriesAsignadas         OpsSerieAsignacion[]        @relation("ops_serie_guardia")
+  eventosRrhh             OpsEventoRrhh[]
+  pagoItems               OpsPagoTeItem[]             @relation("ops_pago_item_guardia")
+  refuerzoSolicitudes     OpsRefuerzoSolicitud[]
+  marcaciones             OpsMarcacion[]
+  rondaEjecuciones        OpsRondaEjecucion[]
+  rondaMarcaciones        OpsMarcacionCheckpoint[]
+  rondaIncidentes         OpsRondaIncidente[]
+  controlNocturnoGuardias OpsControlNocturnoGuardia[]
+  tickets                 OpsTicket[]
+  opsSupervisionFindings  OpsSupervisionFinding[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2380,46 +2111,19 @@ model OpsPautaMensual {
   shiftCode        String?  @map("shift_code")
   status           String   @default("planificado")
   notes            String?
-
-  // ── Reemplazo transitorio ──
-  replacementGuardiaId String?  @map("replacement_guardia_id") @db.Uuid
-  replacementReason    String?  @map("replacement_reason")   // "vacaciones" | "licencia_medica" | "permiso"
-  guardEventId         String?  @map("guard_event_id") @db.Uuid
-
   createdBy        String?  @map("created_by")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
-  plannedGuardia     OpsGuardia?        @relation("ops_pauta_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
-  replacementGuardia OpsGuardia?        @relation("ops_pauta_reemplazo_guardia", fields: [replacementGuardiaId], references: [id], onDelete: SetNull)
-  guardEvent         OpsGuardEvent?     @relation(fields: [guardEventId], references: [id], onDelete: SetNull)
+  installation   CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  puesto         OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
+  plannedGuardia OpsGuardia?        @relation("ops_pauta_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
 
   @@unique([puestoId, slotNumber, date], map: "uq_ops_pauta_puesto_slot_fecha")
   @@index([tenantId], map: "idx_ops_pauta_tenant")
   @@index([installationId, date], map: "idx_ops_pauta_installation_date")
   @@index([plannedGuardiaId], map: "idx_ops_pauta_guardia")
-  @@index([replacementGuardiaId], map: "idx_ops_pauta_reemplazo_guardia")
-  @@index([guardEventId], map: "idx_ops_pauta_guard_event")
   @@map("pauta_mensual")
-  @@schema("ops")
-}
-
-model OpsPpcSnapshot {
-  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String   @map("tenant_id")
-  date           DateTime @db.Date
-  totalPpc       Int      @map("total_ppc")
-  totalGuards    Int      @map("total_guards")
-  ppcPercentage  Float    @map("ppc_percentage")
-  byReason       Json     @map("by_reason") @db.JsonB
-  byInstallation Json     @map("by_installation") @db.JsonB
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@unique([tenantId, date], map: "uq_ops_ppc_snapshot_tenant_date")
-  @@index([tenantId, date(sort: Desc)], map: "idx_ops_ppc_snapshot_tenant_date")
-  @@map("ops_ppc_snapshots")
   @@schema("ops")
 }
 
@@ -2498,39 +2202,18 @@ model OpsVisitaSupervision {
   installationState   String?   @map("installation_state")
   ratings             Json?     @db.JsonB
   documentChecklist   Json?     @map("document_checklist") @db.JsonB
+  durationMinutes     Int?      @map("duration_minutes")
   startedVia          String?   @map("started_via")
   completedVia        String?   @map("completed_via")
-  // New fields for enhanced wizard
-  durationMinutes     Int?      @map("duration_minutes")
-  guardsExpected      Int?      @map("guards_expected")
-  guardsFound         Int?      @map("guards_found")
-  bookUpToDate        Boolean?  @map("book_up_to_date")
-  bookLastEntryDate   DateTime? @map("book_last_entry_date") @db.Date
-  bookPhotoUrl        String?   @map("book_photo_url")
-  bookNotes           String?   @map("book_notes") @db.Text
-  clientContacted     Boolean   @default(false) @map("client_contacted")
-  clientContactName   String?   @map("client_contact_name")
-  clientSatisfaction  Int?      @map("client_satisfaction")
-  clientComment       String?   @map("client_comment") @db.Text
-  clientValidationUrl    String?   @map("client_validation_url")
-  installationStateNotes String?   @map("installation_state_notes") @db.Text
-  healthScore            Int?      @map("health_score")
-  isExpressFlagged    Boolean   @default(false) @map("is_express_flagged")
-  draftData           Json?     @map("draft_data") @db.JsonB
-  wizardStep          Int       @default(1) @map("wizard_step")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant             Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supervisor         Admin                         @relation("ops_supervision_visit_supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
-  installation       CrmInstallation               @relation("ops_supervision_visit_installation", fields: [installationId], references: [id], onDelete: Cascade)
-  images             OpsVisitaImagen[]
-  guardEvaluations   OpsSupervisionGuardEvaluation[]
-  findings           OpsSupervisionFinding[]        @relation("supervision_finding_visit")
-  verifiedFindings   OpsSupervisionFinding[]        @relation("supervision_finding_verified_visit")
-  checklistResults   OpsSupervisionChecklistResult[]
-  photos             OpsSupervisionPhoto[]
-  encuestaCliente    OpsEncuestaCliente?
+  tenant                    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor                Admin                   @relation("ops_supervision_visit_supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
+  installation              CrmInstallation         @relation("ops_supervision_visit_installation", fields: [installationId], references: [id], onDelete: Cascade)
+  images                    OpsVisitaImagen[]
+  supervisionFindings       OpsSupervisionFinding[] @relation("ops_supervision_visit_findings")
+  supervisionFindingsVerified OpsSupervisionFinding[] @relation("ops_supervision_findings_verified")
 
   @@index([tenantId], map: "idx_ops_visitas_supervision_tenant")
   @@index([supervisorId], map: "idx_ops_visitas_supervision_supervisor")
@@ -2562,204 +2245,36 @@ model OpsVisitaImagen {
   @@schema("ops")
 }
 
-model OpsSupervisionGuardEvaluation {
-  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId          String   @map("tenant_id")
-  visitId           String   @map("visit_id") @db.Uuid
-  guardId           String?  @map("guard_id") @db.Uuid
-  guardName         String   @map("guard_name")
-  presentationScore Int?     @map("presentation_score")
-  orderScore        Int?     @map("order_score")
-  protocolScore     Int?     @map("protocol_score")
-  observation       String?  @db.Text
-  isReinforcement   Boolean  @default(false) @map("is_reinforcement")
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  visit   OpsVisitaSupervision @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  guard   OpsGuardia?          @relation("supervision_guard_evaluation_guard", fields: [guardId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId], map: "idx_supervision_guard_eval_tenant")
-  @@index([visitId], map: "idx_supervision_guard_eval_visit")
-  @@index([guardId], map: "idx_supervision_guard_eval_guard")
-  @@map("supervision_guard_evaluations")
-  @@schema("ops")
-}
-
 model OpsSupervisionFinding {
-  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId         String    @map("tenant_id")
-  visitId          String    @map("visit_id") @db.Uuid
-  installationId   String    @map("installation_id") @db.Uuid
-  guardId          String?   @map("guard_id") @db.Uuid
-  category         String
-  severity         String    @default("minor")
-  description      String    @db.Text
-  photoUrl         String?   @map("photo_url")
-  ticketId         String?   @map("ticket_id") @db.Uuid
-  status           String    @default("open")
-  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
-  verifiedInVisitId String?  @map("verified_in_visit_id") @db.Uuid
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String    @map("tenant_id")
+  visitId             String    @map("visit_id") @db.Uuid
+  installationId      String    @map("installation_id") @db.Uuid
+  guardId             String?   @map("guard_id") @db.Uuid
+  category            String
+  severity            String    @default("minor")
+  description         String
+  photoUrl            String?   @map("photo_url")
+  ticketId            String?   @map("ticket_id") @db.Uuid
+  status              String    @default("open")
+  resolvedAt          DateTime? @map("resolved_at") @db.Timestamptz(6)
+  verifiedInVisitId   String?   @map("verified_in_visit_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  visit           OpsVisitaSupervision @relation("supervision_finding_visit", fields: [visitId], references: [id], onDelete: Cascade)
-  installation    CrmInstallation      @relation("supervision_finding_installation", fields: [installationId], references: [id], onDelete: Cascade)
-  guard           OpsGuardia?          @relation("supervision_finding_guard", fields: [guardId], references: [id], onDelete: SetNull)
-  ticket          OpsTicket?           @relation("supervision_finding_ticket", fields: [ticketId], references: [id], onDelete: SetNull)
-  verifiedInVisit OpsVisitaSupervision? @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
-  checklistResults OpsSupervisionChecklistResult[]
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visit        OpsVisitaSupervision   @relation("ops_supervision_visit_findings", fields: [visitId], references: [id], onDelete: Cascade)
+  installation CrmInstallation        @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  guardia      OpsGuardia?            @relation(fields: [guardId], references: [id])
+  ticket       OpsTicket?             @relation(fields: [ticketId], references: [id])
+  verifiedInVisit OpsVisitaSupervision? @relation("ops_supervision_findings_verified", fields: [verifiedInVisitId], references: [id], map: "supervision_findings_verified_visit_fkey")
 
   @@index([tenantId], map: "idx_supervision_findings_tenant")
   @@index([visitId], map: "idx_supervision_findings_visit")
   @@index([installationId], map: "idx_supervision_findings_installation")
-  @@index([status], map: "idx_supervision_findings_status")
   @@index([guardId], map: "idx_supervision_findings_guard")
+  @@index([status], map: "idx_supervision_findings_status")
   @@map("supervision_findings")
-  @@schema("ops")
-}
-
-model OpsInstallationChecklistItem {
-  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String   @map("tenant_id")
-  installationId String   @map("installation_id") @db.Uuid
-  name           String
-  category       String?
-  isMandatory    Boolean  @default(false) @map("is_mandatory")
-  sortOrder      Int      @default(0) @map("sort_order")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  installation CrmInstallation @relation("installation_checklist_items", fields: [installationId], references: [id], onDelete: Cascade)
-  results      OpsSupervisionChecklistResult[]
-
-  @@index([tenantId], map: "idx_installation_checklist_items_tenant")
-  @@index([installationId], map: "idx_installation_checklist_items_installation")
-  @@map("installation_checklist_items")
-  @@schema("ops")
-}
-
-model OpsSupervisionChecklistResult {
-  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String   @map("tenant_id")
-  visitId         String   @map("visit_id") @db.Uuid
-  checklistItemId String   @map("checklist_item_id") @db.Uuid
-  isChecked       Boolean  @default(false) @map("is_checked")
-  findingId       String?  @map("finding_id") @db.Uuid
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant        Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  visit         OpsVisitaSupervision         @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  checklistItem OpsInstallationChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
-  finding       OpsSupervisionFinding?       @relation(fields: [findingId], references: [id], onDelete: SetNull)
-
-  @@index([visitId], map: "idx_supervision_checklist_results_visit")
-  @@index([checklistItemId], map: "idx_supervision_checklist_results_item")
-  @@map("supervision_checklist_results")
-  @@schema("ops")
-}
-
-model OpsInstallationPhotoCategory {
-  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String   @map("tenant_id")
-  installationId String   @map("installation_id") @db.Uuid
-  name           String
-  isMandatory    Boolean  @default(false) @map("is_mandatory")
-  sortOrder      Int      @default(0) @map("sort_order")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  installation CrmInstallation @relation("installation_photo_categories", fields: [installationId], references: [id], onDelete: Cascade)
-  photos       OpsSupervisionPhoto[]
-
-  @@index([installationId], map: "idx_installation_photo_categories_installation")
-  @@map("installation_photo_categories")
-  @@schema("ops")
-}
-
-model OpsSupervisionPhoto {
-  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId     String    @map("tenant_id")
-  visitId      String    @map("visit_id") @db.Uuid
-  categoryId   String?   @map("category_id") @db.Uuid
-  categoryName String?   @map("category_name")
-  photoUrl     String    @map("photo_url")
-  storageKey   String    @map("storage_key")
-  fileName     String?   @map("file_name")
-  mimeType     String?   @map("mime_type")
-  size         Int?
-  gpsLat       Decimal?  @map("gps_lat") @db.Decimal(10, 7)
-  gpsLng       Decimal?  @map("gps_lng") @db.Decimal(10, 7)
-  takenAt      DateTime  @default(now()) @map("taken_at") @db.Timestamptz(6)
-
-  tenant   Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  visit    OpsVisitaSupervision          @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  category OpsInstallationPhotoCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
-  @@index([visitId], map: "idx_supervision_photos_visit")
-  @@index([categoryId], map: "idx_supervision_photos_category")
-  @@map("supervision_photos")
-  @@schema("ops")
-}
-
-model OpsEncuestaCliente {
-  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId             String    @map("tenant_id")
-  visitId              String    @unique @map("visit_id") @db.Uuid
-  installationId       String    @map("installation_id") @db.Uuid
-  accountId            String?   @map("account_id") @db.Uuid
-  contactName          String    @map("contact_name")
-  contactRole          String?   @map("contact_role")
-  serviceQuality       Int?      @map("service_quality")
-  scheduleCompliance   Int?      @map("schedule_compliance")
-  personalPresentation Int?      @map("personal_presentation")
-  professionalism      Int?
-  supervisionPresence  Int?      @map("supervision_presence")
-  incidentResponse     Int?      @map("incident_response")
-  hasUrgentRisk        Boolean?  @map("has_urgent_risk")
-  urgentRiskDetail     String?   @map("urgent_risk_detail") @db.Text
-  npsScore             Int?      @map("nps_score")
-  additionalComments   String?   @map("additional_comments") @db.Text
-  signatureUrl         String?   @map("signature_url")
-  clientPhotoUrl       String?   @map("client_photo_url")
-  averageScore         Float?    @map("average_score")
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  visit        OpsVisitaSupervision @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  installation CrmInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  account      CrmAccount?          @relation(fields: [accountId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId], map: "idx_encuestas_cliente_tenant")
-  @@index([installationId], map: "idx_encuestas_cliente_installation")
-  @@index([accountId], map: "idx_encuestas_cliente_account")
-  @@map("encuestas_cliente")
-  @@schema("ops")
-}
-
-model OpsInstallationHealthScore {
-  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId                String   @map("tenant_id")
-  installationId          String   @unique @map("installation_id") @db.Uuid
-  score                   Int      @default(0)
-  avgRating               Decimal? @map("avg_rating") @db.Decimal(3, 1)
-  daysSinceLastVisit      Int?     @map("days_since_last_visit")
-  openFindingsCount       Int      @default(0) @map("open_findings_count")
-  overdueFindingsCount    Int      @default(0) @map("overdue_findings_count")
-  lastDotationCompliance  Decimal? @map("last_dotation_compliance") @db.Decimal(5, 2)
-  lastChecklistCompliance Decimal? @map("last_checklist_compliance") @db.Decimal(5, 2)
-  bookUpToDate            Boolean? @map("book_up_to_date")
-  calculatedAt            DateTime @default(now()) @map("calculated_at") @db.Timestamptz(6)
-
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  installation CrmInstallation @relation("installation_health_score", fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId], map: "idx_installation_health_scores_tenant")
-  @@index([score], map: "idx_installation_health_scores_score")
-  @@map("installation_health_scores")
   @@schema("ops")
 }
 
@@ -2869,8 +2384,7 @@ model OpsGuardEvent {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardia          OpsGuardia       @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
-  pautasReemplazo  OpsPautaMensual[]
+  guardia OpsGuardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
 
   @@index([tenantId], map: "idx_ops_guard_events_tenant")
   @@index([guardiaId], map: "idx_ops_guard_events_guardia")
@@ -3114,18 +2628,14 @@ model OpsCheckpoint {
   installationId String   @map("installation_id") @db.Uuid
   name           String
   description    String?
-  instrucciones  String?  @map("instrucciones")
   qrCode         String   @map("qr_code")
   lat            Float?
   lng            Float?
-  geoRadiusM         Int      @default(30) @map("geo_radius_m")
-  verificationType   String   @default("GEOFENCE") @map("verification_type")
-  isCritical         Boolean  @default(false) @map("is_critical")
-  sortOrder          Int      @default(0) @map("sort_order")
-  isActive           Boolean  @default(true) @map("is_active")
-  createdBy          String?  @map("created_by")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  geoRadiusM     Int      @default(30) @map("geo_radius_m")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation CrmInstallation          @relation(fields: [installationId], references: [id], onDelete: Cascade)
   rondaLinks   OpsRondaCheckpoint[]
@@ -3149,7 +2659,6 @@ model OpsRondaTemplate {
   description          String?
   orderMode            String   @default("flexible") @map("order_mode") // "strict" | "flexible"
   estimatedDurationMin Int?     @map("estimated_duration_min")
-  qrRequerido          Boolean  @default(false) @map("qr_requerido")
   isActive             Boolean  @default(true) @map("is_active")
   createdBy            String?  @map("created_by")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -3228,25 +2737,17 @@ model OpsRondaEjecucion {
   checkpointsCompletados Int       @default(0) @map("checkpoints_completados")
   porcentajeCompletado   Float     @default(0) @map("porcentaje_completado")
   trustScore             Int       @default(0) @map("trust_score")
-  trustBreakdown         Json?     @map("trust_breakdown") @db.JsonB
-  durationMinutes        Int?      @map("duration_minutes")
-  isOfflineSync          Boolean   @default(false) @map("is_offline_sync")
-  syncedAt               DateTime? @map("synced_at") @db.Timestamptz(6)
-  notes                  String?
-  installationId         String?   @map("installation_id") @db.Uuid
   deviceInfo             Json?     @map("device_info") @db.JsonB
-  alertas                Json?     @db.JsonB  // DEPRECATED: use alertasRows relation instead (still read by public/ronda/iniciar)
+  alertas                Json?     @db.JsonB
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   rondaTemplate OpsRondaTemplate         @relation(fields: [rondaTemplateId], references: [id], onDelete: Cascade)
   programacion  OpsRondaProgramacion?    @relation(fields: [programacionId], references: [id], onDelete: SetNull)
   guardia       OpsGuardia?              @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
-  installation  CrmInstallation?         @relation("ejecucionInstallation", fields: [installationId], references: [id], onDelete: SetNull)
-  marcaciones           OpsMarcacionCheckpoint[]
-  alertasRows           OpsAlertaRonda[]
-  incidentes            OpsRondaIncidente[]
-  controlNocturnoRondas OpsControlNocturnoRonda[] @relation("ControlNocturnoRonda")
+  marcaciones   OpsMarcacionCheckpoint[]
+  alertasRows   OpsAlertaRonda[]
+  incidentes    OpsRondaIncidente[]
 
   @@index([tenantId], map: "idx_ops_ronda_ejecuciones_tenant")
   @@index([rondaTemplateId], map: "idx_ops_ronda_ejecuciones_template")
@@ -3254,8 +2755,6 @@ model OpsRondaEjecucion {
   @@index([guardiaId], map: "idx_ops_ronda_ejecuciones_guardia")
   @@index([scheduledAt], map: "idx_ops_ronda_ejecuciones_scheduled_at")
   @@index([status], map: "idx_ops_ronda_ejecuciones_status")
-  @@index([installationId, status], map: "idx_ops_ronda_ejecuciones_inst_status")
-  @@index([guardiaId, status], map: "idx_ops_ronda_ejecuciones_guardia_status")
   @@map("ronda_ejecuciones")
   @@schema("ops")
 }
@@ -3264,7 +2763,7 @@ model OpsMarcacionCheckpoint {
   id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String   @map("tenant_id")
   ejecucionId      String   @map("ejecucion_id") @db.Uuid
-  checkpointId     String?  @map("checkpoint_id") @db.Uuid
+  checkpointId     String   @map("checkpoint_id") @db.Uuid
   guardiaId        String   @map("guardia_id") @db.Uuid
   timestamp        DateTime @default(now()) @db.Timestamptz(6)
   lat              Float?
@@ -3275,18 +2774,13 @@ model OpsMarcacionCheckpoint {
   motionData       Json?    @map("motion_data") @db.JsonB
   speedFromPrevKmh Float?   @map("speed_from_prev_kmh")
   timeFromPrevSec  Int?     @map("time_from_prev_sec")
-  fotoEvidenciaUrl   String?  @map("foto_evidencia_url")
-  audioUrl           String?  @map("audio_url")
-  note               String?
-  hashIntegridad     String   @map("hash_integridad")
-  anomalias          Json?    @db.JsonB
-  status             String   @default("COMPLETED")
-  verificationMethod String   @default("QR") @map("verification_method")
-  isOfflineSync      Boolean  @default(false) @map("is_offline_sync")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  fotoEvidenciaUrl String?  @map("foto_evidencia_url")
+  hashIntegridad   String   @map("hash_integridad")
+  anomalias        Json?    @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ejecucion  OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
-  checkpoint OpsCheckpoint?    @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
+  checkpoint OpsCheckpoint     @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
   guardia    OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
 
   @@index([tenantId], map: "idx_ops_marcacion_checkpoint_tenant")
@@ -3294,42 +2788,32 @@ model OpsMarcacionCheckpoint {
   @@index([checkpointId], map: "idx_ops_marcacion_checkpoint_checkpoint")
   @@index([guardiaId], map: "idx_ops_marcacion_checkpoint_guardia")
   @@index([timestamp], map: "idx_ops_marcacion_checkpoint_timestamp")
-  @@unique([ejecucionId, checkpointId], map: "uq_ops_marcacion_cp_ej_cp")
   @@map("marcacion_checkpoints")
   @@schema("ops")
 }
 
 model OpsAlertaRonda {
-  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId         String    @map("tenant_id")
-  ejecucionId      String    @map("ejecucion_id") @db.Uuid
-  installationId   String    @map("installation_id") @db.Uuid
-  guardiaId        String?   @map("guardia_id") @db.Uuid
-  tipo             String
-  severidad        String    @default("warning") // "info" | "warning" | "critical"
-  mensaje          String
-  data             Json?     @db.JsonB
-  resuelta         Boolean   @default(false)
-  resueltaPor      String?   @map("resuelta_por")
-  resueltaAt       DateTime? @map("resuelta_at") @db.Timestamptz(6)
-  isAcknowledged   Boolean   @default(false) @map("is_acknowledged")
-  acknowledgedBy   String?   @map("acknowledged_by")
-  acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(6)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  ejecucionId    String    @map("ejecucion_id") @db.Uuid
+  installationId String    @map("installation_id") @db.Uuid
+  tipo           String
+  severidad      String    @default("warning") // "info" | "warning" | "critical"
+  mensaje        String
+  data           Json?     @db.JsonB
+  resuelta       Boolean   @default(false)
+  resueltaPor    String?   @map("resuelta_por")
+  resueltaAt     DateTime? @map("resuelta_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ejecucion    OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
   installation CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  guardia      OpsGuardia?       @relation("alertaGuardia", fields: [guardiaId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_alerta_ronda_tenant")
   @@index([ejecucionId], map: "idx_ops_alerta_ronda_ejecucion")
   @@index([installationId], map: "idx_ops_alerta_ronda_installation")
   @@index([severidad], map: "idx_ops_alerta_ronda_severidad")
   @@index([resuelta], map: "idx_ops_alerta_ronda_resuelta")
-  @@index([installationId, isAcknowledged], map: "idx_ops_alerta_ronda_inst_ack")
-  @@index([severidad, isAcknowledged], map: "idx_ops_alerta_ronda_sev_ack")
-  @@index([createdAt], map: "idx_ops_alerta_ronda_created")
-  @@index([guardiaId], map: "idx_ops_alerta_ronda_guardia")
   @@map("alertas_ronda")
   @@schema("ops")
 }
@@ -3341,7 +2825,6 @@ model OpsRondaIncidente {
   rondaTemplateId String?  @map("ronda_template_id") @db.Uuid
   checkpointId    String?  @map("checkpoint_id") @db.Uuid
   guardiaId       String   @map("guardia_id") @db.Uuid
-  installationId  String?  @map("installation_id") @db.Uuid
   tipo            String
   descripcion     String
   fotoUrl         String?  @map("foto_url")
@@ -3355,12 +2838,10 @@ model OpsRondaIncidente {
   rondaTemplate OpsRondaTemplate?  @relation(fields: [rondaTemplateId], references: [id], onDelete: SetNull)
   checkpoint    OpsCheckpoint?     @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
   guardia       OpsGuardia         @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
-  installation  CrmInstallation?   @relation("IncidenteInstallation", fields: [installationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_ronda_incidente_tenant")
   @@index([ejecucionId], map: "idx_ops_ronda_incidente_ejecucion")
   @@index([guardiaId], map: "idx_ops_ronda_incidente_guardia")
-  @@index([installationId], map: "idx_ops_ronda_incidente_installation")
   @@index([status], map: "idx_ops_ronda_incidente_status")
   @@map("ronda_incidentes")
   @@schema("ops")
@@ -3453,86 +2934,15 @@ model OpsControlNocturnoRonda {
   horaEsperada         String   @map("hora_esperada") // "20:00", "21:00"...
   horaMarcada          String?  @map("hora_marcada") // hora real
   status               String   @default("pendiente") // pendiente, completada, omitida, no_aplica
-  ejecucionRondaId     String?              @map("ejecucion_ronda_id") @db.Uuid
+  ejecucionRondaId     String?  @map("ejecucion_ronda_id") @db.Uuid
   notes                String?
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   controlInstalacion OpsControlNocturnoInstalacion @relation(fields: [controlInstalacionId], references: [id], onDelete: Cascade)
-  ejecucionRonda     OpsRondaEjecucion?           @relation("ControlNocturnoRonda", fields: [ejecucionRondaId], references: [id], onDelete: SetNull)
 
   @@unique([controlInstalacionId, rondaNumber], map: "uq_ops_cn_ronda_inst_number")
   @@index([controlInstalacionId], map: "idx_ops_cn_ronda_instalacion")
   @@map("control_nocturno_rondas")
-  @@schema("ops")
-}
-
-// ============================================
-// OPS — RONDAS 2.0: DISPOSITIVOS, SESIONES, MONITOREO
-// ============================================
-
-model OpsDispositivoInstalacion {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  installationId String    @map("installation_id") @db.Uuid
-  deviceId       String    @map("device_id")
-  deviceName     String?   @map("device_name")
-  isAuthorized   Boolean   @default(true) @map("is_authorized")
-  lastAccessAt   DateTime? @map("last_access_at") @db.Timestamptz(6)
-  registeredAt   DateTime  @default(now()) @map("registered_at") @db.Timestamptz(6)
-  registeredBy   String?   @map("registered_by")
-
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@unique([installationId, deviceId], map: "uq_ops_dispositivo_inst_device")
-  @@index([tenantId], map: "idx_ops_dispositivos_tenant")
-  @@index([installationId], map: "idx_ops_dispositivos_installation")
-  @@map("dispositivos_instalacion")
-  @@schema("ops")
-}
-
-model OpsPatrullajeSesion {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  guardiaId      String    @map("guardia_id") @db.Uuid
-  installationId String    @map("installation_id") @db.Uuid
-  deviceId       String?   @map("device_id")
-  loginAt        DateTime  @default(now()) @map("login_at") @db.Timestamptz(6)
-  logoutAt       DateTime? @map("logout_at") @db.Timestamptz(6)
-  loginMethod    String    @default("RUT_PIN") @map("login_method")
-  isActive       Boolean   @default(true) @map("is_active")
-  ipAddress      String?   @map("ip_address")
-
-  guardia      OpsGuardia      @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId], map: "idx_ops_patrullaje_sesion_tenant")
-  @@index([guardiaId, isActive], map: "idx_ops_patrullaje_sesion_guardia_active")
-  @@index([installationId, isActive], map: "idx_ops_patrullaje_sesion_inst_active")
-  @@map("patrullaje_sesiones")
-  @@schema("ops")
-}
-
-model OpsMonitoreoTurno {
-  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId              String    @map("tenant_id")
-  operatorId            String    @map("operator_id")
-  operatorName          String?   @map("operator_name")
-  installationIds       Json      @default("[]") @map("installation_ids") @db.JsonB
-  startedAt             DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  endedAt               DateTime? @map("ended_at") @db.Timestamptz(6)
-  status                String    @default("active") // "active" | "completed"
-  totalRoundsMonitored  Int       @default(0) @map("total_rounds_monitored")
-  totalAlertsHandled    Int       @default(0) @map("total_alerts_handled")
-  aiSummary             String?   @map("ai_summary") @db.Text
-  operatorComments      String?   @map("operator_comments") @db.Text
-  emailSentTo           Json?     @map("email_sent_to") @db.JsonB
-  emailSentAt           DateTime? @map("email_sent_at") @db.Timestamptz(6)
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_ops_monitoreo_turno_tenant")
-  @@index([operatorId, status], map: "idx_ops_monitoreo_turno_operator_status")
-  @@map("monitoreo_turnos")
   @@schema("ops")
 }
 
@@ -3547,12 +2957,12 @@ model OpsTicketType {
   assignedTeam     String   @map("assigned_team")
   defaultPriority  String   @default("p3") @map("default_priority")
   slaHours         Int      @default(72) @map("sla_hours")
-  icon             String?
-  isActive         Boolean  @default(true) @map("is_active")
-  sortOrder        Int      @default(0) @map("sort_order")
-  onApprovalAction String?  @map("on_approval_action")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  icon              String?
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  onApprovalAction  String?  @map("on_approval_action")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   approvalSteps OpsTicketTypeApprovalStep[]
   tickets       OpsTicket[]
@@ -3610,12 +3020,12 @@ model OpsTicket {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  ticketType        OpsTicketType?        @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
-  guardia           OpsGuardia?           @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
-  approvals         OpsTicketApproval[]
-  comments          OpsTicketComment[]
+  ticketType          OpsTicketType?          @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
+  guardia             OpsGuardia?             @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
+  approvals           OpsTicketApproval[]
+  comments            OpsTicketComment[]
   refuerzoSolicitud   OpsRefuerzoSolicitud?
-  supervisionFindings OpsSupervisionFinding[] @relation("supervision_finding_ticket")
+  opsSupervisionFindings OpsSupervisionFinding[]
 
   @@unique([tenantId, code], map: "uq_ops_tickets_tenant_code")
   @@index([tenantId], map: "idx_ops_tickets_tenant")
@@ -3661,78 +3071,6 @@ model OpsTicketComment {
 
   @@index([ticketId], map: "idx_ops_ticket_comments_ticket")
   @@map("ops_ticket_comments")
-  @@schema("ops")
-}
-
-model OpsVisitaTecnica {
-  id             String   @id @default(cuid())
-  tenantId       String   @map("tenant_id")
-  userId         String   @map("user_id")
-  installationId String   @map("installation_id") @db.Uuid
-  accountId      String   @map("account_id") @db.Uuid
-  dealId         String?  @map("deal_id") @db.Uuid
-
-  // Check-in
-  checkInAt      DateTime? @map("check_in_at") @db.Timestamptz(6)
-  checkInLat     Float?    @map("check_in_lat")
-  checkInLng     Float?    @map("check_in_lng")
-  checkOutAt     DateTime? @map("check_out_at") @db.Timestamptz(6)
-  status         String    @default("borrador") // borrador | en_curso | completada
-
-  // Seguridad actual
-  currentSecurityCompany String?  @map("current_security_company")
-  hasSecurityCurrently   Boolean? @map("has_security_currently")
-  guardsNeeded           Int?     @map("guards_needed")
-  guardShiftType         String?  @map("guard_shift_type")
-  guardSalaryRange       String?  @map("guard_salary_range")
-
-  // Servicios adicionales
-  requiresTransport  Boolean @default(false) @map("requires_transport")
-  transportNotes     String? @map("transport_notes")
-  requiresMeals      Boolean @default(false) @map("requires_meals")
-  mealNotes          String? @map("meal_notes")
-  requiresExams      Boolean @default(false) @map("requires_exams")
-  examNotes          String? @map("exam_notes")
-  requiresEquipment  Boolean @default(false) @map("requires_equipment")
-  equipmentNotes     String? @map("equipment_notes")
-  requiresUniform    Boolean @default(false) @map("requires_uniform")
-  uniformNotes       String? @map("uniform_notes")
-  additionalCosts    Json?   @map("additional_costs")
-
-  // Contactos in situ
-  contacts Json?
-
-  // Informe
-  generalReport    String? @map("general_report") @db.Text
-  securityRisks    String? @map("security_risks") @db.Text
-  recommendations  String? @map("recommendations") @db.Text
-  photos           Json?
-  durationMinutes  Int?    @map("duration_minutes")
-
-  // Encuesta cliente
-  surveyContactName     String? @map("survey_contact_name")
-  surveyContactRole     String? @map("survey_contact_role")
-  surveyHowDidYouHear   String? @map("survey_how_did_you_hear")
-  surveyVisitOpinion    String? @map("survey_visit_opinion")
-  surveyExpectations    String? @map("survey_expectations") @db.Text
-  surveyCurrentPainPoints String? @map("survey_current_pain_points") @db.Text
-  surveySignatureUrl    String? @map("survey_signature_url")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user         Admin           @relation("ops_visita_tecnica_supervisor", fields: [userId], references: [id])
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  account      CrmAccount      @relation(fields: [accountId], references: [id])
-  deal         CrmDeal?        @relation(fields: [dealId], references: [id])
-
-  @@index([tenantId], map: "idx_ops_visitas_tecnicas_tenant")
-  @@index([userId], map: "idx_ops_visitas_tecnicas_user")
-  @@index([installationId], map: "idx_ops_visitas_tecnicas_installation")
-  @@index([accountId], map: "idx_ops_visitas_tecnicas_account")
-  @@index([status], map: "idx_ops_visitas_tecnicas_status")
-  @@index([createdAt(sort: Desc)], map: "idx_ops_visitas_tecnicas_created")
-  @@map("visitas_tecnicas")
   @@schema("ops")
 }
 
@@ -3826,7 +3164,6 @@ model Document {
   pdfUrl          String?   @map("pdf_url")
   pdfGeneratedAt  DateTime? @map("pdf_generated_at") @db.Timestamptz(6)
   signedViewToken String?   @unique @map("signed_view_token")
-  portalVisible   Boolean   @default(false) @map("portal_visible")
   createdBy       String    @map("created_by")
   approvedBy      String?   @map("approved_by")
   approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
@@ -3843,7 +3180,6 @@ model Document {
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([expirationDate], map: "idx_documents_expiration")
   @@index([uniqueId], map: "idx_documents_unique_id")
-  @@index([tenantId, portalVisible], map: "idx_documents_portal_visible")
   @@map("documents")
   @@schema("docs")
 }
@@ -4887,737 +4223,4 @@ model FinanceFactoringOperation {
   @@index([tenantId, status], map: "idx_finance_factoring_status")
   @@map("finance_factoring_operations")
   @@schema("finance")
-}
-
-// ── INVENTARIO (Ops): Uniformes, activos, teléfonos ──
-
-model InventoryProduct {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  name      String
-  sku       String?
-  category  String // "uniform" | "asset"
-  active    Boolean  @default(true)
-  notes     String?  @db.Text
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sizes    InventoryProductSize[]
-  variants InventoryProductVariant[]
-
-  @@index([tenantId], map: "idx_inv_product_tenant")
-  @@index([category], map: "idx_inv_product_category")
-  @@index([tenantId, category], map: "idx_inv_product_tenant_category")
-  @@map("products")
-  @@schema("inventory")
-}
-
-model InventoryProductSize {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  sizeCode  String   @map("size_code") // "S", "M", "L", "40", "41", etc.
-  sizeLabel String?  @map("size_label") // "Small", "Mediano", etc.
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  product  InventoryProduct          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variants InventoryProductVariant[]
-
-  @@unique([productId, sizeCode], map: "uq_inv_product_size_product_code")
-  @@index([productId], map: "idx_inv_product_size_product")
-  @@map("product_sizes")
-  @@schema("inventory")
-}
-
-model InventoryProductVariant {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  sizeId    String?  @map("size_id") @db.Uuid // null si producto sin tallas (ej. celular)
-  sku       String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  product InventoryProduct      @relation(fields: [productId], references: [id], onDelete: Cascade)
-  size    InventoryProductSize? @relation(fields: [sizeId], references: [id], onDelete: SetNull)
-
-  purchaseLines      InventoryPurchaseLine[]
-  movementLines      InventoryMovementLine[]
-  stockRecords       InventoryStock[]
-  guardiaAssignments InventoryGuardiaAssignment[]
-  assets             InventoryAsset[]
-
-  @@unique([productId, sizeId], map: "uq_inv_variant_product_size")
-  @@index([productId], map: "idx_inv_variant_product")
-  @@map("product_variants")
-  @@schema("inventory")
-}
-
-model InventoryWarehouse {
-  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String   @map("tenant_id")
-  name           String
-  type           String // "central" | "supervisor" | "installation" | "other"
-  supervisorId   String?  @map("supervisor_id") // si type=supervisor
-  installationId String?  @map("installation_id") @db.Uuid // si type=installation
-  active         Boolean  @default(true)
-  notes          String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supervisor   Admin?           @relation("inventory_warehouse_supervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
-  installation CrmInstallation? @relation("inventory_warehouse_installation", fields: [installationId], references: [id], onDelete: SetNull)
-
-  purchaseLines InventoryPurchaseLine[]
-  movementsFrom InventoryMovement[]     @relation("inv_movement_from")
-  movementsTo   InventoryMovement[]     @relation("inv_movement_to")
-  stockRecords  InventoryStock[]
-
-  @@index([tenantId], map: "idx_inv_warehouse_tenant")
-  @@index([type], map: "idx_inv_warehouse_type")
-  @@index([supervisorId], map: "idx_inv_warehouse_supervisor")
-  @@index([installationId], map: "idx_inv_warehouse_installation")
-  @@map("warehouses")
-  @@schema("inventory")
-}
-
-model InventoryPurchase {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  date      DateTime @db.Date
-  notes     String?  @db.Text
-  dteId     String?  @map("dte_id") @db.Uuid // futuro: factura de compra
-  createdBy String?  @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  lines  InventoryPurchaseLine[]
-
-  @@index([tenantId], map: "idx_inv_purchase_tenant")
-  @@index([date], map: "idx_inv_purchase_date")
-  @@map("purchases")
-  @@schema("inventory")
-}
-
-model InventoryPurchaseLine {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  purchaseId  String   @map("purchase_id") @db.Uuid
-  variantId   String   @map("variant_id") @db.Uuid
-  quantity    Int
-  unitCost    Decimal  @map("unit_cost") @db.Decimal(12, 2)
-  warehouseId String   @map("warehouse_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  purchase  InventoryPurchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  variant   InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  warehouse InventoryWarehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-
-  @@index([purchaseId], map: "idx_inv_purchase_line_purchase")
-  @@index([variantId], map: "idx_inv_purchase_line_variant")
-  @@index([warehouseId], map: "idx_inv_purchase_line_warehouse")
-  @@map("purchase_lines")
-  @@schema("inventory")
-}
-
-model InventoryMovement {
-  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String   @map("tenant_id")
-  type            String // "transfer" | "delivery" | "return" | "adjustment"
-  date            DateTime @db.Date
-  fromWarehouseId String?  @map("from_warehouse_id") @db.Uuid
-  toWarehouseId   String?  @map("to_warehouse_id") @db.Uuid
-  guardiaId       String?  @map("guardia_id") @db.Uuid // si type=delivery
-  installationId  String?  @map("installation_id") @db.Uuid // instalación donde se entrega
-  notes           String?  @db.Text
-  createdBy       String?  @map("created_by")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant             Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fromWarehouse      InventoryWarehouse?          @relation("inv_movement_from", fields: [fromWarehouseId], references: [id], onDelete: SetNull)
-  toWarehouse        InventoryWarehouse?          @relation("inv_movement_to", fields: [toWarehouseId], references: [id], onDelete: SetNull)
-  guardia            OpsGuardia?                  @relation(fields: [guardiaId], references: [id], onDelete: SetNull)
-  installation       CrmInstallation?             @relation(fields: [installationId], references: [id], onDelete: SetNull)
-  lines              InventoryMovementLine[]
-  guardiaAssignments InventoryGuardiaAssignment[]
-
-  @@index([tenantId], map: "idx_inv_movement_tenant")
-  @@index([type], map: "idx_inv_movement_type")
-  @@index([date], map: "idx_inv_movement_date")
-  @@index([fromWarehouseId], map: "idx_inv_movement_from")
-  @@index([toWarehouseId], map: "idx_inv_movement_to")
-  @@index([guardiaId], map: "idx_inv_movement_guardia")
-  @@map("movements")
-  @@schema("inventory")
-}
-
-model InventoryMovementLine {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  movementId String   @map("movement_id") @db.Uuid
-  variantId  String   @map("variant_id") @db.Uuid
-  quantity   Int
-  unitCost   Decimal? @map("unit_cost") @db.Decimal(12, 2) // costo al momento del movimiento
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  movement InventoryMovement       @relation(fields: [movementId], references: [id], onDelete: Cascade)
-  variant  InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
-
-  @@index([movementId], map: "idx_inv_movement_line_movement")
-  @@index([variantId], map: "idx_inv_movement_line_variant")
-  @@map("movement_lines")
-  @@schema("inventory")
-}
-
-model InventoryStock {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String   @map("tenant_id")
-  warehouseId String   @map("warehouse_id") @db.Uuid
-  variantId   String   @map("variant_id") @db.Uuid
-  quantity    Int      @default(0)
-  avgCost     Decimal? @map("avg_cost") @db.Decimal(12, 2)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouse InventoryWarehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  variant   InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-
-  @@unique([warehouseId, variantId], map: "uq_inv_stock_warehouse_variant")
-  @@index([tenantId], map: "idx_inv_stock_tenant")
-  @@index([warehouseId], map: "idx_inv_stock_warehouse")
-  @@index([variantId], map: "idx_inv_stock_variant")
-  @@map("stock")
-  @@schema("inventory")
-}
-
-model InventoryGuardiaAssignment {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  guardiaId      String    @map("guardia_id") @db.Uuid
-  movementId     String    @map("movement_id") @db.Uuid
-  variantId      String    @map("variant_id") @db.Uuid
-  quantity       Int
-  installationId String?   @map("installation_id") @db.Uuid // instalación donde se entregó
-  deliveredAt    DateTime  @map("delivered_at") @db.Timestamptz(6)
-  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6) // null = vigente
-  notes          String?   @db.Text
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  guardia      OpsGuardia              @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
-  movement     InventoryMovement       @relation(fields: [movementId], references: [id], onDelete: Cascade)
-  variant      InventoryProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  installation CrmInstallation?        @relation(fields: [installationId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId], map: "idx_inv_guardia_assignment_tenant")
-  @@index([guardiaId], map: "idx_inv_guardia_assignment_guardia")
-  @@index([variantId], map: "idx_inv_guardia_assignment_variant")
-  @@index([installationId], map: "idx_inv_guardia_assignment_installation")
-  @@map("guardia_assignments")
-  @@schema("inventory")
-}
-
-model InventoryAsset {
-  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId     String    @map("tenant_id")
-  variantId    String?   @map("variant_id") @db.Uuid // producto (ej. Celular)
-  serialNumber String?   @map("serial_number") // IMEI, número de serie
-  status       String    @default("available") // available | assigned | maintenance | broken | retired
-  phoneNumber  String?   @map("phone_number") // si es celular
-  phoneCarrier String?   @map("phone_carrier") // entel, movistar, etc.
-  purchaseCost Decimal?  @map("purchase_cost") @db.Decimal(12, 2)
-  purchaseDate DateTime? @map("purchase_date") @db.Date
-  notes        String?   @db.Text
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  tenant        Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  variant       InventoryProductVariant?      @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  assignments   InventoryAssetAssignment[]
-  statusHistory InventoryAssetStatusHistory[]
-
-  @@index([tenantId], map: "idx_inv_asset_tenant")
-  @@index([variantId], map: "idx_inv_asset_variant")
-  @@index([status], map: "idx_inv_asset_status")
-  @@index([phoneNumber], map: "idx_inv_asset_phone")
-  @@map("assets")
-  @@schema("inventory")
-}
-
-model InventoryAssetAssignment {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  assetId        String    @map("asset_id") @db.Uuid
-  installationId String    @map("installation_id") @db.Uuid
-  assignedAt     DateTime  @map("assigned_at") @db.Timestamptz(6)
-  assignedBy     String?   @map("assigned_by")
-  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6) // null = vigente
-  notes          String?   @db.Text
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  asset        InventoryAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId], map: "idx_inv_asset_assignment_tenant")
-  @@index([assetId], map: "idx_inv_asset_assignment_asset")
-  @@index([installationId], map: "idx_inv_asset_assignment_installation")
-  @@map("asset_assignments")
-  @@schema("inventory")
-}
-
-model InventoryAssetStatusHistory {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  assetId   String   @map("asset_id") @db.Uuid
-  status    String
-  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
-  changedBy String?  @map("changed_by")
-  notes     String?  @db.Text
-
-  asset InventoryAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@index([assetId], map: "idx_inv_asset_status_history_asset")
-  @@map("asset_status_history")
-  @@schema("inventory")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// UNIFIED CONTEXTUAL NOTES SYSTEM
-// Schema: notes
-// ═══════════════════════════════════════════════════════════════════════════════
-
-enum NoteContextType {
-  LEAD
-  ACCOUNT
-  INSTALLATION
-  DEAL
-  CONTACT
-  QUOTATION
-  GUARD
-  DOCUMENT
-  SHIFT // OpsTurnoExtra
-  REINFORCEMENT_SHIFT // OpsRefuerzoSolicitud
-  PAYROLL_RECORD // PayrollLiquidacion
-  INVOICE // FinanceDte
-  OPERATION // OpsControlNocturno
-  SUPPLIER // FinanceSupplier
-  TICKET // OpsTicket
-  RENDICION // FinanceRendicion
-  PUESTO // OpsPuestoOperativo
-  PAUTA_MENSUAL // OpsPautaMensual
-  SUPERVISION_VISIT // OpsVisitaSupervision
-  SUPERVISION       // Supervision module-level notes
-
-  @@schema("notes")
-}
-
-enum NoteType {
-  GENERAL
-  ALERT
-  DECISION
-  TASK
-
-  @@schema("notes")
-}
-
-enum MentionType {
-  USER
-  ALL
-  ROLE
-
-  @@schema("notes")
-}
-
-enum NoteVisibility {
-  PUBLIC
-  PRIVATE
-  GROUP
-
-  @@schema("notes")
-}
-
-// ── Note (unified notes) ──
-
-model Note {
-  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String          @map("tenant_id")
-  contextType     NoteContextType @map("context_type")
-  contextId       String          @map("context_id")
-  authorId        String          @map("author_id")
-  content         String          @db.Text
-  contentHtml     String?         @map("content_html") @db.Text
-  noteType        NoteType        @default(GENERAL) @map("note_type")
-  visibility      NoteVisibility  @default(PUBLIC)
-  visibleToUsers  String[]        @default([]) @map("visible_to_users")
-  parentNoteId    String?         @map("parent_note_id") @db.Uuid
-  threadDepth     Int             @default(0) @map("thread_depth")
-  metadata        Json?           @db.JsonB
-  attachments     Json?           @db.JsonB // [{id, fileName, fileUrl, fileType, fileSize}]
-  embedding       Float[]         @default([])
-  aiSummary       String?         @map("ai_summary") @db.Text
-  aiTags          String[]        @default([]) @map("ai_tags")
-  aiSentiment     String?         @map("ai_sentiment")
-  aiRelevant      Boolean         @default(true) @map("ai_relevant")
-  isEdited        Boolean         @default(false) @map("is_edited")
-  isPinned        Boolean         @default(false) @map("is_pinned")
-  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  deletedBy       String?         @map("deleted_by")
-  legacyCrmNoteId String?         @unique @map("legacy_crm_note_id") @db.Uuid
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  author       Admin                 @relation("note_author", fields: [authorId], references: [id], onDelete: Cascade)
-  parentNote   Note?                 @relation("NoteThread", fields: [parentNoteId], references: [id], onDelete: Cascade)
-  replies      Note[]                @relation("NoteThread")
-  mentions     NoteMention[]
-  reactions    NoteReaction[]
-  readStatuses NoteReadStatus[]      @relation("NoteReadStatusNote")
-  entityRefs   NoteEntityReference[]
-
-  @@index([tenantId, contextType, contextId, createdAt(sort: Desc)], map: "idx_notes_tenant_context_created")
-  @@index([tenantId, authorId], map: "idx_notes_tenant_author")
-  @@index([tenantId, parentNoteId], map: "idx_notes_tenant_parent")
-  @@index([tenantId, noteType], map: "idx_notes_tenant_type")
-  @@index([tenantId, contextType, contextId, visibility], map: "idx_notes_tenant_context_visibility")
-  @@index([tenantId, isPinned, contextType, contextId], map: "idx_notes_tenant_pinned_context")
-  @@index([tenantId, deletedAt], map: "idx_notes_tenant_soft_delete")
-  @@map("notes")
-  @@schema("notes")
-}
-
-// ── NoteMention ──
-
-model NoteMention {
-  id               String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId         String      @map("tenant_id")
-  noteId           String      @map("note_id") @db.Uuid
-  mentionType      MentionType @map("mention_type")
-  mentionedUserId  String?     @map("mentioned_user_id")
-  mentionedRole    String?     @map("mentioned_role")
-  isRead           Boolean     @default(false) @map("is_read")
-  readAt           DateTime?   @map("read_at") @db.Timestamptz(6)
-  notificationSent Boolean     @default(false) @map("notification_sent")
-  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, mentionedUserId, isRead], map: "idx_note_mentions_user_read")
-  @@index([tenantId, noteId], map: "idx_note_mentions_note")
-  @@map("note_mentions")
-  @@schema("notes")
-}
-
-// ── NoteReadStatus ──
-
-model NoteReadStatus {
-  id          String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String           @map("tenant_id")
-  userId      String           @map("user_id")
-  contextType NoteContextType? @map("context_type")
-  contextId   String?          @map("context_id")
-  noteId      String?          @map("note_id") @db.Uuid
-  lastReadAt  DateTime         @map("last_read_at") @db.Timestamptz(6)
-
-  note Note? @relation("NoteReadStatusNote", fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, userId, contextType, contextId], map: "uq_note_read_status_user_context")
-  @@index([tenantId, userId], map: "idx_note_read_status_user")
-  @@map("note_read_statuses")
-  @@schema("notes")
-}
-
-// ── NoteReaction ──
-
-model NoteReaction {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  noteId    String   @map("note_id") @db.Uuid
-  userId    String   @map("user_id")
-  emoji     String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, noteId, userId, emoji], map: "uq_note_reaction_user_emoji")
-  @@index([tenantId, noteId], map: "idx_note_reactions_note")
-  @@map("note_reactions")
-  @@schema("notes")
-}
-
-// ── NoteEntityReference (cross-references between notes and entities) ──
-
-model NoteEntityReference {
-  id                    String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId              String          @map("tenant_id")
-  noteId                String          @map("note_id") @db.Uuid
-  referencedEntityType  NoteContextType @map("referenced_entity_type")
-  referencedEntityId    String          @map("referenced_entity_id")
-  referencedEntityLabel String          @map("referenced_entity_label")
-  referencedEntityCode  String?         @map("referenced_entity_code")
-  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, noteId], map: "idx_note_entity_refs_note")
-  @@index([tenantId, referencedEntityType, referencedEntityId], map: "idx_note_entity_refs_entity")
-  @@map("note_entity_references")
-  @@schema("notes")
-}
-
-// ── EntityFollower (users following entity contexts for notifications) ──
-
-model EntityFollower {
-  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String          @map("tenant_id")
-  userId          String          @map("user_id")
-  contextType     NoteContextType @map("context_type")
-  contextId       String          @map("context_id")
-  autoFollow      Boolean         @default(true) @map("auto_follow")
-  notifyOnAll     Boolean         @default(true) @map("notify_on_all")
-  notifyOnMention Boolean         @default(true) @map("notify_on_mention")
-  notifyOnAlert   Boolean         @default(true) @map("notify_on_alert")
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@unique([tenantId, userId, contextType, contextId], map: "uq_entity_follower_user_context")
-  @@index([tenantId, contextType, contextId], map: "idx_entity_followers_context")
-  @@index([tenantId, userId], map: "idx_entity_followers_user")
-  @@map("entity_followers")
-  @@schema("notes")
-}
-
-// ── AiContextSummary (AI-generated summaries per entity context) ──
-
-model AiContextSummary {
-  id           String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId     String          @map("tenant_id")
-  contextType  NoteContextType @map("context_type")
-  contextId    String          @map("context_id")
-  summary      String          @db.Text
-  periodStart  DateTime        @map("period_start") @db.Timestamptz(6)
-  periodEnd    DateTime        @map("period_end") @db.Timestamptz(6)
-  noteCount    Int             @map("note_count")
-  topics       String[]        @default([])
-  decisions    Json?           @db.JsonB
-  pendingTasks Json?           @map("pending_tasks") @db.JsonB
-  embedding    Float[]         @default([])
-  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([tenantId, contextType, contextId], map: "idx_ai_context_summaries_context")
-  @@index([tenantId, periodEnd(sort: Desc)], map: "idx_ai_context_summaries_period")
-  @@map("ai_context_summaries")
-  @@schema("notes")
-}
-
-// ══════════════════════════════════════════════════════════════════
-// ██  CHAT — Sistema de Chat por Instalación
-// ══════════════════════════════════════════════════════════════════
-
-enum ChatSenderType {
-  ADMIN
-  GUARD
-  CLIENT
-  SYSTEM
-
-  @@schema("chat")
-}
-
-enum ChatChannelType {
-  INSTALLATION
-  GROUP
-  DIRECT
-
-  @@map("channel_type")
-  @@schema("chat")
-}
-
-// ── ChatChannel ──
-
-model ChatChannel {
-  id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId           String          @map("tenant_id")
-  channelType        ChatChannelType @default(INSTALLATION) @map("channel_type")
-  installationId     String?         @unique @map("installation_id") @db.Uuid
-  groupId            String?         @map("group_id")
-  name               String
-  isActive           Boolean         @default(true) @map("is_active")
-  lastMessageAt      DateTime?       @map("last_message_at") @db.Timestamptz(6)
-  lastMessagePreview String?         @map("last_message_preview") @db.Text
-  messageCount       Int             @default(0) @map("message_count")
-  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  installation            CrmInstallation?              @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  messages                ChatMessage[]
-  readCursors             ChatReadCursor[]
-  notificationPreferences ChatNotificationPreference[]
-  dmParticipants          ChatDmParticipant[]
-
-  @@index([tenantId], map: "idx_chat_channels_tenant")
-  @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
-  @@index([tenantId, lastMessageAt(sort: Desc)], map: "idx_chat_channels_tenant_last_msg")
-  @@index([installationId], map: "idx_chat_channels_installation")
-  @@index([groupId], map: "idx_chat_channels_group")
-  @@map("channels")
-  @@schema("chat")
-}
-
-// ── ChatMessage ──
-
-model ChatMessage {
-  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String         @map("tenant_id")
-  channelId       String         @map("channel_id") @db.Uuid
-  senderType      ChatSenderType @map("sender_type")
-  senderAdminId   String?        @map("sender_admin_id")
-  senderGuardiaId String?        @map("sender_guardia_id") @db.Uuid
-  senderContactId String?        @map("sender_contact_id") @db.Uuid
-  senderName      String         @map("sender_name")
-  senderAvatar    String?        @map("sender_avatar")
-  content         String         @db.Text
-  contentHtml     String?        @map("content_html") @db.Text
-  replyToId       String?        @map("reply_to_id") @db.Uuid
-  threadRootId    String?        @map("thread_root_id") @db.Uuid
-  replyCount      Int            @default(0) @map("reply_count")
-  lastReplyAt     DateTime?      @map("last_reply_at") @db.Timestamptz(6)
-  attachments     Json?          @db.JsonB
-  systemEventType String?        @map("system_event_type")
-  systemEventData Json?          @map("system_event_data") @db.JsonB
-  isEdited        Boolean        @default(false) @map("is_edited")
-  editedAt        DateTime?      @map("edited_at") @db.Timestamptz(6)
-  deletedAt       DateTime?      @map("deleted_at") @db.Timestamptz(6)
-  deletedBy       String?        @map("deleted_by")
-  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  channel       ChatChannel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  replyTo       ChatMessage?          @relation("ChatMessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies       ChatMessage[]         @relation("ChatMessageReply")
-  threadRoot    ChatMessage?          @relation("ChatMessageThread", fields: [threadRootId], references: [id], onDelete: Cascade)
-  threadReplies ChatMessage[]         @relation("ChatMessageThread")
-  reactions     ChatMessageReaction[]
-  mentions      ChatMention[]
-
-  @@index([tenantId, channelId, createdAt(sort: Desc)], map: "idx_chat_messages_channel_created")
-  @@index([channelId, createdAt], map: "idx_chat_messages_channel_asc")
-  @@index([senderAdminId], map: "idx_chat_messages_sender_admin")
-  @@index([senderGuardiaId], map: "idx_chat_messages_sender_guardia")
-  @@index([senderContactId], map: "idx_chat_messages_sender_contact")
-  @@index([replyToId], map: "idx_chat_messages_reply_to")
-  @@index([threadRootId, createdAt], map: "idx_chat_messages_thread_root")
-  @@map("messages")
-  @@schema("chat")
-}
-
-// ── ChatMessageReaction ──
-
-model ChatMessageReaction {
-  id         String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId   String         @map("tenant_id")
-  messageId  String         @map("message_id") @db.Uuid
-  senderType ChatSenderType @map("sender_type")
-  senderId   String         @map("sender_id")
-  senderName String         @map("sender_name")
-  emoji      String
-  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  @@unique([messageId, senderId, emoji], map: "uq_chat_reaction_user_emoji")
-  @@index([messageId], map: "idx_chat_reactions_message")
-  @@map("message_reactions")
-  @@schema("chat")
-}
-
-// ── ChatReadCursor ──
-
-model ChatReadCursor {
-  id                String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId          String         @map("tenant_id")
-  channelId         String         @map("channel_id") @db.Uuid
-  readerType        ChatSenderType @map("reader_type")
-  readerId          String         @map("reader_id")
-  lastReadAt        DateTime       @map("last_read_at") @db.Timestamptz(6)
-  lastReadMessageId String?        @map("last_read_message_id") @db.Uuid
-
-  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-
-  @@unique([channelId, readerType, readerId], map: "uq_chat_read_cursor_user_channel")
-  @@index([tenantId, readerId, readerType], map: "idx_chat_read_cursors_reader")
-  @@map("read_cursors")
-  @@schema("chat")
-}
-
-// ── ChatMention ──
-
-model ChatMention {
-  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String   @map("tenant_id")
-  messageId       String   @map("message_id") @db.Uuid
-  mentionType     String   @map("mention_type") // 'USER' or 'ALL'
-  mentionedUserId String?  @map("mentioned_user_id") // admin cuid if USER
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  @@index([messageId], map: "idx_chat_mentions_message")
-  @@index([mentionedUserId, createdAt(sort: Desc)], map: "idx_chat_mentions_user")
-  @@map("mentions")
-  @@schema("chat")
-}
-
-// ── ChatNotificationPreference ──
-
-model ChatNotificationPreference {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId   String   @map("tenant_id")
-  channelId  String   @map("channel_id") @db.Uuid
-  userType   String   @map("user_type") // 'ADMIN', 'GUARD', 'CLIENT'
-  userId     String   @map("user_id")
-  preference String   @default("ALL") // 'ALL', 'MENTIONS_ONLY', 'MUTED'
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-
-  @@unique([channelId, userType, userId], map: "uq_chat_notif_pref_channel_user")
-  @@index([userId, userType], map: "idx_chat_notif_prefs_user")
-  @@map("notification_preferences")
-  @@schema("chat")
-}
-
-// ── ChatPushSubscription ──
-
-model ChatPushSubscription {
-  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String         @map("tenant_id")
-  subscriberType ChatSenderType @map("subscriber_type")
-  subscriberId   String         @map("subscriber_id")
-  endpoint       String         @db.Text
-  p256dh         String         @map("p256dh") @db.Text
-  auth           String         @db.Text
-  userAgent      String?        @map("user_agent")
-  isActive       Boolean        @default(true) @map("is_active")
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([endpoint], map: "uq_chat_push_subscription_endpoint")
-  @@index([tenantId, subscriberType, subscriberId], map: "idx_chat_push_subscriptions_subscriber")
-  @@map("push_subscriptions")
-  @@schema("chat")
-}
-
-// ── ChatDmParticipant ──
-
-model ChatDmParticipant {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  channelId String   @map("channel_id") @db.Uuid
-  adminId   String   @map("admin_id")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-
-  @@unique([channelId, adminId], map: "uq_chat_dm_participant")
-  @@index([adminId], map: "idx_chat_dm_participants_admin")
-  @@map("dm_participants")
-  @@schema("chat")
 }
