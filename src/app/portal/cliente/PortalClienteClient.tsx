@@ -20,6 +20,8 @@ import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizacion
 import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
+import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
+import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
@@ -181,9 +183,14 @@ export function PortalClienteClient() {
       case "encuestas":
         return <PortalEncuestas session={session} />;
       case "personal":
-        return <div className="p-4 text-zinc-400">Personal - Coming soon</div>;
+        return <PortalPersonal isProspect={session?.isProspect} />;
       case "propuesta":
-        return <div className="p-4 text-zinc-400">Propuesta - Coming soon</div>;
+        return (
+          <PortalPropuesta
+            isProspect={session?.isProspect}
+            onNavigate={(s) => setActiveSection(s as PortalSection)}
+          />
+        );
       case "nosotros":
         return <div className="p-4 text-zinc-400">Nosotros - Coming soon</div>;
       case "empresa":
