@@ -69,12 +69,29 @@ export function PortalSupervisorClient() {
         <div>
           <h2 className="text-lg font-semibold text-white">Acceso denegado</h2>
           <p className="text-sm text-zinc-500 mt-1">
-            {error ?? "No tienes instalaciones asignadas como supervisor."}
+            {error ?? "Sin acceso al portal de supervisor."}
           </p>
         </div>
         <a href="/opai/login" className="text-sm text-blue-400 underline underline-offset-2">
           Iniciar sesión con otra cuenta
         </a>
+      </div>
+    );
+  }
+
+  if (session.installations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh gap-4 bg-[#0a0a0f] px-6 text-center">
+        <ShieldX size={48} className="text-zinc-600" />
+        <div>
+          <h2 className="text-lg font-semibold text-white">Sin instalaciones asignadas</h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            Tu cuenta ({session.name}) no tiene instalaciones asignadas como supervisor.
+          </p>
+          <p className="text-xs text-zinc-600 mt-2">
+            Un administrador debe crear una asignación en Ops → Supervisores.
+          </p>
+        </div>
       </div>
     );
   }

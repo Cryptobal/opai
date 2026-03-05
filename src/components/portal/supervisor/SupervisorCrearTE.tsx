@@ -50,7 +50,8 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/portal/supervisor/turnos-extra", {
+      // /api/te = registro directo de persona en TE (sin flujo de aprobación)
+      const res = await fetch("/api/te", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -63,10 +64,10 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
       });
       const json = await res.json();
       if (json.success) {
-        toast.success("Turno extra creado");
+        toast.success("Turno extra registrado");
         onCreated();
       } else {
-        toast.error(json.error ?? "Error al crear");
+        toast.error(json.error ?? "Error al registrar");
       }
     } catch {
       toast.error("Error de conexión");

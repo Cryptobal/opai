@@ -43,28 +43,38 @@ export function SupervisorPautas({ installations }: Props) {
     )
       .then((r) => r.json())
       .then((json) => {
-        if (json.data) {
-          // Flatten pauta entries from the API structure
-          const flat: PautaEntry[] = [];
-          const items = Array.isArray(json.data) ? json.data : json.data.items ?? [];
-          for (const item of items) {
-            if (Array.isArray(item.series)) {
-              for (const s of item.series) {
-                flat.push({
-                  id: `${item.id}-${s.date}`,
-                  date: s.date,
-                  guardiaId: item.guardiaId ?? null,
-                  guardiaName: item.guardiaName ?? "Sin asignar",
-                  puestoName: item.puestoName ?? item.puesto?.name ?? "Puesto",
-                  turnoCode: item.turnoCode ?? item.turno?.code ?? "",
-                  executed: s.executed ?? false,
-                  absentType: s.absentType ?? null,
-                });
-              }
-            }
-          }
-          setEntries(flat);
-        }
+        if (!json.data) return;
+        // API devuelve { data: { items: OpsPautaMensual[], executionByCell: {}, ... } }
+        // Cada item es una fila: puestoId, slotNumber, date, plannedGuardia, shiftCode
+        const items: Record<string, unknown>[] = json.data.items ?? [];
+        const executionByCell: Record<string, { executed: boolean; absentType: string | null }> =
+          json.data.executionByCell ?? {};
+
+        const flat: PautaEntry[] = items.map((item) => {
+          const dateStr =
+            typeof item.date === "string"
+              ? item.date.slice(0, 10)
+              : new Date(item.date as string).toISOString().slice(0, 10);
+          const cellKey = `${item.puestoId}|${item.slotNumber}|${dateStr}`;
+          const cell = executionByCell[cellKey];
+          const guardia = item.plannedGuardia as Record<string, unknown> | null;
+          const persona = guardia?.persona as Record<string, string> | null;
+          const puesto = item.puesto as Record<string, unknown> | null;
+
+          return {
+            id: item.id as string,
+            date: dateStr,
+            guardiaId: (guardia?.id as string) ?? null,
+            guardiaName: persona
+              ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
+              : "Sin asignar",
+            puestoName: (puesto?.name as string) ?? "Puesto",
+            turnoCode: (item.shiftCode as string) ?? "",
+            executed: cell?.executed ?? false,
+            absentType: cell?.absentType ?? null,
+          };
+        });
+        setEntries(flat);
       })
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
