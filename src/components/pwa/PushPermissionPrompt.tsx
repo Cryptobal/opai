@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { subscribeToPush } from '@/lib/pwa/push-client';
 import { Bell, X } from 'lucide-react';
@@ -16,6 +16,18 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
   const [dismissed, setDismissed] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Auto-subscribe when permission is already granted (re-subscribe ensures
+  // the server always has a fresh push subscription for this device).
+  useEffect(() => {
+    if (!registration) return;
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted') return;
+
+    subscribeToPush({ registration, portalType, userType, userId, tenantId })
+      .then((ok) => { if (ok) setSubscribed(true); })
+      .catch(() => {});
+  }, [registration, portalType, userType, userId, tenantId]);
 
   if (subscribed || dismissed || !registration) return null;
   if (typeof Notification === 'undefined') return null;

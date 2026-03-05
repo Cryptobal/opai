@@ -208,7 +208,7 @@ export async function POST(
     // Verify channel belongs to tenant
     const channel = await prisma.chatChannel.findFirst({
       where: { id: channelId, tenantId: ctx.tenantId },
-      select: { id: true, channelType: true, groupId: true },
+      select: { id: true, channelType: true, groupId: true, name: true },
     });
 
     if (!channel) {
@@ -399,6 +399,19 @@ export async function POST(
     triggerChatEvent(channelId, eventName, eventData).catch((err) =>
       console.error("Error triggering Pusher event:", err)
     );
+
+    // Send push notifications to other channel participants (non-blocking)
+    import("@/lib/pwa/push-service").then(({ sendChatPushNotifications }) =>
+      sendChatPushNotifications({
+        tenantId: ctx.tenantId,
+        channelId,
+        channelName: channel.name,
+        senderType: "ADMIN",
+        senderId: ctx.userId,
+        senderName,
+        messagePreview: content || "[Archivo adjunto]",
+      })
+    ).catch((err) => console.error("Error sending chat push:", err));
 
     return NextResponse.json({ success: true, data: responseData });
   } catch (err: any) {

@@ -301,6 +301,23 @@ export async function POST(
       console.error("[Portal Guardia] Error triggering new-message event:", err)
     );
 
+    // Send push notifications to other channel participants (non-blocking)
+    prisma.chatChannel.findUnique({ where: { id: channelId }, select: { name: true } })
+      .then((ch) =>
+        import("@/lib/pwa/push-service").then(({ sendChatPushNotifications }) =>
+          sendChatPushNotifications({
+            tenantId: session.tenantId,
+            channelId,
+            channelName: ch?.name || "Chat",
+            senderType: "GUARD",
+            senderId: session.guardiaId,
+            senderName: session.guardiaName,
+            messagePreview: content || "[Archivo adjunto]",
+          })
+        )
+      )
+      .catch((err) => console.error("[Portal Guardia] Error sending chat push:", err));
+
     return NextResponse.json({ success: true, data: responseData });
   } catch (err: any) {
     console.error("[Portal Guardia] Error sending chat message:", err);
