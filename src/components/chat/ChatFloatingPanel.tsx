@@ -387,7 +387,12 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
                 </div>
-              ) : filter === "unread" && directChannels.length === 0 && groupChannels.length === 0 && installationChannels.length === 0 ? (
+              ) : filter === "unread" &&
+                directChannels.filter(c => c.unreadCount > 0).length === 0 &&
+                groupChannels.filter(c => c.unreadCount > 0).length === 0 &&
+                installationChannels.filter(c => c.unreadCount > 0).length === 0 &&
+                prospectChannels.filter(c => c.unreadCount > 0).length === 0 &&
+                clientChannels.filter(c => c.unreadCount > 0).length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
                   <span className="text-3xl">✓</span>
                   <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
@@ -452,12 +457,12 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                   )}
 
                   {/* Prospectos */}
-                  {(prospectChannels.length > 0 || !isSearching) && filter !== "unread" && (
+                  {(filter === "unread" ? prospectChannels.some(c => c.unreadCount > 0) : (prospectChannels.length > 0 || !isSearching)) && (
                     <ChannelSection
                       label="Prospectos"
                       icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
-                      channels={prospectChannels}
-                      collapsed={isSearching ? false : !!collapsedSections["prospects"]}
+                      channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
+                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["prospects"]}
                       onToggle={() => toggleSection("prospects")}
                       onSelectChannel={ctx.selectChannel}
                       getDisplayName={(ch) => ch.account?.name ?? ch.name}
@@ -469,12 +474,12 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                   )}
 
                   {/* Clientes */}
-                  {(clientChannels.length > 0 || !isSearching) && filter !== "unread" && (
+                  {(filter === "unread" ? clientChannels.some(c => c.unreadCount > 0) : (clientChannels.length > 0 || !isSearching)) && (
                     <ChannelSection
                       label="Clientes"
                       icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
-                      channels={clientChannels}
-                      collapsed={isSearching ? false : !!collapsedSections["clients"]}
+                      channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
+                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["clients"]}
                       onToggle={() => toggleSection("clients")}
                       onSelectChannel={ctx.selectChannel}
                       getDisplayName={(ch) => ch.account?.name ?? ch.name}

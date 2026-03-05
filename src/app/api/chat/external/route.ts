@@ -53,6 +53,20 @@ export async function POST(req: Request) {
   // Build full participant set: contacts + requested admins + current user (always included)
   const allAdminIds = Array.from(new Set([ctx.userId, ...(adminIds ?? [])]));
 
+  // Validate all provided adminIds belong to this tenant
+  if (adminIds && adminIds.length > 0) {
+    const validAdmins = await prisma.admin.findMany({
+      where: { id: { in: adminIds }, tenantId: ctx.tenantId },
+      select: { id: true },
+    });
+    if (validAdmins.length !== new Set(adminIds).size) {
+      return NextResponse.json(
+        { success: false, error: "Uno o más administradores no pertenecen a este tenant" },
+        { status: 400 }
+      );
+    }
+  }
+
   // Check idempotency: find existing EXTERNAL channel with same account and exact same participant set
   const existingChannels = await prisma.chatChannel.findMany({
     where: {
