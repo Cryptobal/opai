@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2, MapPin, ExternalLink, Shield } from "lucide-react";
 import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
 
 interface CpqQuoteDetailProps {
@@ -112,6 +112,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [changingStatus, setChangingStatus] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
+  const [sendingPortal, setSendingPortal] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
@@ -748,6 +749,36 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       toast.error("No se pudo enviar la dotación a instalación");
     } finally {
       setSendingDotacion(false);
+    }
+  };
+
+  const handleSendPortal = async () => {
+    if (!quote || !crmContext.accountId || !crmContext.contactId || !crmContext.dealId) {
+      toast.error("Asigna cuenta, contacto y negocio antes de enviar por portal");
+      return;
+    }
+    setSendingPortal(true);
+    try {
+      const response = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
+        method: "POST",
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo enviar por portal");
+      }
+
+      toast.success(
+        `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
+      );
+      refresh();
+    } catch (error) {
+      console.error("Error sending via portal:", error);
+      toast.error(
+        error instanceof Error ? error.message : "No se pudo enviar por portal"
+      );
+    } finally {
+      setSendingPortal(false);
     }
   };
 
@@ -1817,8 +1848,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               )}
             </Card>
 
-            {/* ── Action button ── */}
-            <div className="flex pt-2 mt-auto">
+            {/* ── Action buttons ── */}
+            <div className="flex flex-col gap-2 pt-2 mt-auto">
               <SendCpqQuoteModal
                 quoteId={quoteId}
                 quoteCode={quote.code}
@@ -1836,6 +1867,26 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                   return c?.email || undefined;
                 })()}
               />
+              <Button
+                className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
+                disabled={
+                  !quote ||
+                  positions.length === 0 ||
+                  quote.status === "sent" ||
+                  !crmContext.accountId ||
+                  !crmContext.contactId ||
+                  !crmContext.dealId ||
+                  sendingPortal
+                }
+                onClick={handleSendPortal}
+              >
+                {sendingPortal ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Shield className="h-4 w-4" />
+                )}
+                {sendingPortal ? "Enviando..." : "Enviar por Portal"}
+              </Button>
             </div>
           </div>
         </div>
