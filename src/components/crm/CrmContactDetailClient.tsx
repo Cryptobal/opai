@@ -694,7 +694,6 @@ export function CrmContactDetailClient({
               {contact.accountId && (
                 <StartChatButton
                   contactId={contact.id}
-                  accountId={contact.accountId}
                   portalEnabled={contact.portalEnabled ?? false}
                 />
               )}

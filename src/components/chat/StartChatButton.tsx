@@ -7,11 +7,10 @@ import { useChatFloatingContext } from "./ChatFloatingProvider";
 
 interface Props {
   contactId: string;
-  accountId: string;
   portalEnabled: boolean;
 }
 
-export function StartChatButton({ contactId, accountId, portalEnabled }: Props) {
+export function StartChatButton({ contactId, portalEnabled }: Props) {
   const ctx = useChatFloatingContext();
   const [loading, setLoading] = useState(false);
 
@@ -19,11 +18,7 @@ export function StartChatButton({ contactId, accountId, portalEnabled }: Props) 
     if (!portalEnabled || loading) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/chat/external", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, contactIds: [contactId] }),
-      });
+      const res = await fetch(`/api/crm/contacts/${contactId}/chat`, { method: "POST" });
       const json = await res.json();
       if (json.success) {
         ctx.openPanel();
