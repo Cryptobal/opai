@@ -60,6 +60,7 @@ export async function GET(
       for (const q of cpqQuotes) {
         quotesById.set(q.id, {
           ...q,
+          name: q.clientName ?? null,
           monthlyCost: q.monthlyCost ? Number(q.monthlyCost) : null,
         });
       }
