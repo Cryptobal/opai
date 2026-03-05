@@ -62,7 +62,7 @@ export function SupervisorTickets({ installations }: Props) {
       const res = await fetch(`/api/ops/tickets?${params}&status=open`);
       if (res.ok) {
         const json = await res.json();
-        setItems(json.data ?? []);
+        setItems(Array.isArray(json.data) ? json.data : []);
       }
     } catch {
       // noop
