@@ -1334,7 +1334,11 @@ export function CrmDealDetailClient({
                     title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
                     subtitle={subtitleParts}
                     meta={formatQuoteAmounts(info)}
-                    badge={{ label: statusLabel, variant: statusVariant as any }}
+                    badge={
+                      info?.id === activeQuotationId
+                        ? { label: `${statusLabel} | Activa`, variant: "success" as any }
+                        : { label: statusLabel, variant: statusVariant as any }
+                    }
                     href={`/crm/cotizaciones/${quote.quoteId}`}
                   />
                 );
