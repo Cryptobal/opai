@@ -19,7 +19,7 @@ export async function POST(
     },
   });
 
-  if (!contact || contact.account.tenantId !== ctx.tenantId) {
+  if (!contact || !contact.account || contact.account.tenantId !== ctx.tenantId) {
     return NextResponse.json(
       { success: false, error: "Contacto no encontrado" },
       { status: 404 }
