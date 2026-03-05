@@ -15,6 +15,7 @@ import {
   X,
   Image as ImageIcon,
   File as FileIcon,
+  Link2,
 } from "lucide-react";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
@@ -23,6 +24,27 @@ import { cn } from "@/lib/utils";
 import type { SendMessagePayload, ChatAttachment, PusherTypingEvent } from "@/lib/chat-types";
 
 type MentionUser = { id: string; name: string; email: string };
+
+type GlobalSearchResult = {
+  id: string;
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual" | "channel";
+  title: string;
+  subtitle: string;
+  href: string;
+};
+
+const ENTITY_TYPE_ICONS: Record<GlobalSearchResult["type"], string> = {
+  lead: "\uD83C\uDFAF",
+  account: "\uD83C\uDFE2",
+  contact: "\uD83D\uDC64",
+  deal: "\uD83D\uDCBC",
+  quote: "\uD83D\uDCCB",
+  installation: "\uD83D\uDCCD",
+  guardia: "\uD83D\uDEE1\uFE0F",
+  document: "\uD83D\uDCC4",
+  pauta_mensual: "\uD83D\uDCCA",
+  channel: "\uD83D\uDCAC",
+};
 
 interface ChatInputProps {
   onSend: (payload: SendMessagePayload) => Promise<void>;
@@ -80,6 +102,23 @@ export function ChatInput({
   const [mentionStartPos, setMentionStartPos] = useState(0);
   const mentionFetchRef = useRef<AbortController | null>(null);
 
+  // #hashtag entity search state
+  const [hashtagQuery, setHashtagQuery] = useState<string | null>(null);
+  const [hashtagResults, setHashtagResults] = useState<GlobalSearchResult[]>([]);
+  const [hashtagIndex, setHashtagIndex] = useState(0);
+  const [hashtagStartPos, setHashtagStartPos] = useState(0);
+  const hashtagFetchRef = useRef<AbortController | null>(null);
+  const hashtagDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Link/pin panel state
+  const [showLinkPanel, setShowLinkPanel] = useState(false);
+  const [linkPanelQuery, setLinkPanelQuery] = useState("");
+  const [linkPanelResults, setLinkPanelResults] = useState<GlobalSearchResult[]>([]);
+  const [linkPanelLoading, setLinkPanelLoading] = useState(false);
+  const linkPanelRef = useRef<HTMLDivElement>(null);
+  const linkPanelFetchRef = useRef<AbortController | null>(null);
+  const linkPanelDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -111,6 +150,20 @@ export function ChatInput({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showEmojiPicker]);
+
+  // Close link panel on outside click
+  useEffect(() => {
+    if (!showLinkPanel) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (linkPanelRef.current && !linkPanelRef.current.contains(e.target as Node)) {
+        setShowLinkPanel(false);
+        setLinkPanelQuery("");
+        setLinkPanelResults([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showLinkPanel]);
 
   // Insert emoji at cursor position
   const handleEmojiSelect = useCallback((emojiData: { emoji: string }) => {
@@ -154,11 +207,33 @@ export function ChatInput({
     }
   }, [pusher, channelId]);
 
-  // Detect @mention trigger
+  // Detect @mention and #hashtag triggers
   const detectMention = useCallback(
     (value: string, cursorPos: number) => {
-      // Look backwards from cursor to find @
       const textBefore = value.slice(0, cursorPos);
+
+      // Try to detect # first (entity search)
+      const hashIndex = textBefore.lastIndexOf("#");
+      if (hashIndex !== -1) {
+        const hashPrecededByWhitespace = hashIndex === 0 || /\s/.test(textBefore[hashIndex - 1]);
+        if (hashPrecededByWhitespace) {
+          const hQuery = textBefore.slice(hashIndex + 1);
+          // No spaces allowed in hashtag query
+          if (!hQuery.includes(" ")) {
+            setHashtagQuery(hQuery);
+            setHashtagStartPos(hashIndex);
+            setHashtagIndex(0);
+            // Close @mention when #hashtag is active
+            setMentionQuery(null);
+            return;
+          }
+        }
+      }
+
+      // Clear hashtag if no valid # found
+      setHashtagQuery(null);
+
+      // Detect @mention
       const atIndex = textBefore.lastIndexOf("@");
 
       if (atIndex === -1) {
@@ -219,6 +294,134 @@ export function ChatInput({
     fetchUsers();
     return () => controller.abort();
   }, [mentionQuery, channelId]);
+
+  // Fetch hashtag entity results when query changes (debounced 300ms, min 1 char)
+  useEffect(() => {
+    if (hashtagQuery === null || hashtagQuery.length < 1) {
+      setHashtagResults([]);
+      return;
+    }
+
+    // Clear previous debounce
+    if (hashtagDebounceRef.current) {
+      clearTimeout(hashtagDebounceRef.current);
+    }
+
+    hashtagDebounceRef.current = setTimeout(() => {
+      hashtagFetchRef.current?.abort();
+      const controller = new AbortController();
+      hashtagFetchRef.current = controller;
+
+      const fetchResults = async () => {
+        try {
+          const res = await fetch(`/api/search/global?q=${encodeURIComponent(hashtagQuery)}`, {
+            signal: controller.signal,
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          if (json.success) {
+            setHashtagResults(json.data);
+          }
+        } catch {
+          // Ignore abort errors
+        }
+      };
+
+      fetchResults();
+    }, 300);
+
+    return () => {
+      if (hashtagDebounceRef.current) {
+        clearTimeout(hashtagDebounceRef.current);
+      }
+      hashtagFetchRef.current?.abort();
+    };
+  }, [hashtagQuery]);
+
+  // Fetch link panel results (debounced 300ms, min 2 chars)
+  useEffect(() => {
+    if (!showLinkPanel || linkPanelQuery.length < 2) {
+      setLinkPanelResults([]);
+      setLinkPanelLoading(false);
+      return;
+    }
+
+    setLinkPanelLoading(true);
+
+    if (linkPanelDebounceRef.current) {
+      clearTimeout(linkPanelDebounceRef.current);
+    }
+
+    linkPanelDebounceRef.current = setTimeout(() => {
+      linkPanelFetchRef.current?.abort();
+      const controller = new AbortController();
+      linkPanelFetchRef.current = controller;
+
+      const fetchResults = async () => {
+        try {
+          const res = await fetch(`/api/search/global?q=${encodeURIComponent(linkPanelQuery)}`, {
+            signal: controller.signal,
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          if (json.success) {
+            setLinkPanelResults(json.data);
+          }
+        } catch {
+          // Ignore abort errors
+        } finally {
+          setLinkPanelLoading(false);
+        }
+      };
+
+      fetchResults();
+    }, 300);
+
+    return () => {
+      if (linkPanelDebounceRef.current) {
+        clearTimeout(linkPanelDebounceRef.current);
+      }
+      linkPanelFetchRef.current?.abort();
+    };
+  }, [showLinkPanel, linkPanelQuery]);
+
+  // Insert entity token from # dropdown
+  const insertHashtagEntity = useCallback(
+    (result: GlobalSearchResult) => {
+      const before = content.slice(0, hashtagStartPos);
+      // Skip past the '#' character + the query typed so far
+      const after = content.slice(hashtagStartPos + 1 + (hashtagQuery?.length ?? 0));
+      const token = `<#${result.type}:${result.id}:${result.title}>`;
+      const newContent = before + token + " " + after;
+      setContent(newContent);
+      setHashtagQuery(null);
+      setHashtagResults([]);
+
+      setTimeout(() => {
+        const pos = before.length + token.length + 1;
+        textareaRef.current?.setSelectionRange(pos, pos);
+        textareaRef.current?.focus();
+      }, 0);
+    },
+    [content, hashtagStartPos, hashtagQuery]
+  );
+
+  // Insert entity token from link panel (append to end)
+  const insertLinkPanelEntity = useCallback(
+    (result: GlobalSearchResult) => {
+      const token = `<#${result.type}:${result.id}:${result.title}>`;
+      const separator = content.length > 0 && !content.endsWith(" ") ? " " : "";
+      setContent(prev => prev + separator + token + " ");
+      setShowLinkPanel(false);
+      setLinkPanelQuery("");
+      setLinkPanelResults([]);
+
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    },
+    [content]
+  );
 
   const insertMention = useCallback(
     (userId: string, name: string) => {
@@ -376,6 +579,34 @@ export function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Handle hashtag entity navigation
+      if (hashtagQuery !== null && hashtagResults.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setHashtagIndex((prev) => Math.min(prev + 1, hashtagResults.length - 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setHashtagIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          const selected = hashtagResults[hashtagIndex];
+          if (selected) {
+            insertHashtagEntity(selected);
+          }
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setHashtagQuery(null);
+          setHashtagResults([]);
+          return;
+        }
+      }
+
       // Handle mention navigation
       if (mentionQuery !== null && mentionOptions.length > 0) {
         if (e.key === "ArrowDown") {
@@ -408,7 +639,7 @@ export function ChatInput({
         handleSend();
       }
     },
-    [handleSend, mentionQuery, mentionOptions, mentionIndex, insertMention]
+    [handleSend, mentionQuery, mentionOptions, mentionIndex, insertMention, hashtagQuery, hashtagResults, hashtagIndex, insertHashtagEntity]
   );
 
   const isEmpty = content.trim().length === 0 && files.length === 0;
@@ -512,7 +743,15 @@ export function ChatInput({
         <div className="relative" ref={emojiPickerRef}>
           <button
             type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            onClick={() => {
+              setShowEmojiPicker(!showEmojiPicker);
+              // Close link panel when opening emoji picker
+              if (!showEmojiPicker) {
+                setShowLinkPanel(false);
+                setLinkPanelQuery("");
+                setLinkPanelResults([]);
+              }
+            }}
             className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
             aria-label="Emoji"
             title="Emoji"
@@ -533,8 +772,118 @@ export function ChatInput({
           )}
         </div>
 
-        {/* Textarea + mention popup */}
+        {/* Link/entity search button */}
+        <div className="relative" ref={linkPanelRef}>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showLinkPanel;
+              setShowLinkPanel(next);
+              // Close emoji picker when opening link panel
+              if (next) {
+                setShowEmojiPicker(false);
+              } else {
+                setLinkPanelQuery("");
+                setLinkPanelResults([]);
+              }
+            }}
+            className={cn(
+              "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+              showLinkPanel
+                ? "bg-zinc-700 text-zinc-200"
+                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            )}
+            aria-label="Vincular entidad"
+            title="Vincular entidad CRM"
+          >
+            <Link2 className="h-4.5 w-4.5" />
+          </button>
+          {showLinkPanel && (
+            <div className="absolute bottom-full left-0 mb-2 z-50 w-80 rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+              <div className="p-2 border-b border-zinc-700">
+                <input
+                  type="text"
+                  value={linkPanelQuery}
+                  onChange={(e) => setLinkPanelQuery(e.target.value)}
+                  placeholder="Buscar entidad..."
+                  className="w-full rounded-md border border-zinc-600 bg-zinc-900/50 px-2.5 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {linkPanelLoading && (
+                  <div className="flex items-center justify-center py-4 text-xs text-zinc-500">
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-blue-400 mr-2" />
+                    Buscando...
+                  </div>
+                )}
+                {!linkPanelLoading && linkPanelQuery.length >= 2 && linkPanelResults.length === 0 && (
+                  <div className="py-4 text-center text-xs text-zinc-500">
+                    Sin resultados
+                  </div>
+                )}
+                {!linkPanelLoading && linkPanelQuery.length < 2 && linkPanelQuery.length > 0 && (
+                  <div className="py-4 text-center text-xs text-zinc-500">
+                    Escribe al menos 2 caracteres
+                  </div>
+                )}
+                {linkPanelResults.map((result) => (
+                  <button
+                    key={`${result.type}-${result.id}`}
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 transition-colors"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      insertLinkPanelEntity(result);
+                    }}
+                  >
+                    <span className="shrink-0 text-base leading-none">
+                      {ENTITY_TYPE_ICONS[result.type]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-xs">{result.title}</p>
+                      <p className="truncate text-[10px] text-zinc-500">{result.subtitle}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Textarea + mention/hashtag popup */}
         <div className="flex-1 min-w-0 relative">
+          {/* #hashtag entity popup */}
+          {hashtagQuery !== null && hashtagResults.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl z-50">
+              {hashtagResults.map((result, idx) => (
+                <button
+                  key={`${result.type}-${result.id}`}
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+                    idx === hashtagIndex
+                      ? "bg-zinc-700 text-zinc-100"
+                      : "text-zinc-300 hover:bg-zinc-700/50"
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    insertHashtagEntity(result);
+                  }}
+                  onMouseEnter={() => setHashtagIndex(idx)}
+                >
+                  <span className="shrink-0 text-base leading-none">
+                    {ENTITY_TYPE_ICONS[result.type]}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-xs">{result.title}</p>
+                    <p className="truncate text-[10px] text-zinc-500">{result.subtitle}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* @mention popup */}
           {mentionQuery !== null && mentionOptions.length > 0 && (
             <div className="absolute bottom-full left-0 right-0 mb-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl z-50">

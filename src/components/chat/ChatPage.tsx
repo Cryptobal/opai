@@ -7,6 +7,10 @@ import { ChatConversation } from "./ChatConversation";
 import { usePusher } from "./hooks/usePusher";
 import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
 
+interface ChatPageProps {
+  currentUserId?: string;
+}
+
 /**
  * Full-page chat layout with two panels:
  * - Left: ChatChannelList (320px width, border-right)
@@ -15,7 +19,7 @@ import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
  * On mobile (< lg): shows only channel list OR conversation,
  * toggled on channel select with a back button to return.
  */
-export function ChatPage() {
+export function ChatPage({ currentUserId }: ChatPageProps) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [selectedChannelName, setSelectedChannelName] = useState<string>("");
   const pusher = usePusher("/api/chat/pusher/auth");
@@ -66,6 +70,7 @@ export function ChatPage() {
             channelName={selectedChannelName}
             pusher={pusher}
             onBack={handleBack}
+            currentUserId={currentUserId}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-zinc-500">

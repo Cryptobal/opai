@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor } from 'lucide-react';
+import { Shield, Route, Monitor, Users } from 'lucide-react';
 import { PageHeader } from '@/components/opai';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
@@ -39,6 +39,15 @@ const PORTALS: PortalDef[] = [
         href: '/portal/rondas',
         icon: Route,
         accentColor: 'from-emerald-500/25 to-emerald-400/5',
+    },
+    {
+        id: 'cliente',
+        name: 'Portal de clientes',
+        description:
+            'Portal para clientes. Los contactos con PIN pueden ingresar con el RUT de la empresa y su PIN personal.',
+        href: '/portal/cliente',
+        icon: Users,
+        accentColor: 'from-teal-500/25 to-teal-400/5',
     },
 ];
 

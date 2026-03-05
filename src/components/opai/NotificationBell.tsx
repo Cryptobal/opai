@@ -139,6 +139,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      window.dispatchEvent(new CustomEvent('opai-notification-read'));
     } catch (error) {
       console.error('Error marking notifications as read:', error);
     } finally {
@@ -147,6 +148,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
   };
 
   const markOneRead = async (id: string) => {
+    const notification = notifications.find((n) => n.id === id);
     try {
       await fetch('/api/notifications', {
         method: 'PATCH',
@@ -157,6 +159,34 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
+      window.dispatchEvent(new CustomEvent('opai-notification-read'));
+      // Si la notificación enlaza a una cuenta, marcar actividad de esa cuenta como vista (quita el 1 del tab Actividad)
+      if (notification?.link) {
+        const m = notification.link.match(/\/crm\/accounts\/([^/?]+)/);
+        if (m?.[1]) {
+          try {
+            localStorage.setItem(`opai-activity-seen-${m[1]}`, new Date().toISOString());
+            window.dispatchEvent(new CustomEvent('opai-activity-seen', { detail: { accountId: m[1] } }));
+          } catch { /* ignore */ }
+        }
+      }
+      // Si es una mención con contexto de nota, marcar también el contexto como leído para que el badge de la ficha se actualice
+      if (notification && ['mention', 'mention_direct', 'mention_group'].includes(notification.type)) {
+        const data = (notification.data || {}) as Record<string, unknown>;
+        const entityType = typeof data.entityType === 'string' ? data.entityType.toUpperCase() : '';
+        const entityId = typeof data.entityId === 'string' ? data.entityId : '';
+        const validContexts = ['LEAD', 'ACCOUNT', 'CONTACT', 'DEAL', 'QUOTATION', 'INSTALLATION', 'TICKET', 'GUARD', 'DOCUMENT', 'OPERATION', 'PAYROLL_RECORD', 'RENDICION', 'PUESTO', 'PAUTA_MENSUAL', 'SUPERVISION_VISIT'];
+        if (entityId && validContexts.includes(entityType)) {
+          try {
+            await fetch('/api/notes/mark-read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contextType: entityType, contextId: entityId }),
+            });
+            window.dispatchEvent(new CustomEvent('opai-note-seen'));
+          } catch { /* ignore */ }
+        }
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }

@@ -12,7 +12,7 @@ import { ensureOpsAccess } from "@/lib/ops";
 
 export type GlobalSearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual";
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual" | "channel";
   title: string;
   subtitle: string;
   href: string;
@@ -32,6 +32,7 @@ const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
 const CRM_TYPE_LIMIT = 4;
 const OPS_LIMIT = 6;
 const DOCS_LIMIT = 5;
+const CHANNEL_LIMIT = 5;
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (!ctx) return unauthorized();
 
     const q = request.nextUrl.searchParams.get("q")?.trim();
-    if (!q || q.length < 2) {
+    if (!q || q.length < 1) {
       return NextResponse.json({ success: true, data: [] });
     }
 
@@ -123,6 +124,7 @@ export async function GET(request: NextRequest) {
             firstName: true,
             lastName: true,
             email: true,
+            portalPinVisible: true,
             account: { select: { name: true } },
           },
         }),
@@ -197,11 +199,12 @@ export async function GET(request: NextRequest) {
         });
       }
       for (const contact of contacts) {
+        const subtitleParts = [contact.account?.name, contact.portalPinVisible ? `PIN: ${contact.portalPinVisible}` : null].filter(Boolean);
         results.push({
           id: contact.id,
           type: "contact",
           title: `${contact.firstName} ${contact.lastName}`.trim(),
-          subtitle: [contact.email, contact.account?.name].filter(Boolean).join(" · "),
+          subtitle: subtitleParts.length ? subtitleParts.join(" · ") : "Sin cuenta",
           href: `/crm/contacts/${contact.id}`,
         });
       }
@@ -391,6 +394,47 @@ export async function GET(request: NextRequest) {
           href: `/opai/documentos/${doc.id}`,
         });
       }
+    }
+
+    // ── Chat channels ──
+    try {
+      const channels = await prisma.chatChannel.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { installation: { name: { contains: q, mode: "insensitive" } } },
+          ],
+        },
+        take: CHANNEL_LIMIT,
+        orderBy: { lastMessageAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          channelType: true,
+          installation: { select: { name: true } },
+        },
+      });
+
+      for (const ch of channels) {
+        const subtitle =
+          ch.channelType === "INSTALLATION" && ch.installation
+            ? `Instalación · ${ch.installation.name}`
+            : ch.channelType === "DIRECT"
+              ? "Mensaje directo"
+              : "Grupo";
+        results.push({
+          id: ch.id,
+          type: "channel",
+          title: ch.name,
+          subtitle,
+          href: `/chat?channelId=${ch.id}`,
+        });
+      }
+    } catch (err) {
+      console.error("[global search] channel query error:", err);
+      // Don't fail entire search if channel query errors
     }
 
     return NextResponse.json({ success: true, data: results });

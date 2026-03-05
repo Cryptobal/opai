@@ -1,15 +1,20 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useChatFloatingContext } from "./ChatFloatingProvider";
 
 /**
  * Floating action button for chat — replaces NotesFloatingButton.
- * Shows unread badge from GROUP channels.
+ * Shows unread badge from ALL channels (DIRECT, GROUP, INSTALLATION).
  */
 export function ChatFloatingButton() {
   const ctx = useChatFloatingContext();
+  const pathname = usePathname();
+
+  // Don't show the button on the /chat page to avoid duplicate chat UI
+  if (pathname.startsWith("/chat")) return null;
 
   return (
     <button

@@ -57,14 +57,16 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         const json: MessagesResponse = await res.json();
 
         if (json.success) {
+          // API returns messages in desc order (newest first) — reverse for chronological display
+          const sorted = [...json.data].reverse();
           setMessages((prev) => {
             // When loading older messages (cursor), prepend. Otherwise, replace.
             if (cursor) {
               const existingIds = new Set(prev.map((m) => m.id));
-              const newMessages = json.data.filter((m) => !existingIds.has(m.id));
+              const newMessages = sorted.filter((m) => !existingIds.has(m.id));
               return [...newMessages, ...prev];
             }
-            return json.data;
+            return sorted;
           });
           setHasMore(json.meta.hasMore);
           cursorRef.current = json.meta.nextCursor;

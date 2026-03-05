@@ -1,6 +1,6 @@
 # Documentacion OPAI Suite
 
-> **Actualizado:** 2026-02-18
+> **Actualizado:** 2026-03-04
 
 ---
 
@@ -78,7 +78,11 @@ docs/
 │   ├── 2026-02-15-erp-fase1-implementation-plan.md   ← Plan de implementacion ERP
 │   ├── 2026-02-15-local-phase-backend-design.md      ← Diseno backend local phase
 │   ├── 2026-02-15-local-phase-implementation.md      ← Plan local phase
-│   └── 2026-02-16-finance-banking-reconciliation.md  ← Conciliacion bancaria
+│   ├── 2026-02-16-finance-banking-reconciliation.md  ← Conciliacion bancaria
+│   ├── 2026-03-02-portal-rondas-*.md                 ← Portal rondas diseño/impl
+│   ├── 2026-03-02-pauta-*.md, 2026-03-02-rondas-critical-fixes.md
+│   ├── 2026-03-03-supervision-v2-*.md                ← Supervision v2 diseño/impl
+│   └── 2026-03-04-portal-rondas-redesign-*.md, 2026-03-04-rondas-ux-improvements.md
 │
 ├── CHANGELOG.md                         ← Historial de cambios
 ├── NORMALIZACION-COMPLETADA.md          ← Historico de normalizacion
@@ -94,17 +98,21 @@ docs/
 | Modulo | Estado | Docs relevantes |
 |--------|:------:|----------------|
 | Hub | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
-| CRM | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
+| CRM | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) (incl. contratos por cuenta, won-deals) |
 | CPQ | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 | Presentaciones | ✅ | [001-docs-master.md](./00-product/001-docs-master.md) |
-| Documentos | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
+| Documentos | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) (incl. portal_visible) |
 | Payroll | ⚠️ 60% | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 | Ops + TE + Personas | ✅ | [docs/05-etapa-1/](./05-etapa-1/) |
 | Marcacion digital | ✅ | [docs/07-etapa-3/](./07-etapa-3/) |
 | Rondas | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
+| Supervisión (v2) | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md), plans/ |
 | Tickets + SLA | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 | Notificaciones | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 | Finanzas (Rendiciones) | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
+| Portal Cliente | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) — dashboard, rondas, contratos, chat |
+| Portales (landing) | ✅ | `/portales` — acceso a Portal Guardia, Rondas, Cliente |
+| Inventario (Ops) | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) — bodegas, productos, stock, compras |
 | Auth/RBAC | ✅ | [auth.md](./01-architecture/auth.md), [usuarios-roles.md](./02-implementation/usuarios-roles.md) |
 | Config | ✅ | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
 
@@ -114,8 +122,7 @@ docs/
 |--------|------|
 | ERP Financiero-Contable | [docs/plans/2026-02-15-erp-financiero-contable-design.md](./plans/2026-02-15-erp-financiero-contable-design.md) |
 | Completitud Payroll | [ESTADO_GENERAL.md](./02-implementation/ESTADO_GENERAL.md) |
-| Portal guardias mejorado | [MASTER_SPEC_OPI.md](./00-product/MASTER_SPEC_OPI.md) |
-| Inventario | [MASTER_SPEC_OPI.md](./00-product/MASTER_SPEC_OPI.md) |
+| Portal guardias (comunicados, solicitudes RRHH) | [MASTER_SPEC_OPI.md](./00-product/MASTER_SPEC_OPI.md) |
 | Certificacion DT marcacion | [docs/07-etapa-3/](./07-etapa-3/) |
 
 ---

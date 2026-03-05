@@ -87,13 +87,13 @@ export default async function CrmAccountDetailPage({
     createdByName: log.createdBy ? actorMap.get(log.createdBy) ?? null : null,
   }));
 
-  // Eventos de "Último acceso al portal" desde contactos de la cuenta (para la pestaña Actividad)
+  // Tracking de uso del portal del cliente (solo actividad, no genera notificaciones)
   const portalAccessEvents = (account.contacts ?? [])
     .filter((c) => c.portalLastAccessAt)
     .map((c) => ({
       id: `portal-access-${c.id}`,
       action: "portal_cliente_access",
-      createdAt: c.portalLastAccessAt!.toISOString(),
+      createdAt: c.portalLastAccessAt instanceof Date ? c.portalLastAccessAt.toISOString() : String(c.portalLastAccessAt),
       createdBy: null as string | null,
       createdByName: null as string | null,
       details: {

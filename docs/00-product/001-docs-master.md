@@ -157,13 +157,13 @@ src/app/
 └── crm/                 # Placeholder
 ```
 
-### URLs del Módulo
-Todas las rutas operan bajo el prefijo `/docs`:
-- Dashboard: `opai.gard.cl/docs/inicio`
-- Login: `opai.gard.cl/docs/login`
-- Presentaciones públicas: `opai.gard.cl/docs/p/{uniqueId}`
-- APIs: `opai.gard.cl/docs/api/*`
-- Gestión de usuarios: `opai.gard.cl/docs/usuarios`
+### URLs del Módulo (actuales en MONOREPO)
+Rutas bajo prefijo `/opai` para dashboard y gestión; `/p` para vistas públicas:
+- Dashboard: `opai.gard.cl/opai/inicio`
+- Login: `opai.gard.cl/opai/login`
+- Presentaciones públicas: `opai.gard.cl/p/{uniqueId}`
+- APIs: bajo `/api/` (presentations, docs, etc.)
+- Gestión de usuarios: `opai.gard.cl/opai/configuracion/usuarios`
 
 ### Variables de Entorno
 ```env
@@ -178,10 +178,10 @@ RESEND_API_KEY=<resend-key>
 
 ## Roadmap inmediato
 1) ✅ Migrar a estructura MONOREPO
-2) ⏳ Testing exhaustivo de rutas y funcionalidad
-3) ⏳ Deploy a producción con nuevo dominio
-4) 🔜 Implementar Hub (launcher de apps)
-5) 🔜 Iniciar desarrollo de CRM
+2) ✅ Hub y CRM implementados (suite completa)
+3) ✅ Deploy en producción (Vercel)
+4) ✅ Documentos con firma digital y portal_visible (portal cliente)
+5) Mantenimiento y mejoras incrementales
 
 ---
 

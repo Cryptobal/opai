@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, type ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
@@ -23,6 +23,7 @@ interface ChatMessageProps {
   channelId?: string;
   currentUserId?: string;
   readByCount?: number;
+  onReaction?: (messageId: string, emoji: string) => void;
 }
 
 /**
@@ -55,46 +56,113 @@ function formatTime(dateStr: string): string {
  * Others: aligned left, zinc background.
  */
 /**
- * Render message content with @mention highlighting.
- * Format: <@userId>Name</> or <@todos>
+ * Entity type configuration for context/entity reference rendering.
+ */
+const ENTITY_CONFIG: Record<string, { icon: string; color: string; basePath: string }> = {
+  lead: { icon: "🎯", color: "bg-orange-500/20 text-orange-300 border-orange-500/30", basePath: "/crm/leads" },
+  account: { icon: "🏢", color: "bg-blue-500/20 text-blue-300 border-blue-500/30", basePath: "/crm/accounts" },
+  contact: { icon: "👤", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", basePath: "/crm/contacts" },
+  deal: { icon: "💼", color: "bg-purple-500/20 text-purple-300 border-purple-500/30", basePath: "/crm/deals" },
+  quote: { icon: "📋", color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30", basePath: "/crm/cotizaciones" },
+  installation: { icon: "📍", color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30", basePath: "/crm/installations" },
+  guardia: { icon: "🛡️", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", basePath: "/personas/guardias" },
+  document: { icon: "📄", color: "bg-amber-500/20 text-amber-300 border-amber-500/30", basePath: "/opai/documentos" },
+  pauta_mensual: { icon: "📊", color: "bg-violet-500/20 text-violet-300 border-violet-500/30", basePath: "/ops/pauta-mensual" },
+  channel: { icon: "💬", color: "bg-teal-500/20 text-teal-300 border-teal-500/30", basePath: "/chat" },
+};
+
+/**
+ * Render message content with @mention and #entity reference highlighting.
+ * Mention format: <@userId> or <@todos>
+ * Entity format: <#type:id:title>
  */
 function renderContent(content: string, currentUserId?: string): ReactNode {
-  // Parse <@userId> patterns
-  const parts = content.split(/(<@[^>]+>)/g);
+  // Parse <@userId> and <#type:id:title> patterns
+  const parts = content.split(/(<@[^>]+>|<#[^>]+>)/g);
   if (parts.length === 1) return content;
 
   return parts.map((part, i) => {
+    // Handle @mentions
     const mentionMatch = part.match(/^<@([^>]+)>$/);
-    if (!mentionMatch) return part;
+    if (mentionMatch) {
+      const token = mentionMatch[1];
+      const isTodos = token === "todos";
+      const isMe = !isTodos && token === currentUserId;
 
-    const token = mentionMatch[1];
-    const isTodos = token === "todos";
-    const isMe = !isTodos && token === currentUserId;
+      return (
+        <span
+          key={i}
+          className={cn(
+            "inline-flex items-center rounded px-1 py-0.5 text-xs font-medium",
+            isTodos
+              ? "bg-red-500/20 text-red-300"
+              : isMe
+                ? "bg-blue-500/30 text-blue-200"
+                : "bg-teal-500/20 text-teal-300"
+          )}
+        >
+          @{isTodos ? "todos" : token}
+        </span>
+      );
+    }
 
-    return (
-      <span
-        key={i}
-        className={cn(
-          "inline-flex items-center rounded px-1 py-0.5 text-xs font-medium",
-          isTodos
-            ? "bg-red-500/20 text-red-300"
-            : isMe
-              ? "bg-blue-500/30 text-blue-200"
-              : "bg-teal-500/20 text-teal-300"
-        )}
-      >
-        @{isTodos ? "todos" : token}
-      </span>
-    );
+    // Handle #entity references
+    const entityMatch = part.match(/^<#([^:]+):([^:]+):([^>]+)>$/);
+    if (entityMatch) {
+      const [, type, id, title] = entityMatch;
+      const config = ENTITY_CONFIG[type];
+      if (!config) return part;
+
+      const href =
+        type === "pauta_mensual"
+          ? `/ops/pauta-mensual?installationId=${id}`
+          : type === "channel"
+            ? `${config.basePath}?channelId=${id}`
+            : `${config.basePath}/${id}`;
+
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium no-underline hover:brightness-125 transition-all",
+            config.color
+          )}
+        >
+          <span>{config.icon}</span>
+          <span>{title}</span>
+        </a>
+      );
+    }
+
+    return part;
   });
 }
 
-export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
+  const [actionsExpanded, setActionsExpanded] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [showMobileActions, setShowMobileActions] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionBarRef = useRef<HTMLDivElement>(null);
+
+  // Close expanded action bar on any click outside it
+  useEffect(() => {
+    if (!actionsExpanded || dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (actionBarRef.current && !actionBarRef.current.contains(e.target as Node)) {
+        setActionsExpanded(false);
+        setShowActions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [actionsExpanded, dropdownOpen]);
 
   const handleReaction = useCallback(async (emoji: string) => {
     if (!channelId) return;
@@ -104,6 +172,7 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoji }),
       });
+      onReaction?.(message.id, emoji);
     } catch (err) {
       console.error("Error toggling reaction:", err);
     }
@@ -116,7 +185,7 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
         isOwn ? "justify-end" : "justify-start"
       )}
       onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onMouseLeave={() => { if (!dropdownOpen) { setShowActions(false); setActionsExpanded(false); } }}
       onTouchStart={() => {
         longPressTimerRef.current = setTimeout(() => {
           setShowMobileActions(true);
@@ -271,95 +340,113 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
           </button>
         )}
 
-        {/* Action bar (appears on hover) */}
-        {showActions && (
+        {/* Action trigger — WhatsApp-style: small button on hover, expand on click */}
+        {(showActions || actionsExpanded || dropdownOpen) && (
           <div
+            ref={actionBarRef}
             className={cn(
               "absolute -top-3 flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg px-1 py-0.5",
               isOwn ? "right-0" : "left-0"
             )}
           >
-            {/* Quick reactions */}
-            {channelId && (
+            {actionsExpanded || dropdownOpen ? (
               <>
-                {["👍", "❤️", "😂", "🎉", "👀"].map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => handleReaction(emoji)}
-                    className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-zinc-800 transition-colors"
-                    title={emoji}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-                <div className="w-px h-4 bg-zinc-700 mx-0.5" />
-              </>
-            )}
-            <button
-              type="button"
-              onClick={onReply}
-              className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-              title="Responder"
-            >
-              <Reply className="h-3.5 w-3.5" />
-            </button>
-            {onOpenThread && (
-              <button
-                type="button"
-                onClick={() => onOpenThread(message.id)}
-                className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                title="Abrir hilo"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                  title="Mas opciones"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-44">
-                {onOpenThread && (
-                  <DropdownMenuItem onClick={() => onOpenThread(message.id)}>
-                    <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                    Abrir hilo
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={() => {
-                  navigator.clipboard.writeText(message.content);
-                }}>
-                  <Copy className="mr-2 h-3.5 w-3.5" />
-                  Copiar texto
-                </DropdownMenuItem>
-                {isOwn && onEdit && (
+                {/* Expanded: quick reactions + action buttons */}
+                {channelId && (
                   <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => {
-                      setEditContent(message.content);
-                      setIsEditing(true);
-                    }}>
-                      <Pencil className="mr-2 h-3.5 w-3.5" />
-                      Editar mensaje
-                    </DropdownMenuItem>
+                    {["👍", "❤️", "😂", "🎉", "👀"].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => { handleReaction(emoji); setActionsExpanded(false); setShowActions(false); }}
+                        className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-zinc-800 transition-colors"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                    <div className="w-px h-4 bg-zinc-700 mx-0.5" />
                   </>
                 )}
-                {isOwn && onDelete && (
-                  <DropdownMenuItem
-                    onClick={() => onDelete(message.id)}
-                    className="text-red-400 focus:text-red-400"
+                <button
+                  type="button"
+                  onClick={() => { onReply(); setActionsExpanded(false); setShowActions(false); }}
+                  className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                  title="Responder"
+                >
+                  <Reply className="h-3.5 w-3.5" />
+                </button>
+                {onOpenThread && (
+                  <button
+                    type="button"
+                    onClick={() => { onOpenThread(message.id); setActionsExpanded(false); setShowActions(false); }}
+                    className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                    title="Abrir hilo"
                   >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    Eliminar mensaje
-                  </DropdownMenuItem>
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </button>
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <DropdownMenu open={dropdownOpen} onOpenChange={(open) => {
+                  setDropdownOpen(open);
+                  if (!open) { setActionsExpanded(false); setShowActions(false); }
+                }}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                      title="Mas opciones"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-44">
+                    {onOpenThread && (
+                      <DropdownMenuItem onClick={() => onOpenThread(message.id)}>
+                        <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                        Abrir hilo
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => {
+                      navigator.clipboard.writeText(message.content);
+                    }}>
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Copiar texto
+                    </DropdownMenuItem>
+                    {isOwn && onEdit && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => {
+                          setEditContent(message.content);
+                          setIsEditing(true);
+                        }}>
+                          <Pencil className="mr-2 h-3.5 w-3.5" />
+                          Editar mensaje
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {isOwn && onDelete && (
+                      <DropdownMenuItem
+                        onClick={() => onDelete(message.id)}
+                        className="text-red-400 focus:text-red-400"
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Eliminar mensaje
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              /* Collapsed: just a small smiley trigger button */
+              <button
+                type="button"
+                onClick={() => setActionsExpanded(true)}
+                className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-zinc-800 transition-colors"
+                title="Acciones"
+              >
+                😊
+              </button>
+            )}
           </div>
         )}
       </div>

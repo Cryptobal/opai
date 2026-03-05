@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     const where: any = {
       tenantId: ctx.tenantId,
-      isActive: true,
+      status: "active",
     };
 
     if (adminIds) {

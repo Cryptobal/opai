@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Building2,
+  ChevronDown,
+  ChevronRight,
   Loader2,
   MessageCircle,
+  Search,
+  Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useChatFloatingContext, type ChatFloatingChannel } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { usePusher } from "./hooks/usePusher";
+
+type AdminUser = { id: string; name: string; email: string };
 
 /* ─── Component ─── */
 
@@ -104,7 +111,104 @@ export function ChatFloatingPanel() {
     return () => document.removeEventListener("mousedown", handler);
   }, [ctx.isPanelOpen, ctx]);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    group: true,
+    installation: true,
+    users: true,
+  });
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
+
+  // Reset search and filter when panel closes
+  useEffect(() => {
+    if (!ctx.isPanelOpen) {
+      setSearchQuery("");
+      setFilter("all");
+    }
+  }, [ctx.isPanelOpen]);
+
+  // Fetch all users once for the "Usuarios" section
+  useEffect(() => {
+    if (!ctx.isPanelOpen || allUsers.length > 0) return;
+    fetch("/api/chat/mentions/users")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => { if (json?.success) setAllUsers(json.data); })
+      .catch(() => {});
+  }, [ctx.isPanelOpen, allUsers.length]);
+
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
+
+  // Derive display name for a channel
+  const getChannelDisplayName = useCallback((ch: ChatFloatingChannel) => {
+    if (ch.channelType === "DIRECT") return ch.dmParticipant?.name ?? ch.name;
+    if (ch.channelType === "INSTALLATION") return ch.installation?.name ?? ch.name;
+    return ch.name;
+  }, []);
+
+  // Filter and section channels + users
+  const { directChannels, groupChannels, installationChannels, filteredUsers, filteredTotal } = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const filtered = q
+      ? ctx.channels.filter((ch) => {
+          const displayName = getChannelDisplayName(ch).toLowerCase();
+          if (displayName.includes(q)) return true;
+          if (ch.channelType === "INSTALLATION" && ch.installation?.account?.name?.toLowerCase().includes(q)) return true;
+          return false;
+        })
+      : ctx.channels;
+
+    // Filter users by search (exclude users who already have a DM channel)
+    const existingDmUserIds = new Set(
+      ctx.channels
+        .filter((ch) => ch.channelType === "DIRECT" && ch.dmParticipant)
+        .map((ch) => ch.dmParticipant!.id)
+    );
+    const usersToShow = q
+      ? allUsers.filter((u) =>
+          !existingDmUserIds.has(u.id) &&
+          (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+        )
+      : allUsers.filter((u) => !existingDmUserIds.has(u.id));
+
+    return {
+      directChannels: filter === "unread" ? filtered.filter(ch => ch.channelType === "DIRECT" && ch.unreadCount > 0) : filtered.filter((ch) => ch.channelType === "DIRECT"),
+      groupChannels: filter === "unread" ? filtered.filter(ch => ch.channelType === "GROUP" && ch.unreadCount > 0) : filtered.filter((ch) => ch.channelType === "GROUP"),
+      installationChannels: filter === "unread" ? filtered.filter(ch => ch.channelType === "INSTALLATION" && ch.unreadCount > 0) : filtered.filter((ch) => ch.channelType === "INSTALLATION"),
+      filteredUsers: filter === "unread" ? [] : usersToShow,
+      filteredTotal: filtered.length + (q ? usersToShow.length : 0),
+    };
+  }, [ctx.channels, searchQuery, getChannelDisplayName, allUsers, filter]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // Create DM from user click
+  const handleStartDm = useCallback(async (user: AdminUser) => {
+    if (creatingDmFor) return;
+    setCreatingDmFor(user.id);
+    try {
+      const res = await fetch("/api/chat/dms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetAdminId: user.id }),
+      });
+      if (!res.ok) throw new Error("Failed to create DM");
+      const json = await res.json();
+      if (json.success) {
+        await ctx.refreshChannels();
+        ctx.selectChannel(json.data.id);
+      }
+    } catch (err) {
+      console.error("[ChatFloating] create DM error:", err);
+    } finally {
+      setCreatingDmFor(null);
+    }
+  }, [creatingDmFor, ctx]);
 
   // Build auto-context prefix for first message
   const getAutoContextPrefix = useCallback(() => {
@@ -112,6 +216,9 @@ export function ChatFloatingPanel() {
     setContextInjected(true);
     return `📍 Desde: ${ctx.autoContext.pageUrl} — "${ctx.autoContext.pageLabel}"\n---\n`;
   }, [ctx.autoContext, contextInjected]);
+
+  // Resolve the channel name for conversation header
+  const selectedChannelName = selectedChannel ? getChannelDisplayName(selectedChannel) : "";
 
   if (!ctx.isPanelOpen) return null;
 
@@ -154,10 +261,11 @@ export function ChatFloatingPanel() {
           <div className="flex flex-col h-full min-h-0">
             <ChatConversation
               channelId={ctx.selectedChannelId}
-              channelName={selectedChannel.name}
+              channelName={selectedChannelName}
               pusher={pusher}
               onBack={() => ctx.selectChannel(null)}
               autoContextPrefix={getAutoContextPrefix}
+              currentUserId={ctx.currentUserId}
             />
           </div>
         ) : (
@@ -167,9 +275,9 @@ export function ChatFloatingPanel() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60 shrink-0">
               <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-semibold truncate">Chat de Grupos</h2>
+                <h2 className="text-sm font-semibold truncate">Chat</h2>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {ctx.channels.length} {ctx.channels.length === 1 ? "grupo" : "grupos"}
+                  {ctx.channels.length} {ctx.channels.length === 1 ? "conversación" : "conversaciones"}
                 </p>
               </div>
               <Button
@@ -183,39 +291,262 @@ export function ChatFloatingPanel() {
               </Button>
             </div>
 
+            {/* Search bar */}
+            <div className="px-3 pt-2 border-b border-border/40 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                <input
+                  type="text"
+                  placeholder="Buscar conversación..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-border/60 bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
+                />
+              </div>
+              {/* Filter chips */}
+              <div className="px-0 pb-2 pt-2 flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                    filter === "all"
+                      ? "bg-teal-600 text-white"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("unread")}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                    filter === "unread"
+                      ? "bg-teal-600 text-white"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  No leídos
+                  {ctx.totalUnread > 0 && filter !== "unread" && (
+                    <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
+                      {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {/* Channel list */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {ctx.loading ? (
                 <div className="flex flex-col items-center gap-2 py-10">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Cargando grupos...</p>
+                  <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
                 </div>
-              ) : ctx.channels.length === 0 ? (
+              ) : filter === "unread" && directChannels.length === 0 && groupChannels.length === 0 && installationChannels.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
+                  <span className="text-3xl">✓</span>
+                  <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
+                  <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
+                </div>
+              ) : filteredTotal === 0 && filteredUsers.length === 0 ? (
                 <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
                   <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
                   <p className="text-xs text-muted-foreground">
-                    No perteneces a ningún grupo de chat
+                    {searchQuery
+                      ? "No se encontraron conversaciones"
+                      : "No tienes conversaciones aún"}
                   </p>
-                  <p className="text-[10px] text-muted-foreground/60">
-                    Contacta a un administrador para unirte a un grupo
-                  </p>
+                  {!searchQuery && (
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Contacta a un administrador para unirte a un canal
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="divide-y divide-border/30">
-                  {ctx.channels.map((ch) => (
-                    <ChannelListItem
-                      key={ch.id}
-                      channel={ch}
-                      onClick={() => ctx.selectChannel(ch.id)}
+                <div>
+                  {/* Direct Messages */}
+                  {directChannels.length > 0 && (
+                    <ChannelSection
+                      label="Mensajes directos"
+                      icon={<MessageCircle className="h-3.5 w-3.5" />}
+                      channels={directChannels}
+                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["direct"]}
+                      onToggle={() => toggleSection("direct")}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={getChannelDisplayName}
                     />
-                  ))}
+                  )}
+
+                  {/* Groups */}
+                  {groupChannels.length > 0 && (
+                    <ChannelSection
+                      label="Grupos"
+                      icon={<Users className="h-3.5 w-3.5" />}
+                      channels={groupChannels}
+                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["group"]}
+                      onToggle={() => toggleSection("group")}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={getChannelDisplayName}
+                    />
+                  )}
+
+                  {/* Installations */}
+                  {installationChannels.length > 0 && (
+                    <ChannelSection
+                      label="Instalaciones"
+                      icon={<Building2 className="h-3.5 w-3.5" />}
+                      channels={installationChannels}
+                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation"]}
+                      onToggle={() => toggleSection("installation")}
+                      onSelectChannel={ctx.selectChannel}
+                      getDisplayName={getChannelDisplayName}
+                    />
+                  )}
+
+                  {/* Users (for starting DMs) */}
+                  {filteredUsers.length > 0 && filter !== "unread" && (
+                    <UserSection
+                      users={filteredUsers}
+                      collapsed={isSearching ? false : !!collapsedSections["users"]}
+                      onToggle={() => toggleSection("users")}
+                      onSelectUser={handleStartDm}
+                      creatingDmFor={creatingDmFor}
+                    />
+                  )}
                 </div>
               )}
             </div>
           </>
         )}
       </div>
+
     </>
+  );
+}
+
+/* ─── Channel Section ─── */
+
+function ChannelSection({
+  label,
+  icon,
+  channels,
+  collapsed,
+  onToggle,
+  onSelectChannel,
+  getDisplayName,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  channels: ChatFloatingChannel[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onSelectChannel: (id: string) => void;
+  getDisplayName: (ch: ChatFloatingChannel) => string;
+}) {
+  const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        )}
+        {icon}
+        <span className="flex-1 text-left">{label}</span>
+        <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+          {channels.length}
+        </span>
+        {sectionUnread > 0 && (
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+            {sectionUnread > 99 ? "99+" : sectionUnread}
+          </span>
+        )}
+      </button>
+      {!collapsed && (
+        <div className="divide-y divide-border/20">
+          {channels.map((ch) => (
+            <ChannelListItem
+              key={ch.id}
+              channel={ch}
+              displayName={getDisplayName(ch)}
+              onClick={() => onSelectChannel(ch.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── User Section (for starting DMs) ─── */
+
+function UserSection({
+  users,
+  collapsed,
+  onToggle,
+  onSelectUser,
+  creatingDmFor,
+}: {
+  users: AdminUser[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onSelectUser: (user: AdminUser) => void;
+  creatingDmFor: string | null;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        )}
+        <Users className="h-3.5 w-3.5" />
+        <span className="flex-1 text-left">Usuarios</span>
+        <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+          {users.length}
+        </span>
+      </button>
+      {!collapsed && (
+        <div className="divide-y divide-border/20">
+          {users.map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              onClick={() => onSelectUser(user)}
+              disabled={creatingDmFor === user.id}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left disabled:opacity-50"
+            >
+              <div
+                className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                style={{ backgroundColor: "#0d9488" }}
+              >
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium truncate block">{user.name}</span>
+                <span className="text-[10px] text-muted-foreground/70 truncate block">{user.email}</span>
+              </div>
+              {creatingDmFor === user.id && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -223,34 +554,63 @@ export function ChatFloatingPanel() {
 
 function ChannelListItem({
   channel,
+  displayName,
   onClick,
 }: {
   channel: ChatFloatingChannel;
+  displayName: string;
   onClick: () => void;
 }) {
+  const initial = displayName.charAt(0).toUpperCase();
+
+  // Avatar styling per channel type
+  let avatarBg = "#6B7280";
+  let avatarStyle: React.CSSProperties = {};
+  if (channel.channelType === "DIRECT") {
+    avatarBg = "#0d9488"; // teal-600
+    avatarStyle = { backgroundColor: avatarBg };
+  } else if (channel.channelType === "GROUP") {
+    avatarBg = channel.group?.color || "#6B7280";
+    avatarStyle = { backgroundColor: avatarBg };
+  } else if (channel.channelType === "INSTALLATION") {
+    avatarBg = "#4f46e5"; // indigo-600
+    avatarStyle = { backgroundColor: avatarBg };
+  }
+
+  // Subtitle for installations
+  const subtitle =
+    channel.channelType === "INSTALLATION"
+      ? channel.installation?.account?.name
+      : null;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left"
     >
-      {/* Group color dot */}
+      {/* Avatar */}
       <div
         className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-        style={{ backgroundColor: channel.group?.color || "#6B7280" }}
+        style={avatarStyle}
       >
-        {channel.name.charAt(0).toUpperCase()}
+        {initial}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{channel.name}</span>
+          <span className="text-sm font-medium truncate">{displayName}</span>
           {channel.unreadCount > 0 && (
             <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white shrink-0">
               {channel.unreadCount > 99 ? "99+" : channel.unreadCount}
             </span>
           )}
         </div>
+        {subtitle && (
+          <p className="text-[10px] text-muted-foreground/70 truncate">
+            {subtitle}
+          </p>
+        )}
         {channel.lastMessagePreview && (
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {channel.lastMessagePreview}

@@ -2,7 +2,7 @@
 
 **Resumen:** Plataforma SaaS unificada multi-tenant para empresas de seguridad con arquitectura single-domain (opai.gard.cl).
 
-**Estado:** Vigente — Actualizado 2026-02-11
+**Estado:** Vigente — Actualizado 2026-03-04
 
 **Scope:** OPAI Suite (módulos comerciales + operacionales)
 
@@ -48,8 +48,11 @@ OPAI es una suite SaaS para empresas de seguridad que unifica:
 - `/ops`     → Operación: puestos, pauta, asistencia, TE ✅ FASE 1 OPI (MVP v1)
 - `/postventa` → Check-in/out georreferenciado, bitácora, incidentes ❌ FASE 2 OPI
 - `/tickets` → Sistema de tickets con SLA y categorías ❌ FASE 2 OPI
-- `/portal`  → Portal guardias: comunicados, solicitudes, tickets ❌ FASE 3 OPI
-- `/inventario` → Stock, kits, asignaciones ❌ FASE 4 OPI
+- `/portal/cliente` → Portal clientes: dashboard rondas, contratos, chat ✅ IMPLEMENTADO
+- `/portal/guardia`, `/portal/rondas` → Portales guardia y rondas ✅
+- `/portales` → Landing de portales (admin) ✅
+- `/portal` (guardias: comunicados, solicitudes RRHH) ⚠️ Parcial (tickets/documentos existen)
+- `/ops/inventario/*` → Inventario: bodegas, productos, stock, compras, entregas ✅ IMPLEMENTADO
 
 ## 4. Multi-tenancy (Phase 1: Estructural, UX Single-Tenant)
 - **Arquitectura:** Multi-tenant desde día 1 (tenant_id en todas las tablas).
@@ -120,10 +123,12 @@ Policies por acción: docs.proposal.send, crm.deal.update, ops.incident.create, 
 - ✅ Fase 6: Auth + RBAC + Gestión de usuarios + Configuración
 
 ### Pendiente (OPI — Expansión operacional)
-- ✅ OPI Fase 1: Ops (puestos, pauta mensual/diaria, asistencia, TE, personas/guardias) — MVP v1
-- ❌ OPI Fase 2: Postventa (check-in/out geofence, bitácora, incidentes) + Tickets (SLA, categorías)
-- ❌ OPI Fase 3: Portal guardias (OTP, comunicados, solicitudes RRHH, tickets)
-- ❌ OPI Fase 4: Inventario (catálogo, stock, kits, asignaciones)
+- ✅ OPI Fase 1: Ops (puestos, pauta, asistencia, TE, personas) — MVP v1
+- ✅ OPI Fase 2: Tickets (SLA, categorías, aprobaciones) — Implementado
+- ✅ Portal cliente: dashboard, contratos, chat — Implementado
+- ✅ Inventario Ops: bodegas, productos, stock, compras, entregas — Implementado
+- ⚠️ OPI Fase 3: Portal guardias (comunicados, solicitudes RRHH) — Parcial (tickets/documentos ya existen)
+- ❌ OPI Fase 4: Inventario extensiones (kits por guardia/instalación, mínimos)
 - ❌ OPI Fase 5: Asistencia externa (FaceID/API, reconciliación automática)
 
 **Detalle completo de fases OPI:** Ver [MASTER_SPEC_OPI.md](./MASTER_SPEC_OPI.md)  
@@ -141,15 +146,18 @@ Policies por acción: docs.proposal.send, crm.deal.update, ops.incident.create, 
 - **Estructura:** `src/app/(app)/{module}/` con layout compartido
 - **Módulos en producción:**
   - `/hub` — Centro de control ejecutivo
-  - `/crm/*` — CRM completo (12 páginas, 33 APIs)
-  - `/cpq/*` — CPQ completo (5 páginas, 22 APIs)
-  - `/opai/documentos/*` — Documentos legales (6 páginas, 8 APIs)
+  - `/crm/*` — CRM completo (cuentas, deals, contratos por cuenta, won-deals, instalaciones, etc.)
+  - `/cpq/*` — CPQ completo
+  - `/opai/documentos/*` — Documentos legales (portal_visible para portal cliente)
   - `/opai/inicio` — Dashboard de presentaciones
-  - `/payroll/*` — Simulador de liquidaciones (3 páginas, 3 APIs)
-  - `/opai/configuracion/*` — Configuración (9 páginas)
+  - `/payroll/*` — Simulador de liquidaciones (parcial)
+  - `/opai/configuracion/*` — Configuración
   - `/opai/usuarios` — Gestión de usuarios RBAC
+  - `/ops/*` — Operaciones (pauta, asistencia, rondas, tickets, supervisión v2, inventario)
+  - `/portal/cliente` — Portal clientes (dashboard, contratos, chat)
+  - `/portales` — Landing de portales (Guardia, Rondas, Cliente)
   - `/p/[id]` — Vista pública de presentaciones (sin auth)
-- **Base de datos:** 56 modelos en 6 schemas (public, crm, cpq, docs, payroll, fx)
+- **Base de datos:** 195 modelos en 11 schemas (public, crm, cpq, docs, payroll, fx, ops, finance, inventory, notes, chat)
 - **Multi-tenancy:** Completo, UX single-tenant
 
 ### Convenciones de Desarrollo

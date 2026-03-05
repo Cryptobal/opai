@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowLeft, Bell, BellOff, AtSign, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type NotifPreference = "ALL" | "MENTIONS_ONLY" | "MUTED";
 
 interface ChatPresenceBarProps {
   channelName: string;
@@ -10,24 +18,50 @@ interface ChatPresenceBarProps {
   onBack: () => void;
   onSearch?: (query: string) => void;
   isSearching?: boolean;
+  channelId?: string;
 }
 
-/**
- * Top bar of the conversation panel.
- * Shows channel name (left), online count with green dot (right).
- * On mobile, includes a back button.
- * Optionally includes a collapsible search input.
- */
 export function ChatPresenceBar({
   channelName,
   onlineCount,
   onBack,
   onSearch,
   isSearching,
+  channelId,
 }: ChatPresenceBarProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [notifPref, setNotifPref] = useState<NotifPreference>("ALL");
+
+  // Fetch current preference when channel changes
+  useEffect(() => {
+    if (!channelId) return;
+    fetch(`/api/chat/channels/${channelId}/notification-preference`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (j?.success) setNotifPref(j.data.preference as NotifPreference); })
+      .catch(() => {});
+  }, [channelId]);
+
+  const updatePref = async (pref: NotifPreference) => {
+    if (!channelId) return;
+    setNotifPref(pref); // optimistic
+    try {
+      await fetch(`/api/chat/channels/${channelId}/notification-preference`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preference: pref }),
+      });
+    } catch {
+      // revert on error
+      fetch(`/api/chat/channels/${channelId}/notification-preference`)
+        .then((r) => r.json())
+        .then((j) => { if (j?.success) setNotifPref(j.data.preference); })
+        .catch(() => {});
+    }
+  };
+
+  const BellIcon = notifPref === "MUTED" ? BellOff : notifPref === "MENTIONS_ONLY" ? AtSign : Bell;
 
   return (
     <>
@@ -50,7 +84,7 @@ export function ChatPresenceBar({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Search button */}
           {onSearch && (
             <button
@@ -76,12 +110,60 @@ export function ChatPresenceBar({
             </button>
           )}
 
+          {/* Notification preference */}
+          {channelId && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                    notifPref === "MUTED"
+                      ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-400"
+                      : notifPref === "MENTIONS_ONLY"
+                        ? "text-amber-400 hover:bg-zinc-800"
+                        : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  )}
+                  title="Configurar notificaciones"
+                >
+                  <BellIcon className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 z-[200]">
+                <DropdownMenuItem
+                  onClick={() => updatePref("ALL")}
+                  className={cn(notifPref === "ALL" && "bg-accent")}
+                >
+                  <Bell className="mr-2 h-3.5 w-3.5" />
+                  <span>Notificar todo</span>
+                  {notifPref === "ALL" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => updatePref("MENTIONS_ONLY")}
+                  className={cn(notifPref === "MENTIONS_ONLY" && "bg-accent")}
+                >
+                  <AtSign className="mr-2 h-3.5 w-3.5" />
+                  <span>Solo menciones</span>
+                  {notifPref === "MENTIONS_ONLY" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => updatePref("MUTED")}
+                  className={cn(notifPref === "MUTED" && "bg-accent")}
+                >
+                  <BellOff className="mr-2 h-3.5 w-3.5" />
+                  <span>Silenciar</span>
+                  {notifPref === "MUTED" && <span className="ml-auto text-xs text-teal-400">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           {/* Online indicator */}
           {onlineCount > 0 && !showSearch && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 ml-1">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               <span className="text-xs text-zinc-400">
-                {onlineCount} {onlineCount === 1 ? "en linea" : "en linea"}
+                {onlineCount} en línea
               </span>
             </div>
           )}

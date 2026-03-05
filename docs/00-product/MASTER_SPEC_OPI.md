@@ -1,7 +1,7 @@
 # MASTER SPEC — Plataforma OPI/OPAI (Todas las Fases)
 
 > **Este es el documento maestro definitivo.** Define qué hará la plataforma al completar TODAS sus fases.  
-> **Fecha:** 2026-02-18  
+> **Fecha:** 2026-03-04  
 > **Estado:** Vigente — fuente única de verdad para roadmap completo
 
 ---
@@ -61,7 +61,9 @@ Construir la plataforma OPI para Gard con enfoque mobile-first y separación de 
 
  [ERP Financiero-Contable] ░░░░░░░░░░ 0%   📋 Diseño completo listo
  [Portal guardias mejorado]██░░░░░░░░ 15%   Portal básico de tickets existe
- [Inventario]              ░░░░░░░░░░ 0%
+ [Portal cliente]          ██████████ 100%  Dashboard, contratos, chat
+ [Inventario Ops]          ██████████ 100%  Bodegas, productos, stock, compras
+ [Inventario extensiones]  ░░░░░░░░░░ 0%   Kits, mínimos
  [Certificación DT]        ░░░░░░░░░░ 0%   Pendiente para pre-certificación
 ```
 
@@ -84,7 +86,9 @@ Construir la plataforma OPI para Gard con enfoque mobile-first y separación de 
 | Tickets + SLA | ✅ 100% | Tipos configurables, aprobaciones, SLA automático |
 | Notificaciones | ✅ 100% | 23 tipos, bell + email, preferencias |
 | Finanzas (Rendiciones) | ✅ 100% | Rendiciones, aprobaciones, pagos, exportación Santander |
-| **Totales técnicos** | ✅ | 143 modelos, 8 schemas, 318 endpoints, 103 páginas |
+| Portal cliente | ✅ 100% | Dashboard, contratos visibles, chat |
+| Inventario (Ops) | ✅ 100% | Bodegas, productos, stock, compras, entregas |
+| **Totales técnicos** | ✅ | ~195 modelos, 11 schemas, ~493 endpoints, ~148 páginas |
 
 ### Lo que FALTA
 
@@ -93,7 +97,7 @@ Construir la plataforma OPI para Gard con enfoque mobile-first y separación de 
 | 1 | ERP Financiero-Contable | 📋 Diseño listo | Finanzas (existe) |
 | 2 | Completitud Payroll | ❌ | Ninguna |
 | 3 | Portal guardias (comunicados, solicitudes RRHH) | ⚠️ Parcial | Personas |
-| 4 | Inventario (catálogo, stock, kits, asignaciones) | ❌ | Ninguna |
+| 4 | Inventario extensiones (kits por guardia/instalación, mínimos) | ❌ | Inventario Ops (existe) |
 | 5 | Certificación DT marcación | ❌ | Marcación (existe) |
 | 6 | Reportes CRM | ❌ | CRM (existe) |
 

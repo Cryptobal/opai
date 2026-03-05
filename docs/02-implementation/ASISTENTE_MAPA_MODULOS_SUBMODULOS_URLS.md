@@ -1,6 +1,6 @@
 # Mapa Funcional Completo: Modulos, Submodulos y URLs
 
-> **Actualizado:** 2026-02-18
+> **Actualizado:** 2026-03-04
 
 Este documento es base de conocimiento para el Asistente IA de OPAI Suite.
 Objetivo: responder con precision sobre rutas, uso, ingreso de datos, relaciones e impacto entre modulos.
@@ -41,7 +41,8 @@ Inferencia semantica sugerida (sinonimos de usuario -> flujo canonico):
 - **Cuentas**
   - URL: `/crm/accounts`
   - Sirve para: gestionar clientes/prospectos empresa.
-  - Si creas cuenta: habilita instalaciones, contactos y deals.
+  - Si creas cuenta: habilita instalaciones, contactos, deals y contratos (seccion Contratos en detalle de cuenta).
+  - Won-deals: API y flujo para deals ganados por cuenta.
 - **Instalaciones**
   - URL: `/crm/installations`
   - Sirve para: crear sedes operativas del cliente.
@@ -246,12 +247,28 @@ Impacto:
 - Sync automatico 2x/dia desde SBIF/SII.
 - Uso: soporte de valorizacion/calculo en modulos que lo requieran.
 
-## URLs operativas/publicas especiales
+## Portales (acceso admin y externo)
 
+- **Landing portales (solo owner/admin)**
+  - URL: `/portales`
+  - Sirve para: ver cards de Portal Guardia, Portal Rondas, Portal de clientes.
+- **Portal Cliente (externo, sin sesion OPAI)**
+  - URL: `/portal/cliente`
+  - Sirve para: contactos del cliente con RUT empresa + PIN. Dashboard de rondas, pestaña Contratos (documentos portal_visible), pestaña Chat.
+- **Portal Guardia:** `/portal/guardia`
+- **Portal Rondas:** `/portal/rondas`
 - Marcacion externa por codigo: `/marcar/[code]`
 - Ronda externa por codigo: `/ronda/[code]`
 - Portal postulacion: `/postulacion/[token]`
-- Portal guardia tickets: `/portal/guardia/tickets`
 - Firma de documentos: `/api/docs/sign/[token]`
 
 Estas rutas se usan en flujos operativos/publicos especificos y no siempre en menu lateral.
+
+## Ops > Inventario
+
+- **Inicio Inventario:** `/ops/inventario`
+- **Bodegas:** `/ops/inventario/bodegas`
+- **Productos:** `/ops/inventario/productos`, `/ops/inventario/productos/[id]`
+- **Stock:** `/ops/inventario/stock`
+- **Compras:** `/ops/inventario/compras`
+- **Entregas:** `/ops/inventario/entregas`

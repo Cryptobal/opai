@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Building2, ChevronDown, ChevronRight, MessageCircle, Plus, Search, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData, ChannelsResponse } from "@/lib/chat-types";
 import { ChatChannelListItem } from "./ChatChannelListItem";
@@ -13,11 +13,55 @@ interface ChatChannelListProps {
   onSelectChannel: (channelId: string, channelName: string) => void;
 }
 
-/**
- * Scrollable list of channels with search input at top.
- * Fetches channels from /api/chat/channels (with search param).
- * Supports tabs for Canales and Mensajes Directos.
- */
+function SectionHeader({
+  label,
+  icon,
+  count,
+  unreadCount,
+  collapsed,
+  onToggle,
+  action,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  count: number;
+  unreadCount: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center group">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider hover:bg-zinc-800/50 transition-colors"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        )}
+        {icon}
+        <span className="flex-1 text-left">{label}</span>
+        <span className="text-[10px] font-normal normal-case tracking-normal text-zinc-600">
+          {count}
+        </span>
+        {unreadCount > 0 && (
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </button>
+      {action && (
+        <div className="pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {action}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatChannelList({
   selectedChannelId,
   unreadCounts,
@@ -26,27 +70,23 @@ export function ChatChannelList({
   const [channels, setChannels] = useState<ChatChannelData[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [tab, setTab] = useState<"channels" | "dms">("channels");
   const [showNewDm, setShowNewDm] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    direct: false,
+    group: true,
+    installation: true,
+  });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchChannels = useCallback(async (query?: string, channelTab?: string) => {
+  const fetchChannels = useCallback(async (query?: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("search", query);
-      if (channelTab === "dms") params.set("type", "DIRECT");
       const res = await fetch(`/api/chat/channels?${params.toString()}`);
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.error("[ChatChannelList] API error:", res.status, text.slice(0, 200));
-        throw new Error(`Failed to fetch channels (${res.status})`);
-      }
-
+      if (!res.ok) throw new Error(`Failed to fetch channels (${res.status})`);
       const json: ChannelsResponse = await res.json();
-      if (json.success) {
-        setChannels(json.data);
-      }
+      if (json.success) setChannels(json.data);
     } catch (err) {
       console.error("[ChatChannelList] fetch error:", err);
     } finally {
@@ -54,55 +94,47 @@ export function ChatChannelList({
     }
   }, []);
 
-  // Fetch when tab changes
   useEffect(() => {
-    fetchChannels(search || undefined, tab);
-  }, [fetchChannels, tab]);
+    fetchChannels();
+  }, [fetchChannels]);
 
-  // Debounced search
   const handleSearchChange = useCallback(
     (value: string) => {
       setSearch(value);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        fetchChannels(value || undefined, tab);
+        fetchChannels(value || undefined);
       }, 300);
     },
-    [fetchChannels, tab]
+    [fetchChannels]
   );
+
+  const toggleSection = (key: string) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const isSearching = search.trim().length > 0;
+
+  const { directChannels, groupChannels, installationChannels } = useMemo(() => ({
+    directChannels: channels.filter((ch) => ch.channelType === "DIRECT"),
+    groupChannels: channels.filter((ch) => ch.channelType === "GROUP"),
+    installationChannels: channels.filter((ch) => ch.channelType === "INSTALLATION"),
+  }), [channels]);
+
+  const getDisplayName = (channel: ChatChannelData) => {
+    if (channel.channelType === "DIRECT" && channel.dmParticipant) return channel.dmParticipant.name;
+    if (channel.channelType === "INSTALLATION" && (channel as any).installation) return (channel as any).installation.name;
+    return channel.name;
+  };
+
+  const sectionUnread = (chs: ChatChannelData[]) =>
+    chs.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0);
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-zinc-800">
         <h2 className="text-sm font-semibold text-zinc-100 mb-3">Chat</h2>
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-3">
-          <button
-            type="button"
-            onClick={() => setTab("channels")}
-            className={cn(
-              "flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors",
-              tab === "channels"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-300"
-            )}
-          >
-            Canales
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("dms")}
-            className={cn(
-              "flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors",
-              tab === "dms"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-300"
-            )}
-          >
-            Mensajes directos
-          </button>
-        </div>
         {/* Search input */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
@@ -110,25 +142,11 @@ export function ChatChannelList({
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder={tab === "dms" ? "Buscar mensaje..." : "Buscar canal..."}
+            placeholder="Buscar canal o conversación..."
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-8 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-colors"
           />
         </div>
       </div>
-
-      {/* New DM button */}
-      {tab === "dms" && (
-        <div className="px-4 py-2">
-          <button
-            type="button"
-            onClick={() => setShowNewDm(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 py-2 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nuevo mensaje
-          </button>
-        </div>
-      )}
 
       {/* Channel list */}
       <div className="flex-1 overflow-y-auto">
@@ -138,25 +156,100 @@ export function ChatChannelList({
           </div>
         ) : channels.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-zinc-500">
-            {search ? "Sin resultados" : tab === "dms" ? "Sin mensajes directos" : "Sin canales disponibles"}
+            {search ? "Sin resultados" : "Sin canales disponibles"}
           </div>
         ) : (
           <div className="py-1">
-            {channels.map((channel) => {
-              const displayName =
-                channel.channelType === "DIRECT" && channel.dmParticipant
-                  ? channel.dmParticipant.name
-                  : channel.name;
-              return (
-                <ChatChannelListItem
-                  key={channel.id}
-                  channel={channel}
-                  isSelected={channel.id === selectedChannelId}
-                  unreadCount={unreadCounts[channel.id] || 0}
-                  onClick={() => onSelectChannel(channel.id, displayName)}
+            {/* Direct Messages */}
+            {directChannels.length > 0 && (
+              <div>
+                <SectionHeader
+                  label="Mensajes directos"
+                  icon={<MessageCircle className="h-3.5 w-3.5" />}
+                  count={directChannels.length}
+                  unreadCount={sectionUnread(directChannels)}
+                  collapsed={isSearching ? false : collapsed["direct"]}
+                  onToggle={() => toggleSection("direct")}
+                  action={
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setShowNewDm(true); }}
+                      className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                      title="Nuevo mensaje directo"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  }
                 />
-              );
-            })}
+                {(isSearching ? true : !collapsed["direct"]) && (
+                  <div>
+                    {directChannels.map((channel) => (
+                      <ChatChannelListItem
+                        key={channel.id}
+                        channel={channel}
+                        isSelected={channel.id === selectedChannelId}
+                        unreadCount={unreadCounts[channel.id] || 0}
+                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Groups */}
+            {groupChannels.length > 0 && (
+              <div>
+                <SectionHeader
+                  label="Grupos"
+                  icon={<Users className="h-3.5 w-3.5" />}
+                  count={groupChannels.length}
+                  unreadCount={sectionUnread(groupChannels)}
+                  collapsed={isSearching ? false : collapsed["group"]}
+                  onToggle={() => toggleSection("group")}
+                />
+                {(isSearching ? true : !collapsed["group"]) && (
+                  <div>
+                    {groupChannels.map((channel) => (
+                      <ChatChannelListItem
+                        key={channel.id}
+                        channel={channel}
+                        isSelected={channel.id === selectedChannelId}
+                        unreadCount={unreadCounts[channel.id] || 0}
+                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Installations */}
+            {installationChannels.length > 0 && (
+              <div>
+                <SectionHeader
+                  label="Instalaciones"
+                  icon={<Building2 className="h-3.5 w-3.5" />}
+                  count={installationChannels.length}
+                  unreadCount={sectionUnread(installationChannels)}
+                  collapsed={isSearching ? false : collapsed["installation"]}
+                  onToggle={() => toggleSection("installation")}
+                />
+                {(isSearching ? true : !collapsed["installation"]) && (
+                  <div>
+                    {installationChannels.map((channel) => (
+                      <ChatChannelListItem
+                        key={channel.id}
+                        channel={channel}
+                        isSelected={channel.id === selectedChannelId}
+                        unreadCount={unreadCounts[channel.id] || 0}
+                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -167,7 +260,7 @@ export function ChatChannelList({
           onClose={() => setShowNewDm(false)}
           onSelectDm={(channelId, channelName) => {
             setShowNewDm(false);
-            setTab("dms");
+            fetchChannels();
             onSelectChannel(channelId, channelName);
           }}
         />

@@ -72,6 +72,9 @@ export const createAccountSchema = z.object({
   isActive: z.boolean().default(false),
   website: z.string().trim().url("URL inválida").max(500).optional().nullable().or(z.literal("")),
   address: z.string().trim().max(500).optional().nullable(),
+  commune: z.string().trim().max(200).optional().nullable(),
+  notaryName: z.string().trim().max(500).optional().nullable(),
+  notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
 });
 
@@ -89,6 +92,9 @@ export const updateAccountSchema = z.object({
   isActive: z.boolean().optional(),
   website: z.string().trim().max(500).optional().nullable(),
   address: z.string().trim().max(500).optional().nullable(),
+  commune: z.string().trim().max(200).optional().nullable(),
+  notaryName: z.string().trim().max(500).optional().nullable(),
+  notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
 });
 

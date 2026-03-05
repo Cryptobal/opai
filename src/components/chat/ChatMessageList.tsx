@@ -19,6 +19,7 @@ interface ChatMessageListProps {
   channelId?: string;
   currentUserId?: string;
   getReadByCount?: (message: ChatMessageData) => number;
+  onReaction?: (messageId: string, emoji: string) => void;
 }
 
 /**
@@ -76,6 +77,7 @@ export function ChatMessageList({
   channelId,
   currentUserId,
   getReadByCount,
+  onReaction,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -159,10 +161,8 @@ export function ChatMessageList({
   }
 
   // Determine which messages are "own" (sent by current user)
-  // We use a simple heuristic: if senderType is ADMIN and senderId matches
-  // or if the optimistic "current-user" ID is used
   const isOwnMessage = (msg: ChatMessageData) =>
-    msg.senderId === "current-user" || msg.senderType === "ADMIN";
+    msg.senderId === "current-user" || (currentUserId ? msg.senderId === currentUserId : false);
 
   return (
     <div
@@ -212,6 +212,7 @@ export function ChatMessageList({
                 channelId={channelId}
                 currentUserId={currentUserId}
                 readByCount={getReadByCount?.(msg)}
+                onReaction={onReaction}
               />
             )
           )}

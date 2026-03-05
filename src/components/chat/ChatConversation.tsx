@@ -18,6 +18,7 @@ interface ChatConversationProps {
   onBack: () => void;
   /** Optional function returning a context prefix for the first message (auto-context) */
   autoContextPrefix?: () => string;
+  currentUserId?: string;
 }
 
 /**
@@ -30,6 +31,7 @@ export function ChatConversation({
   pusher,
   onBack,
   autoContextPrefix,
+  currentUserId: currentUserIdProp,
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
@@ -49,6 +51,8 @@ export function ChatConversation({
     appendMessage: rtAppendMessage,
   } = useChatChannel(channelId, pusher);
 
+  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
+  const currentUserId = currentUserIdProp ?? currentUserIdState;
   const [readCursors, setReadCursors] = useState<{ readerId: string; lastReadAt: string; lastReadMessageId: string | null }[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +67,35 @@ export function ChatConversation({
   } | null>(null);
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const lastReadMsgRef = useRef<string | null>(null);
+
+  // Fetch current user ID once (only if not provided as prop)
+  useEffect(() => {
+    if (currentUserIdProp) return; // already provided as prop
+    fetch("/api/chat/me")
+      .then((r) => r.json())
+      .then((j) => { if (j.success) setCurrentUserIdState(j.data.userId); })
+      .catch(() => {});
+  }, [currentUserIdProp]);
+
+  // Reset thread and read tracking when channel changes
+  useEffect(() => {
+    setActiveThreadId(null);
+    lastReadMsgRef.current = null;
+  }, [channelId]);
+
+  // Mark messages as read when opening a channel or receiving new messages
+  useEffect(() => {
+    if (!channelId || apiMessages.length === 0) return;
+    const lastMsg = apiMessages[apiMessages.length - 1];
+    if (!lastMsg || lastMsg.id === lastReadMsgRef.current) return;
+    lastReadMsgRef.current = lastMsg.id;
+    fetch(`/api/chat/channels/${channelId}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lastReadMessageId: lastMsg.id }),
+    }).catch(() => {});
+  }, [channelId, apiMessages]);
 
   // Merge real-time messages into API messages
   useEffect(() => {
@@ -110,6 +143,47 @@ export function ChatConversation({
     },
     [sendMessage, autoContextPrefix]
   );
+
+  const handleReaction = useCallback((messageId: string, emoji: string) => {
+    const myId = currentUserId || "current-user";
+    setApiMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const reactions = [...m.reactions];
+        const existing = reactions.find((r) => r.emoji === emoji);
+        if (existing) {
+          // Check if current user already reacted - toggle off
+          const alreadyReacted = existing.senders.some((s) => s.id === myId || s.id === "current-user");
+          if (alreadyReacted) {
+            const newSenders = existing.senders.filter((s) => s.id !== myId && s.id !== "current-user");
+            if (newSenders.length === 0) {
+              return { ...m, reactions: reactions.filter((r) => r.emoji !== emoji) };
+            }
+            return {
+              ...m,
+              reactions: reactions.map((r) =>
+                r.emoji === emoji ? { ...r, count: newSenders.length, senders: newSenders } : r
+              ),
+            };
+          }
+          // Add reaction
+          return {
+            ...m,
+            reactions: reactions.map((r) =>
+              r.emoji === emoji
+                ? { ...r, count: r.count + 1, senders: [...r.senders, { id: myId, name: "Yo", type: "ADMIN" as const }] }
+                : r
+            ),
+          };
+        }
+        // New emoji reaction
+        return {
+          ...m,
+          reactions: [...reactions, { emoji, count: 1, senders: [{ id: myId, name: "Yo", type: "ADMIN" as const }] }],
+        };
+      })
+    );
+  }, [setApiMessages, currentUserId]);
 
   const handleReply = useCallback((message: ChatMessageData) => {
     setReplyTo({
@@ -167,6 +241,7 @@ export function ChatConversation({
           onBack={onBack}
           onSearch={handleSearch}
           isSearching={isSearching}
+          channelId={channelId}
         />
 
         <ChatMessageList
@@ -179,7 +254,9 @@ export function ChatConversation({
           onEdit={editMessage}
           onDelete={deleteMessage}
           channelId={channelId}
+          currentUserId={currentUserId ?? undefined}
           getReadByCount={getReadByCount}
+          onReaction={handleReaction}
         />
 
         <ChatTypingIndicator typingUsers={typingUsers} />

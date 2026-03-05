@@ -19,10 +19,22 @@ export type ChatFloatingChannel = {
   name: string;
   channelType: string;
   groupId: string | null;
+  installationId: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
   group: { id: string; color: string; slug: string } | null;
+  installation: {
+    id: string;
+    name: string;
+    account: { id: string; name: string } | null;
+  } | null;
+  dmParticipant: {
+    id: string;
+    name: string;
+    email: string;
+    image: null;
+  } | null;
 };
 
 interface ChatFloatingContextValue {
@@ -72,7 +84,7 @@ export function ChatFloatingProvider({
   const fetchChannels = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/chat/channels?type=GROUP");
+      const res = await fetch("/api/chat/channels");
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         console.error("[ChatFloating] API error:", res.status, text.slice(0, 200));
@@ -83,7 +95,7 @@ export function ChatFloatingProvider({
         setChannels(json.data);
       }
     } catch (err) {
-      console.error("Error fetching group channels:", err);
+      console.error("Error fetching channels:", err);
     } finally {
       setLoading(false);
     }
@@ -115,7 +127,7 @@ export function ChatFloatingProvider({
   useEffect(() => {
     const fetchUnreads = async () => {
       try {
-        const res = await fetch("/api/chat/channels?type=GROUP");
+        const res = await fetch("/api/chat/channels");
         if (!res.ok) return;
         const json = await res.json();
         if (json.success) {

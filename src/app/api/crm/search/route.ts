@@ -121,6 +121,7 @@ export async function GET(request: NextRequest) {
           firstName: true,
           lastName: true,
           email: true,
+          portalPinVisible: true,
           account: { select: { name: true } },
         },
       }),
@@ -228,11 +229,12 @@ export async function GET(request: NextRequest) {
     }
 
     for (const contact of contacts) {
+      const subtitleParts = [contact.account?.name, contact.portalPinVisible ? `PIN: ${contact.portalPinVisible}` : null].filter(Boolean);
       results.push({
         id: contact.id,
         type: "contact",
         title: `${contact.firstName} ${contact.lastName}`.trim(),
-        subtitle: [contact.email, contact.account?.name].filter(Boolean).join(" · "),
+        subtitle: subtitleParts.length ? subtitleParts.join(" · ") : "Sin cuenta",
         href: `/crm/contacts/${contact.id}`,
       });
     }

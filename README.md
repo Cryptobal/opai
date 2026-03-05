@@ -26,12 +26,16 @@ OPAI Suite es una plataforma unificada que cubre el ciclo completo: desde la ven
 | **Notificaciones** | Bell + Email | 23 tipos, preferencias por usuario, filtrado por RBAC |
 | **Finanzas** | `/finanzas/*` | Rendiciones de gastos, aprobaciones, pagos, exportacion Santander |
 | **Personas** | `/personas/*` | Guardias 360, documentos, lista negra, asignaciones |
+| **Portal Cliente** | `/portal/cliente` | Dashboard rondas, contratos (portal_visible), chat (RUT+PIN) |
+| **Portales** | `/portales` | Landing: Portal Guardia, Rondas, Cliente (solo admin) |
+| **Inventario Ops** | `/ops/inventario/*` | Bodegas, productos, stock, compras, entregas |
+| **Supervision v2** | `/ops/supervision/*` | Visitas, hallazgos, reportes, health scores |
 
 ## Stack
 
 - **Framework:** Next.js 15 (App Router)
 - **Lenguaje:** TypeScript 5.6
-- **DB:** PostgreSQL (Neon) + Prisma (8 schemas, 143 modelos)
+- **DB:** PostgreSQL (Neon) + Prisma (11 schemas, ~195 modelos)
 - **Auth:** Auth.js v5 (13 roles RBAC)
 - **UI:** Tailwind CSS + Radix UI + shadcn/ui
 - **Email:** Resend + React Email
@@ -44,11 +48,11 @@ OPAI Suite es una plataforma unificada que cubre el ciclo completo: desde la ven
 
 | Indicador | Valor |
 |-----------|-------|
-| Paginas | 103 |
-| Endpoints API | 318 |
-| Modelos Prisma | 143 |
-| Componentes UI | ~268 |
-| Schemas DB | 8 |
+| Paginas | ~148 |
+| Endpoints API | ~493 |
+| Modelos Prisma | ~195 |
+| Componentes UI | ~430 |
+| Schemas DB | 11 |
 | Cron Jobs | 8 |
 
 ## Instalacion

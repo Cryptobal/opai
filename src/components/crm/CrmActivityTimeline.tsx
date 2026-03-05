@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<string, string> = {
   installation_updated: "Instalación actualizada",
   installation_deleted: "Instalación eliminada",
   quote_sent: "Cotización enviada",
+  portal_cliente_access: "Acceso al portal del cliente",
 };
 
 const DOT_COLOR_BY_ACTION: Record<string, string> = {
@@ -43,6 +44,7 @@ const DOT_COLOR_BY_ACTION: Record<string, string> = {
   installation_updated: "bg-blue-500",
   installation_deleted: "bg-red-500",
   quote_sent: "bg-indigo-500",
+  portal_cliente_access: "bg-teal-500",
 };
 
 function formatDate(value: string): string {
@@ -78,6 +80,11 @@ function formatDetailLines(event: CrmActivityEvent): string[] {
   const fromStage = typeof details.fromStageName === "string" ? details.fromStageName : null;
   const toStage = typeof details.toStageName === "string" ? details.toStageName : null;
   if (fromStage || toStage) lines.push(`${fromStage || "Sin etapa"} -> ${toStage || "Sin etapa"}`);
+
+  const contactName = typeof details.contactName === "string" ? details.contactName : null;
+  if (contactName) lines.push(`Contacto: ${contactName}`);
+  const ip = typeof details.ip === "string" ? details.ip : null;
+  if (ip) lines.push(`IP: ${ip}`);
 
   return lines;
 }

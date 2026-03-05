@@ -118,20 +118,26 @@ interface FitBoundsProps {
 
 function FitBounds({ checkpoints, guardPosition }: FitBoundsProps) {
   const map = useMap();
+  const hasFitted = useRef(false);
 
   useEffect(() => {
+    // Only fit bounds on initial mount — never re-zoom after checkpoint updates
+    if (hasFitted.current) return;
+
     const points: L.LatLngExpression[] = checkpoints.map((cp) => [cp.lat, cp.lng]);
     if (guardPosition) {
       points.push([guardPosition.lat, guardPosition.lng]);
     }
     if (points.length === 0) return;
 
+    hasFitted.current = true;
+
     if (points.length === 1) {
       const [p] = points;
-      map.setView(p as L.LatLngTuple, 16);
+      map.setView(p as L.LatLngTuple, 19);
     } else {
       const bounds = L.latLngBounds(points as L.LatLngTuple[]);
-      map.fitBounds(bounds, { padding: [40, 40] });
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 });
     }
   }, [map, checkpoints, guardPosition]);
 
@@ -185,7 +191,7 @@ function CenterButton({ guardPosition, onCenterGuard }: CenterButtonProps) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
-    map.setView([guardPosition.lat, guardPosition.lng], 17, { animate: true });
+    map.setView([guardPosition.lat, guardPosition.lng], 19, { animate: true });
     onCenterGuard?.();
   }, [map, guardPosition, onCenterGuard]);
 
@@ -193,8 +199,8 @@ function CenterButton({ guardPosition, onCenterGuard }: CenterButtonProps) {
     <div
       style={{
         position: "absolute",
-        bottom: 12,
-        left: 12,
+        top: 12,
+        right: 12,
         zIndex: 1000,
       }}
     >
@@ -297,9 +303,10 @@ function RoutePolylines({ checkpoints }: RoutePolylinesProps) {
 // Main RondaMap component
 // ---------------------------------------------------------------------------
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
+  '&copy; Esri, Maxar, Earthstar Geographics';
 
 // Default center (Mexico City) as fallback when no checkpoints
 const DEFAULT_CENTER: L.LatLngExpression = [19.4326, -99.1332];
@@ -353,13 +360,14 @@ export default function RondaMap({
     <div style={{ height }} className="relative overflow-hidden rounded-lg">
       <MapContainer
         center={center}
-        zoom={15}
+        zoom={18}
+        maxZoom={19}
         style={{ height: "100%", width: "100%" }}
         zoomControl={interactive}
         attributionControl={false}
         ref={mapRef}
       >
-        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
 
         {/* Auto-fit bounds */}
         <FitBounds checkpoints={checkpoints} guardPosition={guardPosition} />

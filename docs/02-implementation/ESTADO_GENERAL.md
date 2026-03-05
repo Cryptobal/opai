@@ -1,6 +1,6 @@
 # Estado General del Proyecto — OPAI Suite
 
-> **Fecha:** 2026-02-18  
+> **Fecha:** 2026-03-04  
 > **Estado:** Vigente — se actualiza con cada implementación  
 > **Referencia:** `docs/00-product/MASTER_SPEC_OPI.md`
 
@@ -8,15 +8,15 @@
 
 ## Resumen Ejecutivo
 
-OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.gard.cl`. Actualmente tiene **14 módulos en producción** y **3 fases futuras** planificadas.
+OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.gard.cl`. Actualmente tiene **múltiples módulos en producción** (comercial, operaciones, portales, inventario) y fases futuras planificadas (ERP, completitud Payroll, certificación DT).
 
 | Dato | Valor |
 |------|-------|
-| Páginas implementadas | 103 |
-| Endpoints API | 318 |
-| Modelos de datos (Prisma) | 143 |
-| Componentes UI | ~268 |
-| Schemas PostgreSQL | 8 (public, crm, cpq, docs, payroll, fx, ops, finance) |
+| Páginas implementadas | ~148 |
+| Endpoints API | ~493 |
+| Modelos de datos (Prisma) | 195 |
+| Componentes UI | ~430 |
+| Schemas PostgreSQL | 11 (public, crm, cpq, docs, payroll, fx, ops, finance, inventory, notes, chat) |
 | Roles RBAC | 13 |
 | Cron Jobs | 8 |
 | Stack | Next.js 15, TypeScript, Prisma, Neon PostgreSQL, Auth.js v5 |
@@ -56,9 +56,11 @@ OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.
 
 **Funcionalidades implementadas:**
 - **Leads:** Creación pública/interna, aprobación, conversión a Account+Contact+Deal
-- **Accounts:** CRUD completo, RUT, razón social, representante legal, industria, segmento
-- **Contacts:** CRUD, vinculación a accounts, roles (primary, participant, decision_maker)
+- **Accounts:** CRUD completo, RUT, razón social, representante legal, industria, segmento, notaría (notary_name, notary_date)
+- **Contacts:** CRUD, vinculación a accounts, roles (primary, participant, decision_maker), acceso portal cliente
 - **Deals:** Pipeline con stages configurables, historial de cambios, probabilidad, cotizaciones vinculadas
+- **Won Deals:** API y flujo para deals ganados (won-deals por cuenta)
+- **Contratos por cuenta:** Sección de contratos vinculados a la cuenta (documentos con categoría contrato), API `/api/crm/accounts/[id]/contracts`
 - **Installations:** CRUD, geolocalización (lat/lng), vinculación a accounts/leads, metadata, geofence para marcación
 - **Pipeline:** Stages configurables por tenant, marcadores closed-won/closed-lost
 - **Email:** Cuentas Gmail OAuth, threads, mensajes, envío, tracking (Resend webhooks)
@@ -140,6 +142,7 @@ OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.
 - **Firma digital:** Flujo de firma con token seguro, captura de firma, almacenamiento
 - **PDF:** Generación de PDF del documento
 - **Historial:** Auditoría de cambios por documento
+- **Portal cliente:** Campo `portal_visible` para exponer documentos en el portal del cliente (contratos visibles por contacto)
 
 ---
 
@@ -249,15 +252,28 @@ OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.
 - Dashboard de estado general y cumplimiento
 - Monitoreo en ejecución en tiempo real
 - Alertas de desvíos e incumplimientos
-- Checkpoints por instalación con QR
+- Checkpoints por instalación con QR (mapa/creador de checkpoints)
 - Plantillas con secuencia de checkpoints
 - Programación de frecuencia, días y horarios
-- Reportes de cumplimiento histórico
+- Reportes de cumplimiento histórico (heatmap, etc.)
+- Centro IA para recomendaciones
 - Generación automática (cron cada 10 min)
 - Ejecución pública por QR: `/ronda/[code]`
+- API de ejecuciones y sincronización para portal
 
 **Control nocturno:**
 - Reporte operativo nocturno por instalación
+
+**Supervisión (v2):**
+- Visitas de supervisión, asignaciones, dashboard, reportes
+- Hallazgos, fotos por categoría, checklist por instalación
+- Encuestas cliente, health scores, evaluaciones de guardia
+- Nueva visita, historial, mis visitas (planes 2026-03-03)
+
+**Inventario (Ops):**
+- Bodegas, productos, stock, movimientos, compras, entregas
+- Asignaciones a guardias, activos y asignación de activos
+- Schema `inventory` en BD
 
 **Tickets + SLA:**
 - Tipos de ticket configurables (slug, nombre, origen, prioridad, SLA, equipo)
@@ -343,6 +359,38 @@ OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.
 
 ---
 
+### Portal Cliente (externo)
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Estado** | ✅ Implementado |
+| **Ruta** | `/portal/cliente` (acceso por RUT empresa + PIN contacto) |
+| **Acceso** | Contactos del cliente (autenticación por token/PIN) |
+
+**Funcionalidades:**
+- Login por RUT de la empresa y PIN del contacto
+- Dashboard: cumplimiento de rondas, tendencias, alertas, gráficos
+- Pestaña **Contratos:** documentos marcados `portal_visible` asociados a la cuenta/instalación (API `/api/portal/cliente/contracts`)
+- Pestaña **Chat:** conversación con el equipo (ChatClienteSection)
+- Resumen de rondas y actividad
+- Sin sesión OPAI (portal público con auth propia)
+
+---
+
+### Portales (landing interna)
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Estado** | ✅ Completo |
+| **Ruta** | `/portales` |
+| **Acceso** | owner, admin |
+
+**Funcionalidades:**
+- Página con cards para Portal Guardia, Portal Rondas, Portal de clientes
+- Enlaces y descripciones de cada portal (solo para administradores)
+
+---
+
 ### Configuración
 
 | Aspecto | Detalle |
@@ -396,6 +444,7 @@ OPAI Suite es una plataforma SaaS para empresas de seguridad que opera en `opai.
 | **CRM — Reportes** | Módulo de reportes (conversión pipeline, métricas por etapa, etc.) | Media |
 | **ERP Financiero-Contable** | Plan de cuentas, libro diario/mayor, facturación DTE, proveedores, tesorería, conciliación, factoring. Diseño completo listo en `docs/plans/` | Alta |
 | **Marcación — Certificación DT** | Portal de fiscalización DT, alertas de jornada excedida, comprobante semanal, FEA en reportes, procedimiento de corrección | Media (para certificación) |
+| **Inventario (extensiones)** | Kits por guardia/instalación, mínimos (módulo base ya implementado en Ops) | Media |
 | **Testing** | Tests automatizados (unit + e2e). No hay cobertura actual | Media |
 
 ---
@@ -446,14 +495,12 @@ Con los módulos operativos completados (marcación, rondas, tickets/SLA, notifi
 2. **Completitud Payroll**  
    Asignación Familiar, Horas Extra, APV, pensión alimenticia para liquidaciones reales.
 3. **Portal guardias mejorado**  
-   Comunicados, solicitudes RRHH (permisos, vacaciones, licencias).
-4. **Inventario**  
-   Catálogo, stock, kits de uniforme, asignaciones por guardia/instalación.
-5. **Certificación marcación DT**  
+   Comunicados, solicitudes RRHH (permisos, vacaciones, licencias) — el portal guardia actual ya existe con tickets/documentos.
+4. **Certificación marcación DT**  
    Portal fiscalizador, alertas de jornada, FEA en reportes, comprobante semanal.
-6. **Hardening + QA**  
+5. **Hardening + QA**  
    Tests e2e para todos los módulos operativos.
 
 ---
 
-*Este documento refleja el estado real del repositorio al 2026-02-18. Última actualización: Sistema de notificaciones unificado, tickets con SLA, rondas completas, marcación digital completada.*
+*Este documento refleja el estado real del repositorio al 2026-03-04. Última actualización: Portal Cliente (dashboard, contratos, chat), Portales landing, CRM contratos por cuenta y won-deals, Documentos portal_visible, Supervisión v2, Inventario Ops, métricas actualizadas (195 modelos, 11 schemas, ~493 APIs, ~148 páginas, ~430 componentes).*

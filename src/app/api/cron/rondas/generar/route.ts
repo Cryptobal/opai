@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
 import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { startOfDayChile } from "@/lib/rondas/timezone";
 
 /**
  * CRON: /api/cron/rondas/generar
  *
- * Genera ejecuciones de rondas para las próximas 24h.
+ * Genera ejecuciones de rondas desde el inicio del día Chile hasta +24h.
  * Runs every 10 minutes via Vercel Cron.
  * Protected with CRON_SECRET env var.
  */
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
+    // Generate from start of today (Chile time) so morning slots are never missed
+    const from = startOfDayChile(now);
     const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const programaciones = await prisma.opsRondaProgramacion.findMany({
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Pre-load existing executions for the entire time range to avoid N+1 queries
     const existingEjecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
-        scheduledAt: { gte: now, lte: end },
+        scheduledAt: { gte: from, lte: end },
         programacionId: { in: programaciones.map((p) => p.id) },
       },
       select: { programacionId: true, scheduledAt: true },
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
     let generated = 0;
     for (const p of programaciones) {
       const slots = buildScheduleSlots({
-        from: now,
+        from,
         to: end,
         diasSemana: (p.diasSemana as number[]) ?? [],
         horaInicio: p.horaInicio,
