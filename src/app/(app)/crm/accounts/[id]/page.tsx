@@ -89,8 +89,8 @@ export default async function CrmAccountDetailPage({
 
   // Tracking de uso del portal del cliente (solo actividad, no genera notificaciones)
   const portalAccessEvents = (account.contacts ?? [])
-    .filter((c) => c.portalLastAccessAt)
-    .map((c) => ({
+    .filter((c: any) => c.portalLastAccessAt)
+    .map((c: any) => ({
       id: `portal-access-${c.id}`,
       action: "portal_cliente_access",
       createdAt: c.portalLastAccessAt instanceof Date ? c.portalLastAccessAt.toISOString() : String(c.portalLastAccessAt),

@@ -27,9 +27,6 @@ export type { EmptyStateProps } from './EmptyState';
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 
-export { LoadingSpinner } from './LoadingSpinner';
-export type { LoadingSpinnerProps, LoadingSpinnerSize } from './LoadingSpinner';
-
 export { Avatar } from './Avatar';
 export { Stepper } from './Stepper';
 export { Breadcrumb } from './Breadcrumb';
@@ -52,7 +49,7 @@ export { ReloadButton } from './ReloadButton';
 export { SubNav } from './SubNav';
 export type { SubNavItem } from './SubNav';
 export { BottomNav } from './BottomNav';
-export { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
+export { CommandPalette } from './CommandPalette';
 
 // Page Components
 export { DocumentosContent } from './DocumentosContent';
@@ -61,25 +58,7 @@ export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';
 export { ConfigBackLink } from './ConfigBackLink';
 export { AiProvidersConfigClient } from './AiProvidersConfigClient';
-export { GlobalDocumentsClient } from './GlobalDocumentsClient';
-export { SectionNav, resolveSectionNavLayout } from './SectionNav';
+export { SectionNav } from './SectionNav';
 export type { SectionNavItem } from './SectionNav';
 export { DetailLayout } from './DetailLayout';
 export type { DetailLayoutSection } from './DetailLayout';
-
-// Data Display
-export { DataTable } from './DataTable';
-export type { DataTableProps, DataTableColumn } from './DataTable';
-
-export { KpiGrid } from './KpiGrid';
-export type { KpiGridProps } from './KpiGrid';
-
-export { ModuleCard } from './ModuleCard';
-export type { ModuleCardProps } from './ModuleCard';
-
-// Form Components
-export { FormField } from './FormField';
-export type { FormFieldProps } from './FormField';
-
-export { FilterBar } from './FilterBar';
-export type { FilterBarProps } from './FilterBar';

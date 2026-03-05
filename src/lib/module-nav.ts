@@ -11,38 +11,50 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  // Main nav
   Grid3x3,
   FileText,
   Building2,
   Calculator,
   ClipboardList,
+  Settings,
   Receipt,
   BarChart3,
   Landmark,
   BookText,
-  ClipboardCheck,
+  // CRM
   Users,
-  User,
   MapPin,
   TrendingUp,
   Contact,
   DollarSign,
-  Activity,
+  // Ops
   CalendarDays,
+  Clock3,
+  UserRoundCheck,
+  ShieldAlert,
+  Fingerprint,
   Route,
+  Radio,
   Moon,
   Ticket,
-  Package,
+  // TE
   CheckCircle2,
-  Banknote,
-  Wallet,
   Layers,
+  Banknote,
+  // Personas
+  Shield,
+  // Docs
   FolderOpen,
+  // Config
   Plug,
   Bell,
   Sparkles,
-  MessageSquare,
 } from "lucide-react";
+import {
+  CRM_SECTIONS,
+  MODULE_DETAIL_SECTIONS,
+} from "@/components/crm/CrmModuleIcons";
 import {
   type RolePermissions,
   getDefaultPermissions,
@@ -65,13 +77,12 @@ export interface BottomNavItem {
 
 const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
-  { key: "chat", href: "/chat", label: "Chat", icon: MessageSquare, app: "hub" },
-  { key: "crm", href: "/crm", label: "Comercial", icon: TrendingUp, app: "crm" },
-  { key: "ops", href: "/ops", label: "Operaciones", icon: Activity, app: "ops" },
-  { key: "personas", href: "/personas/guardias", label: "Personas", icon: User, app: "ops" },
-  { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, app: "payroll" },
-  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Landmark, app: "finance" },
-  { key: "docs", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, app: "docs" },
+  { key: "docs", href: "/opai/inicio", label: "Docs", icon: FileText, app: "docs" },
+  { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
+  { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
+  { key: "ops", href: "/ops", label: "Ops", icon: ClipboardList, app: "ops" },
+  { key: "finance", href: "/finanzas", label: "Finanzas", icon: Receipt, app: "finance" },
+  { key: "config", href: "/opai/configuracion", label: "Config", icon: Settings, app: "admin" },
 ];
 
 /* ── CRM sub-items ── */
@@ -80,20 +91,30 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, subKey: "leads" },
   { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, subKey: "accounts" },
   { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
-  { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
   { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
+  { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
   { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
 ];
 
-/* ── Ops sub-items (alineados con sidebar) ── */
+/* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
-  { key: "ops-pautas", href: "/ops/pautas", label: "Pautas", icon: CalendarDays, subKey: "pautas" },
-  { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
-  { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
+  { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
+  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
+  { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
+  { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Control Nocturno", icon: Moon, subKey: "control_nocturno" },
-  { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
+  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
+  { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+];
+
+const RONDAS_ITEMS: BottomNavItem[] = [
+  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
+  { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
+  { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
+  { key: "rondas-checkpoints", href: "/ops/rondas/checkpoints", label: "Puntos", icon: MapPin },
+  { key: "rondas-config", href: "/ops/rondas/templates", label: "Config", icon: Settings },
 ];
 
 /* ── TE sub-items ── */
@@ -108,7 +129,7 @@ const TE_ITEMS: BottomNavItem[] = [
 /* ── Personas sub-items ── */
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
-  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: User },
+  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: Shield },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
 ];
 
@@ -133,13 +154,13 @@ const DOCS_ITEMS: BottomNavItem[] = [
 const FINANCE_ITEMS: (BottomNavItem & {
   subKey: "rendiciones" | "facturacion" | "proveedores" | "contabilidad" | "reportes";
 })[] = [
-    { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
-    { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
-    { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
-    { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
-    { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
-    { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
-  ];
+  { key: "finance-rendiciones", href: "/finanzas/rendiciones", label: "Rendic.", icon: Receipt, subKey: "rendiciones" },
+  { key: "finance-ventas", href: "/finanzas/facturacion", label: "Ventas", icon: FileText, subKey: "facturacion" },
+  { key: "finance-compras", href: "/finanzas/proveedores", label: "Compras", icon: Building2, subKey: "proveedores" },
+  { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
+  { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
+  { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
+];
 
 /* ── Config sub-items (top 5 for bottom nav) ── */
 
@@ -164,6 +185,10 @@ interface ModuleDetection {
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
   {
+    test: (p) => p.startsWith("/ops/rondas"),
+    getItems: () => RONDAS_ITEMS,
+  },
+  {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
     getItems: (perms) =>
       CRM_ITEMS.filter((item) => canView(perms, "crm", item.subKey)),
@@ -171,17 +196,7 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) => p === "/ops" || p.startsWith("/ops/"),
     getItems: (perms) =>
-      OPS_ITEMS.filter((item) => {
-        if (item.subKey === "pautas") {
-          return (
-            canView(perms, "ops", "pauta_mensual") ||
-            canView(perms, "ops", "pauta_diaria") ||
-            canView(perms, "ops", "turnos_extra") ||
-            canView(perms, "ops", "ppc")
-          );
-        }
-        return canView(perms, "ops", item.subKey);
-      }),
+      OPS_ITEMS.filter((item) => canView(perms, "ops", item.subKey)),
   },
   {
     test: (p) => p === "/te" || p.startsWith("/te/"),
@@ -219,14 +234,68 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
 ];
 
+/* ── CRM detail page → section items ── */
+
+const CRM_MODULE_MAP: Record<string, string> = {
+  leads: "leads",
+  accounts: "accounts",
+  contacts: "contacts",
+  deals: "deals",
+  installations: "installations",
+  cotizaciones: "quotes",
+};
+
+/** Abreviaciones para el bottom nav (espacio limitado) */
+const SECTION_SHORT_LABELS: Record<string, string> = {
+  general: "Info",
+  account: "Cuenta",
+  contacts: "Contacto",
+  deals: "Negocio",
+  installations: "Instal.",
+  quotes: "CPQ",
+  followup: "Seguim.",
+  communication: "Correos",
+  notes: "Notas",
+  staffing: "Puestos",
+  dotacion: "Dotación",
+  files: "Archivos",
+};
+
+/**
+ * Detecta si el pathname es una página de detalle CRM (ej: /crm/leads/cm7xxx)
+ * y devuelve los items de sección para la bottom nav.
+ */
+function getCrmDetailSectionItems(pathname: string): BottomNavItem[] | null {
+  // Patrón: /crm/{module}/{id} donde id es un cuid (cm...) u otro identificador
+  const match = pathname.match(
+    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/([^/]+)$/
+  );
+  if (!match) return null;
+
+  const moduleKey = CRM_MODULE_MAP[match[1]];
+  if (!moduleKey) return null;
+
+  const sectionKeys = MODULE_DETAIL_SECTIONS[moduleKey];
+  if (!sectionKeys || sectionKeys.length === 0) return null;
+
+  return sectionKeys.map((key) => {
+    const section = CRM_SECTIONS[key];
+    return {
+      key: `section-${key}`,
+      href: `#section-${key}`,
+      label: SECTION_SHORT_LABELS[key] || section.label,
+      icon: section.icon,
+      isSection: true,
+    };
+  });
+}
+
 /**
  * Devuelve los items del bottom nav según la ruta actual y el rol del usuario.
  *
+ * - En detalle CRM: muestra secciones del registro (scroll a anclas)
  * - Dentro de un módulo: muestra subcategorías del módulo
  * - En ruta general: muestra navegación principal
- *
- * Nota: las páginas de detalle CRM ya no muestran bottom nav de secciones;
- * la navegación se hace via ChipTabs inline en la vista.
  *
  * Acepta un role string (usa defaults) o un RolePermissions object.
  */
@@ -239,20 +308,11 @@ export function getBottomNavItems(
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
 
-  // Páginas de detalle: no mostramos bottom nav. La navegación de secciones se
-  // hace con ChipTabs inline y el usuario vuelve al listado con breadcrumbs/back.
-  const DETAIL_PATTERNS = [
-    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/[^/]+$/,
-    /^\/personas\/guardias\/[^/]+$/,
-    /^\/payroll\/periodos\/[^/]+$/,
-    /^\/finanzas\/rendiciones\/[^/]+$/,
-    /^\/ops\/(tickets|control-nocturno)\/[^/]+$/,
-    /^\/ops\/inventario\/productos\/[^/]+$/,
-    /^\/opai\/documentos\/(templates\/)?[^/]+$/,
-  ];
-  if (DETAIL_PATTERNS.some((re) => re.test(pathname))) return [];
+  // Prioridad 1: páginas de detalle CRM → secciones del registro
+  const sectionItems = getCrmDetailSectionItems(pathname);
+  if (sectionItems) return sectionItems;
 
-  // Prioridad 1: módulos → subcategorías
+  // Prioridad 2: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
     if (detection.test(pathname)) {
       const items = detection.getItems(perms);
