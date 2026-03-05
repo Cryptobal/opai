@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageCircle,
   MoreHorizontal,
+  Plus,
   Search,
   Sprout,
   Trash2,
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useChatFloatingContext, type ChatFloatingChannel } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
+import { NewExternalChatModal } from "./NewExternalChatModal";
 import { usePusher } from "./hooks/usePusher";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -139,6 +141,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
+  const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
 
   // Reset search and filter when panel closes
   useEffect(() => {
@@ -461,6 +464,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                       onArchive={(id) => ctx.archiveChannel(id)}
                       canDelete={canDeleteChannels}
                       onDelete={handleDeleteChannel}
+                      onNewChat={() => setNewChatModal({ open: true, defaultStatus: "prospect" })}
                     />
                   )}
 
@@ -477,6 +481,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                       onArchive={(id) => ctx.archiveChannel(id)}
                       canDelete={canDeleteChannels}
                       onDelete={handleDeleteChannel}
+                      onNewChat={() => setNewChatModal({ open: true, defaultStatus: "client_active" })}
                     />
                   )}
 
@@ -525,6 +530,16 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
               onConfirm={confirmDelete}
               variant="destructive"
             />
+
+            <NewExternalChatModal
+              open={newChatModal.open}
+              defaultStatus={newChatModal.defaultStatus}
+              onClose={() => setNewChatModal({ open: false })}
+              onCreated={(channelId) => {
+                ctx.refreshChannels();
+                ctx.selectChannel(channelId);
+              }}
+            />
           </>
         )}
       </div>
@@ -548,6 +563,7 @@ function ChannelSection({
   canDelete,
   onDelete,
   isArchivedSection,
+  onNewChat,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -561,32 +577,45 @@ function ChannelSection({
   canDelete?: boolean;
   onDelete?: (channelId: string) => void;
   isArchivedSection?: boolean;
+  onNewChat?: () => void;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
-      >
-        {collapsed ? (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        )}
-        {icon}
-        <span className="flex-1 text-left">{label}</span>
-        <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
-          {channels.length}
-        </span>
-        {sectionUnread > 0 && (
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
-            {sectionUnread > 99 ? "99+" : sectionUnread}
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-3 w-3 shrink-0" />
+          ) : (
+            <ChevronDown className="h-3 w-3 shrink-0" />
+          )}
+          {icon}
+          <span className="flex-1 text-left">{label}</span>
+          <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+            {channels.length}
           </span>
+          {sectionUnread > 0 && (
+            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+              {sectionUnread > 99 ? "99+" : sectionUnread}
+            </span>
+          )}
+        </button>
+        {onNewChat && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onNewChat(); }}
+            className="mr-3 h-4 w-4 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+            aria-label="Nuevo chat"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
         )}
-      </button>
+      </div>
       {!collapsed && (
         <div className="divide-y divide-border/20">
           {channels.map((ch) => (
