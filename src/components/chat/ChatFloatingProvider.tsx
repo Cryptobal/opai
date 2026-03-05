@@ -17,17 +17,24 @@ import { ChatFloatingPanel } from "./ChatFloatingPanel";
 export type ChatFloatingChannel = {
   id: string;
   name: string;
-  channelType: string;
+  channelType: string; // "DIRECT" | "GROUP" | "INSTALLATION" | "EXTERNAL"
   groupId: string | null;
   installationId: string | null;
+  accountId: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  isArchivedByMe: boolean;
   group: { id: string; color: string; slug: string } | null;
   installation: {
     id: string;
     name: string;
     account: { id: string; name: string } | null;
+  } | null;
+  account: {
+    id: string;
+    name: string;
+    status: string;
   } | null;
   dmParticipant: {
     id: string;
@@ -50,6 +57,11 @@ interface ChatFloatingContextValue {
   currentUserId: string;
   autoContext: { pageUrl: string; pageLabel: string } | null;
   refreshChannels: () => Promise<void>;
+  archiveChannel: (channelId: string) => Promise<void>;
+  unarchiveChannel: (channelId: string) => Promise<void>;
+  deleteChannel: (channelId: string) => Promise<void>;
+  archivedChannels: ChatFloatingChannel[];
+  fetchArchivedChannels: () => Promise<void>;
 }
 
 export const ChatFloatingContext = createContext<ChatFloatingContextValue | null>(null);
@@ -79,6 +91,7 @@ export function ChatFloatingProvider({
   const [channels, setChannels] = useState<ChatFloatingChannel[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [archivedChannels, setArchivedChannels] = useState<ChatFloatingChannel[]>([]);
   const fetchedRef = useRef(false);
 
   const fetchChannels = useCallback(async () => {
@@ -99,6 +112,38 @@ export function ChatFloatingProvider({
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const fetchArchivedChannels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/archived");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) setArchivedChannels(json.data);
+    } catch {}
+  }, []);
+
+  const archiveChannel = useCallback(async (channelId: string) => {
+    await fetch(`/api/chat/channels/${channelId}/archive`, { method: "POST" });
+    // Optimistic: remove from active channels
+    setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    // Add to archived list
+    await fetchArchivedChannels();
+  }, [fetchArchivedChannels]);
+
+  const unarchiveChannel = useCallback(async (channelId: string) => {
+    await fetch(`/api/chat/channels/${channelId}/archive`, { method: "DELETE" });
+    // Remove from archived list
+    setArchivedChannels((prev) => prev.filter((c) => c.id !== channelId));
+    // Refresh main channels to bring it back
+    await fetchChannels();
+  }, [fetchChannels]);
+
+  const deleteChannel = useCallback(async (channelId: string) => {
+    await fetch(`/api/chat/channels/${channelId}`, { method: "DELETE" });
+    // Remove from both lists
+    setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    setArchivedChannels((prev) => prev.filter((c) => c.id !== channelId));
   }, []);
 
   // Fetch channels on first panel open
@@ -171,6 +216,11 @@ export function ChatFloatingProvider({
     currentUserId,
     autoContext: autoContext ?? null,
     refreshChannels: fetchChannels,
+    archiveChannel,
+    unarchiveChannel,
+    deleteChannel,
+    archivedChannels,
+    fetchArchivedChannels,
   };
 
   return (
