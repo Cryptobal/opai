@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, ShieldX } from "lucide-react";
 import { SupervisorSession, SupervisorInstallation } from "@/lib/portal-supervisor";
 import { PortalSupervisorNav, SupervisorSection } from "./PortalSupervisorNav";
@@ -22,13 +23,17 @@ import { SupervisorChat } from "./SupervisorChat";
 import { SupervisorVisitasTecnicas } from "./SupervisorVisitasTecnicas";
 import { VisitaTecnicaForm } from "./VisitaTecnicaForm";
 import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
+import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 
 export function PortalSupervisorClient() {
+  const searchParams = useSearchParams();
+  const initialSection = searchParams.get("section") as SupervisorSection | null;
+
   const [session, setSession] = useState<SupervisorSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeSection, setActiveSection] = useState<SupervisorSection>("dashboard");
+  const [activeSection, setActiveSection] = useState<SupervisorSection>(initialSection || "dashboard");
   const [selectedInstallation, setSelectedInstallation] = useState<SupervisorInstallation | null>(
     null
   );
@@ -260,6 +265,14 @@ export function PortalSupervisorClient() {
 
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-white">
+      <div className="px-4 pt-2">
+        <PushPermissionPrompt
+          portalType="app"
+          userType="admin"
+          userId={session.adminId}
+          tenantId={session.tenantId}
+        />
+      </div>
       <main className="pb-20">{renderSection()}</main>
 
       <PortalSupervisorNav

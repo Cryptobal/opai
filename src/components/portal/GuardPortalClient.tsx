@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Shield,
@@ -89,11 +90,14 @@ function readStoredSession(): GuardSession | null {
 }
 
 export function GuardPortalClient() {
+  const searchParams = useSearchParams();
+  const initialSection = searchParams.get("section") as PortalSection | null;
+
   const [session, setSession] = useState<GuardSession | null>(() => {
     if (typeof window === "undefined") return null;
     return readStoredSession();
   });
-  const [activeSection, setActiveSection] = useState<PortalSection>("inicio");
+  const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "inicio");
 
   function handleLogin(s: GuardSession) {
     setSession(s);

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -34,6 +35,7 @@ export default async function PortalSupervisorLayout({
   }
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-white">
+      <ServiceWorkerRegistrar />
       {children}
     </div>
   );

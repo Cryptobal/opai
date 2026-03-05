@@ -241,6 +241,19 @@ async function getChatChannelRecipients(
       }
     }
 
+    // Guards who have participated (have a read cursor) — catches guards
+    // accessing via currentInstallationId without an active assignment
+    const guardCursors = await prisma.chatReadCursor.findMany({
+      where: { channelId, readerType: 'GUARD' },
+      select: { readerId: true },
+      distinct: ['readerId'],
+    });
+    for (const c of guardCursors) {
+      if (!recipients.some(r => r.subscriberType === 'GUARD' && r.subscriberId === c.readerId)) {
+        recipients.push({ subscriberType: 'GUARD', subscriberId: c.readerId });
+      }
+    }
+
     // Admins who have participated (have a read cursor)
     const adminCursors = await prisma.chatReadCursor.findMany({
       where: { channelId, readerType: 'ADMIN' },
@@ -345,8 +358,8 @@ export async function sendChatPushNotifications({
           title: `${senderName} · ${channelName}`,
           body,
           url: portalType === 'app'
-            ? `/opai/chat?channel=${channelId}`
-            : `/portal/${portalType}/chat?channel=${channelId}`,
+            ? `/chat?channel=${channelId}`
+            : `/portal/${portalType}?section=chat&channel=${channelId}`,
           tag: `chat-${channelId}`,
         });
       })

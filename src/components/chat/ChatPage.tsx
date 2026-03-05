@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChatChannelList } from "./ChatChannelList";
 import { ChatConversation } from "./ChatConversation";
@@ -21,7 +22,9 @@ interface ChatPageProps {
  * toggled on channel select with a back button to return.
  */
 export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const initialChannel = searchParams.get("channel");
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannel);
   const [selectedChannelName, setSelectedChannelName] = useState<string>("");
   const pusher = usePusher("/api/chat/pusher/auth");
   const { channels: unreadChannels, refresh: refreshUnread } = useChatUnreadCounts();

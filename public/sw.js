@@ -80,9 +80,25 @@ self.addEventListener('fetch', (event) => {
 
 // PUSH NOTIFICATIONS
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  if (!event.data) {
+    // Always show a notification to satisfy the browser requirement
+    event.waitUntil(
+      self.registration.showNotification('OPAI', {
+        body: 'Tienes una nueva notificacion',
+        icon: '/iconos_azul/icon-192x192.png',
+        badge: '/iconos_azul/icon-192x192.png',
+      })
+    );
+    return;
+  }
 
-  const data = event.data.json();
+  let data;
+  try {
+    data = event.data.json();
+  } catch {
+    data = { title: 'OPAI', body: event.data.text() || 'Nueva notificacion' };
+  }
+
   const {
     title = 'OPAI',
     body = '',
@@ -122,19 +138,19 @@ self.addEventListener('notificationclick', (event) => {
     }
   }
 
+  const target = new URL(targetUrl, self.location.origin);
+
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
+        // Try to reuse an existing window from the same origin
         for (const client of clients) {
-          const clientPath = new URL(client.url).pathname;
-          const targetPath = new URL(targetUrl, self.location.origin).pathname.split('?')[0];
-          if (clientPath.startsWith(targetPath)) {
-            client.navigate(targetUrl);
-            return client.focus();
+          if (new URL(client.url).origin === target.origin) {
+            return client.navigate(target.href).then(() => client.focus());
           }
         }
-        return self.clients.openWindow(targetUrl);
+        return self.clients.openWindow(target.href);
       })
   );
 });

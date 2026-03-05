@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
@@ -44,9 +44,12 @@ function formatRut(v: string): string {
 
 export function PortalClienteClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSection = searchParams.get("section") as PortalSection | null;
+
   const [session, setSession] = useState<ClienteSession | null>(null);
   const [screen, setScreen] = useState<"login" | "dashboard">("login");
-  const [activeSection, setActiveSection] = useState<PortalSection>("dashboard");
+  const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "dashboard");
 
   /* ── Login state ── */
   const [rut, setRut] = useState("");

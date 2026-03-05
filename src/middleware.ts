@@ -54,6 +54,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/portal/guardia')) return true;
   if (pathname.startsWith('/api/portal/cliente')) return true;
   if (pathname.startsWith('/api/portal/rondas')) return true;
+  // Push subscription & preferences — portal users authenticate via PIN, not NextAuth
+  if (pathname.startsWith('/api/notifications/push/subscribe')) return true;
+  if (pathname.startsWith('/api/notifications/push/preferences')) return true;
   // Firma electrónica pública: GET/POST por token sin sesión
   if (pathname.startsWith('/api/docs/sign')) return true;
   // Vista pública de documento firmado (por viewToken)

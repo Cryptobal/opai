@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { LoginScreen } from "./LoginScreen";
 import { MisRondas } from "./MisRondas";
 import { RondaActiva } from "./RondaActiva";
@@ -23,6 +24,7 @@ export interface RondasSession {
 }
 
 export function RondasPortalClient() {
+  const searchParams = useSearchParams();
   const [screen, setScreen] = useState<RondasScreen>("login");
   const [session, setSession] = useState<RondasSession | null>(null);
   const [activeEjecucionId, setActiveEjecucionId] = useState<string | null>(null);
@@ -59,7 +61,8 @@ export function RondasPortalClient() {
         const parsed = wrapped.session;
         if (parsed.guardiaId && parsed.tenantId && parsed.installationId) {
           setSession(parsed);
-          setScreen("mis-rondas");
+          const sectionParam = searchParams.get("section");
+          setScreen(sectionParam === "chat" ? "chat" : "mis-rondas");
         }
       }
     } catch {
