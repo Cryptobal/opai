@@ -128,6 +128,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    direct: false,
     group: true,
     installation: true,
     users: true,

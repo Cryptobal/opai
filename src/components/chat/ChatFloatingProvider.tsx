@@ -126,26 +126,21 @@ export function ChatFloatingProvider({
   }, []);
 
   const archiveChannel = useCallback(async (channelId: string) => {
-    await fetch(`/api/chat/channels/${channelId}/archive`, { method: "POST" });
-    // Optimistic: remove from active channels
+    const res = await fetch(`/api/chat/channels/${channelId}/archive`, { method: "POST" });
+    if (!res.ok) return;
     setChannels((prev) => prev.filter((c) => c.id !== channelId));
-    // Add to archived list
-    await fetchArchivedChannels();
-  }, [fetchArchivedChannels]);
+  }, []);
 
   const unarchiveChannel = useCallback(async (channelId: string) => {
-    await fetch(`/api/chat/channels/${channelId}/archive`, { method: "DELETE" });
-    // Remove from archived list
-    setArchivedChannels((prev) => prev.filter((c) => c.id !== channelId));
-    // Refresh main channels to bring it back
+    const res = await fetch(`/api/chat/channels/${channelId}/archive`, { method: "DELETE" });
+    if (!res.ok) return;
     await fetchChannels();
   }, [fetchChannels]);
 
   const deleteChannel = useCallback(async (channelId: string) => {
-    await fetch(`/api/chat/channels/${channelId}`, { method: "DELETE" });
-    // Remove from both lists
+    const res = await fetch(`/api/chat/channels/${channelId}`, { method: "DELETE" });
+    if (!res.ok) return;
     setChannels((prev) => prev.filter((c) => c.id !== channelId));
-    setArchivedChannels((prev) => prev.filter((c) => c.id !== channelId));
   }, []);
 
   // Fetch channels on first panel open
@@ -172,26 +167,15 @@ export function ChatFloatingProvider({
 
   // Fetch unread counts periodically for badge
   useEffect(() => {
-    const fetchUnreads = async () => {
-      try {
-        const res = await fetch("/api/chat/channels");
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.success) {
-          setChannels(json.data);
-        }
-      } catch {
-        // Ignore
-      }
-    };
-
     // Initial fetch for badge
-    fetchUnreads();
+    fetchChannels();
 
     // Poll every 30s
-    const interval = setInterval(fetchUnreads, 30000);
+    const interval = setInterval(() => {
+      fetchChannels();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchChannels]);
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
