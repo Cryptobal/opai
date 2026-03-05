@@ -3,21 +3,28 @@
  * GET  - Obtener preferencias de notificación del tenant
  * POST - Guardar preferencias de notificación del tenant
  *
- * Almacenadas en la tabla Setting con key="notification_preferences" + tenantId
+ * Almacenadas en la tabla Setting con key="notification_preferences:{tenantId}"
+ * como JSON: { docExpiryDaysDefault: number, pushGlobalConfig: Record<key, { pushEnabled: boolean }> }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { PORTAL_NOTIFICATION_TYPES } from "@/lib/pwa/portal-notification-types";
 
 function settingKey(tenantId: string) {
   return `notification_preferences:${tenantId}`;
 }
 
-const DEFAULTS: Record<string, unknown> = {
-  docExpiryDaysDefault: 30,
-};
+/** Default: all notification types push-enabled = true (using defaultPush from type definition) */
+function defaultPushGlobalConfig(): Record<string, { pushEnabled: boolean }> {
+  return Object.fromEntries(
+    PORTAL_NOTIFICATION_TYPES.map((t) => [t.key, { pushEnabled: t.defaultPush }])
+  );
+}
+
+const BASE_DEFAULTS = { docExpiryDaysDefault: 30 };
 
 export async function GET() {
   try {
@@ -28,11 +35,15 @@ export async function GET() {
       where: { key: settingKey(ctx.tenantId) },
     });
 
-    let prefs = { ...DEFAULTS };
+    let prefs = { ...BASE_DEFAULTS, pushGlobalConfig: defaultPushGlobalConfig() };
     if (setting?.value) {
       try {
         const parsed = JSON.parse(setting.value);
-        prefs = { ...DEFAULTS, ...parsed };
+        prefs = {
+          ...BASE_DEFAULTS,
+          ...parsed,
+          pushGlobalConfig: parsed.pushGlobalConfig ?? defaultPushGlobalConfig(),
+        };
       } catch {
         // corrupted JSON — return defaults
       }
@@ -61,12 +72,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
     const docExpiryDays =
       typeof body.docExpiryDaysDefault === "number"
         ? Math.max(1, Math.min(365, body.docExpiryDaysDefault))
         : 30;
 
-    const merged = { docExpiryDaysDefault: docExpiryDays };
+    // Sanitize pushGlobalConfig: only allow known keys with boolean values
+    const validKeys = new Set(PORTAL_NOTIFICATION_TYPES.map((t) => t.key));
+    const rawPushConfig = body.pushGlobalConfig ?? {};
+    const pushGlobalConfig: Record<string, { pushEnabled: boolean }> = {};
+    for (const key of validKeys) {
+      const val = rawPushConfig[key];
+      pushGlobalConfig[key] = {
+        pushEnabled: typeof val?.pushEnabled === "boolean" ? val.pushEnabled : true,
+      };
+    }
+
+    const merged = { docExpiryDaysDefault: docExpiryDays, pushGlobalConfig };
     const value = JSON.stringify(merged);
 
     const existing = await prisma.setting.findFirst({
@@ -74,10 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      await prisma.setting.update({
-        where: { id: existing.id },
-        data: { value },
-      });
+      await prisma.setting.update({ where: { id: existing.id }, data: { value } });
     } else {
       await prisma.setting.create({
         data: {
