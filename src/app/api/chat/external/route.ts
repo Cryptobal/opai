@@ -7,15 +7,15 @@ export async function POST(req: Request) {
   if (!ctx) return unauthorized();
 
   const body = await req.json();
-  const { accountId, uniqueContactIds, adminIds, name } = body as {
+  const { accountId, contactIds, adminIds, name } = body as {
     accountId: string;
-    uniqueContactIds: string[];
+    contactIds: string[];
     adminIds?: string[];
     name?: string;
   };
 
   // Deduplicate contact IDs to avoid false validation errors
-  const uniqueContactIds = [...new Set(uniqueContactIds ?? [])];
+  const uniqueContactIds = [...new Set(contactIds ?? [])];
 
   // Validate required fields
   if (!accountId || !uniqueContactIds.length) {
