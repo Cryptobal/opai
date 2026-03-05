@@ -2,11 +2,13 @@
  * API Route: /api/portal/cliente/chat/channels
  * GET — List all channels for the client's account installations.
  *        Includes installation name, account name, and unread count.
+ *        For prospect accounts: returns direct channel with ejecutivo + locked demo channels.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/portal-chat-auth";
+import { DEMO_CHAT_CHANNELS } from "@/lib/portal/demo-data";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +19,95 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Check if account is a prospect
+    const account = await prisma.crmAccount.findUnique({
+      where: { id: session.accountId },
+      select: { status: true, portalEjecutivoId: true },
+    });
+
+    if (account?.status === "prospect") {
+      // For prospects: find the DIRECT channel with the ejecutivo
+      let directChannelData: any[] = [];
+
+      if (account.portalEjecutivoId) {
+        const directChannel = await prisma.chatChannel.findFirst({
+          where: {
+            tenantId: session.tenantId,
+            channelType: "DIRECT",
+            dmParticipants: {
+              some: { adminId: account.portalEjecutivoId },
+            },
+          },
+          include: {
+            installation: {
+              select: {
+                id: true,
+                name: true,
+                account: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        });
+
+        if (directChannel) {
+          // Get unread count for the direct channel
+          const readCursor = await prisma.chatReadCursor.findFirst({
+            where: {
+              channelId: directChannel.id,
+              readerType: "CLIENT",
+              readerId: session.contactId,
+            },
+            select: { lastReadAt: true },
+          });
+
+          const unreadCount = await prisma.chatMessage.count({
+            where: {
+              channelId: directChannel.id,
+              deletedAt: null,
+              ...(readCursor?.lastReadAt ? { createdAt: { gt: readCursor.lastReadAt } } : {}),
+            },
+          });
+
+          directChannelData = [
+            {
+              id: directChannel.id,
+              tenantId: directChannel.tenantId,
+              installationId: directChannel.installationId,
+              name: directChannel.name,
+              channelType: directChannel.channelType,
+              isActive: directChannel.isActive,
+              lastMessageAt: directChannel.lastMessageAt?.toISOString() ?? null,
+              lastMessagePreview: directChannel.lastMessagePreview,
+              messageCount: directChannel.messageCount,
+              createdAt: directChannel.createdAt.toISOString(),
+              updatedAt: directChannel.updatedAt.toISOString(),
+              installation: directChannel.installation
+                ? {
+                    id: directChannel.installation.id,
+                    name: directChannel.installation.name,
+                    account: directChannel.installation.account
+                      ? { id: directChannel.installation.account.id, name: directChannel.installation.account.name }
+                      : null,
+                  }
+                : undefined,
+              unreadCount,
+            },
+          ];
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: directChannelData,
+        lockedChannels: DEMO_CHAT_CHANNELS,
+        meta: { total: directChannelData.length },
+      });
+    }
+
+    // ── Active account: existing behavior ──
 
     // Find all installations for the client's account
     const installations = await prisma.crmInstallation.findMany({

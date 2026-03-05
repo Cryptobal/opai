@@ -162,7 +162,7 @@ export function PortalClienteClient() {
           />
         );
       case "chat":
-        return <ChatClienteSection session={session} />;
+        return <ChatClienteSection session={session} isProspect={session?.isProspect} />;
       case "alertas":
         return <PortalAlertas session={session} />;
       case "cotizaciones":
