@@ -10,6 +10,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente'
+import { DEMO_SUMMARY, DEMO_CHART_DATA, DEMO_GUARDIAS_RANKING, DEMO_ACTIVITY } from '@/lib/portal/demo-data'
+import { PreviewBadge } from './PreviewBadge'
+import { ProspectCotizacionCarousel } from './ProspectCotizacionCarousel'
 
 /* ── Types ── */
 
@@ -90,9 +93,11 @@ const MEDALS = ['🥇', '🥈', '🥉']
 interface Props {
   session: ClienteSession
   selectedInstallation: string
+  isProspect?: boolean
+  onNavigate?: (section: string) => void
 }
 
-export function PortalDashboard({ session, selectedInstallation }: Props) {
+export function PortalDashboard({ session, selectedInstallation, isProspect, onNavigate }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [compliance, setCompliance] = useState<DailyPoint[]>([])
   const [guards, setGuards] = useState<Guard[]>([])
@@ -101,6 +106,33 @@ export function PortalDashboard({ session, selectedInstallation }: Props) {
   const [loadingData, setLoadingData] = useState(false)
 
   const fetchDashboard = useCallback(async (instId: string, tenantId: string) => {
+    if (isProspect) {
+      setSummary({
+        compliance: DEMO_SUMMARY.compliance,
+        complianceTrend: 2.1,
+        completedRounds: DEMO_SUMMARY.completedRounds,
+        totalRounds: DEMO_SUMMARY.totalRounds,
+        trustScore: DEMO_SUMMARY.trustScore,
+        trustTrend: 0.3,
+        alerts: DEMO_SUMMARY.alerts,
+        alertsTrend: 0,
+      })
+      setCompliance(
+        DEMO_CHART_DATA.map((v, i) => {
+          const d = new Date()
+          d.setDate(d.getDate() - (DEMO_CHART_DATA.length - 1 - i))
+          return { date: d.toISOString().slice(0, 10), compliance: v, total: 28, completed: Math.round(v * 28 / 100) }
+        })
+      )
+      setGuards(
+        DEMO_GUARDIAS_RANKING.map(g => ({ name: g.nombre, rounds: Math.round(parseFloat(g.rondas) * 28 / 100), trustAvg: g.score * 10 }))
+      )
+      setActivity(
+        DEMO_ACTIVITY.map((a, i) => ({ id: String(i), type: a.type, timestamp: new Date().toISOString(), icon: a.type === 'alerta' ? 'amber' : 'green', text: a.description }))
+      )
+      setLoadingData(false)
+      return
+    }
     if (!instId) return
     setLoadingData(true)
     try {
@@ -119,13 +151,15 @@ export function PortalDashboard({ session, selectedInstallation }: Props) {
     } catch { /* silent */ } finally {
       setLoadingData(false)
     }
-  }, [daysRange])
+  }, [daysRange, isProspect])
 
   useEffect(() => {
-    if (selectedInstallation) {
+    if (isProspect) {
+      void fetchDashboard('', session.tenantId)
+    } else if (selectedInstallation) {
       void fetchDashboard(selectedInstallation, session.tenantId)
     }
-  }, [selectedInstallation, session.tenantId, fetchDashboard])
+  }, [selectedInstallation, session.tenantId, fetchDashboard, isProspect])
 
   const instName = useMemo(
     () => session.installations.find(i => i.id === selectedInstallation)?.name ?? '',
@@ -152,9 +186,22 @@ export function PortalDashboard({ session, selectedInstallation }: Props) {
         </div>
       )}
 
+      {isProspect && (
+        <ProspectCotizacionCarousel
+          onViewDetail={() => onNavigate?.("propuesta")}
+          onChat={() => onNavigate?.("chat")}
+        />
+      )}
+
       {summary && (
         <div className="space-y-4">
           {/* KPIs */}
+          {isProspect && (
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-semibold">Metricas de servicio</h3>
+              <PreviewBadge />
+            </div>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
             <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
