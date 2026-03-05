@@ -61,7 +61,7 @@ export function LoginScreen({ onLogin }: Props) {
         installationName: inst.name,
         authenticatedAt: new Date().toISOString(),
       };
-      sessionStorage.setItem("rondas_portal_session", JSON.stringify(session));
+      localStorage.setItem("rondas_portal_session", JSON.stringify({ session, storedAt: Date.now() }));
       onLogin(session);
     } catch {
       setError("Error de conexión");

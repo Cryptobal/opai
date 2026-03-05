@@ -13,6 +13,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Portal Supervisor — Gard Security",
   description: "Portal móvil para supervisores de seguridad.",
+  manifest: "/manifest-supervisor.json",
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
