@@ -16,6 +16,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import type { CpqQuoteStatus } from "@/types/cpq";
 import { Plus, MapPin, ExternalLink, Loader2 } from "lucide-react";
 
 type CrmInstallationOption = {
@@ -50,7 +51,7 @@ export interface DatosSectionProps {
     clientName: string;
     validUntil: string;
     notes: string;
-    status: string;
+    status: CpqQuoteStatus;
   };
   quoteDirty: boolean;
   savingQuote: boolean;
@@ -59,7 +60,7 @@ export interface DatosSectionProps {
 
   /** Callbacks */
   saveCrmContext: (patch: Partial<{ accountId: string; installationId: string; contactId: string; dealId: string; currency: string }>) => void;
-  setQuoteForm: React.Dispatch<React.SetStateAction<{ name: string; clientName: string; validUntil: string; notes: string; status: string }>>;
+  setQuoteForm: React.Dispatch<React.SetStateAction<{ name: string; clientName: string; validUntil: string; notes: string; status: CpqQuoteStatus }>>;
   setQuoteDirty: (dirty: boolean) => void;
   saveQuoteBasics: () => void;
 
