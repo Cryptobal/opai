@@ -20,6 +20,7 @@ import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizacion
 import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
+import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
@@ -194,7 +195,7 @@ export function PortalClienteClient() {
       case "nosotros":
         return <div className="p-4 text-zinc-400">Nosotros - Coming soon</div>;
       case "empresa":
-        return <div className="p-4 text-zinc-400">Empresa - Coming soon</div>;
+        return <PortalEmpresa session={session} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-600">
