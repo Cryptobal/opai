@@ -977,6 +977,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             ))}
           </div>
         )}
+
+        {positions.length > 0 && (
+          <div className="flex justify-between items-center px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2">
+            <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
+            <span className="text-sm font-bold tabular-nums">
+              {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* -- Section: Costos -- */}
