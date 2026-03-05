@@ -409,6 +409,21 @@ export async function POST(
     const signerEmail = recipient.email;
 
     if (result.allSigned) {
+      // Auto-share to client portal if contract is associated with a CRM account
+      try {
+        const hasAccountAssoc = await prisma.docAssociation.findFirst({
+          where: { documentId: result.documentId, entityType: "crm_account" },
+        });
+        if (hasAccountAssoc) {
+          await prisma.document.update({
+            where: { id: result.documentId },
+            data: { portalVisible: true },
+          });
+        }
+      } catch (e) {
+        console.warn("Sign: failed to auto-set portalVisible", e);
+      }
+
       try {
         const { sendNotification } = await import("@/lib/notification-service");
         await sendNotification({
@@ -421,6 +436,20 @@ export async function POST(
         });
       } catch (e) {
         console.warn("Sign: failed to create completion notification", e);
+      }
+
+      // Push: document fully signed — notify admins
+      try {
+        const { sendPushToAdmins } = await import('@/lib/pwa/push-service');
+        await sendPushToAdmins(
+          result.tenantId,
+          'document_signed',
+          'Documento firmado',
+          `"${result.documentTitle}" ha sido firmado`,
+          `/opai/docs/documentos/${result.documentId}`,
+        );
+      } catch (err) {
+        console.error('[DOCS] Error sending document_signed push:', err);
       }
     }
 
