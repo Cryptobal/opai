@@ -28,6 +28,7 @@ interface Props {
 
 export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }: Props) {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -35,6 +36,13 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Reset on close
   useEffect(() => {
@@ -43,6 +51,7 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
       setSelectedAccount(null);
       setContacts([]);
       setSelectedContactIds([]);
+      setCreateError(null);
     }
   }, [open]);
 
@@ -50,14 +59,14 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
   useEffect(() => {
     if (!open) return;
     setLoadingAccounts(true);
-    const params = new URLSearchParams({ search });
+    const params = new URLSearchParams({ search: debouncedSearch });
     if (defaultStatus) params.set("status", defaultStatus);
     fetch(`/api/crm/accounts?${params}`)
       .then((r) => r.json())
-      .then((j) => { if (j.success) setAccounts(j.data ?? j.accounts ?? []); })
+      .then((j) => { if (j.success) setAccounts(j.data ?? []); })
       .catch(() => {})
       .finally(() => setLoadingAccounts(false));
-  }, [open, search, defaultStatus]);
+  }, [open, debouncedSearch, defaultStatus]);
 
   // Fetch contacts when account is selected
   const fetchContacts = useCallback(async (accountId: string) => {
@@ -66,8 +75,10 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
       const res = await fetch(`/api/crm/contacts?accountId=${accountId}&portalEnabled=true`);
       const j = await res.json();
       if (j.success) {
-        setContacts(j.data ?? j.contacts ?? []);
+        setContacts(j.data ?? []);
       }
+    } catch (err) {
+      console.error("Failed to fetch contacts:", err);
     } finally {
       setLoadingContacts(false);
     }
@@ -100,6 +111,8 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
       if (json.success) {
         onCreated(json.data.channelId);
         onClose();
+      } else {
+        setCreateError(json.error ?? "Error al crear el chat");
       }
     } finally {
       setCreating(false);
@@ -191,6 +204,9 @@ export function NewExternalChatModal({ open, onClose, onCreated, defaultStatus }
               {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Crear chat
             </Button>
+            {createError && (
+              <p className="text-sm text-destructive text-center">{createError}</p>
+            )}
           </div>
         )}
       </DialogContent>
