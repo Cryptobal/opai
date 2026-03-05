@@ -218,7 +218,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     refresh();
   }, [quoteId]);
 
-  // Auto-calc salePriceBase when costSummary changes (no longer depends on activeStep)
+  // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
     if (!costSummary || !costParams) return;
     const base = Number(costParams.salePriceBase ?? 0);
@@ -716,7 +716,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     };
   }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 
-  // Sale price calculation (same formula as CpqPricingCalc)
+  // Sale price calculation
   const salePriceMonthly = useMemo(() => {
     if (!costSummary) return 0;
     const margin = marginPct / 100;
