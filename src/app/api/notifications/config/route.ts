@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { hasPermission, isValidRole, PERMISSIONS } from "@/lib/rbac";
 import { PORTAL_NOTIFICATION_TYPES } from "@/lib/pwa/portal-notification-types";
 
 function settingKey(tenantId: string) {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    if (!isValidRole(ctx.userRole) || !hasPermission(ctx.userRole, PERMISSIONS.MANAGE_SETTINGS)) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para cambiar la configuración" },
         { status: 403 }
