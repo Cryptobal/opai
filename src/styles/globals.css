@@ -260,8 +260,8 @@
   /* Chat full-height: fills exactly between topbar and bottom nav on mobile,
      and between desktop topbar and bottom of viewport on lg+. */
   .chat-full-height {
-    /* mobile: viewport minus mobile topbar (4rem) and safe areas */
-    height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - 3.5rem - env(safe-area-inset-bottom, 0px));
+    /* mobile: viewport minus mobile topbar (4rem + safe-area-top) and dynamic bottom nav height */
+    height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 5rem));
   }
   @media (min-width: 1024px) {
     .chat-full-height {
