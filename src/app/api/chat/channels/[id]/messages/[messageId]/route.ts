@@ -251,6 +251,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Only sender can delete their own message, unless admin/owner
+    const isOwnMessage = message.senderType === "ADMIN" && message.senderAdminId === ctx.userId;
+    const isPrivileged = ctx.userRole === "owner" || ctx.userRole === "admin";
+
+    if (!isOwnMessage && !isPrivileged) {
+      return NextResponse.json(
+        { success: false, error: "No tienes permiso para eliminar este mensaje" },
+        { status: 403 }
+      );
+    }
+
     // Soft delete
     await prisma.chatMessage.update({
       where: { id: messageId },

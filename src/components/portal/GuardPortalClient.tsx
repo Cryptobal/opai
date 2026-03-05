@@ -71,27 +71,39 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 // ═══════════════════════════════════════════════════════════════
 
 const SESSION_KEY = "guard_portal_session";
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+
+function readStoredSession(): GuardSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const wrapped = JSON.parse(raw) as { session: GuardSession; storedAt: number };
+    if (Date.now() - wrapped.storedAt > SESSION_TTL_MS) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return wrapped.session;
+  } catch {
+    return null;
+  }
+}
 
 export function GuardPortalClient() {
   const [session, setSession] = useState<GuardSession | null>(() => {
     if (typeof window === "undefined") return null;
-    try {
-      const stored = sessionStorage.getItem(SESSION_KEY);
-      if (stored) return JSON.parse(stored) as GuardSession;
-    } catch { /* ignore */ }
-    return null;
+    return readStoredSession();
   });
   const [activeSection, setActiveSection] = useState<PortalSection>("inicio");
 
   function handleLogin(s: GuardSession) {
     setSession(s);
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ session: s, storedAt: Date.now() })); } catch { /* ignore */ }
   }
 
   function handleLogout() {
     setSession(null);
     setActiveSection("inicio");
-    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     toast.success("Sesión cerrada correctamente");
   }
 

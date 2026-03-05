@@ -54,4 +54,7 @@ export interface ClienteSession {
   portalConfig: PortalConfig;
   isProspect: boolean;
   hasDemoData: boolean;
+  portalTourShown: boolean;
+  ejecutivoId: string | null;
+  ejecutivoName: string | null;
 }

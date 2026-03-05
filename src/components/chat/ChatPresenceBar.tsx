@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { ArrowLeft, Bell, BellOff, AtSign, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,7 @@ interface ChatPresenceBarProps {
   onSearch?: (query: string) => void;
   isSearching?: boolean;
   channelId?: string;
+  children?: ReactNode;
 }
 
 export function ChatPresenceBar({
@@ -28,6 +29,7 @@ export function ChatPresenceBar({
   onSearch,
   isSearching,
   channelId,
+  children,
 }: ChatPresenceBarProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,6 +87,9 @@ export function ChatPresenceBar({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {/* Extra actions (e.g. clear conversation) */}
+          {children}
+
           {/* Search button */}
           {onSearch && (
             <button

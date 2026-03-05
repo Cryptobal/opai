@@ -23,9 +23,7 @@ import {
   Ticket,
   Shield,
   Sparkles,
-  FileText,
 } from "lucide-react";
-import { ConfigSearch } from "@/components/configuracion/ConfigSearch";
 
 type ConfigItem = {
   submodule: string;
@@ -106,14 +104,6 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Inteligencia Artificial",
         description: "Proveedor de IA, API key y modelo para funciones inteligentes",
         icon: Sparkles,
-        adminOnly: true,
-      },
-      {
-        submodule: "inteligencia_artificial",
-        href: "/opai/configuracion/documentos-globales",
-        title: "Documentos Globales",
-        description: "PDFs compartidos en todas las instalaciones (OS10, manuales de seguridad)",
-        icon: FileText,
         adminOnly: true,
       },
       {
@@ -229,9 +219,7 @@ export default async function ConfiguracionPage() {
         description="Administración global y por módulo"
       />
 
-      <div className="space-y-6 min-w-0">
-        <ConfigSearch />
-
+      <div className="space-y-5 min-w-0">
         <div className="rounded-xl border border-border bg-card/70 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2">
             {visibleSections.map((section) => (

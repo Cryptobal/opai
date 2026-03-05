@@ -183,29 +183,46 @@ export async function PATCH(
       return updatedInstallation;
     });
 
-    // Auto-manage chat channel when chatEnabled changes
+    // Auto-manage chat channels when chatEnabled changes
     if (payload.chatEnabled !== undefined) {
       if (payload.chatEnabled) {
-        // Create or reactivate channel
-        const existingChannel = await prisma.chatChannel.findUnique({
+        const existingChannels = await prisma.chatChannel.findMany({
           where: { installationId: id },
         });
-        if (existingChannel) {
-          await prisma.chatChannel.update({
-            where: { id: existingChannel.id },
-            data: { isActive: true, name: installation.name },
-          });
-        } else {
-          await prisma.chatChannel.create({
-            data: {
-              tenantId: ctx.tenantId,
-              installationId: id,
-              name: installation.name,
-            },
+        const hasReportes = existingChannels.some((c: any) => c.subType === "reportes");
+        const hasInterno = existingChannels.some((c: any) => c.subType === "interno");
+
+        // Reactivate existing channels
+        if (existingChannels.length > 0) {
+          await prisma.chatChannel.updateMany({
+            where: { installationId: id },
+            data: { isActive: true },
           });
         }
+
+        // Create missing channels
+        const toCreate: Array<{ tenantId: string; installationId: string; subType: string; name: string }> = [];
+        if (!hasReportes) {
+          toCreate.push({
+            tenantId: ctx.tenantId,
+            installationId: id,
+            subType: "reportes",
+            name: `${installation.name} - Reportes`,
+          });
+        }
+        if (!hasInterno) {
+          toCreate.push({
+            tenantId: ctx.tenantId,
+            installationId: id,
+            subType: "interno",
+            name: `${installation.name} - Interno`,
+          });
+        }
+        if (toCreate.length > 0) {
+          await prisma.chatChannel.createMany({ data: toCreate });
+        }
       } else {
-        // Deactivate channel
+        // Deactivate all channels for this installation
         await prisma.chatChannel.updateMany({
           where: { installationId: id },
           data: { isActive: false },

@@ -2,27 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Archive,
   ArrowDownAZ,
   Building2,
   ChevronDown,
   ChevronRight,
   Clock,
+  Contact,
   MessageCircle,
   Plus,
   Search,
   SlidersHorizontal,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData, ChannelsResponse } from "@/lib/chat-types";
 import { ChatChannelListItem } from "./ChatChannelListItem";
 import { ChatNewDmModal } from "./ChatNewDmModal";
+import { NewExternalChatModal } from "./NewExternalChatModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Filter = "all" | "unread";
 type SortKey = "recent" | "alpha" | "unread_first";
@@ -37,6 +42,7 @@ interface ChatChannelListProps {
   selectedChannelId: string | null;
   unreadCounts: Record<string, number>;
   onSelectChannel: (channelId: string, channelName: string) => void;
+  userRole?: string;
 }
 
 function SectionHeader({
@@ -92,19 +98,30 @@ export function ChatChannelList({
   selectedChannelId,
   unreadCounts,
   onSelectChannel,
+  userRole,
 }: ChatChannelListProps) {
   const [channels, setChannels] = useState<ChatChannelData[]>([]);
+  const [archivedChannels, setArchivedChannels] = useState<ChatChannelData[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showNewDm, setShowNewDm] = useState(false);
+  const [newExternalStatus, setNewExternalStatus] = useState<"prospect" | "client_active" | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     direct: false,
     group: true,
-    installation: true,
+    installation_reportes: true,
+    installation_interno: true,
+    prospects: true,
+    clients: true,
+    archived: true,
   });
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const archivedFetchedRef = useRef(false);
+
+  const canDelete = userRole === "owner" || userRole === "admin";
 
   const fetchChannels = useCallback(async (query?: string) => {
     setIsLoading(true);
@@ -119,6 +136,17 @@ export function ChatChannelList({
       console.error("[ChatChannelList] fetch error:", err);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchArchivedChannels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/channels?archived=true");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) setArchivedChannels(json.data);
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -137,31 +165,80 @@ export function ChatChannelList({
     [fetchChannels]
   );
 
-  const toggleSection = (key: string) => {
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const toggleSection = useCallback((key: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (key === "archived" && prev.archived && !archivedFetchedRef.current) {
+        archivedFetchedRef.current = true;
+        fetchArchivedChannels();
+      }
+      return next;
+    });
+  }, [fetchArchivedChannels]);
+
+  // ── Actions ──
+
+  const archiveChannel = useCallback(async (channelId: string) => {
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}/archive`, { method: "POST" });
+      if (!res.ok) return;
+      setChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+      if (archivedFetchedRef.current) fetchArchivedChannels();
+    } catch {
+      // ignore
+    }
+  }, [fetchArchivedChannels]);
+
+  const unarchiveChannel = useCallback(async (channelId: string) => {
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}/archive`, { method: "DELETE" });
+      if (!res.ok) return;
+      setArchivedChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+      fetchChannels();
+    } catch {
+      // ignore
+    }
+  }, [fetchChannels]);
+
+  const deleteChannel = useCallback(async (channelId: string) => {
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}`, { method: "DELETE" });
+      if (!res.ok) return;
+      setChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+      setArchivedChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteChannel(deleteTarget);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteChannel]);
+
+  // ── Derived data ──
 
   const isSearching = search.trim().length > 0;
 
   const getDisplayName = useCallback((channel: ChatChannelData) => {
     if (channel.channelType === "DIRECT" && channel.dmParticipant) return channel.dmParticipant.name;
-    if (channel.channelType === "INSTALLATION" && (channel as any).installation) return (channel as any).installation.name;
+    if (channel.channelType === "INSTALLATION" && channel.installation) return channel.installation.name;
+    if (channel.channelType === "EXTERNAL" && channel.account) return channel.account.name;
     return channel.name;
   }, []);
 
   const sectionUnread = (chs: ChatChannelData[]) =>
     chs.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0);
 
-  // Apply filter + sort client-side
   const processedChannels = useMemo(() => {
-    let list = channels;
+    let list = channels.filter((ch) => !ch.isArchivedByMe);
 
-    // Filter
     if (filter === "unread") {
       list = list.filter((ch) => (unreadCounts[ch.id] || 0) > 0);
     }
 
-    // Sort
     list = [...list].sort((a, b) => {
       if (sort === "alpha") {
         return getDisplayName(a).localeCompare(getDisplayName(b), "es", { sensitivity: "base" });
@@ -170,10 +247,8 @@ export function ChatChannelList({
         const uA = unreadCounts[a.id] || 0;
         const uB = unreadCounts[b.id] || 0;
         if (uA !== uB) return uB - uA;
-        // fallback: most recent
         return (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? "");
       }
-      // recent (default): by lastMessageAt desc, nulls last
       if (!a.lastMessageAt && !b.lastMessageAt) return 0;
       if (!a.lastMessageAt) return 1;
       if (!b.lastMessageAt) return -1;
@@ -183,18 +258,39 @@ export function ChatChannelList({
     return list;
   }, [channels, filter, sort, unreadCounts, getDisplayName]);
 
-  const { directChannels, groupChannels, installationChannels } = useMemo(() => ({
+  const { directChannels, groupChannels, installationReportesChannels, installationInternoChannels, prospectChannels, clientChannels } = useMemo(() => ({
     directChannels: processedChannels.filter((ch) => ch.channelType === "DIRECT"),
     groupChannels: processedChannels.filter((ch) => ch.channelType === "GROUP"),
-    installationChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION"),
+    installationReportesChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno"),
+    installationInternoChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType === "interno"),
+    prospectChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status === "prospect"),
+    clientChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status !== "prospect"),
   }), [processedChannels]);
 
   const totalUnread = useMemo(
-    () => channels.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0),
+    () => channels.filter((ch) => !ch.isArchivedByMe).reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0),
     [channels, unreadCounts]
   );
 
-  const isEmpty = processedChannels.length === 0;
+  const isEmpty = processedChannels.length === 0 && archivedChannels.length === 0;
+
+  const renderChannelItems = (chs: ChatChannelData[], opts: { showArchive?: boolean; showUnarchive?: boolean; showDelete?: boolean }) =>
+    chs.map((channel) => (
+      <ChatChannelListItem
+        key={channel.id}
+        channel={channel}
+        isSelected={channel.id === selectedChannelId}
+        unreadCount={unreadCounts[channel.id] || 0}
+        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
+        onArchive={opts.showArchive ? () => archiveChannel(channel.id) : undefined}
+        onUnarchive={opts.showUnarchive ? () => unarchiveChannel(channel.id) : undefined}
+        onDelete={opts.showDelete !== false && canDelete ? () => setDeleteTarget(channel.id) : undefined}
+        canDelete={opts.showDelete !== false && canDelete}
+        isArchived={opts.showUnarchive}
+      />
+    ));
+
+  const shouldExpand = (key: string) => isSearching || filter === "unread" ? true : !collapsed[key];
 
   return (
     <div className="flex flex-col h-full">
@@ -202,7 +298,6 @@ export function ChatChannelList({
       <div className="shrink-0 px-4 pt-3 pb-2 border-b border-zinc-800 space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-100">Chat</h2>
-          {/* Sort dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -243,7 +338,6 @@ export function ChatChannelList({
           </DropdownMenu>
         </div>
 
-        {/* Search input */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
           <input
@@ -255,7 +349,6 @@ export function ChatChannelList({
           />
         </div>
 
-        {/* Filter chips */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -316,7 +409,7 @@ export function ChatChannelList({
                   icon={<MessageCircle className="h-3.5 w-3.5" />}
                   count={directChannels.length}
                   unreadCount={sectionUnread(directChannels)}
-                  collapsed={isSearching || filter === "unread" ? false : collapsed["direct"]}
+                  collapsed={!shouldExpand("direct")}
                   onToggle={() => toggleSection("direct")}
                   action={
                     <button
@@ -329,18 +422,8 @@ export function ChatChannelList({
                     </button>
                   }
                 />
-                {(isSearching || filter === "unread" ? true : !collapsed["direct"]) && (
-                  <div>
-                    {directChannels.map((channel) => (
-                      <ChatChannelListItem
-                        key={channel.id}
-                        channel={channel}
-                        isSelected={channel.id === selectedChannelId}
-                        unreadCount={unreadCounts[channel.id] || 0}
-                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
-                      />
-                    ))}
-                  </div>
+                {shouldExpand("direct") && (
+                  <div>{renderChannelItems(directChannels, {})}</div>
                 )}
               </div>
             )}
@@ -353,48 +436,130 @@ export function ChatChannelList({
                   icon={<Users className="h-3.5 w-3.5" />}
                   count={groupChannels.length}
                   unreadCount={sectionUnread(groupChannels)}
-                  collapsed={isSearching || filter === "unread" ? false : collapsed["group"]}
+                  collapsed={!shouldExpand("group")}
                   onToggle={() => toggleSection("group")}
                 />
-                {(isSearching || filter === "unread" ? true : !collapsed["group"]) && (
-                  <div>
-                    {groupChannels.map((channel) => (
-                      <ChatChannelListItem
-                        key={channel.id}
-                        channel={channel}
-                        isSelected={channel.id === selectedChannelId}
-                        unreadCount={unreadCounts[channel.id] || 0}
-                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
-                      />
-                    ))}
-                  </div>
+                {shouldExpand("group") && (
+                  <div>{renderChannelItems(groupChannels, {})}</div>
                 )}
               </div>
             )}
 
-            {/* Installations */}
-            {installationChannels.length > 0 && (
+            {/* Instalaciones - Reportes */}
+            {installationReportesChannels.length > 0 && (
               <div>
                 <SectionHeader
-                  label="Instalaciones"
+                  label="Instalaciones - Reportes"
                   icon={<Building2 className="h-3.5 w-3.5" />}
-                  count={installationChannels.length}
-                  unreadCount={sectionUnread(installationChannels)}
-                  collapsed={isSearching || filter === "unread" ? false : collapsed["installation"]}
-                  onToggle={() => toggleSection("installation")}
+                  count={installationReportesChannels.length}
+                  unreadCount={sectionUnread(installationReportesChannels)}
+                  collapsed={!shouldExpand("installation_reportes")}
+                  onToggle={() => toggleSection("installation_reportes")}
                 />
-                {(isSearching || filter === "unread" ? true : !collapsed["installation"]) && (
-                  <div>
-                    {installationChannels.map((channel) => (
-                      <ChatChannelListItem
-                        key={channel.id}
-                        channel={channel}
-                        isSelected={channel.id === selectedChannelId}
-                        unreadCount={unreadCounts[channel.id] || 0}
-                        onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
-                      />
-                    ))}
-                  </div>
+                {shouldExpand("installation_reportes") && (
+                  <div>{renderChannelItems(installationReportesChannels, { showArchive: true, showDelete: false })}</div>
+                )}
+              </div>
+            )}
+
+            {/* Instalaciones - Interno */}
+            {installationInternoChannels.length > 0 && (
+              <div>
+                <SectionHeader
+                  label="Instalaciones - Interno"
+                  icon={<Building2 className="h-3.5 w-3.5" />}
+                  count={installationInternoChannels.length}
+                  unreadCount={sectionUnread(installationInternoChannels)}
+                  collapsed={!shouldExpand("installation_interno")}
+                  onToggle={() => toggleSection("installation_interno")}
+                />
+                {shouldExpand("installation_interno") && (
+                  <div>{renderChannelItems(installationInternoChannels, { showArchive: true, showDelete: false })}</div>
+                )}
+              </div>
+            )}
+
+            {/* Prospectos (EXTERNAL with prospect status) */}
+            <div>
+              <SectionHeader
+                label="Prospectos"
+                icon={<Contact className="h-3.5 w-3.5" />}
+                count={prospectChannels.length}
+                unreadCount={sectionUnread(prospectChannels)}
+                collapsed={!shouldExpand("prospects")}
+                onToggle={() => toggleSection("prospects")}
+                action={
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setNewExternalStatus("prospect"); }}
+                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                    title="Nuevo chat con prospecto"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                }
+              />
+              {shouldExpand("prospects") && prospectChannels.length > 0 && (
+                <div>{renderChannelItems(prospectChannels, { showArchive: true })}</div>
+              )}
+            </div>
+
+            {/* Clientes (EXTERNAL with client status) */}
+            <div>
+              <SectionHeader
+                label="Clientes"
+                icon={<UserCheck className="h-3.5 w-3.5" />}
+                count={clientChannels.length}
+                unreadCount={sectionUnread(clientChannels)}
+                collapsed={!shouldExpand("clients")}
+                onToggle={() => toggleSection("clients")}
+                action={
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setNewExternalStatus("client_active"); }}
+                    className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                    title="Nuevo chat con cliente"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                }
+              />
+              {shouldExpand("clients") && clientChannels.length > 0 && (
+                <div>{renderChannelItems(clientChannels, { showArchive: true })}</div>
+              )}
+            </div>
+
+            {/* Archivados (lazy load) */}
+            {filter !== "unread" && (
+              <div>
+                <SectionHeader
+                  label="Archivados"
+                  icon={<Archive className="h-3.5 w-3.5" />}
+                  count={archivedChannels.length}
+                  unreadCount={0}
+                  collapsed={collapsed["archived"]}
+                  onToggle={() => toggleSection("archived")}
+                />
+                {!collapsed["archived"] && (
+                  archivedChannels.length > 0 ? (
+                    <div>
+                      {archivedChannels.map((channel) => (
+                        <ChatChannelListItem
+                          key={channel.id}
+                          channel={channel}
+                          isSelected={channel.id === selectedChannelId}
+                          unreadCount={unreadCounts[channel.id] || 0}
+                          onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
+                          onUnarchive={() => unarchiveChannel(channel.id)}
+                          onDelete={channel.channelType !== "INSTALLATION" && canDelete ? () => setDeleteTarget(channel.id) : undefined}
+                          canDelete={channel.channelType !== "INSTALLATION" && canDelete}
+                          isArchived
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-xs text-zinc-600">Sin canales archivados</div>
+                  )
                 )}
               </div>
             )}
@@ -413,6 +578,29 @@ export function ChatChannelList({
           }}
         />
       )}
+
+      {/* New External Chat Modal (Prospectos / Clientes) */}
+      <NewExternalChatModal
+        open={!!newExternalStatus}
+        onClose={() => setNewExternalStatus(null)}
+        onCreated={(channelId) => {
+          setNewExternalStatus(null);
+          fetchChannels();
+          onSelectChannel(channelId, "Nueva conversación");
+        }}
+        defaultStatus={newExternalStatus ?? undefined}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="¿Eliminar conversación?"
+        description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
+        confirmLabel="Eliminar permanentemente"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

@@ -66,7 +66,6 @@ export default async function CrmDealDetailPage({
       select: {
         id: true,
         code: true,
-        name: true,
         clientName: true,
         status: true,
         monthlyCost: true,
@@ -270,7 +269,7 @@ export default async function CrmDealDetailPage({
   initialDeal.proposalLink = deal.proposalLink ?? null;
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
   initialDeal.status = deal.status;
-  initialDeal.activeQuotationId = deal.activeQuotationId ?? null;
+  initialDeal.activeQuotationId = (deal as any).activeQuotationId ?? null;
   initialDeal.activeQuoteSummary = activeQuoteSummary
     ? JSON.parse(JSON.stringify(activeQuoteSummary))
     : null;

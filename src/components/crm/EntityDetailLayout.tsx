@@ -75,6 +75,8 @@ export interface EntityDetailLayoutProps {
   subTabs?: ReactNode;
   /** Right panel for associated records (desktop: sidebar, mobile: accordion below content) */
   rightPanel?: ReactNode;
+  /** Optional pipeline bar rendered between header and tabs */
+  pipelineBar?: ReactNode;
   /** Additional class on the root container */
   className?: string;
 }
@@ -106,6 +108,7 @@ export function EntityDetailLayout({
   children,
   subTabs,
   rightPanel,
+  pipelineBar,
   className,
 }: EntityDetailLayoutProps) {
   const visibleTabs = tabs.filter((t) => !t.hidden);
@@ -266,6 +269,9 @@ export function EntityDetailLayout({
             </div>
           </div>
         </div>
+
+        {/* Pipeline bar */}
+        {pipelineBar}
 
         {/* ── ChipTabs (inside sticky container) ── */}
         <ChipTabs

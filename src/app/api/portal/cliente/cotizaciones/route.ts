@@ -18,10 +18,20 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Fetch deal titles for quotes that have a dealId
+  const dealIds = [...new Set(quotes.map((q) => q.dealId).filter(Boolean))] as string[];
+  const deals = dealIds.length
+    ? await prisma.crmDeal.findMany({
+        where: { id: { in: dealIds } },
+        select: { id: true, title: true },
+      })
+    : [];
+  const dealMap = new Map(deals.map((d) => [d.id, d.title]));
+
   const data = quotes.map((q) => ({
     id: q.id,
     code: q.code,
-    name: q.name,
+    name: q.clientName,
     status: q.status,
     monthlyCost: q.monthlyCost?.toNumber() ?? 0,
     validUntil: q.validUntil,
@@ -29,6 +39,8 @@ export async function GET() {
     totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
     currency: q.currency,
     createdAt: q.createdAt,
+    dealId: q.dealId ?? null,
+    dealTitle: q.dealId ? (dealMap.get(q.dealId) ?? null) : null,
   }));
 
   return NextResponse.json({ success: true, data });

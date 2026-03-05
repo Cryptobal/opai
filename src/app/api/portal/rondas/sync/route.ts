@@ -127,14 +127,14 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
       isActive: true,
       ...(checkpointId ? { id: checkpointId } : { qrCode: checkpointQrCode }),
     },
-    select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
+    select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true },
   });
   if (!checkpoint) throw new Error("Checkpoint invalido");
 
   // 4. QR enforcement
   if (
     execution.rondaTemplate.qrRequerido &&
-    (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
+    ((checkpoint as any).verificationType === "QR" || (checkpoint as any).verificationType === "BOTH") &&
     !checkpointQrCode
   ) {
     throw new Error("Se requiere escaneo QR para este checkpoint");

@@ -109,11 +109,19 @@ export async function POST(
         }
       }
 
-      // Si se mueve a etapa de cierre (ganado/perdido), cancelar follow-ups pendientes
-      if (nextStatus === "won" || nextStatus === "lost") {
+      // Si se mueve a etapa de cierre (ganado/perdido) o Negociación, cancelar follow-ups pendientes
+      const shouldCancelFollowUps = nextStatus === "won" || nextStatus === "lost" || stage.name === "Negociación";
+      if (shouldCancelFollowUps) {
         try {
           const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
-          await cancelPendingFollowUps(deal.id, `Deal ${nextStatus === "won" ? "ganado" : "perdido"}`);
+          await cancelPendingFollowUps(
+            deal.id,
+            nextStatus === "won"
+              ? "Deal ganado"
+              : nextStatus === "lost"
+                ? "Deal perdido"
+                : `Etapa cambiada a ${stage.name}`
+          );
         } catch (e) {
           console.error("Error cancelling follow-ups on deal close:", e);
         }
@@ -136,6 +144,21 @@ export async function POST(
             link: `/opai/documentos/nuevo?accountId=${updated.accountId}&dealId=${deal.id}`,
           },
         });
+
+        // Transición portal: prospect → client_active
+        if (updated.account.status === "prospect") {
+          try {
+            await tx.crmAccount.update({
+              where: { id: updated.accountId },
+              data: {
+                status: "client_active",
+                portalTourShown: false, // reset tour for active mode
+              },
+            });
+          } catch (e) {
+            console.error("Error transitioning portal prospect to active:", e);
+          }
+        }
       }
 
       return updated;

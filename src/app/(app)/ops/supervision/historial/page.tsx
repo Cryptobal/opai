@@ -67,7 +67,7 @@ export default async function HistorialPage() {
   try {
     [visitas, todayCount, monthCount, openFindings, assignments] =
       await Promise.all([
-        prisma.opsVisitaSupervision.findMany({
+        (prisma.opsVisitaSupervision as any).findMany({
           where: { tenantId, ...supervisorFilter },
           include: {
             installation: { select: { name: true, commune: true } },
@@ -82,7 +82,7 @@ export default async function HistorialPage() {
           },
           orderBy: [{ checkInAt: "desc" }],
           take: 50,
-        }),
+        }) as Promise<VisitRow[]>,
         prisma.opsVisitaSupervision.count({
           where: { tenantId, ...supervisorFilter, checkInAt: { gte: dayStart } },
         }),

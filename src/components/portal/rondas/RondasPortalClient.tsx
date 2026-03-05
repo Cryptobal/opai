@@ -45,19 +45,19 @@ export function RondasPortalClient() {
     };
   }, []);
 
-  // Restore session from sessionStorage on mount (with 12h TTL)
+  // Restore session from localStorage on mount (with 7d TTL)
   useEffect(() => {
     try {
-      const stored = sessionStorage.getItem("rondas_portal_session");
-      if (stored) {
-        const parsed = JSON.parse(stored) as RondasSession;
+      const raw = localStorage.getItem("rondas_portal_session");
+      if (raw) {
+        const wrapped = JSON.parse(raw) as { session: RondasSession; storedAt: number };
+        const MAX_SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+        if (Date.now() - wrapped.storedAt > MAX_SESSION_MS) {
+          localStorage.removeItem("rondas_portal_session");
+          return;
+        }
+        const parsed = wrapped.session;
         if (parsed.guardiaId && parsed.tenantId && parsed.installationId) {
-          const elapsed = Date.now() - new Date(parsed.authenticatedAt).getTime();
-          const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
-          if (elapsed > MAX_SESSION_MS) {
-            sessionStorage.removeItem("rondas_portal_session");
-            return;
-          }
           setSession(parsed);
           setScreen("mis-rondas");
         }
@@ -79,7 +79,7 @@ export function RondasPortalClient() {
     setCompletionData(null);
     setShowIncidentModal(false);
     setScreen("login");
-    sessionStorage.removeItem("rondas_portal_session");
+    localStorage.removeItem("rondas_portal_session");
   };
 
   // Fetch fresh ronda data for the active ejecucion

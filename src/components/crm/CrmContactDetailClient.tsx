@@ -52,6 +52,7 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
+import { StartChatButton } from "@/components/chat/StartChatButton";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -106,6 +107,8 @@ type ContactDetail = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  portalEnabled?: boolean;
+  accountId?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   account?: {
@@ -687,6 +690,12 @@ export function CrmContactDetailClient({
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
                   <Mail className="h-4 w-4" />
                 </button>
+              )}
+              {contact.accountId && (
+                <StartChatButton
+                  contactId={contact.id}
+                  portalEnabled={contact.portalEnabled ?? false}
+                />
               )}
             </div>
           ),

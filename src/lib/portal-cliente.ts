@@ -100,7 +100,10 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
   }
 
   const activeContacts = contacts.filter(
-    (c) => c.account.status === "client_active" || (c.account.isActive && c.account.status !== "client_inactive"),
+    (c) =>
+      c.account.status === "client_active" ||
+      c.account.status === "prospect" ||
+      (c.account.isActive && c.account.status !== "client_inactive"),
   );
 
   if (activeContacts.length === 0) {
@@ -147,6 +150,32 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
         // Tabla puede no existir en prod
       }
 
+      // Fetch account-level portal fields (portalTourShown, portalEjecutivoId)
+      let portalTourShown = false
+      let ejecutivoId: string | null = null
+      let ejecutivoName: string | null = null
+      try {
+        const account = await prisma.crmAccount.findUnique({
+          where: { id: contact.accountId },
+          select: { portalTourShown: true, portalEjecutivoId: true },
+        })
+        if (account) {
+          portalTourShown = account.portalTourShown ?? false
+          ejecutivoId = account.portalEjecutivoId ?? null
+          if (ejecutivoId) {
+            const ejecutivo = await prisma.admin.findUnique({
+              where: { id: ejecutivoId },
+              select: { id: true, name: true },
+            })
+            if (ejecutivo) {
+              ejecutivoName = ejecutivo.name
+            }
+          }
+        }
+      } catch {
+        // Columns may not exist in prod yet
+      }
+
       return {
         success: true,
         session: {
@@ -162,6 +191,9 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
           portalConfig,
           isProspect: contact.account.status === 'prospect',
           hasDemoData,
+          portalTourShown,
+          ejecutivoId,
+          ejecutivoName,
         },
       };
     }

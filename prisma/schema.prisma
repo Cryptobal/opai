@@ -192,6 +192,7 @@ model Admin {
   inventoryWarehouses   InventoryWarehouse[]      @relation("inventory_warehouse_supervisor")
   authoredNotes         Note[]                    @relation("note_author")
   visitasTecnicas       OpsVisitaTecnica[]        @relation("ops_visita_tecnica_supervisor")
+  portalEjecutivoCuentas CrmAccount[]             @relation("PortalEjecutivo")
 
   @@index([email])
   @@index([status])
@@ -1286,7 +1287,9 @@ model CrmAccount {
   notes                   String?
   startDate               DateTime? @map("start_date") @db.Date
   endDate                 DateTime? @map("end_date") @db.Date
-  portalConfig            Json?     @map("portal_config") // Configuración de visibilidad del portal cliente
+  portalConfig            Json?     @map("portal_config")
+  portalEjecutivoId      String?   @map("portal_ejecutivo_id")
+  portalTourShown        Boolean   @default(false) @map("portal_tour_shown")
   createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1296,6 +1299,9 @@ model CrmAccount {
   opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
   encuestasCliente       OpsEncuestaCliente[]
   visitasTecnicas        OpsVisitaTecnica[]
+  portalEjecutivo        Admin?    @relation("PortalEjecutivo", fields: [portalEjecutivoId], references: [id])
+  representantesLegales  AccountRepresentanteLegal[]
+  personeria             AccountPersoneria?
 
   @@index([tenantId], map: "idx_crm_accounts_tenant")
   @@index([status], map: "idx_crm_accounts_status")
@@ -1303,6 +1309,38 @@ model CrmAccount {
   @@index([tenantId, type], map: "idx_crm_accounts_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
   @@map("accounts")
+  @@schema("crm")
+}
+
+model AccountRepresentanteLegal {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  accountId String   @map("account_id") @db.Uuid
+  nombre    String
+  rut       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("account_representantes_legales")
+  @@schema("crm")
+}
+
+model AccountPersoneria {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  accountId      String    @unique @map("account_id") @db.Uuid
+  fechaEscritura DateTime? @map("fecha_escritura")
+  tipoEscritura  String?   @map("tipo_escritura")
+  notaria        String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  account CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_personerias")
   @@schema("crm")
 }
 
@@ -1364,7 +1402,7 @@ model CrmInstallation {
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
   encuestasCliente                OpsEncuestaCliente[]
-  chatChannel                     ChatChannel?
+  chatChannels                    ChatChannel[]
   visitasTecnicas                 OpsVisitaTecnica[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
@@ -5426,8 +5464,16 @@ enum ChatChannelType {
   INSTALLATION
   GROUP
   DIRECT
+  EXTERNAL
 
   @@map("channel_type")
+  @@schema("chat")
+}
+
+enum ChatParticipantType {
+  ADMIN
+  CONTACT
+
   @@schema("chat")
 }
 
@@ -5437,8 +5483,10 @@ model ChatChannel {
   id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId           String          @map("tenant_id")
   channelType        ChatChannelType @default(INSTALLATION) @map("channel_type")
-  installationId     String?         @unique @map("installation_id") @db.Uuid
+  installationId     String?         @map("installation_id") @db.Uuid
+  subType            String?         @map("sub_type")
   groupId            String?         @map("group_id")
+  accountId          String?         @map("account_id") @db.Uuid
   name               String
   isActive           Boolean         @default(true) @map("is_active")
   lastMessageAt      DateTime?       @map("last_message_at") @db.Timestamptz(6)
@@ -5452,12 +5500,14 @@ model ChatChannel {
   readCursors             ChatReadCursor[]
   notificationPreferences ChatNotificationPreference[]
   dmParticipants          ChatDmParticipant[]
+  participants            ChatChannelParticipant[]
+  archives                ChatChannelArchive[]
 
   @@index([tenantId], map: "idx_chat_channels_tenant")
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
   @@index([tenantId, lastMessageAt(sort: Desc)], map: "idx_chat_channels_tenant_last_msg")
-  @@index([installationId], map: "idx_chat_channels_installation")
   @@index([groupId], map: "idx_chat_channels_group")
+  @@unique([installationId, subType], map: "chat_channels_installation_sub_type_key")
   @@map("channels")
   @@schema("chat")
 }
@@ -5619,5 +5669,41 @@ model ChatDmParticipant {
   @@unique([channelId, adminId], map: "uq_chat_dm_participant")
   @@index([adminId], map: "idx_chat_dm_participants_admin")
   @@map("dm_participants")
+  @@schema("chat")
+}
+
+// ── ChatChannelParticipant ──
+// Used by EXTERNAL channels to track mixed ADMIN + CONTACT participants.
+// (Internal DMs use ChatDmParticipant instead.)
+
+model ChatChannelParticipant {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  channelId       String      @map("channel_id") @db.Uuid
+  participantType ChatParticipantType @map("participant_type")
+  participantId   String      @map("participant_id")
+  joinedAt        DateTime    @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, participantType, participantId], map: "uq_chat_channel_participant")
+  @@index([participantType, participantId], map: "idx_chat_channel_participants_participant")
+  @@map("channel_participants")
+  @@schema("chat")
+}
+
+// ── ChatChannelArchive ──
+// Per-user archiving (like Slack). Archiving one channel does NOT affect other participants.
+
+model ChatChannelArchive {
+  id         String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  channelId  String      @map("channel_id") @db.Uuid
+  adminId    String      @map("admin_id")
+  archivedAt DateTime    @default(now()) @map("archived_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, adminId], map: "uq_chat_channel_archive")
+  @@index([adminId], map: "idx_chat_channel_archives_admin")
+  @@map("channel_archives")
   @@schema("chat")
 }

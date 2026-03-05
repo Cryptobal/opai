@@ -50,7 +50,7 @@ export async function GET(
         select: {
           id: true,
           code: true,
-          name: true,
+          clientName: true,
           monthlyCost: true,
           totalPositions: true,
           totalGuards: true,
@@ -60,6 +60,7 @@ export async function GET(
       for (const q of cpqQuotes) {
         quotesById.set(q.id, {
           ...q,
+          name: q.clientName ?? null,
           monthlyCost: q.monthlyCost ? Number(q.monthlyCost) : null,
         });
       }

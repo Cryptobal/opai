@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         tenantId: session.tenantId,
         isActive: true,
         installationId: { in: Array.from(installationIds) },
+        NOT: { subType: "interno" },
       },
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       include: {
@@ -117,6 +118,7 @@ export async function GET(request: NextRequest) {
       tenantId: ch.tenantId,
       installationId: ch.installationId,
       name: ch.name,
+      subType: ch.subType,
       isActive: ch.isActive,
       lastMessageAt: ch.lastMessageAt?.toISOString() ?? null,
       lastMessagePreview: ch.lastMessagePreview,

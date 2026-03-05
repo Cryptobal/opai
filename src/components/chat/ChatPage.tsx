@@ -9,6 +9,7 @@ import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
 
 interface ChatPageProps {
   currentUserId?: string;
+  userRole?: string;
 }
 
 /**
@@ -19,7 +20,7 @@ interface ChatPageProps {
  * On mobile (< lg): shows only channel list OR conversation,
  * toggled on channel select with a back button to return.
  */
-export function ChatPage({ currentUserId }: ChatPageProps) {
+export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [selectedChannelName, setSelectedChannelName] = useState<string>("");
   const pusher = usePusher("/api/chat/pusher/auth");
@@ -53,6 +54,7 @@ export function ChatPage({ currentUserId }: ChatPageProps) {
           selectedChannelId={selectedChannelId}
           unreadCounts={unreadChannels}
           onSelectChannel={handleSelectChannel}
+          userRole={userRole}
         />
       </div>
 
@@ -71,6 +73,7 @@ export function ChatPage({ currentUserId }: ChatPageProps) {
             pusher={pusher}
             onBack={handleBack}
             currentUserId={currentUserId}
+            userRole={userRole}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-zinc-500">

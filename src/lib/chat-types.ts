@@ -12,8 +12,9 @@ export type { ChatSenderType };
 export type ChatChannelData = {
   id: string;
   tenantId: string;
-  channelType: "INSTALLATION" | "GROUP" | "DIRECT";
+  channelType: "INSTALLATION" | "GROUP" | "DIRECT" | "EXTERNAL";
   installationId: string | null;
+  subType: "reportes" | "interno" | null;
   groupId: string | null;
   name: string;
   isActive: boolean;
@@ -39,6 +40,8 @@ export type ChatChannelData = {
     image: string | null;
   } | null;
   unreadCount?: number;
+  isArchivedByMe?: boolean;
+  account?: { id: string; name: string; status: string } | null;
 };
 
 // ── Message ──
@@ -111,6 +114,11 @@ export type PusherMessageEditedEvent = {
 
 export type PusherMessageDeletedEvent = {
   id: string;
+};
+
+export type PusherMessagesClearedEvent = {
+  clearedBy: string;
+  count: number;
 };
 
 export type PusherReactionEvent = {

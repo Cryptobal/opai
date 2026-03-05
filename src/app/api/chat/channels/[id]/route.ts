@@ -7,6 +7,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+
+  if (ctx.userRole !== "admin" && ctx.userRole !== "owner") {
+    return NextResponse.json(
+      { success: false, error: "Solo administradores pueden eliminar canales permanentemente" },
+      { status: 403 }
+    );
+  }
+
+  const { id: channelId } = await params;
+
+  const channel = await prisma.chatChannel.findFirst({
+    where: { id: channelId, tenantId: ctx.tenantId },
+  });
+  if (!channel) {
+    return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
+  }
+
+  await prisma.chatChannel.delete({ where: { id: channelId } });
+
+  return NextResponse.json({ success: true });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

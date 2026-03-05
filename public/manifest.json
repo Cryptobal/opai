@@ -2,7 +2,7 @@
   "name": "OPAI",
   "short_name": "OPAI",
   "description": "ERP Gard Security",
-  "start_url": "/opai/login",
+  "start_url": "/hub",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

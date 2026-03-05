@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { FileText, Download, Loader2, BarChart3 } from "lucide-react";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { cn } from "@/lib/utils";
+import { PreviewBadge } from "./PreviewBadge";
 
 /* ── Types ── */
 
@@ -44,11 +45,37 @@ function formatPeriod(period: string): string {
 
 interface Props {
   session: ClienteSession;
+  isProspect?: boolean;
 }
 
 /* ══════════════════════════════════════════════════════ */
 
-export function PortalReportes({ session }: Props) {
+export function PortalReportes({ session, isProspect }: Props) {
+  if (isProspect) {
+    return (
+      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Reportes Mensuales</h2>
+            <PreviewBadge />
+          </div>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Historial de reportes de cumplimiento y operacion
+          </p>
+        </div>
+        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
+          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automaticos</p>
+          <ul className="space-y-2 text-xs text-zinc-400">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Metricas de cumplimiento y operacion</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluacion de guardias y desempeno</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Recomendaciones de mejora</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Descarga en PDF</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

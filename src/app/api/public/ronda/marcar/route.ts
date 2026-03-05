@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
           ? { id: parsed.data.checkpointId }
           : { qrCode: parsed.data.checkpointQrCode }),
       },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
+      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true },
     });
     if (!checkpoint) {
       return NextResponse.json({ success: false, error: "Checkpoint inválido" }, { status: 404 });

@@ -45,7 +45,6 @@ export default async function CrmInstallationDetailPage({
         notes: true,
         metadata: true,
         nocturnoEnabled: true,
-        chatEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,
@@ -118,7 +117,7 @@ export default async function CrmInstallationDetailPage({
       select: {
         id: true,
         code: true,
-        name: true,
+        clientName: true,
         status: true,
         totalPositions: true,
         totalGuards: true,
@@ -211,7 +210,7 @@ export default async function CrmInstallationDetailPage({
       take: 120,
     }),
     // ops.encuestas_cliente puede no existir en la BD; evitar fallo hasta que la tabla exista
-    Promise.resolve([] as Awaited<ReturnType<typeof prisma.opsEncuestaCliente.findMany>>),
+    Promise.resolve([] as any[]),
   ]);
 
   if (!installation) {

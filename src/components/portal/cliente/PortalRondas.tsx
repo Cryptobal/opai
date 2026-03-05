@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
+import { PreviewBadge } from "./PreviewBadge";
+import { DEMO_RONDAS } from "@/lib/portal/demo-data";
 
 interface Ejecucion {
   id: string;
@@ -90,9 +92,10 @@ const STATUS_CONFIG: Record<
 interface Props {
   session: ClienteSession;
   selectedInstallation: string;
+  isProspect?: boolean;
 }
 
-export function PortalRondas({ session, selectedInstallation }: Props) {
+export function PortalRondas({ session, selectedInstallation, isProspect }: Props) {
   const [rondas, setRondas] = useState<Ejecucion[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EjecucionDetail | null>(null);
@@ -105,6 +108,27 @@ export function PortalRondas({ session, selectedInstallation }: Props) {
   };
 
   useEffect(() => {
+    if (isProspect) {
+      setRondas(
+        DEMO_RONDAS.map((r, i) => ({
+          id: `demo-${i}`,
+          installationId: "demo",
+          status: r.status,
+          scheduledAt: new Date().toISOString(),
+          startedAt: null,
+          completedAt: null,
+          checkpointsTotal: r.checkpoints,
+          checkpointsCompletados: r.completados,
+          porcentajeCompletado: Math.round((r.completados / r.checkpoints) * 100),
+          trustScore: 9.2,
+          durationMinutes: 25,
+          notes: null,
+          guardia: { persona: { firstName: r.guardia.split(" ")[0], lastName: r.guardia.split(" ")[1] } },
+        }))
+      );
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setSelected(null);
     const url = selectedInstallation
@@ -118,7 +142,7 @@ export function PortalRondas({ session, selectedInstallation }: Props) {
       .catch(() => {})
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedInstallation, session.contactId, session.tenantId, session.accountId]);
+  }, [isProspect, selectedInstallation, session.contactId, session.tenantId, session.accountId]);
 
   async function loadDetail(id: string) {
     setLoadingDetail(true);
@@ -308,6 +332,7 @@ export function PortalRondas({ session, selectedInstallation }: Props) {
       <div className="flex items-center gap-2 mb-4">
         <MapPin className="h-4 w-4 text-teal-400" />
         <h2 className="text-base font-semibold">Rondas</h2>
+        {isProspect && <PreviewBadge />}
         <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
       </div>
 

@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           ? { id: checkpointId }
           : { qrCode: checkpointQrCode }),
       },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
+      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true },
     });
     if (!checkpoint) {
       return NextResponse.json({ success: false, error: "Checkpoint invalido" }, { status: 404 });
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     // the request must include a matching checkpointQrCode
     if (
       execution.rondaTemplate.qrRequerido &&
-      (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
+      ((checkpoint as any).verificationType === "QR" || (checkpoint as any).verificationType === "BOTH") &&
       !checkpointQrCode
     ) {
       return NextResponse.json(

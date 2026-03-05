@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
-import { Send, Paperclip, Loader2, ArrowLeft, X, Image as ImageIcon, File as FileIcon } from "lucide-react";
+import { Send, Paperclip, Loader2, ArrowLeft, X, Image as ImageIcon, File as FileIcon, Lock, Shield, Users, DollarSign, Building2 } from "lucide-react";
 import type { ChatMessageData, ChatAttachment } from "@/lib/chat-types";
 import Pusher from "pusher-js";
 
@@ -26,13 +26,33 @@ interface ChannelInfo {
   unreadCount: number;
 }
 
-interface ChatClienteSectionProps {
-  session: ClienteSession;
+interface LockedChannel {
+  icon: string;
+  name: string;
+  desc: string;
+  locked: boolean;
 }
 
-export function ChatClienteSection({ session }: ChatClienteSectionProps) {
+interface ChatClienteSectionProps {
+  session: ClienteSession;
+  isProspect?: boolean;
+}
+
+const LOCKED_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Shield,
+  Users,
+  DollarSign,
+  Building2,
+};
+
+function lockedChannelIcon(iconName: string) {
+  return LOCKED_ICON_MAP[iconName] ?? Shield;
+}
+
+export function ChatClienteSection({ session, isProspect }: ChatClienteSectionProps) {
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
   const [groupChannels, setGroupChannels] = useState<ChannelInfo[]>([]);
+  const [lockedChannels, setLockedChannels] = useState<LockedChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<ChannelInfo | null>(null);
   const [isLoadingChannels, setIsLoadingChannels] = useState(true);
 
@@ -58,10 +78,12 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
       .then(([installRes, groupRes]) => {
         const instChannels: ChannelInfo[] = installRes.success ? installRes.data ?? [] : [];
         const grpChannels: ChannelInfo[] = groupRes.success ? groupRes.data ?? [] : [];
+        const locked: LockedChannel[] = installRes.lockedChannels ?? [];
         setChannels(instChannels);
         setGroupChannels(grpChannels);
-        // Auto-select if there is exactly one installation channel and no groups
-        if (instChannels.length === 1 && grpChannels.length === 0) {
+        setLockedChannels(locked);
+        // Auto-select if there is exactly one installation channel and no groups (and no locked channels)
+        if (instChannels.length === 1 && grpChannels.length === 0 && locked.length === 0) {
           setSelectedChannel(instChannels[0]);
         }
       })
@@ -79,7 +101,7 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
     );
   }
 
-  if (allChannels.length === 0) {
+  if (allChannels.length === 0 && lockedChannels.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center p-6">
         <p className="text-zinc-400 text-sm">No hay canales de chat disponibles.</p>
@@ -143,6 +165,36 @@ export function ChatClienteSection({ session }: ChatClienteSectionProps) {
             Grupos Gard
           </h3>
           {groupChannels.map(renderChannelButton)}
+        </>
+      )}
+
+      {lockedChannels.length > 0 && (
+        <>
+          {(channels.length > 0 || groupChannels.length > 0) && (
+            <div className="border-t border-zinc-800 my-3" />
+          )}
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">
+            Canales disponibles al activarse
+          </h3>
+          {lockedChannels.map((lc) => {
+            const IconComponent = lockedChannelIcon(lc.icon);
+            return (
+              <div
+                key={lc.name}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.01] opacity-50 cursor-not-allowed"
+              >
+                <div className="h-9 w-9 rounded-full bg-zinc-700/30 flex items-center justify-center shrink-0 relative">
+                  <IconComponent className="h-4 w-4 text-zinc-500" />
+                  <Lock className="h-2.5 w-2.5 text-zinc-500 absolute -bottom-0.5 -right-0.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-400 truncate">{lc.name}</p>
+                  <p className="text-[11px] text-zinc-600 truncate">{lc.desc}</p>
+                </div>
+                <Lock className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+              </div>
+            );
+          })}
         </>
       )}
     </div>

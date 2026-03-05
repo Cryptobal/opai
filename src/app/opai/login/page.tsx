@@ -1,9 +1,11 @@
 /**
  * Página de login - Auth.js v5 Credentials
  * Fuera de (app) para evitar redirect loop.
- * No await searchParams para que el HTML se envíe de inmediato; el cliente lee la URL.
+ * Si ya hay sesión activa, redirige a /hub (importante para PWA standalone).
  */
 
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { LoginPageClient } from './LoginPageClient';
 import { Suspense } from 'react';
 import LoginLoading from './loading';
@@ -13,7 +15,10 @@ export const metadata = {
   description: 'Acceso al panel OPAI',
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await auth();
+  if (session?.user) redirect('/hub');
+
   return (
     <Suspense fallback={<LoginLoading />}>
       <LoginPageClient />

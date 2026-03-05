@@ -24,6 +24,8 @@ interface ChatMessageProps {
   currentUserId?: string;
   readByCount?: number;
   onReaction?: (messageId: string, emoji: string) => void;
+  /** Whether the current user can delete any message (admin/owner privilege) */
+  canDeleteAny?: boolean;
 }
 
 /**
@@ -141,7 +143,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
-export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -424,7 +426,7 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
                         </DropdownMenuItem>
                       </>
                     )}
-                    {isOwn && onDelete && (
+                    {(isOwn || canDeleteAny) && onDelete && (
                       <DropdownMenuItem
                         onClick={() => onDelete(message.id)}
                         className="text-red-400 focus:text-red-400"
@@ -479,7 +481,7 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
                   <Pencil className="h-4 w-4 text-zinc-400" /> Editar mensaje
                 </button>
               )}
-              {isOwn && onDelete && (
+              {(isOwn || canDeleteAny) && onDelete && (
                 <button type="button" onClick={() => { onDelete(message.id); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-400 hover:bg-zinc-800 transition-colors">
                   <Trash2 className="h-4 w-4" /> Eliminar mensaje
                 </button>

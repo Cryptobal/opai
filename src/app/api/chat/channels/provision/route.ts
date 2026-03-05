@@ -13,43 +13,66 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    // Find all active installations for the tenant that don't have a chat channel
-    const installationsWithoutChannel = await prisma.crmInstallation.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        isActive: true,
-        chatChannel: null,
-      },
-      select: {
-        id: true,
-        name: true,
-      },
+    const installations = await prisma.crmInstallation.findMany({
+      where: { tenantId: ctx.tenantId, isActive: true },
+      select: { id: true, name: true },
     });
 
-    if (installationsWithoutChannel.length === 0) {
+    const existingChannels = await prisma.chatChannel.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        channelType: "INSTALLATION",
+      },
+      select: { installationId: true, subType: true },
+    });
+
+    const existingSet = new Set(
+      existingChannels.map((c) => `${c.installationId}:${c.subType}`)
+    );
+
+    const toCreate: Array<{
+      tenantId: string;
+      installationId: string;
+      subType: string;
+      name: string;
+    }> = [];
+
+    for (const inst of installations) {
+      if (!existingSet.has(`${inst.id}:reportes`)) {
+        toCreate.push({
+          tenantId: ctx.tenantId,
+          installationId: inst.id,
+          subType: "reportes",
+          name: `${inst.name} - Reportes`,
+        });
+      }
+      if (!existingSet.has(`${inst.id}:interno`)) {
+        toCreate.push({
+          tenantId: ctx.tenantId,
+          installationId: inst.id,
+          subType: "interno",
+          name: `${inst.name} - Interno`,
+        });
+      }
+    }
+
+    if (toCreate.length === 0) {
       return NextResponse.json({
         success: true,
         data: { created: 0 },
-        meta: { message: "Todas las instalaciones ya tienen canal de chat" },
+        meta: { message: "Todas las instalaciones ya tienen ambos canales" },
       });
     }
 
-    // Create channels for each installation
     const created = await prisma.chatChannel.createMany({
-      data: installationsWithoutChannel.map((inst) => ({
-        tenantId: ctx.tenantId,
-        installationId: inst.id,
-        name: inst.name,
-      })),
+      data: toCreate,
       skipDuplicates: true,
     });
 
     return NextResponse.json({
       success: true,
       data: { created: created.count },
-      meta: {
-        message: `Se crearon ${created.count} canales de chat`,
-      },
+      meta: { message: `Se crearon ${created.count} canales de chat` },
     });
   } catch (err: any) {
     console.error("Error provisioning chat channels:", err);

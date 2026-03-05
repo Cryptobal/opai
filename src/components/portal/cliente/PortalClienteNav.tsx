@@ -2,7 +2,8 @@
 
 import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
-  FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList
+  FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
+  UserCheck, FileCheck2, Building, Briefcase
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
@@ -12,12 +13,14 @@ export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
+  | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
 
 const ALL_NAV_ITEMS: Array<{
   id: PortalSection
   label: string
   icon: React.ComponentType<{ className?: string }>
   configKey?: keyof PortalConfig
+  prospectOnly?: boolean
 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
@@ -31,23 +34,40 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa' },
   { id: 'encuestas', label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
   { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas' },
+  { id: 'personal', label: 'Personal', icon: UserCheck },
+  { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
+  { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
+  { id: 'empresa', label: 'Empresa', icon: Briefcase },
 ]
 
 interface Props {
   portalConfig: PortalConfig
   activeSection: PortalSection
   onSection: (s: PortalSection) => void
+  isProspect?: boolean
 }
 
-export function PortalClienteNav({ portalConfig, activeSection, onSection }: Props) {
+// Fixed 4 tabs for prospect mode per spec: Inicio, Propuesta, Nosotros, Chat
+const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'propuesta', 'nosotros', 'chat']
+
+export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
 
-  const visibleItems = ALL_NAV_ITEMS.filter(item =>
-    !item.configKey || portalConfig[item.configKey]
-  )
+  const visibleItems = ALL_NAV_ITEMS.filter(item => {
+    // Hide prospect-only items when not in prospect mode
+    if (item.prospectOnly && !isProspect) return false
+    // Hide config-gated items that are disabled
+    if (item.configKey && !portalConfig[item.configKey]) return false
+    return true
+  })
 
-  const mainItems = visibleItems.slice(0, 4)
-  const extraItems = visibleItems.slice(4)
+  // Prospect mode: fixed 4 tabs with no "More" menu
+  const mainItems = isProspect
+    ? ALL_NAV_ITEMS.filter(item => PROSPECT_MAIN_IDS.includes(item.id))
+    : visibleItems.slice(0, 4)
+  const extraItems = isProspect
+    ? []
+    : visibleItems.slice(4)
   const hasExtra = extraItems.length > 0
 
   return (
@@ -63,7 +83,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection }: Pro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 active
-                  ? 'text-blue-400 bg-blue-500/10'
+                  ? 'text-teal-400 bg-teal-500/10'
                   : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
               )}
             >
@@ -80,7 +100,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection }: Pro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 moreOpen || extraItems.some(i => i.id === activeSection)
-                  ? 'text-blue-400 bg-blue-500/10'
+                  ? 'text-teal-400 bg-teal-500/10'
                   : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
               )}
             >
@@ -98,7 +118,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection }: Pro
                       onClick={() => { onSection(item.id); setMoreOpen(false) }}
                       className={cn(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-blue-400 bg-blue-500/10' : 'text-zinc-300 hover:bg-zinc-700'
+                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />

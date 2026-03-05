@@ -24,7 +24,7 @@ export default async function RondasMonitoreoPage() {
           include: {
             installation: { select: { id: true, name: true, lat: true, lng: true } },
             checkpoints: {
-              include: { checkpoint: { select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true } } },
+              include: { checkpoint: { select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true } } },
               orderBy: { orderIndex: "asc" },
             },
           },

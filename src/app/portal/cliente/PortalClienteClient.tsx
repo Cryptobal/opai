@@ -20,10 +20,14 @@ import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizacion
 import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
-import { PortalDemoOverlay } from "@/components/portal/cliente/PortalDemoOverlay";
+import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
+import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
+import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
+import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
+import { TourOverlay } from "@/components/portal/cliente/tour/TourOverlay";
 
 /* ── Helpers ── */
 
@@ -55,6 +59,7 @@ export function PortalClienteClient() {
 
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [restoringSession, setRestoringSession] = useState(true);
+  const [showTour, setShowTour] = useState(false);
 
   /* ── Restaurar sesión desde cookie al montar ── */
   useEffect(() => {
@@ -77,6 +82,19 @@ export function PortalClienteClient() {
       cancelled = true;
     };
   }, []);
+
+  /* ── Auto-trigger tour for prospects ── */
+  useEffect(() => {
+    if (session?.isProspect && !session?.portalTourShown) {
+      const timer = setTimeout(() => setShowTour(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [session]);
+
+  const handleTourComplete = async () => {
+    setShowTour(false);
+    try { await fetch("/api/portal/cliente/tour", { method: "POST" }); } catch {}
+  };
 
   /* ── Login ── */
   async function handleLogin() {
@@ -109,7 +127,7 @@ export function PortalClienteClient() {
     if (!session) return null;
     switch (activeSection) {
       case "dashboard":
-        return <PortalDashboard session={session} selectedInstallation={selectedInstallation} />;
+        return <PortalDashboard session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} />;
       case "instalaciones":
         return (
           <PortalInstallations
@@ -125,6 +143,7 @@ export function PortalClienteClient() {
           <PortalRondas
             session={session}
             selectedInstallation={selectedInstallation}
+            isProspect={session?.isProspect}
           />
         );
       case "posta":
@@ -132,6 +151,7 @@ export function PortalClienteClient() {
           <PortalPosta
             session={session}
             selectedInstallation={selectedInstallation}
+            isProspect={session?.isProspect}
           />
         );
       case "tickets":
@@ -139,10 +159,11 @@ export function PortalClienteClient() {
           <PortalTickets
             session={session}
             selectedInstallation={selectedInstallation}
+            isProspect={session?.isProspect}
           />
         );
       case "chat":
-        return <ChatClienteSection session={session} />;
+        return <ChatClienteSection session={session} isProspect={session?.isProspect} />;
       case "alertas":
         return <PortalAlertas session={session} />;
       case "cotizaciones":
@@ -163,6 +184,19 @@ export function PortalClienteClient() {
         return <PortalComparativa session={session} />;
       case "encuestas":
         return <PortalEncuestas session={session} />;
+      case "personal":
+        return <PortalPersonal isProspect={session?.isProspect} />;
+      case "propuesta":
+        return (
+          <PortalPropuesta
+            isProspect={session?.isProspect}
+            onNavigate={(s) => setActiveSection(s as PortalSection)}
+          />
+        );
+      case "nosotros":
+        return <PortalNosotros />;
+      case "empresa":
+        return <PortalEmpresa session={session} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-600">
@@ -286,6 +320,14 @@ export function PortalClienteClient() {
               <ChevronDown className="absolute right-2 top-2 h-3.5 w-3.5 pointer-events-none text-zinc-400" />
             </div>
           )}
+          {session?.isProspect && (
+            <button
+              onClick={() => setShowTour(true)}
+              className="text-xs text-teal-400 border border-teal-400/30 rounded px-2 py-1 hover:bg-teal-400/10 transition-colors"
+            >
+              Tour
+            </button>
+          )}
           {session && (
             <PortalUserMenu
               session={session}
@@ -301,13 +343,8 @@ export function PortalClienteClient() {
         </div>
       </header>
 
-      {/* Demo overlay for prospects */}
-      {session?.isProspect && (
-        <PortalDemoOverlay onCTA={() => setActiveSection("cotizaciones")} />
-      )}
-
       {/* Main content */}
-      <main className={`flex-1 pb-20${session?.isProspect ? " pt-10" : ""}`}>
+      <main className="flex-1 pb-20">
         {session && (
           <PushPermissionPrompt
             portalType="cliente"
@@ -324,6 +361,7 @@ export function PortalClienteClient() {
         portalConfig={portalConfig}
         activeSection={activeSection}
         onSection={setActiveSection}
+        isProspect={session?.isProspect}
       />
 
       {/* Notificaciones sheet */}
@@ -334,6 +372,9 @@ export function PortalClienteClient() {
           onClose={() => setNotifSheetOpen(false)}
         />
       )}
+
+      {/* Tour overlay */}
+      {showTour && <TourOverlay onComplete={handleTourComplete} />}
     </div>
   );
 }

@@ -169,6 +169,121 @@ type InstallationRow = { id: string; name: string; address?: string | null; city
 type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
+function DealPipelineStepper({
+  stages,
+  currentStageId,
+  dealStatus,
+  onStageClick,
+  onWonClick,
+  onLostClick,
+  disabled,
+}: {
+  stages: PipelineStageOption[];
+  currentStageId: string | undefined;
+  dealStatus: string | undefined;
+  onStageClick: (stageId: string) => void;
+  onWonClick: () => void;
+  onLostClick: () => void;
+  disabled?: boolean;
+}) {
+  const openStages = stages.filter((s) => !s.isClosedWon && !s.isClosedLost);
+  const wonStage = stages.find((s) => s.isClosedWon);
+  const lostStage = stages.find((s) => s.isClosedLost);
+  const currentIdx = openStages.findIndex((s) => s.id === currentStageId);
+  const isWon = dealStatus === "won";
+  const isLost = dealStatus === "lost";
+  const isClosed = isWon || isLost;
+
+  return (
+    <div className="flex items-center gap-2 py-2 overflow-x-auto scrollbar-thin">
+      {/* Open stages as chevron steps */}
+      <div className="flex items-stretch min-w-0">
+        {openStages.map((stage, idx) => {
+          const isCurrent = !isClosed && stage.id === currentStageId;
+          const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
+          const isFuture = !isClosed && currentIdx >= 0 && idx > currentIdx;
+          const isFirst = idx === 0;
+          const isLast = idx === openStages.length - 1;
+          const stageColor = stage.color || "#94a3b8";
+
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              disabled={disabled || isClosed}
+              onClick={() => onStageClick(stage.id)}
+              className={cn(
+                "relative flex items-center justify-center px-4 py-1.5 text-xs font-medium whitespace-nowrap transition-all min-w-0",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                isFirst && "rounded-l-md",
+                isLast && "rounded-r-md",
+                !isFirst && "ml-[2px]",
+                isClosed && "opacity-50 cursor-not-allowed",
+                !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
+                isCurrent && "text-white shadow-sm",
+                isPast && "text-white/80",
+                isFuture && "bg-muted text-muted-foreground",
+              )}
+              style={
+                isCurrent
+                  ? { backgroundColor: stageColor }
+                  : isPast
+                    ? { backgroundColor: `${stageColor}60` }
+                    : undefined
+              }
+              title={stage.name}
+            >
+              {isPast && <Check className="h-3 w-3 mr-1 shrink-0" />}
+              <span className="truncate max-w-[120px]">{stage.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Separator */}
+      <div className="h-5 w-px bg-border shrink-0" />
+
+      {/* Ganado button */}
+      {wonStage && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onWonClick}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isWon
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+              : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
+          )}
+        >
+          <Check className="h-3 w-3" />
+          Ganado
+        </button>
+      )}
+
+      {/* Perdido button */}
+      {lostStage && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onLostClick}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isLost
+              ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
+              : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+          )}
+        >
+          <XCircle className="h-3 w-3" />
+          Perdido
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function CrmDealDetailClient({
   deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
 }: {
@@ -209,6 +324,8 @@ export function CrmDealDetailClient({
   const [addingContact, setAddingContact] = useState(false);
   const [currentStage, setCurrentStage] = useState<DealDetail["stage"]>(deal.stage || null);
   const [changingStage, setChangingStage] = useState(false);
+  const [wonConfirmOpen, setWonConfirmOpen] = useState(false);
+  const [pendingWonStageId, setPendingWonStageId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -632,6 +749,25 @@ export function CrmDealDetailClient({
     }
   };
 
+  const handleWonClick = () => {
+    const wonStage = pipelineStages.find((s) => s.isClosedWon);
+    if (!wonStage) return;
+    setPendingWonStageId(wonStage.id);
+    setWonConfirmOpen(true);
+  };
+
+  const confirmWon = async () => {
+    if (!pendingWonStageId) return;
+    setWonConfirmOpen(false);
+    await updateStage(pendingWonStageId);
+    setPendingWonStageId(null);
+  };
+
+  const handleLostClick = () => {
+    const lostStage = pipelineStages.find((s) => s.isClosedLost);
+    if (lostStage) updateStage(lostStage.id);
+  };
+
   // ── Helpers ──
   const ContactsIcon = CRM_MODULES.contacts.icon;
   const InstallationsIcon = CRM_MODULES.installations.icon;
@@ -748,24 +884,12 @@ export function CrmDealDetailClient({
           <DetailField
             label="Etapa"
             value={
-              <div className="flex items-center gap-2 min-w-0">
-                <Select
-                  value={currentStage?.id || ""}
-                  onValueChange={(value) => updateStage(value)}
-                  disabled={changingStage || pipelineStages.length === 0}
-                >
-                  <SelectTrigger className="h-8 text-xs min-w-0 max-w-[180px]">
-                    <SelectValue placeholder="Sin etapas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentStage?.id && !pipelineStages.some((stage) => stage.id === currentStage.id) && (
-                      <SelectItem value={currentStage.id}>{currentStage.name}</SelectItem>
-                    )}
-                    {pipelineStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: currentStageColor }}
+                />
+                <span className="text-sm">{currentStage?.name || "Sin etapa"}</span>
                 {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </div>
             }
@@ -1210,7 +1334,11 @@ export function CrmDealDetailClient({
                     title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
                     subtitle={subtitleParts}
                     meta={formatQuoteAmounts(info)}
-                    badge={{ label: statusLabel, variant: statusVariant as any }}
+                    badge={
+                      info?.id === activeQuotationId
+                        ? { label: `${statusLabel} | Activa`, variant: "success" as any }
+                        : { label: statusLabel, variant: statusVariant as any }
+                    }
                     href={`/crm/cotizaciones/${quote.quoteId}`}
                   />
                 );
@@ -1262,6 +1390,17 @@ export function CrmDealDetailClient({
             </div>
           ) : undefined,
         }}
+        pipelineBar={
+          <DealPipelineStepper
+            stages={pipelineStages}
+            currentStageId={currentStage?.id}
+            dealStatus={deal.status}
+            onStageClick={updateStage}
+            onWonClick={handleWonClick}
+            onLostClick={handleLostClick}
+            disabled={changingStage}
+          />
+        }
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -1394,6 +1533,19 @@ export function CrmDealDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar negocio" description="Se eliminarán las cotizaciones vinculadas y el historial." onConfirm={deleteDeal} />
+
+      <ConfirmDialog
+        open={wonConfirmOpen}
+        onOpenChange={setWonConfirmOpen}
+        title="Marcar como ganado"
+        description={"Al marcar este negocio como ganado se cancelarán los seguimientos pendientes y se generará una notificación de contrato. ¿Está seguro?"}
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        onConfirm={confirmWon}
+        variant="default"
+        loading={changingStage}
+        loadingLabel="Procesando..."
+      />
     </>
   );
 }

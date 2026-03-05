@@ -12,7 +12,6 @@ import { seedPayrollData } from './seeds/payroll-initial-data';
 import { seedCpqData } from './seeds/cpq-initial-data';
 import { seedCrmData } from './seeds/crm-initial-data';
 import { seedGroupsAndTicketTypes } from './seeds/ops-groups-ticket-types';
-import { seedInventoryData } from './seeds/inventory-initial-data';
 import { seedAiProviders } from './seeds/ai-providers-initial-data';
 
 const prisma = new PrismaClient();
@@ -112,10 +111,7 @@ async function main() {
   // 7. Seed Ops groups & ticket types
   await seedGroupsAndTicketTypes(tenant.id);
 
-  // 8. Seed Inventario (bodega central)
-  await seedInventoryData(prisma, tenant.id);
-
-  // 9. Seed AI providers & models
+  // 8. Seed AI providers & models
   await seedAiProviders(tenant.id);
 
   console.log('🎉 Seeding completed!');
