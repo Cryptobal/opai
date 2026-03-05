@@ -12,17 +12,13 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { QuoteStepIndicator } from "@/components/cpq/QuoteStepIndicator";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
-import { CpqPricingCalc } from "@/components/cpq/CpqPricingCalc";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
-import { cn, formatNumber, parseLocalizedNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
-import { clpToUf } from "@/lib/uf-utils";
+import { formatCurrency } from "@/components/cpq/utils";
+import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type {
   CpqQuote,
   CpqPosition,
@@ -45,9 +41,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, MoreVertical, Calculator, ChevronLeft, ChevronRight, ChevronDown, Check, Trash2, Download, Send, Sparkles, Loader2, Building2, Shield } from "lucide-react";
-import { QuoteKpiBar } from "@/components/cpq/QuoteKpiBar";
+import { ArrowLeft, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2 } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
+import MarginSection from "@/components/cpq/MarginSection";
+import { FinancialPanel } from "@/components/cpq/FinancialPanel";
+import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -111,7 +109,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
@@ -126,8 +123,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [quoteDirty, setQuoteDirty] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [docAiTab, setDocAiTab] = useState<"description" | "service">("description");
-  const [docPreviewOpen, setDocPreviewOpen] = useState(false);
 
   // CRM context
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string }[]>([]);
@@ -148,8 +143,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   const isLocked = quote?.status === "sent";
-  const steps = ["Datos", "Puestos", "Costos", "Resumen", "Enviar"];
-  const stepIcons = [FileText, Users, Layers, Calculator, Send];
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
     value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -183,13 +176,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       ...patch,
       marginPct: prev?.marginPct ?? marginPct,
     }));
-  };
-  const updateCostItem = (catalogItemId: string, patch: Partial<CpqQuoteCostItem>) => {
-    setCostItems((prev) =>
-      prev.map((item) =>
-        item.catalogItemId === catalogItemId ? { ...item, ...patch } : item
-      )
-    );
   };
 
   const refresh = async () => {
@@ -232,15 +218,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     refresh();
   }, [quoteId]);
 
-  // Refresh data when navigating to Resumen or Documento steps
+  // Auto-calc salePriceBase when costSummary changes (no longer depends on activeStep)
   useEffect(() => {
-    if (activeStep >= 3) {
-      refresh();
-    }
-  }, [activeStep]);
-
-  useEffect(() => {
-    if (activeStep !== 3 || !costSummary || !costParams) return;
+    if (!costSummary || !costParams) return;
     const base = Number(costParams.salePriceBase ?? 0);
     if (base > 0) return;
     const costsBase =
@@ -258,7 +238,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     if (rounded > 0) {
       updateParams({ salePriceBase: rounded });
     }
-  }, [activeStep, costSummary, costParams, marginPct]);
+  }, [costSummary, costParams, marginPct]);
 
   useEffect(() => {
     if (!quote) return;
@@ -399,10 +379,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       if (quote) {
         setQuote({ ...quote, aiDescription: data.data.description });
       }
-      toast.success(aiCustomInstruction.trim() ? "Descripción refinada con AI" : "Descripción generada con AI");
+      toast.success(aiCustomInstruction.trim() ? "Descripcion refinada con AI" : "Descripcion generada con AI");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo generar la descripción AI");
+      toast.error("No se pudo generar la descripcion AI");
     } finally {
       setGeneratingAi(false);
     }
@@ -453,10 +433,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       setQuote(data.data);
       setQuoteDirty(false);
       setLastSavedAt(new Date());
-      if (options?.nextStep !== undefined) setActiveStep(options.nextStep);
     } catch (error) {
       console.error("Error saving CPQ quote:", error);
-      setQuoteError("No se pudo guardar la cotización.");
+      setQuoteError("No se pudo guardar la cotizacion.");
     } finally {
       setSavingQuote(false);
     }
@@ -496,16 +475,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     }
   };
 
-  const goToStep = async (nextStep: number) => {
-    const clamped = Math.max(0, Math.min(steps.length - 1, nextStep));
-    if (clamped === activeStep) return;
-    if (activeStep === 0 && quoteDirty) {
-      await saveQuoteBasics({ nextStep: clamped });
-      return;
-    }
-    setActiveStep(clamped);
-  };
-
   const handleStatusChange = async (newStatus: "draft" | "sent") => {
     if (!quote) return;
     setChangingStatus(true);
@@ -520,7 +489,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       setQuote(data.data);
       setQuoteForm((prev) => ({ ...prev, status: newStatus }));
       setStatusChangePending(null);
-      toast.success(newStatus === "draft" ? "Cotización en borrador. Ya puedes editar." : "Cotización marcada como enviada.");
+      toast.success(newStatus === "draft" ? "Cotizacion en borrador. Ya puedes editar." : "Cotizacion marcada como enviada.");
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("No se pudo actualizar el estado.");
@@ -537,14 +506,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(`Cotización clonada: ${data.data.code}`);
+        toast.success(`Cotizacion clonada: ${data.data.code}`);
         router.push(`/crm/cotizaciones/${data.data.id}`);
       } else {
-        toast.error(data.error || "No se pudo clonar la cotización.");
+        toast.error(data.error || "No se pudo clonar la cotizacion.");
       }
     } catch (error) {
       console.error("Error cloning quote:", error);
-      toast.error("Error al clonar la cotización.");
+      toast.error("Error al clonar la cotizacion.");
     } finally {
       setCloning(false);
     }
@@ -560,12 +529,12 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       if (!data.success) {
         throw new Error(data.error || "Error");
       }
-      toast.success("Cotización eliminada");
+      toast.success("Cotizacion eliminada");
       router.push("/crm/cotizaciones");
       router.refresh();
     } catch (error) {
       console.error("Error deleting quote:", error);
-      toast.error("No se pudo eliminar la cotización");
+      toast.error("No se pudo eliminar la cotizacion");
     } finally {
       setDeleting(false);
     }
@@ -594,7 +563,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         }
       };
       iframe.onload = onLoad;
-      toast.success("Abre el diálogo de impresión y elige «Guardar como PDF»");
+      toast.success("Abre el dialogo de impresion y elige <<Guardar como PDF>>");
     } catch (error) {
       console.error("Error downloading PDF:", error);
       toast.error("No se pudo generar el PDF");
@@ -606,16 +575,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const handleSendDotacionToInstallation = async () => {
     if (!quote) return;
     if (!crmContext.installationId) {
-      toast.error("Selecciona una instalación en Contexto CRM antes de enviar dotación");
+      toast.error("Selecciona una instalacion en Contexto CRM antes de enviar dotacion");
       return;
     }
     if (!positions.length) {
-      toast.error("La cotización no tiene puestos para enviar");
+      toast.error("La cotizacion no tiene puestos para enviar");
       return;
     }
 
     const confirmed = window.confirm(
-      "Esta acción reemplazará la dotación activa de la instalación con los puestos de esta cotización. ¿Continuar?"
+      "Esta accion reemplazara la dotacion activa de la instalacion con los puestos de esta cotizacion. Continuar?"
     );
     if (!confirmed) return;
 
@@ -627,15 +596,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo enviar la dotación");
+        throw new Error(payload.error || "No se pudo enviar la dotacion");
       }
 
       toast.success(
-        `Dotación enviada a ${payload.data.installationName}: ${payload.data.createdPuestos} puestos creados`
+        `Dotacion enviada a ${payload.data.installationName}: ${payload.data.createdPuestos} puestos creados`
       );
     } catch (error) {
       console.error("Error sending staffing to installation:", error);
-      toast.error("No se pudo enviar la dotación a instalación");
+      toast.error("No se pudo enviar la dotacion a instalacion");
     } finally {
       setSendingDotacion(false);
     }
@@ -680,12 +649,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   }, [positions, quote]);
 
   const additionalCostsTotal = costSummary?.monthlyExtras ?? 0;
-  const baseAdditionalCostsTotal = costSummary
-    ? Math.max(
-        0,
-        additionalCostsTotal - costSummary.monthlyFinancial - costSummary.monthlyPolicy
-      )
-    : 0;
   const financialRatePct = costSummary?.financialRatePct ?? 2.5;
   const policyRatePct = costSummary?.policyRatePct ?? 0;
   const monthlyHours = costParams?.monthlyHoursStandard ?? 180;
@@ -696,7 +659,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const salePriceBase = Number(costParams?.salePriceBase ?? 0);
   const monthlyTotal = costSummary?.monthlyTotal ?? stats.monthly + additionalCostsTotal;
 
-  // Per-category cost breakdown for the Resumen step (breaks down monthlyCostItems by type)
+  // Per-category cost breakdown for the sidebar (breaks down monthlyCostItems by type)
   const costCategoryBreakdown = useMemo(() => {
     const totalGuards = costSummary?.totalGuards ?? 0;
     const normalizeUnit = (value: number, unit?: string | null) => {
@@ -770,6 +733,23 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
   }, [costSummary, marginPct]);
 
+  // Margin amount calculation
+  const marginAmount = useMemo(() => {
+    const margin = marginPct / 100;
+    if (!costSummary) return 0;
+    const costsBase =
+      (costSummary.monthlyPositions ?? 0) +
+      (costSummary.monthlyHolidayAdjustment ?? 0) +
+      (costSummary.monthlyUniforms ?? 0) +
+      (costSummary.monthlyExams ?? 0) +
+      (costSummary.monthlyMeals ?? 0) +
+      (costSummary.monthlyVehicles ?? 0) +
+      (costSummary.monthlyInfrastructure ?? 0) +
+      (costSummary.monthlyCostItems ?? 0);
+    const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
+    return baseWithMargin - costsBase;
+  }, [costSummary, marginPct]);
+
   // Additional lines total (pass-through, no margin)
   const additionalLinesTotal = useMemo(
     () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
@@ -818,14 +798,21 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     : lastSavedAt
     ? `Guardado ${formatTime(lastSavedAt)}`
     : "Sin cambios";
-  const isLastStep = activeStep === steps.length - 1;
-  const nextLabel =
-    isLastStep
-      ? "Volver a cotizaciones"
-      : activeStep === 0 && quoteDirty
-      ? "Guardar y seguir"
-      : "Siguiente";
-  const nextDisabled = activeStep === 0 && savingQuote;
+
+  // Margin change handler (used by MarginSection)
+  const handleMarginChange = async (newMargin: number) => {
+    setMarginPct(newMargin);
+    try {
+      await fetch(`/api/cpq/quotes/${quoteId}/margin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marginPct: newMargin }),
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Error saving margin:", error);
+    }
+  };
 
   if (loading && !quote) {
     return (
@@ -852,14 +839,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         <Button variant="outline" size="sm" onClick={() => router.push("/cpq")}>
           Volver
         </Button>
-        <div className="text-sm text-muted-foreground">Cotización no encontrada.</div>
+        <div className="text-sm text-muted-foreground">Cotizacion no encontrada.</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 pb-20 lg:pb-14">
-      {/* ── Compact header ── */}
+    <div className="space-y-2 pb-20 lg:pb-4">
+      {/* -- Compact header -- */}
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -905,10 +892,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] max-w-[calc(100vw-2rem)] rounded-md border bg-popover p-1 shadow-md">
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
-                    <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotización"}
+                    <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleSendDotacionToInstallation(); }} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
-                    <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotación"}
+                    <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotacion"}
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
                     <RefreshCw className="h-3.5 w-3.5" /> Refrescar
@@ -924,643 +911,425 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </div>
       </div>
 
-      <QuoteStepIndicator steps={steps} currentStep={activeStep} onStepClick={goToStep} />
+      {/* -- 2-column layout: scrollable editor + sticky sidebar -- */}
+      <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-0">
 
-      {/* ── 2-column layout: main content + desktop sidebar ── */}
-      <div className="lg:grid lg:grid-cols-[1fr_340px] lg:gap-6">
-      {/* ── Main column ── */}
-      <div className="space-y-2 min-w-0">
+      {/* -- Editor: scrollable left column -- */}
+      <div className="space-y-0 min-w-0 lg:pr-6">
 
-      {/* ── KPI bar colapsable (mobile only) ── */}
-      <QuoteKpiBar
-        positionsCount={positions.length}
-        totalGuards={stats.totalGuards}
-        monthlyCost={monthlyTotal}
-        marginPct={marginPct}
-        salePriceMonthly={salePriceMonthly}
-        ufValue={ufValue}
-        additionalLinesTotal={additionalLinesTotal}
-        className="lg:hidden"
+      {/* -- Section: Datos -- */}
+      <DatosSection
+        crmAccounts={crmAccounts}
+        crmInstallations={crmInstallations}
+        crmContacts={crmContacts}
+        crmDeals={crmDeals}
+        crmContext={crmContext}
+        quoteForm={quoteForm}
+        quoteDirty={quoteDirty}
+        savingQuote={savingQuote}
+        quoteError={quoteError}
+        isLocked={isLocked}
+        saveCrmContext={saveCrmContext}
+        setQuoteForm={setQuoteForm}
+        setQuoteDirty={setQuoteDirty}
+        saveQuoteBasics={saveQuoteBasics}
+        setCrmAccounts={setCrmAccounts}
+        setCrmInstallations={setCrmInstallations}
+        setCrmContacts={setCrmContacts}
+        setCrmDeals={setCrmDeals}
       />
 
-      {activeStep === 0 && (
-        <DatosSection
-          crmAccounts={crmAccounts}
-          crmInstallations={crmInstallations}
-          crmContacts={crmContacts}
-          crmDeals={crmDeals}
-          crmContext={crmContext}
-          quoteForm={quoteForm}
-          quoteDirty={quoteDirty}
-          savingQuote={savingQuote}
-          quoteError={quoteError}
-          isLocked={isLocked}
-          saveCrmContext={saveCrmContext}
-          setQuoteForm={setQuoteForm}
-          setQuoteDirty={setQuoteDirty}
-          saveQuoteBasics={saveQuoteBasics}
-          setCrmAccounts={setCrmAccounts}
-          setCrmInstallations={setCrmInstallations}
-          setCrmContacts={setCrmContacts}
-          setCrmDeals={setCrmDeals}
-        />
-      )}
-
-      {activeStep === 1 && (
-        <div className="space-y-1.5" inert={isLocked}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold">Puestos</span>
-              {positions.length > 0 && (
-                <span className="text-[11px] text-muted-foreground">
-                  Total: <span className="font-mono font-semibold text-foreground">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
-                </span>
-              )}
-            </div>
-            <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
-          </div>
-
-          {positions.length === 0 ? (
-            <EmptyState
-              icon={<Users className="h-6 w-6" />}
-              title="Sin puestos"
-              description="Agrega el primer puesto para comenzar."
-              compact
-            />
-          ) : (
-            <div className="space-y-1.5">
-              {positions.map((position) => (
-                <CpqPositionCard
-                  key={position.id}
-                  position={position}
-                  quoteId={quoteId}
-                  onUpdated={refresh}
-                  readOnly={isLocked}
-                  salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
-                  clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeStep === 2 && (
-        <div inert={isLocked}>
-          <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} />
-        </div>
-      )}
-
-      {activeStep === 3 && (
-        <div className="space-y-2" inert={isLocked}>
-          <CpqPricingCalc
-            summary={costSummary}
-            marginPct={marginPct}
-            onMarginChange={isLocked ? undefined : async (newMargin) => {
-              setMarginPct(newMargin);
-              try {
-                await fetch(`/api/cpq/quotes/${quoteId}/margin`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ marginPct: newMargin }),
-                });
-                await refresh();
-              } catch (error) {
-                console.error("Error saving margin:", error);
-              }
-            }}
-            uniformTotal={costSummary?.monthlyUniforms ?? 0}
-            examTotal={costSummary?.monthlyExams ?? 0}
-            mealTotal={costSummary?.monthlyMeals ?? 0}
-            operationalTotal={costCategoryBreakdown.equipment}
-            transportTotal={costCategoryBreakdown.transport}
-            vehicleTotal={costCategoryBreakdown.vehicle}
-            infraTotal={costCategoryBreakdown.infra}
-            systemTotal={costCategoryBreakdown.system}
-            financialRatePct={financialRatePct}
-            policyRatePct={policyRatePct}
-            policyContractMonths={policyContractMonths}
-            policyContractPct={policyContractPct}
-            contractMonths={contractMonths}
-            positions={positions}
-            monthlyHours={monthlyHours}
-            ufValue={ufValue}
-            additionalLinesTotal={additionalLinesTotal}
-          />
-
-          {/* ── Financials: compact 2-col side-by-side ── */}
-          <Card className="p-2.5 space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold">Gastos financieros</h2>
-              <Button
-                size="sm"
-                className="h-7 px-2.5 text-[11px]"
-                onClick={handleSaveFinancials}
-                disabled={savingFinancials || !costParams}
-              >
-                {savingFinancials ? "..." : "Guardar"}
-              </Button>
-            </div>
-
-            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
-              {/* Costo financiero */}
-              <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold">Financiero</span>
-                  <button
-                    type="button"
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
-                      costParams?.financialEnabled
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                        : "bg-muted/30 text-muted-foreground"
-                    )}
-                    onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
-                    aria-pressed={costParams?.financialEnabled}
-                  >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
-                    {costParams?.financialEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Base venta</Label>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={getDecimalValue("salePriceBase", salePriceBase, 0, true)}
-                      onChange={(e) => setDecimalValue("salePriceBase", e.target.value)}
-                      onBlur={() => {
-                        const raw = decimalDrafts.salePriceBase;
-                        if (raw === undefined) return;
-                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                        updateParams({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
-                        clearDecimalValue("salePriceBase");
-                      }}
-                      className="h-7 text-xs bg-card text-foreground border-border"
-                      placeholder="4.000.000"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={getDecimalValue("financialRatePct", costParams?.financialRatePct ?? 2.5, 2, true)}
-                      onChange={(e) => setDecimalValue("financialRatePct", e.target.value)}
-                      onBlur={() => {
-                        const raw = decimalDrafts.financialRatePct;
-                        if (raw === undefined) return;
-                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
-                        updateParams({ financialRatePct: parsed, financialEnabled: true });
-                        clearDecimalValue("financialRatePct");
-                      }}
-                      className="h-7 text-xs bg-card text-foreground border-border"
-                      placeholder="2,5"
-                    />
-                  </div>
-                </div>
-                {salePriceBase > 0 && (
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                    = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
-                  </div>
-                )}
-              </div>
-
-              {/* Póliza */}
-              <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold">Póliza</span>
-                  <button
-                    type="button"
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
-                      policyEnabled
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                        : "bg-muted/30 text-muted-foreground"
-                    )}
-                    onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
-                    aria-pressed={policyEnabled}
-                  >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
-                    {policyEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Meses</Label>
-                    <Input
-                      type="number"
-                      value={policyContractMonths}
-                      onChange={(e) =>
-                        updateParams({
-                          policyContractMonths: parseLocalizedNumber(e.target.value),
-                          financialEnabled: true,
-                        })
-                      }
-                      className="h-7 text-xs bg-card text-foreground border-border"
-                      placeholder="12"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">% Póliza</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={getDecimalValue("policyContractPct", policyContractPct, 2)}
-                      onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
-                      onBlur={() => {
-                        const raw = decimalDrafts.policyContractPct;
-                        if (raw === undefined) return;
-                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 20;
-                        updateParams({ policyContractPct: parsed, financialEnabled: true });
-                        clearDecimalValue("policyContractPct");
-                      }}
-                      className="h-7 text-xs bg-card text-foreground border-border"
-                      placeholder="20"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={getDecimalValue("policyRatePct", costParams?.policyRatePct ?? 2.5, 2, true)}
-                      onChange={(e) => setDecimalValue("policyRatePct", e.target.value)}
-                      onBlur={() => {
-                        const raw = decimalDrafts.policyRatePct;
-                        if (raw === undefined) return;
-                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
-                        updateParams({ policyRatePct: parsed, financialEnabled: true });
-                        clearDecimalValue("policyRatePct");
-                      }}
-                      className="h-7 text-xs bg-card text-foreground border-border"
-                      placeholder="2,5"
-                    />
-                  </div>
-                </div>
-                {policyEnabled && salePriceBase > 0 && (
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                    = {formatCurrency(
-                      (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
-                    )}/mes
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {financialError && (
-              <div className="text-[11px] text-red-400">{financialError}</div>
+      {/* -- Section: Puestos -- */}
+      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[17px] font-bold tracking-tight">Puestos</h2>
+            {positions.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Total: <span className="font-mono font-semibold text-foreground">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
+              </span>
             )}
-          </Card>
-        </div>
-      )}
-
-      {/* ── Step 5: Enviar (2-column layout: preview + config) ── */}
-      {activeStep === 4 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0" inert={isLocked}>
-
-          {/* ── Left: Document Preview (always visible) ── */}
-          <div className="border-r border-border/40 md:max-h-[600px] md:overflow-y-auto">
-            <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vista previa</span>
-            </div>
-            <div className="p-3 space-y-2 bg-white text-black text-xs" style={{ fontFamily: "Arial, sans-serif" }}>
-              <div className="flex justify-between items-start border-b-2 pb-1.5" style={{ borderColor: "#2563eb" }}>
-                <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>GARD SECURITY</div>
-                <div className="text-right text-[10px] text-gray-600">
-                  <p className="font-bold text-xs text-black">{quote.code}{quote.name ? ` — ${quote.name}` : ""}</p>
-                  <p>{quote.clientName || "Cliente"}</p>
-                  {(() => {
-                    const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                    return c ? <p>{c.firstName} {c.lastName}</p> : null;
-                  })()}
-                  {(() => {
-                    const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
-                    return inst ? <p>{inst.name}</p> : null;
-                  })()}
-                  {quote.validUntil && <p>Válida hasta: {new Date(quote.validUntil).toLocaleDateString("es-CL")}</p>}
-                </div>
-              </div>
-
-              {(crmContext.dealId || crmContext.installationId) && (
-                <div className="text-[10px] rounded" style={{ padding: "4px 8px", background: "#f0fdf4", borderLeft: "3px solid #2563eb", color: "#333" }}>
-                  {(() => {
-                    const deal = crmContext.dealId ? crmDeals.find((d) => d.id === crmContext.dealId) : null;
-                    return deal ? <span><strong>Negocio:</strong> {deal.title}</span> : null;
-                  })()}
-                  {crmContext.dealId && crmContext.installationId && " · "}
-                  {(() => {
-                    const inst = crmContext.installationId ? crmInstallations.find((x) => x.id === crmContext.installationId) : null;
-                    return inst ? <span><strong>Instalación:</strong> {inst.name}</span> : null;
-                  })()}
-                </div>
-              )}
-
-              {quote.aiDescription && (
-                <p className="text-[10px] text-gray-600 bg-blue-50 rounded p-1.5 italic">{quote.aiDescription}</p>
-              )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr style={{ background: "#eff6ff" }}>
-                      <th className="text-left p-1 font-semibold">Puesto</th>
-                      <th className="text-left p-1 font-semibold">G</th>
-                      <th className="text-left p-1 font-semibold">Cant</th>
-                      <th className="text-left p-1 font-semibold">Días</th>
-                      <th className="text-left p-1 font-semibold">Horario</th>
-                      <th className="text-right p-1 font-semibold">Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {positions.map((pos) => {
-                      const clp = positionSalePrices.get(pos.id) ?? Number(pos.monthlyPositionCost);
-                      const formatted =
-                        crmContext.currency === "UF" && ufValue && ufValue > 0
-                          ? formatUFSuffix(clpToUf(clp, ufValue))
-                          : formatCLP(clp);
-                      return (
-                        <tr key={pos.id} className="border-b border-gray-100">
-                          <td className="p-1">{pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td>
-                          <td className="p-1">{pos.numGuards}</td>
-                          <td className="p-1">{pos.numPuestos || 1}</td>
-                          <td className="p-1">{formatWeekdaysShort(pos.weekdays)}</td>
-                          <td className="p-1">{pos.startTime}-{pos.endTime}</td>
-                          <td className="p-1 text-right">{formatted}</td>
-                        </tr>
-                      );
-                    })}
-                    {additionalLinesTotal > 0 && (
-                      <tr className="font-semibold border-t" style={{ borderColor: "#2563eb" }}>
-                        <td colSpan={5} className="p-1 text-right">Subtotal guardias</td>
-                        <td className="p-1 text-right">
-                          {crmContext.currency === "UF" && ufValue && ufValue > 0
-                            ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
-                            : formatCLP(salePriceMonthly)}
-                        </td>
-                      </tr>
-                    )}
-                    <tr className="font-bold border-t-2" style={{ borderColor: "#2563eb", background: "#eff6ff" }}>
-                      <td colSpan={5} className="p-1 text-right">Total</td>
-                      <td className="p-1 text-right">
-                        {crmContext.currency === "UF" && ufValue && ufValue > 0
-                          ? formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))
-                          : formatCLP(salePriceMonthly + additionalLinesTotal)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Additional lines preview */}
-              {additionalLines.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#6b21a8" }}>Servicios y Productos Adicionales</p>
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr style={{ background: "#faf5ff" }}>
-                        <th className="text-left p-1 font-semibold">Producto / Servicio</th>
-                        <th className="text-left p-1 font-semibold">Descripción</th>
-                        <th className="text-right p-1 font-semibold">Valor Mensual</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {additionalLines
-                        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-                        .map((linea, index) => (
-                        <tr key={linea.id || index} className="border-b border-gray-100">
-                          <td className="p-1">{linea.nombre || "—"}</td>
-                          <td className="p-1 text-gray-600">{linea.descripcion || "—"}</td>
-                          <td className="p-1 text-right">{formatCLP(Number(linea.precio))}</td>
-                        </tr>
-                      ))}
-                      <tr className="font-semibold border-t" style={{ background: "#faf5ff" }}>
-                        <td colSpan={2} className="p-1 text-right">Subtotal adicionales</td>
-                        <td className="p-1 text-right">{formatCLP(additionalLinesTotal)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {quote.serviceDetail && (
-                <div>
-                  <p className="text-[10px] font-semibold border-b pb-0.5 mb-1" style={{ color: "#1e3a5f" }}>Detalle del servicio</p>
-                  <div className="text-[10px] text-gray-700 whitespace-pre-line leading-relaxed">{quote.serviceDetail}</div>
-                </div>
-              )}
-
-              <div className="text-center text-[9px] text-gray-400 border-t pt-1">
-                Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl
-              </div>
-            </div>
           </div>
+          <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
+        </div>
 
-          {/* ── Right: Config + AI + Send ── */}
-          <div className="p-3 space-y-3 flex flex-col">
-            {/* ── AI sections as tabs ── */}
-            <Card className="p-2.5 space-y-2">
-              <div className="inline-flex rounded-md border border-border overflow-hidden">
-                <button
-                  type="button"
-                  className={cn("px-3 py-1.5 text-xs font-medium transition-colors", docAiTab === "description" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
-                  onClick={() => setDocAiTab("description")}
-                >
-                  Descripción AI
-                </button>
-                <button
-                  type="button"
-                  className={cn("px-3 py-1.5 text-xs font-medium border-l border-border transition-colors", docAiTab === "service" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/50")}
-                  onClick={() => setDocAiTab("service")}
-                >
-                  Detalle servicio
-                </button>
-              </div>
-
-              {docAiTab === "description" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={aiCustomInstruction}
-                      onChange={(e) => setAiCustomInstruction(e.target.value)}
-                      placeholder="Instrucción AI (opcional)"
-                      className="h-7 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 text-[11px] shrink-0"
-                      onClick={generateAiDescription}
-                      disabled={generatingAi}
-                    >
-                      {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      {generatingAi ? "..." : "Generar"}
-                    </Button>
-                  </div>
-                  <textarea
-                    value={quote.aiDescription ?? ""}
-                    onChange={(e) => {
-                      setQuote({ ...quote, aiDescription: e.target.value });
-                      fetch(`/api/cpq/quotes/${quoteId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ aiDescription: e.target.value }),
-                      }).catch(() => {});
-                    }}
-                    placeholder="Clic en 'Generar' para crear una descripción profesional..."
-                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    rows={4}
-                  />
-                </div>
-              )}
-
-              {docAiTab === "service" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={serviceDetailInstruction}
-                      onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                      placeholder="Instrucción AI (opcional)"
-                      className="h-7 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 text-[11px] shrink-0"
-                      onClick={generateServiceDetail}
-                      disabled={generatingServiceDetail}
-                    >
-                      {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      {generatingServiceDetail ? "..." : "Generar"}
-                    </Button>
-                  </div>
-                  <textarea
-                    value={quote.serviceDetail ?? ""}
-                    onChange={(e) => {
-                      setQuote({ ...quote, serviceDetail: e.target.value });
-                      fetch(`/api/cpq/quotes/${quoteId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ serviceDetail: e.target.value }),
-                      }).catch(() => {});
-                    }}
-                    placeholder="Clic en 'Generar' para detalle de servicios..."
-                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    rows={4}
-                  />
-                </div>
-              )}
-            </Card>
-
-            {/* ── Action buttons ── */}
-            <div className="flex flex-col gap-2 pt-2 mt-auto">
-              <SendCpqQuoteModal
+        {positions.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-6 w-6" />}
+            title="Sin puestos"
+            description="Agrega el primer puesto para comenzar."
+            compact
+          />
+        ) : (
+          <div className="space-y-1.5">
+            {positions.map((position) => (
+              <CpqPositionCard
+                key={position.id}
+                position={position}
                 quoteId={quoteId}
-                quoteCode={quote.code}
-                clientName={quote.clientName || undefined}
-                disabled={!quote || positions.length === 0 || quote.status === "sent"}
-                hasAccount={!!crmContext.accountId}
-                hasContact={!!crmContext.contactId}
-                hasDeal={!!crmContext.dealId}
-                contactName={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-                })()}
-                contactEmail={(() => {
-                  const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-                  return c?.email || undefined;
-                })()}
+                onUpdated={refresh}
+                readOnly={isLocked}
+                salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
+                clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
               />
-              <Button
-                className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
-                disabled={
-                  !quote ||
-                  positions.length === 0 ||
-                  quote.status === "sent" ||
-                  !crmContext.accountId ||
-                  !crmContext.contactId ||
-                  !crmContext.dealId ||
-                  sendingPortal
-                }
-                onClick={handleSendPortal}
-              >
-                {sendingPortal ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Shield className="h-4 w-4" />
-                )}
-                {sendingPortal ? "Enviando..." : "Enviar por Portal"}
-              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* -- Section: Costos -- */}
+      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
+        <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} />
+      </div>
+
+      {/* -- Section: Margen -- */}
+      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
+        <MarginSection
+          marginPct={marginPct}
+          onMarginChange={handleMarginChange}
+          marginAmount={marginAmount}
+          isLocked={isLocked}
+        />
+      </div>
+
+      {/* -- Section: Financials (financial + policy cards) -- */}
+      <div className="border-t border-border/10 mt-7 pt-5" inert={isLocked}>
+        <Card className="p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold">Gastos financieros</h2>
+            <Button
+              size="sm"
+              className="h-7 px-2.5 text-[11px]"
+              onClick={handleSaveFinancials}
+              disabled={savingFinancials || !costParams}
+            >
+              {savingFinancials ? "..." : "Guardar"}
+            </Button>
+          </div>
+
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+            {/* Costo financiero */}
+            <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold">Financiero</span>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    costParams?.financialEnabled
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      : "bg-muted/30 text-muted-foreground"
+                  )}
+                  onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
+                  aria-pressed={costParams?.financialEnabled}
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+                  {costParams?.financialEnabled ? "On" : "Off"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Base venta</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={getDecimalValue("salePriceBase", salePriceBase, 0, true)}
+                    onChange={(e) => setDecimalValue("salePriceBase", e.target.value)}
+                    onBlur={() => {
+                      const raw = decimalDrafts.salePriceBase;
+                      if (raw === undefined) return;
+                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
+                      updateParams({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
+                      clearDecimalValue("salePriceBase");
+                    }}
+                    className="h-7 text-xs bg-card text-foreground border-border"
+                    placeholder="4.000.000"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={getDecimalValue("financialRatePct", costParams?.financialRatePct ?? 2.5, 2, true)}
+                    onChange={(e) => setDecimalValue("financialRatePct", e.target.value)}
+                    onBlur={() => {
+                      const raw = decimalDrafts.financialRatePct;
+                      if (raw === undefined) return;
+                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
+                      updateParams({ financialRatePct: parsed, financialEnabled: true });
+                      clearDecimalValue("financialRatePct");
+                    }}
+                    className="h-7 text-xs bg-card text-foreground border-border"
+                    placeholder="2,5"
+                  />
+                </div>
+              </div>
+              {salePriceBase > 0 && (
+                <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                  = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
+                </div>
+              )}
+            </div>
+
+            {/* Poliza */}
+            <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold">Poliza</span>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    policyEnabled
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      : "bg-muted/30 text-muted-foreground"
+                  )}
+                  onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
+                  aria-pressed={policyEnabled}
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-emerald-500" : "bg-muted-foreground")} />
+                  {policyEnabled ? "On" : "Off"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Meses</Label>
+                  <Input
+                    type="number"
+                    value={policyContractMonths}
+                    onChange={(e) =>
+                      updateParams({
+                        policyContractMonths: parseLocalizedNumber(e.target.value),
+                        financialEnabled: true,
+                      })
+                    }
+                    className="h-7 text-xs bg-card text-foreground border-border"
+                    placeholder="12"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">% Poliza</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={getDecimalValue("policyContractPct", policyContractPct, 2)}
+                    onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
+                    onBlur={() => {
+                      const raw = decimalDrafts.policyContractPct;
+                      if (raw === undefined) return;
+                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 20;
+                      updateParams({ policyContractPct: parsed, financialEnabled: true });
+                      clearDecimalValue("policyContractPct");
+                    }}
+                    className="h-7 text-xs bg-card text-foreground border-border"
+                    placeholder="20"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={getDecimalValue("policyRatePct", costParams?.policyRatePct ?? 2.5, 2, true)}
+                    onChange={(e) => setDecimalValue("policyRatePct", e.target.value)}
+                    onBlur={() => {
+                      const raw = decimalDrafts.policyRatePct;
+                      if (raw === undefined) return;
+                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
+                      updateParams({ policyRatePct: parsed, financialEnabled: true });
+                      clearDecimalValue("policyRatePct");
+                    }}
+                    className="h-7 text-xs bg-card text-foreground border-border"
+                    placeholder="2,5"
+                  />
+                </div>
+              </div>
+              {policyEnabled && salePriceBase > 0 && (
+                <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                  = {formatCurrency(
+                    (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
+                  )}/mes
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
 
-      </div>{/* end main column */}
+          {financialError && (
+            <div className="text-[11px] text-red-400">{financialError}</div>
+          )}
+        </Card>
+      </div>
 
-      {/* ── Desktop sidebar (hidden on mobile) ── */}
-      <aside className="hidden lg:block space-y-4 sticky top-16 self-start">
-        {/* KPI bar — always expanded on desktop */}
-        <QuoteKpiBar
+      </div>{/* end editor column */}
+
+      {/* -- Sidebar: sticky right column (desktop only) -- */}
+      <aside className="hidden lg:flex flex-col sticky top-[105px] h-[calc(100vh-105px)] border-l border-border/40 overflow-y-auto pl-4">
+        <FinancialPanel
           positionsCount={positions.length}
           totalGuards={stats.totalGuards}
-          monthlyCost={monthlyTotal}
           marginPct={marginPct}
           salePriceMonthly={salePriceMonthly}
-          ufValue={ufValue}
           additionalLinesTotal={additionalLinesTotal}
-          alwaysExpanded
+          ufValue={ufValue}
+          costSummary={costSummary}
+          costCategoryBreakdown={costCategoryBreakdown}
+          marginAmount={marginAmount}
+          positions={positions}
+          positionSalePrices={positionSalePrices}
+          positionHourlyRates={positionHourlyRates}
+          quote={quote}
+          crmContext={crmContext}
+          crmContacts={crmContacts}
+          crmInstallations={crmInstallations}
+          crmDeals={crmDeals}
+          additionalLines={additionalLines}
+          onGenerateAiDescription={generateAiDescription}
+          generatingAi={generatingAi}
+          aiCustomInstruction={aiCustomInstruction}
+          setAiCustomInstruction={setAiCustomInstruction}
+          onGenerateServiceDetail={generateServiceDetail}
+          generatingServiceDetail={generatingServiceDetail}
+          serviceDetailInstruction={serviceDetailInstruction}
+          setServiceDetailInstruction={setServiceDetailInstruction}
+          aiDescription={quote.aiDescription ?? null}
+          onAiDescriptionChange={(v) => {
+            setQuote({ ...quote, aiDescription: v });
+            fetch(`/api/cpq/quotes/${quoteId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ aiDescription: v }),
+            }).catch(() => {});
+          }}
+          serviceDetail={quote.serviceDetail ?? null}
+          onServiceDetailChange={(v) => {
+            setQuote({ ...quote, serviceDetail: v });
+            fetch(`/api/cpq/quotes/${quoteId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ serviceDetail: v }),
+            }).catch(() => {});
+          }}
+          quoteId={quoteId}
+          quoteCode={quote.code}
+          sendingPortal={sendingPortal}
+          onSendPortal={handleSendPortal}
+          isLocked={isLocked}
+          hasAccount={!!crmContext.accountId}
+          hasContact={!!crmContext.contactId}
+          hasDeal={!!crmContext.dealId}
+          contactName={(() => {
+            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+            return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+          })()}
+          contactEmail={(() => {
+            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+            return c?.email || undefined;
+          })()}
         />
-
       </aside>
 
       </div>{/* end 2-column grid */}
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/95 px-4 py-2 backdrop-blur lg:sticky lg:bottom-0 lg:left-auto lg:right-auto lg:-mx-4">
-        <div className="flex items-center justify-between gap-3 max-w-screen-xl mx-auto">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 gap-1 px-3 text-xs"
-            onClick={() => void goToStep(activeStep - 1)}
-            disabled={activeStep === 0}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            Anterior
-          </Button>
-          <span className="text-[11px] text-muted-foreground">
-            {activeStep + 1}/{steps.length}
-          </span>
-          <Button
-            size="sm"
-            className={cn(
-              "h-9 gap-1 px-4 text-xs font-semibold",
-              !isLastStep && "bg-emerald-600 hover:bg-emerald-700 text-white"
-            )}
-            onClick={() => {
-              if (isLastStep) {
-                router.push("/crm/cotizaciones");
-              } else {
-                void goToStep(activeStep + 1);
-              }
+      {/* -- Mobile bottom bar (replaces wizard nav) -- */}
+      <MobileBottomBar
+        className="lg:hidden"
+        salePriceMonthly={salePriceMonthly}
+        additionalLinesTotal={additionalLinesTotal}
+        marginPct={marginPct}
+        ufValue={ufValue}
+        financialPanelContent={
+          <FinancialPanel
+            positionsCount={positions.length}
+            totalGuards={stats.totalGuards}
+            marginPct={marginPct}
+            salePriceMonthly={salePriceMonthly}
+            additionalLinesTotal={additionalLinesTotal}
+            ufValue={ufValue}
+            costSummary={costSummary}
+            costCategoryBreakdown={costCategoryBreakdown}
+            marginAmount={marginAmount}
+            positions={positions}
+            positionSalePrices={positionSalePrices}
+            positionHourlyRates={positionHourlyRates}
+            quote={quote}
+            crmContext={crmContext}
+            crmContacts={crmContacts}
+            crmInstallations={crmInstallations}
+            crmDeals={crmDeals}
+            additionalLines={additionalLines}
+            onGenerateAiDescription={generateAiDescription}
+            generatingAi={generatingAi}
+            aiCustomInstruction={aiCustomInstruction}
+            setAiCustomInstruction={setAiCustomInstruction}
+            onGenerateServiceDetail={generateServiceDetail}
+            generatingServiceDetail={generatingServiceDetail}
+            serviceDetailInstruction={serviceDetailInstruction}
+            setServiceDetailInstruction={setServiceDetailInstruction}
+            aiDescription={quote.aiDescription ?? null}
+            onAiDescriptionChange={(v) => {
+              setQuote({ ...quote, aiDescription: v });
+              fetch(`/api/cpq/quotes/${quoteId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ aiDescription: v }),
+              }).catch(() => {});
             }}
-            disabled={nextDisabled}
-          >
-            {nextLabel}
-            {!isLastStep && <ChevronRight className="h-3.5 w-3.5" />}
-          </Button>
-        </div>
-      </div>
+            serviceDetail={quote.serviceDetail ?? null}
+            onServiceDetailChange={(v) => {
+              setQuote({ ...quote, serviceDetail: v });
+              fetch(`/api/cpq/quotes/${quoteId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ serviceDetail: v }),
+              }).catch(() => {});
+            }}
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            sendingPortal={sendingPortal}
+            onSendPortal={handleSendPortal}
+            isLocked={isLocked}
+            hasAccount={!!crmContext.accountId}
+            hasContact={!!crmContext.contactId}
+            hasDeal={!!crmContext.dealId}
+            contactName={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+            })()}
+            contactEmail={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c?.email || undefined;
+            })()}
+          />
+        }
+        sendButton={
+          <SendCpqQuoteModal
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            clientName={quote.clientName || undefined}
+            disabled={!quote || positions.length === 0 || quote.status === "sent"}
+            hasAccount={!!crmContext.accountId}
+            hasContact={!!crmContext.contactId}
+            hasDeal={!!crmContext.dealId}
+            contactName={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+            })()}
+            contactEmail={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c?.email || undefined;
+            })()}
+          />
+        }
+      />
 
-      {/* Confirmación Volver a borrador */}
+      {/* Confirmacion Volver a borrador */}
       <Dialog open={statusChangePending === "draft"} onOpenChange={(v) => !v && setStatusChangePending(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Volver a borrador</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Volver esta cotización a borrador? Podrás editar los valores nuevamente. Para marcarla como enviada otra vez, usa &quot;Marcar como enviada&quot;.
+            Volver esta cotizacion a borrador? Podras editar los valores nuevamente. Para marcarla como enviada otra vez, usa &quot;Marcar como enviada&quot;.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>
@@ -1573,14 +1342,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </DialogContent>
       </Dialog>
 
-      {/* Confirmación Marcar como enviada */}
+      {/* Confirmacion Marcar como enviada */}
       <Dialog open={statusChangePending === "sent"} onOpenChange={(v) => !v && setStatusChangePending(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Marcar como enviada</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Marcar esta cotización como enviada? Una vez enviada, no podrás modificar nada hasta que la vuelvas a borrador.
+            Marcar esta cotizacion como enviada? Una vez enviada, no podras modificar nada hasta que la vuelvas a borrador.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>
@@ -1596,8 +1365,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Eliminar cotización"
-        description="La cotización será eliminada permanentemente. Esta acción no se puede deshacer."
+        title="Eliminar cotizacion"
+        description="La cotizacion sera eliminada permanentemente. Esta accion no se puede deshacer."
         onConfirm={handleDelete}
       />
     </div>
