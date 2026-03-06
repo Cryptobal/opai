@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(
   _request: NextRequest,
@@ -73,7 +74,7 @@ export async function PUT(
         requireSignature: body.requireSignature ?? false,
         maxStayHours: body.maxStayHours ?? null,
         autoReportSchedule: body.autoReportSchedule ?? null,
-        formConfig: body.formConfig ?? {},
+        formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
       },
       create: {
         tenantId: installation.tenantId,
@@ -86,7 +87,7 @@ export async function PUT(
         requireSignature: body.requireSignature ?? false,
         maxStayHours: body.maxStayHours ?? null,
         autoReportSchedule: body.autoReportSchedule ?? null,
-        formConfig: body.formConfig ?? {},
+        formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
       },
     });
 

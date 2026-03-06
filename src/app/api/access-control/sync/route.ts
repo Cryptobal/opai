@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cleanRut } from "@/lib/access-control/utils";
+import { Prisma } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
               vehiclePlate: rec.vehiclePlate || null,
               vehicleType: rec.vehicleType || null,
               vehicleBrandModel: rec.vehicleBrandModel || null,
-              customFields: rec.customFields || {},
+              customFields: (rec.customFields || {}) as Prisma.InputJsonValue,
               qrSource: rec.qrSource || null,
               listMatch: rec.listMatch || null,
               isSynced: true,

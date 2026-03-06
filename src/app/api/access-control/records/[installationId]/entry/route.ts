@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { cleanRut, validateRut } from "@/lib/access-control/utils";
 
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
         visitorPhotoUrl: body.visitorPhotoUrl || null,
         credentialPhotoUrl: body.credentialPhotoUrl || null,
         entrySignatureUrl: body.entrySignatureUrl || null,
-        customFields: body.customFields || {},
+        customFields: (body.customFields || {}) as Prisma.InputJsonValue,
         qrSource: body.qrSource || null,
         idValidationStatus: body.idValidationStatus || "not_checked",
         listMatch: body.listMatch || null,
@@ -75,7 +76,7 @@ export async function POST(
           lastVisitAt: new Date(),
           visitCount: { increment: 1 },
           lastPhotoUrl: body.visitorPhotoUrl || undefined,
-          metadata: body.customFields || {},
+          metadata: (body.customFields || {}) as Prisma.InputJsonValue,
         },
         create: {
           tenantId: installation.tenantId,
@@ -85,7 +86,7 @@ export async function POST(
           lastVisitAt: new Date(),
           visitCount: 1,
           lastPhotoUrl: body.visitorPhotoUrl || null,
-          metadata: body.customFields || {},
+          metadata: (body.customFields || {}) as Prisma.InputJsonValue,
         },
       });
     }
