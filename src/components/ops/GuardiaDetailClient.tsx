@@ -235,6 +235,16 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [guardia, setGuardia] = useState(initialGuardia);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
 
+  // ── Document count for badge ──
+  const [fileAttachCount, setFileAttachCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=guardia&entityId=${encodeURIComponent(guardia.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileAttachCount(d.data.length); })
+      .catch(() => {});
+  }, [guardia.id]);
+  const docCount = guardia.documents.length + fileAttachCount;
+
   // ── Edit personal modal state ──
   const [editPersonalOpen, setEditPersonalOpen] = useState(false);
   const [editPersonalSaving, setEditPersonalSaving] = useState(false);
@@ -523,8 +533,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
               />
             </CollapsibleSection>
-            <CollapsibleSection title="Archivos adicionales" defaultOpen>
-              <FileAttachments entityType="guardia" entityId={guardia.id} title="Archivos libres" />
+            <CollapsibleSection title="Documentos adicionales" defaultOpen>
+              <FileAttachments entityType="guardia" entityId={guardia.id} title="Documentos adicionales" />
             </CollapsibleSection>
           </div>
         );
@@ -690,7 +700,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
         {/* ── ChipTabs ── */}
         <ChipTabs
-          tabs={TABS.map((tab) => ({ id: tab.key, label: tab.label, icon: tab.icon }))}
+          tabs={TABS.map((tab) => ({ id: tab.key, label: tab.label, icon: tab.icon, badge: tab.key === "documentos" ? docCount : undefined }))}
           activeTab={activeTab}
           onTabChange={(id) => setActiveTab(id as TabKey)}
           centered={false}

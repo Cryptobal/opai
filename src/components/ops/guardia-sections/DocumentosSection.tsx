@@ -2,15 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, Clock, ExternalLink, FilePlus2, MoreHorizontal, Upload, X } from "lucide-react";
+import { CalendarDays, Check, Clock, Download, Eye, FilePlus2, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DOCUMENT_TYPES } from "@/lib/personas";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
@@ -174,20 +169,21 @@ export default function DocumentosSection({
     finally { setSavingDocId(null); }
   };
 
-  const handleDeleteDocument = async (doc: GuardiaDocument) => {
-    if (!window.confirm("¿Eliminar este documento?")) return;
-    setDeletingDocId(doc.id);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const handleDeleteDocument = async (docId: string) => {
+    setDeletingDocId(docId);
     try {
       const response = await fetch(
-        `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(doc.id)}`,
+        `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(docId)}`,
         { method: "DELETE" }
       );
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo eliminar documento");
-      onDocumentsChange(documents.filter((it) => it.id !== doc.id));
+      onDocumentsChange(documents.filter((it) => it.id !== docId));
       toast.success("Documento eliminado");
     } catch (error) { console.error(error); toast.error("No se pudo eliminar documento"); }
-    finally { setDeletingDocId(null); }
+    finally { setDeletingDocId(null); setConfirmDeleteId(null); }
   };
 
   return (
@@ -258,35 +254,58 @@ export default function DocumentosSection({
                     Vence: {expStr}
                   </span>
                 )}
-                {doc.fileUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDoc(doc)}
-                    className="inline-flex items-center gap-1 rounded-md border border-[#1a2332] bg-[#111822] px-2 py-1 text-[11px] text-[#e8edf4] hover:bg-[#1a2332] transition-colors shrink-0 cursor-pointer"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Ver
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
-                )}
-                {canManageDocs && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {doc.fileUrl ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Ver documento"
+                        onClick={() => setPreviewDoc(doc)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-red-400 focus:text-red-400"
-                        onClick={() => void handleDeleteDocument(doc)}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        asChild
+                      >
+                        <a
+                          href={`${doc.fileUrl}?download=true`}
+                          download={DOC_LABEL[doc.type] || doc.type}
+                          title="Descargar"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
+                  )}
+                  {canManageDocs && (
+                    <>
+                      <ConfirmDialog
+                        open={confirmDeleteId === doc.id}
+                        onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
+                        title="Eliminar documento"
+                        description={`¿Eliminar "${DOC_LABEL[doc.type] || doc.type}"?`}
+                        onConfirm={() => handleDeleteDocument(doc.id)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        title="Eliminar"
+                        onClick={() => setConfirmDeleteId(doc.id)}
                         disabled={deletingDocId === doc.id}
                       >
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}

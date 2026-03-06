@@ -1879,12 +1879,20 @@ export function CrmInstallationDetailClient({
   const { activeTab, setActiveTab } = useEntityTabs("general");
   const [protocolSubTab, setProtocolSubTab] = useState<ProtocolSubTabId>("sections");
 
+  const [fileCount, setFileCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=installation&entityId=${encodeURIComponent(installation.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileCount(d.data.length); })
+      .catch(() => {});
+  }, [installation.id]);
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
-    { id: "files", label: "Archivos", icon: FileText },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -2337,7 +2345,7 @@ export function CrmInstallationDetailClient({
           </div>
         )}
         {activeTab === "files" && (
-          <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />
+          <FileAttachments entityType="installation" entityId={installation.id} title="Documentos" />
         )}
         {activeTab === "access-control" && (
           <div className="space-y-6">
