@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { subscribeToPush } from '@/lib/pwa/push-client';
 import { isIOS, isStandalone, isPushSupported } from '@/lib/pwa/ios-utils';
+import { useIsMobile } from '@/lib/pwa/use-is-mobile';
 import { Bell, X, Share } from 'lucide-react';
 
 interface Props {
@@ -14,10 +15,14 @@ interface Props {
 
 export function PushPermissionPrompt({ portalType, userType, userId, tenantId }: Props) {
   const { registration } = useServiceWorker();
+  const isMobile = useIsMobile();
   const [dismissed, setDismissed] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  // Only show notification/install prompts on mobile; hide on desktop
+  if (!isMobile) return null;
 
   // Auto-subscribe when permission is already granted (re-subscribe ensures
   // the server always has a fresh push subscription for this device).
