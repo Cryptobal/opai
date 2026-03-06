@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS "idx_encuestas_cliente_account" ON "ops"."encuestas_c
 
 -- AddForeignKey
 ALTER TABLE "ops"."encuestas_cliente"
-ADD CONSTRAINT "encuestas_cliente_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ADD CONSTRAINT "encuestas_cliente_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "ops"."encuestas_cliente"
 ADD CONSTRAINT "encuestas_cliente_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "ops"."visitas_supervision"("id") ON DELETE CASCADE ON UPDATE CASCADE;

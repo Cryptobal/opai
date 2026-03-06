@@ -53,6 +53,10 @@ export interface DatosSectionProps {
     validUntil: string;
     notes: string;
     status: CpqQuoteStatus;
+    paymentTerms: string;
+    serviceStartDays: number;
+    contractDuration: number;
+    includedItems: string[];
   };
   quoteDirty: boolean;
   savingQuote: boolean;
@@ -61,7 +65,7 @@ export interface DatosSectionProps {
 
   /** Callbacks */
   saveCrmContext: (patch: Partial<{ accountId: string; installationId: string; contactId: string; dealId: string; currency: string }>) => void;
-  setQuoteForm: React.Dispatch<React.SetStateAction<{ name: string; clientName: string; validUntil: string; notes: string; status: CpqQuoteStatus }>>;
+  setQuoteForm: React.Dispatch<React.SetStateAction<{ name: string; clientName: string; validUntil: string; notes: string; status: CpqQuoteStatus; paymentTerms: string; serviceStartDays: number; contractDuration: number; includedItems: string[] }>>;
   setQuoteDirty: (dirty: boolean) => void;
   saveQuoteBasics: () => void;
 

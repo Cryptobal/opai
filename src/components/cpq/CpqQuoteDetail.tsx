@@ -119,6 +119,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     validUntil: "",
     notes: "",
     status: "draft" as CpqQuote["status"],
+    paymentTerms: "contrafactura",
+    serviceStartDays: 5,
+    contractDuration: 12,
+    includedItems: [] as string[],
   });
   const [quoteDirty, setQuoteDirty] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
@@ -148,6 +152,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [secCostos, setSecCostos] = useState(false);
   const [secLineas, setSecLineas] = useState(true);
   const [secFinancieros, setSecFinancieros] = useState(false);
+  const [secCondiciones, setSecCondiciones] = useState(false);
   const [secMargen, setSecMargen] = useState(true);
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
@@ -249,7 +254,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
-  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes]);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.includedItems]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -281,6 +286,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       validUntil: formatDateInput(quote.validUntil),
       notes: quote.notes || "",
       status: quote.status,
+      paymentTerms: quote.paymentTerms || "contrafactura",
+      serviceStartDays: quote.serviceStartDays ?? 5,
+      contractDuration: quote.contractDuration ?? 12,
+      includedItems: quote.includedItems ?? [],
     });
     setCrmContext({
       accountId: quote.accountId ?? "",
@@ -459,6 +468,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           validUntil: quoteForm.validUntil || null,
           notes: quoteForm.notes,
           status: quoteForm.status,
+          paymentTerms: quoteForm.paymentTerms,
+          serviceStartDays: quoteForm.serviceStartDays,
+          contractDuration: quoteForm.contractDuration,
+          includedItems: quoteForm.includedItems,
         }),
       });
       const data = await res.json();
@@ -579,26 +592,22 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         method: "POST",
       });
       if (!response.ok) {
-        throw new Error("Error al generar PDF");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Error al generar PDF");
       }
-      const html = await response.text();
-      const iframe = document.createElement("iframe");
-      iframe.setAttribute("style", "position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;");
-      iframe.srcdoc = html;
-      document.body.appendChild(iframe);
-      const onLoad = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } finally {
-          setTimeout(() => document.body.removeChild(iframe), 1000);
-        }
-      };
-      iframe.onload = onLoad;
-      toast.success("Abre el dialogo de impresion y elige <<Guardar como PDF>>");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${quote?.code || "cotizacion"}-propuesta.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("PDF descargado");
     } catch (error) {
       console.error("Error downloading PDF:", error);
-      toast.error("No se pudo generar el PDF");
+      toast.error(error instanceof Error ? error.message : "No se pudo generar el PDF");
     } finally {
       setDownloadingPdf(false);
     }
@@ -988,6 +997,70 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               setCrmContacts={setCrmContacts}
               setCrmDeals={setCrmDeals}
             />
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Condiciones Comerciales -- */}
+      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
+            {!secCondiciones && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {quoteForm.paymentTerms === "contrafactura" ? "Contrafactura" : quoteForm.paymentTerms === "30_dias" ? "30 días" : "Anticipado"} · {quoteForm.serviceStartDays}d · {quoteForm.contractDuration}m
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secCondiciones && "rotate-180")} />
+        </button>
+        {secCondiciones && (
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Forma de pago</Label>
+                <select
+                  value={quoteForm.paymentTerms}
+                  onChange={(e) => { setQuoteForm(prev => ({ ...prev, paymentTerms: e.target.value })); setQuoteDirty(true); }}
+                  disabled={isLocked}
+                  className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="contrafactura">Contrafactura</option>
+                  <option value="30_dias">30 días</option>
+                  <option value="anticipado">Pago anticipado</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Inicio servicios</Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={90}
+                    value={quoteForm.serviceStartDays}
+                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, serviceStartDays: Number(e.target.value) || 5 })); setQuoteDirty(true); }}
+                    disabled={isLocked}
+                    className="h-8 bg-card text-foreground border-border text-xs w-16"
+                  />
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">días háb.</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Duración contrato</Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={quoteForm.contractDuration}
+                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, contractDuration: Number(e.target.value) || 12 })); setQuoteDirty(true); }}
+                    disabled={isLocked}
+                    className="h-8 bg-card text-foreground border-border text-xs w-16"
+                  />
+                  <span className="text-[10px] text-muted-foreground">meses</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </Card>
@@ -1408,6 +1481,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               body: JSON.stringify({ serviceDetail: v }),
             }).catch(() => {});
           }}
+          includedItems={quoteForm.includedItems}
+          onIncludedItemsChange={(items) => {
+            setQuoteForm(prev => ({ ...prev, includedItems: items }));
+            setQuoteDirty(true);
+          }}
           quoteId={quoteId}
           quoteCode={quote.code}
           sendingPortal={sendingPortal}
@@ -1484,6 +1562,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ serviceDetail: v }),
               }).catch(() => {});
+            }}
+            includedItems={quoteForm.includedItems}
+            onIncludedItemsChange={(items) => {
+              setQuoteForm(prev => ({ ...prev, includedItems: items }));
+              setQuoteDirty(true);
             }}
             quoteId={quoteId}
             quoteCode={quote.code}

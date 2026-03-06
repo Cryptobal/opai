@@ -80,20 +80,29 @@ export async function PATCH(
     if (body.currency !== undefined) updateData.currency = body.currency || "CLP";
     if (body.aiDescription !== undefined) updateData.aiDescription = body.aiDescription || null;
     if (body.serviceDetail !== undefined) updateData.serviceDetail = body.serviceDetail || null;
+    // Commercial conditions
+    if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms || "contrafactura";
+    if (body.serviceStartDays !== undefined) updateData.serviceStartDays = Number(body.serviceStartDays) || 5;
+    if (body.contractDuration !== undefined) updateData.contractDuration = Number(body.contractDuration) || 12;
+    if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
 
-    const updated = await prisma.cpqQuote.updateMany({
+    // Verify ownership first, then use update (updateMany doesn't support array fields)
+    const existing = await prisma.cpqQuote.findFirst({
       where: { id, tenantId },
-      data: updateData,
+      select: { id: true },
     });
 
-    if (!updated.count) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: "Quote not found" },
         { status: 404 }
       );
     }
 
-    const quote = await prisma.cpqQuote.findUnique({ where: { id } });
+    const quote = await prisma.cpqQuote.update({
+      where: { id },
+      data: updateData,
+    });
 
     // Push: quote accepted or rejected
     if (body.status === 'accepted' || body.status === 'rejected') {
@@ -116,8 +125,9 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: quote });
   } catch (error) {
     console.error("Error updating CPQ quote:", error);
+    const msg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: "Failed to update quote" },
+      { success: false, error: `Failed to update quote: ${msg}` },
       { status: 500 }
     );
   }

@@ -173,6 +173,7 @@ model Admin {
   email                 String                    @unique
   password              String
   name                  String
+  cargo                 String?
   role                  String                    @default("admin")
   roleTemplateId        String?                   @map("role_template_id")
   lastLoginAt           DateTime?
@@ -873,6 +874,11 @@ model CpqQuote {
   currency          String    @default("CLP") // "CLP" | "UF"
   aiDescription     String?   @map("ai_description")
   serviceDetail     String?   @map("service_detail")
+  // Commercial conditions
+  paymentTerms      String    @default("contrafactura") @map("payment_terms")
+  serviceStartDays  Int       @default(5) @map("service_start_days")
+  contractDuration  Int       @default(12) @map("contract_duration")
+  includedItems     String[]  @default([]) @map("included_items")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

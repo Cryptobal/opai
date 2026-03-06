@@ -1,0 +1,183 @@
+/**
+ * API Route: /api/cpq/quotes/[id]/send-pdf-email
+ * POST - Send quote PDF via email with custom compose body
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { resend } from "@/lib/resend";
+import { getTenantEmailConfig } from "@/lib/resend";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
+import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const { id } = await params;
+    const { to, cc, bcc, subject, htmlBody } = await request.json();
+
+    if (!to || !subject || !htmlBody) {
+      return NextResponse.json(
+        { success: false, error: "to, subject y htmlBody son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Verify quote exists
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: {
+        id: true,
+        code: true,
+        dealId: true,
+        positions: { select: { numGuards: true, numPuestos: true } },
+      },
+    });
+
+    if (!quote) {
+      return NextResponse.json(
+        { success: false, error: "Cotizacion no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    // Generate PDF
+    const { fileName, ...pdfProps } = await buildQuotationProps(id, ctx.tenantId);
+    const pdfBuffer = await renderQuotationToBuffer(pdfProps);
+
+    // Wrap body in minimal HTML email structure
+    const fullHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;max-width:600px;margin:0 auto;padding:20px">
+${htmlBody.replace(/\n/g, "<br>")}
+</body></html>`;
+
+    // Get tenant email config
+    const emailConfig = await getTenantEmailConfig(ctx.tenantId);
+
+    // Parse CC/BCC (comma-separated strings to arrays)
+    const parseEmails = (str?: string): string[] =>
+      str
+        ? str.split(",").map((e: string) => e.trim()).filter((e: string) => e.includes("@"))
+        : [];
+
+    const ccList = parseEmails(cc);
+    const bccList = parseEmails(bcc);
+
+    const emailResult = await resend.emails.send({
+      from: emailConfig.from,
+      to,
+      ...(ccList.length > 0 && { cc: ccList }),
+      ...(bccList.length > 0 && { bcc: bccList }),
+      replyTo: emailConfig.replyTo,
+      subject,
+      html: fullHtml,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+      tags: [
+        { name: "type", value: "cpq-quote-pdf" },
+        { name: "quote", value: quote.code },
+      ],
+    });
+
+    // Update quote status to sent
+    await prisma.cpqQuote.update({
+      where: { id },
+      data: { status: "sent" },
+    });
+
+    // Update deal: proposalSentAt, follow-ups, stage
+    if (quote.dealId) {
+      try {
+        let monthlyTotal = 0;
+        try {
+          const costs = await computeCpqQuoteCosts(id);
+          monthlyTotal = costs.monthlyTotal;
+        } catch {}
+
+        await prisma.crmDeal.update({
+          where: { id: quote.dealId },
+          data: {
+            proposalSentAt: new Date(),
+            amount: monthlyTotal,
+            totalPuestos: quote.positions.reduce(
+              (s: number, p: { numGuards: number; numPuestos: number | null }) =>
+                s + p.numGuards * (p.numPuestos || 1),
+              0
+            ),
+          },
+        });
+
+        const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+        await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: quote.dealId });
+
+        // Move deal to "Cotización enviada" stage
+        const cotizacionStage = await prisma.crmPipelineStage.findFirst({
+          where: { tenantId: ctx.tenantId, name: "Cotización enviada", isActive: true },
+        });
+        if (cotizacionStage) {
+          const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+          if (deal && deal.stageId !== cotizacionStage.id) {
+            await prisma.crmDeal.update({
+              where: { id: deal.id },
+              data: { stageId: cotizacionStage.id },
+            });
+            await prisma.crmDealStageHistory.create({
+              data: {
+                tenantId: ctx.tenantId,
+                dealId: deal.id,
+                fromStageId: deal.stageId,
+                toStageId: cotizacionStage.id,
+                changedBy: ctx.userId,
+              },
+            });
+          }
+        }
+      } catch (followUpError) {
+        console.error("Error scheduling follow-ups from send-pdf-email:", followUpError);
+      }
+    }
+
+    // Log in CRM history
+    await prisma.crmHistoryLog.create({
+      data: {
+        tenantId: ctx.tenantId,
+        entityType: "quote",
+        entityId: id,
+        action: "quote_pdf_sent",
+        details: {
+          to,
+          cc: cc || null,
+          bcc: bcc || null,
+          subject,
+          quoteCode: quote.code,
+          emailId: emailResult?.data?.id || null,
+        },
+        createdBy: ctx.userId,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: { emailId: emailResult?.data?.id },
+    });
+  } catch (error) {
+    console.error("Error sending PDF email:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al enviar email" },
+      { status: 500 }
+    );
+  }
+}

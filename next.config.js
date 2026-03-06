@@ -4,6 +4,19 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  serverExternalPackages: [
+    '@react-pdf/renderer',
+    '@react-pdf/reconciler',
+    '@react-pdf/layout',
+    '@react-pdf/font',
+    '@react-pdf/pdfkit',
+    '@react-pdf/primitives',
+    '@react-pdf/fns',
+    '@react-pdf/render',
+    '@react-pdf/stylesheet',
+    '@react-pdf/textkit',
+    '@react-pdf/image',
+  ],
   eslint: {
     ignoreDuringBuilds: true,
   },

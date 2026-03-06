@@ -114,3 +114,34 @@ export async function updateDisplayName(name: string) {
 
   return { success: true, name: normalizedName };
 }
+
+/**
+ * Actualizar cargo del usuario autenticado.
+ */
+export async function updateCargo(cargo: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  const normalizedCargo = cargo.trim();
+  if (normalizedCargo.length > 120) {
+    return { success: false, error: 'El cargo no puede superar 120 caracteres' };
+  }
+
+  const user = await prisma.admin.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, tenantId: true, email: true, cargo: true },
+  });
+
+  if (!user) {
+    return { success: false, error: 'Usuario no encontrado' };
+  }
+
+  await prisma.admin.update({
+    where: { id: user.id },
+    data: { cargo: normalizedCargo || null },
+  });
+
+  return { success: true, cargo: normalizedCargo };
+}

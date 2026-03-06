@@ -12,7 +12,8 @@ import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { Loader2, Sparkles, Shield, ChevronDown } from "lucide-react";
+import { SendPdfEmailModal } from "@/components/cpq/SendPdfEmailModal";
+import { Loader2, Sparkles, Shield, ChevronDown, ListChecks, Plus, X } from "lucide-react";
 import type {
   CpqQuote,
   CpqPosition,
@@ -82,6 +83,9 @@ export interface FinancialPanelProps {
   sendingPortal: boolean;
   onSendPortal: () => void;
   isLocked: boolean;
+  // Included items
+  includedItems: string[];
+  onIncludedItemsChange: (items: string[]) => void;
   // Send modal props
   hasAccount: boolean;
   hasContact: boolean;
@@ -185,6 +189,8 @@ export function FinancialPanel(props: FinancialPanelProps) {
     sendingPortal,
     onSendPortal,
     isLocked,
+    includedItems,
+    onIncludedItemsChange,
     hasAccount,
     hasContact,
     hasDeal,
@@ -290,6 +296,8 @@ export function FinancialPanel(props: FinancialPanelProps) {
             sendingPortal={sendingPortal}
             onSendPortal={onSendPortal}
             isLocked={isLocked}
+            includedItems={includedItems}
+            onIncludedItemsChange={onIncludedItemsChange}
             hasAccount={hasAccount}
             hasContact={hasContact}
             hasDeal={hasDeal}
@@ -499,6 +507,8 @@ interface PreviewTabProps {
   sendingPortal: boolean;
   onSendPortal: () => void;
   isLocked: boolean;
+  includedItems: string[];
+  onIncludedItemsChange: (items: string[]) => void;
   hasAccount: boolean;
   hasContact: boolean;
   hasDeal: boolean;
@@ -537,6 +547,8 @@ function PreviewTab({
   sendingPortal,
   onSendPortal,
   isLocked,
+  includedItems,
+  onIncludedItemsChange,
   hasAccount,
   hasContact,
   hasDeal,
@@ -568,14 +580,14 @@ function PreviewTab({
         >
           {/* Header */}
           <div
-            className="flex justify-between items-start border-b-2 pb-1.5"
-            style={{ borderColor: "#2563eb" }}
+            className="flex justify-between items-start pb-1.5"
+            style={{ background: "#0f172a", margin: "-12px -12px 8px -12px", padding: "10px 12px", borderRadius: "4px 4px 0 0" }}
           >
-            <div className="text-sm font-bold" style={{ color: "#1e3a5f" }}>
+            <div className="text-sm font-bold" style={{ color: "#14b8a6" }}>
               GARD SECURITY
             </div>
-            <div className="text-right text-[10px] text-gray-600">
-              <p className="font-bold text-xs text-black">
+            <div className="text-right text-[10px]" style={{ color: "#94a3b8" }}>
+              <p className="font-bold text-xs" style={{ color: "#14b8a6" }}>
                 {quote.code}
                 {quote.name ? ` — ${quote.name}` : ""}
               </p>
@@ -601,9 +613,9 @@ function PreviewTab({
               className="text-[10px] rounded"
               style={{
                 padding: "4px 8px",
-                background: "#f0fdf4",
-                borderLeft: "3px solid #2563eb",
-                color: "#333",
+                background: "#f8fafc",
+                borderLeft: "3px solid #14b8a6",
+                color: "#334155",
               }}
             >
               {deal && (
@@ -622,7 +634,7 @@ function PreviewTab({
 
           {/* AI description */}
           {aiDescription && (
-            <p className="text-[10px] text-gray-600 bg-blue-50 rounded p-1.5 italic">
+            <p className="text-[10px] text-gray-600 rounded p-1.5" style={{ background: "#f8fafc" }}>
               {aiDescription}
             </p>
           )}
@@ -631,13 +643,13 @@ function PreviewTab({
           <div className="overflow-x-auto">
             <table className="w-full text-[10px]">
               <thead>
-                <tr style={{ background: "#eff6ff" }}>
-                  <th className="text-left p-1 font-semibold">Puesto</th>
-                  <th className="text-left p-1 font-semibold">G</th>
-                  <th className="text-left p-1 font-semibold">Cant</th>
-                  <th className="text-left p-1 font-semibold">Dias</th>
-                  <th className="text-left p-1 font-semibold">Horario</th>
-                  <th className="text-right p-1 font-semibold">Precio</th>
+                <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
+                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Puesto</th>
+                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>G</th>
+                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Cant</th>
+                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Dias</th>
+                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Horario</th>
+                  <th className="text-right p-1 font-semibold" style={{ color: "#1e293b" }}>Precio</th>
                 </tr>
               </thead>
               <tbody>
@@ -670,9 +682,9 @@ function PreviewTab({
                 })}
                 <tr
                   className="font-semibold border-t"
-                  style={{ borderColor: "#2563eb", background: "#eff6ff" }}
+                  style={{ borderColor: "#14b8a6", background: "#f8fafc" }}
                 >
-                  <td colSpan={5} className="p-1 text-right">
+                  <td colSpan={5} className="p-1 text-right" style={{ color: "#0f172a" }}>
                     Subtotal guardias
                   </td>
                   <td className="p-1 text-right">
@@ -690,13 +702,13 @@ function PreviewTab({
             <div>
               <p
                 className="text-[10px] font-semibold border-b pb-0.5 mb-1"
-                style={{ color: "#6b21a8" }}
+                style={{ color: "#0f172a" }}
               >
                 Servicios y Productos Adicionales
               </p>
               <table className="w-full text-[10px]">
                 <thead>
-                  <tr style={{ background: "#faf5ff" }}>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
                     <th className="text-left p-1 font-semibold">
                       Producto / Servicio
                     </th>
@@ -727,7 +739,7 @@ function PreviewTab({
                     ))}
                   <tr
                     className="font-semibold border-t"
-                    style={{ background: "#faf5ff" }}
+                    style={{ background: "#f8fafc" }}
                   >
                     <td colSpan={2} className="p-1 text-right">
                       Subtotal adicionales
@@ -743,11 +755,11 @@ function PreviewTab({
 
           {/* Total Neto */}
           <div
-            className="flex items-center justify-between px-1 py-1.5 font-bold text-[11px] border-t-2 mt-1"
-            style={{ borderColor: "#2563eb", background: "#eff6ff" }}
+            className="flex items-center justify-between px-2 py-2 font-bold text-[11px] rounded mt-1"
+            style={{ background: "#0f172a", color: "#ffffff" }}
           >
-            <span>Total Neto Mensual</span>
-            <span>
+            <span>PRECIO VENTA MENSUAL NETO</span>
+            <span style={{ color: "#14b8a6" }}>
               {crmContext.currency === "UF" && ufValue && ufValue > 0
                 ? formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))
                 : formatCLP(salePriceMonthly + additionalLinesTotal)}
@@ -759,7 +771,7 @@ function PreviewTab({
             <div>
               <p
                 className="text-[10px] font-semibold border-b pb-0.5 mb-1"
-                style={{ color: "#1e3a5f" }}
+                style={{ color: "#0f172a" }}
               >
                 Detalle del servicio
               </p>
@@ -871,6 +883,75 @@ function PreviewTab({
             </div>
           )}
         </Card>
+
+        {/* ── Included Items (Incluye) ── */}
+        <Card className="p-3 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <ListChecks className="h-3.5 w-3.5 text-teal-400" />
+            <span className="text-xs font-semibold">Incluye</span>
+            <span className="text-[10px] text-muted-foreground">(aparece en PDF)</span>
+          </div>
+          {includedItems.length === 0 && !isLocked ? (
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground">Sin items. Agrega desde las sugerencias:</p>
+              {[
+                "Personal acreditado ante OS-10 de Carabineros",
+                "Supervisión periódica en terreno",
+                "Cobertura por ausencias (reemplazo máx. 4 hrs)",
+                "Seguro responsabilidad civil y accidentes laborales",
+                "Libro de novedades digital vía OPAI",
+                "Reportería mensual de operaciones",
+              ].map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className="flex items-center gap-1.5 w-full text-left text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded px-1.5 py-1 transition-colors"
+                  onClick={() => onIncludedItemsChange([...includedItems, item])}
+                >
+                  <Plus className="h-3 w-3 text-teal-400 shrink-0" />
+                  <span>{item}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {includedItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-1 group">
+                  <span className="text-teal-400 text-[10px] shrink-0">●</span>
+                  <input
+                    value={item}
+                    onChange={(e) => {
+                      const updated = [...includedItems];
+                      updated[idx] = e.target.value;
+                      onIncludedItemsChange(updated);
+                    }}
+                    disabled={isLocked}
+                    className="flex-1 text-[10px] bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground py-0.5"
+                    placeholder="Item..."
+                  />
+                  {!isLocked && (
+                    <button
+                      type="button"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => onIncludedItemsChange(includedItems.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-3 w-3 text-muted-foreground hover:text-red-400" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!isLocked && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-[10px] text-teal-400 hover:text-teal-300 transition-colors pt-0.5"
+                  onClick={() => onIncludedItemsChange([...includedItems, ""])}
+                >
+                  <Plus className="h-3 w-3" /> Agregar ítem
+                </button>
+              )}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* ── Action buttons (sticky at bottom) ── */}
@@ -906,6 +987,14 @@ function PreviewTab({
           )}
           {sendingPortal ? "Enviando..." : "Enviar por Portal"}
         </Button>
+        <SendPdfEmailModal
+          quoteId={quoteId}
+          quoteCode={quoteCode}
+          contactEmail={contactEmail}
+          contactName={contactName}
+          companyName={quote.clientName || undefined}
+          disabled={!contactEmail}
+        />
       </div>
     </div>
   );

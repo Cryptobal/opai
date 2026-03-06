@@ -97,6 +97,11 @@ export interface CpqQuote {
   aiDescription?: string | null;
   /** AI-generated service detail for proposal */
   serviceDetail?: string | null;
+  /** Commercial conditions */
+  paymentTerms?: string;
+  serviceStartDays?: number;
+  contractDuration?: number;
+  includedItems?: string[];
 }
 
 export interface CpqCatalogItem {

@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Mail, Pencil, Save, Shield, User, X } from "lucide-react";
-import { updateDisplayName } from "@/app/(app)/opai/perfil/actions";
+import { Briefcase, Loader2, Mail, Pencil, Save, Shield, User, X } from "lucide-react";
+import { updateDisplayName, updateCargo } from "@/app/(app)/opai/perfil/actions";
 
 interface UserInfoProps {
   user: {
     name: string;
     email: string;
     role: string;
+    cargo?: string | null;
   };
 }
 
@@ -28,6 +29,9 @@ export function UserInfo({ user }: UserInfoProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [currentName, setCurrentName] = useState(user.name ?? "");
   const [draftName, setDraftName] = useState(user.name ?? "");
+  const [isEditingCargo, setIsEditingCargo] = useState(false);
+  const [currentCargo, setCurrentCargo] = useState(user.cargo ?? "");
+  const [draftCargo, setDraftCargo] = useState(user.cargo ?? "");
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     message: string;
@@ -43,6 +47,40 @@ export function UserInfo({ user }: UserInfoProps) {
     setStatusMessage(null);
     setDraftName(currentName);
     setIsEditingName(false);
+  };
+
+  const startEditCargo = () => {
+    setStatusMessage(null);
+    setDraftCargo(currentCargo);
+    setIsEditingCargo(true);
+  };
+
+  const cancelEditCargo = () => {
+    setStatusMessage(null);
+    setDraftCargo(currentCargo);
+    setIsEditingCargo(false);
+  };
+
+  const saveCargo = () => {
+    setStatusMessage(null);
+    startTransition(async () => {
+      const result = await updateCargo(draftCargo);
+      if (!result.success) {
+        setStatusMessage({
+          type: "error",
+          message: result.error || "No se pudo actualizar el cargo",
+        });
+        return;
+      }
+      const newCargo = result.cargo ?? draftCargo.trim();
+      setCurrentCargo(newCargo);
+      setDraftCargo(newCargo);
+      setIsEditingCargo(false);
+      setStatusMessage({
+        type: "success",
+        message: "Cargo actualizado correctamente",
+      });
+    });
   };
 
   const saveName = () => {
@@ -143,6 +181,62 @@ export function UserInfo({ user }: UserInfoProps) {
             <p className="text-foreground font-medium">
               {roleLabels[user.role] || user.role}
             </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3">
+          <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Cargo</p>
+            {!isEditingCargo ? (
+              <button
+                type="button"
+                onClick={startEditCargo}
+                className="group mt-0.5 inline-flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-border hover:bg-accent/40"
+                title="Haz clic para cambiar tu cargo"
+              >
+                <span className="text-foreground font-medium">
+                  {currentCargo || <span className="text-muted-foreground italic">Sin cargo</span>}
+                </span>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground" />
+              </button>
+            ) : (
+              <div className="mt-1 space-y-2">
+                <input
+                  type="text"
+                  value={draftCargo}
+                  onChange={(e) => setDraftCargo(e.target.value)}
+                  disabled={isPending}
+                  maxLength={120}
+                  placeholder="ej: Gerente Comercial"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveCargo}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditCargo}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

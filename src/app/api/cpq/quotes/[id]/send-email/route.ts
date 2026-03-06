@@ -12,6 +12,8 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { formatCurrency } from "@/lib/utils";
 import { CpqQuoteEmail } from "@/emails/CpqQuoteEmail";
+import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
+import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 
 export async function POST(
   _request: NextRequest,
@@ -90,17 +92,7 @@ export async function POST(
     // Installation name
     const installationName = quote.installation?.name || "";
 
-    // Load additional lines
-    const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
-      where: { quoteId: id },
-      orderBy: { orden: "asc" },
-    });
-    const totalAdditionalLines = additionalLines.reduce(
-      (sum, l) => sum + Number(l.precio),
-      0
-    );
-
-    // Compute costs
+    // Compute costs for email body
     let monthlyTotal = Number(quote.monthlyCost) || 0;
     try {
       const costs = await computeCpqQuoteCosts(id);
@@ -112,41 +104,9 @@ export async function POST(
       ? new Date(quote.validUntil).toLocaleDateString("es-CL")
       : "";
 
-    // Generate PDF HTML (reuse export-pdf logic inline)
-    const weekdaysStr = (pos: { weekdays?: string[] | null }) =>
-      (pos.weekdays?.length ? pos.weekdays.join(", ") : "—");
-    const shiftLabel = (startTime: string | null | undefined) => {
-      if (!startTime) return "Diurno";
-      const hour = parseInt(startTime.split(":")[0], 10);
-      if (isNaN(hour)) return "Diurno";
-      return hour >= 18 || hour < 6 ? "Nocturno" : "Diurno";
-    };
-    const positionsRows = quote.positions
-      .map(
-        (pos) =>
-          `<tr><td>${pos.customName || pos.puestoTrabajo?.name || "Puesto"}</td><td>${pos.numGuards}</td><td>${pos.numPuestos || 1}</td><td>${weekdaysStr(pos)}</td><td>${pos.startTime || "-"} - ${pos.endTime || "-"}</td><td>${shiftLabel(pos.startTime) === "Nocturno" ? "🌙" : "☀️"} ${shiftLabel(pos.startTime)}</td><td class="num">${formatCurrency(Number(pos.monthlyPositionCost), "CLP")}</td></tr>`
-      )
-      .join("");
-
-    const serviceDetailHtml = quote.serviceDetail
-      ? `<div style="margin-top:10px"><h2 style="font-size:11px;margin-bottom:6px;color:#1a1a1a;border-bottom:1px solid #ddd;padding-bottom:4px">Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${String(quote.serviceDetail).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p></div>`
-      : "";
-
-    const contextHtml = (dealName || installationName)
-      ? `<div style="margin-bottom:10px;padding:6px 10px;background:#f0fdf4;border-left:3px solid #1db990;border-radius:4px;font-size:10px;color:#333">${dealName ? `<strong>Negocio:</strong> ${dealName}` : ""}${dealName && installationName ? " · " : ""}${installationName ? `<strong>Instalación:</strong> ${installationName}` : ""}</div>`
-      : "";
-
-    const pdfHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${quote.code} - ${accountName}</title>
-<style>@page{size:A4;margin:10mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px;line-height:1.3;color:#1a1a1a;padding:10px 14px;max-width:210mm}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1db990;padding-bottom:8px;margin-bottom:10px}.brand{font-size:18px;font-weight:bold;color:#1db990}.meta{text-align:right;font-size:10px;color:#444}.meta strong{display:block;font-size:12px;color:#1a1a1a;margin-bottom:2px}h2{font-size:11px;margin-bottom:6px;color:#1a1a1a;border-bottom:1px solid #ddd;padding-bottom:4px}table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px}th{background:#f0f0f0;padding:5px 6px;text-align:left;font-weight:600}td{padding:4px 6px;border-bottom:1px solid #eee}td.num{text-align:right;white-space:nowrap}tr.total td{font-weight:bold;border-top:2px solid #1db990;background:#f8fcfb;padding:6px;font-size:11px}.footer{margin-top:10px;padding-top:6px;border-top:1px solid #eee;text-align:center;font-size:9px;color:#888}@media print{body{padding:0}}</style></head>
-<body><div class="header"><div class="brand">GARD SECURITY</div><div class="meta"><strong>${quote.code}</strong>${accountName}<br>${validUntilStr ? `Válida hasta: ${validUntilStr}` : ""}<br>Propuesta económica</div></div>
-${contextHtml}
-${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;background:#f9f9f9;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>` : ""}
-<h2>Puestos de trabajo · ${quote.totalGuards} guardia(s)</h2>
-<table><thead><tr><th>Puesto</th><th>Guardias</th><th>Cantidad</th><th>Días</th><th>Horario</th><th>Turno</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}${totalAdditionalLines > 0 ? `<tr><td colspan="6" style="text-align:right;font-weight:600">Subtotal guardias</td><td class="num" style="font-weight:600">${formatCurrency(monthlyTotal, "CLP")}</td></tr>` : ""}<tr class="total"><td colspan="6" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal + totalAdditionalLines, "CLP")}</td></tr></tbody></table>
-${additionalLines.length > 0 ? `<h2>Servicios y Productos Adicionales</h2><table><thead><tr><th>Producto / Servicio</th><th>Descripción</th><th class="num">Valor Mensual</th></tr></thead><tbody>${additionalLines.map(l => `<tr><td>${String(l.nombre).replace(/</g, "&lt;")}</td><td>${l.descripcion ? String(l.descripcion).replace(/</g, "&lt;") : "-"}</td><td class="num">${formatCurrency(Number(l.precio), "CLP")}</td></tr>`).join("")}<tr class="total"><td colspan="2" style="text-align:right">Subtotal adicionales</td><td class="num">${formatCurrency(totalAdditionalLines, "CLP")}</td></tr></tbody></table>` : ""}
-${serviceDetailHtml}
-<div class="footer">Generado el ${new Date().toLocaleDateString("es-CL")} · www.gard.cl · contacto@gard.cl</div>
-</body></html>`;
+    // Generate real PDF using @react-pdf/renderer
+    const { fileName: pdfFileName, ...pdfProps } = await buildQuotationProps(id, ctx.tenantId);
+    const pdfBuffer = await renderQuotationToBuffer(pdfProps);
 
     // Generate portal magic token for contact
     let portalUrl: string | undefined;
@@ -181,9 +141,7 @@ ${serviceDetailHtml}
       })
     );
 
-    // Send email via Resend with PDF HTML as attachment
-    const pdfBuffer = Buffer.from(pdfHtml, "utf-8");
-
+    // Send email via Resend with real PDF attachment
     const emailResult = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: contact.email,
@@ -192,9 +150,9 @@ ${serviceDetailHtml}
       html: emailHtml,
       attachments: [
         {
-          filename: `${quote.code}-propuesta.html`,
+          filename: pdfFileName,
           content: pdfBuffer,
-          contentType: "text/html",
+          contentType: "application/pdf",
         },
       ],
       tags: [
