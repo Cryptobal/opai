@@ -642,12 +642,14 @@ export function CheckpointMapCreator({
 
       {/* Map + Side Panel layout */}
       <div className={`flex gap-3 ${isMobile ? "flex-col" : "flex-row"}`}>
-        {/* Map - full width on mobile, taller for touch */}
-        <div className="flex-1 min-w-0 relative">
+        {/* Map - square, fills viewport from wizard down */}
+        <div className="flex-1 min-w-0 relative flex flex-col">
           <div
             ref={mapContainerRef}
-            className={`w-full rounded-lg border border-border ${
-              isMobile ? "min-h-[50vh] h-[55vh]" : "h-[480px]"
+            className={`rounded-lg border border-border aspect-square ${
+              isMobile
+                ? "w-full min-h-[50vh]"
+                : "w-[min(100%,max(500px,calc(100vh-280px)))]"
             }`}
           />
           {/* Locate me button */}

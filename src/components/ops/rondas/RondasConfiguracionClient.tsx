@@ -272,27 +272,6 @@ export function RondasConfiguracionClient({
         )}
       </div>
 
-      {/* First-time wizard prompt */}
-      {!loading && installationId && checkpoints.length === 0 && templates.length === 0 && programaciones.length === 0 && (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-          <p className="text-[13px] text-blue-300 font-semibold mb-2">¿Primera vez? Configura rondas en 3 pasos:</p>
-          <ol className="space-y-1">
-            {[
-              "Crea checkpoints (puntos de control en el mapa)",
-              "Arma una plantilla con los checkpoints a recorrer",
-              "Define la programación (días, horario, frecuencia)",
-            ].map((step, i) => (
-              <li key={i} className="flex items-center gap-2 text-[12px] text-blue-300/80">
-                <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-[10px] font-bold shrink-0">
-                  {i + 1}
-                </span>
-                {step}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
       {loading && (
         <div className="flex items-center gap-2 py-4 text-[#64748b]">
           <div className="w-4 h-4 rounded-full border-2 border-[#2dd4bf] border-t-transparent animate-spin" />
