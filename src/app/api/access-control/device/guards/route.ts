@@ -29,29 +29,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch guards (OpsGuardia with persona info) assigned to this installation
-    // or active guards for this tenant
-    const guards = await prisma.opsGuardia.findMany({
+    // Fetch guards assigned to this device's installation
+    const assignments = await prisma.opsAsignacionGuardia.findMany({
       where: {
-        tenantId: device.tenantId,
-        status: "active",
+        installationId: device.installationId,
+        isActive: true,
+        guardia: { status: "active" },
       },
       select: {
-        id: true,
-        code: true,
-        persona: {
+        guardia: {
           select: {
-            firstName: true,
-            lastName: true,
+            id: true,
+            code: true,
+            persona: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
       orderBy: {
-        persona: {
-          lastName: "asc",
+        guardia: {
+          persona: {
+            lastName: "asc",
+          },
         },
       },
     });
+
+    // Deduplicate (a guard may have multiple assignments)
+    const seen = new Set<string>();
+    const guards = assignments
+      .map((a) => a.guardia)
+      .filter((g) => {
+        if (seen.has(g.id)) return false;
+        seen.add(g.id);
+        return true;
+      });
 
     const formattedGuards = guards.map((g) => ({
       id: g.id,

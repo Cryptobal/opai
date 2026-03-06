@@ -20,6 +20,7 @@ export function VehiclePlateOCR({ tenantId, onPlateDetected }: Props) {
   const [manualMode, setManualMode] = useState(false);
   const [manualPlate, setManualPlate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = typeof navigator !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
 
   const handleCapture = () => {
     fileInputRef.current?.click();
@@ -95,7 +96,7 @@ export function VehiclePlateOCR({ tenantId, onPlateDetected }: Props) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        {...(isMobile ? { capture: "environment" } : {})}
         onChange={handleFileChange}
         className="hidden"
       />

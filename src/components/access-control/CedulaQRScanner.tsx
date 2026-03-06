@@ -19,6 +19,7 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
 
   useEffect(() => {
     let mounted = true;
+    let started = false;
 
     async function startScanner() {
       try {
@@ -42,6 +43,7 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
             if (data) {
               // Vibrate for feedback
               navigator.vibrate?.(200);
+              started = false;
               scanner.stop().catch(() => {});
               onResult(data);
             }
@@ -49,13 +51,14 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
           () => {} // ignore failures
         );
 
+        started = true;
         if (mounted) setScanning(true);
       } catch (err) {
         if (mounted) {
           setError(
             err instanceof Error
               ? err.message
-              : "No se pudo acceder a la cámara"
+              : "No se pudo acceder a la cámara. Usa ingreso manual de RUT."
           );
         }
       }
@@ -65,7 +68,9 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
 
     return () => {
       mounted = false;
-      html5QrRef.current?.stop().catch(() => {});
+      if (started && html5QrRef.current) {
+        html5QrRef.current.stop().catch(() => {});
+      }
     };
   }, [onResult]);
 
