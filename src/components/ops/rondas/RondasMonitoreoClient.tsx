@@ -208,7 +208,7 @@ export function RondasMonitoreoClient({
         : "mt-3 grid grid-cols-1 lg:grid-cols-10 gap-4"
       }>
         {/* Map */}
-        <div className={isFullscreen ? "h-full" : "lg:col-span-7 h-[580px] rounded-xl overflow-hidden border border-[#1e293b]"}>
+        <div className={isFullscreen ? "h-full" : "lg:col-span-7 h-[calc(100vh-280px)] min-h-[400px] rounded-xl overflow-hidden border border-[#1e293b]"}>
           <MonitoreoMap
             checkpoints={mapCheckpoints}
             guards={mapGuards}
@@ -222,7 +222,7 @@ export function RondasMonitoreoClient({
 
         {/* Side panel */}
         {!isFullscreen && (
-          <div className="lg:col-span-3 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden" style={{ height: 580 }}>
+          <div className="lg:col-span-3 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden h-[calc(100vh-280px)] min-h-[400px]">
             {/* Panel header */}
             <div className="px-4 py-2.5 border-b border-[#1e293b] shrink-0">
               <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Guardias en turno</p>

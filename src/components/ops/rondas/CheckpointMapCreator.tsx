@@ -641,7 +641,7 @@ export function CheckpointMapCreator({
         <div className="flex-1 min-w-0 relative w-full">
           <div
             ref={mapContainerRef}
-            className="w-full rounded-lg border border-border min-h-[350px] h-[min(65vh,calc(100vh-300px))]"
+            className="w-full rounded-lg border border-border min-h-[400px] h-[calc(100vh-280px)]"
           />
           {/* Locate me button */}
           <button
