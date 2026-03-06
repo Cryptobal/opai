@@ -35,6 +35,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/guardia')) return true;
   if (pathname.startsWith('/portal/cliente')) return true;
   if (pathname.startsWith('/portal/rondas')) return true;
+  if (pathname.startsWith('/portal/acceso')) return true; // Control de acceso (auth por device_token)
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
 
   // API (rutas reales en /api/)
@@ -54,6 +55,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/portal/guardia')) return true;
   if (pathname.startsWith('/api/portal/cliente')) return true;
   if (pathname.startsWith('/api/portal/rondas')) return true;
+  if (pathname.startsWith('/api/access-control/pair')) return true; // Device pairing (no auth needed)
+  if (pathname.startsWith('/api/access-control/device')) return true; // Device validation/guards (auth by device_token)
   // Push subscription & preferences — portal users authenticate via PIN, not NextAuth
   if (pathname.startsWith('/api/notifications/push/subscribe')) return true;
   if (pathname.startsWith('/api/notifications/push/preferences')) return true;
