@@ -32,8 +32,6 @@ export default async function CrmAccountDetailPage({
           orderBy: { createdAt: "desc" },
         },
         installations: { orderBy: { createdAt: "desc" } },
-        representantesLegales: { orderBy: { createdAt: "asc" }, select: { id: true, nombre: true, rut: true } },
-        personeria: { select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true } },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }),
@@ -49,6 +47,27 @@ export default async function CrmAccountDetailPage({
     }),
   ]);
 
+  // Fetch representantes and personeria separately to handle missing tables gracefully
+  let representantesLegales: { id: string; nombre: string; rut: string }[] = [];
+  let personeria: { id: string; fechaEscritura: Date | null; tipoEscritura: string | null; notaria: string | null } | null = null;
+  try {
+    representantesLegales = await prisma.accountRepresentanteLegal.findMany({
+      where: { accountId: id, tenantId },
+      select: { id: true, nombre: true, rut: true },
+      orderBy: { createdAt: "asc" },
+    });
+  } catch { /* Table may not exist yet */ }
+  try {
+    personeria = await prisma.accountPersoneria.findFirst({
+      where: { accountId: id, tenantId },
+      select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true },
+    });
+  } catch { /* Table may not exist yet */ }
+  if (account) {
+    (account as any).representantesLegales = representantesLegales;
+    (account as any).personeria = personeria;
+  }
+
   if (!account) {
     redirect("/crm/accounts");
   }
@@ -62,17 +81,20 @@ export default async function CrmAccountDetailPage({
       data: { isPrimary: false },
     });
     await prisma.crmContact.update({ where: { id: keepId }, data: { isPrimary: true } });
-    account = await prisma.crmAccount.findFirst({
+    const refetched = await prisma.crmAccount.findFirst({
       where: { id, tenantId },
       include: {
         contacts: { orderBy: { createdAt: "desc" } },
         deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
         installations: { orderBy: { createdAt: "desc" } },
-        representantesLegales: { orderBy: { createdAt: "asc" }, select: { id: true, nombre: true, rut: true } },
-        personeria: { select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true } },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
-    }) ?? account;
+    });
+    if (refetched) {
+      account = refetched;
+      (account as any).representantesLegales = representantesLegales;
+      (account as any).personeria = personeria;
+    }
   }
 
   const data = JSON.parse(JSON.stringify({ ...account, quotes }));

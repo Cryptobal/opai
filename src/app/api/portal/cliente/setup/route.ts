@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Token y PIN requeridos' }, { status: 400 })
   }
 
-  if (!/^\d{6}$/.test(pin)) {
-    return NextResponse.json({ error: 'El PIN debe ser exactamente 6 dígitos numéricos' }, { status: 400 })
+  if (!/^\d{4}$/.test(pin)) {
+    return NextResponse.json({ error: 'El PIN debe ser exactamente 4 dígitos numéricos' }, { status: 400 })
   }
 
   const contact = await prisma.crmContact.findFirst({

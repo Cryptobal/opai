@@ -71,7 +71,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
   const hasExtra = extraItems.length > 0
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-50 safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 z-50 safe-area-pb">
       <div className="flex items-center justify-around h-16 px-1 max-w-lg mx-auto">
         {mainItems.map(item => {
           const Icon = item.icon
@@ -83,8 +83,8 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 active
-                  ? 'text-teal-400 bg-teal-500/10'
-                  : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
+                  ? 'text-teal-600 dark:text-teal-400 bg-teal-500/10'
+                  : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 active:bg-zinc-100 dark:active:bg-zinc-800'
               )}
             >
               <Icon className="h-5 w-5" />
@@ -100,15 +100,15 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
                 moreOpen || extraItems.some(i => i.id === activeSection)
-                  ? 'text-teal-400 bg-teal-500/10'
-                  : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800'
+                  ? 'text-teal-600 dark:text-teal-400 bg-teal-500/10'
+                  : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 active:bg-zinc-100 dark:active:bg-zinc-800'
               )}
             >
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-[10px] leading-tight font-medium">Mas</span>
             </button>
             {moreOpen && (
-              <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[160px] z-10">
+              <div className="absolute bottom-14 right-0 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-2 min-w-[160px] z-10">
                 {extraItems.map(item => {
                   const Icon = item.icon
                   const active = activeSection === item.id
@@ -118,7 +118,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
                       onClick={() => { onSection(item.id); setMoreOpen(false) }}
                       className={cn(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
+                        active ? 'text-teal-600 dark:text-teal-400 bg-teal-500/10' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />

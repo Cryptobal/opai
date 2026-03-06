@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-[#0a0a0f] text-white">
+    <div className="min-h-dvh bg-white dark:bg-[#0a0a0f] text-zinc-900 dark:text-white transition-colors">
       <PwaRegistrar />
       {children}
     </div>

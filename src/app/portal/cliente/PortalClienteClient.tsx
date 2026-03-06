@@ -232,7 +232,7 @@ export function PortalClienteClient() {
               <span className="text-xl font-bold tracking-tight">Gard Security</span>
             </div>
             <h1 className="text-lg font-semibold">Portal de Seguridad</h1>
-            <p className="text-sm text-zinc-400 mt-1">RUT de la empresa + tu PIN de acceso (el que te asignaron)</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">RUT de la empresa + tu PIN de acceso (el que te asignaron)</p>
           </div>
 
           <PWAInstallBanner
@@ -245,28 +245,28 @@ export function PortalClienteClient() {
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">RUT Empresa</label>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">RUT Empresa</label>
               <input
                 type="text"
                 value={rut}
                 onChange={(e) => setRut(formatRut(e.target.value))}
                 placeholder="12.345.678-9"
                 maxLength={12}
-                className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                className="w-full h-11 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
                 onKeyDown={(e) => e.key === "Enter" && document.getElementById("pin-input")?.focus()}
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">Tu PIN (6 dígitos)</label>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">Tu PIN (4 dígitos)</label>
               <input
                 id="pin-input"
                 type="password"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 placeholder="••••"
-                maxLength={6}
+                maxLength={4}
                 inputMode="numeric"
-                className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                className="w-full h-11 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 text-sm tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-teal-500/50"
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               />
             </div>
@@ -274,7 +274,7 @@ export function PortalClienteClient() {
             <button
               onClick={handleLogin}
               disabled={loggingIn || !rut || !pin}
-              className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm font-medium text-white transition-colors flex items-center justify-center gap-2"
             >
               {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
               Ingresar al portal
@@ -300,12 +300,12 @@ export function PortalClienteClient() {
   return (
     <div className="min-h-dvh flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800/50">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-teal-400" />
           <div>
             <h1 className="text-base font-semibold">Portal de Seguridad</h1>
-            <p className="text-xs text-zinc-400">{session?.accountName}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{session?.accountName}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -314,7 +314,7 @@ export function PortalClienteClient() {
               <select
                 value={selectedInstallation}
                 onChange={(e) => setSelectedInstallation(e.target.value)}
-                className="h-8 rounded border border-white/10 bg-white/5 px-2 pr-7 text-xs appearance-none"
+                className="h-8 rounded border border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-2 pr-7 text-xs appearance-none"
               >
                 {session.installations.map((i) => (
                   <option key={i.id} value={i.id}>{i.name}</option>

@@ -27,6 +27,53 @@ export async function GET() {
   return NextResponse.json({ success: true, data: installations });
 }
 
+export async function POST(req: Request) {
+  const cookieStore = await cookies();
+  const session = parsePortalClienteSessionCookie(
+    cookieStore.get("portal_cliente_session")?.value
+  );
+  if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
+
+  const body = await req.json();
+  const { name, address, city, commune, lat, lng } = body as {
+    name: string;
+    address?: string;
+    city?: string;
+    commune?: string;
+    lat?: number;
+    lng?: number;
+  };
+
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "Nombre es requerido" }, { status: 400 });
+  }
+
+  const created = await prisma.crmInstallation.create({
+    data: {
+      tenantId: session.tenantId,
+      accountId: session.accountId,
+      name: name.trim(),
+      address: address?.trim() || null,
+      city: city?.trim() || null,
+      commune: commune?.trim() || null,
+      lat: lat ?? null,
+      lng: lng ?? null,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      commune: true,
+      lat: true,
+      lng: true,
+    },
+  });
+
+  return NextResponse.json({ success: true, data: created });
+}
+
 export async function PUT(req: Request) {
   const cookieStore = await cookies();
   const session = parsePortalClienteSessionCookie(
