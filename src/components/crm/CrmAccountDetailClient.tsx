@@ -272,11 +272,9 @@ export function CrmAccountDetailClient({
 
   // ── Representantes legales state ──
   const [representantes, setRepresentantes] = useState<RepresentanteLegal[]>(initialAccount.representantesLegales ?? []);
-  const [repModalOpen, setRepModalOpen] = useState(false);
-  const [editingRep, setEditingRep] = useState<RepresentanteLegal | null>(null);
-  const [repForm, setRepForm] = useState({ nombre: "", rut: "" });
-  const [savingRep, setSavingRep] = useState(false);
-  const [deletingRepId, setDeletingRepId] = useState<string | null>(null);
+  // Rows used inside the edit account modal (local state synced on open)
+  type EditRepRow = { id?: string; nombre: string; rut: string };
+  const [editRepRows, setEditRepRows] = useState<EditRepRow[]>([]);
 
   // ── Personería state ──
   const [personeria, setPersoneria] = useState<Personeria | null>(initialAccount.personeria ?? null);
@@ -299,50 +297,45 @@ export function CrmAccountDetailClient({
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
   // ── Representantes handlers ──
-  const openRepModal = (rep?: RepresentanteLegal) => {
-    if (rep) {
-      setEditingRep(rep);
-      setRepForm({ nombre: rep.nombre, rut: rep.rut });
-    } else {
-      setEditingRep(null);
-      setRepForm({ nombre: "", rut: "" });
+  /** Sync representante rows from the edit modal back to the server */
+  const saveRepresentantesFromModal = async (rows: EditRepRow[]) => {
+    // Determine adds, updates, deletes
+    const existing = representantes;
+    const toDelete = existing.filter((e) => !rows.some((r) => r.id === e.id));
+    const toCreate = rows.filter((r) => !r.id && r.nombre.trim() && r.rut.trim());
+    const toUpdate = rows.filter((r) => r.id && r.nombre.trim() && r.rut.trim());
+
+    const results: RepresentanteLegal[] = [];
+
+    for (const del of toDelete) {
+      await fetch(`/api/crm/accounts/${account.id}/representantes?repId=${del.id}`, { method: "DELETE" }).catch(() => {});
     }
-    setRepModalOpen(true);
-  };
-
-  const saveRep = async () => {
-    if (!repForm.nombre.trim() || !repForm.rut.trim()) { toast.error("Nombre y RUT son obligatorios."); return; }
-    setSavingRep(true);
-    try {
-      const method = editingRep ? "PUT" : "POST";
-      const body = editingRep
-        ? { id: editingRep.id, nombre: repForm.nombre.trim(), rut: repForm.rut.trim() }
-        : { nombre: repForm.nombre.trim(), rut: repForm.rut.trim() };
-      const res = await fetch(`/api/crm/accounts/${account.id}/representantes`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error || "Error al guardar"); return; }
-      if (editingRep) {
-        setRepresentantes((prev) => prev.map((r) => (r.id === editingRep.id ? json.data : r)));
-      } else {
-        setRepresentantes((prev) => [...prev, json.data]);
+    for (const upd of toUpdate) {
+      try {
+        const res = await fetch(`/api/crm/accounts/${account.id}/representantes`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: upd.id, nombre: upd.nombre.trim(), rut: upd.rut.trim() }),
+        });
+        const json = await res.json();
+        if (res.ok) results.push(json.data);
+        else results.push(existing.find((e) => e.id === upd.id)!);
+      } catch {
+        results.push(existing.find((e) => e.id === upd.id)!);
       }
-      setRepModalOpen(false);
-      toast.success(editingRep ? "Representante actualizado" : "Representante agregado");
-    } catch { toast.error("Error de conexión"); } finally { setSavingRep(false); }
-  };
-
-  const deleteRep = async (repId: string) => {
-    setDeletingRepId(repId);
-    try {
-      const res = await fetch(`/api/crm/accounts/${account.id}/representantes?repId=${repId}`, { method: "DELETE" });
-      if (!res.ok) { toast.error("Error al eliminar"); return; }
-      setRepresentantes((prev) => prev.filter((r) => r.id !== repId));
-      toast.success("Representante eliminado");
-    } catch { toast.error("Error de conexión"); } finally { setDeletingRepId(null); }
+    }
+    for (const add of toCreate) {
+      try {
+        const res = await fetch(`/api/crm/accounts/${account.id}/representantes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre: add.nombre.trim(), rut: add.rut.trim() }),
+        });
+        const json = await res.json();
+        if (res.ok) results.push(json.data);
+      } catch { /* skip */ }
+    }
+    setRepresentantes(results);
   };
 
   // ── Personería handlers ──
@@ -390,6 +383,7 @@ export function CrmAccountDetailClient({
       endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
     });
+    setEditRepRows(representantes.map((r) => ({ id: r.id, nombre: r.nombre, rut: r.rut })));
     setEditAccountOpen(true);
   };
 
@@ -407,6 +401,10 @@ export function CrmAccountDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
+
+      // Save representantes from modal rows
+      await saveRepresentantesFromModal(editRepRows);
+
       setAccount((prev) => ({
         ...prev,
         ...accountForm,
@@ -1114,14 +1112,9 @@ export function CrmAccountDetailClient({
 
       {/* ── Representantes legales ── */}
       <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Representantes legales</span>
-          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => openRepModal()}>
-            <Plus className="mr-1 h-3 w-3" /> Agregar
-          </Button>
-        </div>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Representantes legales</span>
         {representantes.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic">Sin representantes legales registrados.</p>
+          <p className="text-xs text-muted-foreground/60 italic">Sin representantes legales registrados. Usa &quot;Editar cuenta&quot; para agregar.</p>
         ) : (
           <div className="divide-y divide-border rounded-md border border-border bg-background">
             {representantes.map((rep) => (
@@ -1129,21 +1122,6 @@ export function CrmAccountDetailClient({
                 <div className="min-w-0 flex-1">
                   <span className="font-medium">{rep.nombre}</span>
                   <span className="ml-2 font-mono text-xs text-muted-foreground">{rep.rut}</span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0 ml-2">
-                  <Button type="button" size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => openRepModal(rep)}>
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    onClick={() => deleteRep(rep.id)}
-                    disabled={deletingRepId === rep.id}
-                  >
-                    {deletingRepId === rep.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                  </Button>
                 </div>
               </div>
             ))}
@@ -1238,7 +1216,7 @@ export function CrmAccountDetailClient({
 
       {/* ── Account Edit Modal ── */}
       <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>
-        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Editar cuenta</DialogTitle>
           </DialogHeader>
@@ -1260,27 +1238,60 @@ export function CrmAccountDetailClient({
                 placeholder="Empresa SpA / Ltda / S.A."
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Representante legal</Label>
-              <Input
-                value={accountForm.legalRepresentativeName}
-                onChange={(e) =>
-                  setAccountForm((p) => ({ ...p, legalRepresentativeName: e.target.value }))
-                }
-                className={inputCn}
-                placeholder="Nombre completo"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">RUT representante legal</Label>
-              <Input
-                value={accountForm.legalRepresentativeRut}
-                onChange={(e) =>
-                  setAccountForm((p) => ({ ...p, legalRepresentativeRut: e.target.value }))
-                }
-                className={inputCn}
-                placeholder="12.345.678-9"
-              />
+            {/* ── Representantes legales (dynamic rows) ── */}
+            <div className="sm:col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Representantes legales</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => setEditRepRows((prev) => [...prev, { nombre: "", rut: "" }])}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Agregar
+                </Button>
+              </div>
+              {editRepRows.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Sin representantes. Usa &quot;Agregar&quot; para incluir uno.</p>
+              )}
+              {editRepRows.map((row, idx) => (
+                <div key={row.id ?? `new-${idx}`} className="flex items-start gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      value={row.nombre}
+                      onChange={(e) =>
+                        setEditRepRows((prev) =>
+                          prev.map((r, i) => (i === idx ? { ...r, nombre: e.target.value } : r))
+                        )
+                      }
+                      className={inputCn}
+                      placeholder={`Nombre representante ${idx + 1}`}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      value={row.rut}
+                      onChange={(e) =>
+                        setEditRepRows((prev) =>
+                          prev.map((r, i) => (i === idx ? { ...r, rut: e.target.value } : r))
+                        )
+                      }
+                      className={inputCn}
+                      placeholder="RUT"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 w-9 p-0 text-destructive hover:text-destructive shrink-0"
+                    onClick={() => setEditRepRows((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Notaría (personería)</Label>
@@ -1431,32 +1442,6 @@ export function CrmAccountDetailClient({
             <Button onClick={createContact} disabled={creatingContact}>
               {creatingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear contacto
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Representante Legal Modal ── */}
-      <Dialog open={repModalOpen} onOpenChange={setRepModalOpen}>
-        <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>{editingRep ? "Editar representante" : "Nuevo representante"}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nombre completo *</Label>
-              <Input value={repForm.nombre} onChange={(e) => setRepForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCn} placeholder="Juan Pérez López" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">RUT *</Label>
-              <Input value={repForm.rut} onChange={(e) => setRepForm((p) => ({ ...p, rut: e.target.value }))} className={inputCn} placeholder="12.345.678-9" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRepModalOpen(false)}>Cancelar</Button>
-            <Button onClick={saveRep} disabled={savingRep}>
-              {savingRep && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingRep ? "Guardar" : "Agregar"}
             </Button>
           </DialogFooter>
         </DialogContent>

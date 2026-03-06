@@ -11,60 +11,79 @@ export async function GET() {
   );
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
-  const account = await prisma.crmAccount.findUnique({
-    where: { id: session.accountId },
-    select: {
-      id: true,
-      name: true,
-      legalName: true,
-      rut: true,
-      address: true,
-      commune: true,
-      representantesLegales: {
+  try {
+    const account = await prisma.crmAccount.findUnique({
+      where: { id: session.accountId },
+      select: {
+        id: true,
+        name: true,
+        legalName: true,
+        rut: true,
+        address: true,
+        commune: true,
+        contacts: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            roleTitle: true,
+            isPrimary: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
+        installations: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            commune: true,
+            lat: true,
+            lng: true,
+          },
+          orderBy: { name: "asc" },
+        },
+      },
+    });
+
+    if (!account) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    // Fetch representantes and personeria separately to handle missing tables gracefully
+    let representantesLegales: { id: string; nombre: string; rut: string }[] = [];
+    let personeria: { id: string; fechaEscritura: Date | null; tipoEscritura: string | null; notaria: string | null } | null = null;
+
+    try {
+      representantesLegales = await prisma.accountRepresentanteLegal.findMany({
+        where: { accountId: session.accountId, tenantId: session.tenantId },
         select: { id: true, nombre: true, rut: true },
         orderBy: { createdAt: "asc" },
-      },
-      personeria: {
-        select: {
-          id: true,
-          fechaEscritura: true,
-          tipoEscritura: true,
-          notaria: true,
-        },
-      },
-      contacts: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          roleTitle: true,
-          isPrimary: true,
-        },
-        orderBy: { createdAt: "asc" },
-      },
-      installations: {
-        where: { isActive: true },
-        select: {
-          id: true,
-          name: true,
-          address: true,
-          city: true,
-          commune: true,
-          lat: true,
-          lng: true,
-        },
-        orderBy: { name: "asc" },
-      },
-    },
-  });
+      });
+    } catch {
+      // Table may not exist yet
+    }
 
-  if (!account) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    try {
+      personeria = await prisma.accountPersoneria.findFirst({
+        where: { accountId: session.accountId, tenantId: session.tenantId },
+        select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true },
+      });
+    } catch {
+      // Table may not exist yet
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: { ...account, representantesLegales, personeria },
+    });
+  } catch (e) {
+    console.error("[portal/empresa] GET error:", e);
+    return NextResponse.json({ error: "Error al cargar datos de empresa" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true, data: account });
 }
 
 export async function PUT(req: Request) {
