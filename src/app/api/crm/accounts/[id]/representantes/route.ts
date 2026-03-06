@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { validateRut } from "@/modules/finance/shared/validators/rut.validator";
+import { syncRepresentanteLegacyFields } from "@/lib/crm-representante-sync";
 
 async function getTenantId() {
   const session = await auth();
@@ -52,6 +53,7 @@ export async function POST(
     select: { id: true, nombre: true, rut: true },
   });
 
+  await syncRepresentanteLegacyFields(accountId);
   return NextResponse.json({ success: true, data: created });
 }
 
@@ -86,6 +88,7 @@ export async function PUT(
     select: { id: true, nombre: true, rut: true },
   });
 
+  await syncRepresentanteLegacyFields(accountId);
   return NextResponse.json({ success: true, data: updated });
 }
 
@@ -107,5 +110,6 @@ export async function DELETE(
 
   await prisma.accountRepresentanteLegal.delete({ where: { id: repId } });
 
+  await syncRepresentanteLegacyFields(accountId);
   return NextResponse.json({ success: true });
 }

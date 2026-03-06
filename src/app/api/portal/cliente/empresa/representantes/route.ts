@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { validateRut } from "@/modules/finance/shared/validators/rut.validator";
+import { syncRepresentanteLegacyFields } from "@/lib/crm-representante-sync";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
     select: { id: true, nombre: true, rut: true },
   });
 
+  await syncRepresentanteLegacyFields(session.accountId);
   return NextResponse.json({ success: true, data: created });
 }
 
@@ -88,6 +90,7 @@ export async function PUT(req: Request) {
     select: { id: true, nombre: true, rut: true },
   });
 
+  await syncRepresentanteLegacyFields(session.accountId);
   return NextResponse.json({ success: true, data: updated });
 }
 
@@ -113,5 +116,6 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.accountRepresentanteLegal.delete({ where: { id } });
 
+  await syncRepresentanteLegacyFields(session.accountId);
   return NextResponse.json({ success: true });
 }

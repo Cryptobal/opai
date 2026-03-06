@@ -8,6 +8,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
+import { migrateAndGetRepresentantes } from "@/lib/crm-representante-sync";
 export default async function CrmAccountDetailPage({
   params,
 }: {
@@ -47,16 +48,9 @@ export default async function CrmAccountDetailPage({
     }),
   ]);
 
-  // Fetch representantes and personeria separately to handle missing tables gracefully
-  let representantesLegales: { id: string; nombre: string; rut: string }[] = [];
+  // Fetch representantes (with auto-migration from legacy fields) and personeria
+  const representantesLegales = await migrateAndGetRepresentantes(id, tenantId);
   let personeria: { id: string; fechaEscritura: Date | null; tipoEscritura: string | null; notaria: string | null } | null = null;
-  try {
-    representantesLegales = await prisma.accountRepresentanteLegal.findMany({
-      where: { accountId: id, tenantId },
-      select: { id: true, nombre: true, rut: true },
-      orderBy: { createdAt: "asc" },
-    });
-  } catch { /* Table may not exist yet */ }
   try {
     personeria = await prisma.accountPersoneria.findFirst({
       where: { accountId: id, tenantId },

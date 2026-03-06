@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { validateRut } from "@/modules/finance/shared/validators/rut.validator";
+import { migrateAndGetRepresentantes } from "@/lib/crm-representante-sync";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -53,19 +54,9 @@ export async function GET() {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
-    // Fetch representantes and personeria separately to handle missing tables gracefully
-    let representantesLegales: { id: string; nombre: string; rut: string }[] = [];
+    // Fetch representantes (with auto-migration from legacy fields) and personeria
+    const representantesLegales = await migrateAndGetRepresentantes(session.accountId, session.tenantId);
     let personeria: { id: string; fechaEscritura: Date | null; tipoEscritura: string | null; notaria: string | null } | null = null;
-
-    try {
-      representantesLegales = await prisma.accountRepresentanteLegal.findMany({
-        where: { accountId: session.accountId, tenantId: session.tenantId },
-        select: { id: true, nombre: true, rut: true },
-        orderBy: { createdAt: "asc" },
-      });
-    } catch {
-      // Table may not exist yet
-    }
 
     try {
       personeria = await prisma.accountPersoneria.findFirst({
