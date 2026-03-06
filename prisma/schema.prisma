@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_DATABASE_URL")
-  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat"]
+  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat", "access_control"]
 }
 
 model Tenant {
@@ -1410,6 +1410,11 @@ model CrmInstallation {
   encuestasCliente                OpsEncuestaCliente[]
   chatChannels                    ChatChannel[]
   visitasTecnicas                 OpsVisitaTecnica[]
+  accessControlConfig             AccessControlConfig?
+  accessControlLists              AccessControlList[]
+  accessControlRecords            AccessControlRecord[]
+  accessControlDeniedAttempts     AccessControlDeniedAttempt[]
+  accessControlPreregistrations   AccessControlPreregistration[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -5712,4 +5717,184 @@ model ChatChannelArchive {
   @@index([adminId], map: "idx_chat_channel_archives_admin")
   @@map("channel_archives")
   @@schema("chat")
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ACCESS CONTROL MODULE
+// ══════════════════════════════════════════════════════════════
+
+model AccessControlConfig {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String   @map("tenant_id")
+  installationId       String   @unique @map("installation_id") @db.Uuid
+  enabledRecordTypes   String[] @default([]) @map("enabled_record_types") // ['visit','provider','vehicle','staff','delivery']
+  useWhitelist         Boolean  @default(false) @map("use_whitelist")
+  useBlacklist         Boolean  @default(false) @map("use_blacklist")
+  requireIdValidation  Boolean  @default(false) @map("require_id_validation")
+  requirePhoto         Boolean  @default(false) @map("require_photo")
+  requireSignature     Boolean  @default(false) @map("require_signature")
+  maxStayHours         Int?     @map("max_stay_hours")
+  autoReportSchedule   String?  @map("auto_report_schedule") // 'daily','weekly','monthly'
+  formConfig           Json     @default("{}") @map("form_config") @db.JsonB
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ac_configs_tenant")
+  @@map("access_control_configs")
+  @@schema("access_control")
+}
+
+model AccessControlList {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id")
+  installationId  String?   @map("installation_id") @db.Uuid
+  listType        String    @map("list_type") // 'whitelist' | 'blacklist'
+  rut             String
+  fullName        String    @map("full_name")
+  company         String?
+  blockReason     String?   @map("block_reason")
+  scope           String    @default("local") // 'local' | 'global'
+  validFrom       DateTime? @map("valid_from") @db.Date
+  validUntil      DateTime? @map("valid_until") @db.Date
+  allowedDays     Int[]     @default([]) @map("allowed_days") // 0=dom, 1=lun, ..., 6=sab
+  allowedTimeFrom String?   @map("allowed_time_from")
+  allowedTimeTo   String?   @map("allowed_time_to")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation    CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  deniedAttempts  AccessControlDeniedAttempt[]
+
+  @@index([rut], map: "idx_ac_lists_rut")
+  @@index([installationId, listType], map: "idx_ac_lists_installation_type")
+  @@index([scope], map: "idx_ac_lists_scope")
+  @@index([tenantId], map: "idx_ac_lists_tenant")
+  @@map("access_control_lists")
+  @@schema("access_control")
+}
+
+model AccessControlRecord {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String    @map("tenant_id")
+  installationId      String    @map("installation_id") @db.Uuid
+  recordType          String    @map("record_type") // 'visit','provider','vehicle','staff','delivery'
+  rut                 String?
+  fullName            String?   @map("full_name")
+  company             String?
+  documentSerial      String?   @map("document_serial")
+  entryAt             DateTime  @default(now()) @map("entry_at") @db.Timestamptz(6)
+  exitAt              DateTime? @map("exit_at") @db.Timestamptz(6)
+  entryGuardId        String    @map("entry_guard_id") @db.Uuid
+  exitGuardId         String?   @map("exit_guard_id") @db.Uuid
+  entryGpsLat         Float?    @map("entry_gps_lat")
+  entryGpsLng         Float?    @map("entry_gps_lng")
+  exitGpsLat          Float?    @map("exit_gps_lat")
+  exitGpsLng          Float?    @map("exit_gps_lng")
+  vehiclePlate        String?   @map("vehicle_plate")
+  vehiclePlatePhotoUrl String?  @map("vehicle_plate_photo_url")
+  vehicleType         String?   @map("vehicle_type")
+  vehicleBrandModel   String?   @map("vehicle_brand_model")
+  visitorPhotoUrl     String?   @map("visitor_photo_url")
+  credentialPhotoUrl  String?   @map("credential_photo_url")
+  entrySignatureUrl   String?   @map("entry_signature_url")
+  customFields        Json      @default("{}") @map("custom_fields") @db.JsonB
+  qrSource            String?   @map("qr_source") // 'cedula_2013','cedula_2024','manual','preregistered'
+  idValidationStatus  String    @default("not_checked") @map("id_validation_status") // 'valid','invalid','not_checked','error'
+  listMatch           String?   @map("list_match") // 'whitelist','blacklist'
+  preregistrationId   String?   @map("preregistration_id") @db.Uuid
+  isSynced            Boolean   @default(true) @map("is_synced")
+  deviceId            String?   @map("device_id")
+  offlineCreatedAt    DateTime? @map("offline_created_at") @db.Timestamptz(6)
+  entryObservations   String?   @map("entry_observations")
+  exitObservations    String?   @map("exit_observations")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation    CrmInstallation              @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  preregistration AccessControlPreregistration? @relation(fields: [preregistrationId], references: [id], onDelete: SetNull)
+
+  @@index([installationId], map: "idx_ac_records_installation")
+  @@index([rut], map: "idx_ac_records_rut")
+  @@index([entryAt], map: "idx_ac_records_entry_at")
+  @@index([installationId, exitAt], map: "idx_ac_records_in_site")
+  @@index([vehiclePlate], map: "idx_ac_records_plate")
+  @@index([tenantId], map: "idx_ac_records_tenant")
+  @@map("access_control_records")
+  @@schema("access_control")
+}
+
+model AccessControlDeniedAttempt {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String   @map("tenant_id")
+  installationId    String   @map("installation_id") @db.Uuid
+  guardId           String   @map("guard_id") @db.Uuid
+  rut               String
+  fullName          String?  @map("full_name")
+  blacklistEntryId  String?  @map("blacklist_entry_id") @db.Uuid
+  blockReason       String?  @map("block_reason")
+  attemptedAt       DateTime @default(now()) @map("attempted_at") @db.Timestamptz(6)
+  gpsLat            Float?   @map("gps_lat")
+  gpsLng            Float?   @map("gps_lng")
+
+  installation   CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  blacklistEntry AccessControlList? @relation(fields: [blacklistEntryId], references: [id], onDelete: SetNull)
+
+  @@index([installationId], map: "idx_ac_denied_installation")
+  @@index([rut], map: "idx_ac_denied_rut")
+  @@index([tenantId], map: "idx_ac_denied_tenant")
+  @@map("access_control_denied_attempts")
+  @@schema("access_control")
+}
+
+model AccessControlPreregistration {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  installationId    String    @map("installation_id") @db.Uuid
+  visitorRut        String    @map("visitor_rut")
+  visitorName       String    @map("visitor_name")
+  visitorCompany    String?   @map("visitor_company")
+  hostName          String?   @map("host_name")
+  hostContact       String?   @map("host_contact")
+  expectedDate      DateTime  @map("expected_date") @db.Date
+  expectedTimeFrom  String?   @map("expected_time_from")
+  expectedTimeTo    String?   @map("expected_time_to")
+  purpose           String?
+  recordType        String    @default("visit") @map("record_type")
+  status            String    @default("pending") // 'pending','checked_in','checked_out','no_show','cancelled'
+  createdBy         String?   @map("created_by")
+  createdByClient   Boolean   @default(false) @map("created_by_client")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation CrmInstallation       @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  records      AccessControlRecord[]
+
+  @@index([installationId, expectedDate], map: "idx_ac_prereg_installation_date")
+  @@index([visitorRut], map: "idx_ac_prereg_rut")
+  @@index([tenantId], map: "idx_ac_prereg_tenant")
+  @@map("access_control_preregistrations")
+  @@schema("access_control")
+}
+
+model AccessControlKnownVisitor {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String    @map("tenant_id")
+  rut          String    @unique
+  fullName     String    @map("full_name")
+  company      String?
+  lastVisitAt  DateTime? @map("last_visit_at") @db.Timestamptz(6)
+  visitCount   Int       @default(1) @map("visit_count")
+  lastPhotoUrl String?   @map("last_photo_url")
+  metadata     Json      @default("{}") @db.JsonB
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([rut], map: "idx_ac_known_visitors_rut")
+  @@index([tenantId], map: "idx_ac_known_visitors_tenant")
+  @@map("access_control_known_visitors")
+  @@schema("access_control")
 }
