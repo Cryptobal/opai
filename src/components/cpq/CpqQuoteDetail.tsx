@@ -775,11 +775,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       (costSummary.monthlyMeals ?? 0) +
       (costSummary.monthlyVehicles ?? 0) +
       (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0) +
-      additionalLinesTotal;
+      (costSummary.monthlyCostItems ?? 0);
     const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
     return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
-  }, [costSummary, marginPct, additionalLinesTotal]);
+  }, [costSummary, marginPct]);
 
   // Margin amount calculation (includes additional lines)
   const marginAmount = useMemo(() => {
@@ -793,11 +792,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       (costSummary.monthlyMeals ?? 0) +
       (costSummary.monthlyVehicles ?? 0) +
       (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0) +
-      additionalLinesTotal;
+      (costSummary.monthlyCostItems ?? 0);
     const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
     return baseWithMargin - costsBase;
-  }, [costSummary, marginPct, additionalLinesTotal]);
+  }, [costSummary, marginPct]);
 
   // Per-position sale price allocation from final monthly sale price.
   // This keeps every downstream "valor hora" aligned with the real client sale price.
