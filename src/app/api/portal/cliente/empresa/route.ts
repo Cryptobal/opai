@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { validateRut } from "@/modules/finance/shared/validators/rut.validator";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -49,7 +50,10 @@ export async function GET() {
           id: true,
           name: true,
           address: true,
+          city: true,
           commune: true,
+          lat: true,
+          lng: true,
         },
         orderBy: { name: "asc" },
       },
@@ -71,16 +75,29 @@ export async function PUT(req: Request) {
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   const body = await req.json();
-  const { legalName, rut, address, commune } = body as {
+  const { name, legalName, rut, address, commune } = body as {
+    name?: string;
     legalName?: string;
     rut?: string;
     address?: string;
     commune?: string;
   };
 
+  // Validar RUT si se envía
+  if (rut !== undefined && rut.trim() !== "") {
+    const rutResult = validateRut(rut);
+    if (!rutResult.valid) {
+      return NextResponse.json(
+        { error: rutResult.error || "RUT inválido" },
+        { status: 400 }
+      );
+    }
+  }
+
   const updated = await prisma.crmAccount.update({
     where: { id: session.accountId },
     data: {
+      ...(name !== undefined && { name }),
       ...(legalName !== undefined && { legalName }),
       ...(rut !== undefined && { rut }),
       ...(address !== undefined && { address }),
@@ -88,6 +105,7 @@ export async function PUT(req: Request) {
     },
     select: {
       id: true,
+      name: true,
       legalName: true,
       rut: true,
       address: true,

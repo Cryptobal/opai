@@ -3,6 +3,30 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
+export async function GET() {
+  const cookieStore = await cookies();
+  const session = parsePortalClienteSessionCookie(
+    cookieStore.get("portal_cliente_session")?.value
+  );
+  if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
+
+  const installations = await prisma.crmInstallation.findMany({
+    where: { accountId: session.accountId, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      commune: true,
+      lat: true,
+      lng: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return NextResponse.json({ success: true, data: installations });
+}
+
 export async function PUT(req: Request) {
   const cookieStore = await cookies();
   const session = parsePortalClienteSessionCookie(
@@ -11,10 +35,14 @@ export async function PUT(req: Request) {
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   const body = await req.json();
-  const { id, name, address } = body as {
+  const { id, name, address, city, commune, lat, lng } = body as {
     id: string;
     name?: string;
     address?: string;
+    city?: string;
+    commune?: string;
+    lat?: number;
+    lng?: number;
   };
 
   if (!id) {
@@ -34,11 +62,19 @@ export async function PUT(req: Request) {
     data: {
       ...(name !== undefined && { name }),
       ...(address !== undefined && { address }),
+      ...(city !== undefined && { city }),
+      ...(commune !== undefined && { commune }),
+      ...(lat !== undefined && { lat }),
+      ...(lng !== undefined && { lng }),
     },
     select: {
       id: true,
       name: true,
       address: true,
+      city: true,
+      commune: true,
+      lat: true,
+      lng: true,
     },
   });
 
