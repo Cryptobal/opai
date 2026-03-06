@@ -61,6 +61,12 @@ ${htmlBody.replace(/\n/g, "<br>")}
 
     // Get tenant email config
     const emailConfig = await getTenantEmailConfig(ctx.tenantId);
+    if (!emailConfig.from?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Configuración de email incompleta: falta 'from'. Revisa Configuración > Empresa." },
+        { status: 500 }
+      );
+    }
 
     // Parse CC/BCC (comma-separated strings to arrays)
     const parseEmails = (str?: string): string[] =>
@@ -71,9 +77,18 @@ ${htmlBody.replace(/\n/g, "<br>")}
     const ccList = parseEmails(cc);
     const bccList = parseEmails(bcc);
 
+    // Resend expects `to` as string or string[]; normalize to array
+    const toList = Array.isArray(to) ? to : [String(to).trim()].filter(Boolean);
+    if (toList.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Al menos un destinatario (to) es requerido" },
+        { status: 400 }
+      );
+    }
+
     const emailResult = await resend.emails.send({
       from: emailConfig.from,
-      to,
+      to: toList,
       ...(ccList.length > 0 && { cc: ccList }),
       ...(bccList.length > 0 && { bcc: bccList }),
       replyTo: emailConfig.replyTo,
@@ -174,9 +189,12 @@ ${htmlBody.replace(/\n/g, "<br>")}
       data: { emailId: emailResult?.data?.id },
     });
   } catch (error) {
-    console.error("Error sending PDF email:", error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Error sending PDF email:", err.message, err.stack);
+    // Exponer mensaje para diagnóstico (evitar stack traces sensibles)
+    const safeMessage = err.message || "Error desconocido";
     return NextResponse.json(
-      { success: false, error: "Error al enviar email" },
+      { success: false, error: `Error al enviar email: ${safeMessage}` },
       { status: 500 }
     );
   }

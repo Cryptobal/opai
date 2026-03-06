@@ -112,3 +112,35 @@ export const rondaAuthSchema = z.object({
   rut: z.string().min(1),
   pin: z.string().min(4).max(6),
 });
+
+// ── Checkpoint Tasks ──
+
+export const checkpointTaskTypes = ["boolean", "checklist", "select", "text", "number", "photo"] as const;
+
+export const checkpointTaskSchema = z.object({
+  checkpointId: z.string().uuid(),
+  sortOrder: z.number().int().min(0).default(0),
+  label: z.string().trim().min(1).max(500),
+  type: z.enum(checkpointTaskTypes).default("boolean"),
+  required: z.boolean().default(false),
+  options: z.array(z.string().trim().min(1).max(200)).optional().nullable(),
+  config: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    minPhotos: z.number().int().min(1).max(10).optional(),
+    placeholder: z.string().max(200).optional(),
+    alertOnValue: z.union([z.string(), z.boolean(), z.number()]).optional(),
+  }).optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+export const checkpointTaskReorderSchema = z.object({
+  checkpointId: z.string().uuid(),
+  taskIds: z.array(z.string().uuid()).min(1),
+});
+
+export const checkpointTaskResponseSchema = z.object({
+  taskId: z.string().uuid(),
+  value: z.union([z.boolean(), z.string(), z.number(), z.array(z.string())]),
+  photoUrls: z.array(z.string()).optional().nullable(),
+});

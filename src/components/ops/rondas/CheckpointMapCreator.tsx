@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MapPin, Plus, Trash2, Download, X, LocateFixed } from "lucide-react";
+import { MapPin, Plus, Pencil, Trash2, Download, X, LocateFixed } from "lucide-react";
 import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
+import { CheckpointTasksEditor, type TaskDraft } from "./checkpoint-tasks-editor";
 import QRCode from "qrcode";
 
 /* ------------------------------------------------------------------ */
@@ -29,6 +30,7 @@ interface ExistingCheckpoint {
   id: string;
   name: string;
   description?: string;
+  instrucciones?: string | null;
   lat?: number | null;
   lng?: number | null;
   geoRadiusM: number;
@@ -45,6 +47,7 @@ interface Props {
   installationLng?: number | null;
   checkpoints: ExistingCheckpoint[];
   onSubmit: (payload: CheckpointFormValue) => Promise<void> | void;
+  onUpdate: (id: string, payload: Partial<CheckpointFormValue>) => Promise<void> | void;
   onToggleActive: (id: string, isActive: boolean) => void;
   onDelete: (id: string) => void;
 }
@@ -106,6 +109,7 @@ export function CheckpointMapCreator({
   installationLng,
   checkpoints,
   onSubmit,
+  onUpdate,
   onToggleActive,
   onDelete,
 }: Props) {
@@ -134,8 +138,10 @@ export function CheckpointMapCreator({
   const [draftRadius, setDraftRadius] = useState(30);
   const [draftCritical, setDraftCritical] = useState(false);
   const [draftInstrucciones, setDraftInstrucciones] = useState("");
+  const [draftTasks, setDraftTasks] = useState<TaskDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
+  const [editingCheckpointId, setEditingCheckpointId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -411,13 +417,14 @@ export function CheckpointMapCreator({
     }
   }, [draftRadius]);
 
-  // Cancel creating
+  // Cancel creating/editing
   const cancelDraft = () => {
     draftMarkerRef.current?.setMap(null);
     draftCircleRef.current?.setMap(null);
     draftMarkerRef.current = null;
     draftCircleRef.current = null;
     setIsCreating(false);
+    setEditingCheckpointId(null);
     setDraftLat(null);
     setDraftLng(null);
     setDraftName("");
@@ -425,23 +432,140 @@ export function CheckpointMapCreator({
     setDraftRadius(30);
     setDraftCritical(false);
     setDraftInstrucciones("");
+    setDraftTasks([]);
   };
 
-  // Save checkpoint
+  // Start editing an existing checkpoint
+  const startEditing = useCallback((cp: ExistingCheckpoint) => {
+    // Cancel any current draft first
+    draftMarkerRef.current?.setMap(null);
+    draftCircleRef.current?.setMap(null);
+    draftMarkerRef.current = null;
+    draftCircleRef.current = null;
+
+    setEditingCheckpointId(cp.id);
+    setDraftName(cp.name);
+    setDraftVerificationType(cp.verificationType);
+    setDraftRadius(cp.geoRadiusM);
+    setDraftCritical(cp.isCritical);
+    setDraftInstrucciones(cp.instrucciones ?? "");
+    setDraftLat(cp.lat ?? null);
+    setDraftLng(cp.lng ?? null);
+    setDraftTasks([]);
+    setIsCreating(true);
+
+    // Load existing tasks for this checkpoint
+    fetch(`/api/ops/rondas/checkpoints/${cp.id}/tasks`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setDraftTasks(
+            json.data.map((t: any) => ({
+              id: t.id,
+              label: t.label,
+              type: t.type,
+              required: t.required,
+              options: t.options ?? undefined,
+              config: t.config ?? undefined,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+
+    // Place draft marker on the checkpoint's position
+    if (cp.lat != null && cp.lng != null) {
+      const w = window as unknown as { google?: { maps?: any } };
+      const gm = w.google?.maps;
+      const map = mapRef.current;
+      if (gm && map) {
+        placeDraftMarker(cp.lat, cp.lng, gm, map);
+        map.panTo(new gm.LatLng(cp.lat, cp.lng));
+      }
+    }
+  }, [placeDraftMarker]);
+
+  // Save tasks for a checkpoint (sync: delete removed, update existing, create new)
+  const saveTasks = async (checkpointId: string, tasks: TaskDraft[]) => {
+    const baseUrl = `/api/ops/rondas/checkpoints/${checkpointId}/tasks`;
+
+    // Get existing tasks from server
+    const existingRes = await fetch(baseUrl);
+    const existingJson = await existingRes.json();
+    const existingTasks: Array<{ id: string }> = existingJson.success ? existingJson.data : [];
+    const existingIds = new Set(existingTasks.map((t) => t.id));
+    const draftIds = new Set(tasks.filter((t) => t.id).map((t) => t.id!));
+
+    // Delete removed tasks
+    for (const et of existingTasks) {
+      if (!draftIds.has(et.id)) {
+        await fetch(`${baseUrl}/${et.id}`, { method: "DELETE" });
+      }
+    }
+
+    // Create or update tasks
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const body = {
+        checkpointId,
+        label: task.label,
+        type: task.type,
+        required: task.required,
+        options: task.options ?? null,
+        config: task.config ?? null,
+        sortOrder: i,
+      };
+
+      if (task.id && existingIds.has(task.id)) {
+        await fetch(`${baseUrl}/${task.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } else {
+        await fetch(baseUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+    }
+  };
+
+  // Save checkpoint (create or update)
   const handleSave = async () => {
     if (!draftName.trim() || draftLat == null || draftLng == null) return;
     setSaving(true);
     try {
-      await onSubmit({
-        installationId,
-        name: draftName.trim(),
-        lat: draftLat,
-        lng: draftLng,
-        geoRadiusM: draftRadius,
-        verificationType: draftVerificationType,
-        isCritical: draftCritical,
-        instrucciones: draftInstrucciones.trim() || undefined,
-      });
+      if (editingCheckpointId) {
+        await onUpdate(editingCheckpointId, {
+          name: draftName.trim(),
+          lat: draftLat,
+          lng: draftLng,
+          geoRadiusM: draftRadius,
+          verificationType: draftVerificationType,
+          isCritical: draftCritical,
+          instrucciones: draftInstrucciones.trim() || undefined,
+        });
+        // Save tasks for existing checkpoint
+        await saveTasks(editingCheckpointId, draftTasks);
+      } else {
+        // For new checkpoints, we need to get the created checkpoint ID
+        // The parent onSubmit adds the checkpoint to state; we save tasks via a callback
+        await onSubmit({
+          installationId,
+          name: draftName.trim(),
+          lat: draftLat,
+          lng: draftLng,
+          geoRadiusM: draftRadius,
+          verificationType: draftVerificationType,
+          isCritical: draftCritical,
+          instrucciones: draftInstrucciones.trim() || undefined,
+        });
+        // Note: tasks for new checkpoints will be saved after creation
+        // by the parent passing back the new ID. For now, we handle tasks
+        // only in edit mode. Tasks can be added by editing after creation.
+      }
       cancelDraft();
     } finally {
       setSaving(false);
@@ -596,6 +720,18 @@ export function CheckpointMapCreator({
             El guardia verá estas instrucciones al marcar este checkpoint.
           </p>
         </div>
+
+        {/* Checkpoint Tasks */}
+        {editingCheckpointId ? (
+          <CheckpointTasksEditor
+            tasks={draftTasks}
+            onChange={setDraftTasks}
+          />
+        ) : (
+          <p className="text-[10px] text-muted-foreground italic">
+            Podrás agregar tareas después de crear el checkpoint.
+          </p>
+        )}
       </div>
 
       <Button
@@ -604,7 +740,7 @@ export function CheckpointMapCreator({
         onClick={handleSave}
         disabled={saving || !draftName.trim() || draftLat == null}
       >
-        {saving ? "Guardando..." : "Crear checkpoint"}
+        {saving ? "Guardando..." : editingCheckpointId ? "Guardar cambios" : "Crear checkpoint"}
       </Button>
     </>
   );
@@ -673,8 +809,11 @@ export function CheckpointMapCreator({
           <div className="w-72 shrink-0 rounded-lg border border-amber-500/30 bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Plus className="h-4 w-4 text-amber-500" />
-                Nuevo checkpoint
+                {editingCheckpointId ? (
+                  <><Pencil className="h-4 w-4 text-amber-500" /> Editar checkpoint</>
+                ) : (
+                  <><Plus className="h-4 w-4 text-amber-500" /> Nuevo checkpoint</>
+                )}
               </h4>
               <button type="button" onClick={cancelDraft} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -693,8 +832,11 @@ export function CheckpointMapCreator({
         >
           <SheetHeader className="text-left">
             <SheetTitle className="flex items-center gap-1.5">
-              <Plus className="h-4 w-4 text-amber-500" />
-              Nuevo checkpoint
+              {editingCheckpointId ? (
+                <><Pencil className="h-4 w-4 text-amber-500" /> Editar checkpoint</>
+              ) : (
+                <><Plus className="h-4 w-4 text-amber-500" /> Nuevo checkpoint</>
+              )}
             </SheetTitle>
           </SheetHeader>
           <div className="space-y-3 pt-4">
@@ -747,6 +889,15 @@ export function CheckpointMapCreator({
                 </div>
 
                 <div className="flex gap-1 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => startEditing(cp)}
+                  >
+                    <Pencil className="h-3 w-3 mr-0.5" />
+                    Editar
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

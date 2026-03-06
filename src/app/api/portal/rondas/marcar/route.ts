@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       verificationMethod,
       isOfflineSync,
       guardiaId: bodyGuardiaId,
+      taskResponses: bodyTaskResponses,
     } = body as {
       ejecucionId?: string;
       checkpointId?: string;
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
       verificationMethod?: string;
       isOfflineSync?: boolean;
       guardiaId?: string;
+      taskResponses?: Array<{ taskId: string; value: unknown; photoUrls?: string[] }>;
     };
 
     // Inline validation for required fields
@@ -179,6 +181,22 @@ export async function POST(request: NextRequest) {
           isOfflineSync: isOfflineSync ?? false,
         },
       });
+
+      // Save task responses if provided
+      if (bodyTaskResponses && Array.isArray(bodyTaskResponses) && bodyTaskResponses.length > 0) {
+        await tx.opsCheckpointTaskResponse.createMany({
+          data: bodyTaskResponses.map((tr) => ({
+            tenantId: execution.tenantId,
+            taskId: tr.taskId,
+            marcacionId: mark.id,
+            guardiaId,
+            value: tr.value as never,
+            photoUrls: tr.photoUrls ? (tr.photoUrls as never) : undefined,
+            lat,
+            lng,
+          })),
+        });
+      }
 
       const total = await tx.opsRondaCheckpoint.count({
         where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
