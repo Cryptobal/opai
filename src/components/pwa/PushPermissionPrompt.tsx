@@ -21,9 +21,6 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
   const [loading, setLoading] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
-  // Only show notification/install prompts on mobile; hide on desktop
-  if (!isMobile) return null;
-
   // Auto-subscribe when permission is already granted (re-subscribe ensures
   // the server always has a fresh push subscription for this device).
   useEffect(() => {
@@ -36,6 +33,8 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
       .then((ok) => { if (ok) setSubscribed(true); })
       .catch(() => {});
   }, [registration, portalType, userType, userId, tenantId]);
+
+  if (!isMobile) return null;
 
   // iOS in Safari (not standalone): show "add to homescreen" guide
   if (!dismissed && isIOS() && !isStandalone()) {
