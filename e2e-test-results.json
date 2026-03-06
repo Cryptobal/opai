@@ -1,0 +1,462 @@
+{
+  "testDate": "2026-03-06T11:03:42.955Z",
+  "summary": {
+    "result": "ÉXITO PARCIAL",
+    "totalSteps": 42,
+    "successful": 41,
+    "errors": 1,
+    "fixed": 0
+  },
+  "installation": {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "name": "Gard - Oficina Central",
+    "code": "GARD-CENTRAL-001"
+  },
+  "guardia": {
+    "id": "00000000-0000-0000-0000-000000001000",
+    "rut": "13255838-8",
+    "name": "Juan Pérez"
+  },
+  "checkpoints": [
+    {
+      "name": "Acceso Principal",
+      "lat": -33.4372,
+      "lng": -70.6506,
+      "description": "Entrada principal del edificio",
+      "id": "0dc0e93e-d9d6-4f86-803b-2d872ba31317",
+      "qrCode": "GARD-CP-001"
+    },
+    {
+      "name": "Bodega Norte",
+      "lat": -33.4375,
+      "lng": -70.651,
+      "description": "Bodega de almacenamiento norte",
+      "id": "8a181f86-a31b-4d4f-adbc-916597f211f6",
+      "qrCode": "GARD-CP-002"
+    },
+    {
+      "name": "Estacionamiento",
+      "lat": -33.437,
+      "lng": -70.6515,
+      "description": "Área de estacionamiento",
+      "id": "06e49b30-ad5a-4b5b-9c00-da2e60f5bbf0",
+      "qrCode": "GARD-CP-003"
+    },
+    {
+      "name": "Perímetro Sur",
+      "lat": -33.4368,
+      "lng": -70.6508,
+      "description": "Perímetro sur del recinto",
+      "id": "6aa83177-bcb4-4251-815e-b8e77ae5c1de",
+      "qrCode": "GARD-CP-004"
+    },
+    {
+      "name": "Sala de Control",
+      "lat": -33.4373,
+      "lng": -70.6502,
+      "description": "Sala de control y monitoreo",
+      "id": "b399ba86-ff63-4286-8668-114e05147062",
+      "qrCode": "GARD-CP-005"
+    }
+  ],
+  "templateId": "3f816f28-0cf6-485d-99c0-6d0937aab7b5",
+  "ejecucionId": "bdeff0d8-ce1c-491a-b2cc-2d92af0ab730",
+  "marcaciones": [
+    {
+      "checkpoint": "Acceso Principal",
+      "qrCode": "GARD-CP-001",
+      "guardLat": -33.43724889586464,
+      "guardLng": -70.65060761917088,
+      "cpLat": -33.4372,
+      "cpLng": -70.6506,
+      "trustScore": 85,
+      "anomalies": [],
+      "geo": {
+        "valid": true,
+        "distanceM": 5.482745809475938
+      },
+      "marcacionId": "fc80447d-44ec-4d55-aa10-903a67693fd3",
+      "timestamp": "2026-03-06T11:03:34.665Z"
+    },
+    {
+      "checkpoint": "Bodega Norte",
+      "qrCode": "GARD-CP-002",
+      "guardLat": -33.43751733809862,
+      "guardLng": -70.65103445390963,
+      "cpLat": -33.4375,
+      "cpLng": -70.651,
+      "trustScore": 65,
+      "anomalies": [
+        "velocidad_anomala"
+      ],
+      "geo": {
+        "valid": true,
+        "distanceM": 3.733318645392168
+      },
+      "marcacionId": "fc5e634b-503d-4d95-a7f6-cf151931fc40",
+      "timestamp": "2026-03-06T11:03:36.732Z"
+    },
+    {
+      "checkpoint": "Estacionamiento",
+      "qrCode": "GARD-CP-003",
+      "guardLat": -33.43703538429014,
+      "guardLng": -70.65148456773632,
+      "cpLat": -33.437,
+      "cpLng": -70.6515,
+      "trustScore": 65,
+      "anomalies": [
+        "velocidad_anomala"
+      ],
+      "geo": {
+        "valid": true,
+        "distanceM": 4.187036771385608
+      },
+      "marcacionId": "a2bc4154-2286-48a0-ae5a-a2c12215f9cf",
+      "timestamp": "2026-03-06T11:03:38.778Z"
+    },
+    {
+      "checkpoint": "Perímetro Sur",
+      "qrCode": "GARD-CP-004",
+      "guardLat": -33.43684059039683,
+      "guardLng": -70.65081973285287,
+      "cpLat": -33.4368,
+      "cpLng": -70.6508,
+      "trustScore": 65,
+      "anomalies": [
+        "velocidad_anomala"
+      ],
+      "geo": {
+        "valid": true,
+        "distanceM": 4.870719369679845
+      },
+      "marcacionId": "a444d098-7984-4dd5-a902-7bfd6f2883d2",
+      "timestamp": "2026-03-06T11:03:40.834Z"
+    },
+    {
+      "checkpoint": "Sala de Control",
+      "qrCode": "GARD-CP-005",
+      "guardLat": -33.437268813588844,
+      "guardLng": -70.65020901175822,
+      "cpLat": -33.4373,
+      "cpLng": -70.6502,
+      "trustScore": 65,
+      "anomalies": [
+        "velocidad_anomala"
+      ],
+      "geo": {
+        "valid": true,
+        "distanceM": 3.5671670584480473
+      },
+      "marcacionId": "81e925e6-7397-446e-9257-72fb6d8b35cb",
+      "timestamp": "2026-03-06T11:03:42.881Z"
+    }
+  ],
+  "finalExecution": {
+    "id": "bdeff0d8-ce1c-491a-b2cc-2d92af0ab730",
+    "status": "completada",
+    "trustScore": 90,
+    "porcentajeCompletado": 100,
+    "durationMinutes": 0,
+    "checkpointsTotal": 5,
+    "checkpointsCompletados": 5,
+    "startedAt": "2026-03-06T11:03:34.567Z",
+    "completedAt": "2026-03-06T11:03:42.914Z"
+  },
+  "results": [
+    {
+      "phase": "FASE 0",
+      "step": "Hashed PIN",
+      "status": "OK",
+      "detail": "Guard PIN hashed and saved",
+      "timestamp": "2026-03-06T11:03:33.412Z"
+    },
+    {
+      "phase": "FASE 0",
+      "step": "Instalación",
+      "status": "OK",
+      "detail": "Gard - Oficina Central (ID: 00000000-0000-0000-0000-000000000010)",
+      "timestamp": "2026-03-06T11:03:33.421Z"
+    },
+    {
+      "phase": "FASE 0",
+      "step": "Guardia",
+      "status": "OK",
+      "detail": "Juan Pérez (RUT: 13255838-8)",
+      "timestamp": "2026-03-06T11:03:33.429Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Checkpoint 1",
+      "status": "OK",
+      "detail": "Acceso Principal (QR: GARD-CP-001, ID: 0dc0e93e-d9d6-4f86-803b-2d872ba31317)",
+      "timestamp": "2026-03-06T11:03:33.448Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Checkpoint 2",
+      "status": "OK",
+      "detail": "Bodega Norte (QR: GARD-CP-002, ID: 8a181f86-a31b-4d4f-adbc-916597f211f6)",
+      "timestamp": "2026-03-06T11:03:33.452Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Checkpoint 3",
+      "status": "OK",
+      "detail": "Estacionamiento (QR: GARD-CP-003, ID: 06e49b30-ad5a-4b5b-9c00-da2e60f5bbf0)",
+      "timestamp": "2026-03-06T11:03:33.457Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Checkpoint 4",
+      "status": "OK",
+      "detail": "Perímetro Sur (QR: GARD-CP-004, ID: 6aa83177-bcb4-4251-815e-b8e77ae5c1de)",
+      "timestamp": "2026-03-06T11:03:33.461Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Checkpoint 5",
+      "status": "OK",
+      "detail": "Sala de Control (QR: GARD-CP-005, ID: b399ba86-ff63-4286-8668-114e05147062)",
+      "timestamp": "2026-03-06T11:03:33.466Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "QR Image 1",
+      "status": "OK",
+      "detail": "Saved to /home/user/opai/test-qr-images/checkpoint-1-Acceso-Principal.png",
+      "timestamp": "2026-03-06T11:03:33.788Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "QR Image 2",
+      "status": "OK",
+      "detail": "Saved to /home/user/opai/test-qr-images/checkpoint-2-Bodega-Norte.png",
+      "timestamp": "2026-03-06T11:03:33.802Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "QR Image 3",
+      "status": "OK",
+      "detail": "Saved to /home/user/opai/test-qr-images/checkpoint-3-Estacionamiento.png",
+      "timestamp": "2026-03-06T11:03:33.813Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "QR Image 4",
+      "status": "OK",
+      "detail": "Saved to /home/user/opai/test-qr-images/checkpoint-4-Perímetro-Sur.png",
+      "timestamp": "2026-03-06T11:03:33.823Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "QR Image 5",
+      "status": "OK",
+      "detail": "Saved to /home/user/opai/test-qr-images/checkpoint-5-Sala-de-Control.png",
+      "timestamp": "2026-03-06T11:03:33.833Z"
+    },
+    {
+      "phase": "FASE 1",
+      "step": "Verificación BD",
+      "status": "OK",
+      "detail": "5 checkpoints encontrados en BD",
+      "timestamp": "2026-03-06T11:03:33.837Z"
+    },
+    {
+      "phase": "FASE 2",
+      "step": "Template",
+      "status": "OK",
+      "detail": "\"Ronda Completa Gard - Test E2E\" (ID: 3f816f28-0cf6-485d-99c0-6d0937aab7b5)",
+      "timestamp": "2026-03-06T11:03:33.855Z"
+    },
+    {
+      "phase": "FASE 2",
+      "step": "Verificación BD",
+      "status": "OK",
+      "detail": "Template con 5 checkpoints asociados",
+      "timestamp": "2026-03-06T11:03:33.861Z"
+    },
+    {
+      "phase": "FASE 3",
+      "step": "Ronda Programada",
+      "status": "OK",
+      "detail": "ID: bdeff0d8-ce1c-491a-b2cc-2d92af0ab730, Scheduled: 2026-03-06T10:58:33.861Z",
+      "timestamp": "2026-03-06T11:03:33.874Z"
+    },
+    {
+      "phase": "FASE 3",
+      "step": "Verificación BD",
+      "status": "OK",
+      "detail": "Guardia: Juan Pérez, Status: pendiente",
+      "timestamp": "2026-03-06T11:03:33.881Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Autenticación API",
+      "status": "OK",
+      "detail": "Guardia: Juan Pérez",
+      "timestamp": "2026-03-06T11:03:34.303Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Rondas Pendientes",
+      "status": "OK",
+      "detail": "1 rondas pendientes",
+      "timestamp": "2026-03-06T11:03:34.455Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Iniciar Ronda API",
+      "status": "OK",
+      "detail": "5 checkpoints recibidos",
+      "timestamp": "2026-03-06T11:03:34.581Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Marcar CP 1 API",
+      "status": "OK",
+      "detail": "Acceso Principal - Trust: 85, Geo: Válido (5.5m)",
+      "timestamp": "2026-03-06T11:03:34.665Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Marcar CP 2 API",
+      "status": "OK",
+      "detail": "Bodega Norte - Trust: 65, Geo: Válido (3.7m)",
+      "timestamp": "2026-03-06T11:03:36.732Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Marcar CP 3 API",
+      "status": "OK",
+      "detail": "Estacionamiento - Trust: 65, Geo: Válido (4.2m)",
+      "timestamp": "2026-03-06T11:03:38.778Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Marcar CP 4 API",
+      "status": "OK",
+      "detail": "Perímetro Sur - Trust: 65, Geo: Válido (4.9m)",
+      "timestamp": "2026-03-06T11:03:40.834Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Marcar CP 5 API",
+      "status": "OK",
+      "detail": "Sala de Control - Trust: 65, Geo: Válido (3.6m)",
+      "timestamp": "2026-03-06T11:03:42.881Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "Completar Ronda API",
+      "status": "OK",
+      "detail": "Status: completada, Trust: 90, Completado: 100%",
+      "timestamp": "2026-03-06T11:03:42.925Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "BD - Estado",
+      "status": "OK",
+      "detail": "Status: completada",
+      "timestamp": "2026-03-06T11:03:42.941Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "BD - Marcaciones",
+      "status": "OK",
+      "detail": "5/5 checkpoints completados",
+      "timestamp": "2026-03-06T11:03:42.941Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "BD - Trust Score",
+      "status": "OK",
+      "detail": "90%",
+      "timestamp": "2026-03-06T11:03:42.941Z"
+    },
+    {
+      "phase": "FASE 4",
+      "step": "BD - Duración",
+      "status": "OK",
+      "detail": "0 minutos",
+      "timestamp": "2026-03-06T11:03:42.941Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Template Name",
+      "status": "OK",
+      "detail": "Ronda Completa Gard - Test E2E",
+      "timestamp": "2026-03-06T11:03:42.953Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Installation",
+      "status": "OK",
+      "detail": "Gard - Oficina Central",
+      "timestamp": "2026-03-06T11:03:42.953Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Guard Name",
+      "status": "OK",
+      "detail": "Juan Pérez",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Status",
+      "status": "OK",
+      "detail": "completada",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Completado %",
+      "status": "OK",
+      "detail": "100%",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Marcaciones Count",
+      "status": "OK",
+      "detail": "5/5",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Trust Score",
+      "status": "OK",
+      "detail": "90",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Start Time",
+      "status": "OK",
+      "detail": "2026-03-06T11:03:34.567Z",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "End Time",
+      "status": "OK",
+      "detail": "2026-03-06T11:03:42.914Z",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Duration",
+      "status": "ERROR",
+      "detail": "Expected valid value, got: 0 min",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    },
+    {
+      "phase": "FASE 5",
+      "step": "Validación Completa",
+      "status": "OK",
+      "detail": "Todos los datos del frontend verificados",
+      "timestamp": "2026-03-06T11:03:42.954Z"
+    }
+  ],
+  "bugs": []
+}
