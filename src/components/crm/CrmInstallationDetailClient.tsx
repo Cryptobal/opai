@@ -39,6 +39,7 @@ import { formatPersonName } from "@/lib/personas";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
+import { AccessControlDevicesSection } from "@/components/access-control/AccessControlDevicesSection";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2341,6 +2342,9 @@ export function CrmInstallationDetailClient({
         {activeTab === "access-control" && (
           <div className="space-y-6">
             <AccessControlConfigTab installationId={installation.id} />
+            <div className="border-t border-border pt-6">
+              <AccessControlDevicesSection installationId={installation.id} />
+            </div>
             <div className="border-t border-border pt-6">
               <AccessControlListsManager installationId={installation.id} />
             </div>

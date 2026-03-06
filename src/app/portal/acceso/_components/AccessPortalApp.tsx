@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
-import { LoginScreen } from "./LoginScreen";
-import { InstallationSelector } from "./InstallationSelector";
+import { PairingScreen } from "./PairingScreen";
+import { PairingSuccess } from "./PairingSuccess";
+import { GuardSelector } from "./GuardSelector";
+import { StandbyScreen } from "./StandbyScreen";
 import { BottomTabBar } from "./BottomTabBar";
 import { InstallationHeader } from "./InstallationHeader";
 import { OfflineBanner } from "./OfflineBanner";
@@ -15,106 +17,206 @@ import type { AccessControlConfigData } from "@/lib/access-control/types";
 
 export type TabId = "inicio" | "registro" | "en-sitio" | "mas";
 
-interface SessionUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  tenantId: string;
+const DEVICE_TOKEN_KEY = "gard_access_device_token";
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+interface DeviceInfo {
+  deviceToken: string;
+  deviceId?: string;
+  installationId: string;
+  installationName: string;
+  installationAddress: string;
+  currentGuardId?: string | null;
+  guardName?: string | null;
+  guardSelectedAt?: string | null;
+  pairedAt?: string;
 }
 
-interface Installation {
-  id: string;
-  name: string;
-  address: string;
-}
-
-const INSTALLATION_KEY = "acceso_selected_installation";
+type AppState =
+  | "loading"
+  | "pairing"
+  | "pairing-success"
+  | "guard-select"
+  | "active"
+  | "standby"
+  | "preview";
 
 export function AccessPortalApp() {
-  const [session, setSession] = useState<SessionUser | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(true);
-  const [selectedInstallation, setSelectedInstallation] =
-    useState<Installation | null>(null);
+  const [appState, setAppState] = useState<AppState>("loading");
+  const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("inicio");
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [config, setConfig] = useState<AccessControlConfigData | null>(null);
+  const [pairingData, setPairingData] = useState<{
+    installationName: string;
+    installationAddress: string;
+  } | null>(null);
 
-  // Check auth session on mount
-  useEffect(() => {
-    async function checkSession() {
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
+  // ── Check for admin preview mode ────────────────────────────────────
+  const isPreview =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("preview") === "true";
+  const previewInstallationId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("installation")
+      : null;
+
+  // ── Screen Wake Lock ────────────────────────────────────────────────
+  const requestWakeLock = useCallback(async () => {
+    if ("wakeLock" in navigator) {
       try {
-        const res = await fetch("/api/auth/session");
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.user?.email) {
-            setSession({
-              id: data.user.id ?? "",
-              name: data.user.name ?? "",
-              email: data.user.email,
-              role: data.user.role ?? "guardia",
-              tenantId: data.user.tenantId ?? "",
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      } catch {
+        // Wake lock not supported or denied
+      }
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }, []);
+
+  // ── Inactivity tracking ─────────────────────────────────────────────
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(() => {
+      setAppState((prev) => (prev === "active" ? "standby" : prev));
+    }, INACTIVITY_TIMEOUT_MS);
+  }, []);
+
+  useEffect(() => {
+    if (appState !== "active") return;
+
+    const events = ["touchstart", "mousedown", "keydown", "scroll"];
+    const handler = () => resetInactivityTimer();
+
+    events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
+    resetInactivityTimer();
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, handler));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, [appState, resetInactivityTimer]);
+
+  // Wake lock: active when not in standby
+  useEffect(() => {
+    if (appState === "active") {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+    return () => releaseWakeLock();
+  }, [appState, requestWakeLock, releaseWakeLock]);
+
+  // ── Initialize: check for stored device token ──────────────────────
+  useEffect(() => {
+    async function init() {
+      // Admin preview mode
+      if (isPreview && previewInstallationId) {
+        try {
+          const res = await fetch(
+            `/api/access-control/preview/${previewInstallationId}`
+          );
+          const json = await res.json();
+          if (json.success) {
+            setDevice({
+              deviceToken: "",
+              installationId: json.data.installationId,
+              installationName: json.data.installationName,
+              installationAddress: json.data.installationAddress ?? "",
             });
-          } else {
-            setSession(null);
+            setAppState("preview");
+            return;
           }
+        } catch {
+          // Fall through to normal flow
+        }
+      }
+
+      const storedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      if (!storedToken) {
+        setAppState("pairing");
+        return;
+      }
+
+      // Validate stored token
+      try {
+        const res = await fetch("/api/access-control/device/validate", {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+        const json = await res.json();
+
+        if (json.success && json.data?.valid) {
+          const deviceInfo: DeviceInfo = {
+            deviceToken: storedToken,
+            deviceId: json.data.deviceId,
+            installationId: json.data.installationId,
+            installationName: json.data.installationName,
+            installationAddress: json.data.installationAddress ?? "",
+            currentGuardId: json.data.currentGuardId,
+            guardSelectedAt: json.data.guardSelectedAt,
+            pairedAt: json.data.pairedAt,
+          };
+          setDevice(deviceInfo);
+
+          // Check if guard needs to be selected (no guard or >12h since selection)
+          const needsGuard = shouldSelectGuard(json.data.guardSelectedAt);
+          setAppState(needsGuard ? "guard-select" : "active");
         } else {
-          setSession(null);
+          // Token invalid — clear and show pairing
+          localStorage.removeItem(DEVICE_TOKEN_KEY);
+          setAppState("pairing");
         }
       } catch {
-        setSession(null);
-      } finally {
-        setSessionLoading(false);
+        // Network error — try to work offline if we have a token
+        setDevice({
+          deviceToken: storedToken,
+          installationId: "",
+          installationName: "",
+          installationAddress: "",
+        });
+        setAppState("pairing");
       }
     }
-    checkSession();
+
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore saved installation from localStorage
+  // ── Fetch config when device is set ────────────────────────────────
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(INSTALLATION_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Installation;
-        if (parsed?.id) {
-          setSelectedInstallation(parsed);
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-  }, []);
+    if (!device?.installationId) return;
 
-  // Fetch access control config when installation is selected
-  useEffect(() => {
-    if (!selectedInstallation) {
-      setConfig(null);
-      return;
-    }
     async function fetchConfig() {
       try {
+        const headers: Record<string, string> = {};
+        if (device!.deviceToken) {
+          headers.Authorization = `Bearer ${device!.deviceToken}`;
+        }
         const res = await fetch(
-          `/api/access-control/config/${selectedInstallation!.id}`
+          `/api/access-control/config/${device!.installationId}`,
+          { headers }
         );
         const json = await res.json();
-        if (json.success) {
-          setConfig(json.data);
-        }
+        if (json.success) setConfig(json.data);
       } catch {
         // Will use default config
       }
     }
     fetchConfig();
-  }, [selectedInstallation]);
+  }, [device]);
 
-  // Online/offline detection
+  // ── Online/offline detection ───────────────────────────────────────
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
     const goOffline = () => setIsOnline(false);
-
     setIsOnline(navigator.onLine);
-
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
     return () => {
@@ -123,7 +225,7 @@ export function AccessPortalApp() {
     };
   }, []);
 
-  // Track pending offline records count
+  // ── Pending offline records count ──────────────────────────────────
   useEffect(() => {
     async function countPending() {
       try {
@@ -164,38 +266,71 @@ export function AccessPortalApp() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleInstallationSelect = useCallback((installation: Installation) => {
-    setSelectedInstallation(installation);
-    localStorage.setItem(INSTALLATION_KEY, JSON.stringify(installation));
+  // ── Handlers ───────────────────────────────────────────────────────
+
+  const handlePaired = useCallback(
+    (data: {
+      deviceToken: string;
+      installationId: string;
+      installationName: string;
+      installationAddress: string;
+    }) => {
+      localStorage.setItem(DEVICE_TOKEN_KEY, data.deviceToken);
+      setDevice({
+        deviceToken: data.deviceToken,
+        installationId: data.installationId,
+        installationName: data.installationName,
+        installationAddress: data.installationAddress ?? "",
+      });
+      setPairingData({
+        installationName: data.installationName,
+        installationAddress: data.installationAddress ?? "",
+      });
+      setAppState("pairing-success");
+    },
+    []
+  );
+
+  const handlePairingContinue = useCallback(() => {
+    setAppState("guard-select");
   }, []);
 
-  const handleChangeInstallation = useCallback(() => {
-    setSelectedInstallation(null);
-    localStorage.removeItem(INSTALLATION_KEY);
+  const handleGuardSelected = useCallback(
+    (guard: { id: string; name: string }) => {
+      setDevice((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentGuardId: guard.id,
+              guardName: guard.name,
+              guardSelectedAt: new Date().toISOString(),
+            }
+          : prev
+      );
+      setAppState("active");
+    },
+    []
+  );
+
+  const handleGuardSkip = useCallback(() => {
+    setAppState("active");
   }, []);
 
-  const handleLoginSuccess = useCallback(() => {
-    // Re-check session after login
-    setSessionLoading(true);
-    fetch("/api/auth/session")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.user?.email) {
-          setSession({
-            id: data.user.id ?? "",
-            name: data.user.name ?? "",
-            email: data.user.email,
-            role: data.user.role ?? "guardia",
-            tenantId: data.user.tenantId ?? "",
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setSessionLoading(false));
+  const handleChangeGuard = useCallback(() => {
+    setAppState("guard-select");
   }, []);
 
-  // Loading state
-  if (sessionLoading) {
+  const handleWake = useCallback((needsGuardSelect: boolean) => {
+    if (needsGuardSelect) {
+      setAppState("guard-select");
+    } else {
+      setAppState("active");
+    }
+  }, []);
+
+  // ── Renders ────────────────────────────────────────────────────────
+
+  if (appState === "loading") {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[#0A0F1C]">
         <div className="flex flex-col items-center gap-4">
@@ -206,72 +341,92 @@ export function AccessPortalApp() {
     );
   }
 
-  // Not authenticated
-  if (!session) {
-    return <LoginScreen onSuccess={handleLoginSuccess} />;
+  if (appState === "pairing") {
+    return <PairingScreen onPaired={handlePaired} />;
   }
 
-  // No installation selected
-  if (!selectedInstallation) {
+  if (appState === "pairing-success" && pairingData) {
     return (
-      <InstallationSelector
-        guardId={session.id}
-        onSelect={handleInstallationSelect}
+      <PairingSuccess
+        installationName={pairingData.installationName}
+        installationAddress={pairingData.installationAddress}
+        onContinue={handlePairingContinue}
       />
     );
   }
 
-  // Main app with tabs
+  if (appState === "guard-select" && device) {
+    return (
+      <GuardSelector
+        installationName={device.installationName}
+        deviceToken={device.deviceToken}
+        onGuardSelected={handleGuardSelected}
+        onSkip={handleGuardSkip}
+      />
+    );
+  }
+
+  if (appState === "standby" && device) {
+    return (
+      <StandbyScreen
+        installationId={device.installationId}
+        installationName={device.installationName}
+        deviceToken={device.deviceToken}
+        onWake={handleWake}
+        guardSelectedAt={device.guardSelectedAt ?? null}
+      />
+    );
+  }
+
+  if (!device) return null;
+
+  const guardId = device.currentGuardId ?? "";
+  const guardName = device.guardName ?? "Guardia";
+
+  // Main app with tabs (active or preview mode)
   return (
     <div className="flex min-h-dvh flex-col bg-[#0A0F1C]">
       <InstallationHeader
-        installationName={selectedInstallation.name}
-        guardName={session.name}
+        installationName={device.installationName}
+        guardName={guardName}
         isOnline={isOnline}
-        onChangeInstallation={handleChangeInstallation}
+        isPreview={appState === "preview"}
+        onChangeGuard={handleChangeGuard}
       />
 
       <main className="flex-1 overflow-y-auto px-4 pb-28 pt-2">
         {activeTab === "inicio" && (
           <InicioTab
-            installationId={selectedInstallation.id}
-            installationName={selectedInstallation.name}
-            guardName={session.name}
+            installationId={device.installationId}
+            installationName={device.installationName}
+            guardName={guardName}
           />
         )}
         {activeTab === "registro" && config && (
           <RegistroTab
-            installationId={selectedInstallation.id}
-            guardId={session.id}
-            tenantId={session.tenantId}
+            installationId={device.installationId}
+            guardId={guardId}
+            tenantId=""
             config={config}
-            onEntryRegistered={() => {
-              // Refresh will happen naturally via tab switches
-            }}
+            onEntryRegistered={() => {}}
           />
         )}
         {activeTab === "en-sitio" && (
           <EnSitioTab
-            installationId={selectedInstallation.id}
-            guardId={session.id}
+            installationId={device.installationId}
+            guardId={guardId}
             maxStayHours={config?.maxStayHours}
           />
         )}
         {activeTab === "mas" && (
           <MasTab
-            installationId={selectedInstallation.id}
-            guardId={session.id}
-            guardName={session.name}
-            installationName={selectedInstallation.name}
-            onChangeInstallation={handleChangeInstallation}
-            onLogout={async () => {
-              try {
-                await fetch("/api/auth/signout", { method: "POST" });
-              } catch {
-                // ignore
-              }
-              window.location.href = "/portal/acceso";
-            }}
+            installationId={device.installationId}
+            guardId={guardId}
+            guardName={guardName}
+            installationName={device.installationName}
+            deviceToken={device.deviceToken}
+            pairedAt={device.pairedAt}
+            onChangeGuard={handleChangeGuard}
           />
         )}
       </main>
@@ -295,3 +450,12 @@ export function AccessPortalApp() {
   );
 }
 
+/** Returns true if guard selection is needed (no guard or >12h since last selection) */
+function shouldSelectGuard(
+  guardSelectedAt: string | null | undefined
+): boolean {
+  if (!guardSelectedAt) return true;
+  const selectedTime = new Date(guardSelectedAt).getTime();
+  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+  return selectedTime < twelveHoursAgo;
+}

@@ -247,6 +247,7 @@ function AppLayoutClientInner({
         { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
         { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
         { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
+        { href: '/portal/acceso', label: 'Control de Acceso', icon: Fingerprint },
       ],
     },
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);

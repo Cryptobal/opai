@@ -1415,6 +1415,8 @@ model CrmInstallation {
   accessControlRecords            AccessControlRecord[]
   accessControlDeniedAttempts     AccessControlDeniedAttempt[]
   accessControlPreregistrations   AccessControlPreregistration[]
+  accessControlPairingCodes       AccessControlPairingCode[]
+  accessControlDevices            AccessControlDevice[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -5896,5 +5898,52 @@ model AccessControlKnownVisitor {
   @@index([rut], map: "idx_ac_known_visitors_rut")
   @@index([tenantId], map: "idx_ac_known_visitors_tenant")
   @@map("access_control_known_visitors")
+  @@schema("access_control")
+}
+
+model AccessControlPairingCode {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id")
+  installationId  String    @map("installation_id") @db.Uuid
+  code            String    @unique
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt          DateTime? @map("used_at") @db.Timestamptz(6)
+  usedByDeviceId  String?   @map("used_by_device_id") @db.Uuid
+  createdBy       String?   @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation CrmInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  usedByDevice AccessControlDevice?  @relation(fields: [usedByDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([code], map: "idx_acpc_code")
+  @@index([tenantId], map: "idx_acpc_tenant")
+  @@map("access_control_pairing_codes")
+  @@schema("access_control")
+}
+
+model AccessControlDevice {
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String    @map("tenant_id")
+  installationId     String    @map("installation_id") @db.Uuid
+  deviceFingerprint  String    @map("device_fingerprint")
+  deviceName         String?   @map("device_name")
+  deviceToken        String    @unique @map("device_token")
+  isActive           Boolean   @default(true) @map("is_active")
+  pairedAt           DateTime  @default(now()) @map("paired_at") @db.Timestamptz(6)
+  lastActivityAt     DateTime  @default(now()) @map("last_activity_at") @db.Timestamptz(6)
+  lastIp             String?   @map("last_ip")
+  currentGuardId     String?   @map("current_guard_id") @db.Uuid
+  guardSelectedAt    DateTime? @map("guard_selected_at") @db.Timestamptz(6)
+  userAgent          String?   @map("user_agent")
+  screenResolution   String?   @map("screen_resolution")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  installation  CrmInstallation            @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  pairingCodes  AccessControlPairingCode[]
+
+  @@index([deviceToken], map: "idx_acd_token")
+  @@index([installationId], map: "idx_acd_installation")
+  @@index([tenantId], map: "idx_acd_tenant")
+  @@map("access_control_devices")
   @@schema("access_control")
 }

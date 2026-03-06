@@ -6,11 +6,11 @@ import {
   History,
   Shield,
   ClipboardList,
-  Building2,
-  User,
-  LogOut,
+  UserRoundCheck,
+  Smartphone,
   ChevronRight,
   ArrowLeft,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import EsperadosHoySection from "./EsperadosHoySection";
@@ -20,20 +20,16 @@ import ResumenTurnoSection from "./ResumenTurnoSection";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type SubSection =
-  | "esperados"
-  | "historial"
-  | "listas"
-  | "resumen"
-  | null;
+type SubSection = "esperados" | "historial" | "listas" | "resumen" | null;
 
 interface MasTabProps {
   installationId: string;
   guardId: string;
   guardName: string;
   installationName: string;
-  onChangeInstallation: () => void;
-  onLogout: () => void;
+  deviceToken: string;
+  pairedAt?: string;
+  onChangeGuard: () => void;
 }
 
 // ── Menu Item Component ─────────────────────────────────────────────────────
@@ -44,7 +40,6 @@ interface MenuItemProps {
   description?: string;
   onClick: () => void;
   badge?: string | number | null;
-  variant?: "default" | "danger";
   showChevron?: boolean;
   rightContent?: React.ReactNode;
 }
@@ -55,46 +50,24 @@ function MenuItem({
   description,
   onClick,
   badge,
-  variant = "default",
   showChevron = true,
   rightContent,
 }: MenuItemProps) {
-  const isDanger = variant === "danger";
-
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors active:scale-[0.99] ${
-        isDanger
-          ? "border-[#EF4444]/20 bg-[#EF4444]/5 active:bg-[#EF4444]/10"
-          : "border-[#374151] bg-[#111827] active:bg-[#1F2937]"
-      }`}
+      className="flex w-full items-center gap-3 rounded-xl border border-[#374151] bg-[#111827] px-4 py-3.5 text-left transition-colors active:scale-[0.99] active:bg-[#1F2937]"
     >
-      {/* Icon */}
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-          isDanger ? "bg-[#EF4444]/10 text-[#EF4444]" : "bg-[#1F2937] text-[#06B6D4]"
-        }`}
-      >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1F2937] text-[#06B6D4]">
         {icon}
       </div>
-
-      {/* Label + description */}
       <div className="min-w-0 flex-1">
-        <p
-          className={`text-sm font-medium ${
-            isDanger ? "text-[#EF4444]" : "text-[#F9FAFB]"
-          }`}
-        >
-          {label}
-        </p>
+        <p className="text-sm font-medium text-[#F9FAFB]">{label}</p>
         {description && (
-          <p className="text-xs text-[#9CA3AF] truncate">{description}</p>
+          <p className="truncate text-xs text-[#9CA3AF]">{description}</p>
         )}
       </div>
-
-      {/* Badge */}
       {badge !== undefined && badge !== null && (
         <Badge
           variant="outline"
@@ -103,12 +76,8 @@ function MenuItem({
           {badge}
         </Badge>
       )}
-
-      {/* Right content */}
       {rightContent}
-
-      {/* Chevron */}
-      {showChevron && !isDanger && (
+      {showChevron && (
         <ChevronRight className="h-4 w-4 shrink-0 text-[#374151]" />
       )}
     </button>
@@ -128,8 +97,9 @@ export default function MasTab({
   guardId,
   guardName,
   installationName,
-  onChangeInstallation,
-  onLogout,
+  deviceToken,
+  pairedAt,
+  onChangeGuard,
 }: MasTabProps) {
   const [activeSection, setActiveSection] = useState<SubSection>(null);
   const [esperadosCount, setEsperadosCount] = useState<number | null>(null);
@@ -154,6 +124,14 @@ export default function MasTab({
     }
     fetchCount();
   }, [installationId]);
+
+  const pairedDate = pairedAt
+    ? new Date(pairedAt).toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : null;
 
   // ── Sub-section rendering ─────────────────────────────────────────────
 
@@ -233,6 +211,24 @@ export default function MasTab({
         Mas opciones
       </h2>
 
+      {/* Guard on duty */}
+      <button
+        type="button"
+        onClick={onChangeGuard}
+        className="flex w-full items-center gap-3 rounded-xl border border-[#06B6D4]/20 bg-[#06B6D4]/5 px-4 py-3.5 text-left transition-colors active:bg-[#06B6D4]/10"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#06B6D4]/10 text-[#06B6D4]">
+          <UserRoundCheck className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-[#9CA3AF]">Guardia en Turno</p>
+          <p className="text-sm font-medium text-[#F9FAFB]">{guardName}</p>
+        </div>
+        <span className="text-xs font-medium text-[#06B6D4]">Cambiar</span>
+      </button>
+
+      <MenuSeparator />
+
       {/* Primary menu items */}
       <MenuItem
         icon={<CalendarCheck className="h-5 w-5" />}
@@ -265,34 +261,41 @@ export default function MasTab({
 
       <MenuSeparator />
 
-      {/* Settings items */}
-      <MenuItem
-        icon={<Building2 className="h-5 w-5" />}
-        label="Cambiar Instalacion"
-        description={installationName}
-        onClick={onChangeInstallation}
-      />
-
-      <MenuItem
-        icon={<User className="h-5 w-5" />}
-        label="Mi Perfil"
-        description={guardName}
-        onClick={() => {
-          // Profile could navigate elsewhere or show a modal
-        }}
-        showChevron={false}
-      />
+      {/* Device info */}
+      <div className="rounded-xl border border-[#374151] bg-[#111827] px-4 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1F2937] text-[#9CA3AF]">
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-[#9CA3AF]">
+              Este Dispositivo
+            </p>
+            <p className="text-sm text-[#F9FAFB]">{installationName}</p>
+            {pairedDate && (
+              <p className="text-xs text-[#6B7280]">
+                Vinculado: {pairedDate}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="relative flex h-2 w-2">
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            <span className="text-xs text-green-400">Activo</span>
+          </div>
+        </div>
+      </div>
 
       <MenuSeparator />
 
-      {/* Logout */}
-      <MenuItem
-        icon={<LogOut className="h-5 w-5" />}
-        label="Cerrar Sesion"
-        onClick={onLogout}
-        variant="danger"
-        showChevron={false}
-      />
+      {/* Version */}
+      <div className="flex items-center gap-2 px-2 py-1">
+        <Info className="h-3.5 w-3.5 text-[#4B5563]" />
+        <span className="text-xs text-[#4B5563]">
+          Control de Acceso v1.0.0
+        </span>
+      </div>
     </div>
   );
 }
