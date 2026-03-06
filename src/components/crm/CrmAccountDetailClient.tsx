@@ -710,12 +710,20 @@ export function CrmAccountDetailClient({
     [account.id, activityEvents, setActiveTab]
   );
 
+  const [fileCount, setFileCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=account&entityId=${encodeURIComponent(account.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileCount(d.data.length); })
+      .catch(() => {});
+  }, [account.id]);
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "portal", label: "Portal", icon: Shield },
     { id: "contracts", label: "Contratos", icon: ScrollText },
-    { id: "files", label: "Archivos", icon: FileText },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: unreadActivityCount },
   ];
 
@@ -1051,7 +1059,7 @@ export function CrmAccountDetailClient({
           />
         )}
 
-        {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Archivos" />}
+        {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Documentos" />}
       </EntityDetailLayout>
 
       {/* ── New External Chat Modal ── */}

@@ -463,10 +463,18 @@ export function CrmContactDetailClient({
   // ── Tab state & definitions ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
 
+  const [fileCount, setFileCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=contact&entityId=${encodeURIComponent(contact.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileCount(d.data.length); })
+      .catch(() => {});
+  }, [contact.id]);
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
-    { id: "files", label: "Archivos", icon: FileText },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
@@ -723,7 +731,7 @@ export function CrmContactDetailClient({
           </div>
         )}
 
-        {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5"><FileAttachments entityType="contact" entityId={contact.id} title="Archivos" /></div>}
+        {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5"><FileAttachments entityType="contact" entityId={contact.id} title="Documentos" /></div>}
       </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}

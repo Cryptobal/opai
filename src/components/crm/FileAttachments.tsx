@@ -53,7 +53,7 @@ export function FileAttachments({
   entityType,
   entityId,
   readOnly = false,
-  title = "Archivos",
+  title = "Documentos",
   className,
 }: FileAttachmentsProps) {
   const [files, setFiles] = useState<FileAttachmentItem[]>([]);

@@ -1202,8 +1202,8 @@ export function CrmDealDetailClient({
 
   const filesSection = {
     key: "files",
-    label: "Archivos",
-    children: <FileAttachments entityType="deal" entityId={deal.id} title="Archivos" />,
+    label: "Documentos",
+    children: <FileAttachments entityType="deal" entityId={deal.id} title="Documentos" />,
   };
 
   const associatedSections: AssociatedSection[] = [
@@ -1353,11 +1353,19 @@ export function CrmDealDetailClient({
   // ── Tab state & definitions ──
   const { activeTab, setActiveTab } = useEntityTabs("general");
 
+  const [fileCount, setFileCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=deal&entityId=${encodeURIComponent(deal.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileCount(d.data.length); })
+      .catch(() => {});
+  }, [deal.id]);
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "followup", label: "Seguimiento", icon: CalendarClock },
     { id: "communication", label: "Comunicación", icon: Mail },
-    { id: "files", label: "Archivos", icon: FileText },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 

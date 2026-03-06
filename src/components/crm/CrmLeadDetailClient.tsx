@@ -982,13 +982,21 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   };
   const statusInfo = STATUS_MAP[lead.status] || STATUS_MAP.pending;
 
+  const [fileCount, setFileCount] = useState(0);
+  useEffect(() => {
+    fetch(`/api/crm/files?entityType=lead&entityId=${encodeURIComponent(lead.id)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setFileCount(d.data.length); })
+      .catch(() => {});
+  }, [lead.id]);
+
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "account", label: "Cuenta", icon: Building2, hidden: !isEditable },
     { id: "contacts", label: "Contacto", icon: Users, hidden: !isEditable },
     { id: "deals", label: "Negocio", icon: Briefcase, hidden: !isEditable },
     { id: "installations", label: "Instalaciones", icon: MapPin, hidden: !isEditable },
-    { id: "files", label: "Archivos", icon: FileText },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
   ];
 
   const headerActions: EntityHeaderAction[] = [
@@ -1598,7 +1606,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             {installationsContent}
           </div>
         )}
-        {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Archivos adjuntos" />}
+        {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />}
       </EntityDetailLayout>
 
       {/* ── Sticky action bar for editable leads ── */}
