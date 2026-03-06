@@ -44,7 +44,13 @@ export async function POST(request: NextRequest) {
       if (!provider.apiKey) continue;
 
       try {
-        const apiKey = decryptApiKey(provider.apiKey!);
+        let apiKey: string;
+        try {
+          apiKey = decryptApiKey(provider.apiKey!);
+        } catch {
+          // Fallback: key may be stored unencrypted (AI_ENCRYPTION_KEY not set)
+          apiKey = provider.apiKey!;
+        }
         if (provider.providerType === "openai") {
           result = await ocrWithOpenAI(apiKey, image, provider.models[0]?.modelId);
         } else if (provider.providerType === "anthropic") {

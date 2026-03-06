@@ -10,13 +10,14 @@ const PRECACHE_URLS = [
 ];
 
 // INSTALL: pre-cache shell (allSettled so individual failures don't abort install)
+// NOTE: Do NOT call skipWaiting() here — it causes an infinite update loop.
+// skipWaiting is triggered by the SKIP_WAITING message from the update banner.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)))
     )
   );
-  self.skipWaiting();
 });
 
 // ACTIVATE: remove old caches (including legacy rondas-v1)

@@ -6,13 +6,20 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       scope: '/',
     });
 
+    // If there's already a waiting worker from a previous visit, notify immediately
+    if (registration.waiting && navigator.serviceWorker.controller) {
+      window.dispatchEvent(new CustomEvent('sw-updated'));
+    }
+
     registration.addEventListener('updatefound', () => {
       const newWorker = registration.installing;
       if (!newWorker) return;
 
       newWorker.addEventListener('statechange', () => {
-        // controller is null on first install — only dispatch for genuine SW updates
-        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+        // Notify when new SW reaches 'installed' (waiting) state — not 'activated'.
+        // 'installed' means the update is ready but waiting for user action.
+        // controller check ensures this is an update, not the first install.
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           window.dispatchEvent(new CustomEvent('sw-updated'));
         }
       });

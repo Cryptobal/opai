@@ -16,9 +16,14 @@ export function useServiceWorker() {
 
   const applyUpdate = useCallback(() => {
     if (registration?.waiting) {
+      // Wait for the new SW to take control before reloading
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      }, { once: true });
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    } else {
+      window.location.reload();
     }
-    window.location.reload();
   }, [registration]);
 
   return { registration, updateAvailable, applyUpdate };
