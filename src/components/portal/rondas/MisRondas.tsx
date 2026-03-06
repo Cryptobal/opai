@@ -57,6 +57,34 @@ interface Props {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidSession(s: { guardiaId: string; installationId: string; tenantId: string }): boolean {
+  return (
+    typeof s.guardiaId === "string" && UUID_RE.test(s.guardiaId) &&
+    typeof s.installationId === "string" && UUID_RE.test(s.installationId) &&
+    typeof s.tenantId === "string" && s.tenantId.length > 0
+  );
+}
+
+async function fetchWithRetry(url: string, retries = 2, delay = 500): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok || res.status < 500) return res;
+      if (i < retries) {
+        await new Promise((r) => setTimeout(r, delay * (i + 1)));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise((r) => setTimeout(r, delay * (i + 1)));
+    }
+  }
+  throw new Error("fetch failed");
+}
+
 function formatTime(isoString: string): string {
   try {
     const d = new Date(isoString);
@@ -109,25 +137,42 @@ function toMapCheckpoints(checkpoints: CheckpointItem[], rondaStatus: string): M
 }
 
 // ---------------------------------------------------------------------------
-// Section types
+// Section types — Redesigned priority order
 // ---------------------------------------------------------------------------
 
-type SectionKey = "en_curso" | "atrasadas" | "listas" | "proximas" | "completadas";
+type SectionKey = "en_curso" | "listas" | "con_retraso" | "proximas" | "no_realizadas" | "completadas";
 
 interface SectionDef {
   key: SectionKey;
-  icon: string;
   label: string;
   collapsible: boolean;
 }
 
 const SECTIONS: SectionDef[] = [
-  { key: "en_curso", icon: "\u26A1", label: "EN CURSO", collapsible: false },
-  { key: "atrasadas", icon: "\uD83D\uDD34", label: "ATRASADAS", collapsible: false },
-  { key: "listas", icon: "\u2705", label: "LISTAS PARA INICIAR", collapsible: false },
-  { key: "proximas", icon: "\u23F3", label: "PR\u00D3XIMAS", collapsible: false },
-  { key: "completadas", icon: "\u2705", label: "COMPLETADAS", collapsible: true },
+  { key: "en_curso", label: "RONDA ACTIVA", collapsible: false },
+  { key: "listas", label: "LISTAS PARA INICIAR", collapsible: false },
+  { key: "con_retraso", label: "CON RETRASO", collapsible: false },
+  { key: "proximas", label: "PR\u00D3XIMAS", collapsible: false },
+  { key: "no_realizadas", label: "NO REALIZADAS HOY", collapsible: true },
+  { key: "completadas", label: "COMPLETADAS HOY", collapsible: true },
 ];
+
+/** Classify a pending ronda based on elapsed time vs tolerancia */
+function classifyPendiente(
+  scheduledMs: number,
+  toleranciaMin: number,
+  nowMs: number,
+): "proximas" | "listas" | "con_retraso" | "no_realizadas" {
+  const elapsed = nowMs - scheduledMs;
+  const toleranciaMs = toleranciaMin * 60000;
+  const halfTol = toleranciaMs / 2;
+
+  if (elapsed < -15 * 60000) return "proximas"; // More than 15 min before scheduled
+  if (elapsed < 0) return "listas"; // 0-15 min before scheduled
+  if (elapsed <= halfTol) return "listas"; // 0 to half-tolerance: "A tiempo"
+  if (elapsed <= toleranciaMs) return "con_retraso"; // half-tolerance to tolerance: "Con retraso"
+  return "no_realizadas"; // Past tolerance: no start allowed
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -141,7 +186,13 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
   const [now, setNow] = useState(() => Date.now());
-  const [completadasOpen, setCompletadasOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    no_realizadas: true,
+    completadas: true,
+  });
+
+  const toggleSection = (key: string) =>
+    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // ---- Live clock (1s) for countdowns/timers ----
   useEffect(() => {
@@ -163,6 +214,11 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
 
   // ---- Fetch rondas ----
   const fetchRondas = useCallback(async () => {
+    if (!isValidSession(session)) {
+      setError("Sesi\u00F3n inv\u00E1lida. Vuelva a ingresar.");
+      setRondas([]);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -171,7 +227,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
         installationId: session.installationId,
         tenantId: session.tenantId,
       });
-      const res = await fetch(`/api/portal/rondas/mis-rondas?${params.toString()}`);
+      const res = await fetchWithRetry(`/api/portal/rondas/mis-rondas?${params.toString()}`);
       if (!res.ok) {
         setError(
           res.status === 401 || res.status === 403
@@ -201,38 +257,33 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
     fetchRondas();
   }, [fetchRondas]);
 
-  // ---- Group rondas into sections ----
+  // ---- Group rondas into sections (redesigned priority) ----
   const grouped = useMemo(() => {
-    const enCurso: RondaItem[] = [];
-    const atrasadas: RondaItem[] = [];
-    const listas: RondaItem[] = [];
-    const proximas: RondaItem[] = [];
-    const completadas: RondaItem[] = [];
+    const map: Record<SectionKey, RondaItem[]> = {
+      en_curso: [],
+      listas: [],
+      con_retraso: [],
+      proximas: [],
+      no_realizadas: [],
+      completadas: [],
+    };
 
     for (const r of rondas) {
       if (r.status === "en_curso") {
-        enCurso.push(r);
-      } else if (r.status === "atrasada") {
-        atrasadas.push(r);
+        map.en_curso.push(r);
+      } else if (r.status === "no_realizada") {
+        map.no_realizadas.push(r);
       } else if (r.status === "pendiente") {
         const scheduledMs = new Date(r.scheduledAt).getTime();
-        const toleranceMs = (r.toleranciaMinutos ?? 10) * 60000;
-        if (now > scheduledMs + toleranceMs) {
-          // Past due: scheduled time + tolerance window has passed
-          atrasadas.push(r);
-        } else if (now >= scheduledMs - toleranceMs) {
-          // Within tolerance window: ready to start
-          listas.push(r);
-        } else {
-          // Future: not yet within tolerance window
-          proximas.push(r);
-        }
+        const toleranciaMin = r.toleranciaMinutos ?? 30;
+        const key = classifyPendiente(scheduledMs, toleranciaMin, now);
+        map[key].push(r);
       } else if (r.status === "completada" || r.status === "incompleta") {
-        completadas.push(r);
+        map.completadas.push(r);
       }
     }
 
-    return { en_curso: enCurso, atrasadas, listas, proximas, completadas };
+    return map;
   }, [rondas, now]);
 
   // ---- Date header ----
@@ -376,39 +427,51 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
               const items = grouped[section.key];
               if (items.length === 0) return null;
 
-              const isCompletadas = section.key === "completadas";
-              const isOpen = !isCompletadas || completadasOpen;
+              const isCollapsible = section.collapsible;
+              const isCollapsed = isCollapsible && collapsedSections[section.key];
+
+              const labelColor =
+                section.key === "en_curso"
+                  ? "text-teal-400"
+                  : section.key === "listas"
+                    ? "text-green-400"
+                    : section.key === "con_retraso"
+                      ? "text-orange-400"
+                      : section.key === "no_realizadas"
+                        ? "text-red-400"
+                        : section.key === "completadas"
+                          ? "text-green-400"
+                          : "text-gray-400";
 
               return (
                 <div key={section.key}>
                   {/* Section header */}
                   <button
                     type="button"
-                    onClick={isCompletadas ? () => setCompletadasOpen((v) => !v) : undefined}
+                    onClick={isCollapsible ? () => toggleSection(section.key) : undefined}
                     className={`mb-3 flex w-full items-center gap-2 text-left text-sm font-bold uppercase tracking-wider ${
-                      isCompletadas ? "cursor-pointer" : "cursor-default"
+                      isCollapsible ? "cursor-pointer" : "cursor-default"
                     }`}
                   >
-                    <span>{section.icon}</span>
-                    <span
-                      className={
-                        section.key === "atrasadas"
-                          ? "text-red-400"
-                          : section.key === "en_curso"
-                            ? "text-teal-400"
-                            : section.key === "listas"
-                              ? "text-green-400"
-                              : "text-gray-400"
-                      }
-                    >
+                    <span className={labelColor}>
                       {section.label}
-                      {isCompletadas && ` (${items.length})`}
                     </span>
-                    {isCompletadas && (
+                    {isCollapsible && (
+                      <span
+                        className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          section.key === "no_realizadas"
+                            ? "bg-red-500/20 text-red-400"
+                            : "bg-green-500/20 text-green-400"
+                        }`}
+                      >
+                        {items.length}
+                      </span>
+                    )}
+                    {isCollapsible && (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className={`ml-auto h-4 w-4 text-gray-500 transition-transform ${
-                          completadasOpen ? "rotate-180" : ""
+                          !isCollapsed ? "rotate-180" : ""
                         }`}
                         fill="none"
                         viewBox="0 0 24 24"
@@ -421,7 +484,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
                   </button>
 
                   {/* Cards */}
-                  {isOpen && (
+                  {!isCollapsed && (
                     <div className="space-y-3">
                       {items.map((ronda) => (
                         <RondaCard
@@ -472,9 +535,10 @@ function RondaCard({
   onIniciar: (ejecucionId: string) => void;
 }) {
   const isEnCurso = sectionKey === "en_curso";
-  const isAtrasada = sectionKey === "atrasadas";
   const isLista = sectionKey === "listas";
+  const isConRetraso = sectionKey === "con_retraso";
   const isProxima = sectionKey === "proximas";
+  const isNoRealizada = sectionKey === "no_realizadas";
   const isCompletada = sectionKey === "completadas";
 
   const scheduledMs = new Date(ronda.scheduledAt).getTime();
@@ -484,13 +548,15 @@ function RondaCard({
   let timeInfo = "";
   if (isEnCurso && startedMs) {
     const elapsed = now - startedMs;
-    timeInfo = `\u23F1\uFE0F ${formatMMSS(elapsed)} transcurridos`;
-  } else if (isAtrasada) {
+    timeInfo = `${formatMMSS(elapsed)} transcurridos`;
+  } else if (isConRetraso) {
     const elapsed = now - scheduledMs;
-    timeInfo = `hace ${formatDuration(elapsed)}`;
+    timeInfo = `Con retraso: ${formatDuration(elapsed)}`;
+  } else if (isNoRealizada) {
+    timeInfo = `Programada: ${formatTime(ronda.scheduledAt)} - No realizada`;
   } else if (isProxima) {
     const remaining = scheduledMs - now;
-    timeInfo = `en ${formatDuration(remaining)}`;
+    timeInfo = `Faltan ${formatDuration(remaining)}`;
   } else if (isCompletada && ronda.startedAt) {
     timeInfo = `Completada a las ${formatTime(ronda.startedAt)}`;
   }
@@ -502,7 +568,7 @@ function RondaCard({
       : 0;
 
   // Mini-map checkpoints
-  const showMap = hasValidCoords(ronda.checkpoints);
+  const showMap = hasValidCoords(ronda.checkpoints) && !isNoRealizada;
   const mapCheckpoints = useMemo(
     () => (showMap ? toMapCheckpoints(ronda.checkpoints, ronda.status) : []),
     [ronda.checkpoints, ronda.status, showMap],
@@ -511,11 +577,13 @@ function RondaCard({
   // Card border styling
   const borderClass = isEnCurso
     ? "border-teal-700/60 bg-teal-950/20"
-    : isAtrasada
-      ? "border-red-800/50 bg-red-950/20"
-      : isCompletada
-        ? "border-gray-800/50 bg-gray-900/30"
-        : "border-gray-800 bg-gray-900/60";
+    : isConRetraso
+      ? "border-orange-700/50 bg-orange-950/20"
+      : isNoRealizada
+        ? "border-red-800/30 bg-red-950/10"
+        : isCompletada
+          ? "border-gray-800/50 bg-gray-900/30"
+          : "border-gray-800 bg-gray-900/60";
 
   return (
     <div className={`rounded-2xl border p-4 transition-colors ${borderClass}`}>
@@ -523,14 +591,26 @@ function RondaCard({
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3
           className={`text-lg font-semibold ${
-            isCompletada ? "text-gray-500" : "text-white"
+            isCompletada || isNoRealizada ? "text-gray-500" : "text-white"
           }`}
         >
           {ronda.templateName}
         </h3>
-        <span className={`shrink-0 text-sm ${isCompletada ? "text-gray-600" : "text-gray-400"}`}>
-          {formatTime(ronda.scheduledAt)}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {isConRetraso && (
+            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
+              Retraso
+            </span>
+          )}
+          {isNoRealizada && (
+            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+              No realizada
+            </span>
+          )}
+          <span className={`text-sm ${isCompletada || isNoRealizada ? "text-gray-600" : "text-gray-400"}`}>
+            {formatTime(ronda.scheduledAt)}
+          </span>
+        </div>
       </div>
 
       {/* Time info */}
@@ -539,11 +619,13 @@ function RondaCard({
           className={`mb-2 text-sm font-medium ${
             isEnCurso
               ? "text-teal-400"
-              : isAtrasada
-                ? "text-red-400"
-                : isProxima
-                  ? "text-gray-400"
-                  : "text-gray-500"
+              : isConRetraso
+                ? "text-orange-400"
+                : isNoRealizada
+                  ? "text-red-400"
+                  : isProxima
+                    ? "text-gray-400"
+                    : "text-gray-500"
           }`}
         >
           {timeInfo}
@@ -568,8 +650,8 @@ function RondaCard({
         </div>
       )}
 
-      {/* Checkpoint info for non-en_curso */}
-      {!isEnCurso && !isCompletada && (
+      {/* Checkpoint info for actionable cards */}
+      {!isEnCurso && !isCompletada && !isNoRealizada && (
         <p className="mb-2 text-sm text-gray-500">
           {ronda.checkpointsTotal} checkpoints
           {ronda.estimatedDurationMin ? ` \u00B7 ~${ronda.estimatedDurationMin} min` : ""}
@@ -631,16 +713,6 @@ function RondaCard({
         </button>
       )}
 
-      {isAtrasada && (
-        <button
-          onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-red-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-red-500 active:bg-red-700"
-          style={{ minHeight: 56 }}
-        >
-          Iniciar Ronda (Atrasada)
-        </button>
-      )}
-
       {isLista && (
         <button
           onClick={() => onIniciar(ronda.ejecucionId)}
@@ -651,7 +723,17 @@ function RondaCard({
         </button>
       )}
 
-      {/* Proximas: NO button */}
+      {isConRetraso && (
+        <button
+          onClick={() => onIniciar(ronda.ejecucionId)}
+          className="mt-1 w-full rounded-xl bg-orange-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-orange-500 active:bg-orange-700"
+          style={{ minHeight: 56 }}
+        >
+          Iniciar Ronda (Con Retraso)
+        </button>
+      )}
+
+      {/* no_realizadas and proximas: NO start button */}
     </div>
   );
 }

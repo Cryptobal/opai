@@ -109,10 +109,27 @@ export function RondasPortalClient() {
   );
 
   // Navigate: mis-rondas -> ronda-activa
+  // First POST to /api/portal/rondas/iniciar to set startedAt, then fetch data
   const handleIniciarRonda = useCallback(
     async (ejecucionId: string) => {
+      if (!session) return;
       setLoadingRonda(true);
       setActiveEjecucionId(ejecucionId);
+
+      // Register start immediately (fire-and-forget for status=en_curso rondas)
+      try {
+        await fetch("/api/portal/rondas/iniciar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ejecucionId,
+            guardiaId: session.guardiaId,
+          }),
+        });
+      } catch {
+        // Non-blocking: if this fails, the first marcar will still set startedAt
+      }
+
       const data = await fetchRondaData(ejecucionId);
       setLoadingRonda(false);
       if (data) {
@@ -120,7 +137,7 @@ export function RondasPortalClient() {
         setScreen("ronda-activa");
       }
     },
-    [fetchRondaData],
+    [fetchRondaData, session],
   );
 
   // Navigate: ronda-activa -> completada

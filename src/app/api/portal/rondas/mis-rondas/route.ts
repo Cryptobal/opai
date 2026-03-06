@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: NextRequest) {
   try {
     const guardiaId = request.nextUrl.searchParams.get("guardiaId");
@@ -10,6 +12,13 @@ export async function GET(request: NextRequest) {
 
     if (!guardiaId || !installationId || !tenantId) {
       return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
+    }
+
+    if (!UUID_RE.test(guardiaId) || !UUID_RE.test(installationId)) {
+      return NextResponse.json(
+        { success: false, error: "Formato de parámetros inválido" },
+        { status: 400 },
+      );
     }
 
     // Get active templates for this installation
@@ -47,7 +56,7 @@ export async function GET(request: NextRequest) {
         tenantId,
         rondaTemplateId: { in: templates.map(t => t.id) },
         scheduledAt: { gte: startOfDay, lte: endOfDay },
-        status: { in: ["pendiente", "en_curso", "incompleta", "completada"] },
+        status: { in: ["pendiente", "en_curso", "incompleta", "completada", "no_realizada"] },
       },
       include: {
         marcaciones: {
@@ -93,8 +102,15 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Portal Rondas] Mis rondas error:", error);
+    const msg = error instanceof Error ? error.message : "";
+    if (msg.includes("timed out") || msg.includes("timeout")) {
+      return NextResponse.json(
+        { success: false, error: "La consulta tardó demasiado. Intente de nuevo." },
+        { status: 504 },
+      );
+    }
     return NextResponse.json({ success: false, error: "Error al obtener rondas" }, { status: 500 });
   }
 }
