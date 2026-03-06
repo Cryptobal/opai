@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { decryptApiKey } from "@/lib/ai-encryption";
 import { OCR_PLATE_PROMPT } from "@/lib/access-control/utils";
 import type { PlateOcrResult } from "@/lib/access-control/types";
 
@@ -43,10 +44,11 @@ export async function POST(request: NextRequest) {
       if (!provider.apiKey) continue;
 
       try {
+        const apiKey = decryptApiKey(provider.apiKey!);
         if (provider.providerType === "openai") {
-          result = await ocrWithOpenAI(provider.apiKey, image, provider.models[0]?.modelId);
+          result = await ocrWithOpenAI(apiKey, image, provider.models[0]?.modelId);
         } else if (provider.providerType === "anthropic") {
-          result = await ocrWithAnthropic(provider.apiKey, image, provider.models[0]?.modelId);
+          result = await ocrWithAnthropic(apiKey, image, provider.models[0]?.modelId);
         }
         // Add google support if needed
 
