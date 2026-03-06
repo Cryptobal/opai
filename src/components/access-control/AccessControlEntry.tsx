@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, UserPlus, Truck, Car, BadgeCheck, Package,
   QrCode, Keyboard, Loader2, Check, AlertTriangle,
-  ShieldAlert, ShieldCheck, Camera,
+  ShieldAlert, ShieldCheck, Camera, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
