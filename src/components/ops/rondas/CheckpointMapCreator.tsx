@@ -647,7 +647,7 @@ export function CheckpointMapCreator({
           <button
             type="button"
             title="Mi ubicación"
-            className="absolute bottom-24 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            className="absolute bottom-4 left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors"
             onClick={() => {
               const map = mapRef.current;
               if (!map) return;
