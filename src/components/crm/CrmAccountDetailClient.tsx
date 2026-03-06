@@ -127,6 +127,19 @@ type QuoteRow = {
   createdAt: string;
 };
 
+type RepresentanteLegal = {
+  id: string;
+  nombre: string;
+  rut: string;
+};
+
+type Personeria = {
+  id: string;
+  fechaEscritura?: string | null;
+  tipoEscritura?: string | null;
+  notaria?: string | null;
+};
+
 type AccountDetail = {
   id: string;
   name: string;
@@ -152,6 +165,8 @@ type AccountDetail = {
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
+  representantesLegales?: RepresentanteLegal[];
+  personeria?: Personeria | null;
   encuestasCliente?: Array<{
     id: string;
     contactName: string;
@@ -255,6 +270,24 @@ export function CrmAccountDetailClient({
   // ── Ref para abrir modal de nueva instalación desde header de sección ──
   const createInstallationRef = useRef<{ open: () => void } | null>(null);
 
+  // ── Representantes legales state ──
+  const [representantes, setRepresentantes] = useState<RepresentanteLegal[]>(initialAccount.representantesLegales ?? []);
+  const [repModalOpen, setRepModalOpen] = useState(false);
+  const [editingRep, setEditingRep] = useState<RepresentanteLegal | null>(null);
+  const [repForm, setRepForm] = useState({ nombre: "", rut: "" });
+  const [savingRep, setSavingRep] = useState(false);
+  const [deletingRepId, setDeletingRepId] = useState<string | null>(null);
+
+  // ── Personería state ──
+  const [personeria, setPersoneria] = useState<Personeria | null>(initialAccount.personeria ?? null);
+  const [perModalOpen, setPerModalOpen] = useState(false);
+  const [perForm, setPerForm] = useState({
+    fechaEscritura: initialAccount.personeria?.fechaEscritura ? new Date(initialAccount.personeria.fechaEscritura).toISOString().slice(0, 10) : "",
+    tipoEscritura: initialAccount.personeria?.tipoEscritura ?? "",
+    notaria: initialAccount.personeria?.notaria ?? "",
+  });
+  const [savingPer, setSavingPer] = useState(false);
+
   // ── Enrich / Regenerate company info ──
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [enrichWebsiteInput, setEnrichWebsiteInput] = useState("");
@@ -264,6 +297,79 @@ export function CrmAccountDetailClient({
   const lifecycle = getAccountLifecycle(account);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
+
+  // ── Representantes handlers ──
+  const openRepModal = (rep?: RepresentanteLegal) => {
+    if (rep) {
+      setEditingRep(rep);
+      setRepForm({ nombre: rep.nombre, rut: rep.rut });
+    } else {
+      setEditingRep(null);
+      setRepForm({ nombre: "", rut: "" });
+    }
+    setRepModalOpen(true);
+  };
+
+  const saveRep = async () => {
+    if (!repForm.nombre.trim() || !repForm.rut.trim()) { toast.error("Nombre y RUT son obligatorios."); return; }
+    setSavingRep(true);
+    try {
+      const method = editingRep ? "PUT" : "POST";
+      const body = editingRep
+        ? { id: editingRep.id, nombre: repForm.nombre.trim(), rut: repForm.rut.trim() }
+        : { nombre: repForm.nombre.trim(), rut: repForm.rut.trim() };
+      const res = await fetch(`/api/crm/accounts/${account.id}/representantes`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error || "Error al guardar"); return; }
+      if (editingRep) {
+        setRepresentantes((prev) => prev.map((r) => (r.id === editingRep.id ? json.data : r)));
+      } else {
+        setRepresentantes((prev) => [...prev, json.data]);
+      }
+      setRepModalOpen(false);
+      toast.success(editingRep ? "Representante actualizado" : "Representante agregado");
+    } catch { toast.error("Error de conexión"); } finally { setSavingRep(false); }
+  };
+
+  const deleteRep = async (repId: string) => {
+    setDeletingRepId(repId);
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}/representantes?repId=${repId}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Error al eliminar"); return; }
+      setRepresentantes((prev) => prev.filter((r) => r.id !== repId));
+      toast.success("Representante eliminado");
+    } catch { toast.error("Error de conexión"); } finally { setDeletingRepId(null); }
+  };
+
+  // ── Personería handlers ──
+  const openPerModal = () => {
+    setPerForm({
+      fechaEscritura: personeria?.fechaEscritura ? new Date(personeria.fechaEscritura).toISOString().slice(0, 10) : "",
+      tipoEscritura: personeria?.tipoEscritura ?? "",
+      notaria: personeria?.notaria ?? "",
+    });
+    setPerModalOpen(true);
+  };
+
+  const savePer = async () => {
+    setSavingPer(true);
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}/personeria`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(perForm),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error || "Error al guardar"); return; }
+      setPersoneria(json.data);
+      setPerModalOpen(false);
+      toast.success("Personería actualizada");
+    } catch { toast.error("Error de conexión"); } finally { setSavingPer(false); }
+  };
 
   // ── Account handlers ──
   const openAccountEdit = () => {
@@ -922,6 +1028,7 @@ export function CrmAccountDetailClient({
             </a>
           ) : undefined}
         />
+        <DetailField label="Nombre fantasía" value={account.name} />
         <DetailField label="RUT" value={account.rut} mono copyable />
         <DetailField label="Razón social" value={account.legalName} />
         <DetailField label="Industria" value={account.industry} />
@@ -1003,6 +1110,64 @@ export function CrmAccountDetailClient({
             Regenerar
           </Button>
         </div>
+      </div>
+
+      {/* ── Representantes legales ── */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Representantes legales</span>
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => openRepModal()}>
+            <Plus className="mr-1 h-3 w-3" /> Agregar
+          </Button>
+        </div>
+        {representantes.length === 0 ? (
+          <p className="text-xs text-muted-foreground/60 italic">Sin representantes legales registrados.</p>
+        ) : (
+          <div className="divide-y divide-border rounded-md border border-border bg-background">
+            {representantes.map((rep) => (
+              <div key={rep.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium">{rep.nombre}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">{rep.rut}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <Button type="button" size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => openRepModal(rep)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    onClick={() => deleteRep(rep.id)}
+                    disabled={deletingRepId === rep.id}
+                  >
+                    {deletingRepId === rep.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Personería ── */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Personería</span>
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={openPerModal}>
+            <Pencil className="mr-1 h-3 w-3" /> {personeria ? "Editar" : "Agregar"}
+          </Button>
+        </div>
+        {!personeria ? (
+          <p className="text-xs text-muted-foreground/60 italic">Sin datos de personería registrados.</p>
+        ) : (
+          <DetailFieldGrid columns={3}>
+            <DetailField label="Fecha escritura" value={personeria.fechaEscritura ? new Intl.DateTimeFormat("es-CL").format(new Date(personeria.fechaEscritura)) : undefined} />
+            <DetailField label="Tipo escritura" value={personeria.tipoEscritura} />
+            <DetailField label="Notaría" value={personeria.notaria} />
+          </DetailFieldGrid>
+        )}
       </div>
     </div>
   );
@@ -1266,6 +1431,62 @@ export function CrmAccountDetailClient({
             <Button onClick={createContact} disabled={creatingContact}>
               {creatingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear contacto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Representante Legal Modal ── */}
+      <Dialog open={repModalOpen} onOpenChange={setRepModalOpen}>
+        <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>{editingRep ? "Editar representante" : "Nuevo representante"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nombre completo *</Label>
+              <Input value={repForm.nombre} onChange={(e) => setRepForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCn} placeholder="Juan Pérez López" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">RUT *</Label>
+              <Input value={repForm.rut} onChange={(e) => setRepForm((p) => ({ ...p, rut: e.target.value }))} className={inputCn} placeholder="12.345.678-9" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRepModalOpen(false)}>Cancelar</Button>
+            <Button onClick={saveRep} disabled={savingRep}>
+              {savingRep && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingRep ? "Guardar" : "Agregar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Personería Modal ── */}
+      <Dialog open={perModalOpen} onOpenChange={setPerModalOpen}>
+        <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Datos de personería</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha escritura</Label>
+              <Input type="date" value={perForm.fechaEscritura} onChange={(e) => setPerForm((p) => ({ ...p, fechaEscritura: e.target.value }))} className={inputCn} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tipo escritura</Label>
+              <Input value={perForm.tipoEscritura} onChange={(e) => setPerForm((p) => ({ ...p, tipoEscritura: e.target.value }))} className={inputCn} placeholder="Ej: Constitución de sociedad" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Notaría</Label>
+              <Input value={perForm.notaria} onChange={(e) => setPerForm((p) => ({ ...p, notaria: e.target.value }))} className={inputCn} placeholder="Ej: Notaría de Santiago" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPerModalOpen(false)}>Cancelar</Button>
+            <Button onClick={savePer} disabled={savingPer}>
+              {savingPer && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar
             </Button>
           </DialogFooter>
         </DialogContent>

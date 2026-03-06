@@ -32,6 +32,8 @@ export default async function CrmAccountDetailPage({
           orderBy: { createdAt: "desc" },
         },
         installations: { orderBy: { createdAt: "desc" } },
+        representantesLegales: { orderBy: { createdAt: "asc" }, select: { id: true, nombre: true, rut: true } },
+        personeria: { select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true } },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }),
