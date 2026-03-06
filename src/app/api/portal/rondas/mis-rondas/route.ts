@@ -17,7 +17,19 @@ export async function GET(request: NextRequest) {
       where: { tenantId, installationId, isActive: true },
       include: {
         checkpoints: {
-          include: { checkpoint: { select: { id: true, name: true, instrucciones: true, qrCode: true, lat: true, lng: true, geoRadiusM: true } } },
+          include: {
+            checkpoint: {
+              select: {
+                id: true, name: true, instrucciones: true, qrCode: true,
+                lat: true, lng: true, geoRadiusM: true, verificationType: true,
+                tasks: {
+                  where: { isActive: true },
+                  orderBy: { sortOrder: "asc" },
+                  select: { id: true, label: true, type: true, required: true, options: true, config: true, sortOrder: true },
+                },
+              },
+            },
+          },
           orderBy: { orderIndex: "asc" },
         },
       },
@@ -66,14 +78,16 @@ export async function GET(request: NextRequest) {
         checkpoints: template?.checkpoints.map(tc => ({
           id: tc.checkpoint.id,
           name: tc.checkpoint.name,
+          instrucciones: tc.checkpoint.instrucciones ?? null,
           qrCode: tc.checkpoint.qrCode,
           lat: tc.checkpoint.lat,
           lng: tc.checkpoint.lng,
           geoRadiusM: tc.checkpoint.geoRadiusM,
-          verificationType: (tc.checkpoint as any).verificationType,
+          verificationType: tc.checkpoint.verificationType,
           orderIndex: tc.orderIndex,
           isRequired: tc.isRequired,
           completed: ej.marcaciones.some(m => m.checkpointId === tc.checkpointId && m.status === "COMPLETED"),
+          tasks: tc.checkpoint.tasks ?? [],
         })) ?? [],
       };
     });

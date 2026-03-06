@@ -13,9 +13,26 @@ const RondaMap = dynamic(() => import("./RondaMap"), { ssr: false });
 // Types — matches API shape from /api/portal/rondas/mis-rondas
 // ---------------------------------------------------------------------------
 
+export interface ApiCheckpointTask {
+  id: string;
+  label: string;
+  type: "boolean" | "checklist" | "select" | "text" | "number" | "photo";
+  required: boolean;
+  options?: string[] | null;
+  config?: {
+    min?: number;
+    max?: number;
+    minPhotos?: number;
+    placeholder?: string;
+    alertOnValue?: string | boolean | number;
+  } | null;
+  sortOrder: number;
+}
+
 export interface ApiCheckpoint {
   id: string;
   name: string;
+  instrucciones?: string | null;
   qrCode: string | null;
   lat: number;
   lng: number;
@@ -24,6 +41,7 @@ export interface ApiCheckpoint {
   orderIndex: number;
   isRequired: boolean;
   completed: boolean;
+  tasks?: ApiCheckpointTask[];
 }
 
 export interface RondaData {
@@ -330,10 +348,12 @@ export function RondaActiva({
         checkpoint={{
           id: markingCheckpoint.id,
           name: markingCheckpoint.name,
+          instrucciones: markingCheckpoint.instrucciones,
           lat: markingCheckpoint.lat,
           lng: markingCheckpoint.lng,
           geoRadiusM: markingCheckpoint.geoRadiusM,
           verificationType: markingCheckpoint.verificationType,
+          tasks: markingCheckpoint.tasks,
         }}
         ejecucionId={rondaData.ejecucionId}
         guardiaId={session.guardiaId}

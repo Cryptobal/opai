@@ -2264,6 +2264,7 @@ model OpsGuardia {
   examAssignments             ExamAssignment[]
   rondaAlertas                OpsAlertaRonda[]                @relation("alertaGuardia")
   patrolSessions              OpsPatrullajeSesion[]
+  checkpointTaskResponses     OpsCheckpointTaskResponse[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -3182,6 +3183,7 @@ model OpsCheckpoint {
   rondaLinks   OpsRondaCheckpoint[]
   marcaciones  OpsMarcacionCheckpoint[]
   incidentes   OpsRondaIncidente[]
+  tasks        OpsCheckpointTask[]
 
   @@unique([tenantId, qrCode], map: "uq_ops_checkpoint_tenant_qr")
   @@index([tenantId], map: "idx_ops_checkpoints_tenant")
@@ -3189,6 +3191,53 @@ model OpsCheckpoint {
   @@index([installationId], map: "idx_ops_checkpoints_installation")
   @@index([isActive], map: "idx_ops_checkpoints_active")
   @@map("checkpoints")
+  @@schema("ops")
+}
+
+model OpsCheckpointTask {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id")
+  checkpointId String   @map("checkpoint_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  label        String
+  type         String   @default("boolean") // boolean | checklist | select | text | number | photo
+  required     Boolean  @default(false)
+  options      Json?    @db.JsonB // string[] for checklist/select
+  config       Json?    @db.JsonB // { min, max, minPhotos, placeholder, alertOnValue }
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  checkpoint OpsCheckpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  responses  OpsCheckpointTaskResponse[]
+
+  @@index([checkpointId], map: "idx_ops_checkpoint_task_checkpoint")
+  @@index([tenantId], map: "idx_ops_checkpoint_task_tenant")
+  @@map("checkpoint_tasks")
+  @@schema("ops")
+}
+
+model OpsCheckpointTaskResponse {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  taskId          String   @map("task_id") @db.Uuid
+  marcacionId     String   @map("marcacion_id") @db.Uuid
+  guardiaId       String   @map("guardia_id") @db.Uuid
+  value           Json     @db.JsonB // boolean | string | number | string[]
+  photoUrls       Json?    @map("photo_urls") @db.JsonB // string[]
+  respondedAt     DateTime @default(now()) @map("responded_at") @db.Timestamptz(6)
+  lat             Float?
+  lng             Float?
+
+  task      OpsCheckpointTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  marcacion OpsMarcacionCheckpoint @relation(fields: [marcacionId], references: [id], onDelete: Cascade)
+  guardia   OpsGuardia             @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+
+  @@index([taskId], map: "idx_ops_checkpoint_task_response_task")
+  @@index([marcacionId], map: "idx_ops_checkpoint_task_response_marcacion")
+  @@index([guardiaId], map: "idx_ops_checkpoint_task_response_guardia")
+  @@unique([taskId, marcacionId], map: "uq_ops_task_response_task_marcacion")
+  @@map("checkpoint_task_responses")
   @@schema("ops")
 }
 
@@ -3336,9 +3385,10 @@ model OpsMarcacionCheckpoint {
   isOfflineSync      Boolean  @default(false) @map("is_offline_sync")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  ejecucion  OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
-  checkpoint OpsCheckpoint?    @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
-  guardia    OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+  ejecucion     OpsRondaEjecucion          @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
+  checkpoint    OpsCheckpoint?             @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
+  guardia       OpsGuardia                 @relation(fields: [guardiaId], references: [id], onDelete: Restrict)
+  taskResponses OpsCheckpointTaskResponse[]
 
   @@index([tenantId], map: "idx_ops_marcacion_checkpoint_tenant")
   @@index([ejecucionId], map: "idx_ops_marcacion_checkpoint_ejecucion")

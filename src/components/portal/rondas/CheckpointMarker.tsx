@@ -9,6 +9,22 @@ import { savePendingMark, getPendingMarks, clearPendingMarks } from "@/lib/ronda
 // Types
 // ---------------------------------------------------------------------------
 
+export interface CheckpointTaskInfo {
+  id: string;
+  label: string;
+  type: "boolean" | "checklist" | "select" | "text" | "number" | "photo";
+  required: boolean;
+  options?: string[] | null;
+  config?: {
+    min?: number;
+    max?: number;
+    minPhotos?: number;
+    placeholder?: string;
+    alertOnValue?: string | boolean | number;
+  } | null;
+  sortOrder: number;
+}
+
 export interface CheckpointInfo {
   id: string;
   name: string;
@@ -17,6 +33,7 @@ export interface CheckpointInfo {
   lng: number;
   geoRadiusM: number;
   verificationType: string; // "QR" | "GPS" | "BOTH"
+  tasks?: CheckpointTaskInfo[];
 }
 
 export interface MarcarResult {
@@ -93,6 +110,27 @@ export function CheckpointMarker({
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+
+  // ---- Task Responses ----
+  const tasks = checkpoint.tasks ?? [];
+  const [taskResponses, setTaskResponses] = useState<Record<string, unknown>>({});
+
+  const setTaskResponse = useCallback((taskId: string, value: unknown) => {
+    setTaskResponses((prev) => ({ ...prev, [taskId]: value }));
+  }, []);
+
+  // Check if all required tasks are answered
+  const requiredTasksComplete = tasks
+    .filter((t) => t.required)
+    .every((t) => {
+      const val = taskResponses[t.id];
+      if (val === undefined || val === null) return false;
+      if (t.type === "boolean") return val === true || val === false;
+      if (t.type === "text" || t.type === "select") return typeof val === "string" && val.trim().length > 0;
+      if (t.type === "number") return typeof val === "number";
+      if (t.type === "checklist") return Array.isArray(val) && val.length > 0;
+      return true;
+    });
 
   // ---- Notes ----
   const [note, setNote] = useState("");
@@ -264,7 +302,7 @@ export function CheckpointMarker({
     distanceM != null && distanceM <= checkpoint.geoRadiusM;
 
   const canSubmit =
-    gpsStatus === "success" && !submitting && (needsQr ? qrCode != null : true);
+    gpsStatus === "success" && !submitting && (needsQr ? qrCode != null : true) && requiredTasksComplete;
 
   // ------------------------------------------------------------------
   // Photo handlers
@@ -330,7 +368,17 @@ export function CheckpointMarker({
         guardiaId,
       ]);
 
-      // 5. POST marcacion
+      // 5. Build task responses
+      const taskResponsesPayload = tasks.length > 0
+        ? tasks
+            .filter((t) => taskResponses[t.id] !== undefined && taskResponses[t.id] !== null)
+            .map((t) => ({
+              taskId: t.id,
+              value: taskResponses[t.id],
+            }))
+        : undefined;
+
+      // 6. POST marcacion
       const body = {
         ejecucionId,
         checkpointId: checkpoint.id,
@@ -347,6 +395,7 @@ export function CheckpointMarker({
         guardiaId,
         clientHash,
         clientTimestamp: timestamp,
+        taskResponses: taskResponsesPayload,
       };
 
       let result: MarcarResult;
@@ -490,6 +539,146 @@ export function CheckpointMarker({
               <div className="rounded-lg bg-blue-950/30 border border-blue-800/30 p-3">
                 <p className="text-xs font-medium text-blue-400 mb-1">Instrucciones</p>
                 <p className="text-sm text-gray-300">{checkpoint.instrucciones}</p>
+              </div>
+            )}
+
+            {/* ---- Tasks ---- */}
+            {tasks.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-200">
+                  Tareas del punto
+                  {tasks.some((t) => t.required) && (
+                    <span className="text-[11px] text-red-400 ml-1">* obligatorias</span>
+                  )}
+                </p>
+                {tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4 space-y-2"
+                  >
+                    <p className="text-sm text-gray-200">
+                      {task.label}
+                      {task.required && <span className="text-red-400 ml-1">*</span>}
+                    </p>
+
+                    {/* Boolean: Yes/No buttons */}
+                    {task.type === "boolean" && (
+                      <div className="flex gap-2">
+                        {[
+                          { val: true, label: "Si", color: "teal" },
+                          { val: false, label: "No", color: "red" },
+                        ].map((opt) => {
+                          const isSelected = taskResponses[task.id] === opt.val;
+                          return (
+                            <button
+                              key={String(opt.val)}
+                              type="button"
+                              onClick={() => setTaskResponse(task.id, opt.val)}
+                              className={`flex-1 rounded-xl py-3.5 text-base font-semibold transition-colors ${
+                                isSelected
+                                  ? opt.color === "teal"
+                                    ? "bg-teal-600 text-white"
+                                    : "bg-red-600 text-white"
+                                  : "border border-gray-700 bg-gray-800 text-gray-300"
+                              }`}
+                              style={{ minHeight: 48 }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Checklist: checkboxes */}
+                    {task.type === "checklist" && task.options && (
+                      <div className="space-y-1.5">
+                        {(task.options as string[]).map((opt) => {
+                          const current = (taskResponses[task.id] as string[]) ?? [];
+                          const checked = current.includes(opt);
+                          return (
+                            <label
+                              key={opt}
+                              className="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 cursor-pointer active:bg-gray-700"
+                              style={{ minHeight: 48 }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const next = checked
+                                    ? current.filter((v) => v !== opt)
+                                    : [...current, opt];
+                                  setTaskResponse(task.id, next);
+                                }}
+                                className="w-5 h-5 rounded accent-teal-500"
+                              />
+                              <span className="text-base text-gray-200">{opt}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Select: radio buttons */}
+                    {task.type === "select" && task.options && (
+                      <div className="space-y-1.5">
+                        {(task.options as string[]).map((opt) => {
+                          const selected = taskResponses[task.id] === opt;
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => setTaskResponse(task.id, opt)}
+                              className={`w-full text-left rounded-xl px-4 py-3 text-base transition-colors ${
+                                selected
+                                  ? "border-2 border-teal-500 bg-teal-950/40 text-teal-300"
+                                  : "border border-gray-700 bg-gray-800/50 text-gray-300"
+                              }`}
+                              style={{ minHeight: 48 }}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Text input */}
+                    {task.type === "text" && (
+                      <textarea
+                        value={(taskResponses[task.id] as string) ?? ""}
+                        onChange={(e) => setTaskResponse(task.id, e.target.value)}
+                        placeholder={task.config?.placeholder ?? "Respuesta..."}
+                        rows={3}
+                        maxLength={1000}
+                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                      />
+                    )}
+
+                    {/* Number input */}
+                    {task.type === "number" && (
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={(taskResponses[task.id] as number) ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setTaskResponse(task.id, v === "" ? undefined : Number(v));
+                        }}
+                        min={task.config?.min}
+                        max={task.config?.max}
+                        placeholder={
+                          task.config?.min != null && task.config?.max != null
+                            ? `${task.config.min} - ${task.config.max}`
+                            : "Valor..."
+                        }
+                        className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                        style={{ minHeight: 48 }}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -755,6 +944,7 @@ export function CheckpointMarker({
               <p className="text-center text-sm text-gray-500">
                 {gpsStatus !== "success" && "Esperando ubicacion GPS"}
                 {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
+                {gpsStatus === "success" && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}
               </p>
             )}
           </div>

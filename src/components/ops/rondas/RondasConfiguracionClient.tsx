@@ -298,6 +298,17 @@ export function RondasConfiguracionClient({
             setCheckpoints((prev) => [json.data, ...prev]);
             toast.success("Checkpoint creado");
           }}
+          onUpdate={async (id, payload) => {
+            const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
+            setCheckpoints((prev) => prev.map((c) => c.id === id ? { ...c, ...json.data } : c));
+            toast.success("Checkpoint actualizado");
+          }}
           onToggleActive={async (id, isActive) => {
             const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, {
               method: "PATCH",

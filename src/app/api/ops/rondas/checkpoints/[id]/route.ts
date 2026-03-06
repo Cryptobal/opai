@@ -22,9 +22,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       data: {
         name: parsed.data.name,
         description: parsed.data.description,
+        instrucciones: parsed.data.instrucciones,
         lat: parsed.data.lat ?? undefined,
         lng: parsed.data.lng ?? undefined,
         geoRadiusM: parsed.data.geoRadiusM,
+        verificationType: parsed.data.verificationType,
+        isCritical: parsed.data.isCritical,
         isActive: parsed.data.isActive,
       },
     });
