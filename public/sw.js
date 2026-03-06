@@ -1,10 +1,12 @@
-const CACHE_NAME = 'opai-v1';
+const CACHE_NAME = 'opai-v2';
+const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
   '/portal/cliente',
   '/portal/guardia',
   '/portal/rondas',
   '/opai/login',
+  OFFLINE_URL,
 ];
 
 // INSTALL: pre-cache shell (allSettled so individual failures don't abort install)
@@ -17,7 +19,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ACTIVATE: remove old caches
+// ACTIVATE: remove old caches (including legacy rondas-v1)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -64,10 +66,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation: network-first
+  // Navigation: network-first with offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      fetch(request).catch(() =>
+        caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL))
+      )
     );
     return;
   }
@@ -109,24 +113,35 @@ self.addEventListener('push', (event) => {
     data: notifData,
   } = data;
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: icon || '/iconos_azul/icon-192x192.png',
-      badge: badge || '/iconos_azul/icon-192x192.png',
-      image,
-      tag,
-      renotify: !!tag,
-      data: notifData,
-      vibrate: [200, 100, 200],
-      actions: notifData?.actions || [],
-    })
-  );
+  const promiseChain = self.registration.showNotification(title, {
+    body,
+    icon: icon || '/iconos_azul/icon-192x192.png',
+    badge: badge || '/iconos_azul/icon-192x192.png',
+    image,
+    tag,
+    renotify: !!tag,
+    data: notifData,
+    vibrate: [200, 100, 200],
+    actions: notifData?.actions || [],
+  });
+
+  // Badge API: set unread count
+  if (navigator.setAppBadge) {
+    const count = notifData?.badgeCount || 1;
+    promiseChain.then(() => navigator.setAppBadge(count)).catch(() => {});
+  }
+
+  event.waitUntil(promiseChain);
 });
 
 // NOTIFICATION CLICK
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Clear badge on click
+  if (navigator.clearAppBadge) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   const targetUrl = event.notification.data?.url || '/';
 
@@ -152,6 +167,26 @@ self.addEventListener('notificationclick', (event) => {
         }
         return self.clients.openWindow(target.href);
       })
+  );
+});
+
+// PUSH SUBSCRIPTION CHANGE: re-subscribe automatically when the browser
+// rotates the push subscription (e.g. after expiration).
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe(event.oldSubscription?.options || { userVisibleOnly: true })
+      .then((newSub) =>
+        fetch('/api/notifications/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: newSub.toJSON(),
+            oldEndpoint: event.oldSubscription?.endpoint,
+          }),
+        })
+      )
+      .catch((err) => console.error('[SW] pushsubscriptionchange failed:', err))
   );
 });
 

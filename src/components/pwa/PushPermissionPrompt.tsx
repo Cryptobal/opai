@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { subscribeToPush } from '@/lib/pwa/push-client';
-import { Bell, X } from 'lucide-react';
+import { isIOS, isStandalone, isPushSupported } from '@/lib/pwa/ios-utils';
+import { Bell, X, Share } from 'lucide-react';
 
 interface Props {
   portalType: 'app' | 'cliente' | 'guardia' | 'rondas';
@@ -16,11 +17,13 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
   const [dismissed, setDismissed] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   // Auto-subscribe when permission is already granted (re-subscribe ensures
   // the server always has a fresh push subscription for this device).
   useEffect(() => {
     if (!registration) return;
+    if (!isPushSupported()) return;
     if (typeof Notification === 'undefined') return;
     if (Notification.permission !== 'granted') return;
 
@@ -29,7 +32,30 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
       .catch(() => {});
   }, [registration, portalType, userType, userId, tenantId]);
 
+  // iOS in Safari (not standalone): show "add to homescreen" guide
+  if (!dismissed && isIOS() && !isStandalone()) {
+    return (
+      <div className="bg-amber-600/10 border border-amber-500/20 rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="bg-amber-600/20 rounded-lg p-2 shrink-0">
+            <Bell className="w-5 h-5 text-amber-400" />
+          </div>
+          <p className="text-white text-sm font-medium flex-1">Instala la app para recibir notificaciones</p>
+          <button onClick={() => setDismissed(true)} aria-label="Cerrar" className="text-zinc-500 hover:text-zinc-300 shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="text-zinc-400 text-xs space-y-1 ml-11">
+          <p>1. Toca el boton <Share className="w-3.5 h-3.5 inline -mt-0.5" /> de compartir</p>
+          <p>2. Selecciona <strong className="text-zinc-300">&quot;Agregar a inicio&quot;</strong></p>
+          <p>3. Abre la app desde tu pantalla de inicio</p>
+        </div>
+      </div>
+    );
+  }
+
   if (subscribed || dismissed || !registration) return null;
+  if (!isPushSupported()) return null;
   if (typeof Notification === 'undefined') return null;
   if (Notification.permission === 'granted' || Notification.permission === 'denied') return null;
 
