@@ -10,38 +10,43 @@ export async function GET() {
   );
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
-  const quotes = await prisma.cpqQuote.findMany({
-    where: { accountId: session.accountId, tenantId: session.tenantId },
-    include: {
-      positions: { select: { id: true, numGuards: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const quotes = await prisma.cpqQuote.findMany({
+      where: { accountId: session.accountId, tenantId: session.tenantId },
+      include: {
+        positions: { select: { id: true, numGuards: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  // Fetch deal titles for quotes that have a dealId
-  const dealIds = [...new Set(quotes.map((q) => q.dealId).filter(Boolean))] as string[];
-  const deals = dealIds.length
-    ? await prisma.crmDeal.findMany({
-        where: { id: { in: dealIds } },
-        select: { id: true, title: true },
-      })
-    : [];
-  const dealMap = new Map(deals.map((d) => [d.id, d.title]));
+    // Fetch deal titles for quotes that have a dealId
+    const dealIds = [...new Set(quotes.map((q) => q.dealId).filter(Boolean))] as string[];
+    const deals = dealIds.length
+      ? await prisma.crmDeal.findMany({
+          where: { id: { in: dealIds } },
+          select: { id: true, title: true },
+        })
+      : [];
+    const dealMap = new Map(deals.map((d) => [d.id, d.title]));
 
-  const data = quotes.map((q) => ({
-    id: q.id,
-    code: q.code,
-    name: q.clientName,
-    status: q.status,
-    monthlyCost: q.monthlyCost?.toNumber() ?? 0,
-    validUntil: q.validUntil,
-    totalPositions: q.positions.length,
-    totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
-    currency: q.currency,
-    createdAt: q.createdAt,
-    dealId: q.dealId ?? null,
-    dealTitle: q.dealId ? (dealMap.get(q.dealId) ?? null) : null,
-  }));
+    const data = quotes.map((q) => ({
+      id: q.id,
+      code: q.code,
+      name: q.clientName,
+      status: q.status,
+      monthlyCost: q.monthlyCost?.toNumber() ?? 0,
+      validUntil: q.validUntil,
+      totalPositions: q.positions.length,
+      totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
+      currency: q.currency,
+      createdAt: q.createdAt,
+      dealId: q.dealId ?? null,
+      dealTitle: q.dealId ? (dealMap.get(q.dealId) ?? null) : null,
+    }));
 
-  return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data });
+  } catch (e) {
+    console.error("[portal/cotizaciones] GET error:", e);
+    return NextResponse.json({ success: true, data: [] });
+  }
 }

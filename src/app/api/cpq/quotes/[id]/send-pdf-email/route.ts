@@ -31,15 +31,24 @@ export async function POST(
     }
 
     // Verify quote exists
-    const quote = await prisma.cpqQuote.findFirst({
-      where: { id, tenantId: ctx.tenantId },
-      select: {
-        id: true,
-        code: true,
-        dealId: true,
-        positions: { select: { numGuards: true, numPuestos: true } },
-      },
-    });
+    let quote;
+    try {
+      quote = await prisma.cpqQuote.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        select: {
+          id: true,
+          code: true,
+          dealId: true,
+          positions: { select: { numGuards: true, numPuestos: true } },
+        },
+      });
+    } catch (dbErr) {
+      console.error("[send-pdf-email] DB error:", dbErr);
+      return NextResponse.json(
+        { success: false, error: "Error de base de datos. Verifica que las migraciones estén aplicadas (npx prisma migrate deploy)." },
+        { status: 500 }
+      );
+    }
 
     if (!quote) {
       return NextResponse.json(

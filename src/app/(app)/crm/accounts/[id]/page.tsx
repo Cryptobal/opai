@@ -40,7 +40,7 @@ export default async function CrmAccountDetailPage({
       where: { accountId: id, tenantId },
       orderBy: { createdAt: "desc" },
       select: { id: true, code: true, status: true, clientName: true, monthlyCost: true, createdAt: true },
-    }),
+    }).catch(() => [] as any[]),
     prisma.crmHistoryLog.findMany({
       where: { tenantId, entityType: "account", entityId: id },
       orderBy: { createdAt: "desc" },

@@ -59,16 +59,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = String(credentials.password);
 
         const { prisma } = await import('@/lib/prisma');
-        const admin = await prisma.admin.findUnique({
-          where: { email },
-          include: { tenant: true },
-        });
-        
-        // Verificar que existe y está activo
-        if (!admin || admin.status !== 'active') return null;
+        let admin;
+        try {
+          admin = await prisma.admin.findUnique({
+            where: { email },
+            include: { tenant: true },
+          });
+        } catch (err) {
+          console.error('[auth] DB error looking up admin:', err);
+          return null;
+        }
+
+        if (!admin) {
+          console.warn(`[auth] No admin found for email: ${email}`);
+          return null;
+        }
+        if (admin.status !== 'active') {
+          console.warn(`[auth] Admin ${email} status is "${admin.status}", not "active"`);
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, admin.password);
-        if (!valid) return null;
+        if (!valid) {
+          console.warn(`[auth] Invalid password for ${email}`);
+          return null;
+        }
 
         // Actualizar último login
         await prisma.admin.update({

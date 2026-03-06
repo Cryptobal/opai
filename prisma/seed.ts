@@ -55,7 +55,7 @@ async function main() {
   
   const admin = await prisma.admin.upsert({
     where: { email: 'carlos.irigoyen@gard.cl' },
-    update: { tenantId: tenant.id, status: 'active' },
+    update: { tenantId: tenant.id, status: 'active', password: hashedPassword },
     create: {
       email: 'carlos.irigoyen@gard.cl',
       password: hashedPassword,
