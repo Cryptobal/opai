@@ -121,7 +121,6 @@ export function CheckpointMapCreator({
   const hasAutocenteredRef = useRef(false);
 
   const [mapReady, setMapReady] = useState(false);
-  const [mapType, setMapType] = useState<"roadmap" | "satellite">("satellite");
 
   // Geolocation
   const { position: geoPos, requestPermission } = useGeolocation(true, 5000);
@@ -168,7 +167,7 @@ export function CheckpointMapCreator({
         mapTypeId: "satellite",
         streetViewControl: false,
         fullscreenControl: true,
-        mapTypeControl: false,
+        mapTypeControl: true,
         styles: [
           { featureType: "poi", stylers: [{ visibility: "off" }] },
         ],
@@ -189,6 +188,25 @@ export function CheckpointMapCreator({
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installationId]);
+
+  // Resize map when window/container changes (responsive)
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const w = window as unknown as { google?: { maps?: { event?: { trigger: (map: unknown, name: string) => void } } } };
+    const map = mapRef.current;
+    const onResize = () => {
+      const center = map.getCenter?.();
+      w.google?.maps?.event?.trigger(map, "resize");
+      if (center) map.setCenter?.(center);
+    };
+    const ro = new ResizeObserver(onResize);
+    if (mapContainerRef.current) ro.observe(mapContainerRef.current);
+    window.addEventListener("resize", onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [mapReady]);
 
   // Draw existing checkpoints on map
   useEffect(() => {
@@ -274,11 +292,6 @@ export function CheckpointMapCreator({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady, checkpoints]);
-
-  // Sync map type
-  useEffect(() => {
-    if (mapRef.current) mapRef.current.setMapTypeId(mapType);
-  }, [mapType]);
 
   // Show user position as blue dot + auto-center on first fix
   useEffect(() => {
@@ -601,24 +614,6 @@ export function CheckpointMapCreator({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={mapType === "roadmap" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setMapType("roadmap")}
-          >
-            Mapa
-          </Button>
-          <Button
-            type="button"
-            variant={mapType === "satellite" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setMapType("satellite")}
-          >
-            Satélite
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
           {activeCheckpoints.length > 0 && (
             <Button
               type="button"
@@ -642,15 +637,11 @@ export function CheckpointMapCreator({
 
       {/* Map + Side Panel layout */}
       <div className={`flex gap-3 ${isMobile ? "flex-col" : "flex-row"}`}>
-        {/* Map - square, fills viewport from wizard down */}
-        <div className="flex-1 min-w-0 relative flex flex-col">
+        {/* Map - full width, rectangular, responsive (no cut-off) */}
+        <div className="flex-1 min-w-0 relative w-full">
           <div
             ref={mapContainerRef}
-            className={`rounded-lg border border-border aspect-square ${
-              isMobile
-                ? "w-full min-h-[50vh]"
-                : "w-[min(100%,max(500px,calc(100vh-280px)))]"
-            }`}
+            className="w-full rounded-lg border border-border min-h-[350px] h-[min(65vh,calc(100vh-300px))]"
           />
           {/* Locate me button */}
           <button
