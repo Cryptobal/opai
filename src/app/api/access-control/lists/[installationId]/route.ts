@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut } from "@/lib/access-control/utils";
+import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +15,6 @@ export async function GET(
     const where: Record<string, unknown> = {};
 
     if (type === "blacklist") {
-      // Blacklist: local entries for this installation + all global entries
       where.OR = [
         { installationId, listType: "blacklist" },
         { scope: "global", listType: "blacklist" },
@@ -29,10 +29,10 @@ export async function GET(
       ];
     }
 
-    const lists = await prisma.accessControlList.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-    });
+    const lists = await safeAccessControlQuery(
+      () => prisma.accessControlList.findMany({ where, orderBy: { createdAt: "desc" } }),
+      [],
+    );
 
     return NextResponse.json({ success: true, data: lists });
   } catch (error) {

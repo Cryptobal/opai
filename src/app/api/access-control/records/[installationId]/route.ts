@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 
 export async function GET(
   request: NextRequest,
@@ -43,15 +44,20 @@ export async function GET(
       ];
     }
 
-    const [records, total] = await Promise.all([
-      prisma.accessControlRecord.findMany({
-        where,
-        orderBy: { entryAt: "desc" },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.accessControlRecord.count({ where }),
-    ]);
+    const result = await safeAccessControlQuery(
+      () => Promise.all([
+        prisma.accessControlRecord.findMany({
+          where,
+          orderBy: { entryAt: "desc" },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.accessControlRecord.count({ where }),
+      ]),
+      [[], 0] as [unknown[], number],
+    );
+
+    const [records, total] = result;
 
     return NextResponse.json({
       success: true,

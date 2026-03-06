@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 
 export async function GET(
   request: NextRequest,
@@ -23,14 +24,17 @@ export async function GET(
       ];
     }
 
-    const records = await prisma.accessControlRecord.findMany({
-      where,
-      orderBy: { entryAt: "desc" },
-    });
+    const records = await safeAccessControlQuery(
+      () => prisma.accessControlRecord.findMany({
+        where,
+        orderBy: { entryAt: "desc" },
+      }),
+      [],
+    );
 
     // Compute counts
-    const personCount = records.filter((r) => r.recordType !== "vehicle").length;
-    const vehicleCount = records.filter((r) => r.recordType === "vehicle").length;
+    const personCount = records.filter((r: { recordType: string }) => r.recordType !== "vehicle").length;
+    const vehicleCount = records.filter((r: { recordType: string }) => r.recordType === "vehicle").length;
 
     return NextResponse.json({
       success: true,

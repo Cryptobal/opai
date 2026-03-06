@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+
+const defaultConfig = (installationId: string) => ({
+  installationId,
+  enabledRecordTypes: ["visit", "provider", "vehicle", "staff", "delivery"],
+  useWhitelist: false,
+  useBlacklist: false,
+  requireIdValidation: false,
+  requirePhoto: false,
+  requireSignature: false,
+  maxStayHours: null,
+  autoReportSchedule: null,
+  formConfig: {},
+});
 
 export async function GET(
   _request: NextRequest,
@@ -9,26 +23,15 @@ export async function GET(
   try {
     const { installationId } = await params;
 
-    const config = await prisma.accessControlConfig.findUnique({
-      where: { installationId },
-    });
+    const config = await safeAccessControlQuery(
+      () => prisma.accessControlConfig.findUnique({ where: { installationId } }),
+      null,
+    );
 
     if (!config) {
-      // Return default config
       return NextResponse.json({
         success: true,
-        data: {
-          installationId,
-          enabledRecordTypes: [],
-          useWhitelist: false,
-          useBlacklist: false,
-          requireIdValidation: false,
-          requirePhoto: false,
-          requireSignature: false,
-          maxStayHours: null,
-          autoReportSchedule: null,
-          formConfig: {},
-        },
+        data: defaultConfig(installationId),
       });
     }
 
@@ -63,33 +66,43 @@ export async function PUT(
       );
     }
 
-    const config = await prisma.accessControlConfig.upsert({
-      where: { installationId },
-      update: {
-        enabledRecordTypes: body.enabledRecordTypes ?? [],
-        useWhitelist: body.useWhitelist ?? false,
-        useBlacklist: body.useBlacklist ?? false,
-        requireIdValidation: body.requireIdValidation ?? false,
-        requirePhoto: body.requirePhoto ?? false,
-        requireSignature: body.requireSignature ?? false,
-        maxStayHours: body.maxStayHours ?? null,
-        autoReportSchedule: body.autoReportSchedule ?? null,
-        formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
-      },
-      create: {
-        tenantId: installation.tenantId,
-        installationId,
-        enabledRecordTypes: body.enabledRecordTypes ?? [],
-        useWhitelist: body.useWhitelist ?? false,
-        useBlacklist: body.useBlacklist ?? false,
-        requireIdValidation: body.requireIdValidation ?? false,
-        requirePhoto: body.requirePhoto ?? false,
-        requireSignature: body.requireSignature ?? false,
-        maxStayHours: body.maxStayHours ?? null,
-        autoReportSchedule: body.autoReportSchedule ?? null,
-        formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
-      },
-    });
+    const config = await safeAccessControlQuery(
+      () => prisma.accessControlConfig.upsert({
+        where: { installationId },
+        update: {
+          enabledRecordTypes: body.enabledRecordTypes ?? [],
+          useWhitelist: body.useWhitelist ?? false,
+          useBlacklist: body.useBlacklist ?? false,
+          requireIdValidation: body.requireIdValidation ?? false,
+          requirePhoto: body.requirePhoto ?? false,
+          requireSignature: body.requireSignature ?? false,
+          maxStayHours: body.maxStayHours ?? null,
+          autoReportSchedule: body.autoReportSchedule ?? null,
+          formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
+        },
+        create: {
+          tenantId: installation.tenantId,
+          installationId,
+          enabledRecordTypes: body.enabledRecordTypes ?? [],
+          useWhitelist: body.useWhitelist ?? false,
+          useBlacklist: body.useBlacklist ?? false,
+          requireIdValidation: body.requireIdValidation ?? false,
+          requirePhoto: body.requirePhoto ?? false,
+          requireSignature: body.requireSignature ?? false,
+          maxStayHours: body.maxStayHours ?? null,
+          autoReportSchedule: body.autoReportSchedule ?? null,
+          formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
+        },
+      }),
+      null,
+    );
+
+    if (!config) {
+      return NextResponse.json(
+        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración de base de datos." },
+        { status: 503 }
+      );
+    }
 
     return NextResponse.json({ success: true, data: config });
   } catch (error) {

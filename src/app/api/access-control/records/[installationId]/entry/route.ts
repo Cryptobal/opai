@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { cleanRut, validateRut } from "@/lib/access-control/utils";
+import { isTableMissingError } from "@/lib/access-control/safe-query";
 
 export async function POST(
   request: NextRequest,
@@ -101,6 +102,12 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: record }, { status: 201 });
   } catch (error) {
+    if (isTableMissingError(error)) {
+      return NextResponse.json(
+        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración." },
+        { status: 503 }
+      );
+    }
     console.error("[AccessControl] Error creating entry record:", error);
     return NextResponse.json(
       { success: false, error: "Error al registrar entrada" },

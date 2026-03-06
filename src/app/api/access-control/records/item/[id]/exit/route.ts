@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isTableMissingError } from "@/lib/access-control/safe-query";
 
 export async function PUT(
   request: NextRequest,
@@ -48,6 +49,12 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: record });
   } catch (error) {
+    if (isTableMissingError(error)) {
+      return NextResponse.json(
+        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración." },
+        { status: 503 }
+      );
+    }
     console.error("[AccessControl] Error recording exit:", error);
     return NextResponse.json(
       { success: false, error: "Error al registrar salida" },

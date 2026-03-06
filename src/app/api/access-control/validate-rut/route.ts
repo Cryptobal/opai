@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut, isWithinSchedule, isWithinValidity } from "@/lib/access-control/utils";
 import type { RutValidationResult } from "@/lib/access-control/types";
+import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,17 +19,17 @@ export async function POST(request: NextRequest) {
     const cleaned = cleanRut(rut);
 
     // Check blacklist (local for this installation + global)
-    const blacklistEntry = await prisma.accessControlList.findFirst({
-      where: {
-        rut: cleaned,
-        listType: "blacklist",
-        isActive: true,
-        OR: [
-          { installationId },
-          { scope: "global" },
-        ],
-      },
-    });
+    const blacklistEntry = await safeAccessControlQuery(
+      () => prisma.accessControlList.findFirst({
+        where: {
+          rut: cleaned,
+          listType: "blacklist",
+          isActive: true,
+          OR: [{ installationId }, { scope: "global" }],
+        },
+      }),
+      null,
+    );
 
     if (blacklistEntry) {
       const result: RutValidationResult = {
@@ -46,14 +47,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check whitelist
-    const whitelistEntry = await prisma.accessControlList.findFirst({
-      where: {
-        rut: cleaned,
-        installationId,
-        listType: "whitelist",
-        isActive: true,
-      },
-    });
+    const whitelistEntry = await safeAccessControlQuery(
+      () => prisma.accessControlList.findFirst({
+        where: { rut: cleaned, installationId, listType: "whitelist", isActive: true },
+      }),
+      null,
+    );
 
     if (whitelistEntry) {
       const withinSchedule = isWithinSchedule(
@@ -86,9 +85,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check known visitors (frequent)
-    const knownVisitor = await prisma.accessControlKnownVisitor.findUnique({
-      where: { rut: cleaned },
-    });
+    const knownVisitor = await safeAccessControlQuery(
+      () => prisma.accessControlKnownVisitor.findUnique({ where: { rut: cleaned } }),
+      null,
+    );
 
     // Check pre-registration for today
     const today = new Date();
@@ -96,17 +96,17 @@ export async function POST(request: NextRequest) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const preregistration = await prisma.accessControlPreregistration.findFirst({
-      where: {
-        visitorRut: cleaned,
-        installationId,
-        status: "pending",
-        expectedDate: {
-          gte: today,
-          lt: tomorrow,
+    const preregistration = await safeAccessControlQuery(
+      () => prisma.accessControlPreregistration.findFirst({
+        where: {
+          visitorRut: cleaned,
+          installationId,
+          status: "pending",
+          expectedDate: { gte: today, lt: tomorrow },
         },
-      },
-    });
+      }),
+      null,
+    );
 
     const result: RutValidationResult = {
       valid: true,

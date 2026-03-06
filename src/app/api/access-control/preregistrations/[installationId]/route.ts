@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut } from "@/lib/access-control/utils";
+import { safeAccessControlQuery, isTableMissingError } from "@/lib/access-control/safe-query";
 
 export async function GET(
   request: NextRequest,
@@ -26,10 +27,13 @@ export async function GET(
       where.status = status;
     }
 
-    const preregistrations = await prisma.accessControlPreregistration.findMany({
-      where,
-      orderBy: { expectedDate: "desc" },
-    });
+    const preregistrations = await safeAccessControlQuery(
+      () => prisma.accessControlPreregistration.findMany({
+        where,
+        orderBy: { expectedDate: "desc" },
+      }),
+      [],
+    );
 
     return NextResponse.json({ success: true, data: preregistrations });
   } catch (error) {
@@ -90,6 +94,12 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: prereg }, { status: 201 });
   } catch (error) {
+    if (isTableMissingError(error)) {
+      return NextResponse.json(
+        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración." },
+        { status: 503 }
+      );
+    }
     console.error("[AccessControl] Error creating preregistration:", error);
     return NextResponse.json(
       { success: false, error: "Error al crear pre-registro" },
