@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor, Users, ClipboardCheck } from 'lucide-react';
+import { Shield, Route, Monitor, Users, ClipboardCheck, ScanLine } from 'lucide-react';
 import { PageHeader } from '@/components/opai';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
@@ -57,6 +57,15 @@ const PORTALS: PortalDef[] = [
         href: '/portal/supervisor',
         icon: ClipboardCheck,
         accentColor: 'from-violet-500/25 to-violet-400/5',
+    },
+    {
+        id: 'acceso',
+        name: 'Portal Control de Acceso',
+        description:
+            'Control de ingreso y salida de personas y vehículos. Se vincula a una instalación mediante código de emparejamiento.',
+        href: '/portal/acceso',
+        icon: ScanLine,
+        accentColor: 'from-cyan-500/25 to-cyan-400/5',
     },
 ];
 

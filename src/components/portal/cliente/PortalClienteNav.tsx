@@ -3,7 +3,7 @@
 import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
-  UserCheck, FileCheck2, Building, Briefcase
+  UserCheck, FileCheck2, Building, Briefcase, ShieldCheck
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ export type PortalSection =
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
+  | 'control-acceso'
 
 const ALL_NAV_ITEMS: Array<{
   id: PortalSection
@@ -38,6 +39,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
   { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
   { id: 'empresa', label: 'Empresa', icon: Briefcase },
+  { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck },
 ]
 
 interface Props {

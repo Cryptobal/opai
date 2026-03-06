@@ -24,6 +24,7 @@ import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
+import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
@@ -200,6 +201,13 @@ export function PortalClienteClient() {
         return <PortalNosotros />;
       case "empresa":
         return <PortalEmpresa session={session} />;
+      case "control-acceso":
+        return (
+          <PortalAccessControl
+            session={session}
+            selectedInstallation={selectedInstallation}
+          />
+        );
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-600">

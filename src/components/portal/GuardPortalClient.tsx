@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Shield,
+  ShieldCheck,
   Home,
   Ticket,
   CalendarDays,
@@ -30,6 +31,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
+import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { NotificationSettings } from "@/components/pwa/NotificationSettings";
@@ -65,6 +67,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   CalendarDays: <CalendarDays className="h-5 w-5" />,
   User: <User className="h-5 w-5" />,
   MessageCircle: <MessageCircle className="h-5 w-5" />,
+  ShieldCheck: <ShieldCheck className="h-5 w-5" />,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -172,6 +175,21 @@ export function GuardPortalClient() {
             <MessageCircle className="h-12 w-12 text-zinc-600 mb-3" />
             <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
             <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
+          </div>
+        )}
+        {activeSection === "control-acceso" && session.currentInstallationId && (
+          <AccessControlGuardHome
+            installationId={session.currentInstallationId}
+            installationName={session.currentInstallationName ?? "Instalación"}
+            guardId={session.guardiaId}
+            tenantId={session.tenantId}
+          />
+        )}
+        {activeSection === "control-acceso" && !session.currentInstallationId && (
+          <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+            <Shield className="h-12 w-12 text-zinc-600 mb-3" />
+            <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
+            <p className="text-zinc-500 text-xs mt-1">El control de acceso se habilitará cuando estés asignado a una instalación.</p>
           </div>
         )}
       </main>

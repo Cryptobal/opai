@@ -37,6 +37,9 @@ import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/
 import { toast } from "sonner";
 import { formatPersonName } from "@/lib/personas";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
+import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
+import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
+import { AccessControlDevicesSection } from "@/components/access-control/AccessControlDevicesSection";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -1882,6 +1885,7 @@ export function CrmInstallationDetailClient({
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "files", label: "Archivos", icon: FileText },
+    { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
@@ -2334,6 +2338,17 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Archivos" />
+        )}
+        {activeTab === "access-control" && (
+          <div className="space-y-6">
+            <AccessControlConfigTab installationId={installation.id} />
+            <div className="border-t border-border pt-6">
+              <AccessControlDevicesSection installationId={installation.id} />
+            </div>
+            <div className="border-t border-border pt-6">
+              <AccessControlListsManager installationId={installation.id} />
+            </div>
+          </div>
         )}
       </EntityDetailLayout>
 
