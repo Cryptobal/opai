@@ -93,6 +93,7 @@ export function AccessControlEntry({
       rut: data.rut,
       documentSerial: data.serial,
       qrSource: data.source,
+      ...(data.parsedMrz?.fullName ? { full_name: data.parsedMrz.fullName } : {}),
     }));
     setShowQR(false);
     validateRutAgainstLists(data.rut);

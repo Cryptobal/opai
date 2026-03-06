@@ -5,7 +5,7 @@
  * QR cédula parsing, formatting helpers.
  */
 
-import type { CedulaQRData, PlateFormat } from "./types";
+import type { CedulaQRData, ParsedMRZ, PlateFormat } from "./types";
 
 // ═══════════════════════════════════════════════════════════════
 //  RUT VALIDATION (Módulo 11)
@@ -120,6 +120,57 @@ const QR_PATTERNS = [
 ];
 
 /**
+ * Converts an uppercase MRZ name string to Title Case.
+ */
+function toTitleCase(s: string): string {
+  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Parses a TD1 MRZ string (90 chars, 3 lines of 30) to extract personal data.
+ * Returns null if the MRZ is malformed or the name cannot be extracted.
+ */
+export function parseMRZ(mrz: string): ParsedMRZ | null {
+  const clean = mrz.replace(/[\n\r]/g, "");
+  if (clean.length !== 90) return null;
+
+  const line1 = clean.substring(0, 30);
+  const line2 = clean.substring(30, 60);
+  const line3 = clean.substring(60, 90);
+
+  // Line 3: name — SURNAME<<GIVEN<NAMES<<<...
+  const nameParts = line3.split("<<");
+  const surname = nameParts[0].replace(/</g, " ").trim();
+  const givenNames = nameParts.slice(1).join(" ").replace(/</g, " ").trim();
+
+  if (!surname) return null;
+
+  const fullName = givenNames
+    ? toTitleCase(`${givenNames} ${surname}`)
+    : toTitleCase(surname);
+
+  // Line 1: document number at positions 5-13
+  const documentNumber = line1.substring(5, 14).replace(/</g, "").trim() || undefined;
+
+  // Line 2: DOB [0-5], sex [7], expiry [8-13], nationality [15-17]
+  const dateOfBirth = line2.substring(0, 6).replace(/</g, "") || undefined;
+  const sex = line2.substring(7, 8).replace(/</g, "") || undefined;
+  const expiryDate = line2.substring(8, 14).replace(/</g, "") || undefined;
+  const nationality = line2.substring(15, 18).replace(/</g, "").trim() || undefined;
+
+  return {
+    surname: toTitleCase(surname),
+    givenNames: toTitleCase(givenNames),
+    fullName,
+    documentNumber,
+    dateOfBirth,
+    sex,
+    expiryDate,
+    nationality,
+  };
+}
+
+/**
  * Parses a QR code from a Chilean cédula de identidad.
  * Returns structured data or null if not a valid cédula QR.
  */
@@ -154,10 +205,13 @@ export function parseCedulaQR(qrContent: string): CedulaQRData | null {
       source = "cedula_2024";
     }
 
+    const parsedMrz = mrz ? parseMRZ(mrz) : undefined;
+
     return {
       rut: formatRutDash(run),
       serial,
       mrz,
+      parsedMrz: parsedMrz ?? undefined,
       type,
       source,
       validationUrl: trimmed,

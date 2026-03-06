@@ -206,10 +206,22 @@ export interface PlateOcrResult {
 //  QR CEDULA
 // ═══════════════════════════════════════════════════════════════
 
+export interface ParsedMRZ {
+  surname: string;
+  givenNames: string;
+  fullName: string;
+  documentNumber?: string;
+  dateOfBirth?: string;
+  sex?: string;
+  expiryDate?: string;
+  nationality?: string;
+}
+
 export interface CedulaQRData {
   rut: string;
   serial: string;
   mrz?: string;
+  parsedMrz?: ParsedMRZ;
   type: string;
   source: "cedula_2013" | "cedula_2024";
   validationUrl: string;
