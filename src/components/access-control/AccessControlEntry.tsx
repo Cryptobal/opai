@@ -390,31 +390,31 @@ export function AccessControlEntry({
                   <span className="font-medium">{RECORD_TYPE_CONFIG[selectedType].label}</span>
                 </div>
               )}
-              {formData.full_name && (
+              {Boolean(formData.full_name) && (
                 <div className="text-sm text-zinc-300">
                   <span className="text-zinc-500">Nombre:</span>{" "}
                   {String(formData.full_name)}
                 </div>
               )}
-              {formData.rut && (
+              {Boolean(formData.rut) && (
                 <div className="text-sm text-zinc-300">
                   <span className="text-zinc-500">RUT:</span>{" "}
                   {formatRut(String(formData.rut))}
                 </div>
               )}
-              {formData.company && (
+              {Boolean(formData.company) && (
                 <div className="text-sm text-zinc-300">
                   <span className="text-zinc-500">Empresa:</span>{" "}
                   {String(formData.company)}
                 </div>
               )}
-              {formData.vehicle_plate && (
+              {Boolean(formData.vehicle_plate) && (
                 <div className="text-sm text-zinc-300">
                   <span className="text-zinc-500">Patente:</span>{" "}
                   {String(formData.vehicle_plate)}
                 </div>
               )}
-              {formData.contact_person && (
+              {Boolean(formData.contact_person) && (
                 <div className="text-sm text-zinc-300">
                   <span className="text-zinc-500">Visita a:</span>{" "}
                   {String(formData.contact_person)}
