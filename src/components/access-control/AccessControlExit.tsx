@@ -68,7 +68,7 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
         );
       });
 
-      const res = await fetch(`/api/access-control/records/${recordId}/exit`, {
+      const res = await fetch(`/api/access-control/records/item/${recordId}/exit`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

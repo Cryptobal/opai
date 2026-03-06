@@ -116,7 +116,7 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
   const handleCancel = async (id: string) => {
     if (!confirm("¿Cancelar este pre-registro?")) return;
     try {
-      await fetch(`/api/access-control/preregistrations/${id}`, {
+      await fetch(`/api/access-control/preregistrations/item/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" }),

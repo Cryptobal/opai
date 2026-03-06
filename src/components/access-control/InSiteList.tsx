@@ -76,7 +76,7 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
         );
       });
 
-      const res = await fetch(`/api/access-control/records/${recordId}/exit`, {
+      const res = await fetch(`/api/access-control/records/item/${recordId}/exit`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ exitGuardId: guardId, gpsLat: gps?.lat, gpsLng: gps?.lng }),

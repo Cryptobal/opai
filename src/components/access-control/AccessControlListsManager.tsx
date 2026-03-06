@@ -94,7 +94,7 @@ export function AccessControlListsManager({ installationId }: Props) {
     setFormSaving(true);
     try {
       if (editEntry) {
-        const res = await fetch(`/api/access-control/lists/${editEntry.id}`, {
+        const res = await fetch(`/api/access-control/lists/item/${editEntry.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -149,7 +149,7 @@ export function AccessControlListsManager({ installationId }: Props) {
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar esta entrada?")) return;
     try {
-      const res = await fetch(`/api/access-control/lists/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/access-control/lists/item/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
         toast.success("Entrada eliminada");
