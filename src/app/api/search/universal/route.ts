@@ -71,14 +71,41 @@ export async function GET(request: NextRequest) {
       documents: [],
     };
 
+    // IDs de negocios (deals) cuyo título o nombre de cuenta coincide
+    const dealIdsByTitleOrAccount =
+      hasCpq && hasCrm
+        ? await prisma.crmDeal.findMany({
+            where: {
+              tenantId,
+              OR: [{ title: contains }, { account: { name: contains } }],
+            },
+            select: { id: true },
+          })
+        : [];
+    const dealIdsForQuotes = dealIdsByTitleOrAccount.map((d) => d.id);
+
+    // Cotizaciones vinculadas solo por CrmDealQuote
+    const quoteIdsFromDealLinks =
+      hasCpq && dealIdsForQuotes.length > 0
+        ? await prisma.crmDealQuote.findMany({
+            where: { tenantId, dealId: { in: dealIdsForQuotes } },
+            select: { quoteId: true },
+          }).then((rows) => rows.map((r) => r.quoteId))
+        : [];
+
     // Run all searches in parallel
     const searches = await Promise.all([
-      // Quotations
+      // Quotations (código, cliente o negocio asociado)
       hasCpq
         ? prisma.cpqQuote.findMany({
             where: {
               tenantId,
-              OR: [{ code: contains }, { clientName: contains }],
+              OR: [
+                { code: contains },
+                { clientName: contains },
+                ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
+                ...(quoteIdsFromDealLinks.length > 0 ? [{ id: { in: quoteIdsFromDealLinks } }] : []),
+              ],
             },
             take: limit,
             orderBy: { createdAt: "desc" },

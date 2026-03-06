@@ -65,6 +65,30 @@ export async function GET(request: NextRequest) {
 
     // ── CRM (leads, accounts, contacts, deals, quotes, installations) ──
     if (hasCrm) {
+      // IDs de negocios (deals) cuyo título o nombre de cuenta coincide, para incluir sus cotizaciones
+      const dealIdsByTitleOrAccount = await prisma.crmDeal.findMany({
+        where: {
+          tenantId,
+          OR: [
+            { title: contains },
+            { account: { name: contains } },
+          ],
+        },
+        select: { id: true },
+      });
+      const dealIdsForQuotes = dealIdsByTitleOrAccount.map((d) => d.id);
+
+      // Cotizaciones vinculadas solo por CrmDealQuote (sin dealId en CpqQuote)
+      const dealQuoteLinks =
+        dealIdsForQuotes.length > 0
+          ? await prisma.crmDealQuote.findMany({
+              where: { tenantId, dealId: { in: dealIdsForQuotes } },
+              select: { quoteId: true, dealId: true },
+            })
+          : [];
+      const quoteIdsFromDealLinks = dealQuoteLinks.map((r) => r.quoteId);
+      const quoteIdToDealId = new Map(dealQuoteLinks.map((r) => [r.quoteId, r.dealId]));
+
       const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
         prisma.crmLead.findMany({
           where: {
@@ -143,7 +167,13 @@ export async function GET(request: NextRequest) {
         prisma.cpqQuote.findMany({
           where: {
             tenantId,
-            OR: [{ code: contains }, { clientName: contains }, { notes: contains }],
+            OR: [
+              { code: contains },
+              { clientName: contains },
+              { notes: contains },
+              ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
+              ...(quoteIdsFromDealLinks.length > 0 ? [{ id: { in: quoteIdsFromDealLinks } }] : []),
+            ],
           },
           take: CRM_TYPE_LIMIT,
           orderBy: { createdAt: "desc" },
@@ -224,11 +254,10 @@ export async function GET(request: NextRequest) {
         });
       }
       const quoteDealIds = Array.from(
-        new Set(
-          quotes
-            .map((quote) => quote.dealId)
-            .filter((dealId): dealId is string => Boolean(dealId))
-        )
+        new Set([
+          ...quotes.map((q) => q.dealId).filter((id): id is string => Boolean(id)),
+          ...dealIdsForQuotes,
+        ])
       );
       const quoteDeals =
         quoteDealIds.length > 0
@@ -246,8 +275,9 @@ export async function GET(request: NextRequest) {
       const quoteDealTitleById = new Map(quoteDeals.map((deal) => [deal.id, deal.title]));
 
       for (const quote of quotes) {
-        const dealTitle = quote.dealId
-          ? quoteDealTitleById.get(quote.dealId) ?? "Sin negocio"
+        const dealIdForQuote = quote.dealId ?? quoteIdToDealId.get(quote.id);
+        const dealTitle = dealIdForQuote
+          ? quoteDealTitleById.get(dealIdForQuote) ?? "Sin negocio"
           : "Sin negocio";
         results.push({
           id: quote.id,
