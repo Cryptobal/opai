@@ -57,32 +57,40 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const templateCps = execution.rondaTemplate.checkpoints;
-    const total = templateCps.length;
-    const markedCpIds = new Set(
-      execution.marcaciones.map((m) => m.checkpointId),
-    );
+    const isAdHoc = !execution.rondaTemplateId;
 
-    const missedData = templateCps
-      .filter((tc) => !markedCpIds.has(tc.checkpointId))
-      .map((tc) => ({
-        tenantId: execution.tenantId,
-        ejecucionId: execution.id,
-        checkpointId: tc.checkpointId,
-        guardiaId: effectiveGuardiaId,
-        timestamp: now,
-        lat: 0,
-        lng: 0,
-        geoValidada: false,
-        geoDistanciaM: null as number | null,
-        hashIntegridad: "missed",
-        status: "MISSED",
-        verificationMethod: "MANUAL",
-        isOfflineSync: false,
-      }));
+    let missedData: any[] = [];
+    let total: number;
+    let templateCps: any[] = [];
 
-    if (missedData.length > 0) {
-      await prisma.opsMarcacionCheckpoint.createMany({ data: missedData });
+    if (isAdHoc) {
+      total = execution.marcaciones.length;
+    } else {
+      templateCps = execution.rondaTemplate!.checkpoints;
+      total = templateCps.length;
+      const markedCpIds = new Set(execution.marcaciones.map((m) => m.checkpointId));
+
+      missedData = templateCps
+        .filter((tc: any) => !markedCpIds.has(tc.checkpointId))
+        .map((tc: any) => ({
+          tenantId: execution.tenantId,
+          ejecucionId: execution.id,
+          checkpointId: tc.checkpointId,
+          guardiaId: effectiveGuardiaId,
+          timestamp: now,
+          lat: 0,
+          lng: 0,
+          geoValidada: false,
+          geoDistanciaM: null as number | null,
+          hashIntegridad: "missed",
+          status: "MISSED",
+          verificationMethod: "MANUAL",
+          isOfflineSync: false,
+        }));
+
+      if (missedData.length > 0) {
+        await prisma.opsMarcacionCheckpoint.createMany({ data: missedData });
+      }
     }
 
     const allMarcaciones = [
@@ -105,9 +113,8 @@ export async function POST(request: NextRequest) {
     const completedCount = execution.marcaciones.filter(
       (m) => m.status === "COMPLETED" || !m.status,
     ).length;
-    const missedPercent =
-      total > 0 ? (missedData.length / total) * 100 : 0;
-    const status = missedPercent > 20 ? "incompleta" : "completada";
+    const missedPercent = total > 0 ? (missedData.length / total) * 100 : 0;
+    const status = isAdHoc ? "completada" : (missedPercent > 20 ? "incompleta" : "completada");
     const pct = total > 0 ? (completedCount / total) * 100 : 0;
 
     const durationMinutes = execution.startedAt
@@ -116,17 +123,19 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
-    const trustResult = calculateRondaTrustScore({
-      ejecucion: { ...execution, completedAt: now, checkpointsTotal: total },
-      marcaciones: allMarcaciones.map((m) => ({
-        status: (m as any).status ?? "COMPLETED",
-        timestamp: m.timestamp,
-        checkpointId: m.checkpointId,
-      })),
-      template: execution.rondaTemplate,
-      templateCheckpoints: templateCps,
-      programacion: execution.programacion,
-    });
+    const trustResult = isAdHoc
+      ? { score: 100, breakdown: { adHoc: true } }
+      : calculateRondaTrustScore({
+          ejecucion: { ...execution, completedAt: now, checkpointsTotal: total },
+          marcaciones: allMarcaciones.map((m) => ({
+            status: (m as any).status ?? "COMPLETED",
+            timestamp: m.timestamp,
+            checkpointId: m.checkpointId,
+          })),
+          template: execution.rondaTemplate!,
+          templateCheckpoints: templateCps,
+          programacion: execution.programacion,
+        });
 
     const updated = await prisma.opsRondaEjecucion.update({
       where: { id: execution.id },
@@ -144,41 +153,58 @@ export async function POST(request: NextRequest) {
     });
 
     // Build per-checkpoint detail for the completion screen
-    const templateCheckpointsForDetail = await prisma.opsRondaCheckpoint.findMany({
-      where: { rondaTemplateId: execution.rondaTemplateId },
-      include: { checkpoint: { select: { id: true, name: true } } },
-      orderBy: { orderIndex: "asc" },
-    });
+    let checkpointDetails: any[];
 
-    const allMarcacionesForDetail = await prisma.opsMarcacionCheckpoint.findMany({
-      where: { ejecucionId },
-      select: {
-        checkpointId: true,
-        timestamp: true,
-        geoDistanciaM: true,
-        geoValidada: true,
-        verificationMethod: true,
-        fotoEvidenciaUrl: true,
-        status: true,
-      },
-    });
+    if (isAdHoc) {
+      const marcaciones = await prisma.opsMarcacionCheckpoint.findMany({
+        where: { ejecucionId },
+        include: { checkpoint: { select: { id: true, name: true } } },
+        orderBy: { timestamp: "asc" },
+      });
+      checkpointDetails = marcaciones.map((m: any) => ({
+        name: m.checkpoint?.name ?? "Checkpoint",
+        status: m.status ?? "COMPLETED",
+        timestamp: m.timestamp?.toISOString(),
+        distanceM: m.geoDistanciaM,
+        geoValidada: m.geoValidada ?? false,
+        qrScanned: m.verificationMethod === "QR" || m.verificationMethod === "BOTH",
+        hasPhoto: !!m.fotoEvidenciaUrl,
+      }));
+    } else {
+      const templateCheckpointsForDetail = await prisma.opsRondaCheckpoint.findMany({
+        where: { rondaTemplateId: execution.rondaTemplateId! },
+        include: { checkpoint: { select: { id: true, name: true } } },
+        orderBy: { orderIndex: "asc" },
+      });
 
-    const checkpointDetails = templateCheckpointsForDetail.map((tc) => {
-      const marc = allMarcacionesForDetail.find(
-        (m) => m.checkpointId === tc.checkpointId && m.status === "COMPLETED",
-      );
-      return {
-        name: tc.checkpoint.name,
-        status: marc ? ("COMPLETED" as const) : ("MISSED" as const),
-        timestamp: marc?.timestamp?.toISOString() ?? undefined,
-        distanceM: marc?.geoDistanciaM ?? undefined,
-        geoValidada: marc?.geoValidada ?? false,
-        qrScanned:
-          marc?.verificationMethod === "QR" ||
-          marc?.verificationMethod === "BOTH",
-        hasPhoto: !!marc?.fotoEvidenciaUrl,
-      };
-    });
+      const allMarcacionesForDetail = await prisma.opsMarcacionCheckpoint.findMany({
+        where: { ejecucionId },
+        select: {
+          checkpointId: true,
+          timestamp: true,
+          geoDistanciaM: true,
+          geoValidada: true,
+          verificationMethod: true,
+          fotoEvidenciaUrl: true,
+          status: true,
+        },
+      });
+
+      checkpointDetails = templateCheckpointsForDetail.map((tc: any) => {
+        const marc = allMarcacionesForDetail.find(
+          (m) => m.checkpointId === tc.checkpointId && m.status === "COMPLETED",
+        );
+        return {
+          name: tc.checkpoint.name,
+          status: marc ? ("COMPLETED" as const) : ("MISSED" as const),
+          timestamp: marc?.timestamp?.toISOString() ?? undefined,
+          distanceM: marc?.geoDistanciaM ?? undefined,
+          geoValidada: marc?.geoValidada ?? false,
+          qrScanned: marc?.verificationMethod === "QR" || marc?.verificationMethod === "BOTH",
+          hasPhoto: !!marc?.fotoEvidenciaUrl,
+        };
+      });
+    }
 
     return NextResponse.json({
       success: true,
