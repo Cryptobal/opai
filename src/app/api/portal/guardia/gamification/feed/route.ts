@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       ? await prisma.gamificacionGuardiaBadge.findMany({
           where: {
             guardiaId: { in: guardiaIds },
+            badge: { esSecreto: false },
           },
           orderBy: { desbloqueadoAt: "desc" },
           take: 10,

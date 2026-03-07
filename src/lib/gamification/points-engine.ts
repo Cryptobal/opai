@@ -34,6 +34,7 @@ const EVENT_POINTS: Record<EventoTipo, (config: GamificacionConfig) => number> =
   reconocimiento_recibido: (c) => c.ptsReconocimientoRecibido,
   reconocimiento_dado: (c) => c.ptsReconocimientoDado,
   badge_desbloqueado: (c) => c.ptsBadgeDesbloqueado,
+  canje: () => 0,
   racha_bonus: (c) => c.ptsBonusRacha7dias,
   semana_perfecta: (c) => c.ptsBonusSemanalPerfecta,
   asistencia_perfecta_mes: (c) => c.ptsAsistenciaPerfectaMes,

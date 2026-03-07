@@ -151,8 +151,8 @@ export async function POST(request: NextRequest) {
         guardiaId,
         tenantId: guardia.tenantId,
         installationId: guardia.currentInstallationId,
-        tipo: "badge_desbloqueado", // Using a valid event type for the deduction
-        dimension: "social",
+        tipo: "canje",
+        dimension: "bonus",
         descripcion: `Canje de beneficio: ${beneficio.nombre} (-${costoPuntos} pts)`,
         referenciaModelo: "GamificacionCanje",
         referenciaId: canje.id,

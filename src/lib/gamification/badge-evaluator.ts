@@ -62,9 +62,17 @@ async function verificarCondicion(
       return (ultimoScore?.rachaActual ?? 0) >= condicionValor;
     }
 
+    case "rondas_perfectas":
     case "rondas_perfectas_count": {
       const count = await prisma.opsRondaEjecucion.count({
         where: { guardiaId, tenantId, status: "completada", trustScore: { gte: 90 } },
+      });
+      return count >= condicionValor;
+    }
+
+    case "incidentes_reportados": {
+      const count = await prisma.gamificacionEvento.count({
+        where: { guardiaId, tenantId, tipo: "incidente_reportado" },
       });
       return count >= condicionValor;
     }
@@ -91,6 +99,7 @@ async function verificarCondicion(
       return count >= condicionValor;
     }
 
+    case "examenes_perfectos":
     case "examen_perfecto": {
       const count = await prisma.examAssignment.count({
         where: { guardId: guardiaId, status: "completed", score: { gte: 90 } },

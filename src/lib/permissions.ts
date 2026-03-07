@@ -855,7 +855,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/ops/inventario")) return { module: "ops", submodule: "inventario" };
-  if (pathname.startsWith("/api/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };
+  if (pathname.startsWith("/api/ops/gamificacion") || pathname.startsWith("/api/gamification")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };

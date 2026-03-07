@@ -39,6 +39,7 @@ export type EventoTipo =
   | "reconocimiento_recibido"
   | "reconocimiento_dado"
   | "badge_desbloqueado"
+  | "canje"
   | "racha_bonus"
   | "semana_perfecta"
   | "asistencia_perfecta_mes";

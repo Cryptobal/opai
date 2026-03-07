@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const VALID_CATEGORIES = ["companerismo", "puntualidad", "profesionalismo", "liderazgo", "iniciativa"];
+    if (!VALID_CATEGORIES.includes(categoria)) {
+      return NextResponse.json(
+        { success: false, error: `Categoría inválida. Debe ser una de: ${VALID_CATEGORIES.join(", ")}` },
+        { status: 400 },
+      );
+    }
+
     // Cannot recognize yourself
     if (guardiaId === receptorId) {
       return NextResponse.json(
