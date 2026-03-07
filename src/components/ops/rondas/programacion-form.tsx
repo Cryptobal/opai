@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { QuickTimePicker } from "@/components/ops/rondas/QuickTimePicker";
 
 export interface ProgramacionPayload {
   rondaTemplateId: string;
@@ -36,8 +37,8 @@ export function ProgramacionForm({
 }) {
   const [templateId, setTemplateId] = useState(editingProgramacion?.rondaTemplateId ?? "");
   const [diasSemana, setDiasSemana] = useState<number[]>(editingProgramacion?.diasSemana ?? [1, 2, 3, 4, 5]);
-  const [horaInicio, setHoraInicio] = useState(editingProgramacion?.horaInicio ?? "22:00");
-  const [horaFin, setHoraFin] = useState(editingProgramacion?.horaFin ?? "06:00");
+  const [horaInicio, setHoraInicio] = useState(editingProgramacion?.horaInicio ?? "21:00");
+  const [horaFin, setHoraFin] = useState(editingProgramacion?.horaFin ?? "08:00");
   const [frecuenciaMinutos, setFrecuenciaMinutos] = useState(editingProgramacion?.frecuenciaMinutos ?? 120);
   const [toleranciaMinutos, setToleranciaMinutos] = useState(editingProgramacion?.toleranciaMinutos ?? 10);
   const [saving, setSaving] = useState(false);
@@ -84,14 +85,8 @@ export function ProgramacionForm({
             ))}
           </select>
         </div>
-        <div className="space-y-0.5">
-          <label className="text-[11px] text-muted-foreground">Hora inicio</label>
-          <Input type="time" className="h-9" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
-        </div>
-        <div className="space-y-0.5">
-          <label className="text-[11px] text-muted-foreground">Hora fin</label>
-          <Input type="time" className="h-9" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} />
-        </div>
+        <QuickTimePicker value={horaInicio} onChange={setHoraInicio} label="Hora inicio" />
+        <QuickTimePicker value={horaFin} onChange={setHoraFin} label="Hora fin" />
         <div className="space-y-0.5">
           <label className="text-[11px] text-muted-foreground">Frecuencia (min)</label>
           <Input
