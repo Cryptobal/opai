@@ -66,28 +66,24 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // OpsAlertaRonda requires ejecucionId (non-nullable FK), so only create
-      // the alert record when we have an active execution.
-      let alerta: { id: string } | null = null;
-      if (ejecucionId) {
-        alerta = await tx.opsAlertaRonda.create({
+      // Always create alert — ejecucionId is now nullable
+      const alerta = await tx.opsAlertaRonda.create({
+        data: {
+          tenantId,
+          ejecucionId: ejecucionId || null,
+          installationId,
+          guardiaId,
+          tipo: "panico",
+          severidad: "critical",
+          mensaje: `Boton de panico activado por ${guardiaNombre}`,
           data: {
-            tenantId,
-            ejecucionId,
-            installationId,
+            lat: lat ?? null,
+            lng: lng ?? null,
+            note: note ?? null,
             guardiaId,
-            tipo: "panico",
-            severidad: "critical",
-            mensaje: `Boton de panico activado por ${guardiaNombre}`,
-            data: {
-              lat: lat ?? null,
-              lng: lng ?? null,
-              note: note ?? null,
-              guardiaId,
-            } as never,
-          },
-        });
-      }
+          } as never,
+        },
+      });
 
       return { incidente, alerta };
     });
