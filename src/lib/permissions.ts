@@ -65,6 +65,7 @@ export const SUBMODULE_KEYS = {
     "supervision",
     "inventario",
     "eventos_laborales",
+    "gamificacion",
   ] as const,
   crm: [
     "leads",
@@ -130,6 +131,7 @@ export const CAPABILITY_KEYS = [
   "supervision_view_own",
   "supervision_view_all",
   "supervision_dashboard",
+  "gamificacion_bonos_aprobar",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -207,6 +209,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.supervision", module: "ops", submodule: "supervision", label: "Supervisión", href: "/ops/supervision" },
   { key: "ops.inventario", module: "ops", submodule: "inventario", label: "Inventario", href: "/ops/inventario" },
   { key: "ops.eventos_laborales", module: "ops", submodule: "eventos_laborales", label: "Eventos laborales", href: "/personas/guardias" },
+  { key: "ops.gamificacion", module: "ops", submodule: "gamificacion", label: "Gamificación", href: "/ops/gamificacion" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -270,6 +273,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "supervision_view_own", label: "Ver visitas propias", description: "Puede ver solo las visitas de supervisión creadas por sí mismo", moduleKey: "ops", submoduleKey: "supervision" },
   { key: "supervision_view_all", label: "Ver todas las visitas", description: "Puede ver visitas de supervisión de cualquier supervisor", moduleKey: "ops", submoduleKey: "supervision" },
   { key: "supervision_dashboard", label: "Dashboard supervisión", description: "Puede ver KPIs y reportes consolidados de supervisión", moduleKey: "ops", submoduleKey: "supervision" },
+  { key: "gamificacion_bonos_aprobar", label: "Aprobar bonos gamificación", description: "Puede aprobar o rechazar sugerencias de bono generadas por gamificación", moduleKey: "ops", submoduleKey: "gamificacion" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -376,8 +380,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "view",
     },
-    submodules: { "crm.installations": "view", "crm.dotacion": "view" },
-    capabilities: { rendicion_view_all: true, ticket_approve: true },
+    submodules: { "crm.installations": "view", "crm.dotacion": "view", "ops.gamificacion": "edit" },
+    capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   operaciones: {
@@ -392,7 +396,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "edit",
     },
     submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit" },
-    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true },
+    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   finanzas: finanzasPermissions(),
@@ -505,6 +509,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "ops.turnos_extra": "edit",
       "ops.supervision": "full",
       "ops.tickets": "edit",
+      "ops.gamificacion": "edit",
       "crm.leads": "none",
       "crm.accounts": "view",
       "crm.installations": "view",
@@ -756,6 +761,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/ops/inventario")) return { module: "ops", submodule: "inventario" };
+  if (pathname.startsWith("/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/personas/guardias"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
@@ -849,6 +855,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/ops/inventario")) return { module: "ops", submodule: "inventario" };
+  if (pathname.startsWith("/api/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };
