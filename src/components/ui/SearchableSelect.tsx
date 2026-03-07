@@ -80,7 +80,10 @@ export function SearchableSelect({
         value={displayValue}
         placeholder={placeholder}
         disabled={disabled}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+        }}
         onChange={(event) => {
           const next = event.target.value;
           setQuery(next);
