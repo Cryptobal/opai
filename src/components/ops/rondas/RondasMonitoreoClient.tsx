@@ -147,7 +147,7 @@ export function RondasMonitoreoClient({
       if (inst?.lat != null && inst?.lng != null) return { lat: inst.lat, lng: inst.lng };
     }
     if (filtered[0]?.rondaTemplate?.installation?.lat) {
-      return { lat: filtered[0].rondaTemplate.installation.lat, lng: filtered[0].rondaTemplate.installation.lng };
+      return { lat: filtered[0].rondaTemplate?.installation?.lat, lng: filtered[0].rondaTemplate?.installation?.lng };
     }
     return null;
   }, [filtered, installationFilter, installations]);

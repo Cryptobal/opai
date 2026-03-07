@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const checkpoint = await prisma.opsCheckpoint.findFirst({
       where: {
         tenantId: execution.tenantId,
-        installationId: execution.rondaTemplate.installationId,
+        installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
         isActive: true,
         ...(parsed.data.checkpointId
           ? { id: parsed.data.checkpointId }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const hash = computeMarcacionHash({
       tenantId: execution.tenantId,
       guardiaId: execution.guardiaId ?? "unknown",
-      installationId: execution.rondaTemplate.installationId,
+      installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
       tipo: "checkpoint",
       timestamp: now.toISOString(),
       lat: parsed.data.lat,
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: execution.tenantId,
             ejecucionId: execution.id,
-            installationId: execution.rondaTemplate.installationId,
+            installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
             mensaje: `Anomalía detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Evaluate post-mark alerts asynchronously (don't block response)
-    evaluatePostMarkAlerts({
+    if (execution.rondaTemplate) evaluatePostMarkAlerts({
       tenantId: execution.tenantId,
       ejecucionId: execution.id,
       installationId: execution.rondaTemplate.installationId,

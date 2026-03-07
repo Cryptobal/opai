@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         data: {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
-          installationId: execution.rondaTemplate.installationId,
+          installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
           tipo: "panico",
           severidad: "critical",
           mensaje: "Botón de pánico activado por guardia en ronda",
