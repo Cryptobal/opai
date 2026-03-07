@@ -31,3 +31,4 @@ export { BadgeCard } from "./BadgeCard";
 export { BadgeGrid } from "./BadgeGrid";
 export { PointsHistory } from "./PointsHistory";
 export { TrendChart } from "./TrendChart";
+export { GuardiaDesempenoTab } from "./GuardiaDesempenoTab";
