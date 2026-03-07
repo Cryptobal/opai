@@ -87,6 +87,7 @@ export function ChatInput({
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCooldown, setIsCooldown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef(0);
@@ -517,7 +518,7 @@ export function ChatInput({
   const handleSend = useCallback(async () => {
     const trimmedContent = content.trim();
     if (!trimmedContent && files.length === 0) return;
-    if (isSending || isUploading) return;
+    if (isSending || isUploading || isCooldown) return;
 
     setIsSending(true);
 
@@ -567,12 +568,16 @@ export function ChatInput({
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
+
+      // Cooldown: disable send for 1 second to prevent spam
+      setIsCooldown(true);
+      setTimeout(() => setIsCooldown(false), 1000);
     } catch (err) {
       console.error("[ChatInput] send error:", err);
     } finally {
       setIsSending(false);
     }
-  }, [content, files, isSending, isUploading, replyTo, onSend]);
+  }, [content, files, isSending, isUploading, isCooldown, replyTo, onSend]);
 
   // Build filterable mention options (users + @todos)
   const mentionOptions = mentionQuery !== null
@@ -964,10 +969,10 @@ export function ChatInput({
         <button
           type="button"
           onClick={handleSend}
-          disabled={isEmpty || isSending || isUploading}
+          disabled={isEmpty || isSending || isUploading || isCooldown}
           className={cn(
             "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-            isEmpty || isSending || isUploading
+            isEmpty || isSending || isUploading || isCooldown
               ? "text-zinc-600 cursor-not-allowed"
               : "bg-blue-600 text-white hover:bg-blue-500"
           )}

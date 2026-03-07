@@ -10,6 +10,26 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
 import type { ChatSenderType } from "@prisma/client";
 
+// ── Rate limiting (in-memory, per serverless instance) ──
+
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 30;
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
 // ── GET — List messages ──
 
 export async function GET(
@@ -193,6 +213,14 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    // Rate limit: 30 messages per minute per user
+    if (!checkRateLimit(ctx.userId)) {
+      return NextResponse.json(
+        { success: false, error: "Demasiados mensajes. Espera un momento." },
+        { status: 429 }
+      );
+    }
 
     const { id: channelId } = await params;
     const body = await request.json().catch(() => ({}));
