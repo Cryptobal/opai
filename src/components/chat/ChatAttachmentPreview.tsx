@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import {
-  Image as ImageIcon,
   File as FileIcon,
   Download,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { ChatAttachment } from "@/lib/chat-types";
 
 interface ChatAttachmentPreviewProps {
@@ -38,58 +36,49 @@ function isImage(fileType: string): boolean {
 export function ChatAttachmentPreview({ attachments }: ChatAttachmentPreviewProps) {
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
-  const images = attachments.filter((a) => isImage(a.fileType));
-  const files = attachments.filter((a) => !isImage(a.fileType));
-
   return (
     <>
-      {/* Images */}
-      {images.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {images.map((img) => (
-            <button
-              key={img.id}
-              type="button"
-              onClick={() => setExpandedImage(img.fileUrl)}
-              className="group relative overflow-hidden rounded-lg border border-zinc-700/50 transition-all hover:border-zinc-600"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.fileUrl}
-                alt={img.fileName}
-                className="max-w-64 max-h-48 object-cover rounded-lg"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Files */}
-      {files.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {files.map((file) => (
-            <a
-              key={file.id}
-              href={file.fileUrl}
-              download={file.fileName}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-3 py-2 transition-colors hover:bg-zinc-800/60 hover:border-zinc-600"
-            >
-              <FileIcon className="h-4 w-4 shrink-0 text-zinc-400" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-zinc-300 truncate">
-                  {file.fileName}
-                </p>
-                <p className="text-[10px] text-zinc-500">
-                  {formatFileSize(file.fileSize)}
-                </p>
-              </div>
-              <Download className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-            </a>
-          ))}
+      {/* Attachments – horizontal thumbnail row */}
+      {attachments.length > 0 && (
+        <div className="flex items-center gap-2 mt-2 overflow-x-auto">
+          {attachments.map((att) =>
+            isImage(att.fileType) ? (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => setExpandedImage(att.fileUrl)}
+                className="w-[120px] h-[100px] rounded-lg border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] overflow-hidden cursor-pointer transition-colors shrink-0"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={att.fileUrl}
+                  alt={att.fileName}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </button>
+            ) : (
+              <a
+                key={att.id}
+                href={att.fileUrl}
+                download={att.fileName}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] px-3 py-2 shrink-0 transition-colors hover:border-[rgba(255,255,255,0.15)]"
+              >
+                <FileIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-zinc-300 truncate">
+                    {att.fileName}
+                  </p>
+                  <p className="text-[10px] text-zinc-500">
+                    {formatFileSize(att.fileSize)}
+                  </p>
+                </div>
+                <Download className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+              </a>
+            )
+          )}
         </div>
       )}
 
