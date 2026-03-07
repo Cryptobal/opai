@@ -20,6 +20,8 @@ interface ChatPresenceBarProps {
   isSearching?: boolean;
   channelId?: string;
   children?: ReactNode;
+  /** Increment to programmatically open and focus search (e.g. via Cmd+K) */
+  searchTrigger?: number;
 }
 
 export function ChatPresenceBar({
@@ -30,11 +32,19 @@ export function ChatPresenceBar({
   isSearching,
   channelId,
   children,
+  searchTrigger,
 }: ChatPresenceBarProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [notifPref, setNotifPref] = useState<NotifPreference>("ALL");
+
+  // Open and focus search when searchTrigger changes (e.g. Cmd+K)
+  useEffect(() => {
+    if (!searchTrigger || !onSearch) return;
+    setShowSearch(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, [searchTrigger, onSearch]);
 
   // Fetch current preference when channel changes
   useEffect(() => {

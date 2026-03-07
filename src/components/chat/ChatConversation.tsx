@@ -83,6 +83,36 @@ export function ChatConversation({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const lastReadMsgRef = useRef<string | null>(null);
 
+  // Keyboard shortcut: Cmd+K triggers search focus
+  const [searchTrigger, setSearchTrigger] = useState(0);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape: close thread panel, or cancel reply
+      if (e.key === "Escape") {
+        if (activeThreadId) {
+          setActiveThreadId(null);
+          return;
+        }
+        if (replyTo) {
+          setReplyTo(null);
+          return;
+        }
+      }
+
+      // Cmd/Ctrl+K: focus search (always intercept, even in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchTrigger((prev) => prev + 1);
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [activeThreadId, replyTo]);
+
   // Drag & drop file upload state
   const [isDragging, setIsDragging] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
@@ -321,6 +351,7 @@ export function ChatConversation({
           onSearch={handleSearch}
           isSearching={isSearching}
           channelId={channelId}
+          searchTrigger={searchTrigger}
         >
           {canDeleteAny && (
             <button

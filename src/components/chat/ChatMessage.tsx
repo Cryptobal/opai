@@ -187,7 +187,7 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
   return (
     <div
       className={cn(
-        "group flex mb-1.5",
+        "group flex mb-1.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
         isOwn ? "justify-end" : "justify-start"
       )}
       onMouseEnter={() => setShowActions(true)}
