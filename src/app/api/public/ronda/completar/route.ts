@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
         timestamp: m.timestamp,
         checkpointId: m.checkpointId,
       })),
-      template: execution.rondaTemplate,
+      template: execution.rondaTemplate ?? { orderMode: "flexible", estimatedDurationMin: null },
       templateCheckpoints: templateCps,
-      programacion: execution.programacion,
+      programacion: execution.programacion ?? undefined,
     });
 
     const updated = await prisma.opsRondaEjecucion.update({
