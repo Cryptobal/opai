@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
 
 interface CheckpointPoint {
   id: string;
@@ -31,16 +32,30 @@ interface AlertMarker {
   installationName: string;
 }
 
+export interface InstallationMapData {
+  id: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  guardiasPresentes?: number;
+  guardiasRequeridos?: number;
+  guardiaNames?: string[];
+  activeRondaProgress?: string | null; // e.g. "6/8"
+  activeRondaTrust?: number | null;
+  activeRondaStatus?: string | null;
+  alertCount?: number;
+}
+
 export interface MonitoreoMapProps {
   checkpoints: CheckpointPoint[];
   guards: GuardPosition[];
-  installations?: Array<{ id: string; name: string; lat: number | null; lng: number | null }>;
+  installations?: InstallationMapData[];
   alerts?: AlertMarker[];
   center?: { lat: number; lng: number } | null;
-  /** When set, map will auto-fit all these points (checkpoints + guards + routes). */
   selectedGuardId?: string | null;
   onFullscreenToggle?: () => void;
   isFullscreen?: boolean;
+  onInstallationClick?: (installationId: string) => void;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -50,9 +65,10 @@ type GMapInstance = {
   setZoom: (z: number) => void;
   fitBounds: (b: GLatLngBounds, padding?: number | Record<string, number>) => void;
   getZoom: () => number;
+  addListener: (e: string, cb: () => void) => void;
 };
 type GMarker = { setMap: (m: unknown) => void; addListener: (e: string, cb: () => void) => void };
-type GCircle = { setMap: (m: unknown) => void };
+type GCircle = { setMap: (m: unknown) => void; setVisible: (v: boolean) => void };
 type GInfoWindow = { open: (m: unknown, a: unknown) => void; close: () => void };
 type GMaps = {
   Map: new (...a: any[]) => GMapInstance;
@@ -72,6 +88,44 @@ const STATUS_COLORS: Record<string, string> = {
   active: "#3b82f6",
   pending: "#6b7280",
 };
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function buildInstallationPopup(inst: InstallationMapData): string {
+  const hasRonda = inst.activeRondaStatus === "en_curso";
+  const statusColor = hasRonda ? "#22c55e" : inst.alertCount && inst.alertCount > 0 ? "#ef4444" : "#64748b";
+  const statusIcon = hasRonda ? "●" : inst.alertCount && inst.alertCount > 0 ? "⚠" : "○";
+  const statusLabel = hasRonda ? "En ronda" : inst.alertCount && inst.alertCount > 0 ? "Con alertas" : "Sin actividad";
+
+  const trustScore = inst.activeRondaTrust;
+  const trustColor = trustScore != null ? (trustScore >= 80 ? "#22c55e" : trustScore >= 60 ? "#eab308" : "#ef4444") : "#64748b";
+
+  const guardsHtml = (inst.guardiaNames ?? []).length > 0
+    ? (inst.guardiaNames ?? []).map((n) => `<div style="font-size:11px;color:#cbd5e1;padding:1px 0">👤 ${escapeHtml(n)}</div>`).join("")
+    : '<div style="font-size:11px;color:#64748b;padding:1px 0">Sin guardias</div>';
+
+  const progressHtml = inst.activeRondaProgress
+    ? `<div style="margin-top:6px;font-size:11px;color:#94a3b8">Ronda: <strong style="color:#e2e8f0">${escapeHtml(inst.activeRondaProgress)}</strong>${trustScore != null ? ` · Trust <strong style="color:${trustColor}">${trustScore}</strong>` : ""}</div>`
+    : "";
+
+  const alertHtml = inst.alertCount && inst.alertCount > 0
+    ? `<div style="margin-top:4px;font-size:11px;color:#f87171">⚠️ ${inst.alertCount} alerta${inst.alertCount > 1 ? "s" : ""} activa${inst.alertCount > 1 ? "s" : ""}</div>`
+    : "";
+
+  return `<div style="background:#1e293b;color:#e2e8f0;padding:10px 12px;border-radius:8px;min-width:180px;max-width:260px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <span style="color:${statusColor};font-size:14px">${statusIcon}</span>
+      <strong style="color:white;font-size:13px">${escapeHtml(inst.name)}</strong>
+      <span style="color:#64748b;font-size:10px;margin-left:auto">${inst.guardiasPresentes ?? 0}/${inst.guardiasRequeridos ?? 1}</span>
+    </div>
+    <div style="font-size:10px;color:#64748b;margin-bottom:4px">${statusLabel}</div>
+    ${guardsHtml}
+    ${progressHtml}
+    ${alertHtml}
+  </div>`;
+}
 
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -110,14 +164,17 @@ export function MonitoreoMap({
   selectedGuardId,
   onFullscreenToggle,
   isFullscreen,
+  onInstallationClick,
 }: MonitoreoMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GMapInstance | null>(null);
   const markersRef = useRef<GMarker[]>([]);
   const circlesRef = useRef<GCircle[]>([]);
   const installationMarkersRef = useRef<GMarker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const alertMarkersRef = useRef<(GMarker | GCircle)[]>([]);
   const hasAutoFitRef = useRef(false);
+  const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -190,15 +247,21 @@ export function MonitoreoMap({
     if (!w.google?.maps) return;
     const gm = w.google.maps;
 
+    // Cleanup previous markers
     markersRef.current.forEach((m) => m.setMap(null));
     circlesRef.current.forEach((c) => c.setMap(null));
     installationMarkersRef.current.forEach((m) => m.setMap(null));
     alertMarkersRef.current.forEach((m) => m.setMap(null));
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current = null;
+    }
     markersRef.current = [];
     circlesRef.current = [];
     installationMarkersRef.current = [];
     alertMarkersRef.current = [];
 
+    // Checkpoint markers + geofence circles
     checkpoints.forEach((cp) => {
       const color = STATUS_COLORS[cp.status] ?? STATUS_COLORS["pending"];
       const marker = new gm.Marker({
@@ -226,9 +289,22 @@ export function MonitoreoMap({
         strokeOpacity: 0.3,
         strokeWeight: 1,
       });
+      // Only show geofences at street-level zoom
+      const zoom = map.getZoom();
+      circle.setVisible(zoom !== undefined && zoom > 15);
       circlesRef.current.push(circle);
     });
 
+    // Zoom listener for geofence visibility
+    if (zoomListenerRef.current) {
+      google.maps.event.removeListener(zoomListenerRef.current);
+    }
+    zoomListenerRef.current = (map as any).addListener("zoom_changed", () => {
+      const zoom = map.getZoom();
+      circlesRef.current.forEach((c) => c.setVisible(zoom !== undefined && zoom > 15));
+    });
+
+    // Guard markers (never clustered — real-time positions)
     guards.forEach((g) => {
       const marker = new gm.Marker({
         position: { lat: g.lat, lng: g.lng },
@@ -250,12 +326,12 @@ export function MonitoreoMap({
       markersRef.current.push(marker);
     });
 
-    // Installation markers (building icon pins)
+    // Installation markers — clustered
+    const instMarkers: google.maps.Marker[] = [];
     (installations ?? []).forEach((inst) => {
       if (inst.lat == null || inst.lng == null) return;
       const marker = new gm.Marker({
         position: { lat: inst.lat, lng: inst.lng },
-        map,
         title: inst.name,
         icon: {
           path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
@@ -267,17 +343,53 @@ export function MonitoreoMap({
           anchor: { x: 12, y: 22, equals: () => false } as any,
         },
         zIndex: 10,
-      });
+      }) as unknown as google.maps.Marker;
+
       const infoWindow = new gm.InfoWindow({
-        content: `<div style="color:#000;font-size:13px;font-weight:700;padding:2px 4px">${inst.name}</div>`,
+        content: buildInstallationPopup(inst),
       });
-      marker.addListener("click", () => infoWindow.open(map, marker));
-      installationMarkersRef.current.push(marker);
+      (marker as any).addListener("click", () => {
+        infoWindow.open(map, marker);
+        onInstallationClick?.(inst.id);
+      });
+
+      instMarkers.push(marker);
+      installationMarkersRef.current.push(marker as unknown as GMarker);
     });
 
-    // Alert markers — large red pulsing circles at installation locations
+    // Create clusterer for installation markers
+    if (instMarkers.length > 0) {
+      clustererRef.current = new MarkerClusterer({
+        map: map as unknown as google.maps.Map,
+        markers: instMarkers,
+        algorithm: new SuperClusterAlgorithm({ radius: 80 }),
+        renderer: {
+          render: ({ count, position }) => {
+            return new google.maps.Marker({
+              position,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: "#14b8a6",
+                fillOpacity: 0.3,
+                strokeColor: "#14b8a6",
+                strokeWeight: 2,
+                scale: 20 + Math.min(count * 2, 20),
+              },
+              label: {
+                text: `${count}`,
+                color: "#5eead4",
+                fontSize: "12px",
+                fontWeight: "bold",
+              },
+              zIndex: 1,
+            });
+          },
+        },
+      });
+    }
+
+    // Alert markers — large red pulsing circles at installation locations (never clustered)
     (alerts ?? []).forEach((alert) => {
-      // Outer pulsing ring
       const pulseCircle = new gm.Circle({
         center: { lat: alert.lat, lng: alert.lng },
         radius: 80,
@@ -290,7 +402,6 @@ export function MonitoreoMap({
       });
       alertMarkersRef.current.push(pulseCircle);
 
-      // Alert marker — red triangle-ish with high z-index
       const alertMarker = new gm.Marker({
         position: { lat: alert.lat, lng: alert.lng },
         map,
@@ -316,7 +427,7 @@ export function MonitoreoMap({
       alertMarkersRef.current.push(alertMarker);
     });
 
-    // Auto-fit bounds on first load when there are points to show
+    // Auto-fit bounds on first load
     const instPoints = (installations ?? []).filter((i) => i.lat != null && i.lng != null).map((i) => ({ lat: i.lat!, lng: i.lng! }));
     if (!hasAutoFitRef.current && (checkpoints.length > 0 || guards.length > 0 || instPoints.length > 0)) {
       hasAutoFitRef.current = true;
@@ -327,7 +438,7 @@ export function MonitoreoMap({
       ];
       fitToPoints(allPoints);
     }
-  }, [checkpoints, guards, installations, alerts, fitToPoints]);
+  }, [checkpoints, guards, installations, alerts, fitToPoints, onInstallationClick]);
 
   useEffect(() => {
     updateMarkers();
@@ -338,21 +449,17 @@ export function MonitoreoMap({
     if (!mapRef.current) return;
 
     if (selectedGuardId) {
-      // Fit to selected guard position + their route points
       const guardPos = guards.find((g) => g.id === selectedGuardId);
       if (!guardPos) return;
 
       const points: Array<{ lat: number; lng: number }> = [{ lat: guardPos.lat, lng: guardPos.lng }];
-      // Add nearby checkpoints (all checkpoints if single installation)
       checkpoints.forEach((cp) => points.push({ lat: cp.lat, lng: cp.lng }));
 
       fitToPoints(points);
     } else if (center) {
-      // Fallback to center prop
       mapRef.current.panTo(center);
       mapRef.current.setZoom(15);
     } else {
-      // No selection, fit all (including installations)
       const allPoints: Array<{ lat: number; lng: number }> = [
         ...checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
         ...guards.map((g) => ({ lat: g.lat, lng: g.lng })),

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { getAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
 import { formatChileTime } from "./timezone";
+import { getPusherServer } from "@/lib/chat";
 
 export async function evaluatePostMarkAlerts(input: {
   tenantId: string;
@@ -134,6 +135,22 @@ export async function evaluatePostMarkAlerts(input: {
         data: a.data as never,
       })),
     });
+
+    // Notify monitoring dashboard
+    try {
+      const pusher = getPusherServer();
+      for (const a of alerts) {
+        await pusher.trigger(`monitoreo-${input.tenantId}`, "alerta-ronda", {
+          ejecucionId: input.ejecucionId,
+          installationId: input.installationId,
+          tipo: a.tipo,
+          severidad: a.severidad,
+          mensaje: a.mensaje,
+        });
+      }
+    } catch (pusherErr) {
+      console.error("[ALERT_ENGINE] Pusher trigger failed:", pusherErr);
+    }
   }
 }
 
@@ -220,6 +237,22 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
 
   if (newAlerts.length > 0) {
     await prisma.opsAlertaRonda.createMany({ data: newAlerts });
+
+    // Notify monitoring dashboard
+    try {
+      const pusher = getPusherServer();
+      for (const a of newAlerts) {
+        await pusher.trigger(`monitoreo-${tenantId}`, "alerta-ronda", {
+          ejecucionId: a.ejecucionId,
+          installationId: a.installationId,
+          tipo: a.tipo,
+          severidad: a.severidad,
+          mensaje: a.mensaje,
+        });
+      }
+    } catch (pusherErr) {
+      console.error("[ALERT_ENGINE] Pusher trigger failed:", pusherErr);
+    }
   }
 
   return { alertsCreated: newAlerts.length };

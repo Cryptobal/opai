@@ -5,6 +5,7 @@ import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
+import { getPusherServer } from "@/lib/chat";
 
 export async function POST(request: NextRequest) {
   try {
@@ -278,6 +279,19 @@ export async function POST(request: NextRequest) {
           timestamp: now,
         },
       }).catch(err => console.error("[RONDAS] evaluatePostMarkAlerts error:", err));
+    }
+
+    // Fire-and-forget Pusher event
+    try {
+      const pusher = getPusherServer();
+      await pusher.trigger(`monitoreo-${execution.tenantId}`, "checkpoint-marked", {
+        ejecucionId: execution.id,
+        checkpointId: checkpoint.id,
+        checkpointName: checkpoint.name,
+        trustScore,
+      });
+    } catch (pusherErr) {
+      console.error("[MARCAR] Pusher trigger failed:", pusherErr);
     }
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getPusherServer } from "@/lib/chat";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -69,6 +70,18 @@ export async function POST(request: NextRequest) {
         scheduledAt: true,
       },
     });
+
+    // Fire-and-forget Pusher event
+    try {
+      const pusher = getPusherServer();
+      await pusher.trigger(`monitoreo-${execution.tenantId}`, "ronda-started", {
+        ejecucionId: updated.id,
+        guardiaId: updated.guardiaId,
+        startedAt: updated.startedAt,
+      });
+    } catch (pusherErr) {
+      console.error("[INICIAR] Pusher trigger failed:", pusherErr);
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
