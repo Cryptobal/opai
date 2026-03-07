@@ -21,15 +21,10 @@ interface GuardPosition {
   hasAlert: boolean;
 }
 
-interface RoutePoint {
-  lat: number;
-  lng: number;
-}
-
 export interface MonitoreoMapProps {
   checkpoints: CheckpointPoint[];
   guards: GuardPosition[];
-  routes: RoutePoint[][];
+  installations?: Array<{ id: string; name: string; lat: number | null; lng: number | null }>;
   center?: { lat: number; lng: number } | null;
   /** When set, map will auto-fit all these points (checkpoints + guards + routes). */
   selectedGuardId?: string | null;
@@ -47,13 +42,11 @@ type GMapInstance = {
 };
 type GMarker = { setMap: (m: unknown) => void; addListener: (e: string, cb: () => void) => void };
 type GCircle = { setMap: (m: unknown) => void };
-type GPolyline = { setMap: (m: unknown) => void };
 type GInfoWindow = { open: (m: unknown, a: unknown) => void; close: () => void };
 type GMaps = {
   Map: new (...a: any[]) => GMapInstance;
   Marker: new (...a: any[]) => GMarker;
   Circle: new (...a: any[]) => GCircle;
-  Polyline: new (...a: any[]) => GPolyline;
   InfoWindow: new (...a: any[]) => GInfoWindow;
   LatLngBounds: new () => GLatLngBounds;
   SymbolPath: { CIRCLE: number };
@@ -100,7 +93,7 @@ function loadGoogleMaps(): Promise<void> {
 export function MonitoreoMap({
   checkpoints,
   guards,
-  routes,
+  installations,
   center,
   selectedGuardId,
   onFullscreenToggle,
@@ -110,7 +103,7 @@ export function MonitoreoMap({
   const mapRef = useRef<GMapInstance | null>(null);
   const markersRef = useRef<GMarker[]>([]);
   const circlesRef = useRef<GCircle[]>([]);
-  const polylinesRef = useRef<GPolyline[]>([]);
+  const installationMarkersRef = useRef<GMarker[]>([]);
   const hasAutoFitRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +132,11 @@ export function MonitoreoMap({
         { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a2e" }] },
         { elementType: "labels.text.fill", stylers: [{ color: "#8a8a9a" }] },
         { featureType: "road", elementType: "geometry", stylers: [{ color: "#2a2a3e" }] },
+        { featureType: "road", elementType: "labels", stylers: [{ visibility: "on" }] },
         { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e0e1a" }] },
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] },
+        { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
       ],
       disableDefaultUI: true,
       zoomControl: true,
@@ -182,10 +179,10 @@ export function MonitoreoMap({
 
     markersRef.current.forEach((m) => m.setMap(null));
     circlesRef.current.forEach((c) => c.setMap(null));
-    polylinesRef.current.forEach((p) => p.setMap(null));
+    installationMarkersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
     circlesRef.current = [];
-    polylinesRef.current = [];
+    installationMarkersRef.current = [];
 
     checkpoints.forEach((cp) => {
       const color = STATUS_COLORS[cp.status] ?? STATUS_COLORS["pending"];
@@ -238,16 +235,29 @@ export function MonitoreoMap({
       markersRef.current.push(marker);
     });
 
-    routes.forEach((route) => {
-      if (route.length < 2) return;
-      const polyline = new gm.Polyline({
-        path: route.map((p) => ({ lat: p.lat, lng: p.lng })),
+    // Installation markers (building icon pins)
+    (installations ?? []).forEach((inst) => {
+      if (inst.lat == null || inst.lng == null) return;
+      const marker = new gm.Marker({
+        position: { lat: inst.lat, lng: inst.lng },
         map,
-        strokeColor: "#3b82f6",
-        strokeOpacity: 0.6,
-        strokeWeight: 3,
+        title: inst.name,
+        icon: {
+          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+          fillColor: "#64748b",
+          fillOpacity: 0.7,
+          strokeColor: "#94a3b8",
+          strokeWeight: 1,
+          scale: 1.2,
+          anchor: { x: 12, y: 22, equals: () => false } as any,
+        },
+        zIndex: 10,
       });
-      polylinesRef.current.push(polyline);
+      const infoWindow = new gm.InfoWindow({
+        content: `<div style="color:#000;font-size:12px;font-weight:600">${inst.name}</div>`,
+      });
+      marker.addListener("click", () => infoWindow.open(map, marker));
+      installationMarkersRef.current.push(marker);
     });
 
     // Auto-fit bounds on first load when there are points to show
@@ -259,7 +269,7 @@ export function MonitoreoMap({
       ];
       fitToPoints(allPoints);
     }
-  }, [checkpoints, guards, routes, fitToPoints]);
+  }, [checkpoints, guards, installations, fitToPoints]);
 
   useEffect(() => {
     updateMarkers();

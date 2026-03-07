@@ -141,21 +141,16 @@ export function RondasMonitoreoClient({
       }));
   }, [filtered]);
 
-  const mapRoutes = useMemo(() => {
-    return filtered.map((r: any) =>
-      (r.marcaciones ?? [])
-        .filter((m: any) => m.lat != null && m.lng != null)
-        .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .map((m: any) => ({ lat: m.lat, lng: m.lng })),
-    );
-  }, [filtered]);
-
   const mapCenter = useMemo(() => {
+    if (installationFilter) {
+      const inst = installations.find((i) => i.id === installationFilter) as any;
+      if (inst?.lat != null && inst?.lng != null) return { lat: inst.lat, lng: inst.lng };
+    }
     if (filtered[0]?.rondaTemplate?.installation?.lat) {
       return { lat: filtered[0].rondaTemplate.installation.lat, lng: filtered[0].rondaTemplate.installation.lng };
     }
     return null;
-  }, [filtered]);
+  }, [filtered, installationFilter, installations]);
 
   const guardPanelData = useMemo(() => {
     return filtered.map((r: any) => ({
@@ -271,7 +266,7 @@ export function RondasMonitoreoClient({
           <MonitoreoMap
             checkpoints={mapCheckpoints}
             guards={mapGuards}
-            routes={mapRoutes}
+            installations={installations as any}
             center={mapCenter}
             selectedGuardId={selectedRondaId}
             isFullscreen={isFullscreen}

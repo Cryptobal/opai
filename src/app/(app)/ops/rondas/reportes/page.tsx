@@ -73,9 +73,9 @@ export default async function RondasReportesPage() {
     scheduledAt: row.scheduledAt.toISOString(),
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
-    installationId: (row as any).installationId ?? row.rondaTemplate.installationId,
-    installation: row.rondaTemplate.installation.name,
-    template: row.rondaTemplate.name,
+    installationId: (row as any).installationId ?? row.rondaTemplate?.installationId ?? null,
+    installation: row.rondaTemplate?.installation?.name ?? "Ronda Libre",
+    template: row.rondaTemplate?.name ?? "Ronda Libre",
     guardiaId: row.guardiaId,
     guardia: row.guardia
       ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
