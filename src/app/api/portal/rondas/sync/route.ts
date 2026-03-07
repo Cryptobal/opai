@@ -123,7 +123,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   const checkpoint = await prisma.opsCheckpoint.findFirst({
     where: {
       tenantId: execution.tenantId,
-      installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+      installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
       isActive: true,
       ...(checkpointId ? { id: checkpointId } : { qrCode: checkpointQrCode }),
     },
@@ -185,7 +185,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   const hash = computeMarcacionHash({
     tenantId: execution.tenantId,
     guardiaId: guardiaId!,
-    installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
     tipo: "checkpoint",
     timestamp: now.toISOString(),
     lat,
@@ -256,7 +256,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
         data: {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
-          installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+          installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
           tipo: anomalies[0],
           severidad: toAlertSeverityFromAnomalies(anomalies),
           mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")} (offline sync)`,
@@ -275,7 +275,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   evaluatePostMarkAlerts({
     tenantId: execution.tenantId,
     ejecucionId: execution.id,
-    installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
     guardiaId: guardiaId!,
     checkpointId: checkpoint.id,
     checkpointName: checkpoint.name,
