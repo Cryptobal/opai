@@ -269,42 +269,297 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
 
   if (!ctx.isPanelOpen) return null;
 
+  /* ── Shared channel list content (used by both mobile and desktop) ── */
+  const channelListContent = (
+    <>
+      {/* Search bar */}
+      <div className="px-3 pt-2 border-b border-[rgba(255,255,255,0.04)] shrink-0">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+          <input
+            type="text"
+            placeholder="Buscar conversación..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
+          />
+        </div>
+        {/* Filter chips */}
+        <div className="px-0 pb-2 pt-2 flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={cn(
+              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+              filter === "all"
+                ? "bg-teal-600 text-white"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("unread")}
+            className={cn(
+              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+              filter === "unread"
+                ? "bg-teal-600 text-white"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            No leídos
+            {ctx.totalUnread > 0 && filter !== "unread" && (
+              <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
+                {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Channel list */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {ctx.loading ? (
+          <div className="flex flex-col items-center gap-2 py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
+          </div>
+        ) : filter === "unread" &&
+          directChannels.filter(c => c.unreadCount > 0).length === 0 &&
+          groupChannels.filter(c => c.unreadCount > 0).length === 0 &&
+          installationReportesChannels.filter(c => c.unreadCount > 0).length === 0 &&
+          installationInternoChannels.filter(c => c.unreadCount > 0).length === 0 &&
+          prospectChannels.filter(c => c.unreadCount > 0).length === 0 &&
+          clientChannels.filter(c => c.unreadCount > 0).length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
+            <span className="text-3xl">✓</span>
+            <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
+            <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
+          </div>
+        ) : filteredTotal === 0 && filteredUsers.length === 0 ? (
+          <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
+            <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
+            <p className="text-xs text-muted-foreground">
+              {searchQuery
+                ? "No se encontraron conversaciones"
+                : "No tienes conversaciones aún"}
+            </p>
+            {!searchQuery && (
+              <p className="text-[10px] text-muted-foreground/60">
+                Contacta a un administrador para unirte a un canal
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            {/* Direct Messages */}
+            {directChannels.length > 0 && (
+              <ChannelSection
+                label="Mensajes directos"
+                icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
+                channels={directChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["direct"]}
+                onToggle={() => toggleSection("direct")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={getChannelDisplayName}
+              />
+            )}
+
+            {/* Groups */}
+            {groupChannels.length > 0 && (
+              <ChannelSection
+                label="Grupos"
+                icon={<Users className="h-3.5 w-3.5 text-amber-500" />}
+                channels={groupChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["group"]}
+                onToggle={() => toggleSection("group")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={getChannelDisplayName}
+              />
+            )}
+
+            {/* Instalaciones - Reportes */}
+            {installationReportesChannels.length > 0 && (
+              <ChannelSection
+                label="Instalaciones - Reportes"
+                icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
+                channels={installationReportesChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_reportes"]}
+                onToggle={() => toggleSection("installation_reportes")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={getChannelDisplayName}
+                onArchive={(id) => ctx.archiveChannel(id)}
+                canDelete={canDeleteChannels}
+                onDelete={handleDeleteChannel}
+              />
+            )}
+
+            {/* Instalaciones - Interno */}
+            {installationInternoChannels.length > 0 && (
+              <ChannelSection
+                label="Instalaciones - Interno"
+                icon={<Building2 className="h-3.5 w-3.5 text-indigo-400" />}
+                channels={installationInternoChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_interno"]}
+                onToggle={() => toggleSection("installation_interno")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={getChannelDisplayName}
+                onArchive={(id) => ctx.archiveChannel(id)}
+                canDelete={canDeleteChannels}
+                onDelete={handleDeleteChannel}
+              />
+            )}
+
+            {/* Prospectos */}
+            {(filter === "unread" ? prospectChannels.some(c => c.unreadCount > 0) : (prospectChannels.length > 0 || !isSearching)) && (
+              <ChannelSection
+                label="Prospectos"
+                icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
+                channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["prospects"]}
+                onToggle={() => toggleSection("prospects")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={(ch) => ch.account?.name ?? ch.name}
+                onArchive={(id) => ctx.archiveChannel(id)}
+                canDelete={canDeleteChannels}
+                onDelete={handleDeleteChannel}
+                onNewChat={() => setNewChatModal({ open: true, defaultStatus: "prospect" })}
+              />
+            )}
+
+            {/* Clientes */}
+            {(filter === "unread" ? clientChannels.some(c => c.unreadCount > 0) : (clientChannels.length > 0 || !isSearching)) && (
+              <ChannelSection
+                label="Clientes"
+                icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
+                channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
+                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["clients"]}
+                onToggle={() => toggleSection("clients")}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={(ch) => ch.account?.name ?? ch.name}
+                onArchive={(id) => ctx.archiveChannel(id)}
+                canDelete={canDeleteChannels}
+                onDelete={handleDeleteChannel}
+                onNewChat={() => setNewChatModal({ open: true, defaultStatus: "client_active" })}
+              />
+            )}
+
+            {/* Archivados */}
+            {filter !== "unread" && (
+              <ChannelSection
+                label="Archivados"
+                icon={<Archive className="h-3.5 w-3.5 text-muted-foreground" />}
+                channels={ctx.archivedChannels}
+                collapsed={isSearching ? false : !!collapsedSections["archived"]}
+                onToggle={() => {
+                  const wasCollapsed = !!collapsedSections["archived"];
+                  toggleSection("archived");
+                  if (wasCollapsed) ctx.fetchArchivedChannels();
+                }}
+                onSelectChannel={ctx.selectChannel}
+                getDisplayName={(ch) => ch.name}
+                onUnarchive={(id) => ctx.unarchiveChannel(id)}
+                canDelete={canDeleteChannels}
+                onDelete={handleDeleteChannel}
+                isArchivedSection
+              />
+            )}
+
+            {/* Users (for starting DMs) */}
+            {filteredUsers.length > 0 && filter !== "unread" && (
+              <UserSection
+                users={filteredUsers}
+                collapsed={isSearching ? false : !!collapsedSections["users"]}
+                onToggle={() => toggleSection("users")}
+                onSelectUser={handleStartDm}
+                creatingDmFor={creatingDmFor}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <>
-      {/* Backdrop */}
+      {/* ══════════════════════════════════════════════
+          MOBILE: Full-screen panel (< lg / 1024px)
+         ══════════════════════════════════════════════ */}
       <div
-        ref={backdropRef}
-        className={cn(
-          "fixed inset-0 z-[60] transition-opacity duration-300",
-          "bg-black/40 backdrop-blur-[2px]",
-          "sm:bg-black/20 sm:backdrop-blur-none",
-        )}
-        aria-hidden="true"
-      />
-
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className={cn(
-          "fixed z-[61] flex flex-col bg-background border-border transition-transform duration-300 ease-out",
-          "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t shadow-2xl",
-          "sm:bottom-0 sm:right-6 sm:left-auto sm:top-auto sm:w-[600px] sm:max-h-[75vh] sm:rounded-t-2xl sm:rounded-b-none sm:border sm:border-b-0 sm:shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
-          ctx.isPanelOpen ? "translate-y-0" : "translate-y-full",
-        )}
-        style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+        className="fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17]"
+        style={{ bottom: 'var(--bottom-nav-height, 0px)' }}
         role="dialog"
         aria-label="Panel de chat"
       >
-        {/* Mobile drag handle */}
-        <div className="sm:hidden flex justify-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </div>
+        {/* Mobile header (channel list only -- conversation has its own via ChatPresenceBar) */}
+        {!selectedChannel && (
+          <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+              <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+            </div>
+            <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
 
+        {/* Mobile content area */}
+        <div className="relative flex-1 overflow-hidden">
+          {/* Channel list layer */}
+          <div className={cn(
+            "absolute inset-0 bg-[#0a0e17] flex flex-col",
+            selectedChannel ? "hidden" : "flex"
+          )}>
+            {channelListContent}
+          </div>
+
+          {/* Conversation layer (slides in from right) */}
+          <div className={cn(
+            "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
+            selectedChannel ? "translate-x-0" : "translate-x-full"
+          )}>
+            {ctx.selectedChannelId && selectedChannel && (
+              <ChatConversation
+                channelId={ctx.selectedChannelId}
+                channelName={selectedChannelName}
+                pusher={pusher}
+                onBack={() => ctx.selectChannel(null)}
+                autoContextPrefix={getAutoContextPrefix}
+                currentUserId={ctx.currentUserId}
+                userRole={userRole}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          DESKTOP: Fixed bottom-right panel (>= lg / 1024px)
+         ══════════════════════════════════════════════ */}
+
+      {/* Desktop backdrop */}
+      <div
+        ref={backdropRef}
+        className="fixed inset-0 z-[60] hidden lg:block transition-opacity duration-300 bg-black/20"
+        aria-hidden="true"
+      />
+
+      {/* Desktop panel */}
+      <div
+        ref={panelRef}
+        className={cn(
+          "fixed z-[61] hidden lg:flex flex-col bg-[#0a0e17] border-[rgba(255,255,255,0.06)] transition-transform duration-300 ease-out",
+          "bottom-0 right-6 left-auto top-auto w-[600px] max-h-[75vh] rounded-t-2xl rounded-b-none border border-b-0 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
+          ctx.isPanelOpen ? "translate-y-0" : "translate-y-full",
+        )}
+        role="dialog"
+        aria-label="Panel de chat"
+      >
         {ctx.selectedChannelId && selectedChannel ? (
-          /* ── Conversation view ── */
+          /* ── Desktop conversation view ── */
           <div className="flex flex-col h-full min-h-0">
             <ChatConversation
               channelId={ctx.selectedChannelId}
@@ -317,10 +572,10 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
             />
           </div>
         ) : (
-          /* ── Channel list view ── */
+          /* ── Desktop channel list view ── */
           <>
-            {/* Header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60 shrink-0">
+            {/* Desktop header */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] rounded-t-2xl shrink-0">
               <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-semibold truncate">Chat</h2>
@@ -339,238 +594,31 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
               </Button>
             </div>
 
-            {/* Search bar */}
-            <div className="px-3 pt-2 border-b border-border/40 shrink-0">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  placeholder="Buscar conversación..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-border/60 bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
-                />
-              </div>
-              {/* Filter chips */}
-              <div className="px-0 pb-2 pt-2 flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setFilter("all")}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-                    filter === "all"
-                      ? "bg-teal-600 text-white"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter("unread")}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-                    filter === "unread"
-                      ? "bg-teal-600 text-white"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  No leídos
-                  {ctx.totalUnread > 0 && filter !== "unread" && (
-                    <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
-                      {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Channel list */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {ctx.loading ? (
-                <div className="flex flex-col items-center gap-2 py-10">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
-                </div>
-              ) : filter === "unread" &&
-                directChannels.filter(c => c.unreadCount > 0).length === 0 &&
-                groupChannels.filter(c => c.unreadCount > 0).length === 0 &&
-                installationReportesChannels.filter(c => c.unreadCount > 0).length === 0 &&
-                installationInternoChannels.filter(c => c.unreadCount > 0).length === 0 &&
-                prospectChannels.filter(c => c.unreadCount > 0).length === 0 &&
-                clientChannels.filter(c => c.unreadCount > 0).length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
-                  <span className="text-3xl">✓</span>
-                  <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
-                  <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
-                </div>
-              ) : filteredTotal === 0 && filteredUsers.length === 0 ? (
-                <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
-                  <MessageCircle className="h-8 w-8 text-muted-foreground/20" />
-                  <p className="text-xs text-muted-foreground">
-                    {searchQuery
-                      ? "No se encontraron conversaciones"
-                      : "No tienes conversaciones aún"}
-                  </p>
-                  {!searchQuery && (
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Contacta a un administrador para unirte a un canal
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  {/* Direct Messages */}
-                  {directChannels.length > 0 && (
-                    <ChannelSection
-                      label="Mensajes directos"
-                      icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
-                      channels={directChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["direct"]}
-                      onToggle={() => toggleSection("direct")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={getChannelDisplayName}
-                    />
-                  )}
-
-                  {/* Groups */}
-                  {groupChannels.length > 0 && (
-                    <ChannelSection
-                      label="Grupos"
-                      icon={<Users className="h-3.5 w-3.5 text-amber-500" />}
-                      channels={groupChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["group"]}
-                      onToggle={() => toggleSection("group")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={getChannelDisplayName}
-                    />
-                  )}
-
-                  {/* Instalaciones - Reportes */}
-                  {installationReportesChannels.length > 0 && (
-                    <ChannelSection
-                      label="Instalaciones - Reportes"
-                      icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
-                      channels={installationReportesChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_reportes"]}
-                      onToggle={() => toggleSection("installation_reportes")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={getChannelDisplayName}
-                      onArchive={(id) => ctx.archiveChannel(id)}
-                      canDelete={canDeleteChannels}
-                      onDelete={handleDeleteChannel}
-                    />
-                  )}
-
-                  {/* Instalaciones - Interno */}
-                  {installationInternoChannels.length > 0 && (
-                    <ChannelSection
-                      label="Instalaciones - Interno"
-                      icon={<Building2 className="h-3.5 w-3.5 text-indigo-400" />}
-                      channels={installationInternoChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_interno"]}
-                      onToggle={() => toggleSection("installation_interno")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={getChannelDisplayName}
-                      onArchive={(id) => ctx.archiveChannel(id)}
-                      canDelete={canDeleteChannels}
-                      onDelete={handleDeleteChannel}
-                    />
-                  )}
-
-                  {/* Prospectos */}
-                  {(filter === "unread" ? prospectChannels.some(c => c.unreadCount > 0) : (prospectChannels.length > 0 || !isSearching)) && (
-                    <ChannelSection
-                      label="Prospectos"
-                      icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
-                      channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["prospects"]}
-                      onToggle={() => toggleSection("prospects")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={(ch) => ch.account?.name ?? ch.name}
-                      onArchive={(id) => ctx.archiveChannel(id)}
-                      canDelete={canDeleteChannels}
-                      onDelete={handleDeleteChannel}
-                      onNewChat={() => setNewChatModal({ open: true, defaultStatus: "prospect" })}
-                    />
-                  )}
-
-                  {/* Clientes */}
-                  {(filter === "unread" ? clientChannels.some(c => c.unreadCount > 0) : (clientChannels.length > 0 || !isSearching)) && (
-                    <ChannelSection
-                      label="Clientes"
-                      icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
-                      channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
-                      collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["clients"]}
-                      onToggle={() => toggleSection("clients")}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={(ch) => ch.account?.name ?? ch.name}
-                      onArchive={(id) => ctx.archiveChannel(id)}
-                      canDelete={canDeleteChannels}
-                      onDelete={handleDeleteChannel}
-                      onNewChat={() => setNewChatModal({ open: true, defaultStatus: "client_active" })}
-                    />
-                  )}
-
-                  {/* Archivados */}
-                  {filter !== "unread" && (
-                    <ChannelSection
-                      label="Archivados"
-                      icon={<Archive className="h-3.5 w-3.5 text-muted-foreground" />}
-                      channels={ctx.archivedChannels}
-                      collapsed={isSearching ? false : !!collapsedSections["archived"]}
-                      onToggle={() => {
-                        const wasCollapsed = !!collapsedSections["archived"];
-                        toggleSection("archived");
-                        if (wasCollapsed) ctx.fetchArchivedChannels();
-                      }}
-                      onSelectChannel={ctx.selectChannel}
-                      getDisplayName={(ch) => ch.name}
-                      onUnarchive={(id) => ctx.unarchiveChannel(id)}
-                      canDelete={canDeleteChannels}
-                      onDelete={handleDeleteChannel}
-                      isArchivedSection
-                    />
-                  )}
-
-                  {/* Users (for starting DMs) */}
-                  {filteredUsers.length > 0 && filter !== "unread" && (
-                    <UserSection
-                      users={filteredUsers}
-                      collapsed={isSearching ? false : !!collapsedSections["users"]}
-                      onToggle={() => toggleSection("users")}
-                      onSelectUser={handleStartDm}
-                      creatingDmFor={creatingDmFor}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Delete confirmation dialog */}
-            <ConfirmDialog
-              open={!!channelToDelete}
-              onOpenChange={(open) => { if (!open) setChannelToDelete(null); }}
-              title="¿Eliminar conversación?"
-              description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
-              confirmLabel="Eliminar permanentemente"
-              onConfirm={confirmDelete}
-              variant="destructive"
-            />
-
-            <NewExternalChatModal
-              open={newChatModal.open}
-              defaultStatus={newChatModal.defaultStatus}
-              onClose={() => setNewChatModal({ open: false })}
-              onCreated={(channelId) => {
-                ctx.refreshChannels();
-                ctx.selectChannel(channelId);
-              }}
-            />
+            {channelListContent}
           </>
         )}
       </div>
 
+      {/* Shared dialogs (rendered once, outside both panels) */}
+      <ConfirmDialog
+        open={!!channelToDelete}
+        onOpenChange={(open) => { if (!open) setChannelToDelete(null); }}
+        title="¿Eliminar conversación?"
+        description="Esta acción es permanente y no se puede deshacer. Se eliminarán todos los mensajes para todos los participantes."
+        confirmLabel="Eliminar permanentemente"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      <NewExternalChatModal
+        open={newChatModal.open}
+        defaultStatus={newChatModal.defaultStatus}
+        onClose={() => setNewChatModal({ open: false })}
+        onCreated={(channelId) => {
+          ctx.refreshChannels();
+          ctx.selectChannel(channelId);
+        }}
+      />
     </>
   );
 }
