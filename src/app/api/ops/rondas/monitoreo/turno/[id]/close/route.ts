@@ -41,7 +41,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           tenantId: ctx.tenantId,
           createdAt: { gte: turno.startedAt, lte: now },
         },
-        select: { tipo: true, severidad: true, mensaje: true, installationId: true },
+        select: {
+          tipo: true, severidad: true, mensaje: true, installationId: true,
+          resuelta: true, resolutionNotes: true, resueltaAt: true,
+          installation: { select: { name: true } },
+        },
       }),
     ]);
 
@@ -53,14 +57,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       : 0;
     const criticalAlerts = alertsData.filter(a => a.severidad === "critical").length;
 
+    const resolvedAlerts = alertsData.filter(a => a.resuelta);
+    const unresolvedAlerts = alertsData.filter(a => !a.resuelta);
+
     const summaryLines = [
       `Turno de monitoreo: ${turno.startedAt.toLocaleString("es-CL")} - ${now.toLocaleString("es-CL")}`,
       `Operador: ${turno.operatorName ?? ctx.userId}`,
       ``,
       `Rondas monitoreadas: ${totalRounds} (${completadas} completadas, ${incompletas} incompletas)`,
       `Trust Score promedio: ${trustAvg}/100`,
-      `Alertas generadas: ${alertsData.length} (${criticalAlerts} críticas)`,
+      `Alertas generadas: ${alertsData.length} (${criticalAlerts} críticas, ${resolvedAlerts.length} resueltas, ${unresolvedAlerts.length} pendientes)`,
     ];
+
+    if (resolvedAlerts.length > 0) {
+      summaryLines.push(``, `--- Alertas resueltas ---`);
+      for (const a of resolvedAlerts) {
+        const instName = a.installation?.name ?? "Sin instalación";
+        summaryLines.push(`• [${a.severidad.toUpperCase()}] ${instName}: ${a.mensaje}`);
+        if (a.resolutionNotes) {
+          summaryLines.push(`  → Resolución: ${a.resolutionNotes}`);
+        }
+      }
+    }
+
+    if (unresolvedAlerts.length > 0) {
+      summaryLines.push(``, `--- Alertas pendientes ---`);
+      for (const a of unresolvedAlerts) {
+        const instName = a.installation?.name ?? "Sin instalación";
+        summaryLines.push(`• [${a.severidad.toUpperCase()}] ${instName}: ${a.mensaje}`);
+      }
+    }
+
     if (parsed.data.operatorComments) {
       summaryLines.push(``, `Comentarios del operador: ${parsed.data.operatorComments}`);
     }

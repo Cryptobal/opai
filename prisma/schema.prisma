@@ -3415,6 +3415,7 @@ model OpsAlertaRonda {
   resuelta         Boolean   @default(false)
   resueltaPor      String?   @map("resuelta_por")
   resueltaAt       DateTime? @map("resuelta_at") @db.Timestamptz(6)
+  resolutionNotes  String?   @map("resolution_notes") @db.Text
   isAcknowledged   Boolean   @default(false) @map("is_acknowledged")
   acknowledgedBy   String?   @map("acknowledged_by")
   acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(6)

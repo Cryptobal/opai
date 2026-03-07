@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const resolveSchema = z.object({
   id: z.string().uuid(),
+  resolutionNotes: z.string().max(1000).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -55,7 +56,12 @@ export async function PATCH(request: NextRequest) {
 
     const result = await prisma.opsAlertaRonda.updateMany({
       where: { id: parsed.data.id, tenantId: ctx.tenantId },
-      data: { resuelta: true, resueltaPor: ctx.userId, resueltaAt: new Date() },
+      data: {
+        resuelta: true,
+        resueltaPor: ctx.userId,
+        resueltaAt: new Date(),
+        resolutionNotes: parsed.data.resolutionNotes ?? null,
+      },
     });
     if (!result.count) {
       return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });

@@ -16,7 +16,11 @@ export default async function RondasMonitoreoPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [activeRows, installations, alerts] = await Promise.all([
+  const now = new Date();
+  const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+  const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+
+  const [activeRows, upcomingRows, installations, alerts] = await Promise.all([
     prisma.opsRondaEjecucion.findMany({
       where: { tenantId, status: "en_curso" },
       include: {
@@ -36,6 +40,27 @@ export default async function RondasMonitoreoPage() {
       orderBy: { scheduledAt: "asc" },
       take: 50,
     }),
+    // Upcoming (next 6h) + missed (pendiente past due or no_realizada in last 12h)
+    prisma.opsRondaEjecucion.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { status: "pendiente", scheduledAt: { gte: now, lte: sixHoursFromNow } },
+          { status: "pendiente", scheduledAt: { lt: now, gte: twelveHoursAgo } },
+          { status: "no_realizada", scheduledAt: { gte: twelveHoursAgo } },
+        ],
+      },
+      include: {
+        rondaTemplate: {
+          include: {
+            installation: { select: { id: true, name: true } },
+          },
+        },
+        guardia: { include: { persona: { select: { firstName: true, lastName: true } } } },
+      },
+      orderBy: { scheduledAt: "asc" },
+      take: 30,
+    }),
     prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true },
       select: { id: true, name: true, lat: true, lng: true },
@@ -54,13 +79,14 @@ export default async function RondasMonitoreoPage() {
       />
       <RondasSubnav />
       <RondasMonitoreoClient
-      initialRows={JSON.parse(JSON.stringify(activeRows))}
-      installations={JSON.parse(JSON.stringify(installations))}
-      alertCount={alerts}
-      userId={session.user.id ?? ""}
-      userName={session.user.name ?? ""}
-      tenantId={tenantId}
-    />
+        initialRows={JSON.parse(JSON.stringify(activeRows))}
+        upcomingRows={JSON.parse(JSON.stringify(upcomingRows))}
+        installations={JSON.parse(JSON.stringify(installations))}
+        alertCount={alerts}
+        userId={session.user.id ?? ""}
+        userName={session.user.name ?? ""}
+        tenantId={tenantId}
+      />
     </div>
   );
 }
