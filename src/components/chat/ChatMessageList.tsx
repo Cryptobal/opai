@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData } from "@/lib/chat-types";
 import { ChatMessage } from "./ChatMessage";
@@ -85,6 +85,7 @@ export function ChatMessageList({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const [newMessageCount, setNewMessageCount] = useState(0);
   const prevMessageCountRef = useRef(messages.length);
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
@@ -96,7 +97,13 @@ export function ChatMessageList({
 
     const { scrollTop, scrollHeight, clientHeight } = container;
     const threshold = 100;
-    setIsNearBottom(scrollHeight - scrollTop - clientHeight < threshold);
+    const nearBottom = scrollHeight - scrollTop - clientHeight < threshold;
+    setIsNearBottom(nearBottom);
+
+    // Reset new message count when user scrolls to bottom
+    if (nearBottom) {
+      setNewMessageCount(0);
+    }
 
     // Infinite scroll: load more when scrolled near top
     if (scrollTop < 80 && hasMore && !isLoading && !isLoadingMoreRef.current) {
@@ -113,7 +120,8 @@ export function ChatMessageList({
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const messageCountChanged = messages.length !== prevMessageCountRef.current;
+    const prevCount = prevMessageCountRef.current;
+    const messageCountChanged = messages.length !== prevCount;
     prevMessageCountRef.current = messages.length;
 
     if (!messageCountChanged) return;
@@ -132,6 +140,12 @@ export function ChatMessageList({
     // Auto-scroll to bottom for new messages
     if (isNearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // User is scrolled up — track new messages for the banner
+      const added = messages.length - prevCount;
+      if (added > 0) {
+        setNewMessageCount((c) => c + added);
+      }
     }
   }, [messages.length, isNearBottom]);
 
@@ -167,64 +181,94 @@ export function ChatMessageList({
   const isOwnMessage = (msg: ChatMessageData) =>
     msg.senderId === "current-user" || (currentUserId ? msg.senderId === currentUserId : false);
 
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    setNewMessageCount(0);
+  }, []);
+
   return (
-    <div
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-3"
-    >
-      {/* Loading spinner for older messages */}
-      {isLoading && hasMore && (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
-        </div>
-      )}
-
-      {/* No messages state */}
-      {!isLoading && messages.length === 0 && (
-        <div className="flex flex-1 items-center justify-center py-12 text-zinc-500 text-sm">
-          No hay mensajes aun. Envia el primero.
-        </div>
-      )}
-
-      {/* Message groups */}
-      {groupedMessages.map((group) => (
-        <div key={group.dateKey}>
-          {/* Date separator */}
-          <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="shrink-0 text-xs text-zinc-500 font-medium">
-              {group.dateLabel}
-            </span>
-            <div className="flex-1 h-px bg-zinc-800" />
+    <div className="relative flex-1 min-h-0">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto px-4 py-3"
+      >
+        {/* Loading spinner for older messages */}
+        {isLoading && hasMore && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
           </div>
+        )}
 
-          {/* Messages in this group */}
-          {group.messages.map((msg) =>
-            msg.systemEventType ? (
-              <ChatMessageSystem key={msg.id} message={msg} />
-            ) : (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                isOwn={isOwnMessage(msg)}
-                onReply={() => onReply(msg)}
-                onOpenThread={onOpenThread}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                channelId={channelId}
-                currentUserId={currentUserId}
-                readByCount={getReadByCount?.(msg)}
-                onReaction={onReaction}
-                canDeleteAny={canDeleteAny}
-              />
-            )
-          )}
-        </div>
-      ))}
+        {/* No messages state */}
+        {!isLoading && messages.length === 0 && (
+          <div className="flex flex-1 items-center justify-center py-12 text-zinc-500 text-sm">
+            No hay mensajes aun. Envia el primero.
+          </div>
+        )}
 
-      {/* Anchor for auto-scrolling */}
-      <div ref={bottomRef} />
+        {/* Message groups */}
+        {groupedMessages.map((group) => (
+          <div key={group.dateKey}>
+            {/* Date separator */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-zinc-800" />
+              <span className="shrink-0 text-xs text-zinc-500 font-medium">
+                {group.dateLabel}
+              </span>
+              <div className="flex-1 h-px bg-zinc-800" />
+            </div>
+
+            {/* Messages in this group */}
+            {group.messages.map((msg) =>
+              msg.systemEventType ? (
+                <ChatMessageSystem key={msg.id} message={msg} />
+              ) : (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  isOwn={isOwnMessage(msg)}
+                  onReply={() => onReply(msg)}
+                  onOpenThread={onOpenThread}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  channelId={channelId}
+                  currentUserId={currentUserId}
+                  readByCount={getReadByCount?.(msg)}
+                  onReaction={onReaction}
+                  canDeleteAny={canDeleteAny}
+                />
+              )
+            )}
+          </div>
+        ))}
+
+        {/* Anchor for auto-scrolling */}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* New messages pill */}
+      <button
+        type="button"
+        onClick={scrollToBottom}
+        className={cn(
+          "absolute bottom-3 left-1/2 -translate-x-1/2 z-10",
+          "flex items-center gap-1.5 rounded-full",
+          "bg-zinc-900/95 border border-zinc-700/60 px-3.5 py-1.5",
+          "text-xs font-medium text-teal-400",
+          "shadow-lg shadow-black/30 backdrop-blur-sm",
+          "cursor-pointer select-none",
+          "transition-all duration-300 ease-out",
+          newMessageCount > 0
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-2 pointer-events-none"
+        )}
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+        {newMessageCount === 1
+          ? "1 nuevo mensaje"
+          : `${newMessageCount} nuevos mensajes`}
+      </button>
     </div>
   );
 }
