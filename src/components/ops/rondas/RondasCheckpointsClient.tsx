@@ -123,7 +123,7 @@ export function RondasCheckpointsClient({
               toast.error(json.error ?? "No se pudo crear checkpoint");
               return;
             }
-            setRows((prev) => [json.data, ...prev]);
+            setRows((prev) => [...prev, json.data]);
             toast.success("Checkpoint creado");
           }}
         />

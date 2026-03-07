@@ -295,8 +295,9 @@ export function RondasConfiguracionClient({
             });
             const json = await res.json();
             if (!res.ok || !json.success) { toast.error(json.error ?? "Error"); return; }
-            setCheckpoints((prev) => [json.data, ...prev]);
+            setCheckpoints((prev) => [...prev, json.data]);
             toast.success("Checkpoint creado");
+            return json.data.id as string;
           }}
           onUpdate={async (id, payload) => {
             const res = await fetch(`/api/ops/rondas/checkpoints/${id}`, {

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       include: {
         installation: { select: { id: true, name: true } },
       },
-      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
     });
 
     const withStats = request.nextUrl.searchParams.get("withStats") === "true";
