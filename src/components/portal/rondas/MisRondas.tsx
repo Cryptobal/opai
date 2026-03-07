@@ -335,7 +335,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
       </header>
 
       {/* ============ Content ============ */}
-      <main className="flex-1 px-4 pb-24 pt-4">
+      <main className="flex-1 px-4 pt-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
