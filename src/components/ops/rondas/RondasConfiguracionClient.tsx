@@ -61,7 +61,7 @@ export function RondasConfiguracionClient({
   );
 
   const checkpointOptions = useMemo(
-    () => checkpoints.filter((c: any) => c.isActive).map((c: any) => ({ id: c.id, name: c.name })),
+    () => checkpoints.filter((c: any) => c.isActive).map((c: any) => ({ id: c.id, name: c.name, lat: c.lat as number | null, lng: c.lng as number | null })),
     [checkpoints],
   );
 
