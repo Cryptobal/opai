@@ -35,6 +35,7 @@ import {
   Monitor,
   MessageCircle,
   Shield,
+  Trophy,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -194,7 +195,8 @@ function AppLayoutClientInner({
       children: [
         { href: '/personas/guardias', label: 'Listado', icon: User, badge: notesByModule.guard },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
-      ],
+        canView(permissions, 'ops', 'gamificacion') && { href: '/personas/gamificacion', label: 'Gamificación', icon: Trophy },
+      ].filter(Boolean) as NavItem['children'],
     },
     {
       href: '/payroll',
