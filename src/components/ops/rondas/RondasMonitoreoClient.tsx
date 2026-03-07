@@ -7,7 +7,7 @@ import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHead
 import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
-import { AlertTriangle, Check, X, MapPin, Clock, AlertCircle } from "lucide-react";
+import { AlertTriangle, Check, X, MapPin, Clock, AlertCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
 import { PanicAlertBanner } from "./PanicAlertBanner";
@@ -71,6 +71,7 @@ export function RondasMonitoreoClient({
   const [resolvingAlertId, setResolvingAlertId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
+  const [expandedInstallations, setExpandedInstallations] = useState<Set<string>>(new Set());
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -506,42 +507,102 @@ export function RondasMonitoreoClient({
                 onAddNote={handleAddNote}
               />
 
-              {/* Upcoming & missed rondas */}
-              {upcomingData.length > 0 && (
-                <div className="border-t border-[#1e293b]">
-                  <div className="px-4 py-2 border-b border-[#1e293b]">
-                    <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Próximas / No realizadas</p>
-                  </div>
-                  <div className="divide-y divide-[#1e293b]">
-                    {upcomingData.map((r) => {
-                      const isPastDue = new Date(r.scheduledAt) < new Date();
-                      const isMissed = r.status === "no_realizada" || (r.status === "pendiente" && isPastDue);
-                      return (
-                        <div key={r.id} className={`px-4 py-2.5 ${isMissed ? "bg-red-950/10" : ""}`}>
-                          <div className="flex items-center gap-2 mb-0.5">
-                            {isMissed ? (
-                              <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                            ) : (
-                              <Clock className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+              {/* Upcoming & missed rondas — grouped by installation */}
+              {(() => {
+                const now = new Date();
+                const missed = upcomingData.filter((r) => r.status === "no_realizada" || (r.status === "pendiente" && new Date(r.scheduledAt) < now));
+                const upcoming = upcomingData.filter((r) => r.status === "pendiente" && new Date(r.scheduledAt) >= now);
+
+                const groupByInstallation = (rows: UpcomingRow[]) => {
+                  const map = new Map<string, { name: string; rows: UpcomingRow[] }>();
+                  for (const r of rows) {
+                    const instId = r.rondaTemplate?.installation?.id ?? "sin-instalacion";
+                    const instName = r.rondaTemplate?.installation?.name ?? "Sin instalación";
+                    if (!map.has(instId)) map.set(instId, { name: instName, rows: [] });
+                    map.get(instId)!.rows.push(r);
+                  }
+                  return Array.from(map.entries());
+                };
+
+                const toggleExpand = (key: string) => {
+                  setExpandedInstallations((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  });
+                };
+
+                const renderSection = (title: string, icon: React.ReactNode, rows: UpcomingRow[], sectionKey: string, isMissedSection: boolean) => {
+                  if (rows.length === 0) return null;
+                  const groups = groupByInstallation(rows);
+                  return (
+                    <div className="border-t border-[#1e293b]">
+                      <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+                        {icon}
+                        <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">{title}</p>
+                        <span className={`ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${isMissedSection ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}`}>
+                          {rows.length}
+                        </span>
+                      </div>
+                      {groups.map(([instId, { name, rows: instRows }]) => {
+                        const key = `${sectionKey}-${instId}`;
+                        const isExpanded = expandedInstallations.has(key);
+                        return (
+                          <div key={key}>
+                            <button
+                              onClick={() => toggleExpand(key)}
+                              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-800/50 transition-colors"
+                            >
+                              <ChevronRight className={`h-3 w-3 text-zinc-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                              <span className="text-xs font-medium text-foreground">{name}</span>
+                              <span className="ml-auto text-[10px] text-zinc-500">{instRows.length}</span>
+                            </button>
+                            {isExpanded && (
+                              <div className="divide-y divide-[#1e293b]/50">
+                                {instRows.map((r) => (
+                                  <div key={r.id} className={`pl-9 pr-4 py-2 ${isMissedSection ? "bg-red-950/5" : ""}`}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-foreground">{r.rondaTemplate?.name ?? "Ronda"}</span>
+                                      <span className="text-[10px] text-zinc-500">
+                                        {new Date(r.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                                      </span>
+                                    </div>
+                                    {r.guardia && (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName)}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             )}
-                            <span className={`text-xs font-medium ${isMissed ? "text-red-400" : "text-foreground"}`}>
-                              {r.rondaTemplate?.name ?? "Ronda"}
-                            </span>
-                            <span className={`ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${isMissed ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}`}>
-                              {isMissed ? "No realizada" : "Próxima"}
-                            </span>
                           </div>
-                          <div className="ml-5.5 text-[11px] text-muted-foreground">
-                            {r.rondaTemplate?.installation?.name && <span>{r.rondaTemplate.installation.name} · </span>}
-                            {new Date(r.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                            {r.guardia && <span> · {formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName)}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                        );
+                      })}
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {renderSection(
+                      "No realizadas",
+                      <AlertCircle className="h-3 w-3 text-red-400" />,
+                      missed,
+                      "missed",
+                      true,
+                    )}
+                    {renderSection(
+                      "Próximas",
+                      <Clock className="h-3 w-3 text-blue-400" />,
+                      upcoming,
+                      "upcoming",
+                      false,
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             {/* CTA fixed at bottom */}
