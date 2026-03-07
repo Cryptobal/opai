@@ -209,7 +209,7 @@ export function AppSidebar({
           showCloseButton ? "px-2.5 py-3" : "px-2 py-2.5"
         )}
       >
-        <div className="space-y-0.5">
+        <div className="flex flex-col gap-1">
           {navItems.map((item) => {
             if (item.show === false) return null;
 
@@ -270,7 +270,7 @@ export function AppSidebar({
 
             // Module with children
             return (
-              <div key={item.href} className="space-y-0.5">
+              <div key={item.href} className="flex flex-col gap-1">
                 {/* Module header: nombre navega al módulo, flecha expande/contrae */}
                 <div
                   className={cn(
@@ -340,14 +340,9 @@ export function AppSidebar({
                   )}
                 </div>
 
-                {/* Children (expanded sidebar only) */}
-                {!collapsed && (
-                  <div
-                    className={cn(
-                      "overflow-hidden transition-all duration-200 ease-out",
-                      isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
-                    )}
-                  >
+                {/* Children (solo cuando la sección está expandida, para evitar espacio extra) */}
+                {!collapsed && isExpanded && (
+                  <div className="overflow-hidden">
                     <div className="ml-3 border-l border-border/60 pl-0 space-y-px py-0.5">
                       {item.children!.map((child) => {
                         const isChildActive = isItemActive(child.href);
