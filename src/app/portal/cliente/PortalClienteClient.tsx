@@ -25,6 +25,7 @@ import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
+import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
@@ -201,6 +202,8 @@ export function PortalClienteClient() {
         return <PortalNosotros />;
       case "empresa":
         return <PortalEmpresa session={session} />;
+      case "desempeno":
+        return <PortalDesempeno session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} />;
       case "control-acceso":
         return (
           <PortalAccessControl

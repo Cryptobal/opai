@@ -51,6 +51,7 @@ const MODULE_LABELS: Record<keyof PortalConfig, string> = {
   reportes: 'Reportes',
   comparativa: 'Vista comparativa',
   alertas: 'Alertas',
+  gamificacion: 'Gamificación',
 }
 
 export function AccountPortalSection({ accountId, contacts, accountStatus, accountIsActive, onRefresh }: Props) {

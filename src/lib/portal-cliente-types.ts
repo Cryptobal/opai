@@ -19,6 +19,7 @@ export type PortalConfig = {
   reportes: boolean
   comparativa: boolean
   alertas: boolean
+  gamificacion: boolean
 }
 
 export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
@@ -39,6 +40,7 @@ export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
   reportes: true,
   comparativa: true,
   alertas: true,
+  gamificacion: true,
 }
 
 export interface ClienteSession {

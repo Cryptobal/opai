@@ -3,7 +3,7 @@
 import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
-  UserCheck, FileCheck2, Building, Briefcase, ShieldCheck
+  UserCheck, FileCheck2, Building, Briefcase, ShieldCheck, TrendingUp
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
-  | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
+  | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
   | 'control-acceso'
 
 const ALL_NAV_ITEMS: Array<{
@@ -33,6 +33,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'cotizaciones', label: 'Cotizaciones', icon: Receipt, configKey: 'cotizaciones' },
   { id: 'reportes', label: 'Reportes', icon: BarChart3, configKey: 'reportes' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa' },
+  { id: 'desempeno', label: 'Desempe\u00f1o', icon: TrendingUp, configKey: 'gamificacion' },
   { id: 'encuestas', label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
   { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas' },
   { id: 'personal', label: 'Personal', icon: UserCheck },

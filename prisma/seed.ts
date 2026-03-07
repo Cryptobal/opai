@@ -13,6 +13,7 @@ import { seedCpqData } from './seeds/cpq-initial-data';
 import { seedCrmData } from './seeds/crm-initial-data';
 import { seedGroupsAndTicketTypes } from './seeds/ops-groups-ticket-types';
 import { seedAiProviders } from './seeds/ai-providers-initial-data';
+import { seedGamification } from './seeds/gamification-seed';
 
 const prisma = new PrismaClient();
 
@@ -113,6 +114,9 @@ async function main() {
 
   // 8. Seed AI providers & models
   await seedAiProviders(tenant.id);
+
+  // 9. Seed Gamificacion config & badges
+  await seedGamification(tenant.id);
 
   console.log('🎉 Seeding completed!');
 }
