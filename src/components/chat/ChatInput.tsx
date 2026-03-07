@@ -56,6 +56,8 @@ interface ChatInputProps {
   onCancelReply?: () => void;
   channelId?: string;
   pusher?: Pusher | null;
+  /** Files dropped externally (e.g. drag & drop on conversation area) */
+  externalFiles?: File[];
 }
 
 const MAX_FILES = 5;
@@ -82,6 +84,7 @@ export function ChatInput({
   onCancelReply,
   channelId,
   pusher,
+  externalFiles,
 }: ChatInputProps) {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
@@ -513,6 +516,31 @@ export function ChatInput({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Process externally dropped files (drag & drop on conversation area)
+  useEffect(() => {
+    if (!externalFiles || externalFiles.length === 0) return;
+
+    const remainingSlots = MAX_FILES - files.length;
+    if (remainingSlots <= 0) return;
+
+    const filesToAdd = externalFiles.slice(0, remainingSlots);
+
+    const newPreviews: FilePreview[] = filesToAdd
+      .filter((f) => f.size <= MAX_FILE_SIZE_BYTES)
+      .map((file) => ({
+        file,
+        previewUrl: file.type.startsWith("image/")
+          ? URL.createObjectURL(file)
+          : null,
+        isImage: file.type.startsWith("image/"),
+      }));
+
+    if (newPreviews.length > 0) {
+      setFiles((prev) => [...prev, ...newPreviews]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalFiles]);
 
   // Send message
   const handleSend = useCallback(async () => {

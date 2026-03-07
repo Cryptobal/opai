@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type Pusher from "pusher-js";
 import type { ChatMessageData, SendMessagePayload } from "@/lib/chat-types";
 import type { PusherConnectionState } from "./hooks/usePusher";
@@ -11,7 +11,7 @@ import { ChatInput } from "./ChatInput";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatThreadPanel } from "./ChatThreadPanel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, Upload } from "lucide-react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
 
@@ -82,6 +82,41 @@ export function ChatConversation({
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const lastReadMsgRef = useRef<string | null>(null);
+
+  // Drag & drop file upload state
+  const [isDragging, setIsDragging] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setDroppedFiles(files);
+    }
+  }, []);
 
   // Fetch current user ID once (only if not provided as prop)
   useEffect(() => {
@@ -261,7 +296,24 @@ export function ChatConversation({
   return (
     <div className="flex h-full">
       {/* Main conversation */}
-      <div className={`flex flex-col ${activeThreadId ? "hidden sm:flex sm:flex-1" : "flex-1"}`}>
+      <div
+        className={`relative flex flex-col ${activeThreadId ? "hidden sm:flex sm:flex-1" : "flex-1"}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag & drop overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-teal-500/50 bg-zinc-900/50 px-12 py-8">
+              <Upload className="h-10 w-10 text-teal-400" />
+              <p className="text-sm font-medium text-teal-300">Suelta archivos aquí</p>
+              <p className="text-xs text-zinc-500">Máximo 5 archivos, 10 MB cada uno</p>
+            </div>
+          </div>
+        )}
+
         <ChatPresenceBar
           channelName={channelName}
           onlineCount={onlineCount}
@@ -315,6 +367,7 @@ export function ChatConversation({
           onCancelReply={() => setReplyTo(null)}
           channelId={channelId}
           pusher={pusher}
+          externalFiles={droppedFiles}
         />
       </div>
 
