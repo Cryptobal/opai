@@ -11,8 +11,12 @@ import { ReportarIncidente } from "./ReportarIncidente";
 import { InstallBanner } from "./InstallBanner";
 import { ChatRondasSection } from "./ChatRondasSection";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
+import { PortalBottomNav } from "./PortalBottomNav";
+import type { PortalTab } from "./PortalBottomNav";
+import { PanicoModal } from "./PanicoModal";
+import { PortalPerfil } from "./PortalPerfil";
 
-export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat";
+export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
 
 export interface RondasSession {
   guardiaId: string;
@@ -33,6 +37,8 @@ export function RondasPortalClient() {
   const [loadingRonda, setLoadingRonda] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [showPanicoModal, setShowPanicoModal] = useState(false);
+  const [panicBannerActive, setPanicBannerActive] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
@@ -140,6 +146,48 @@ export function RondasPortalClient() {
     [fetchRondaData, session],
   );
 
+  const handleIniciarRondaLibre = useCallback(async () => {
+    if (!session) return;
+    setLoadingRonda(true);
+    try {
+      const res = await fetch("/api/portal/rondas/iniciar-libre", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guardiaId: session.guardiaId,
+          installationId: session.installationId,
+          tenantId: session.tenantId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setLoadingRonda(false);
+        return;
+      }
+
+      setActiveEjecucionId(json.data.ejecucionId);
+      setActiveRondaData({
+        ejecucionId: json.data.ejecucionId,
+        templateId: "",
+        templateName: "Ronda Libre",
+        status: "en_curso",
+        scheduledAt: new Date().toISOString(),
+        startedAt: json.data.startedAt,
+        checkpointsTotal: 0,
+        checkpointsCompletados: 0,
+        qrRequerido: false,
+        orderMode: "flexible",
+        estimatedDurationMin: null,
+        checkpoints: [],
+      });
+      setScreen("ronda-activa");
+    } catch {
+      // Network error
+    } finally {
+      setLoadingRonda(false);
+    }
+  }, [session]);
+
   // Navigate: ronda-activa -> completada
   const handleRondaComplete = (data: CompletionData) => {
     setCompletionData(data);
@@ -154,6 +202,17 @@ export function RondasPortalClient() {
     setScreen("mis-rondas");
   };
 
+  const handleBottomNav = (tab: PortalTab) => {
+    if (tab === "panico") {
+      setShowPanicoModal(true);
+      return;
+    }
+    if (tab === "mis-rondas" && (screen === "ronda-activa" || screen === "completada")) {
+      return;
+    }
+    setScreen(tab);
+  };
+
   return (
     <div className="flex min-h-dvh flex-col">
       {isOffline && (
@@ -162,6 +221,14 @@ export function RondasPortalClient() {
         </div>
       )}
       {isOffline && <div className="h-10 shrink-0" aria-hidden="true" />}
+
+      {panicBannerActive && (
+        <div className="fixed inset-x-0 top-0 z-[65] flex items-center justify-center gap-2 bg-red-900 px-4 py-2.5 text-center text-sm font-medium text-white shadow-lg">
+          <span className="animate-pulse text-lg">{"\uD83D\uDEA8"}</span>
+          Alerta de panico activa — Central notificada
+        </div>
+      )}
+      {panicBannerActive && <div className="h-10 shrink-0" aria-hidden="true" />}
 
       {screen === "login" && <LoginScreen onLogin={handleLogin} />}
 
@@ -179,10 +246,11 @@ export function RondasPortalClient() {
             session={session}
             onLogout={handleLogout}
             onIniciarRonda={handleIniciarRonda}
+            onIniciarRondaLibre={handleIniciarRondaLibre}
             onReportIncident={() => setShowIncidentModal(true)}
           />
           {loadingRonda && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
               <div className="flex flex-col items-center gap-3 rounded-2xl bg-gray-900 px-8 py-6">
                 <svg
                   className="h-8 w-8 animate-spin text-teal-500"
@@ -235,15 +303,8 @@ export function RondasPortalClient() {
         />
       )}
 
-      {/* Chat FAB - only show when logged in and not in chat */}
-      {session && screen !== "login" && screen !== "chat" && (
-        <button
-          onClick={() => setScreen("chat")}
-          className="fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg hover:bg-blue-500 transition-colors"
-          aria-label="Abrir chat"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-        </button>
+      {screen === "perfil" && session && (
+        <PortalPerfil session={session} onLogout={handleLogout} />
       )}
 
       {/* Incident reporting modal overlay */}
@@ -253,6 +314,24 @@ export function RondasPortalClient() {
           activeEjecucionId={activeEjecucionId ?? undefined}
           onClose={() => setShowIncidentModal(false)}
           onSubmitted={() => setShowIncidentModal(false)}
+        />
+      )}
+
+      {/* Bottom Navigation */}
+      {session && screen !== "login" && (
+        <PortalBottomNav activeScreen={screen} onNavigate={handleBottomNav} />
+      )}
+
+      {/* Panic Modal */}
+      {showPanicoModal && session && (
+        <PanicoModal
+          session={session}
+          activeEjecucionId={activeEjecucionId}
+          onClose={() => setShowPanicoModal(false)}
+          onPanicSent={() => {
+            setShowPanicoModal(false);
+            setPanicBannerActive(true);
+          }}
         />
       )}
 

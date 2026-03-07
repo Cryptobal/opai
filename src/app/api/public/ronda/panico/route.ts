@@ -40,21 +40,25 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.opsAlertaRonda.create({
-        data: {
-          tenantId: execution.tenantId,
-          ejecucionId: execution.id,
-          installationId: execution.rondaTemplate.installationId,
-          tipo: "panico",
-          severidad: "critical",
-          mensaje: "Botón de pánico activado por guardia en ronda",
+      const alertInstallationId =
+        execution.rondaTemplate?.installationId ?? execution.installationId;
+      if (alertInstallationId) {
+        await tx.opsAlertaRonda.create({
           data: {
-            lat: parsed.data.lat,
-            lng: parsed.data.lng,
-            note: parsed.data.note ?? null,
-          } as never,
-        },
-      });
+            tenantId: execution.tenantId,
+            ejecucionId: execution.id,
+            installationId: alertInstallationId,
+            tipo: "panico",
+            severidad: "critical",
+            mensaje: "Botón de pánico activado por guardia en ronda",
+            data: {
+              lat: parsed.data.lat,
+              lng: parsed.data.lng,
+              note: parsed.data.note ?? null,
+            } as never,
+          },
+        });
+      }
     });
 
     return NextResponse.json({ success: true });

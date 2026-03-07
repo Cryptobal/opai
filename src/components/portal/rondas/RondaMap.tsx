@@ -357,7 +357,7 @@ export default function RondaMap({
         : DEFAULT_CENTER;
 
   return (
-    <div style={{ height }} className="relative overflow-hidden rounded-lg">
+    <div style={{ height }} className="relative isolate overflow-hidden rounded-lg">
       <MapContainer
         center={center}
         zoom={18}

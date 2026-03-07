@@ -76,7 +76,7 @@ function SectionHeader({
         )}
         {icon}
         <span className="flex-1 text-left">{label}</span>
-        <span className="text-[10px] font-normal normal-case tracking-normal text-zinc-600">
+        <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-zinc-600">
           {count}
         </span>
         {unreadCount > 0 && (
@@ -406,7 +406,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Mensajes directos"
-                  icon={<MessageCircle className="h-3.5 w-3.5" />}
+                  icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
                   count={directChannels.length}
                   unreadCount={sectionUnread(directChannels)}
                   collapsed={!shouldExpand("direct")}
@@ -433,7 +433,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Grupos"
-                  icon={<Users className="h-3.5 w-3.5" />}
+                  icon={<Users className="h-3.5 w-3.5 text-amber-500" />}
                   count={groupChannels.length}
                   unreadCount={sectionUnread(groupChannels)}
                   collapsed={!shouldExpand("group")}
@@ -450,7 +450,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Instalaciones - Reportes"
-                  icon={<Building2 className="h-3.5 w-3.5" />}
+                  icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
                   count={installationReportesChannels.length}
                   unreadCount={sectionUnread(installationReportesChannels)}
                   collapsed={!shouldExpand("installation_reportes")}
@@ -467,7 +467,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Instalaciones - Interno"
-                  icon={<Building2 className="h-3.5 w-3.5" />}
+                  icon={<Building2 className="h-3.5 w-3.5 text-indigo-400" />}
                   count={installationInternoChannels.length}
                   unreadCount={sectionUnread(installationInternoChannels)}
                   collapsed={!shouldExpand("installation_interno")}
@@ -483,7 +483,7 @@ export function ChatChannelList({
             <div>
               <SectionHeader
                 label="Prospectos"
-                icon={<Contact className="h-3.5 w-3.5" />}
+                icon={<Contact className="h-3.5 w-3.5 text-green-500" />}
                 count={prospectChannels.length}
                 unreadCount={sectionUnread(prospectChannels)}
                 collapsed={!shouldExpand("prospects")}
@@ -508,7 +508,7 @@ export function ChatChannelList({
             <div>
               <SectionHeader
                 label="Clientes"
-                icon={<UserCheck className="h-3.5 w-3.5" />}
+                icon={<UserCheck className="h-3.5 w-3.5 text-blue-500" />}
                 count={clientChannels.length}
                 unreadCount={sectionUnread(clientChannels)}
                 collapsed={!shouldExpand("clients")}
@@ -534,7 +534,7 @@ export function ChatChannelList({
               <div>
                 <SectionHeader
                   label="Archivados"
-                  icon={<Archive className="h-3.5 w-3.5" />}
+                  icon={<Archive className="h-3.5 w-3.5 text-zinc-500" />}
                   count={archivedChannels.length}
                   unreadCount={0}
                   collapsed={collapsed["archived"]}

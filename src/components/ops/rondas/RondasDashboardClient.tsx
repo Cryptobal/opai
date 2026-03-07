@@ -69,7 +69,7 @@ export function RondasDashboardClient({ rows, stats }: { rows: Row[]; stats: Sta
       label: "Instalación / Guardia",
       render: (_v: unknown, row: Row) => (
         <div>
-          <p className="text-[13px] font-medium text-[#f1f5f9]">{row.rondaTemplate.installation.name}</p>
+          <p className="text-[13px] font-medium text-[#f1f5f9]">{row.rondaTemplate?.installation?.name ?? "Ronda Libre"}</p>
           <p className="text-[11px] text-[#94a3b8]">
             {row.guardia
               ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)

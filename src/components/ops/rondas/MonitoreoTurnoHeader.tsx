@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Play, Square, Radio, AlertTriangle } from "lucide-react";
+import { Play, Square, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/opai";
 
 interface TurnoData {
   id: string;
@@ -16,9 +15,10 @@ interface Props {
   activeRondasCount: number;
   alertCount: number;
   onOpenCloseTurno: (turnoId: string) => void;
+  onToggleAlerts?: () => void;
 }
 
-export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenCloseTurno }: Props) {
+export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenCloseTurno, onToggleAlerts }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,26 +49,14 @@ export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenClos
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <PageHeader
-          title="Monitoreo de rondas"
-          description="Seguimiento en tiempo real de guardias en patrullaje."
-        />
-        <div className="flex items-center gap-2 shrink-0">
-          {activeRondasCount > 0 && (
-            <Badge variant="outline" className="border-emerald-500/30 text-emerald-500 gap-1">
-              <Radio className="h-3 w-3" /> {activeRondasCount} activas
-            </Badge>
-          )}
-          {alertCount > 0 && (
-            <Badge variant="outline" className="border-red-500/30 text-red-500 gap-1">
-              <AlertTriangle className="h-3 w-3" /> {alertCount} alertas
-            </Badge>
-          )}
-        </div>
-      </div>
-
+    <div className="flex items-center gap-3 flex-wrap">
+      {alertCount > 0 && (
+        <button onClick={onToggleAlerts} className="transition-transform hover:scale-105 active:scale-95">
+          <Badge variant="outline" className="border-red-500/30 text-red-500 gap-1 cursor-pointer hover:bg-red-500/10">
+            <AlertTriangle className="h-3 w-3" /> {alertCount} alertas
+          </Badge>
+        </button>
+      )}
       <div className="flex items-center gap-3">
         {turno ? (
           <>
@@ -96,3 +84,4 @@ export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenClos
     </div>
   );
 }
+

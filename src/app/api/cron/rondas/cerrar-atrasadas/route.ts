@@ -76,14 +76,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Create warning alerts for each
-    const alertData = toClose.map((ej) => ({
+    // Create warning alerts for each (skip ad-hoc rondas without template)
+    const alertData = toClose.filter((ej) => ej.rondaTemplate).map((ej) => ({
       tenantId: ej.tenantId,
       ejecucionId: ej.id,
-      installationId: ej.rondaTemplate.installationId,
+      installationId: ej.rondaTemplate!.installationId,
       tipo: "ronda_no_realizada",
       severidad: "warning",
-      mensaje: `Ronda "${ej.rondaTemplate.name}" de las ${formatChileTime(ej.scheduledAt)} no fue realizada`,
+      mensaje: `Ronda "${ej.rondaTemplate!.name}" de las ${formatChileTime(ej.scheduledAt)} no fue realizada`,
       data: {
         scheduledAt: ej.scheduledAt.toISOString(),
         closedAt: now.toISOString(),

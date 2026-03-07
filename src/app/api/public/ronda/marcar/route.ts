@@ -30,11 +30,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Ejecución sin guardia asignado" }, { status: 400 });
     }
     const guardiaId = execution.guardiaId;
+    const installationId = execution.rondaTemplate?.installationId ?? execution.installationId;
+    if (!installationId) {
+      return NextResponse.json(
+        { success: false, error: "La ejecución no tiene instalación asociada" },
+        { status: 400 },
+      );
+    }
+    const rondaTemplateId = execution.rondaTemplateId;
+    if (!rondaTemplateId) {
+      return NextResponse.json(
+        { success: false, error: "La ejecución no tiene plantilla de ronda asociada" },
+        { status: 400 },
+      );
+    }
 
     const checkpoint = await prisma.opsCheckpoint.findFirst({
       where: {
         tenantId: execution.tenantId,
-        installationId: execution.rondaTemplate.installationId,
+        installationId,
         isActive: true,
         ...(parsed.data.checkpointId
           ? { id: parsed.data.checkpointId }
@@ -81,7 +95,7 @@ export async function POST(request: NextRequest) {
     const hash = computeMarcacionHash({
       tenantId: execution.tenantId,
       guardiaId: execution.guardiaId ?? "unknown",
-      installationId: execution.rondaTemplate.installationId,
+      installationId,
       tipo: "checkpoint",
       timestamp: now.toISOString(),
       lat: parsed.data.lat,
@@ -117,7 +131,7 @@ export async function POST(request: NextRequest) {
       });
 
       const total = await tx.opsRondaCheckpoint.count({
-        where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
+        where: { tenantId: execution.tenantId, rondaTemplateId },
       });
       const completed = await tx.opsMarcacionCheckpoint.count({
         where: { tenantId: execution.tenantId, ejecucionId: execution.id },
@@ -147,7 +161,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: execution.tenantId,
             ejecucionId: execution.id,
-            installationId: execution.rondaTemplate.installationId,
+            installationId,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
             mensaje: `Anomalía detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
@@ -165,10 +179,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Evaluate post-mark alerts asynchronously (don't block response)
-    evaluatePostMarkAlerts({
+    if (execution.rondaTemplate) evaluatePostMarkAlerts({
       tenantId: execution.tenantId,
       ejecucionId: execution.id,
-      installationId: execution.rondaTemplate.installationId,
+      installationId,
       guardiaId,
       checkpointId: checkpoint.id,
       checkpointName: checkpoint.name,

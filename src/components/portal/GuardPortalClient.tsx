@@ -246,7 +246,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
   }
 
   function handlePinChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
     setPin(val);
   }
 
@@ -292,19 +292,15 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6 w-full">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo / Icon */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Shield className="h-8 w-8 text-primary" />
+    <div className="min-h-dvh flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <Shield className="h-8 w-8 text-teal-400" />
+            <span className="text-xl font-bold tracking-tight">Gard Security</span>
           </div>
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-white">Portal del Guardia</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Ingresa tus credenciales para acceder
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold">Portal del Guardia</h1>
+          <p className="text-sm text-zinc-400 mt-1">RUT + tu PIN de acceso</p>
         </div>
 
         <PWAInstallBanner
@@ -315,66 +311,53 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
           dismissKey="guardia"
         />
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="rut" className="text-slate-300">
-              RUT
-            </Label>
-            <Input
-              id="rut"
-              placeholder="12345678-9"
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label htmlFor="guard-rut" className="text-xs text-zinc-400 mb-1 block">RUT</label>
+            <input
+              id="guard-rut"
+              type="text"
               value={rut}
               onChange={handleRutChange}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-12 text-base"
+              placeholder="12.345.678-9"
+              maxLength={12}
+              className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               autoComplete="username"
               autoFocus
+              onKeyDown={(e) => e.key === "Enter" && document.getElementById("guard-pin")?.focus()}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pin" className="text-slate-300">
-              PIN
-            </Label>
-            <Input
-              id="pin"
+          <div>
+            <label htmlFor="guard-pin" className="text-xs text-zinc-400 mb-1 block">Tu PIN (4 dígitos)</label>
+            <input
+              id="guard-pin"
               type="password"
               inputMode="numeric"
-              placeholder="****"
               value={pin}
               onChange={handlePinChange}
-              maxLength={6}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-12 text-base tracking-widest"
+              placeholder="••••"
+              maxLength={4}
+              className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               autoComplete="current-password"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit(e)}
             />
           </div>
 
-          {error && (
-            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
-              <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
+          {error && <p className="text-xs text-red-400 text-center">{error}</p>}
 
-          <Button
+          <button
             type="submit"
             disabled={loading || !rut || pin.length < 4}
-            className="w-full h-12 text-base font-semibold"
+            className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Ingresando...
-              </>
-            ) : (
-              "Ingresar"
-            )}
-          </Button>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+            Ingresar
+          </button>
         </form>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-500">
-          Gard Security &mdash; Portal de autoservicio
+        <p className="text-[10px] text-zinc-600 text-center">
+          Powered by Gard Security
         </p>
       </div>
     </div>

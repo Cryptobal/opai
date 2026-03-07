@@ -139,6 +139,7 @@ export function CheckpointMarker({
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState("");
+  const [showSuccessFlash, setShowSuccessFlash] = useState(false);
 
   // ---- Anti-fraud refs ----
   const batteryRef = useRef<number | null>(null);
@@ -319,6 +320,25 @@ export function CheckpointMarker({
   }, []);
 
   // ------------------------------------------------------------------
+  // Success sound helper
+  // ------------------------------------------------------------------
+  function playSuccessSound() {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch { /* Web Audio not available */ }
+  }
+
+  // ------------------------------------------------------------------
   // Submit marcacion
   // ------------------------------------------------------------------
   const handleSubmit = useCallback(async () => {
@@ -454,11 +474,14 @@ export function CheckpointMarker({
         }
       }
 
-      // 6. Haptic feedback
-      navigator.vibrate?.(200);
-
-      // 7. Callback
-      onComplete(result);
+      // 6. Success feedback: vibration + sound + flash
+      navigator.vibrate?.([100, 50, 100]);
+      playSuccessSound();
+      setShowSuccessFlash(true);
+      setTimeout(() => {
+        setShowSuccessFlash(false);
+        onComplete(result);
+      }, 500);
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : "Error de conexion");
     } finally {
@@ -524,6 +547,9 @@ export function CheckpointMarker({
 
         {/* Sheet */}
         <div className="relative w-full max-h-[75vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+          {showSuccessFlash && (
+            <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
+          )}
           {/* Drag handle */}
           <div className="flex justify-center py-3 sticky top-0 bg-zinc-900 z-10">
             <div className="w-10 h-1 bg-zinc-600 rounded-full" />

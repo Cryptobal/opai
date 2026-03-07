@@ -20,6 +20,7 @@ interface GuardRonda {
   guardiaId?: string | null;
   installationId?: string | null;
   templateName: string;
+  isAdHoc?: boolean;
   installationName: string;
   guardiaNombre: string;
   guardiaPhone?: string | null;
@@ -107,6 +108,11 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   <TrustScoreBadge score={r.trustScore} />
                 </div>
                 <p className="text-[11px] text-muted-foreground">{r.installationName}</p>
+                {r.isAdHoc && (
+                  <span className="inline-block mt-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">
+                    Ronda Libre
+                  </span>
+                )}
                 <div className="flex items-center gap-2 mt-1 text-[11px]">
                   <span className="text-emerald-500">● En ronda</span>
                   <span className="text-muted-foreground">

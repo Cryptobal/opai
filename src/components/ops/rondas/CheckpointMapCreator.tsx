@@ -46,7 +46,7 @@ interface Props {
   installationLat?: number | null;
   installationLng?: number | null;
   checkpoints: ExistingCheckpoint[];
-  onSubmit: (payload: CheckpointFormValue) => Promise<void> | void;
+  onSubmit: (payload: CheckpointFormValue) => Promise<string | void> | string | void;
   onUpdate: (id: string, payload: Partial<CheckpointFormValue>) => Promise<void> | void;
   onToggleActive: (id: string, isActive: boolean) => void;
   onDelete: (id: string) => void;
@@ -550,9 +550,7 @@ export function CheckpointMapCreator({
         // Save tasks for existing checkpoint
         await saveTasks(editingCheckpointId, draftTasks);
       } else {
-        // For new checkpoints, we need to get the created checkpoint ID
-        // The parent onSubmit adds the checkpoint to state; we save tasks via a callback
-        await onSubmit({
+        const createdId = await onSubmit({
           installationId,
           name: draftName.trim(),
           lat: draftLat,
@@ -562,9 +560,10 @@ export function CheckpointMapCreator({
           isCritical: draftCritical,
           instrucciones: draftInstrucciones.trim() || undefined,
         });
-        // Note: tasks for new checkpoints will be saved after creation
-        // by the parent passing back the new ID. For now, we handle tasks
-        // only in edit mode. Tasks can be added by editing after creation.
+        // Save tasks for newly created checkpoint
+        if (createdId && draftTasks.length > 0) {
+          await saveTasks(createdId, draftTasks);
+        }
       }
       cancelDraft();
     } finally {
@@ -722,16 +721,10 @@ export function CheckpointMapCreator({
         </div>
 
         {/* Checkpoint Tasks */}
-        {editingCheckpointId ? (
-          <CheckpointTasksEditor
-            tasks={draftTasks}
-            onChange={setDraftTasks}
-          />
-        ) : (
-          <p className="text-[10px] text-muted-foreground italic">
-            Podrás agregar tareas después de crear el checkpoint.
-          </p>
-        )}
+        <CheckpointTasksEditor
+          tasks={draftTasks}
+          onChange={setDraftTasks}
+        />
       </div>
 
       <Button

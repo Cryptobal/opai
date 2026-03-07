@@ -85,16 +85,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const cpInstallationId = execution.rondaTemplate?.installationId ?? execution.installationId;
+    if (!cpInstallationId) {
+      return NextResponse.json({ success: false, error: "Instalacion no encontrada" }, { status: 400 });
+    }
+
     const checkpoint = await prisma.opsCheckpoint.findFirst({
       where: {
         tenantId: execution.tenantId,
-        installationId: execution.rondaTemplate.installationId,
+        installationId: cpInstallationId,
         isActive: true,
         ...(checkpointId
           ? { id: checkpointId }
           : { qrCode: checkpointQrCode }),
       },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true },
+      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
     });
     if (!checkpoint) {
       return NextResponse.json({ success: false, error: "Checkpoint invalido" }, { status: 404 });
@@ -103,8 +108,8 @@ export async function POST(request: NextRequest) {
     // QR verification enforcement: if template requires QR and checkpoint supports QR/BOTH,
     // the request must include a matching checkpointQrCode
     if (
-      execution.rondaTemplate.qrRequerido &&
-      ((checkpoint as any).verificationType === "QR" || (checkpoint as any).verificationType === "BOTH") &&
+      execution.rondaTemplate?.qrRequerido &&
+      (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
       !checkpointQrCode
     ) {
       return NextResponse.json(
@@ -148,7 +153,7 @@ export async function POST(request: NextRequest) {
     const hash = computeMarcacionHash({
       tenantId: execution.tenantId,
       guardiaId: guardiaId ?? "unknown",
-      installationId: execution.rondaTemplate.installationId,
+      installationId: cpInstallationId,
       tipo: "checkpoint",
       timestamp: now.toISOString(),
       lat,
@@ -198,12 +203,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const total = await tx.opsRondaCheckpoint.count({
-        where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
-      });
       const completed = await tx.opsMarcacionCheckpoint.count({
         where: { tenantId: execution.tenantId, ejecucionId: execution.id },
       });
+      const total = execution.rondaTemplateId
+        ? await tx.opsRondaCheckpoint.count({
+            where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId! },
+          })
+        : completed; // ad-hoc: total = completed (no predefined list)
       const pct = total > 0 ? (completed / total) * 100 : 0;
 
       const trustRows = await tx.opsMarcacionCheckpoint.findMany({
@@ -235,7 +242,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: execution.tenantId,
             ejecucionId: execution.id,
-            installationId: execution.rondaTemplate.installationId,
+            installationId: cpInstallationId,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
             mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
@@ -253,23 +260,25 @@ export async function POST(request: NextRequest) {
     });
 
     // Evaluate post-mark alerts asynchronously (don't block response)
-    evaluatePostMarkAlerts({
-      tenantId: execution.tenantId,
-      ejecucionId: execution.id,
-      installationId: execution.rondaTemplate.installationId,
-      guardiaId,
-      checkpointId: checkpoint.id,
-      checkpointName: checkpoint.name,
-      templateOrderMode: execution.rondaTemplate.orderMode ?? "flexible",
-      marcacion: {
-        lat,
-        lng,
-        verificationMethod: verificationMethod ?? "QR",
-        geoDistanciaM: geo.distanceM,
-        checkpointRadius: checkpoint.geoRadiusM,
-        timestamp: now,
-      },
-    }).catch(err => console.error("[RONDAS] evaluatePostMarkAlerts error:", err));
+    if (execution.rondaTemplate) {
+      evaluatePostMarkAlerts({
+        tenantId: execution.tenantId,
+        ejecucionId: execution.id,
+        installationId: execution.rondaTemplate.installationId,
+        guardiaId,
+        checkpointId: checkpoint.id,
+        checkpointName: checkpoint.name,
+        templateOrderMode: execution.rondaTemplate.orderMode ?? "flexible",
+        marcacion: {
+          lat,
+          lng,
+          verificationMethod: verificationMethod ?? "QR",
+          geoDistanciaM: geo.distanceM,
+          checkpointRadius: checkpoint.geoRadiusM,
+          timestamp: now,
+        },
+      }).catch(err => console.error("[RONDAS] evaluatePostMarkAlerts error:", err));
+    }
 
     return NextResponse.json({
       success: true,

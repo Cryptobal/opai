@@ -123,7 +123,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   const checkpoint = await prisma.opsCheckpoint.findFirst({
     where: {
       tenantId: execution.tenantId,
-      installationId: execution.rondaTemplate.installationId,
+      installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
       isActive: true,
       ...(checkpointId ? { id: checkpointId } : { qrCode: checkpointQrCode }),
     },
@@ -133,7 +133,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
 
   // 4. QR enforcement
   if (
-    execution.rondaTemplate.qrRequerido &&
+    execution.rondaTemplate?.qrRequerido &&
     ((checkpoint as any).verificationType === "QR" || (checkpoint as any).verificationType === "BOTH") &&
     !checkpointQrCode
   ) {
@@ -185,7 +185,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   const hash = computeMarcacionHash({
     tenantId: execution.tenantId,
     guardiaId: guardiaId!,
-    installationId: execution.rondaTemplate.installationId,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? "",
     tipo: "checkpoint",
     timestamp: now.toISOString(),
     lat,
@@ -221,7 +221,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
     });
 
     const total = await tx.opsRondaCheckpoint.count({
-      where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
+      where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId ?? undefined },
     });
     const completed = await tx.opsMarcacionCheckpoint.count({
       where: { tenantId: execution.tenantId, ejecucionId: execution.id },
@@ -251,12 +251,14 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
       data: updateData,
     });
 
-    if (anomalies.length) {
+    const installationId =
+      execution.rondaTemplate?.installationId ?? execution.installationId ?? null;
+    if (anomalies.length && installationId) {
       await tx.opsAlertaRonda.create({
         data: {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
-          installationId: execution.rondaTemplate.installationId,
+          installationId,
           tipo: anomalies[0],
           severidad: toAlertSeverityFromAnomalies(anomalies),
           mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")} (offline sync)`,
@@ -275,11 +277,11 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   evaluatePostMarkAlerts({
     tenantId: execution.tenantId,
     ejecucionId: execution.id,
-    installationId: execution.rondaTemplate.installationId,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? "",
     guardiaId: guardiaId!,
     checkpointId: checkpoint.id,
     checkpointName: checkpoint.name,
-    templateOrderMode: execution.rondaTemplate.orderMode ?? "flexible",
+    templateOrderMode: execution.rondaTemplate?.orderMode ?? "flexible",
     marcacion: {
       lat,
       lng,

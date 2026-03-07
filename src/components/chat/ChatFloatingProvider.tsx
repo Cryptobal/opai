@@ -18,6 +18,7 @@ export type ChatFloatingChannel = {
   id: string;
   name: string;
   channelType: string; // "DIRECT" | "GROUP" | "INSTALLATION" | "EXTERNAL"
+  subType: "reportes" | "interno" | null;
   groupId: string | null;
   installationId: string | null;
   accountId: string | null;
@@ -97,24 +98,32 @@ export function ChatFloatingProvider({
   const fetchedRef = useRef(false);
 
   const fetchChannels = useCallback(async () => {
+    if (!currentUserId) return;
     setLoading(true);
     try {
       const res = await fetch("/api/chat/channels");
       if (!res.ok) {
+        if (res.status === 401) {
+          setChannels([]);
+          return;
+        }
         const text = await res.text().catch(() => "");
-        console.error("[ChatFloating] API error:", res.status, text.slice(0, 200));
-        throw new Error(`Failed to fetch channels (${res.status})`);
+        const preview = text.startsWith("<") ? "(HTML error page)" : text.slice(0, 150);
+        console.error("[ChatFloating] API error:", res.status, preview);
+        setChannels([]);
+        return;
       }
       const json = await res.json();
       if (json.success) {
         setChannels(json.data);
       }
     } catch (err) {
-      console.error("Error fetching channels:", err);
+      console.error("[ChatFloating] Error fetching channels:", err);
+      setChannels([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUserId]);
 
   const fetchArchivedChannels = useCallback(async () => {
     try {
@@ -165,17 +174,13 @@ export function ChatFloatingProvider({
     }
   }, [isPanelOpen, closePanel, openPanel]);
 
-  // Fetch unread counts periodically for badge
+  // Fetch unread counts periodically for badge (only when logged in)
   useEffect(() => {
-    // Initial fetch for badge
+    if (!currentUserId) return;
     fetchChannels();
-
-    // Poll every 30s
-    const interval = setInterval(() => {
-      fetchChannels();
-    }, 30_000);
+    const interval = setInterval(fetchChannels, 30_000);
     return () => clearInterval(interval);
-  }, [fetchChannels]);
+  }, [currentUserId, fetchChannels]);
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 

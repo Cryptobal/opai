@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       slots.map(async (slot) => {
         const assignment = await resolveOnDutyGuardiaForInstallation({
           tenantId: ctx.tenantId,
-          installationId: programacion.rondaTemplate.installationId,
+          installationId: programacion.rondaTemplate!.installationId,
           scheduledAt: slot,
         });
         return {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           guardiaId: assignment.guardiaId,
           status: "pendiente",
           scheduledAt: slot,
-          checkpointsTotal: programacion.rondaTemplate.checkpoints.length,
+          checkpointsTotal: programacion.rondaTemplate!.checkpoints.length,
           checkpointsCompletados: 0,
           porcentajeCompletado: 0,
           trustScore: 0,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { GripVertical } from "lucide-react";
 import {
   DndContext,
@@ -24,6 +25,8 @@ import { CSS } from "@dnd-kit/utilities";
 interface CheckpointOption {
   id: string;
   name: string;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface SelectedCheckpoint {
@@ -129,7 +132,38 @@ export function RondaTemplateForm({
   };
 
   const calcDuration = () => {
-    setEstimatedDurationMin(String(selected.length * 8));
+    const WALKING_SPEED_KMH = 5;
+    const MIN_PER_CHECKPOINT = 3;
+
+    // Haversine distance in km
+    const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    // Build ordered list with coordinates
+    const coords = selected
+      .map((s) => {
+        const cp = checkpoints.find((c) => c.id === s.id);
+        return cp?.lat != null && cp?.lng != null ? { lat: cp.lat, lng: cp.lng } : null;
+      });
+
+    let walkingMinutes = 0;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const a = coords[i];
+      const b = coords[i + 1];
+      if (a && b) {
+        const distKm = haversine(a.lat, a.lng, b.lat, b.lng);
+        walkingMinutes += (distKm / WALKING_SPEED_KMH) * 60;
+      }
+    }
+
+    const total = Math.ceil(walkingMinutes + selected.length * MIN_PER_CHECKPOINT);
+    setEstimatedDurationMin(String(Math.max(total, selected.length)));
   };
 
   return (
@@ -161,14 +195,15 @@ export function RondaTemplateForm({
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
         <div className="space-y-0.5">
           <label className="text-[11px] text-muted-foreground">Modo de orden</label>
-          <select
+          <SearchableSelect
             value={orderMode}
-            onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
-            className="h-9 rounded border border-border bg-background px-2 text-sm"
-          >
-            <option value="flexible">Orden flexible</option>
-            <option value="strict">Orden estricto (secuencial)</option>
-          </select>
+            options={[
+              { id: "flexible", label: "Orden flexible" },
+              { id: "strict", label: "Orden estricto (secuencial)" },
+            ]}
+            placeholder="Selecciona modo..."
+            onChange={(val) => setOrderMode(val as "strict" | "flexible")}
+          />
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
             Flexible: checkpoints en cualquier orden. Secuencial: deben seguirse en orden.
           </p>
@@ -188,19 +223,34 @@ export function RondaTemplateForm({
               variant="outline"
               className="h-9 text-xs shrink-0"
               onClick={calcDuration}
-              title="Calcula automáticamente: 8 minutos por checkpoint"
+              title="Calcula distancia caminando entre checkpoints + 3 min por punto"
             >
               Auto
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
-            Tiempo aproximado en minutos. &quot;Auto&quot; calcula 8 min por checkpoint.
+            Tiempo aproximado en minutos. &quot;Auto&quot; calcula distancia caminando + 3 min por checkpoint.
           </p>
         </div>
       </div>
 
       <div className="rounded border border-border p-2">
-        <p className="text-xs text-muted-foreground mb-2">Selecciona checkpoints:</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-muted-foreground">Selecciona checkpoints:</p>
+          <button
+            type="button"
+            className="text-[11px] text-primary hover:underline"
+            onClick={() => {
+              if (selected.length === checkpoints.length) {
+                setSelected([]);
+              } else {
+                setSelected(checkpoints.map((cp) => ({ id: cp.id, name: cp.name, isRequired: true })));
+              }
+            }}
+          >
+            {selected.length === checkpoints.length ? "Deseleccionar todos" : "Seleccionar todos"}
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
           {checkpoints.map((cp) => (
             <label key={cp.id} className="text-xs flex items-center gap-2 cursor-pointer">

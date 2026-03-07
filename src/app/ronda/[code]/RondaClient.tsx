@@ -253,7 +253,7 @@ export function RondaClient({ code }: { code: string }) {
           <h2 className="text-base font-semibold">Hola, {guardiaName}</h2>
           {rondas.map((r) => (
             <div key={r.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
-              <p className="text-sm font-medium">{r.rondaTemplate.name}</p>
+              <p className="text-sm font-medium">{r.rondaTemplate?.name ?? "Ronda Libre"}</p>
               <p className="text-xs text-muted-foreground">{new Date(r.scheduledAt).toLocaleString("es-CL")}</p>
               <p className="text-xs text-muted-foreground">
                 Asignado: {r.assignedGuardiaNombre ?? "Sin asignar"}
@@ -270,8 +270,8 @@ export function RondaClient({ code }: { code: string }) {
 
       {screen === "ejecucion" && activeExecution && (
         <div className="mx-auto max-w-md space-y-3">
-          <p className="text-sm font-medium">{activeExecution.rondaTemplate.name}</p>
-          <RondaProgress completed={marksCount + offlineQueue.length} total={activeExecution.checkpointsTotal || activeExecution.rondaTemplate.checkpoints.length} />
+          <p className="text-sm font-medium">{activeExecution.rondaTemplate?.name ?? "Ronda Libre"}</p>
+          <RondaProgress completed={marksCount + offlineQueue.length} total={activeExecution.checkpointsTotal || activeExecution.rondaTemplate?.checkpoints?.length || 0} />
           <div className="text-xs text-muted-foreground">
             Batería: {batteryLevel ?? "--"}% · Movimiento: {motionScore.toFixed(1)} · {isOffline ? "Offline" : "Online"}
           </div>

@@ -66,7 +66,7 @@ export async function POST() {
 
     const instMap = new Map<string, { name: string; total: number; completed: number; trustSum: number; trustCount: number }>();
     for (const ej of ejecuciones) {
-      const instName = ej.rondaTemplate.installation.name;
+      const instName = ej.rondaTemplate?.installation?.name ?? "Sin instalación";
       const instId = ej.installationId ?? "unknown";
       const entry = instMap.get(instId) ?? { name: instName, total: 0, completed: 0, trustSum: 0, trustCount: 0 };
       entry.total++;

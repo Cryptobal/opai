@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Shield, Loader2 } from "lucide-react";
 import { formatRut, isValidRut } from "@/lib/guard-portal";
 import type { RondasSession } from "./RondasPortalClient";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
@@ -71,11 +72,15 @@ export function LoginScreen({ onLogin }: Props) {
   }, [rut, pin, onLogin]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm space-y-8">
+    <div className="min-h-dvh flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-white">Rondas</h1>
-          <p className="mt-2 text-lg text-gray-400">Ingrese su RUT y PIN</p>
+          <div className="inline-flex items-center gap-2 mb-4">
+            <Shield className="h-8 w-8 text-teal-400" />
+            <span className="text-xl font-bold tracking-tight">Gard Security</span>
+          </div>
+          <h1 className="text-lg font-semibold">Portal de Rondas</h1>
+          <p className="text-sm text-zinc-400 mt-1">RUT + tu PIN de acceso</p>
         </div>
 
         <PWAInstallBanner
@@ -86,15 +91,9 @@ export function LoginScreen({ onLogin }: Props) {
           dismissKey="rondas"
         />
 
-        {error && (
-          <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-5">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-3">
           <div>
-            <label htmlFor="rondas-rut" className="mb-2 block text-base text-gray-300">RUT</label>
+            <label htmlFor="rondas-rut" className="text-xs text-zinc-400 mb-1 block">RUT</label>
             <input
               id="rondas-rut"
               type="text"
@@ -102,46 +101,44 @@ export function LoginScreen({ onLogin }: Props) {
               value={rut}
               onChange={(e) => setRut(formatRut(e.target.value))}
               placeholder="12.345.678-9"
-              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+              maxLength={12}
+              className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               autoComplete="off"
+              onKeyDown={(e) => e.key === "Enter" && document.getElementById("rondas-pin")?.focus()}
             />
           </div>
 
           <div>
-            <label htmlFor="rondas-pin" className="mb-2 block text-base text-gray-300">PIN</label>
+            <label htmlFor="rondas-pin" className="text-xs text-zinc-400 mb-1 block">Tu PIN (4 dígitos)</label>
             <input
               id="rondas-pin"
               type="password"
               inputMode="numeric"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="****"
-              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-4 text-xl tracking-[0.3em] text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="••••"
+              maxLength={4}
+              className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               autoComplete="off"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
-            {/* PIN dots visualization */}
-            <div className="flex justify-center gap-3 my-4">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className={`w-4 h-4 rounded-full border-2 transition-all ${
-                    i < pin.length
-                      ? "bg-teal-400 border-teal-400 scale-110"
-                      : "bg-transparent border-zinc-600"
-                  }`}
-                />
-              ))}
-            </div>
           </div>
+
+          {error && <p className="text-xs text-red-400 text-center">{error}</p>}
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-teal-600 py-4 text-xl font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-50"
+            disabled={loading || !rut || !pin}
+            className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? "Verificando..." : "Ingresar"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+            Ingresar
           </button>
         </form>
+
+        <p className="text-[10px] text-zinc-600 text-center">
+          Powered by Gard Security
+        </p>
       </div>
     </div>
   );

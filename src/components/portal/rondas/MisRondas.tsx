@@ -50,6 +50,7 @@ interface Props {
   session: RondasSession;
   onLogout: () => void;
   onIniciarRonda: (ejecucionId: string) => void;
+  onIniciarRondaLibre: () => void;
   onReportIncident: () => void;
 }
 
@@ -178,7 +179,7 @@ function classifyPendiente(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident }: Props) {
+export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLibre, onReportIncident }: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -335,7 +336,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
       </header>
 
       {/* ============ Content ============ */}
-      <main className="flex-1 px-4 pb-8 pt-4">
+      <main className="flex-1 px-4 pt-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
@@ -364,6 +365,18 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
 
         {/* Date header */}
         <p className="mb-4 text-sm text-gray-500">{dateHeader}</p>
+
+        {/* Ad-hoc ronda button */}
+        <button
+          onClick={onIniciarRondaLibre}
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 py-4 text-lg font-semibold text-teal-400 transition-colors hover:bg-teal-900/40 active:bg-teal-900/60"
+          style={{ minHeight: 56 }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Iniciar Ronda Libre
+        </button>
 
         {/* Error */}
         {error && (
@@ -504,7 +517,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
         )}
 
         {/* Report incident button */}
-        <div className="mt-8">
+        <div className="mt-8 mb-4">
           <button
             onClick={onReportIncident}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/30 py-4 text-lg font-semibold text-red-400 transition-colors hover:bg-red-900/40 active:bg-red-900/60"

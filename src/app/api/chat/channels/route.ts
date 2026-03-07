@@ -263,10 +263,11 @@ export async function GET(request: NextRequest) {
       data,
       meta: { total: data.length },
     });
-  } catch (err: any) {
-    console.error("Error listing chat channels:", err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[api/chat/channels] Error:", message, err);
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: message },
       { status: 500 }
     );
   }

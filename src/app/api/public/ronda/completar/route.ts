@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!execution) return NextResponse.json({ success: false, error: "Ejecución no encontrada" }, { status: 404 });
 
     const now = new Date();
-    const templateCps = execution.rondaTemplate.checkpoints;
+    const templateCps = execution.rondaTemplate?.checkpoints ?? [];
     const total = templateCps.length;
     const markedCpIds = new Set(execution.marcaciones.map(m => m.checkpointId));
 
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
         timestamp: m.timestamp,
         checkpointId: m.checkpointId,
       })),
-      template: execution.rondaTemplate,
+      template: execution.rondaTemplate ?? { orderMode: "flexible", estimatedDurationMin: null },
       templateCheckpoints: templateCps,
-      programacion: execution.programacion,
+      programacion: execution.programacion ?? undefined,
     });
 
     const updated = await prisma.opsRondaEjecucion.update({

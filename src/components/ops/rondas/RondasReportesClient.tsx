@@ -132,7 +132,7 @@ export function RondasReportesClient({
   }, [fetchData]);
 
   const instOptions = useMemo(
-    () => [{ id: "", label: "Todas las instalaciones" }, ...installations.map((i) => ({ id: i.id, label: i.name }))],
+    () => installations.map((i) => ({ id: i.id, label: i.name })),
     [installations],
   );
 
@@ -250,7 +250,7 @@ export function RondasReportesClient({
             <SearchableSelect
               value={installationId}
               options={instOptions}
-              placeholder="Instalación"
+              placeholder="Buscar instalación..."
               onChange={(id) => setInstallationId(id)}
             />
           </div>

@@ -268,14 +268,14 @@ export function PortalClienteClient() {
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">Tu PIN (6 dígitos)</label>
+              <label className="text-xs text-zinc-400 mb-1 block">Tu PIN (4 dígitos)</label>
               <input
                 id="pin-input"
                 type="password"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 placeholder="••••"
-                maxLength={6}
+                maxLength={4}
                 inputMode="numeric"
                 className="w-full h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-teal-500/50"
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}

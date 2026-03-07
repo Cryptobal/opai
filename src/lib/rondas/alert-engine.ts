@@ -200,7 +200,7 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
 
   // 3. Create missing alerts in bulk
   const newAlerts = overdueEjecuciones
-    .filter((ej: any) => !alreadyAlerted.has(ej.id))
+    .filter((ej: any) => !alreadyAlerted.has(ej.id) && ej.rondaTemplate)
     .map((ej: any) => {
       const prog = ej.programacionId ? progMap.get(ej.programacionId) : undefined;
       return {
