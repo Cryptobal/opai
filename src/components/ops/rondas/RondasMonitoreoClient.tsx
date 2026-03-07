@@ -95,20 +95,36 @@ export function RondasMonitoreoClient({
   const mapCheckpoints = useMemo(() => {
     const cps: any[] = [];
     filtered.forEach((r: any) => {
-      const markedIds = new Set((r.marcaciones ?? []).map((m: any) => m.checkpointId));
-      (r.rondaTemplate?.checkpoints ?? []).forEach((tc: any, i: number) => {
-        const cp = tc.checkpoint;
-        if (cp?.lat != null && cp?.lng != null) {
-          cps.push({
-            id: `${r.id}-${cp.id}`,
-            name: cp.name,
-            lat: cp.lat,
-            lng: cp.lng,
-            radiusM: cp.geoRadiusM ?? 30,
-            status: markedIds.has(cp.id) ? "completed" : i === 0 || markedIds.size === i ? "active" : "pending",
-          });
-        }
-      });
+      if (r.rondaTemplate) {
+        const markedIds = new Set((r.marcaciones ?? []).map((m: any) => m.checkpointId));
+        (r.rondaTemplate?.checkpoints ?? []).forEach((tc: any, i: number) => {
+          const cp = tc.checkpoint;
+          if (cp?.lat != null && cp?.lng != null) {
+            cps.push({
+              id: `${r.id}-${cp.id}`,
+              name: cp.name,
+              lat: cp.lat,
+              lng: cp.lng,
+              radiusM: cp.geoRadiusM ?? 30,
+              status: markedIds.has(cp.id) ? "completed" : i === 0 || markedIds.size === i ? "active" : "pending",
+            });
+          }
+        });
+      } else {
+        // Ad-hoc: show marked checkpoints from marcaciones
+        (r.marcaciones ?? []).forEach((m: any) => {
+          if (m.lat != null && m.lng != null) {
+            cps.push({
+              id: `${r.id}-${m.checkpointId ?? m.id}`,
+              name: m.checkpoint?.name ?? "Checkpoint",
+              lat: m.lat,
+              lng: m.lng,
+              radiusM: 30,
+              status: "completed",
+            });
+          }
+        });
+      }
     });
     return cps;
   }, [filtered]);
@@ -147,7 +163,8 @@ export function RondasMonitoreoClient({
       ejecucionId: r.id,
       guardiaId: r.guardiaId ?? r.guardia?.id ?? null,
       installationId: r.rondaTemplate?.installation?.id ?? null,
-      templateName: r.rondaTemplate?.name ?? "Ronda",
+      templateName: r.isAdHoc ? "Ronda Libre" : (r.rondaTemplate?.name ?? "Ronda"),
+      isAdHoc: r.isAdHoc ?? false,
       installationName: r.rondaTemplate?.installation?.name ?? "",
       guardiaNombre: r.guardia ? formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName) : "Sin asignar",
       guardiaPhone: r.guardia?.persona?.phoneMobile ?? null,
