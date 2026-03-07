@@ -8,6 +8,9 @@ import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
+import Pusher from "pusher-js";
+import { PanicAlertBanner } from "./PanicAlertBanner";
+import type { PanicAlertData } from "./PanicAlertBanner";
 
 interface Installation {
   id: string;
@@ -20,12 +23,14 @@ export function RondasMonitoreoClient({
   alertCount,
   userId,
   userName,
+  tenantId,
 }: {
   initialRows: any[];
   installations: Installation[];
   alertCount: number;
   userId: string;
   userName: string;
+  tenantId: string;
 }) {
   const [rows, setRows] = useState<any[]>(initialRows);
   const [installationFilter, setInstallationFilter] = useState("");
@@ -33,6 +38,7 @@ export function RondasMonitoreoClient({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closeTurnoId, setCloseTurnoId] = useState<string | null>(null);
   const [currentAlertCount, setCurrentAlertCount] = useState(alertCount);
+  const [panicAlerts, setPanicAlerts] = useState<PanicAlertData[]>([]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -48,6 +54,36 @@ export function RondasMonitoreoClient({
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Real-time panic alerts via Pusher
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const pusher = new Pusher(
+      process.env.NEXT_PUBLIC_PUSHER_KEY!,
+      { cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER! }
+    );
+    const channel = pusher.subscribe(`monitoreo-${tenantId}`);
+
+    channel.bind("alerta-panico", (data: PanicAlertData) => {
+      setPanicAlerts((prev) => [...prev, data]);
+      // Also refresh data immediately
+      fetch("/api/ops/rondas/monitoreo")
+        .then((r) => r.json())
+        .then((json) => { if (json.success) setRows(json.data); })
+        .catch(() => {});
+      fetch("/api/ops/rondas/alertas?open=true")
+        .then((r) => r.json())
+        .then((json) => { if (json.success) setCurrentAlertCount(json.data.length); })
+        .catch(() => {});
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(`monitoreo-${tenantId}`);
+      pusher.disconnect();
+    };
+  }, [tenantId]);
 
   const filtered = useMemo(
     () => installationFilter
@@ -163,6 +199,12 @@ export function RondasMonitoreoClient({
 
   return (
     <div className="flex flex-col gap-0 min-w-0">
+      <PanicAlertBanner
+        alerts={panicAlerts}
+        onAcknowledge={(alertaId) => {
+          setCurrentAlertCount((c) => Math.max(0, c - 1));
+        }}
+      />
       {/* Top bar: live badge + filter */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex items-center gap-3">
