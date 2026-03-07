@@ -12,6 +12,7 @@ import type {
   PusherTypingEvent,
   ChatSenderType,
 } from "@/lib/chat-types";
+import { playChatNotificationSound } from "../lib/chat-sounds";
 
 export type PresenceMember = {
   id: string;
@@ -37,7 +38,8 @@ type UseChatChannelReturn = {
  */
 export function useChatChannel(
   channelId: string | null,
-  pusher: Pusher | null
+  pusher: Pusher | null,
+  currentUserId?: string | null
 ): UseChatChannelReturn {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [members, setMembers] = useState<PresenceMember[]>([]);
@@ -170,6 +172,15 @@ export function useChatChannel(
         isEdited: false,
       };
       appendMessage(msg);
+
+      // Play notification sound if message is from someone else
+      // Skip if the tab is focused and user is viewing this channel (they can already see it)
+      if (currentUserId && data.senderId !== currentUserId) {
+        const isTabFocused = typeof document !== "undefined" && document.hasFocus();
+        if (!isTabFocused) {
+          playChatNotificationSound();
+        }
+      }
     });
 
     channel.bind("message-edited", (data: PusherMessageEditedEvent) => {
@@ -220,7 +231,7 @@ export function useChatChannel(
       typingTimersRef.current.forEach((timer) => clearTimeout(timer));
       typingTimersRef.current.clear();
     };
-  }, [pusher, channelId, appendMessage, editMessage, deleteMessage, addReaction, removeReaction, clearMessages, clearTypingUser]);
+  }, [pusher, channelId, currentUserId, appendMessage, editMessage, deleteMessage, addReaction, removeReaction, clearMessages, clearTypingUser]);
 
   return {
     messages,

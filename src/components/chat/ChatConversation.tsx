@@ -54,16 +54,16 @@ export function ChatConversation({
     setMessages: setApiMessages,
   } = useChatMessages(channelId);
 
+  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
+  const currentUserId = currentUserIdProp ?? currentUserIdState;
+
   const {
     messages: rtMessages,
     members,
     typingUsers,
     appendMessage: rtAppendMessage,
     clearMessages: rtClearMessages,
-  } = useChatChannel(channelId, pusher);
-
-  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
-  const currentUserId = currentUserIdProp ?? currentUserIdState;
+  } = useChatChannel(channelId, pusher, currentUserId);
   const [readCursors, setReadCursors] = useState<{ readerId: string; lastReadAt: string; lastReadMessageId: string | null }[]>([]);
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
