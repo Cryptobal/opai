@@ -37,9 +37,9 @@ export function ChatMessageSystem({ message }: ChatMessageSystemProps) {
   const Icon = getSystemIcon(message.systemEventType);
 
   return (
-    <div className="flex items-center justify-center gap-2 py-2 my-1">
-      <Icon className="h-3 w-3 text-zinc-600 shrink-0" />
-      <p className="text-xs text-zinc-500 italic text-center">
+    <div className="flex items-center justify-center gap-2 py-2 my-1 mx-auto max-w-md rounded-md bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] px-3">
+      <Icon className="h-3 w-3 text-[rgba(255,255,255,0.28)] shrink-0" />
+      <p className="text-xs text-[rgba(255,255,255,0.28)] italic text-center">
         {message.content}
       </p>
     </div>

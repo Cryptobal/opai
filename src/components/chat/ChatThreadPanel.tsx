@@ -137,26 +137,26 @@ export function ChatThreadPanel({
   );
 
   return (
-    <div className="flex flex-col h-full border-l border-zinc-800 bg-zinc-950">
+    <div className="flex flex-col h-full border-l border-[rgba(255,255,255,0.06)] bg-[#0a0e17]">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-zinc-800 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] shrink-0">
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 sm:hidden"
+          className="h-7 w-7 shrink-0 sm:hidden text-[rgba(255,255,255,0.88)] hover:bg-[rgba(255,255,255,0.06)]"
           onClick={onClose}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <MessageSquare className="h-4 w-4 text-teal-500 shrink-0" />
-        <h3 className="text-sm font-semibold flex-1">Hilo</h3>
-        <span className="text-xs text-zinc-500">
+        <h3 className="text-sm font-semibold flex-1 text-[rgba(255,255,255,0.88)]">Hilo</h3>
+        <span className="text-xs text-[rgba(255,255,255,0.28)]">
           {replies.length} {replies.length === 1 ? "respuesta" : "respuestas"}
         </span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 hidden sm:flex"
+          className="h-7 w-7 shrink-0 hidden sm:flex text-[rgba(255,255,255,0.88)] hover:bg-[rgba(255,255,255,0.06)]"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -167,13 +167,13 @@ export function ChatThreadPanel({
       <div className="flex-1 overflow-y-auto px-3 py-3 min-h-0">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-[rgba(255,255,255,0.28)]" />
           </div>
         ) : (
           <>
             {/* Root message */}
             {rootMessage && (
-              <div className="mb-3 pb-3 border-b border-zinc-800">
+              <div className="mb-3 pb-3 border-b border-[rgba(255,255,255,0.06)]">
                 <ChatMessage
                   message={rootMessage}
                   isOwn={rootMessage.senderType === "ADMIN"}
@@ -196,8 +196,8 @@ export function ChatThreadPanel({
 
             {replies.length === 0 && !loading && (
               <div className="flex flex-col items-center gap-1 py-6 text-center">
-                <p className="text-xs text-zinc-500">Sin respuestas aún</p>
-                <p className="text-[10px] text-zinc-600">
+                <p className="text-xs text-[rgba(255,255,255,0.28)]">Sin respuestas aún</p>
+                <p className="text-[10px] text-[rgba(255,255,255,0.18)]">
                   Escribe la primera respuesta abajo
                 </p>
               </div>
@@ -209,7 +209,7 @@ export function ChatThreadPanel({
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-zinc-800 px-2 py-2">
+      <div className="shrink-0 border-t border-[rgba(255,255,255,0.06)] px-2 py-2">
         <ChatInput
           onSend={handleSend}
           channelId={channelId}
