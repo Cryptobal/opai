@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { ArrowLeft, Bell, BellOff, AtSign, Search, X } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, AtSign, Search, X, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -22,6 +22,10 @@ interface ChatPresenceBarProps {
   children?: ReactNode;
   /** Increment to programmatically open and focus search (e.g. via Cmd+K) */
   searchTrigger?: number;
+  /** Number of pinned messages in the channel */
+  pinnedCount?: number;
+  /** Called when user clicks the pin icon to show pinned messages */
+  onShowPins?: () => void;
 }
 
 export function ChatPresenceBar({
@@ -33,6 +37,8 @@ export function ChatPresenceBar({
   channelId,
   children,
   searchTrigger,
+  pinnedCount,
+  onShowPins,
 }: ChatPresenceBarProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,6 +105,22 @@ export function ChatPresenceBar({
         <div className="flex items-center gap-1 shrink-0">
           {/* Extra actions (e.g. clear conversation) */}
           {children}
+
+          {/* Pin button */}
+          {onShowPins && pinnedCount !== undefined && pinnedCount > 0 && (
+            <button
+              type="button"
+              onClick={onShowPins}
+              className="relative flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              aria-label="Mensajes fijados"
+              title="Mensajes fijados"
+            >
+              <Pin className="h-4 w-4" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-zinc-900">
+                {pinnedCount}
+              </span>
+            </button>
+          )}
 
           {/* Search button */}
           {onSearch && (

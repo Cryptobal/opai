@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
-import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, X, RotateCcw } from "lucide-react";
+import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, X, RotateCcw, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
@@ -30,6 +30,12 @@ interface ChatMessageProps {
   onRetry?: (messageId: string) => void;
   /** Called to discard a failed message */
   onDiscard?: (messageId: string) => void;
+  /** Whether this message is pinned */
+  isPinned?: boolean;
+  /** Called to pin a message */
+  onPin?: (messageId: string) => void;
+  /** Called to unpin a message */
+  onUnpin?: (messageId: string) => void;
 }
 
 /**
@@ -147,7 +153,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
-export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny, onRetry, onDiscard }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny, onRetry, onDiscard, isPinned, onPin, onUnpin }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -458,6 +464,18 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
                       <Copy className="mr-2 h-3.5 w-3.5" />
                       Copiar texto
                     </DropdownMenuItem>
+                    {(onPin || onUnpin) && (
+                      <DropdownMenuItem onClick={() => {
+                        if (isPinned && onUnpin) {
+                          onUnpin(message.id);
+                        } else if (!isPinned && onPin) {
+                          onPin(message.id);
+                        }
+                      }}>
+                        <Pin className={cn("mr-2 h-3.5 w-3.5", isPinned && "text-amber-400")} />
+                        {isPinned ? "Desfijar mensaje" : "Fijar mensaje"}
+                      </DropdownMenuItem>
+                    )}
                     {isOwn && onEdit && (
                       <>
                         <DropdownMenuSeparator />
@@ -520,6 +538,15 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
               <button type="button" onClick={() => { navigator.clipboard.writeText(message.content); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
                 <Copy className="h-4 w-4 text-zinc-400" /> Copiar texto
               </button>
+              {(onPin || onUnpin) && (
+                <button type="button" onClick={() => {
+                  if (isPinned && onUnpin) { onUnpin(message.id); }
+                  else if (!isPinned && onPin) { onPin(message.id); }
+                  setShowMobileActions(false);
+                }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
+                  <Pin className={cn("h-4 w-4", isPinned ? "text-amber-400" : "text-zinc-400")} /> {isPinned ? "Desfijar mensaje" : "Fijar mensaje"}
+                </button>
+              )}
               {isOwn && onEdit && (
                 <button type="button" onClick={() => { setEditContent(message.content); setIsEditing(true); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
                   <Pencil className="h-4 w-4 text-zinc-400" /> Editar mensaje

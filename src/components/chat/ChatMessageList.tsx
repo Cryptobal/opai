@@ -24,6 +24,12 @@ interface ChatMessageListProps {
   canDeleteAny?: boolean;
   onRetry?: (messageId: string) => void;
   onDiscard?: (messageId: string) => void;
+  /** Set of pinned message IDs */
+  pinnedMessageIds?: Set<string>;
+  /** Called to pin a message */
+  onPin?: (messageId: string) => void;
+  /** Called to unpin a message */
+  onUnpin?: (messageId: string) => void;
 }
 
 /**
@@ -85,6 +91,9 @@ export function ChatMessageList({
   canDeleteAny,
   onRetry,
   onDiscard,
+  pinnedMessageIds,
+  onPin,
+  onUnpin,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -243,6 +252,9 @@ export function ChatMessageList({
                   canDeleteAny={canDeleteAny}
                   onRetry={onRetry}
                   onDiscard={onDiscard}
+                  isPinned={pinnedMessageIds?.has(msg.id)}
+                  onPin={onPin}
+                  onUnpin={onUnpin}
                 />
               )
             )}

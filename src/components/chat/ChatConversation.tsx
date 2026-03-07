@@ -11,7 +11,7 @@ import { ChatInput } from "./ChatInput";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatThreadPanel } from "./ChatThreadPanel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Trash2, Upload } from "lucide-react";
+import { Trash2, Upload, Pin, X } from "lucide-react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
 
@@ -82,6 +82,17 @@ export function ChatConversation({
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const lastReadMsgRef = useRef<string | null>(null);
+
+  // Pinned messages state
+  const [pinnedMessages, setPinnedMessages] = useState<{
+    id: string;
+    messageId: string;
+    pinnedBy: string;
+    pinnedAt: string;
+    message: { id: string; senderName: string; content: string; createdAt: string };
+  }[]>([]);
+  const [showPinnedPanel, setShowPinnedPanel] = useState(false);
+  const pinnedMessageIds = new Set(pinnedMessages.map((pm) => pm.messageId));
 
   // Keyboard shortcut: Cmd+K triggers search focus
   const [searchTrigger, setSearchTrigger] = useState(0);
@@ -161,6 +172,22 @@ export function ChatConversation({
   useEffect(() => {
     setActiveThreadId(null);
     lastReadMsgRef.current = null;
+    setShowPinnedPanel(false);
+  }, [channelId]);
+
+  // Fetch pinned messages when channel changes
+  useEffect(() => {
+    if (!channelId) return;
+    const fetchPins = async () => {
+      try {
+        const res = await fetch(`/api/chat/channels/${channelId}/pins`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) setPinnedMessages(json.data);
+        }
+      } catch {}
+    };
+    fetchPins();
   }, [channelId]);
 
   // Mark messages as read when opening a channel or receiving new messages
@@ -272,6 +299,39 @@ export function ChatConversation({
     });
   }, []);
 
+  const handlePin = useCallback(async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}/pins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      if (res.ok) {
+        // Refresh pinned messages
+        const pinsRes = await fetch(`/api/chat/channels/${channelId}/pins`);
+        if (pinsRes.ok) {
+          const json = await pinsRes.json();
+          if (json.success) setPinnedMessages(json.data);
+        }
+      }
+    } catch (err) {
+      console.error("Error pinning message:", err);
+    }
+  }, [channelId]);
+
+  const handleUnpin = useCallback(async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/chat/channels/${channelId}/pins/${messageId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setPinnedMessages((prev) => prev.filter((pm) => pm.messageId !== messageId));
+      }
+    } catch (err) {
+      console.error("Error unpinning message:", err);
+    }
+  }, [channelId]);
+
   const handleSearch = useCallback(
     (query: string) => {
       setSearchQuery(query);
@@ -352,6 +412,8 @@ export function ChatConversation({
           isSearching={isSearching}
           channelId={channelId}
           searchTrigger={searchTrigger}
+          pinnedCount={pinnedMessages.length}
+          onShowPins={() => setShowPinnedPanel((prev) => !prev)}
         >
           {canDeleteAny && (
             <button
@@ -364,6 +426,48 @@ export function ChatConversation({
             </button>
           )}
         </ChatPresenceBar>
+
+        {/* Pinned messages panel */}
+        {showPinnedPanel && pinnedMessages.length > 0 && (
+          <div className="border-b border-zinc-800 bg-zinc-900/80 max-h-[300px] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/50">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
+                <Pin className="h-3.5 w-3.5" />
+                <span>{pinnedMessages.length} {pinnedMessages.length === 1 ? "mensaje fijado" : "mensajes fijados"}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPinnedPanel(false)}
+                className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="divide-y divide-zinc-800/50">
+              {pinnedMessages.map((pm) => (
+                <div key={pm.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-zinc-800/30 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-zinc-300">{pm.message.senderName}</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {new Date(pm.message.createdAt).toLocaleDateString("es", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 line-clamp-2 mt-0.5">{pm.message.content}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUnpin(pm.messageId)}
+                    className="shrink-0 flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Desfijar"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {connectionState && (
           <ChatConnectionBanner
@@ -388,6 +492,9 @@ export function ChatConversation({
           canDeleteAny={canDeleteAny}
           onRetry={retryMessage}
           onDiscard={discardMessage}
+          pinnedMessageIds={pinnedMessageIds}
+          onPin={handlePin}
+          onUnpin={handleUnpin}
         />
 
         <ChatTypingIndicator typingUsers={typingUsers} />

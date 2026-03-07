@@ -5566,6 +5566,7 @@ model ChatChannel {
   dmParticipants          ChatDmParticipant[]
   participants            ChatChannelParticipant[]
   archives                ChatChannelArchive[]
+  pinnedMessages          ChatPinnedMessage[]
 
   @@index([tenantId], map: "idx_chat_channels_tenant")
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
@@ -5608,8 +5609,9 @@ model ChatMessage {
   replies       ChatMessage[]         @relation("ChatMessageReply")
   threadRoot    ChatMessage?          @relation("ChatMessageThread", fields: [threadRootId], references: [id], onDelete: Cascade)
   threadReplies ChatMessage[]         @relation("ChatMessageThread")
-  reactions     ChatMessageReaction[]
-  mentions      ChatMention[]
+  reactions       ChatMessageReaction[]
+  mentions        ChatMention[]
+  pinnedMessages  ChatPinnedMessage[]
 
   @@index([tenantId, channelId, createdAt(sort: Desc)], map: "idx_chat_messages_channel_created")
   @@index([channelId, createdAt], map: "idx_chat_messages_channel_asc")
@@ -5769,6 +5771,25 @@ model ChatChannelArchive {
   @@unique([channelId, adminId], map: "uq_chat_channel_archive")
   @@index([adminId], map: "idx_chat_channel_archives_admin")
   @@map("channel_archives")
+  @@schema("chat")
+}
+
+// ── ChatPinnedMessage ──
+
+model ChatPinnedMessage {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  channelId String   @map("channel_id") @db.Uuid
+  messageId String   @map("message_id") @db.Uuid
+  pinnedBy  String   @map("pinned_by")
+  pinnedAt  DateTime @default(now()) @map("pinned_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, messageId], map: "uq_chat_pinned_message")
+  @@index([channelId], map: "idx_chat_pinned_messages_channel")
+  @@map("pinned_messages")
   @@schema("chat")
 }
 
