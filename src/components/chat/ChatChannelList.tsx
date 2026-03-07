@@ -67,7 +67,7 @@ function SectionHeader({
       <button
         type="button"
         onClick={onToggle}
-        className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider hover:bg-zinc-800/50 transition-colors"
+        className="flex-1 flex items-center gap-2 px-4 py-2 text-[11px] font-bold text-[rgba(255,255,255,0.28)] uppercase tracking-[0.05em] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
       >
         {collapsed ? (
           <ChevronRight className="h-3 w-3 shrink-0" />
@@ -76,17 +76,17 @@ function SectionHeader({
         )}
         {icon}
         <span className="flex-1 text-left">{label}</span>
-        <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-zinc-600">
+        <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-[rgba(255,255,255,0.2)]">
           {count}
         </span>
         {unreadCount > 0 && (
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#2dd4bf] px-1 text-[9px] font-bold text-zinc-900">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
       {action && (
-        <div className="pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity">
           {action}
         </div>
       )}
@@ -293,9 +293,9 @@ export function ChatChannelList({
   const shouldExpand = (key: string) => isSearching || filter === "unread" ? true : !collapsed[key];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#0d1220]">
       {/* Header */}
-      <div className="shrink-0 px-4 pt-3 pb-2 border-b border-zinc-800 space-y-2">
+      <div className="shrink-0 px-4 pt-3 pb-2 border-b border-[rgba(255,255,255,0.06)] space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-100">Chat</h2>
           <DropdownMenu>
@@ -345,7 +345,7 @@ export function ChatChannelList({
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Buscar canal o conversación..."
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-8 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-colors"
+            className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] py-1.5 pl-8 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[rgba(255,255,255,0.12)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.06)] transition-colors"
           />
         </div>
 
