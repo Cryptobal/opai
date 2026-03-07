@@ -50,6 +50,7 @@ interface Props {
   session: RondasSession;
   onLogout: () => void;
   onIniciarRonda: (ejecucionId: string) => void;
+  onIniciarRondaLibre: () => void;
   onReportIncident: () => void;
 }
 
@@ -178,7 +179,7 @@ function classifyPendiente(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident }: Props) {
+export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLibre, onReportIncident }: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -364,6 +365,18 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
 
         {/* Date header */}
         <p className="mb-4 text-sm text-gray-500">{dateHeader}</p>
+
+        {/* Ad-hoc ronda button */}
+        <button
+          onClick={onIniciarRondaLibre}
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 py-4 text-lg font-semibold text-teal-400 transition-colors hover:bg-teal-900/40 active:bg-teal-900/60"
+          style={{ minHeight: 56 }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Iniciar Ronda Libre
+        </button>
 
         {/* Error */}
         {error && (

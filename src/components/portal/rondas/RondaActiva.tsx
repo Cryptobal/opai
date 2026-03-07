@@ -189,6 +189,8 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
+  const isAdHoc = !rondaData.templateId;
+
   const completedCount = checkpoints.filter((c) => c.completed).length;
   const total = checkpoints.length;
 
@@ -244,6 +246,7 @@ export function RondaActiva({
 
   // Sorted checkpoints: active first, then pending, then completed
   const sortedCheckpoints = useMemo(() => {
+    if (isAdHoc) return checkpoints;
     const active: ApiCheckpoint[] = [];
     const pending: ApiCheckpoint[] = [];
     const completed: ApiCheckpoint[] = [];
@@ -253,7 +256,7 @@ export function RondaActiva({
       else pending.push(cp);
     }
     return [...active, ...pending, ...completed];
-  }, [checkpoints, activeCheckpointId]);
+  }, [checkpoints, activeCheckpointId, isAdHoc]);
 
   // ---------------------------------------------------------------------------
   // Callbacks
@@ -342,10 +345,9 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Render: CheckpointMarker bottom sheet overlay
   // ---------------------------------------------------------------------------
-  if (markingCheckpointId && markingCheckpoint) {
-    return (
-      <CheckpointMarker
-        checkpoint={{
+  if (markingCheckpointId && (markingCheckpoint || markingCheckpointId === "ad-hoc-scan")) {
+    const cpInfo = markingCheckpoint
+      ? {
           id: markingCheckpoint.id,
           name: markingCheckpoint.name,
           instrucciones: markingCheckpoint.instrucciones,
@@ -354,10 +356,23 @@ export function RondaActiva({
           geoRadiusM: markingCheckpoint.geoRadiusM,
           verificationType: markingCheckpoint.verificationType,
           tasks: markingCheckpoint.tasks,
-        }}
+        }
+      : {
+          id: "ad-hoc-scan",
+          name: "Checkpoint libre",
+          instrucciones: null,
+          lat: guardPos?.lat ?? 0,
+          lng: guardPos?.lng ?? 0,
+          geoRadiusM: 9999,
+          verificationType: "QR" as const,
+          tasks: undefined,
+        };
+    return (
+      <CheckpointMarker
+        checkpoint={cpInfo}
         ejecucionId={rondaData.ejecucionId}
         guardiaId={session.guardiaId}
-        qrRequerido={rondaData.qrRequerido}
+        qrRequerido={true}
         onComplete={() => {
           setMarkingCheckpointId(null);
           refreshCheckpoints();
@@ -410,7 +425,7 @@ export function RondaActiva({
           {/* Ronda name */}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold text-white">
-              {rondaData.templateName}
+              {isAdHoc ? "Ronda Libre" : rondaData.templateName}
             </h1>
           </div>
 
@@ -478,6 +493,17 @@ export function RondaActiva({
 
       {/* ============ Checkpoint List (scrollable) ============ */}
       <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
+        {isAdHoc && sortedCheckpoints.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-500/10">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white">Ronda Libre</h3>
+            <p className="mt-1 text-sm text-gray-400">Escanea codigos QR de los checkpoints que visites</p>
+          </div>
+        )}
         {sortedCheckpoints.map((cp) => {
           const isCompleted = cp.completed;
           const isActive = cp.id === activeCheckpointId;
@@ -706,6 +732,19 @@ export function RondaActiva({
           </button>
         </div>
       </div>
+
+      {/* ============ Floating scan button for ad-hoc ============ */}
+        {isAdHoc && (
+          <button
+            onClick={() => setMarkingCheckpointId("ad-hoc-scan")}
+            className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 shadow-lg shadow-teal-500/30 transition-transform active:scale-95"
+            aria-label="Escanear checkpoint"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
+          </button>
+        )}
 
       {/* ============ Confirmation Modal ============ */}
       {showConfirmModal && (

@@ -146,6 +146,48 @@ export function RondasPortalClient() {
     [fetchRondaData, session],
   );
 
+  const handleIniciarRondaLibre = useCallback(async () => {
+    if (!session) return;
+    setLoadingRonda(true);
+    try {
+      const res = await fetch("/api/portal/rondas/iniciar-libre", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guardiaId: session.guardiaId,
+          installationId: session.installationId,
+          tenantId: session.tenantId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setLoadingRonda(false);
+        return;
+      }
+
+      setActiveEjecucionId(json.data.ejecucionId);
+      setActiveRondaData({
+        ejecucionId: json.data.ejecucionId,
+        templateId: "",
+        templateName: "Ronda Libre",
+        status: "en_curso",
+        scheduledAt: new Date().toISOString(),
+        startedAt: json.data.startedAt,
+        checkpointsTotal: 0,
+        checkpointsCompletados: 0,
+        qrRequerido: false,
+        orderMode: "flexible",
+        estimatedDurationMin: null,
+        checkpoints: [],
+      });
+      setScreen("ronda-activa");
+    } catch {
+      // Network error
+    } finally {
+      setLoadingRonda(false);
+    }
+  }, [session]);
+
   // Navigate: ronda-activa -> completada
   const handleRondaComplete = (data: CompletionData) => {
     setCompletionData(data);
@@ -204,6 +246,7 @@ export function RondasPortalClient() {
             session={session}
             onLogout={handleLogout}
             onIniciarRonda={handleIniciarRonda}
+            onIniciarRondaLibre={handleIniciarRondaLibre}
             onReportIncident={() => setShowIncidentModal(true)}
           />
           {loadingRonda && (
