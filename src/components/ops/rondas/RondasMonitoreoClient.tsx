@@ -51,7 +51,7 @@ export function RondasMonitoreoClient({
         if (monJson.success) setRows(monJson.data);
         if (alertJson.success) setCurrentAlertCount(alertJson.data.length);
       } catch { /* ignore polling errors */ }
-    }, 30000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
