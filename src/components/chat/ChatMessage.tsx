@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
-import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy } from "lucide-react";
+import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
@@ -26,6 +26,10 @@ interface ChatMessageProps {
   onReaction?: (messageId: string, emoji: string) => void;
   /** Whether the current user can delete any message (admin/owner privilege) */
   canDeleteAny?: boolean;
+  /** Called to retry a failed message */
+  onRetry?: (messageId: string) => void;
+  /** Called to discard a failed message */
+  onDiscard?: (messageId: string) => void;
 }
 
 /**
@@ -143,7 +147,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
-export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny, onRetry, onDiscard }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -206,7 +210,10 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
         }
       }}
     >
-      <div className={cn("max-w-[75%] lg:max-w-[60%] relative")}>
+      <div className={cn(
+        "max-w-[75%] lg:max-w-[60%] relative",
+        message.status === "sending" && "opacity-70"
+      )}>
         {/* Sender name (only for others) */}
         {!isOwn && (
           <p className={cn("text-xs font-medium mb-0.5 px-1", senderColor(message.senderType))}>
@@ -218,9 +225,11 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
         <div
           className={cn(
             "rounded-xl px-3 py-2 text-sm leading-relaxed",
-            isOwn
-              ? "bg-blue-600/20 border border-blue-500/30 text-zinc-100"
-              : "bg-zinc-800/50 border border-zinc-700/30 text-zinc-200"
+            message.status === "failed"
+              ? "bg-red-950/30 border border-red-500/40 text-zinc-100"
+              : isOwn
+                ? "bg-blue-600/20 border border-blue-500/30 text-zinc-100"
+                : "bg-zinc-800/50 border border-zinc-700/30 text-zinc-200"
           )}
         >
           {/* Reply quote */}
@@ -300,6 +309,41 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
               </span>
             )}
           </div>
+
+          {/* Failed message indicator */}
+          {message.status === "failed" && (
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-red-400">
+              <span>No enviado</span>
+              <span className="text-red-500/50">&middot;</span>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={() => onRetry(message.id)}
+                  className="inline-flex items-center gap-0.5 hover:text-red-300 underline cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reintentar
+                </button>
+              )}
+              {onDiscard && (
+                <button
+                  type="button"
+                  onClick={() => onDiscard(message.id)}
+                  className="inline-flex items-center justify-center h-4 w-4 rounded hover:text-red-300 hover:bg-red-500/10 cursor-pointer transition-colors"
+                  title="Descartar mensaje"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Sending indicator */}
+          {message.status === "sending" && (
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-zinc-500">
+              <span className="animate-pulse">Enviando...</span>
+            </div>
+          )}
         </div>
 
         {/* Reactions */}

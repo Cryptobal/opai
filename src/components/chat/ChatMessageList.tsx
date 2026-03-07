@@ -22,6 +22,8 @@ interface ChatMessageListProps {
   onReaction?: (messageId: string, emoji: string) => void;
   /** Whether the current user can delete any message (admin/owner privilege) */
   canDeleteAny?: boolean;
+  onRetry?: (messageId: string) => void;
+  onDiscard?: (messageId: string) => void;
 }
 
 /**
@@ -81,6 +83,8 @@ export function ChatMessageList({
   getReadByCount,
   onReaction,
   canDeleteAny,
+  onRetry,
+  onDiscard,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -237,6 +241,8 @@ export function ChatMessageList({
                   readByCount={getReadByCount?.(msg)}
                   onReaction={onReaction}
                   canDeleteAny={canDeleteAny}
+                  onRetry={onRetry}
+                  onDiscard={onDiscard}
                 />
               )
             )}

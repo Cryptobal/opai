@@ -16,6 +16,8 @@ type UseChatMessagesReturn = {
   sendMessage: (payload: SendMessagePayload) => Promise<ChatMessageData | null>;
   editMessage: (messageId: string, content: string) => Promise<boolean>;
   deleteMessage: (messageId: string) => Promise<boolean>;
+  retryMessage: (messageId: string) => Promise<void>;
+  discardMessage: (messageId: string) => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessageData[]>>;
 };
 
@@ -119,6 +121,8 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         systemEventData: null,
         isEdited: false,
         createdAt: new Date().toISOString(),
+        status: "sending",
+        _payload: payload,
       };
 
       setMessages((prev) => [...prev, optimisticMsg]);
@@ -134,19 +138,23 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
 
         const json = await res.json();
         if (json.success && json.data) {
-          // Replace optimistic message with the real one
+          // Replace optimistic message with the real one (clear status)
           setMessages((prev) =>
-            prev.map((m) => (m.id === tempId ? json.data : m))
+            prev.map((m) => (m.id === tempId ? { ...json.data, status: undefined, _payload: undefined } : m))
           );
           return json.data as ChatMessageData;
         }
-        // If the API didn't return success, remove optimistic message
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        // If the API didn't return success, mark as failed
+        setMessages((prev) =>
+          prev.map((m) => m.id === tempId ? { ...m, status: "failed" as const } : m)
+        );
         return null;
       } catch (err) {
         console.error("[useChatMessages] sendMessage error:", err);
-        // Remove optimistic message on error
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        // Mark optimistic message as failed instead of removing
+        setMessages((prev) =>
+          prev.map((m) => m.id === tempId ? { ...m, status: "failed" as const } : m)
+        );
         return null;
       }
     },
@@ -215,6 +223,53 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
     [channelId, messages]
   );
 
+  // Retry a failed message
+  const retryMessage = useCallback(
+    async (messageId: string) => {
+      const msg = messages.find((m) => m.id === messageId);
+      if (!msg?._payload || !channelId) return;
+
+      // Mark as sending again
+      setMessages((prev) =>
+        prev.map((m) => m.id === messageId ? { ...m, status: "sending" as const } : m)
+      );
+
+      try {
+        const res = await fetch(`/api/chat/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(msg._payload),
+        });
+
+        if (!res.ok) throw new Error("Failed");
+
+        const json = await res.json();
+        if (json.success && json.data) {
+          setMessages((prev) =>
+            prev.map((m) => m.id === messageId ? { ...json.data, status: undefined, _payload: undefined } : m)
+          );
+        } else {
+          setMessages((prev) =>
+            prev.map((m) => m.id === messageId ? { ...m, status: "failed" as const } : m)
+          );
+        }
+      } catch {
+        setMessages((prev) =>
+          prev.map((m) => m.id === messageId ? { ...m, status: "failed" as const } : m)
+        );
+      }
+    },
+    [channelId, messages]
+  );
+
+  // Discard a failed message
+  const discardMessage = useCallback(
+    (messageId: string) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    },
+    []
+  );
+
   return {
     messages,
     isLoading,
@@ -223,6 +278,8 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
     sendMessage,
     editMessage,
     deleteMessage,
+    retryMessage,
+    discardMessage,
     setMessages,
   };
 }

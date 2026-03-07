@@ -84,6 +84,10 @@ export type ChatMessageData = {
   systemEventData: Record<string, unknown> | null;
   isEdited: boolean;
   createdAt: string;
+  /** undefined = sent/received normally */
+  status?: "sending" | "failed";
+  /** Stored for retry on failed messages */
+  _payload?: SendMessagePayload;
 };
 
 // ── Pusher Events ──

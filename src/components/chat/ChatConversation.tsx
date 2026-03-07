@@ -49,6 +49,8 @@ export function ChatConversation({
     sendMessage,
     editMessage,
     deleteMessage,
+    retryMessage,
+    discardMessage,
     setMessages: setApiMessages,
   } = useChatMessages(channelId);
 
@@ -301,6 +303,8 @@ export function ChatConversation({
           getReadByCount={getReadByCount}
           onReaction={handleReaction}
           canDeleteAny={canDeleteAny}
+          onRetry={retryMessage}
+          onDiscard={discardMessage}
         />
 
         <ChatTypingIndicator typingUsers={typingUsers} />
