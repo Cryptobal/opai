@@ -8,7 +8,7 @@ const schema = z.object({
   tenantId: z.string().uuid(),
   lat: z.number().optional(),
   lng: z.number().optional(),
-  deviceInfo: z.record(z.unknown()).optional(),
+  deviceInfo: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function POST(request: NextRequest) {
