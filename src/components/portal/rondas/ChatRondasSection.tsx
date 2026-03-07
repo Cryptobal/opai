@@ -1,10 +1,40 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Loader2, ArrowLeft, X, Image as ImageIcon, File as FileIcon } from "lucide-react";
+import { Send, Loader2, ArrowLeft, X } from "lucide-react";
 import type { RondasSession } from "./RondasPortalClient";
 import type { ChatMessageData } from "@/lib/chat-types";
+import { ChatSlackMessage } from "@/components/chat/ChatSlackMessage";
+import { ChatDateDivider } from "@/components/chat/ChatDateDivider";
 import Pusher from "pusher-js";
+
+/* ── Grouping helpers ── */
+
+function computeIsFirstInGroup(messages: { senderId: string; createdAt: string }[], index: number): boolean {
+  if (index === 0) return true;
+  const prev = messages[index - 1];
+  const curr = messages[index];
+  if (prev.senderId !== curr.senderId) return true;
+  return (new Date(curr.createdAt).getTime() - new Date(prev.createdAt).getTime()) > 5 * 60 * 1000;
+}
+
+function getDateKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatDateLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diff = Math.floor((today.getTime() - msgDate.getTime()) / 86400000);
+  if (diff === 0) return "Hoy";
+  if (diff === 1) return "Ayer";
+  const dayNames = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const monthNames = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  return `${dayNames[date.getDay()]}, ${date.getDate()} de ${monthNames[date.getMonth()]}`;
+}
 
 interface ChatRondasSectionProps {
   session: RondasSession;
@@ -188,7 +218,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0a0a0f]">
+    <div className="flex flex-1 overflow-hidden flex-col bg-[#0a0a0f]">
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur">
         <button onClick={onBack} className="text-zinc-400 hover:text-zinc-200 transition-colors">
@@ -216,21 +246,37 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           <div
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+            className="flex-1 overflow-y-auto py-3"
           >
             {loadingMore && (
               <div className="flex justify-center py-2">
                 <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
               </div>
             )}
-            {messages.map((msg) => (
-              <RondasMessageBubble
-                key={msg.id}
-                message={msg}
-                isOwn={msg.senderType === "GUARD" && msg.senderId === session.guardiaId}
-                onReply={() => setReplyTo(msg)}
-              />
-            ))}
+            {messages.map((msg, idx) => {
+              const prevDateKey = idx > 0 ? getDateKey(messages[idx - 1].createdAt) : null;
+              const currDateKey = getDateKey(msg.createdAt);
+              const showDateDivider = currDateKey !== prevDateKey;
+              const isFirst = computeIsFirstInGroup(messages, idx);
+
+              return (
+                <React.Fragment key={msg.id || idx}>
+                  {showDateDivider && <ChatDateDivider label={formatDateLabel(msg.createdAt)} />}
+                  <ChatSlackMessage message={msg} isFirstInGroup={isFirst}>
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-1 space-y-1">
+                        {msg.attachments.map((att, i) => (
+                          <a key={i} href={att.fileUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-xs text-[#2dd4bf] hover:text-teal-300">
+                            {att.fileName}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </ChatSlackMessage>
+                </React.Fragment>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
@@ -248,8 +294,8 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           )}
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-zinc-800/50 bg-zinc-900/80 backdrop-blur pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-            <div className="flex items-end gap-2">
+          <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-end gap-2 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] px-3 py-2">
               <textarea
                 ref={inputRef}
                 value={inputText}
@@ -257,13 +303,13 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
                 onKeyDown={handleKeyDown}
                 placeholder="Escribe un mensaje..."
                 rows={1}
-                className="flex-1 resize-none bg-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500 max-h-28"
+                className="flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-28"
                 style={{ minHeight: "38px" }}
               />
               <button
                 onClick={handleSend}
                 disabled={!inputText.trim() || isSending}
-                className="h-[38px] w-[38px] rounded-lg bg-teal-600 flex items-center justify-center text-white disabled:opacity-40 hover:bg-teal-500 transition-colors"
+                className="h-[38px] w-[38px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -275,88 +321,6 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-// ── Message Bubble ──
-
-function RondasMessageBubble({
-  message,
-  isOwn,
-  onReply,
-}: {
-  message: ChatMessageData;
-  isOwn: boolean;
-  onReply: () => void;
-}) {
-  if (message.senderType === "SYSTEM") {
-    return (
-      <div className="flex justify-center">
-        <span className="text-[10px] text-zinc-500 italic">{message.content}</span>
-      </div>
-    );
-  }
-
-  const senderColor =
-    message.senderType === "ADMIN"
-      ? "text-blue-400"
-      : message.senderType === "GUARD"
-        ? "text-teal-400"
-        : "text-amber-400";
-
-  const bubbleClass = isOwn
-    ? "bg-teal-600/15 border border-teal-500/20"
-    : "bg-zinc-800/60 border border-zinc-700/30";
-
-  const time = new Date(message.createdAt).toLocaleTimeString("es-CL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  return (
-    <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
-      {!isOwn && (
-        <span className={`text-[10px] font-medium mb-0.5 ml-1 ${senderColor}`}>
-          {message.senderName}
-        </span>
-      )}
-      <div
-        className={`max-w-[85%] rounded-xl px-3 py-2 ${bubbleClass}`}
-        onDoubleClick={onReply}
-      >
-        {message.replyTo && (
-          <div className="border-l-2 border-zinc-600 pl-2 mb-1.5">
-            <p className="text-[10px] text-zinc-500 font-medium">{message.replyTo.senderName}</p>
-            <p className="text-[10px] text-zinc-500 truncate max-w-[200px]">{message.replyTo.content}</p>
-          </div>
-        )}
-        <p className="text-sm text-zinc-100 whitespace-pre-wrap break-words">{message.content}</p>
-        {message.attachments && message.attachments.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {message.attachments.map((att, i) => (
-              <a
-                key={i}
-                href={att.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-teal-400 hover:text-teal-300"
-              >
-                {att.fileType?.startsWith("image/") ? (
-                  <ImageIcon className="h-3 w-3" />
-                ) : (
-                  <FileIcon className="h-3 w-3" />
-                )}
-                {att.fileName}
-              </a>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center justify-end gap-1 mt-1">
-          {message.isEdited && <span className="text-[9px] text-zinc-600">editado</span>}
-          <span className="text-[9px] text-zinc-600">{time}</span>
-        </div>
-      </div>
     </div>
   );
 }
