@@ -3509,7 +3509,13 @@ model OpsControlNocturno {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  autoPopulateMode    String   @default("hybrid") @map("auto_populate_mode")
+    // "manual" = operador marca todo a mano
+    // "auto" = solo desde rondas ejecutadas
+    // "hybrid" = auto + override manual del operador
+
   instalaciones OpsControlNocturnoInstalacion[]
+  monitoreoTurno OpsMonitoreoTurno? @relation("TurnoControlNocturno")
 
   @@unique([tenantId, date, centralLabel], map: "uq_ops_control_nocturno_date_central")
   @@index([tenantId], map: "idx_ops_control_nocturno_tenant")
@@ -3531,6 +3537,7 @@ model OpsControlNocturnoInstalacion {
   guardiaDiaNombres   String?  @map("guardia_dia_nombres")
   statusInstalacion   String   @default("normal") @map("status_instalacion") // normal, novedad, critico, no_aplica
   notes               String?
+  autoAsistencia      Boolean  @default(false) @map("auto_asistencia")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -3573,6 +3580,12 @@ model OpsControlNocturnoRonda {
   status               String   @default("pendiente") // pendiente, completada, omitida, no_aplica
   ejecucionRondaId     String?              @map("ejecucion_ronda_id") @db.Uuid
   notes                String?
+  autoPopulated        Boolean  @default(false) @map("auto_populated")
+  manualOverride       Boolean  @default(false) @map("manual_override")
+  overrideBy           String?  @map("override_by")
+  overrideAt           DateTime? @map("override_at") @db.Timestamptz(6)
+  trustScore           Int?     @map("trust_score")
+  trustColor           String?  @map("trust_color") // "green" | "yellow" | "red"
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   controlInstalacion OpsControlNocturnoInstalacion @relation(fields: [controlInstalacionId], references: [id], onDelete: Cascade)
@@ -3645,8 +3658,11 @@ model OpsMonitoreoTurno {
   operatorComments      String?   @map("operator_comments") @db.Text
   emailSentTo           Json?     @map("email_sent_to") @db.JsonB
   emailSentAt           DateTime? @map("email_sent_at") @db.Timestamptz(6)
+  controlNocturnoId     String?   @unique @map("control_nocturno_id") @db.Uuid
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  controlNocturno       OpsControlNocturno? @relation("TurnoControlNocturno", fields: [controlNocturnoId], references: [id])
 
   @@index([tenantId], map: "idx_ops_monitoreo_turno_tenant")
   @@index([operatorId, status], map: "idx_ops_monitoreo_turno_operator_status")

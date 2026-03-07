@@ -317,11 +317,13 @@ export function MonitoreoMap({
     });
 
     // Auto-fit bounds on first load when there are points to show
-    if (!hasAutoFitRef.current && (checkpoints.length > 0 || guards.length > 0)) {
+    const instPoints = (installations ?? []).filter((i) => i.lat != null && i.lng != null).map((i) => ({ lat: i.lat!, lng: i.lng! }));
+    if (!hasAutoFitRef.current && (checkpoints.length > 0 || guards.length > 0 || instPoints.length > 0)) {
       hasAutoFitRef.current = true;
       const allPoints: Array<{ lat: number; lng: number }> = [
         ...checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
         ...guards.map((g) => ({ lat: g.lat, lng: g.lng })),
+        ...instPoints,
       ];
       fitToPoints(allPoints);
     }
@@ -350,14 +352,15 @@ export function MonitoreoMap({
       mapRef.current.panTo(center);
       mapRef.current.setZoom(15);
     } else {
-      // No selection, fit all
+      // No selection, fit all (including installations)
       const allPoints: Array<{ lat: number; lng: number }> = [
         ...checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
         ...guards.map((g) => ({ lat: g.lat, lng: g.lng })),
+        ...(installations ?? []).filter((i) => i.lat != null && i.lng != null).map((i) => ({ lat: i.lat!, lng: i.lng! })),
       ];
       if (allPoints.length > 0) fitToPoints(allPoints);
     }
-  }, [selectedGuardId, center, guards, checkpoints, fitToPoints]);
+  }, [selectedGuardId, center, guards, checkpoints, installations, fitToPoints]);
 
   if (error) {
     return (

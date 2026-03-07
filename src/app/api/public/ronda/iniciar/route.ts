@@ -14,6 +14,7 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/iniciar — ${new Date().toISOString()}`);
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ success: false, error: "Datos inválidos" }, { status: 400 });

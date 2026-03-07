@@ -26,7 +26,7 @@ interface GuardRonda {
   guardiaPhone?: string | null;
   checkpointsTotal: number;
   checkpointsCompletados: number;
-  trustScore: number;
+  trustScore: number | null;
   startedAt: string;
   status: string;
   alerts: Array<{ id: string; tipo: string; severidad: string; mensaje: string }>;
@@ -75,11 +75,9 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
   };
 
   return (
-    <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)]">
-      <h3 className="text-sm font-semibold px-1">Guardias en turno</h3>
-
+    <div className="space-y-2">
       {rondas.length === 0 && (
-        <div className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground mx-3">
           No hay rondas activas en este momento.
         </div>
       )}
@@ -114,7 +112,9 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                   </span>
                 )}
                 <div className="flex items-center gap-2 mt-1 text-[11px]">
-                  <span className="text-emerald-500">● En ronda</span>
+                  <span className={r.status === "en_curso" ? "text-emerald-500" : r.status === "completada" ? "text-blue-400" : "text-muted-foreground"}>
+                    ● {r.status === "en_curso" ? "En ronda" : r.status === "completada" ? "Completada" : r.status === "incompleta" ? "Incompleta" : r.status}
+                  </span>
                   <span className="text-muted-foreground">
                     {r.checkpointsCompletados}/{r.checkpointsTotal} ({pct}%)
                   </span>

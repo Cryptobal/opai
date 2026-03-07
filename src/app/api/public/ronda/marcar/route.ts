@@ -10,6 +10,7 @@ import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/marcar — ${new Date().toISOString()}`);
     const parsed = await parseBody(request, rondaMarkSchema);
     if (parsed.error) return parsed.error;
 

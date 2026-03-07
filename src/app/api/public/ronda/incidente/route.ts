@@ -14,6 +14,7 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/incidente — ${new Date().toISOString()}`);
     const payload = await request.json();
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {

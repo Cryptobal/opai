@@ -9,6 +9,7 @@ import { toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/sync — ${new Date().toISOString()}`);
     const body = await request.json();
     const parsed = rondaSyncSchema.safeParse(body);
     if (!parsed.success) {

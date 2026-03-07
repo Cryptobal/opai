@@ -5,6 +5,7 @@ import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/persona
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(`[public/ronda] GET /api/public/ronda/pendientes — ${new Date().toISOString()}`);
     const code = request.nextUrl.searchParams.get("code");
     const rut = request.nextUrl.searchParams.get("rut");
     const pin = request.nextUrl.searchParams.get("pin");

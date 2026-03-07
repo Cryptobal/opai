@@ -216,7 +216,7 @@ export function RondasMonitoreoClient({
       guardiaPhone: r.guardia?.persona?.phoneMobile ?? null,
       checkpointsTotal: r.checkpointsTotal,
       checkpointsCompletados: r.checkpointsCompletados,
-      trustScore: r.trustScore ?? 0,
+      trustScore: r.trustScore ?? null,
       startedAt: r.startedAt ?? r.scheduledAt,
       status: r.status,
       alerts: (r.alertasRows ?? []).map((a: any) => ({
@@ -490,9 +490,13 @@ export function RondasMonitoreoClient({
         {/* Side panel */}
         {!isFullscreen && (
           <div className="lg:col-span-3 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden h-[calc(100vh-280px)] min-h-[400px]">
-            {/* Panel header */}
-            <div className="px-4 py-2.5 border-b border-[#1e293b] shrink-0">
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Guardias en turno</p>
+            {/* Panel header — En curso section */}
+            <div className="px-4 py-2 border-b border-[#1e293b] shrink-0 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">En curso</p>
+              <span className="ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-emerald-500/20 text-emerald-400">
+                {guardPanelData.length}
+              </span>
             </div>
 
             {/* Guard panel scrollable */}

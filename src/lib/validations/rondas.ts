@@ -32,7 +32,7 @@ export const rondaProgramacionSchema = z.object({
   diasSemana: z.array(z.number().int().min(0).max(6)).min(1),
   horaInicio: z.string().regex(hhmmRegex),
   horaFin: z.string().regex(hhmmRegex),
-  frecuenciaMinutos: z.number().int().min(5).max(360).default(120),
+  frecuenciaMinutos: z.number().int().min(30).max(360).default(120),
   toleranciaMinutos: z.number().int().min(0).max(120).default(10),
   isActive: z.boolean().default(true),
 });

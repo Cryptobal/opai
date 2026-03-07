@@ -88,12 +88,14 @@ export function ProgramacionForm({
           <Input
             type="number"
             className="h-9"
+            min={30}
+            max={360}
             value={String(frecuenciaMinutos)}
-            onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
+            onChange={(e) => setFrecuenciaMinutos(Math.max(30, Number(e.target.value)))}
             placeholder="Ej: 120"
           />
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
-            Cada cuántos minutos se genera una ronda. Ej: 120 = cada 2 horas.
+            Cada cuántos minutos se genera una ronda (mín. 30). Ej: 120 = cada 2 horas.
           </p>
         </div>
         <div className="space-y-0.5">

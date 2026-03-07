@@ -4,9 +4,11 @@ import { parseBody } from "@/lib/api-auth";
 import { rondaCompleteSchema } from "@/lib/validations/rondas";
 import { computeRondaTrustScore } from "@/lib/rondas/trust-score";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
+import { autoPopulateCNFromRonda } from "@/lib/rondas/auto-populate-grid";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/completar — ${new Date().toISOString()}`);
     const parsed = await parseBody(request, rondaCompleteSchema);
     if (parsed.error) return parsed.error;
 
@@ -96,6 +98,19 @@ export async function POST(request: NextRequest) {
         notes: parsed.data.notes ?? null,
       },
     });
+
+    // Auto-populate CN grid in background (same as portal endpoint)
+    const instId = execution.rondaTemplate?.installationId ?? execution.installationId;
+    if (instId) {
+      autoPopulateCNFromRonda({
+        tenantId: execution.tenantId,
+        ejecucionId: execution.id,
+        installationId: instId,
+        completedAt: now,
+        trustScore: trustResult.score,
+        status,
+      }).catch((err) => console.error("[public/completar] CN auto-populate failed:", err));
+    }
 
     return NextResponse.json({
       success: true,

@@ -6,6 +6,7 @@ import { rondaAuthSchema } from "@/lib/validations/rondas";
 
 export async function POST(req: NextRequest) {
   try {
+    console.log(`[public/ronda] POST /api/public/ronda/autenticar — ${new Date().toISOString()}`);
     const payload = await req.json();
     const parsed = rondaAuthSchema.safeParse(payload);
     if (!parsed.success) {

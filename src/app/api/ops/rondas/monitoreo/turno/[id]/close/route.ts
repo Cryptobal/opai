@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
+import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -106,6 +107,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         emailSentAt: parsed.data.emailRecipients?.length ? now : null,
       },
     });
+
+    // If turno is linked to a CN in borrador, submit it automatically
+    if (turno.controlNocturnoId) {
+      prisma.opsControlNocturno.updateMany({
+        where: {
+          id: turno.controlNocturnoId,
+          status: "borrador",
+        },
+        data: {
+          status: "enviado",
+          submittedAt: now,
+          submittedBy: ctx.userId,
+        },
+      }).catch((err) => console.error("[RONDAS] CN auto-submit failed:", err));
+    }
+
+    // Send email in background — don't block the response
+    const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
+    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+
+    sendMonitorTurnoEmail(
+      {
+        turnoId: id,
+        tenantId: ctx.tenantId,
+        operatorName: turno.operatorName ?? ctx.userId,
+        startedAt: turno.startedAt,
+        endedAt: now,
+        totalRounds: totalRounds,
+        completadas,
+        incompletas,
+        noRealizadas,
+        trustAvg,
+        totalAlerts: alertsData.length,
+        criticalAlerts,
+        resolvedAlerts: resolvedAlerts.length,
+        unresolvedAlerts: unresolvedAlerts.length,
+        operatorComments: parsed.data.operatorComments,
+        aiSummary,
+        baseUrl,
+      },
+      parsed.data.emailRecipients ?? undefined,
+    ).catch((err) => console.error("[RONDAS] Email send failed:", err));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

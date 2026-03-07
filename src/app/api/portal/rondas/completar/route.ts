@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
+import { autoPopulateCNFromRonda } from "@/lib/rondas/auto-populate-grid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -151,6 +152,19 @@ export async function POST(request: NextRequest) {
         notes: notes?.slice(0, 2000) ?? null,
       },
     });
+
+    // Auto-populate CN grid in background — don't block the response
+    const instId = execution.rondaTemplate?.installationId ?? execution.installationId;
+    if (instId) {
+      autoPopulateCNFromRonda({
+        tenantId: execution.tenantId,
+        ejecucionId: execution.id,
+        installationId: instId,
+        completedAt: now,
+        trustScore: trustResult.score,
+        status,
+      }).catch((err) => console.error("[COMPLETAR] CN auto-populate failed:", err));
+    }
 
     // Build per-checkpoint detail for the completion screen
     let checkpointDetails: any[];

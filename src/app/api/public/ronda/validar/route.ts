@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(`[public/ronda] GET /api/public/ronda/validar — ${new Date().toISOString()}`);
     const code = request.nextUrl.searchParams.get("code");
     if (!code) {
       return NextResponse.json({ success: false, error: "Falta code" }, { status: 400 });
