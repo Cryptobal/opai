@@ -443,7 +443,7 @@ export function RondaActiva({
       </header>
 
       {/* ============ Leaflet Map ============ */}
-      <div className="relative">
+      <div className="relative" style={{ isolation: "isolate" }}>
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
@@ -456,7 +456,7 @@ export function RondaActiva({
         {/* Map collapse toggle */}
         <button
           onClick={() => setMapCollapsed((v) => !v)}
-          className="absolute bottom-0 left-1/2 z-[1000] flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
+          className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -477,7 +477,7 @@ export function RondaActiva({
       </div>
 
       {/* ============ Checkpoint List (scrollable) ============ */}
-      <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-36 pt-6">
+      <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
         {sortedCheckpoints.map((cp) => {
           const isCompleted = cp.completed;
           const isActive = cp.id === activeCheckpointId;
@@ -655,7 +655,7 @@ export function RondaActiva({
 
       {/* ============ Bottom Sticky Buttons ============ */}
       <div
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-800 px-4 pb-6 pt-3"
+        className="fixed inset-x-0 bottom-16 z-20 border-t border-gray-800 px-4 pb-4 pt-3"
         style={{ backgroundColor: "#0a0a0f" }}
       >
         <div className="flex gap-3">

@@ -335,7 +335,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
       </header>
 
       {/* ============ Content ============ */}
-      <main className="flex-1 px-4 pb-8 pt-4">
+      <main className="flex-1 px-4 pb-24 pt-4">
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
@@ -504,7 +504,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onReportIncident 
         )}
 
         {/* Report incident button */}
-        <div className="mt-8">
+        <div className="mt-8 mb-4">
           <button
             onClick={onReportIncident}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/30 py-4 text-lg font-semibold text-red-400 transition-colors hover:bg-red-900/40 active:bg-red-900/60"
