@@ -5,6 +5,7 @@ import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, X, RotateCc
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
+import { ChatLinkPreview } from "./ChatLinkPreview";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,6 +154,8 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
+const URL_REGEX = /https?:\/\/[^\s<>)"']+/;
+
 export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny, onRetry, onDiscard, isPinned, onPin, onUnpin }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
@@ -295,6 +298,12 @@ export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onD
               <ChatAttachmentPreview attachments={message.attachments} />
             </div>
           )}
+
+          {/* Link preview (first URL found in message) */}
+          {message.status !== "failed" && (() => {
+            const firstUrl = message.content.match(URL_REGEX)?.[0] || null;
+            return firstUrl ? <ChatLinkPreview url={firstUrl} /> : null;
+          })()}
 
           {/* Time + edited indicator */}
           <div
