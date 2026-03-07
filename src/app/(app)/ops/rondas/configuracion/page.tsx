@@ -15,7 +15,7 @@ export default async function RondasConfiguracionPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const [installations, accounts] = await Promise.all([
+  const [installations, accounts, checkpointCounts] = await Promise.all([
     prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true },
       select: {
@@ -32,7 +32,17 @@ export default async function RondasConfiguracionPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.opsCheckpoint.groupBy({
+      by: ["installationId"],
+      where: { tenantId, isActive: true },
+      _count: { id: true },
+    }),
   ]);
+
+  const installationStats = checkpointCounts.map((c) => ({
+    installationId: c.installationId,
+    checkpointCount: c._count.id,
+  }));
 
   return (
     <div className="space-y-6 min-w-0">
@@ -44,6 +54,7 @@ export default async function RondasConfiguracionPage() {
       <RondasConfiguracionClient
         installations={JSON.parse(JSON.stringify(installations))}
         clients={JSON.parse(JSON.stringify(accounts))}
+        installationStats={installationStats}
       />
     </div>
   );
