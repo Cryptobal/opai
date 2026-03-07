@@ -30,8 +30,10 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
-    // Generate from start of today (Chile time) so morning slots are never missed
-    const from = startOfDayChile(now);
+    // Generate from start of YESTERDAY (Chile time) to capture overnight shifts
+    // that cross midnight (e.g., 22:00 Fri → 06:00 Sat produces Sat 01:00+ slots)
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const from = startOfDayChile(yesterday);
     const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const programaciones = await prisma.opsRondaProgramacion.findMany({

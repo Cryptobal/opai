@@ -44,9 +44,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get today's ejecuciones for this guard (Chile timezone)
+    // Get today's ejecuciones + overnight rondas from previous evening (Chile timezone)
     const now = new Date();
-    const startOfDay = startOfDayChile(now);
+    // Start from 6 hours before midnight to capture overnight shifts (e.g., 22:00 previous day)
+    const startOfDay = new Date(startOfDayChile(now).getTime() - 6 * 60 * 60 * 1000);
     const endOfDay = endOfDayChile(now);
 
     // Show ALL pending/in-progress rounds for this installation today.
