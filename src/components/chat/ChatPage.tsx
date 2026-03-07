@@ -15,7 +15,7 @@ interface ChatPageProps {
 
 /**
  * Full-page chat layout with two panels:
- * - Left: ChatChannelList (320px width, border-right)
+ * - Left: ChatChannelList (260px width, border-right)
  * - Right: ChatConversation (flex-1)
  *
  * On mobile (< lg): shows only channel list OR conversation,
@@ -44,11 +44,11 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
   }, [refreshUnread]);
 
   return (
-    <div className="chat-full-height flex overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+    <div className="chat-full-height flex overflow-hidden rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0a0e17]">
       {/* Left panel: Channel list */}
       <div
         className={cn(
-          "w-full lg:w-80 lg:min-w-[320px] shrink-0 border-r border-zinc-800 flex flex-col",
+          "w-full lg:w-[260px] lg:min-w-[260px] shrink-0 border-r border-[rgba(255,255,255,0.06)] flex flex-col",
           // On mobile, hide when a channel is selected
           selectedChannelId ? "hidden lg:flex" : "flex"
         )}
@@ -79,10 +79,10 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
             userRole={userRole}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center text-zinc-500">
+          <div className="flex flex-1 items-center justify-center text-[rgba(255,255,255,0.45)]">
             <div className="text-center">
               <p className="text-lg font-medium">Selecciona una conversacion</p>
-              <p className="mt-1 text-sm text-zinc-600">
+              <p className="mt-1 text-sm text-[rgba(255,255,255,0.28)]">
                 Elige un canal del listado para comenzar
               </p>
             </div>
