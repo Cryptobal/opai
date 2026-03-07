@@ -21,6 +21,11 @@ export type SearchableOption = {
   icon?: React.ReactNode;
 };
 
+function isTouchLikeDevice() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+}
+
 interface SearchableSelectProps {
   value: string;
   options: SearchableOption[];
@@ -46,6 +51,16 @@ export function SearchableSelect({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
+  const focusTrigger = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    try {
+      trigger.focus({ preventScroll: true });
+    } catch {
+      trigger.focus();
+    }
+  }, []);
+
   const selected = useMemo(
     () => options.find((opt) => opt.id === value) ?? null,
     [options, value],
@@ -60,16 +75,19 @@ export function SearchableSelect({
 
   useEffect(() => {
     if (open) {
-      requestAnimationFrame(() => searchRef.current?.focus());
+      requestAnimationFrame(() => {
+        if (isTouchLikeDevice()) return;
+        searchRef.current?.focus();
+      });
     }
   }, [open]);
 
   useEffect(() => {
-    function onPointerDown(event: MouseEvent) {
+    function onPointerDown(event: PointerEvent) {
       if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
   const filtered = useMemo(() => {
@@ -124,14 +142,14 @@ export function SearchableSelect({
         if (highlightIdx >= 0 && filtered[highlightIdx]) {
           onChange(filtered[highlightIdx].id);
           setOpen(false);
-          triggerRef.current?.focus();
+          focusTrigger();
         }
         break;
       }
       case "Escape":
         e.preventDefault();
         setOpen(false);
-        triggerRef.current?.focus();
+        focusTrigger();
         break;
       case "Tab":
         setOpen(false);
@@ -264,7 +282,7 @@ export function SearchableSelect({
                     onClick={() => {
                       onChange(opt.id);
                       setOpen(false);
-                      triggerRef.current?.focus();
+                      if (!isTouchLikeDevice()) focusTrigger();
                     }}
                   >
                     {isSelected && (
