@@ -6,7 +6,7 @@ import { getPusherServer } from "@/lib/chat";
 const schema = z.object({
   guardiaId: z.string().uuid(),
   installationId: z.string().uuid(),
-  tenantId: z.string().uuid(),
+  tenantId: z.string().min(1),
   lat: z.number().optional(),
   lng: z.number().optional(),
   ejecucionId: z.string().uuid().optional(),

@@ -7,14 +7,29 @@ import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHead
 import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
 import { PanicAlertBanner } from "./PanicAlertBanner";
 import type { PanicAlertData } from "./PanicAlertBanner";
 
+interface AlertRow {
+  id: string;
+  tipo: string;
+  severidad: string;
+  mensaje: string;
+  resuelta: boolean;
+  isAcknowledged: boolean;
+  createdAt: string;
+  installation?: { id: string; name: string } | null;
+  ejecucion?: { id: string; status: string; rondaTemplate?: { id: string; name: string } | null } | null;
+}
+
 interface Installation {
   id: string;
   name: string;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export function RondasMonitoreoClient({
@@ -39,21 +54,35 @@ export function RondasMonitoreoClient({
   const [closeTurnoId, setCloseTurnoId] = useState<string | null>(null);
   const [currentAlertCount, setCurrentAlertCount] = useState(alertCount);
   const [panicAlerts, setPanicAlerts] = useState<PanicAlertData[]>([]);
+  const [showAlertPanel, setShowAlertPanel] = useState(false);
+  const [alertRows, setAlertRows] = useState<AlertRow[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ops/rondas/alertas?open=true");
+      const json = await res.json();
+      if (json.success) {
+        setAlertRows(json.data);
+        setCurrentAlertCount(json.data.length);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
+    // Initial alert fetch
+    fetchAlerts();
+
     const interval = setInterval(async () => {
       try {
-        const [monRes, alertRes] = await Promise.all([
-          fetch("/api/ops/rondas/monitoreo"),
-          fetch("/api/ops/rondas/alertas?open=true"),
-        ]);
-        const [monJson, alertJson] = await Promise.all([monRes.json(), alertRes.json()]);
+        const monRes = await fetch("/api/ops/rondas/monitoreo");
+        const monJson = await monRes.json();
         if (monJson.success) setRows(monJson.data);
-        if (alertJson.success) setCurrentAlertCount(alertJson.data.length);
       } catch { /* ignore polling errors */ }
+      fetchAlerts();
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAlerts]);
 
   // Real-time panic alerts via Pusher
   useEffect(() => {
@@ -191,6 +220,56 @@ export function RondasMonitoreoClient({
     }));
   }, [filtered]);
 
+  const handleToggleAlerts = useCallback(async () => {
+    setShowAlertPanel((prev) => !prev);
+    if (!showAlertPanel) {
+      setAlertsLoading(true);
+      await fetchAlerts();
+      setAlertsLoading(false);
+    }
+  }, [showAlertPanel, fetchAlerts]);
+
+  const handleResolveAlert = useCallback(async (alertId: string) => {
+    try {
+      const res = await fetch("/api/ops/rondas/alertas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: alertId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAlertRows((prev) => prev.filter((a) => a.id !== alertId));
+        setCurrentAlertCount((c) => Math.max(0, c - 1));
+        toast.success("Alerta resuelta");
+      } else {
+        toast.error(json.error ?? "Error al resolver alerta");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }, []);
+
+  // Build alert markers for the map — show at installation coords
+  const mapAlertMarkers = useMemo(() => {
+    return alertRows
+      .filter((a) => !a.resuelta)
+      .map((a) => {
+        // Find installation coords
+        const inst = installations.find((i) => i.id === a.installation?.id);
+        if (!inst?.lat || !inst?.lng) return null;
+        return {
+          id: a.id,
+          lat: inst.lat as number,
+          lng: inst.lng as number,
+          label: a.mensaje,
+          tipo: a.tipo,
+          severidad: a.severidad,
+          installationName: a.installation?.name ?? "",
+        };
+      })
+      .filter(Boolean) as Array<{ id: string; lat: number; lng: number; label: string; tipo: string; severidad: string; installationName: string }>;
+  }, [alertRows, installations]);
+
   const handleAddNote = useCallback(async (ejecucionId: string, guardiaId: string, installationId: string, note: string) => {
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/nota", {
@@ -254,7 +333,66 @@ export function RondasMonitoreoClient({
         activeRondasCount={filtered.length}
         alertCount={currentAlertCount}
         onOpenCloseTurno={(id) => setCloseTurnoId(id)}
+        onToggleAlerts={handleToggleAlerts}
       />
+
+      {/* Alert details panel */}
+      {showAlertPanel && (
+        <div className="mt-3 rounded-xl border border-red-500/20 bg-red-950/20 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-red-500/10">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-400" />
+              <span className="text-sm font-semibold text-red-400">
+                {alertRows.filter((a) => !a.resuelta).length} alertas abiertas
+              </span>
+            </div>
+            <button onClick={() => setShowAlertPanel(false)} className="p-1 rounded hover:bg-red-900/30 text-red-400">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {alertsLoading ? (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">Cargando alertas...</div>
+          ) : alertRows.filter((a) => !a.resuelta).length === 0 ? (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">No hay alertas abiertas</div>
+          ) : (
+            <div className="divide-y divide-red-500/10 max-h-[300px] overflow-y-auto">
+              {alertRows.filter((a) => !a.resuelta).map((alert) => {
+                const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/20" : alert.severidad === "high" ? "text-orange-400 bg-orange-500/20" : "text-yellow-400 bg-yellow-500/20";
+                return (
+                  <div key={alert.id} className="flex items-start gap-3 px-4 py-3 hover:bg-red-950/30">
+                    <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${alert.severidad === "critical" ? "text-red-400" : alert.severidad === "high" ? "text-orange-400" : "text-yellow-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${severityColor}`}>
+                          {alert.severidad}
+                        </span>
+                        <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400">
+                          {alert.tipo}
+                        </span>
+                        {alert.installation?.name && (
+                          <span className="text-[11px] text-muted-foreground truncate">{alert.installation.name}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground">{alert.mensaje}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(alert.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        {alert.ejecucion?.rondaTemplate?.name && ` · ${alert.ejecucion.rondaTemplate.name}`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleResolveAlert(alert.id)}
+                      className="shrink-0 flex items-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                      title="Marcar como resuelta"
+                    >
+                      <Check className="h-3.5 w-3.5" /> Resolver
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main: map + side panel */}
       <div className={isFullscreen
@@ -267,6 +405,7 @@ export function RondasMonitoreoClient({
             checkpoints={mapCheckpoints}
             guards={mapGuards}
             installations={installations as any}
+            alerts={mapAlertMarkers}
             center={mapCenter}
             selectedGuardId={selectedRondaId}
             isFullscreen={isFullscreen}

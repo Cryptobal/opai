@@ -251,12 +251,14 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
       data: updateData,
     });
 
-    if (anomalies.length) {
+    const installationId =
+      execution.rondaTemplate?.installationId ?? execution.installationId ?? null;
+    if (anomalies.length && installationId) {
       await tx.opsAlertaRonda.create({
         data: {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
-          installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
+          installationId,
           tipo: anomalies[0],
           severidad: toAlertSeverityFromAnomalies(anomalies),
           mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")} (offline sync)`,

@@ -21,10 +21,21 @@ interface GuardPosition {
   hasAlert: boolean;
 }
 
+interface AlertMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  tipo: string;
+  severidad: string;
+  installationName: string;
+}
+
 export interface MonitoreoMapProps {
   checkpoints: CheckpointPoint[];
   guards: GuardPosition[];
   installations?: Array<{ id: string; name: string; lat: number | null; lng: number | null }>;
+  alerts?: AlertMarker[];
   center?: { lat: number; lng: number } | null;
   /** When set, map will auto-fit all these points (checkpoints + guards + routes). */
   selectedGuardId?: string | null;
@@ -94,6 +105,7 @@ export function MonitoreoMap({
   checkpoints,
   guards,
   installations,
+  alerts,
   center,
   selectedGuardId,
   onFullscreenToggle,
@@ -104,6 +116,7 @@ export function MonitoreoMap({
   const markersRef = useRef<GMarker[]>([]);
   const circlesRef = useRef<GCircle[]>([]);
   const installationMarkersRef = useRef<GMarker[]>([]);
+  const alertMarkersRef = useRef<(GMarker | GCircle)[]>([]);
   const hasAutoFitRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,9 +193,11 @@ export function MonitoreoMap({
     markersRef.current.forEach((m) => m.setMap(null));
     circlesRef.current.forEach((c) => c.setMap(null));
     installationMarkersRef.current.forEach((m) => m.setMap(null));
+    alertMarkersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
     circlesRef.current = [];
     installationMarkersRef.current = [];
+    alertMarkersRef.current = [];
 
     checkpoints.forEach((cp) => {
       const color = STATUS_COLORS[cp.status] ?? STATUS_COLORS["pending"];
@@ -244,20 +259,61 @@ export function MonitoreoMap({
         title: inst.name,
         icon: {
           path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-          fillColor: "#64748b",
-          fillOpacity: 0.7,
-          strokeColor: "#94a3b8",
-          strokeWeight: 1,
-          scale: 1.2,
+          fillColor: "#06b6d4",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 1.5,
+          scale: 1.5,
           anchor: { x: 12, y: 22, equals: () => false } as any,
         },
         zIndex: 10,
       });
       const infoWindow = new gm.InfoWindow({
-        content: `<div style="color:#000;font-size:12px;font-weight:600">${inst.name}</div>`,
+        content: `<div style="color:#000;font-size:13px;font-weight:700;padding:2px 4px">${inst.name}</div>`,
       });
       marker.addListener("click", () => infoWindow.open(map, marker));
       installationMarkersRef.current.push(marker);
+    });
+
+    // Alert markers — large red pulsing circles at installation locations
+    (alerts ?? []).forEach((alert) => {
+      // Outer pulsing ring
+      const pulseCircle = new gm.Circle({
+        center: { lat: alert.lat, lng: alert.lng },
+        radius: 80,
+        map,
+        fillColor: "#ef4444",
+        fillOpacity: 0.15,
+        strokeColor: "#ef4444",
+        strokeOpacity: 0.6,
+        strokeWeight: 2,
+      });
+      alertMarkersRef.current.push(pulseCircle);
+
+      // Alert marker — red triangle-ish with high z-index
+      const alertMarker = new gm.Marker({
+        position: { lat: alert.lat, lng: alert.lng },
+        map,
+        title: `⚠️ ${alert.label}`,
+        icon: {
+          path: "M12 2L1 21h22L12 2z",
+          fillColor: alert.severidad === "critical" ? "#ef4444" : alert.severidad === "high" ? "#f97316" : "#eab308",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+          scale: 1.3,
+          anchor: { x: 12, y: 21, equals: () => false } as any,
+        },
+        zIndex: 200,
+      });
+      const infoContent = `<div style="color:#000;padding:4px 6px;max-width:250px">
+        <p style="font-size:13px;font-weight:700;color:#dc2626;margin:0 0 4px">⚠️ ALERTA</p>
+        <p style="font-size:12px;font-weight:600;margin:0 0 2px">${alert.installationName}</p>
+        <p style="font-size:11px;margin:0;color:#666">${alert.label}</p>
+      </div>`;
+      const infoWindow = new gm.InfoWindow({ content: infoContent });
+      alertMarker.addListener("click", () => infoWindow.open(map, alertMarker));
+      alertMarkersRef.current.push(alertMarker);
     });
 
     // Auto-fit bounds on first load when there are points to show
@@ -269,7 +325,7 @@ export function MonitoreoMap({
       ];
       fitToPoints(allPoints);
     }
-  }, [checkpoints, guards, installations, fitToPoints]);
+  }, [checkpoints, guards, installations, alerts, fitToPoints]);
 
   useEffect(() => {
     updateMarkers();
@@ -335,11 +391,15 @@ export function MonitoreoMap({
         </div>
       )}
 
-      <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-lg bg-background/80 backdrop-blur-sm px-3 py-1.5 text-[10px]">
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Completado</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Activo</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gray-500" /> Pendiente</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> Alerta</span>
+      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-black/70 backdrop-blur-sm px-4 py-2 text-xs font-medium text-white shadow-lg">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/30" /> Completado</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 ring-1 ring-blue-400/30" /> Activo</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-zinc-400 ring-1 ring-zinc-400/30" /> Pendiente</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white/50" /> Guardia</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-red-500 ring-2 ring-white/50" /> Guardia c/ alerta</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 text-cyan-400">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        </span> Instalacion</span>
       </div>
     </div>
   );

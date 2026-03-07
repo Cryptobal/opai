@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 const schema = z.object({
   guardiaId: z.string().uuid(),
   installationId: z.string().uuid(),
-  tenantId: z.string().uuid(),
+  tenantId: z.string().min(1),
   lat: z.number().optional(),
   lng: z.number().optional(),
   deviceInfo: z.record(z.string(), z.unknown()).optional(),

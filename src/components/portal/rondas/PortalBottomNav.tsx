@@ -19,7 +19,7 @@ const tabs: { id: PortalTab; label: string; icon: typeof MapPin }[] = [
 export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-sm"
+      className="fixed inset-x-0 bottom-0 z-[1000] flex items-center justify-around border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-sm"
       style={{ height: 64, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {tabs.map((tab) => {

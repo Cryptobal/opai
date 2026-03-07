@@ -16,9 +16,10 @@ interface Props {
   activeRondasCount: number;
   alertCount: number;
   onOpenCloseTurno: (turnoId: string) => void;
+  onToggleAlerts?: () => void;
 }
 
-export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenCloseTurno }: Props) {
+export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenCloseTurno, onToggleAlerts }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -62,9 +63,11 @@ export function MonitoreoTurnoHeader({ activeRondasCount, alertCount, onOpenClos
             </Badge>
           )}
           {alertCount > 0 && (
-            <Badge variant="outline" className="border-red-500/30 text-red-500 gap-1">
-              <AlertTriangle className="h-3 w-3" /> {alertCount} alertas
-            </Badge>
+            <button onClick={onToggleAlerts} className="transition-transform hover:scale-105 active:scale-95">
+              <Badge variant="outline" className="border-red-500/30 text-red-500 gap-1 cursor-pointer hover:bg-red-500/10">
+                <AlertTriangle className="h-3 w-3" /> {alertCount} alertas
+              </Badge>
+            </button>
           )}
         </div>
       </div>
