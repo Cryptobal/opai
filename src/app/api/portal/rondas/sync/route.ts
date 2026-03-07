@@ -221,7 +221,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
     });
 
     const total = await tx.opsRondaCheckpoint.count({
-      where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
+      where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId ?? undefined },
     });
     const completed = await tx.opsMarcacionCheckpoint.count({
       where: { tenantId: execution.tenantId, ejecucionId: execution.id },

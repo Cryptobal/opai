@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
       });
       const total = execution.rondaTemplateId
         ? await tx.opsRondaCheckpoint.count({
-            where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId },
+            where: { tenantId: execution.tenantId, rondaTemplateId: execution.rondaTemplateId! },
           })
         : completed; // ad-hoc: total = completed (no predefined list)
       const pct = total > 0 ? (completed / total) * 100 : 0;
