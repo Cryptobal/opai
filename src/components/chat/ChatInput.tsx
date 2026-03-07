@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   File as FileIcon,
   Link2,
+  Camera,
 } from "lucide-react";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
@@ -89,6 +90,7 @@ export function ChatInput({
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef(0);
 
   // Emoji picker state
@@ -657,10 +659,10 @@ export function ChatInput({
   const isEmpty = content.trim().length === 0 && files.length === 0;
 
   return (
-    <div className="shrink-0 border-t border-zinc-800 bg-zinc-900/30">
+    <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)]">
       {/* Reply banner */}
       {replyTo && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
           <div className="flex-1 min-w-0 border-l-2 border-blue-500 pl-2">
             <p className="text-xs font-medium text-blue-400">
               Respondiendo a {replyTo.senderName}
@@ -725,22 +727,17 @@ export function ChatInput({
       )}
 
       {/* Input area */}
-      <div className="flex items-end gap-2 px-4 py-3">
+      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
         {/* File upload */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={files.length >= MAX_FILES}
-          className={cn(
-            "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-            files.length >= MAX_FILES
-              ? "text-zinc-600 cursor-not-allowed"
-              : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-          )}
+          className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
           aria-label="Adjuntar archivo"
           title={files.length >= MAX_FILES ? `Maximo ${MAX_FILES} archivos` : "Adjuntar archivo"}
         >
-          <Paperclip className="h-4.5 w-4.5" />
+          <Paperclip className="h-4 w-4" />
         </button>
         <input
           ref={fileInputRef}
@@ -749,6 +746,26 @@ export function ChatInput({
           onChange={handleFileSelect}
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+        />
+
+        {/* Camera button (mobile only) */}
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={files.length >= MAX_FILES}
+          className="lg:hidden flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
+          aria-label="Tomar foto"
+          title="Tomar foto o elegir imagen"
+        >
+          <Camera className="h-4 w-4" />
+        </button>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          className="hidden"
         />
 
         {/* Emoji picker */}
@@ -764,11 +781,11 @@ export function ChatInput({
                 setLinkPanelResults([]);
               }
             }}
-            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
             aria-label="Emoji"
             title="Emoji"
           >
-            <Smile className="h-4.5 w-4.5" />
+            <Smile className="h-4 w-4" />
           </button>
           {showEmojiPicker && (
             <div className="absolute bottom-full left-0 mb-2 z-50">
@@ -799,16 +816,11 @@ export function ChatInput({
                 setLinkPanelResults([]);
               }
             }}
-            className={cn(
-              "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-              showLinkPanel
-                ? "bg-zinc-700 text-zinc-200"
-                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-            )}
+            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
             aria-label="Vincular entidad"
             title="Vincular entidad CRM"
           >
-            <Link2 className="h-4.5 w-4.5" />
+            <Link2 className="h-4 w-4" />
           </button>
           {showLinkPanel && (
             <div className="absolute bottom-full left-0 mb-2 z-50 w-80 rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
@@ -954,7 +966,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Escribe un mensaje..."
             rows={1}
-            className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 transition-colors leading-6"
+            className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-[rgba(255,255,255,0.88)] placeholder:text-[rgba(255,255,255,0.28)] focus:outline-none max-h-28 w-full leading-6"
             style={{ maxHeight: `${5 * 24}px` }}
             disabled={isSending || isUploading}
           />
@@ -965,12 +977,7 @@ export function ChatInput({
           type="button"
           onClick={handleSend}
           disabled={isEmpty || isSending || isUploading}
-          className={cn(
-            "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-            isEmpty || isSending || isUploading
-              ? "text-zinc-600 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-500"
-          )}
+          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors shrink-0 mb-0.5"
           aria-label="Enviar mensaje"
         >
           <SendHorizontal className="h-4 w-4" />

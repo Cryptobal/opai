@@ -9,7 +9,7 @@ import { ChatInput } from "./ChatInput";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatThreadPanel } from "./ChatThreadPanel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
 
@@ -22,6 +22,8 @@ interface ChatConversationProps {
   autoContextPrefix?: () => string;
   currentUserId?: string;
   userRole?: string;
+  /** Optional callback to close the entire panel (e.g. floating chat) */
+  onClose?: () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export function ChatConversation({
   autoContextPrefix,
   currentUserId: currentUserIdProp,
   userRole,
+  onClose,
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
@@ -272,6 +275,16 @@ export function ChatConversation({
               title="Limpiar conversacion"
             >
               <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              aria-label="Cerrar chat"
+            >
+              <X className="h-4 w-4" />
             </button>
           )}
         </ChatPresenceBar>

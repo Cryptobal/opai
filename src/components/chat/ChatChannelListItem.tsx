@@ -73,76 +73,63 @@ export function ChatChannelListItem({
   const hasUnread = unreadCount > 0;
   const hasMenu = onArchive || onUnarchive || (onDelete && canDelete);
 
+  const isDm = channel.channelType === "DIRECT";
+
   return (
     <div className="relative group">
       <button
         type="button"
         onClick={onClick}
         className={cn(
-          "w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-150",
+          "w-full flex items-center gap-2.5 px-3 py-1.5 md:py-1.5 h-14 md:h-auto text-left rounded-md transition-colors duration-150",
           isSelected
-            ? "bg-zinc-800"
-            : "hover:bg-zinc-800/50",
+            ? "bg-[rgba(45,212,191,0.08)]"
+            : "hover:bg-[rgba(255,255,255,0.04)]",
         )}
       >
-        {/* Channel avatar */}
-        <div
-          className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full text-white text-xs font-bold"
-          style={{
-            backgroundColor:
-              channel.channelType === "DIRECT"
-                ? "#0d9488" // teal-600
-                : channel.channelType === "GROUP"
-                  ? channel.group?.color || "#6B7280"
-                  : channel.channelType === "INSTALLATION"
-                    ? "#4f46e5" // indigo-600
-                    : channel.channelType === "EXTERNAL"
-                      ? "#7c3aed" // violet-600
-                      : "#6B7280",
-          }}
-        >
-          {channel.channelType === "DIRECT"
-            ? (channel.dmParticipant?.name ?? channel.name).charAt(0).toUpperCase()
-            : channel.channelType === "EXTERNAL"
-              ? (channel.account?.name ?? channel.name).slice(0, 2).toUpperCase()
-              : channel.name.slice(0, 2).toUpperCase()}
-        </div>
-
-        {/* Channel info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className={cn(
-                "text-sm truncate",
-                hasUnread ? "font-semibold text-zinc-100" : "font-medium text-zinc-300"
-              )}
-            >
-              {channel.channelType === "DIRECT" && channel.dmParticipant
-                ? channel.dmParticipant.name
-                : channel.channelType === "EXTERNAL" && channel.account
-                  ? channel.account.name
-                  : channel.name}
-            </span>
-            <span className="shrink-0 text-xs text-zinc-500">
-              {formatRelativeTime(channel.lastMessageAt)}
-            </span>
+        {/* Channel prefix: avatar for DMs, # for channels */}
+        {isDm ? (
+          <div
+            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-white text-[10px] font-bold"
+            style={{ backgroundColor: "#0d9488" }}
+          >
+            {(channel.dmParticipant?.name ?? channel.name).charAt(0).toUpperCase()}
           </div>
-          <div className="flex items-center justify-between gap-2 mt-0.5">
-            <p
-              className={cn(
-                "text-xs truncate",
-                hasUnread ? "text-zinc-300" : "text-zinc-500"
-              )}
-            >
-              {channel.lastMessagePreview || "Sin mensajes"}
-            </p>
-            {hasUnread && (
-              <span className="shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
+        ) : (
+          <span
+            className={cn(
+              "text-sm shrink-0",
+              isSelected
+                ? "text-[#2dd4bf]"
+                : "text-[rgba(255,255,255,0.28)]"
             )}
-          </div>
-        </div>
+          >
+            #
+          </span>
+        )}
+
+        {/* Channel name */}
+        <span
+          className={cn(
+            "text-[13px] truncate flex-1 min-w-0",
+            hasUnread
+              ? "font-semibold text-[rgba(255,255,255,0.88)]"
+              : "font-normal text-[rgba(255,255,255,0.52)]"
+          )}
+        >
+          {channel.channelType === "DIRECT" && channel.dmParticipant
+            ? channel.dmParticipant.name
+            : channel.channelType === "EXTERNAL" && channel.account
+              ? channel.account.name
+              : channel.name}
+        </span>
+
+        {/* Unread badge */}
+        {hasUnread && (
+          <span className="ml-auto shrink-0 bg-[#2dd4bf] text-zinc-900 text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Context menu (visible on hover) */}

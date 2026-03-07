@@ -67,7 +67,7 @@ export function ChatPresenceBar({
 
   return (
     <>
-      <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-zinc-800 bg-zinc-900/50">
+      <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
         <div className="flex items-center gap-3 min-w-0">
           {/* Back button (mobile only) */}
           <button
@@ -80,8 +80,8 @@ export function ChatPresenceBar({
           </button>
 
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-zinc-100 truncate">
-              {channelName}
+            <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)] truncate">
+              <span className="text-[#2dd4bf]">#</span> {channelName}
             </h3>
           </div>
         </div>
@@ -166,8 +166,8 @@ export function ChatPresenceBar({
           {/* Online indicator */}
           {onlineCount > 0 && !showSearch && (
             <div className="flex items-center gap-1.5 ml-1">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-xs text-zinc-400">
+              <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
+              <span className="text-xs text-[rgba(255,255,255,0.45)]">
                 {onlineCount} en línea
               </span>
             </div>
@@ -176,7 +176,7 @@ export function ChatPresenceBar({
       </div>
 
       {showSearch && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]/50">
           <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           <input
             ref={searchInputRef}
