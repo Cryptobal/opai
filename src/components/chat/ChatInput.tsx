@@ -17,6 +17,7 @@ import {
   File as FileIcon,
   Link2,
 } from "lucide-react";
+import { ChatFormatToolbar } from "./ChatFormatToolbar";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
 import EmojiPicker, { Theme } from "emoji-picker-react";
@@ -187,6 +188,34 @@ export function ChatInput({
       setContent(prev => prev + emojiData.emoji);
     }
     setShowEmojiPicker(false);
+  }, [content]);
+
+  // Format toolbar insert handler
+  const handleFormatInsert = useCallback((before: string, after: string, placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.slice(start, end);
+
+    if (selectedText) {
+      // Wrap selected text
+      const newContent = content.slice(0, start) + before + selectedText + after + content.slice(end);
+      setContent(newContent);
+      setTimeout(() => {
+        textarea.setSelectionRange(start + before.length, end + before.length);
+        textarea.focus();
+      }, 0);
+    } else {
+      // Insert placeholder
+      const newContent = content.slice(0, start) + before + placeholder + after + content.slice(end);
+      setContent(newContent);
+      setTimeout(() => {
+        textarea.setSelectionRange(start + before.length, start + before.length + placeholder.length);
+        textarea.focus();
+      }, 0);
+    }
   }, [content]);
 
   // Trigger typing indicator
@@ -756,6 +785,9 @@ export function ChatInput({
           Subiendo archivos...
         </div>
       )}
+
+      {/* Formatting toolbar */}
+      <ChatFormatToolbar textareaRef={textareaRef} onInsert={handleFormatInsert} />
 
       {/* Input area */}
       <div className="flex items-end gap-2 px-4 py-3">

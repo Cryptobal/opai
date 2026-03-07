@@ -85,14 +85,86 @@ const ENTITY_CONFIG: Record<string, { icon: string; color: string; basePath: str
 };
 
 /**
- * Render message content with @mention and #entity reference highlighting.
+ * Apply inline markdown formatting to a plain text string.
+ * Handles: ```code blocks```, `inline code`, **bold**, *italic*, and URL auto-linking.
+ * Returns an array of React nodes.
+ */
+let _mdKey = 0;
+function renderMarkdownInline(text: string): ReactNode[] {
+  const results: ReactNode[] = [];
+
+  // Combined regex: code blocks, inline code, bold, italic, URLs
+  const combinedRegex = /```([\s\S]*?)```|`([^`]+)`|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<>)"']+)/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = combinedRegex.exec(text)) !== null) {
+    // Push text before match
+    if (match.index > lastIndex) {
+      results.push(text.slice(lastIndex, match.index));
+    }
+
+    const k = _mdKey++;
+
+    if (match[1] !== undefined) {
+      // ```code block```
+      results.push(
+        <code key={k} className="block bg-zinc-800 rounded px-2 py-1 my-1 text-xs font-mono text-emerald-300 whitespace-pre-wrap">
+          {match[1]}
+        </code>
+      );
+    } else if (match[2] !== undefined) {
+      // `inline code`
+      results.push(
+        <code key={k} className="bg-zinc-800 rounded px-1 py-0.5 text-xs font-mono text-emerald-300">
+          {match[2]}
+        </code>
+      );
+    } else if (match[3] !== undefined) {
+      // **bold**
+      results.push(
+        <strong key={k} className="font-semibold">{match[3]}</strong>
+      );
+    } else if (match[4] !== undefined) {
+      // *italic*
+      results.push(
+        <em key={k}>{match[4]}</em>
+      );
+    } else if (match[5] !== undefined) {
+      // URL auto-link
+      results.push(
+        <a key={k} href={match[5]} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">
+          {match[5]}
+        </a>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Push remaining text
+  if (lastIndex < text.length) {
+    results.push(text.slice(lastIndex));
+  }
+
+  return results;
+}
+
+/**
+ * Render message content with @mention and #entity reference highlighting,
+ * plus inline markdown formatting on text segments.
  * Mention format: <@userId> or <@todos>
  * Entity format: <#type:id:title>
  */
 function renderContent(content: string, currentUserId?: string): ReactNode {
   // Parse <@userId> and <#type:id:title> patterns
   const parts = content.split(/(<@[^>]+>|<#[^>]+>)/g);
-  if (parts.length === 1) return content;
+  if (parts.length === 1) {
+    // No mentions/entities - just apply markdown
+    const rendered = renderMarkdownInline(content);
+    return rendered.length === 1 && typeof rendered[0] === "string" ? content : rendered;
+  }
 
   return parts.map((part, i) => {
     // Handle @mentions
@@ -150,7 +222,12 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
       );
     }
 
-    return part;
+    // Plain text segment - apply markdown formatting
+    const rendered = renderMarkdownInline(part);
+    if (rendered.length === 1 && typeof rendered[0] === "string") {
+      return <span key={i}>{rendered[0]}</span>;
+    }
+    return <span key={i}>{rendered}</span>;
   });
 }
 
