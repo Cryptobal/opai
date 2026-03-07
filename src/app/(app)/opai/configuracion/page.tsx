@@ -23,6 +23,7 @@ import {
   Ticket,
   Shield,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 
 type ConfigItem = {
@@ -181,6 +182,14 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Finanzas",
         description: "Ítems de rendición, kilometraje, aprobadores y reglas",
         icon: Receipt,
+      },
+      {
+        submodule: "gamificacion",
+        href: "/opai/configuracion/gamificacion",
+        title: "Gamificación",
+        description: "Pesos, niveles, puntos, badges y beneficios",
+        icon: Trophy,
+        adminOnly: true,
       },
     ],
   },
