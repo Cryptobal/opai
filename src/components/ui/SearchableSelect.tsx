@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function normalizeText(s: string): string {
   return s
@@ -17,6 +18,7 @@ export type SearchableOption = {
   label: string;
   description?: string;
   searchText?: string;
+  icon?: React.ReactNode;
 };
 
 interface SearchableSelectProps {
@@ -38,20 +40,33 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const selected = useMemo(() => options.find((opt) => opt.id === value) ?? null, [options, value]);
+  const selected = useMemo(
+    () => options.find((opt) => opt.id === value) ?? null,
+    [options, value],
+  );
 
   useEffect(() => {
     if (!open) {
-      setQuery(selected?.label ?? "");
+      setQuery("");
+      setHighlightIdx(-1);
     }
-  }, [open, selected]);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => searchRef.current?.focus());
+    }
+  }, [open]);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
-      if (!boxRef.current) return;
-      if (!boxRef.current.contains(event.target as Node)) setOpen(false);
+      if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
@@ -59,63 +74,235 @@ export function SearchableSelect({
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
-    const ordered = [...options].sort((a, b) => a.label.localeCompare(b.label, "es"));
-    if (!q) return ordered.slice(0, 60);
+    const ordered = [...options].sort((a, b) =>
+      a.label.localeCompare(b.label, "es"),
+    );
+    if (!q) return ordered.slice(0, 100);
 
     const startsWith: SearchableOption[] = [];
     const includes: SearchableOption[] = [];
     for (const opt of ordered) {
-      const search = normalizeText(opt.searchText ?? `${opt.label} ${opt.description ?? ""}`);
+      const search = normalizeText(
+        opt.searchText ?? `${opt.label} ${opt.description ?? ""}`,
+      );
       if (search.startsWith(q)) startsWith.push(opt);
       else if (search.includes(q)) includes.push(opt);
     }
-    return [...startsWith, ...includes].slice(0, 60);
+    return [...startsWith, ...includes].slice(0, 100);
   }, [options, query]);
 
-  const displayValue = open ? query : (value ? (selected?.label ?? "") : "");
+  useEffect(() => {
+    setHighlightIdx(-1);
+  }, [filtered]);
+
+  const scrollToIdx = useCallback((idx: number) => {
+    if (!listRef.current) return;
+    const items = listRef.current.querySelectorAll("[data-item]");
+    items[idx]?.scrollIntoView({ block: "nearest" });
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case "ArrowDown": {
+        e.preventDefault();
+        if (!open) { setOpen(true); return; }
+        const next = Math.min(highlightIdx + 1, filtered.length - 1);
+        setHighlightIdx(next);
+        scrollToIdx(next);
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        const prev = Math.max(highlightIdx - 1, 0);
+        setHighlightIdx(prev);
+        scrollToIdx(prev);
+        break;
+      }
+      case "Enter": {
+        e.preventDefault();
+        if (!open) { setOpen(true); return; }
+        if (highlightIdx >= 0 && filtered[highlightIdx]) {
+          onChange(filtered[highlightIdx].id);
+          setOpen(false);
+          triggerRef.current?.focus();
+        }
+        break;
+      }
+      case "Escape":
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case "Tab":
+        setOpen(false);
+        break;
+    }
+  }
+
+  function highlightMatch(text: string) {
+    if (!query) return text;
+    const q = normalizeText(query);
+    const normalizedText = normalizeText(text);
+    const idx = normalizedText.indexOf(q);
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span className="text-primary font-semibold">
+          {text.slice(idx, idx + q.length)}
+        </span>
+        {text.slice(idx + q.length)}
+      </>
+    );
+  }
 
   return (
     <div ref={boxRef} className="relative">
-      <Input
-        value={displayValue}
-        placeholder={placeholder}
+      {/* Trigger button */}
+      <button
+        ref={triggerRef}
+        type="button"
         disabled={disabled}
-        onFocus={() => {
-          setOpen(true);
-          setQuery("");
-        }}
-        onChange={(event) => {
-          const next = event.target.value;
-          setQuery(next);
-          setOpen(true);
-          if (value) onChange("");
-        }}
-        className="h-9"
-      />
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          "group flex h-9 w-full items-center gap-2 rounded-lg border bg-background px-3 text-sm transition-all duration-200",
+          "focus-visible:outline-none",
+          open
+            ? "border-primary/50 ring-2 ring-primary/20 shadow-sm shadow-primary/5"
+            : "border-input hover:border-muted-foreground/30 hover:bg-accent/30",
+          disabled && "cursor-not-allowed opacity-50",
+        )}
+      >
+        {selected ? (
+          <span className="flex-1 min-w-0 truncate text-left font-medium text-foreground">
+            {selected.label}
+          </span>
+        ) : (
+          <span className="flex-1 min-w-0 truncate text-left text-muted-foreground">
+            {placeholder}
+          </span>
+        )}
+        {value && !disabled ? (
+          <span
+            role="button"
+            tabIndex={-1}
+            className="shrink-0 rounded-full p-0.5 text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-all"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+            }}
+          >
+            <X className="h-3 w-3" />
+          </span>
+        ) : null}
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform duration-200",
+            open && "rotate-180 text-primary/70",
+          )}
+        />
+      </button>
 
+      {/* Dropdown */}
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
-          {filtered.length === 0 ? (
-            <div className="px-2 py-2 text-sm text-muted-foreground">{emptyText}</div>
-          ) : (
-            filtered.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onChange(opt.id);
-                  setQuery(opt.label);
-                  setOpen(false);
-                }}
-              >
-                <div className="font-medium">{opt.label}</div>
-                {opt.description ? (
-                  <div className="text-xs text-muted-foreground">{opt.description}</div>
-                ) : null}
-              </button>
-            ))
+        <div
+          className={cn(
+            "absolute z-50 mt-1.5 w-full rounded-xl border border-border/80 bg-popover shadow-xl shadow-black/25 overflow-hidden",
+            "animate-in fade-in-0 zoom-in-[0.98] slide-in-from-top-1 duration-150",
+          )}
+        >
+          {/* Search input */}
+          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Buscar..."
+              value={query}
+              className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            {query && (
+              <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                {filtered.length}
+              </span>
+            )}
+          </div>
+
+          {/* Options list */}
+          <div ref={listRef} className="max-h-60 overflow-auto overscroll-contain p-1">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-8 text-muted-foreground">
+                <Search className="h-5 w-5 opacity-40" />
+                <span className="text-sm">{emptyText}</span>
+                {query && (
+                  <span className="text-xs opacity-60">
+                    Prueba con otro término
+                  </span>
+                )}
+              </div>
+            ) : (
+              filtered.map((opt, i) => {
+                const isSelected = opt.id === value;
+                const isHighlighted = i === highlightIdx;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-item
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-75",
+                      isHighlighted && "bg-accent text-accent-foreground",
+                      !isHighlighted && "hover:bg-accent/50",
+                      isSelected && !isHighlighted && "bg-primary/5",
+                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setHighlightIdx(i)}
+                    onClick={() => {
+                      onChange(opt.id);
+                      setOpen(false);
+                      triggerRef.current?.focus();
+                    }}
+                  >
+                    {isSelected && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <Check className="h-3 w-3 text-primary" />
+                      </span>
+                    )}
+                    {opt.icon && !isSelected && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground/60">
+                        {opt.icon}
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className={cn(
+                        "truncate",
+                        isSelected ? "font-semibold text-primary" : "font-normal",
+                      )}>
+                        {highlightMatch(opt.label)}
+                      </div>
+                      {opt.description && (
+                        <div className="truncate text-xs text-muted-foreground/70 mt-0.5">
+                          {highlightMatch(opt.description)}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer with count */}
+          {filtered.length > 0 && options.length > 5 && (
+            <div className="border-t border-border/40 px-3 py-1.5">
+              <span className="text-[10px] text-muted-foreground/50">
+                {filtered.length} de {options.length} opciones
+              </span>
+            </div>
           )}
         </div>
       )}

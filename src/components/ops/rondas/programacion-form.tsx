@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { QuickTimePicker } from "@/components/ops/rondas/QuickTimePicker";
 
 export interface ProgramacionPayload {
@@ -73,17 +74,12 @@ export function ProgramacionForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <div className="space-y-0.5">
           <label className="text-[11px] text-muted-foreground">Plantilla</label>
-          <select
-            className="h-9 w-full rounded border border-border bg-background px-2 text-sm"
+          <SearchableSelect
             value={templateId}
-            onChange={(e) => setTemplateId(e.target.value)}
-            required
-          >
-            <option value="">Selecciona plantilla</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+            options={templates.map((t) => ({ id: t.id, label: t.name }))}
+            placeholder="Selecciona plantilla..."
+            onChange={setTemplateId}
+          />
         </div>
         <QuickTimePicker value={horaInicio} onChange={setHoraInicio} label="Hora inicio" />
         <QuickTimePicker value={horaFin} onChange={setHoraFin} label="Hora fin" />

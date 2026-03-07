@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { GripVertical } from "lucide-react";
 import {
   DndContext,
@@ -194,14 +195,15 @@ export function RondaTemplateForm({
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" className="h-9" />
         <div className="space-y-0.5">
           <label className="text-[11px] text-muted-foreground">Modo de orden</label>
-          <select
+          <SearchableSelect
             value={orderMode}
-            onChange={(e) => setOrderMode(e.target.value as "strict" | "flexible")}
-            className="h-9 rounded border border-border bg-background px-2 text-sm"
-          >
-            <option value="flexible">Orden flexible</option>
-            <option value="strict">Orden estricto (secuencial)</option>
-          </select>
+            options={[
+              { id: "flexible", label: "Orden flexible" },
+              { id: "strict", label: "Orden estricto (secuencial)" },
+            ]}
+            placeholder="Selecciona modo..."
+            onChange={(val) => setOrderMode(val as "strict" | "flexible")}
+          />
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
             Flexible: checkpoints en cualquier orden. Secuencial: deben seguirse en orden.
           </p>

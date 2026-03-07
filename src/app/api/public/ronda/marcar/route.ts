@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const checkpoint = await prisma.opsCheckpoint.findFirst({
       where: {
         tenantId: execution.tenantId,
-        installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+        installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
         isActive: true,
         ...(parsed.data.checkpointId
           ? { id: parsed.data.checkpointId }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const hash = computeMarcacionHash({
       tenantId: execution.tenantId,
       guardiaId: execution.guardiaId ?? "unknown",
-      installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+      installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? "",
       tipo: "checkpoint",
       timestamp: now.toISOString(),
       lat: parsed.data.lat,
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: execution.tenantId,
             ejecucionId: execution.id,
-            installationId: execution.rondaTemplate?.installationId ?? execution.installationId,
+            installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
             mensaje: `Anomalía detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
