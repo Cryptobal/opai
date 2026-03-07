@@ -120,21 +120,39 @@ export function ProgramacionForm({
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {dayLabels.map((lbl, idx) => (
-          <button
-            key={lbl}
-            type="button"
-            className={`h-8 w-8 rounded text-xs border ${diasSemana.includes(idx) ? "bg-primary/20 border-primary/40" : "border-border"}`}
-            onClick={() =>
-              setDiasSemana((prev) =>
-                prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b)
-              )
-            }
-          >
-            {lbl}
-          </button>
-        ))}
+      <div className="space-y-1.5">
+        <div className="flex gap-2">
+          {dayLabels.map((lbl, idx) => (
+            <button
+              key={lbl}
+              type="button"
+              className={`h-8 w-8 rounded text-xs border ${diasSemana.includes(idx) ? "bg-primary/20 border-primary/40" : "border-border"}`}
+              onClick={() =>
+                setDiasSemana((prev) =>
+                  prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b)
+                )
+              }
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {[
+            { label: "Toda la semana", days: [0, 1, 2, 3, 4, 5, 6] },
+            { label: "Lunes a viernes", days: [1, 2, 3, 4, 5] },
+            { label: "Fines de semana", days: [0, 6] },
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className="text-[11px] rounded border border-border px-2 py-1 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              onClick={() => setDiasSemana(preset.days)}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2">
