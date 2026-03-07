@@ -34,6 +34,12 @@ function getPusher(): Pusher {
   return pusherInstance;
 }
 
+// ── Public Server Instance (for non-chat events like monitoring alerts) ──
+
+export function getPusherServer(): Pusher {
+  return getPusher();
+}
+
 // ── Channel Naming ──
 
 export function getPresenceChannelName(channelId: string): string {
