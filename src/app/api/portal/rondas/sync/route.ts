@@ -185,7 +185,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   const hash = computeMarcacionHash({
     tenantId: execution.tenantId,
     guardiaId: guardiaId!,
-    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? "",
     tipo: "checkpoint",
     timestamp: now.toISOString(),
     lat,
@@ -275,7 +275,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   evaluatePostMarkAlerts({
     tenantId: execution.tenantId,
     ejecucionId: execution.id,
-    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? undefined,
+    installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? "",
     guardiaId: guardiaId!,
     checkpointId: checkpoint.id,
     checkpointName: checkpoint.name,
