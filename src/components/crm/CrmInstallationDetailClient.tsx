@@ -4,7 +4,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route } from "lucide-react";
+import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -1892,6 +1893,7 @@ export function CrmInstallationDetailClient({
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
+    { id: "rondas", label: "Rondas", icon: Route },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
@@ -2338,6 +2340,9 @@ export function CrmInstallationDetailClient({
             activeSubTab={protocolSubTab}
             onSubTabChange={setProtocolSubTab}
           />
+        )}
+        {activeTab === "rondas" && (
+          <InstalacionRondasTab installationId={installation.id} />
         )}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">

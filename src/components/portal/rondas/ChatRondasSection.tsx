@@ -248,7 +248,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           )}
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-zinc-800/50 bg-zinc-900/80 backdrop-blur pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="px-4 py-3 border-t border-zinc-800/50 bg-zinc-900/80 backdrop-blur pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}

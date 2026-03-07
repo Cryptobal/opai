@@ -3356,6 +3356,7 @@ model OpsRondaEjecucion {
   @@index([status], map: "idx_ops_ronda_ejecuciones_status")
   @@index([installationId, status], map: "idx_ops_ronda_ejecuciones_inst_status")
   @@index([guardiaId, status], map: "idx_ops_ronda_ejecuciones_guardia_status")
+  @@index([tenantId, rondaTemplateId, scheduledAt, status], map: "idx_ops_ronda_ejecuciones_tenant_tmpl_sched_status")
   @@map("ronda_ejecuciones")
   @@schema("ops")
 }

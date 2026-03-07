@@ -59,6 +59,7 @@ export default async function RondasMonitoreoPage() {
       alertCount={alerts}
       userId={session.user.id ?? ""}
       userName={session.user.name ?? ""}
+      tenantId={tenantId}
     />
     </div>
   );

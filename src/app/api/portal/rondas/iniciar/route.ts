@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * POST /api/portal/rondas/iniciar
+ *
+ * Sets startedAt and status=en_curso when guard presses "Iniciar Ronda".
+ * This ensures startedAt is recorded immediately, not on first checkpoint mark.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { ejecucionId, guardiaId, lat, lng, deviceInfo } = body as {
+      ejecucionId?: string;
+      guardiaId?: string;
+      lat?: number;
+      lng?: number;
+      deviceInfo?: Record<string, unknown>;
+    };
+
+    if (!ejecucionId || !UUID_RE.test(ejecucionId)) {
+      return NextResponse.json(
+        { success: false, error: "ejecucionId inv\u00E1lido" },
+        { status: 400 },
+      );
+    }
+    if (!guardiaId || !UUID_RE.test(guardiaId)) {
+      return NextResponse.json(
+        { success: false, error: "guardiaId inv\u00E1lido" },
+        { status: 400 },
+      );
+    }
+
+    const execution = await prisma.opsRondaEjecucion.findFirst({
+      where: {
+        id: ejecucionId,
+        status: { in: ["pendiente", "incompleta"] },
+      },
+    });
+
+    if (!execution) {
+      return NextResponse.json(
+        { success: false, error: "Ejecuci\u00F3n no encontrada o ya iniciada" },
+        { status: 404 },
+      );
+    }
+
+    const now = new Date();
+    const updateData: Record<string, unknown> = {
+      status: "en_curso",
+      startedAt: now,
+      guardiaId,
+    };
+
+    if (deviceInfo) {
+      updateData.deviceInfo = deviceInfo;
+    }
+
+    const updated = await prisma.opsRondaEjecucion.update({
+      where: { id: ejecucionId },
+      data: updateData,
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        guardiaId: true,
+        scheduledAt: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("[Portal Rondas] iniciar error:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al iniciar ronda" },
+      { status: 500 },
+    );
+  }
+}
