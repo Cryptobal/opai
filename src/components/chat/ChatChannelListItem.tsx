@@ -85,35 +85,27 @@ export function ChatChannelListItem({
             : "hover:bg-zinc-800/50",
         )}
       >
-        {/* Channel icon / avatar */}
+        {/* Channel avatar */}
         <div
-          className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-300"
+          className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full text-white text-xs font-bold"
           style={{
-            backgroundColor: channel.channelType === "GROUP" && channel.group?.color
-              ? `${channel.group.color}20`
-              : undefined,
+            backgroundColor:
+              channel.channelType === "DIRECT"
+                ? "#0d9488" // teal-600
+                : channel.channelType === "GROUP"
+                  ? channel.group?.color || "#6B7280"
+                  : channel.channelType === "INSTALLATION"
+                    ? "#4f46e5" // indigo-600
+                    : channel.channelType === "EXTERNAL"
+                      ? "#7c3aed" // violet-600
+                      : "#6B7280",
           }}
         >
-          {channel.channelType === "DIRECT" ? (
-            <span className="text-xs font-semibold uppercase bg-blue-500/20 text-blue-400 rounded-full h-full w-full flex items-center justify-center">
-              {(channel.dmParticipant?.name ?? channel.name).charAt(0).toUpperCase()}
-            </span>
-          ) : channel.channelType === "GROUP" && channel.group?.color ? (
-            <span
-              className="text-xs font-semibold uppercase"
-              style={{ color: channel.group.color }}
-            >
-              {channel.name.slice(0, 2)}
-            </span>
-          ) : channel.channelType === "EXTERNAL" ? (
-            <span className="text-xs font-semibold uppercase bg-violet-500/20 text-violet-400 rounded-lg h-full w-full flex items-center justify-center">
-              {(channel.account?.name ?? channel.name).slice(0, 2)}
-            </span>
-          ) : (
-            <span className="text-xs font-semibold uppercase bg-zinc-700/50 rounded-lg h-full w-full flex items-center justify-center">
-              {channel.name.slice(0, 2)}
-            </span>
-          )}
+          {channel.channelType === "DIRECT"
+            ? (channel.dmParticipant?.name ?? channel.name).charAt(0).toUpperCase()
+            : channel.channelType === "EXTERNAL"
+              ? (channel.account?.name ?? channel.name).slice(0, 2).toUpperCase()
+              : channel.name.slice(0, 2).toUpperCase()}
         </div>
 
         {/* Channel info */}
@@ -145,7 +137,7 @@ export function ChatChannelListItem({
               {channel.lastMessagePreview || "Sin mensajes"}
             </p>
             {hasUnread && (
-              <span className="shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-1.5 text-[10px] font-bold text-white">
+              <span className="shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}

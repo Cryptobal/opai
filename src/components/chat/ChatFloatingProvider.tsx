@@ -18,6 +18,7 @@ export type ChatFloatingChannel = {
   id: string;
   name: string;
   channelType: string; // "DIRECT" | "GROUP" | "INSTALLATION" | "EXTERNAL"
+  subType: "reportes" | "interno" | null;
   groupId: string | null;
   installationId: string | null;
   accountId: string | null;
