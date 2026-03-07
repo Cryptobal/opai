@@ -102,11 +102,8 @@ export function RondasAlertasClient({
             <div className="w-44">
               <SearchableSelect
                 value={installationFilter}
-                options={[
-                  { id: "", label: "Todas instalaciones" },
-                  ...installations.map((i) => ({ id: i.id, label: i.name })),
-                ]}
-                placeholder="Instalación..."
+                options={installations.map((i) => ({ id: i.id, label: i.name }))}
+                placeholder="Buscar instalación..."
                 onChange={setInstallationFilter}
               />
             </div>

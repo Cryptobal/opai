@@ -343,11 +343,8 @@ export function RondasMonitoreoClient({
           <div className="w-56">
             <SearchableSelect
               value={installationFilter}
-              options={[
-                { id: "", label: "Todas las instalaciones" },
-                ...installations.map((i) => ({ id: i.id, label: i.name })),
-              ]}
-              placeholder="Filtrar instalación..."
+              options={installations.map((i) => ({ id: i.id, label: i.name }))}
+              placeholder="Buscar instalación..."
               onChange={setInstallationFilter}
             />
           </div>
