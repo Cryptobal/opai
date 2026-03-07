@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData } from "@/lib/chat-types";
 import { ChatMessage } from "./ChatMessage";
+import { ChatDateDivider } from "./ChatDateDivider";
 import { ChatMessageSystem } from "./ChatMessageSystem";
 
 interface ChatMessageListProps {
@@ -40,18 +41,18 @@ function formatDateSeparator(dateStr: string): string {
   if (diffDays === 0) return "Hoy";
   if (diffDays === 1) return "Ayer";
 
-  const day = date.getDate();
-  const months = [
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
-  ];
-  const month = months[date.getMonth()];
+  const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+  const dayName = dayNames[date.getDay()];
+  const dayNum = date.getDate();
+  const monthName = monthNames[date.getMonth()];
   const year = date.getFullYear();
 
   if (year === now.getFullYear()) {
-    return `${day} ${month}`;
+    return `${dayName}, ${dayNum} de ${monthName}`;
   }
-  return `${day} ${month} ${year}`;
+  return `${dayName}, ${dayNum} de ${monthName} de ${year}`;
 }
 
 /**
@@ -191,23 +192,29 @@ export function ChatMessageList({
       {groupedMessages.map((group) => (
         <div key={group.dateKey}>
           {/* Date separator */}
-          <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="shrink-0 text-xs text-zinc-500 font-medium">
-              {group.dateLabel}
-            </span>
-            <div className="flex-1 h-px bg-zinc-800" />
-          </div>
+          <ChatDateDivider label={group.dateLabel} />
 
           {/* Messages in this group */}
-          {group.messages.map((msg) =>
-            msg.systemEventType ? (
-              <ChatMessageSystem key={msg.id} message={msg} />
-            ) : (
+          {group.messages.map((msg, idx) => {
+            if (msg.systemEventType) {
+              return <ChatMessageSystem key={msg.id} message={msg} />;
+            }
+
+            const prev = idx > 0 ? group.messages[idx - 1] : null;
+            const TIME_GAP_MS = 5 * 60 * 1000;
+            const isFirst =
+              idx === 0 ||
+              !prev ||
+              prev.senderId !== msg.senderId ||
+              !!prev.systemEventType ||
+              new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > TIME_GAP_MS;
+
+            return (
               <ChatMessage
                 key={msg.id}
                 message={msg}
                 isOwn={isOwnMessage(msg)}
+                isFirstInGroup={isFirst}
                 onReply={() => onReply(msg)}
                 onOpenThread={onOpenThread}
                 onEdit={onEdit}
@@ -218,8 +225,8 @@ export function ChatMessageList({
                 onReaction={onReaction}
                 canDeleteAny={canDeleteAny}
               />
-            )
-          )}
+            );
+          })}
         </div>
       ))}
 

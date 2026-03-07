@@ -16,6 +16,8 @@ import {
 interface ChatMessageProps {
   message: ChatMessageData;
   isOwn: boolean;
+  /** Whether this message starts a new visual group (different sender, time gap, etc.) */
+  isFirstInGroup?: boolean;
   onReply: () => void;
   onOpenThread?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
@@ -143,7 +145,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
-export function ChatMessage({ message, isOwn, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
