@@ -3,7 +3,7 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Activity, Menu, MessageCircle, Plus, Search, Settings, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
+import { Activity, Menu, MessageCircle, Plus, Search, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
@@ -179,13 +179,6 @@ export function AppShell({
               </DropdownMenu>
             </div>
             <div className="flex min-w-0 items-center justify-end gap-1.5">
-              <Link
-                href="/opai/configuracion"
-                className="inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                aria-label="Configuración"
-              >
-                <Settings className="h-4 w-4" />
-              </Link>
               <ThemeToggle compact />
               <button
                 type="button"
