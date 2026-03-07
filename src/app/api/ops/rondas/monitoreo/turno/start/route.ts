@@ -2,22 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
-import { toChileTime } from "@/lib/rondas/timezone";
-
-/**
- * Get the control nocturno "night date" for a given moment.
- * Night shifts run ~19:00-08:00. If it's before 08:00 AM Chile time,
- * the CN date is yesterday (the night started yesterday evening).
- */
-function getCNDateForNow(): Date {
-  const chileNow = toChileTime(new Date());
-  const hour = chileNow.getHours();
-  if (hour < 8) {
-    chileNow.setDate(chileNow.getDate() - 1);
-  }
-  chileNow.setHours(0, 0, 0, 0);
-  return chileNow;
-}
+import { getCNDate } from "@/lib/rondas/cn-utils";
 
 export async function POST() {
   try {
@@ -36,7 +21,7 @@ export async function POST() {
     }
 
     // Find tonight's control nocturno to link (if not already linked to another turno)
-    const cnDate = getCNDateForNow();
+    const cnDate = getCNDate(new Date());
     const cn = await prisma.opsControlNocturno.findFirst({
       where: {
         tenantId: ctx.tenantId,

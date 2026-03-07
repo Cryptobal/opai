@@ -9,62 +9,19 @@
 
 import { prisma } from "@/lib/prisma";
 import { toChileTime } from "@/lib/rondas/timezone";
+import { getCNDate } from "@/lib/rondas/cn-utils";
 
-const RONDA_HOURS = [
-  "20:00", "21:00", "22:00", "23:00",
-  "00:00", "01:00", "02:00", "03:00",
-  "04:00", "05:00", "06:00", "07:00",
-];
+const RONDA_HOURS = [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7];
 
 /**
- * Find the closest CN ronda slot hour for a given Chile local hour.
- * Returns the ronda number (1-12) or null if outside the night window.
+ * Determina a qué slot R1-R12 pertenece una hora dada.
+ * Cada slot cubre 60 minutos: R1 = 20:00-20:59, R2 = 21:00-21:59, etc.
+ * Retorna rondaNumber (1-12) o null si la hora está fuera del rango nocturno (8-19).
  */
-function findClosestRondaNumber(chileHour: number, chileMinute: number): number | null {
-  // Night window: 19:30 - 07:30
-  // Map to the closest full hour in RONDA_HOURS
-  const totalMinutes = chileHour * 60 + chileMinute;
-
-  // Before 19:30 or after 07:30 → not in night window
-  if (totalMinutes >= 7 * 60 + 30 && totalMinutes < 19 * 60 + 30) return null;
-
-  // Find the closest hour
-  let bestIdx = 0;
-  let bestDist = Infinity;
-
-  for (let i = 0; i < RONDA_HOURS.length; i++) {
-    const [h, m] = RONDA_HOURS[i].split(":").map(Number);
-    let slotMinutes = h * 60 + m;
-    // Normalize for overnight: hours 0-7 become 24-31
-    if (slotMinutes < 12 * 60) slotMinutes += 24 * 60;
-
-    let nowMinutes = totalMinutes;
-    if (nowMinutes < 12 * 60) nowMinutes += 24 * 60;
-
-    const dist = Math.abs(nowMinutes - slotMinutes);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestIdx = i;
-    }
-  }
-
-  // Only match if within 30 minutes of the slot
-  if (bestDist > 30) return null;
-
-  return bestIdx + 1; // rondaNumber is 1-based
-}
-
-/**
- * Get the CN date for a given completion time.
- * Same logic as turno start: before 8AM → previous day.
- */
-function getCNDate(completedAt: Date): Date {
-  const chile = toChileTime(completedAt);
-  if (chile.getHours() < 8) {
-    chile.setDate(chile.getDate() - 1);
-  }
-  chile.setHours(0, 0, 0, 0);
-  return chile;
+function findSlotForHour(chileHour: number): number | null {
+  const idx = RONDA_HOURS.indexOf(chileHour);
+  if (idx === -1) return null;
+  return idx + 1;
 }
 
 interface AutoPopulateParams {
@@ -90,7 +47,7 @@ export async function autoPopulateCNFromRonda(params: AutoPopulateParams): Promi
     const { tenantId, ejecucionId, installationId, completedAt, trustScore, status } = params;
 
     const chileTime = toChileTime(completedAt);
-    const rondaNumber = findClosestRondaNumber(chileTime.getHours(), chileTime.getMinutes());
+    const rondaNumber = findSlotForHour(chileTime.getHours());
     if (!rondaNumber) return false;
 
     const cnDate = getCNDate(completedAt);
