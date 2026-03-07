@@ -50,6 +50,7 @@ model Tenant {
   inventoryAssetAssignments   InventoryAssetAssignment[]
   aiProviders                 AiProvider[]
   globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
+  gamificacionConfig          GamificacionConfig?
 
   @@index([slug])
   @@index([active])
@@ -1417,6 +1418,11 @@ model CrmInstallation {
   accessControlPreregistrations   AccessControlPreregistration[]
   accessControlPairingCodes       AccessControlPairingCode[]
   accessControlDevices            AccessControlDevice[]
+  gamificacionScores          GamificacionScoreGuardia[]    @relation("gamificacion_score_installation")
+  gamificacionEventos         GamificacionEvento[]          @relation("gamificacion_evento_installation")
+  gamificacionReconocimientos GamificacionReconocimiento[]  @relation("gamificacion_reconocimiento_installation")
+  gamificacionFondosPremio    GamificacionFondoPremio[]     @relation("gamificacion_fondo_installation")
+  gamificacionDesafios        GamificacionDesafio[]         @relation("gamificacion_desafio_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2265,6 +2271,14 @@ model OpsGuardia {
   rondaAlertas                OpsAlertaRonda[]                @relation("alertaGuardia")
   patrolSessions              OpsPatrullajeSesion[]
   checkpointTaskResponses     OpsCheckpointTaskResponse[]
+  gamificacionScores           GamificacionScoreGuardia[]
+  gamificacionEventos          GamificacionEvento[]
+  gamificacionBadges           GamificacionGuardiaBadge[]
+  reconocimientosDados         GamificacionReconocimiento[]          @relation("reconocimientosDados")
+  reconocimientosRecibidos     GamificacionReconocimiento[]          @relation("reconocimientosRecibidos")
+  gamificacionSugerenciasBono  GamificacionSugerenciaBono[]
+  gamificacionDesafios         GamificacionDesafioParticipacion[]
+  gamificacionCanjes           GamificacionCanje[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -5997,4 +6011,409 @@ model AccessControlDevice {
   @@index([tenantId], map: "idx_acd_tenant")
   @@map("access_control_devices")
   @@schema("access_control")
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GAMIFICACIÓN
+// ══════════════════════════════════════════════════════════════════
+
+model GamificacionConfig {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String @unique @map("tenant_id")
+
+  // ── Pesos dimensiones Trust Score (suman 100) ──
+  pesoRondas          Int @default(30) @map("peso_rondas")
+  pesoAsistencia      Int @default(25) @map("peso_asistencia")
+  pesoSistemaDigital  Int @default(15) @map("peso_sistema_digital")
+  pesoSupervision     Int @default(20) @map("peso_supervision")
+  pesoCapacitacion    Int @default(10) @map("peso_capacitacion")
+
+  // ── Puntos por acción: Asistencia ──
+  ptsEntradaPuntual        Int @default(10)   @map("pts_entrada_puntual")
+  ptsSalidaCompleta        Int @default(10)   @map("pts_salida_completa")
+  ptsTardanzaPenalizacion  Int @default(-20)  @map("pts_tardanza_penalizacion")
+  ptsInasistenciaInjust    Int @default(-100) @map("pts_inasistencia_injust")
+  ptsTurnoExtra            Int @default(80)   @map("pts_turno_extra")
+  ptsAsistenciaPerfectaMes Int @default(200)  @map("pts_asistencia_perfecta_mes")
+
+  // ── Puntos por acción: Rondas ──
+  ptsRondaPerfecta      Int @default(20)  @map("pts_ronda_perfecta")
+  ptsRondaCompletada    Int @default(10)  @map("pts_ronda_completada")
+  ptsRondaNoRealizada   Int @default(-30) @map("pts_ronda_no_realizada")
+  ptsIncidenteReportado Int @default(15)  @map("pts_incidente_reportado")
+  ptsTareaCheckpoint    Int @default(5)   @map("pts_tarea_checkpoint")
+
+  // ── Puntos por acción: Sistema digital ──
+  ptsMarcacionDigital  Int @default(5)  @map("pts_marcacion_digital")
+  ptsBonusConsistencia Int @default(30) @map("pts_bonus_consistencia")
+  ptsReporteDigital    Int @default(5)  @map("pts_reporte_digital")
+
+  // ── Puntos por acción: Supervisión ──
+  ptsEvalSobresaliente Int @default(100) @map("pts_eval_sobresaliente")
+  ptsEvalBuena         Int @default(50)  @map("pts_eval_buena")
+  ptsHallazgoNegativo  Int @default(-25) @map("pts_hallazgo_negativo")
+
+  // ── Puntos por acción: Capacitación ──
+  ptsExamenAprobado  Int @default(50)  @map("pts_examen_aprobado")
+  ptsExamenPerfecto  Int @default(100) @map("pts_examen_perfecto")
+
+  // ── Puntos por acción: Social ──
+  ptsReconocimientoRecibido Int @default(10) @map("pts_reconocimiento_recibido")
+  ptsReconocimientoDado     Int @default(5)  @map("pts_reconocimiento_dado")
+  ptsBadgeDesbloqueado      Int @default(50) @map("pts_badge_desbloqueado")
+
+  // ── Puntos por acción: Rachas ──
+  ptsBonusRacha7dias       Int @default(50)  @map("pts_bonus_racha_7dias")
+  ptsBonusRacha30dias      Int @default(200) @map("pts_bonus_racha_30dias")
+  ptsBonusRacha90dias      Int @default(500) @map("pts_bonus_racha_90dias")
+  ptsBonusSemanalPerfecta  Int @default(40)  @map("pts_bonus_semanal_perfecta")
+
+  // ── Umbrales de niveles ──
+  nivel1Nombre String @default("Centinela")  @map("nivel_1_nombre")
+  nivel1Puntos Int    @default(0)             @map("nivel_1_puntos")
+  nivel2Nombre String @default("Vigía")       @map("nivel_2_nombre")
+  nivel2Puntos Int    @default(500)           @map("nivel_2_puntos")
+  nivel3Nombre String @default("Guardián")    @map("nivel_3_nombre")
+  nivel3Puntos Int    @default(1500)          @map("nivel_3_puntos")
+  nivel4Nombre String @default("Protector")   @map("nivel_4_nombre")
+  nivel4Puntos Int    @default(3500)          @map("nivel_4_puntos")
+  nivel5Nombre String @default("Comandante")  @map("nivel_5_nombre")
+  nivel5Puntos Int    @default(7000)          @map("nivel_5_puntos")
+
+  // ── Configuración general ──
+  puntosPorClp          Float   @default(10)      @map("puntos_por_clp")
+  maxPuntosDiarios      Int     @default(200)     @map("max_puntos_diarios")
+  expiracionPuntosMeses Int     @default(12)      @map("expiracion_puntos_meses")
+  rankingResetDia       String  @default("lunes") @map("ranking_reset_dia")
+  bonosHabilitados      Boolean @default(false)   @map("bonos_habilitados")
+  moduloActivo          Boolean @default(false)   @map("modulo_activo")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("gamificacion_config")
+  @@schema("ops")
+}
+
+model GamificacionScoreGuardia {
+  id             String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String @map("tenant_id")
+  guardiaId      String @map("guardia_id") @db.Uuid
+  installationId String? @map("installation_id") @db.Uuid
+
+  periodo     String   @map("periodo")
+  periodoTipo String   @map("periodo_tipo")
+  fechaInicio DateTime @map("fecha_inicio") @db.Timestamptz(6)
+  fechaFin    DateTime @map("fecha_fin")    @db.Timestamptz(6)
+
+  trustScore Float @default(0) @map("trust_score")
+
+  scoreRondas         Float @default(0) @map("score_rondas")
+  scoreAsistencia     Float @default(0) @map("score_asistencia")
+  scoreSistemaDigital Float @default(0) @map("score_sistema_digital")
+  scoreSupervision    Float @default(0) @map("score_supervision")
+  scoreCapacitacion   Float @default(0) @map("score_capacitacion")
+
+  detalleRondas         Json? @map("detalle_rondas")          @db.JsonB
+  detalleAsistencia     Json? @map("detalle_asistencia")      @db.JsonB
+  detalleSistemaDigital Json? @map("detalle_sistema_digital") @db.JsonB
+  detalleSupervision    Json? @map("detalle_supervision")     @db.JsonB
+  detalleCapacitacion   Json? @map("detalle_capacitacion")    @db.JsonB
+
+  puntosGanados  Int @default(0) @map("puntos_ganados")
+  puntosPerdidos Int @default(0) @map("puntos_perdidos")
+  puntosNetos    Int @default(0) @map("puntos_netos")
+
+  rankingInstalacion        Int? @map("ranking_instalacion")
+  rankingGlobal             Int? @map("ranking_global")
+  totalGuardiasInstalacion  Int? @map("total_guardias_instalacion")
+  totalGuardiasGlobal       Int? @map("total_guardias_global")
+
+  rachaActual Int @default(0) @map("racha_actual")
+  mejorRacha  Int @default(0) @map("mejor_racha")
+
+  nivelActual                String @default("Centinela") @map("nivel_actual")
+  puntosAcumuladosHistorico  Int    @default(0)           @map("puntos_acumulados_historico")
+
+  calculadoAt DateTime @default(now()) @map("calculado_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at")   @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt     @map("updated_at")   @db.Timestamptz(6)
+
+  guardia      OpsGuardia       @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  installation CrmInstallation? @relation("gamificacion_score_installation", fields: [installationId], references: [id], onDelete: SetNull)
+
+  @@unique([guardiaId, periodo, periodoTipo], map: "uq_gam_score_guardia_periodo")
+  @@index([tenantId, periodo], map: "idx_gam_score_tenant_periodo")
+  @@index([installationId, periodo], map: "idx_gam_score_installation_periodo")
+  @@index([trustScore], map: "idx_gam_score_trust_score")
+  @@index([rankingGlobal], map: "idx_gam_score_ranking_global")
+  @@map("gamificacion_score_guardia")
+  @@schema("ops")
+}
+
+model GamificacionEvento {
+  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String  @map("tenant_id")
+  guardiaId      String  @map("guardia_id") @db.Uuid
+  installationId String? @map("installation_id") @db.Uuid
+
+  tipo      String @map("tipo")
+  dimension String @map("dimension")
+  puntos    Int    @map("puntos")
+
+  descripcion String @map("descripcion")
+
+  referenciaModelo String? @map("referencia_modelo")
+  referenciaId     String? @map("referencia_id")
+
+  fecha     DateTime @default(now()) @map("fecha")     @db.Timestamptz(6)
+  procesado Boolean  @default(false) @map("procesado")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  guardia      OpsGuardia       @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  installation CrmInstallation? @relation("gamificacion_evento_installation", fields: [installationId], references: [id], onDelete: SetNull)
+
+  @@index([guardiaId, fecha], map: "idx_gam_evento_guardia_fecha")
+  @@index([tenantId, fecha], map: "idx_gam_evento_tenant_fecha")
+  @@index([tipo], map: "idx_gam_evento_tipo")
+  @@index([procesado], map: "idx_gam_evento_procesado")
+  @@map("gamificacion_eventos")
+  @@schema("ops")
+}
+
+model GamificacionBadge {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String @map("tenant_id")
+
+  codigo      String @map("codigo")
+  nombre      String @map("nombre")
+  descripcion String @map("descripcion")
+
+  categoria String  @map("categoria")
+  icono     String? @map("icono")
+  color     String? @map("color")
+
+  condicionTipo  String @map("condicion_tipo")
+  condicionValor Int    @map("condicion_valor")
+  condicionExtra Json?  @map("condicion_extra") @db.JsonB
+
+  esSecreto   Boolean @default(false) @map("es_secreto")
+  esUnico     Boolean @default(true)  @map("es_unico")
+  activo      Boolean @default(true)  @map("activo")
+  orden       Int     @default(0)     @map("orden")
+  puntosBonus Int     @default(50)    @map("puntos_bonus")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  guardiaBadges GamificacionGuardiaBadge[]
+
+  @@unique([tenantId, codigo], map: "uq_gam_badge_tenant_codigo")
+  @@index([tenantId, activo], map: "idx_gam_badge_tenant_activo")
+  @@map("gamificacion_badges")
+  @@schema("ops")
+}
+
+model GamificacionGuardiaBadge {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String @map("tenant_id")
+  guardiaId String @map("guardia_id") @db.Uuid
+  badgeId   String @map("badge_id")   @db.Uuid
+
+  desbloqueadoAt DateTime @default(now()) @map("desbloqueado_at") @db.Timestamptz(6)
+  contexto       Json?    @map("contexto") @db.JsonB
+  notificado     Boolean  @default(false) @map("notificado")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  guardia OpsGuardia        @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  badge   GamificacionBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([guardiaId, badgeId], map: "uq_gam_guardia_badge")
+  @@index([guardiaId], map: "idx_gam_guardia_badge_guardia")
+  @@map("gamificacion_guardia_badges")
+  @@schema("ops")
+}
+
+model GamificacionReconocimiento {
+  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String  @map("tenant_id")
+  dadorId        String  @map("dador_id")    @db.Uuid
+  receptorId     String  @map("receptor_id") @db.Uuid
+  installationId String? @map("installation_id") @db.Uuid
+
+  categoria String  @map("categoria")
+  mensaje   String? @map("mensaje")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dadorGuardia    OpsGuardia       @relation("reconocimientosDados", fields: [dadorId], references: [id], onDelete: Cascade)
+  receptorGuardia OpsGuardia       @relation("reconocimientosRecibidos", fields: [receptorId], references: [id], onDelete: Cascade)
+  installation    CrmInstallation? @relation("gamificacion_reconocimiento_installation", fields: [installationId], references: [id], onDelete: SetNull)
+
+  @@index([receptorId], map: "idx_gam_reconocimiento_receptor")
+  @@index([dadorId], map: "idx_gam_reconocimiento_dador")
+  @@index([tenantId, createdAt], map: "idx_gam_reconocimiento_tenant_fecha")
+  @@map("gamificacion_reconocimientos")
+  @@schema("ops")
+}
+
+model GamificacionFondoPremio {
+  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String  @map("tenant_id")
+  installationId String? @map("installation_id") @db.Uuid
+
+  nombre       String  @map("nombre")
+  descripcion  String? @map("descripcion")
+  tipo         String  @map("tipo")
+  montoTotalClp Int    @map("monto_total_clp")
+
+  fechaInicio  DateTime @map("fecha_inicio") @db.Timestamptz(6)
+  fechaFin     DateTime @map("fecha_fin")    @db.Timestamptz(6)
+
+  distribucion Json   @map("distribucion") @db.JsonB
+  status       String @default("activo") @map("status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  installation    CrmInstallation?          @relation("gamificacion_fondo_installation", fields: [installationId], references: [id], onDelete: SetNull)
+  sugerenciasBono GamificacionSugerenciaBono[]
+
+  @@index([tenantId, status], map: "idx_gam_fondo_tenant_status")
+  @@map("gamificacion_fondos_premio")
+  @@schema("ops")
+}
+
+model GamificacionSugerenciaBono {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String @map("tenant_id")
+  fondoId   String @map("fondo_id")   @db.Uuid
+  guardiaId String @map("guardia_id") @db.Uuid
+
+  posicionRanking  Int @map("posicion_ranking")
+  puntajePeriodo   Int @map("puntaje_periodo")
+  montoSugeridoClp Int @map("monto_sugerido_clp")
+
+  status        String    @default("pendiente") @map("status")
+  aprobadoPor   String?   @map("aprobado_por")
+  aprobadoAt    DateTime? @map("aprobado_at")    @db.Timestamptz(6)
+  rechazadoPor  String?   @map("rechazado_por")
+  rechazadoAt   DateTime? @map("rechazado_at")   @db.Timestamptz(6)
+  motivoRechazo String?   @map("motivo_rechazo")
+  pagadoAt      DateTime? @map("pagado_at")      @db.Timestamptz(6)
+  payrollReferencia String? @map("payroll_referencia")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  fondo   GamificacionFondoPremio @relation(fields: [fondoId], references: [id], onDelete: Cascade)
+  guardia OpsGuardia              @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@unique([fondoId, guardiaId], map: "uq_gam_sugerencia_fondo_guardia")
+  @@index([tenantId, status], map: "idx_gam_sugerencia_tenant_status")
+  @@map("gamificacion_sugerencias_bono")
+  @@schema("ops")
+}
+
+model GamificacionDesafio {
+  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String  @map("tenant_id")
+  installationId String? @map("installation_id") @db.Uuid
+
+  nombre       String @map("nombre")
+  descripcion  String @map("descripcion")
+  tipo         String @map("tipo")
+
+  condicionTipo  String @map("condicion_tipo")
+  condicionValor Int    @map("condicion_valor")
+  condicionExtra Json?  @map("condicion_extra") @db.JsonB
+
+  fechaInicio DateTime @map("fecha_inicio") @db.Timestamptz(6)
+  fechaFin    DateTime @map("fecha_fin")    @db.Timestamptz(6)
+
+  puntosRecompensa Int     @default(0) @map("puntos_recompensa")
+  badgeId          String? @map("badge_id") @db.Uuid
+  activo           Boolean @default(true) @map("activo")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  installation    CrmInstallation?                    @relation("gamificacion_desafio_installation", fields: [installationId], references: [id], onDelete: SetNull)
+  participaciones GamificacionDesafioParticipacion[]
+
+  @@index([tenantId, activo], map: "idx_gam_desafio_tenant_activo")
+  @@map("gamificacion_desafios")
+  @@schema("ops")
+}
+
+model GamificacionDesafioParticipacion {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String @map("tenant_id")
+  desafioId String @map("desafio_id") @db.Uuid
+  guardiaId String @map("guardia_id") @db.Uuid
+
+  progreso            Float    @default(0) @map("progreso")
+  completado          Boolean  @default(false) @map("completado")
+  completadoAt        DateTime? @map("completado_at") @db.Timestamptz(6)
+  recompensaEntregada Boolean  @default(false) @map("recompensa_entregada")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  desafio GamificacionDesafio @relation(fields: [desafioId], references: [id], onDelete: Cascade)
+  guardia OpsGuardia          @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@unique([desafioId, guardiaId], map: "uq_gam_desafio_participacion")
+  @@map("gamificacion_desafio_participaciones")
+  @@schema("ops")
+}
+
+model GamificacionBeneficio {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String @map("tenant_id")
+
+  nombre      String  @map("nombre")
+  descripcion String  @map("descripcion")
+  categoria   String  @map("categoria")
+  costoPuntos Int?    @map("costo_puntos")
+  proveedor   String? @map("proveedor")
+  imagenUrl   String? @map("imagen_url")
+
+  stockDisponible Int?      @map("stock_disponible")
+  fechaInicio     DateTime? @map("fecha_inicio") @db.Timestamptz(6)
+  fechaFin        DateTime? @map("fecha_fin")    @db.Timestamptz(6)
+  activo          Boolean   @default(true) @map("activo")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt     @map("updated_at") @db.Timestamptz(6)
+
+  canjes GamificacionCanje[]
+
+  @@index([tenantId, activo], map: "idx_gam_beneficio_tenant_activo")
+  @@map("gamificacion_beneficios")
+  @@schema("ops")
+}
+
+model GamificacionCanje {
+  id           String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String @map("tenant_id")
+  guardiaId    String @map("guardia_id")    @db.Uuid
+  beneficioId  String @map("beneficio_id")  @db.Uuid
+
+  puntosUsados Int    @map("puntos_usados")
+  status       String @default("pendiente") @map("status")
+
+  entregadoAt DateTime? @map("entregado_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  guardia   OpsGuardia            @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  beneficio GamificacionBeneficio @relation(fields: [beneficioId], references: [id], onDelete: Cascade)
+
+  @@index([guardiaId], map: "idx_gam_canje_guardia")
+  @@map("gamificacion_canjes")
+  @@schema("ops")
 }
