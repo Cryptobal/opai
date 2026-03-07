@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type Pusher from "pusher-js";
 import type { ChatMessageData, SendMessagePayload } from "@/lib/chat-types";
+import type { PusherConnectionState } from "./hooks/usePusher";
 import { ChatPresenceBar } from "./ChatPresenceBar";
+import { ChatConnectionBanner } from "./ChatConnectionBanner";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
@@ -17,6 +19,7 @@ interface ChatConversationProps {
   channelId: string;
   channelName: string;
   pusher: Pusher | null;
+  connectionState?: PusherConnectionState;
   onBack: () => void;
   /** Optional function returning a context prefix for the first message (auto-context) */
   autoContextPrefix?: () => string;
@@ -32,6 +35,7 @@ export function ChatConversation({
   channelId,
   channelName,
   pusher,
+  connectionState,
   onBack,
   autoContextPrefix,
   currentUserId: currentUserIdProp,
@@ -275,6 +279,13 @@ export function ChatConversation({
             </button>
           )}
         </ChatPresenceBar>
+
+        {connectionState && (
+          <ChatConnectionBanner
+            connectionState={connectionState}
+            onRetry={() => pusher?.connect()}
+          />
+        )}
 
         <ChatMessageList
           messages={searchQuery.trim() ? searchResults : apiMessages}

@@ -42,7 +42,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const ctx = useChatFloatingContext();
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
-  const pusher = usePusher("/api/chat/pusher/auth");
+  const { pusher, connectionState } = usePusher("/api/chat/pusher/auth");
 
   // Track whether auto-context was injected for this panel session
   const [contextInjected, setContextInjected] = useState(false);
@@ -306,6 +306,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
               channelId={ctx.selectedChannelId}
               channelName={selectedChannelName}
               pusher={pusher}
+              connectionState={connectionState}
               onBack={() => ctx.selectChannel(null)}
               autoContextPrefix={getAutoContextPrefix}
               currentUserId={ctx.currentUserId}

@@ -26,7 +26,7 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
   const initialChannel = searchParams.get("channel");
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannel);
   const [selectedChannelName, setSelectedChannelName] = useState<string>("");
-  const pusher = usePusher("/api/chat/pusher/auth");
+  const { pusher, connectionState } = usePusher("/api/chat/pusher/auth");
   const { channels: unreadChannels, refresh: refreshUnread } = useChatUnreadCounts();
 
   const handleSelectChannel = useCallback(
@@ -74,6 +74,7 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
             channelId={selectedChannelId}
             channelName={selectedChannelName}
             pusher={pusher}
+            connectionState={connectionState}
             onBack={handleBack}
             currentUserId={currentUserId}
             userRole={userRole}
