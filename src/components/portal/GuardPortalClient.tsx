@@ -29,8 +29,10 @@ import {
   X,
   ChevronDown,
   MessageCircle,
+  TrendingUp,
 } from "lucide-react";
 import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
+import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
@@ -68,6 +70,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   User: <User className="h-5 w-5" />,
   MessageCircle: <MessageCircle className="h-5 w-5" />,
   ShieldCheck: <ShieldCheck className="h-5 w-5" />,
+  TrendingUp: <TrendingUp className="h-5 w-5" />,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -176,6 +179,9 @@ export function GuardPortalClient() {
             <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
             <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
           </div>
+        )}
+        {activeSection === "desempeno" && (
+          <GuardDesempenoSection session={session} />
         )}
         {activeSection === "control-acceso" && session.currentInstallationId && (
           <AccessControlGuardHome

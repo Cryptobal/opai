@@ -95,7 +95,8 @@ export type PortalSection =
   | "examenes"
   | "resultados"
   | "chat"
-  | "control-acceso";
+  | "control-acceso"
+  | "desempeno";
 
 export interface PortalNavItem {
   key: PortalSection;
@@ -118,14 +119,15 @@ export const PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "resultados", label: "Mis Resultados", icon: "BarChart3", description: "Historial de resultados" },
   { key: "chat", label: "Chat", icon: "MessageCircle", description: "Chat de instalación" },
   { key: "control-acceso", label: "Control Acceso", icon: "ShieldCheck", description: "Control de acceso a la instalación" },
+  { key: "desempeno", label: "Desempeño", icon: "TrendingUp", description: "Mi puntaje, badges y ranking" },
 ];
 
-// Bottom nav: only 4 items for mobile
+// Bottom nav: only 5 items for mobile
 export const PORTAL_BOTTOM_NAV: PortalSection[] = [
   "inicio",
+  "desempeno",
   "solicitudes",
   "chat",
-  "pauta",
   "perfil",
 ];
 
