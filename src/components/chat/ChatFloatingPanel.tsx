@@ -530,6 +530,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
                 autoContextPrefix={getAutoContextPrefix}
                 currentUserId={ctx.currentUserId}
                 userRole={userRole}
+                onClose={ctx.closePanel}
               />
             )}
           </div>
@@ -552,7 +553,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
         ref={panelRef}
         className={cn(
           "fixed z-[61] hidden lg:flex flex-col bg-[#0a0e17] border-[rgba(255,255,255,0.06)] transition-transform duration-300 ease-out",
-          "bottom-0 right-6 left-auto top-auto w-[600px] max-h-[75vh] rounded-t-2xl rounded-b-none border border-b-0 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
+          "bottom-0 right-6 left-auto top-4 w-[600px] rounded-t-2xl rounded-b-none border border-b-0 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
           ctx.isPanelOpen ? "translate-y-0" : "translate-y-full",
         )}
         role="dialog"

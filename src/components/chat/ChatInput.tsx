@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   File as FileIcon,
   Link2,
+  Camera,
 } from "lucide-react";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
@@ -89,6 +90,7 @@ export function ChatInput({
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef(0);
 
   // Emoji picker state
@@ -725,17 +727,17 @@ export function ChatInput({
       )}
 
       {/* Input area */}
-      <div className="flex items-end gap-2 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
+      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
         {/* File upload */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={files.length >= MAX_FILES}
-          className="text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0"
+          className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
           aria-label="Adjuntar archivo"
           title={files.length >= MAX_FILES ? `Maximo ${MAX_FILES} archivos` : "Adjuntar archivo"}
         >
-          <Paperclip className="h-4.5 w-4.5" />
+          <Paperclip className="h-4 w-4" />
         </button>
         <input
           ref={fileInputRef}
@@ -744,6 +746,26 @@ export function ChatInput({
           onChange={handleFileSelect}
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+        />
+
+        {/* Camera button (mobile only) */}
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={files.length >= MAX_FILES}
+          className="lg:hidden flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
+          aria-label="Tomar foto"
+          title="Tomar foto o elegir imagen"
+        >
+          <Camera className="h-4 w-4" />
+        </button>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          className="hidden"
         />
 
         {/* Emoji picker */}
@@ -759,11 +781,11 @@ export function ChatInput({
                 setLinkPanelResults([]);
               }
             }}
-            className="text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0"
+            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
             aria-label="Emoji"
             title="Emoji"
           >
-            <Smile className="h-4.5 w-4.5" />
+            <Smile className="h-4 w-4" />
           </button>
           {showEmojiPicker && (
             <div className="absolute bottom-full left-0 mb-2 z-50">
@@ -794,11 +816,11 @@ export function ChatInput({
                 setLinkPanelResults([]);
               }
             }}
-            className="text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0"
+            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
             aria-label="Vincular entidad"
             title="Vincular entidad CRM"
           >
-            <Link2 className="h-4.5 w-4.5" />
+            <Link2 className="h-4 w-4" />
           </button>
           {showLinkPanel && (
             <div className="absolute bottom-full left-0 mb-2 z-50 w-80 rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
@@ -955,7 +977,7 @@ export function ChatInput({
           type="button"
           onClick={handleSend}
           disabled={isEmpty || isSending || isUploading}
-          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors shrink-0 my-0.5"
+          className="h-8 w-8 rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-400 transition-colors shrink-0 mb-0.5"
           aria-label="Enviar mensaje"
         >
           <SendHorizontal className="h-4 w-4" />
