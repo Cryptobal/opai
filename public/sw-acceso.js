@@ -77,3 +77,123 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 });
+
+// PUSH NOTIFICATIONS
+self.addEventListener("push", (event) => {
+  if (!event.data) {
+    event.waitUntil(
+      self.registration.showNotification("Control de Acceso", {
+        body: "Tienes una nueva notificacion",
+        icon: "/iconos_azul/icon-192x192.png",
+        badge: "/iconos_azul/icon-192x192.png",
+      })
+    );
+    return;
+  }
+
+  let data;
+  try {
+    data = event.data.json();
+  } catch {
+    data = { title: "Control de Acceso", body: event.data.text() || "Nueva notificacion" };
+  }
+
+  const {
+    title = "Control de Acceso",
+    body = "",
+    icon,
+    badge,
+    tag,
+    image,
+    data: notifData,
+  } = data;
+
+  const promiseChain = self.registration.showNotification(title, {
+    body,
+    icon: icon || "/iconos_azul/icon-192x192.png",
+    badge: badge || "/iconos_azul/icon-192x192.png",
+    image,
+    tag,
+    renotify: !!tag,
+    data: notifData,
+    vibrate: [200, 100, 200],
+    actions: notifData?.actions || [],
+  });
+
+  if (navigator.setAppBadge) {
+    const count = notifData?.badgeCount || 1;
+    promiseChain.then(() => navigator.setAppBadge(count)).catch(() => {});
+  }
+
+  event.waitUntil(promiseChain);
+});
+
+// NOTIFICATION CLICK
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (navigator.clearAppBadge) {
+    navigator.clearAppBadge().catch(() => {});
+  }
+
+  // Mark notification as read if notificationId is present
+  const notificationId = event.notification.data?.notificationId;
+  if (notificationId) {
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: notificationId, read: true }),
+    }).catch(() => {});
+  }
+
+  const targetUrl = event.notification.data?.url || "/portal/acceso";
+
+  if (event.action) {
+    const actionUrl = event.notification.data?.actionUrls?.[event.action];
+    if (actionUrl) {
+      event.waitUntil(self.clients.openWindow(actionUrl));
+      return;
+    }
+  }
+
+  const target = new URL(targetUrl, self.location.origin);
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if (new URL(client.url).origin === target.origin) {
+            return client.navigate(target.href).then(() => client.focus());
+          }
+        }
+        return self.clients.openWindow(target.href);
+      })
+  );
+});
+
+// PUSH SUBSCRIPTION CHANGE
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe(event.oldSubscription?.options || { userVisibleOnly: true })
+      .then((newSub) =>
+        fetch("/api/notifications/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subscription: newSub.toJSON(),
+            oldEndpoint: event.oldSubscription?.endpoint,
+          }),
+        })
+      )
+      .catch((err) => console.error("[SW-Acceso] pushsubscriptionchange failed:", err))
+  );
+});
+
+// SKIP WAITING message
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});

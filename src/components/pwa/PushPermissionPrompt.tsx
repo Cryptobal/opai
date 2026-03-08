@@ -13,13 +13,38 @@ interface Props {
   tenantId: string;
 }
 
+const DISMISS_KEY = 'opai-push-prompt-dismissed';
+
+function isDismissedInStorage(portalType: string): boolean {
+  try {
+    const val = localStorage.getItem(`${DISMISS_KEY}:${portalType}`);
+    if (!val) return false;
+    // Dismiss expires after 30 days
+    const ts = parseInt(val, 10);
+    return Date.now() - ts < 30 * 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+function persistDismiss(portalType: string) {
+  try {
+    localStorage.setItem(`${DISMISS_KEY}:${portalType}`, String(Date.now()));
+  } catch {}
+}
+
 export function PushPermissionPrompt({ portalType, userType, userId, tenantId }: Props) {
   const { registration } = useServiceWorker();
   const isMobile = useIsMobile();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissedRaw] = useState(() => isDismissedInStorage(portalType));
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  const setDismissed = (val: boolean) => {
+    setDismissedRaw(val);
+    if (val) persistDismiss(portalType);
+  };
 
   // Auto-subscribe when permission is already granted (re-subscribe ensures
   // the server always has a fresh push subscription for this device).

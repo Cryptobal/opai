@@ -144,6 +144,16 @@ self.addEventListener('notificationclick', (event) => {
     navigator.clearAppBadge().catch(() => {});
   }
 
+  // Mark notification as read if notificationId is present
+  const notificationId = event.notification.data?.notificationId;
+  if (notificationId) {
+    fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: notificationId, read: true }),
+    }).catch(() => {});
+  }
+
   const targetUrl = event.notification.data?.url || '/';
 
   if (event.action) {

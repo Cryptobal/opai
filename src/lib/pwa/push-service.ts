@@ -51,6 +51,8 @@ interface SendPushParams {
   body: string;
   url?: string;
   tag?: string;
+  notificationId?: string;
+  badgeCount?: number;
 }
 
 export async function sendPushToPortalUser({
@@ -63,6 +65,8 @@ export async function sendPushToPortalUser({
   body,
   url,
   tag,
+  notificationId,
+  badgeCount,
 }: SendPushParams) {
   ensureVapidInitialized();
 
@@ -112,7 +116,12 @@ export async function sendPushToPortalUser({
             icon,
             badge: icon,
             tag: tag || notifKey,
-            data: { url, type: notifKey },
+            data: {
+              url,
+              type: notifKey,
+              ...(notificationId && { notificationId }),
+              ...(badgeCount && { badgeCount }),
+            },
           })
         );
       } catch (error: unknown) {
