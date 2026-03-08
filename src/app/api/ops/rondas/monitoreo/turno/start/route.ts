@@ -28,7 +28,7 @@ export async function POST() {
         date: cnDate,
         monitoreoTurno: null,
       },
-      select: { id: true },
+      select: { id: true, shiftStart: true, shiftEnd: true },
     });
 
     const turno = await prisma.opsMonitoreoTurno.create({
@@ -40,6 +40,21 @@ export async function POST() {
         controlNocturnoId: cn?.id ?? null,
       },
     });
+
+    // Generate/update grid slots with rondaExpected flags
+    if (cn) {
+      try {
+        const { generateGridSlots } = await import("@/lib/rondas/generate-grid");
+        await generateGridSlots({
+          controlNocturnoId: cn.id,
+          tenantId: ctx.tenantId,
+          shiftStart: cn.shiftStart,
+          shiftEnd: cn.shiftEnd,
+        });
+      } catch (err) {
+        console.error("[turno/start] Generate grid slots failed:", err);
+      }
+    }
 
     return NextResponse.json({ success: true, data: turno }, { status: 201 });
   } catch (error) {

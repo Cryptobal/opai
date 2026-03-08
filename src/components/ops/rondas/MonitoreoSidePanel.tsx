@@ -62,7 +62,7 @@ interface Props {
   // Instalaciones tab
   installations: InstallationCard[];
   onInstallationClick: (id: string) => void;
-  selectedInstallationId: string;
+  selectedInstallationId: string | null;
   // Active tab override (from header alert badge)
   initialTab?: "rondas" | "alertas" | "instalaciones";
 }
@@ -452,7 +452,7 @@ function InstalacionesTab({
 }: {
   installations: InstallationCard[];
   onInstallationClick: (id: string) => void;
-  selectedId: string;
+  selectedId: string | null;
 }) {
   if (installations.length === 0) {
     return <div className="px-4 py-8 text-center text-sm text-muted-foreground">Sin instalaciones</div>;

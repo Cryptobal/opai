@@ -1,0 +1,433 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X, Plus, Clock } from "lucide-react";
+import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface GuardData {
+  id: string;
+  guardiaNombre: string;
+  status: string;
+  horaLlegada: string | null;
+  isExtra: boolean;
+  turno: string;
+  notes?: string | null;
+  reemplazaDe?: string | null;
+  guardiaId?: string | null;
+}
+
+export interface GuardPanelProps {
+  instalacion: {
+    id: string;
+    installationName: string;
+    guardiasRequeridos: number;
+    coberturaStatus: string;
+    guardias: GuardData[];
+  };
+  turno: "nocturno" | "diurno";
+  onClose: () => void;
+  onGuardiaUpdate: (
+    guardiaId: string,
+    data: {
+      status?: string;
+      horaLlegada?: string | null;
+      notes?: string | null;
+      reemplazaDe?: string | null;
+    },
+  ) => void;
+  onGuardiaAdd: (data: {
+    guardiaNombre: string;
+    guardiaId?: string | null;
+    isExtra: boolean;
+    turno: string;
+  }) => void;
+  onGuardiaDelete: (guardiaId: string) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+const STATUS_BUTTONS = [
+  { value: "pendiente", label: "Pendiente", activeBg: "bg-slate-500" },
+  { value: "en_camino", label: "En camino", activeBg: "bg-blue-500" },
+  { value: "presente", label: "Presente", activeBg: "bg-emerald-500" },
+  { value: "no_viene", label: "No viene", activeBg: "bg-red-500" },
+] as const;
+
+// ---------------------------------------------------------------------------
+// GuardCard
+// ---------------------------------------------------------------------------
+
+function GuardCard({
+  guard,
+  onUpdate,
+  onDelete,
+}: {
+  guard: GuardData;
+  onUpdate: (data: {
+    status?: string;
+    horaLlegada?: string | null;
+    notes?: string | null;
+    reemplazaDe?: string | null;
+  }) => void;
+  onDelete: () => void;
+}) {
+  const [localHora, setLocalHora] = useState(guard.horaLlegada ?? "");
+  const [localNotes, setLocalNotes] = useState(guard.notes ?? "");
+  const [localReemplaza, setLocalReemplaza] = useState(
+    guard.reemplazaDe ?? "",
+  );
+  const notesSaveRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync with prop changes (optimistic updates from parent)
+  useEffect(() => {
+    setLocalHora(guard.horaLlegada ?? "");
+  }, [guard.horaLlegada]);
+
+  const handleStatusChange = (newStatus: string) => {
+    const patch: { status: string; horaLlegada?: string } = {
+      status: newStatus,
+    };
+    if (newStatus === "presente" && !guard.horaLlegada) {
+      patch.horaLlegada = nowHHMM();
+    }
+    onUpdate(patch);
+  };
+
+  const handleHoraBlur = () => {
+    if (localHora !== (guard.horaLlegada ?? "")) {
+      onUpdate({ horaLlegada: localHora || null });
+    }
+  };
+
+  const handleNotesChange = (value: string) => {
+    setLocalNotes(value);
+    if (notesSaveRef.current) clearTimeout(notesSaveRef.current);
+    notesSaveRef.current = setTimeout(() => {
+      onUpdate({ notes: value || null });
+    }, 1500);
+  };
+
+  const handleReemplazaBlur = () => {
+    if (localReemplaza !== (guard.reemplazaDe ?? "")) {
+      onUpdate({ reemplazaDe: localReemplaza || null });
+    }
+  };
+
+  const cardBorder =
+    guard.status === "no_viene"
+      ? "bg-red-500/[0.05] border-red-500/20"
+      : guard.status === "presente" || guard.status === "reemplazo"
+        ? "bg-emerald-500/[0.05] border-emerald-500/20"
+        : "bg-slate-800/40 border-slate-700/50";
+
+  return (
+    <div className={`rounded-lg border p-3 space-y-3 ${cardBorder}`}>
+      {/* Name + badges */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-200 font-medium">
+            {guard.guardiaNombre}
+          </span>
+          {guard.isExtra && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
+              EXTRA
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onDelete}
+          className="text-slate-600 hover:text-red-400 transition-colors p-1"
+          title="Eliminar guardia"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Status buttons */}
+      <div className="flex gap-1.5">
+        {STATUS_BUTTONS.map((btn) => (
+          <button
+            key={btn.value}
+            onClick={() => handleStatusChange(btn.value)}
+            className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all ${
+              guard.status === btn.value
+                ? `${btn.activeBg} text-white shadow-sm`
+                : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Arrival time — always visible */}
+      <div className="flex items-center gap-2">
+        <label className="text-[10px] text-slate-500 uppercase tracking-wide w-16 flex-shrink-0">
+          Llegada
+        </label>
+        <input
+          type="time"
+          value={localHora}
+          onChange={(e) => setLocalHora(e.target.value)}
+          onBlur={handleHoraBlur}
+          className="flex-1 h-8 text-xs bg-slate-900 border border-slate-700 rounded-md px-2 text-slate-300 focus:border-teal-500 focus:outline-none font-mono"
+        />
+        {!guard.horaLlegada && (
+          <button
+            onClick={() =>
+              onUpdate({
+                horaLlegada: nowHHMM(),
+                status:
+                  guard.status === "pendiente" ? "presente" : guard.status,
+              })
+            }
+            className="h-8 px-2.5 text-[10px] rounded-md bg-teal-500/20 text-teal-400 hover:bg-teal-500/30 transition-colors flex items-center gap-1 flex-shrink-0"
+            title="Usar hora actual"
+          >
+            <Clock className="w-3 h-3" />
+            Ahora
+          </button>
+        )}
+      </div>
+
+      {/* No viene — expanded section */}
+      {guard.status === "no_viene" && (
+        <div className="space-y-2 pt-1 border-t border-red-500/10">
+          <div>
+            <label className="text-[9px] text-slate-500 uppercase">
+              Reemplaza a
+            </label>
+            <input
+              type="text"
+              value={localReemplaza}
+              onChange={(e) => setLocalReemplaza(e.target.value)}
+              onBlur={handleReemplazaBlur}
+              placeholder="Nombre del guardia ausente"
+              className="mt-0.5 w-full h-7 text-xs bg-slate-900 border border-slate-600 rounded-md px-2 text-slate-300 focus:border-teal-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[9px] text-slate-500 uppercase">Nota</label>
+            <textarea
+              value={localNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Motivo de ausencia..."
+              rows={2}
+              className="mt-0.5 w-full text-xs bg-slate-900 border border-slate-600 rounded-md px-2 py-1.5 text-slate-300 focus:border-teal-500 focus:outline-none resize-none"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GuardPanel (main export)
+// ---------------------------------------------------------------------------
+
+export function GuardPanel({
+  instalacion,
+  turno,
+  onClose,
+  onGuardiaUpdate,
+  onGuardiaAdd,
+  onGuardiaDelete,
+}: GuardPanelProps) {
+  const [visible, setVisible] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newGuardName, setNewGuardName] = useState("");
+  const [newGuardId, setNewGuardId] = useState<string | null>(null);
+
+  // Filter by turno — guards without turno default to "nocturno"
+  const guardias = instalacion.guardias.filter((g) =>
+    turno === "nocturno" ? g.turno === "nocturno" || !g.turno : g.turno === turno,
+  );
+  const presentes = guardias.filter(
+    (g) => g.status === "presente" || g.status === "reemplazo",
+  ).length;
+  const requeridos =
+    turno === "nocturno"
+      ? instalacion.guardiasRequeridos
+      : guardias.length || 1;
+
+  // Animate in
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    setTimeout(onClose, 200);
+  }, [onClose]);
+
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) handleClose();
+    },
+    [handleClose],
+  );
+
+  // Escape key closes panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleClose]);
+
+  const handleAddGuard = useCallback(() => {
+    if (!newGuardName.trim()) return;
+    onGuardiaAdd({
+      guardiaNombre: newGuardName.trim(),
+      guardiaId: newGuardId,
+      isExtra: true,
+      turno,
+    });
+    setNewGuardName("");
+    setNewGuardId(null);
+    setShowAddForm(false);
+  }, [newGuardName, newGuardId, turno, onGuardiaAdd]);
+
+  const turnoLabel =
+    turno === "nocturno" ? "Guardias Nocturnos" : "Guardias de Día";
+  const accentColor = turno === "nocturno" ? "teal" : "blue";
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
+        onClick={handleBackdropClick}
+      />
+
+      {/* Panel */}
+      <div
+        className={`relative w-[380px] h-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-transform duration-200 ease-out ${
+          visible ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 px-4 py-3 border-b border-slate-800 bg-slate-900 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200">
+                {instalacion.installationName}
+              </h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span
+                  className={`text-xs font-medium ${accentColor === "teal" ? "text-teal-400" : "text-blue-400"}`}
+                >
+                  {turnoLabel}
+                </span>
+                <span
+                  className={`text-xs font-mono ${
+                    presentes >= requeridos
+                      ? "text-emerald-400"
+                      : presentes > 0
+                        ? "text-amber-400"
+                        : "text-slate-500"
+                  }`}
+                >
+                  {presentes}/{requeridos}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Guard list */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
+          {guardias.length === 0 && !showAddForm && (
+            <div className="text-center py-8">
+              <p className="text-xs text-slate-600">
+                No hay guardias asignados
+              </p>
+            </div>
+          )}
+
+          {guardias.map((g) => (
+            <GuardCard
+              key={g.id}
+              guard={g}
+              onUpdate={(data) => onGuardiaUpdate(g.id, data)}
+              onDelete={() => onGuardiaDelete(g.id)}
+            />
+          ))}
+
+        </div>
+
+        {/* Footer — Add form or add button (outside overflow-y-auto so dropdown isn't clipped) */}
+        <div className="sticky bottom-0 px-4 py-3 border-t border-slate-800 bg-slate-900 flex-shrink-0">
+          {showAddForm ? (
+            <div className="space-y-2">
+              <GuardiaSearchInput
+                value={newGuardName}
+                onChange={(patch) => {
+                  setNewGuardName(patch.guardiaNombre);
+                  if (patch.guardiaId) setNewGuardId(patch.guardiaId);
+                }}
+                placeholder="Buscar guardia por nombre..."
+                className="h-9 text-sm bg-slate-800 border-slate-600"
+                dropdownDirection="up"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddGuard}
+                  disabled={!newGuardName.trim()}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    newGuardName.trim()
+                      ? `${accentColor === "teal" ? "bg-teal-600 hover:bg-teal-500" : "bg-blue-600 hover:bg-blue-500"} text-white`
+                      : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                  }`}
+                >
+                  Agregar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewGuardName("");
+                    setNewGuardId(null);
+                  }}
+                  className="px-3 py-1.5 rounded-md text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${
+                accentColor === "teal"
+                  ? "text-teal-400 hover:bg-teal-500/10 border border-teal-500/20"
+                  : "text-blue-400 hover:bg-blue-500/10 border border-blue-500/20"
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Agregar guardia {turno === "nocturno" ? "nocturno" : "de día"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -3536,8 +3536,12 @@ model OpsControlNocturnoInstalacion {
   horaLlegadaTurnoDia String?  @map("hora_llegada_turno_dia")
   guardiaDiaNombres   String?  @map("guardia_dia_nombres")
   statusInstalacion   String   @default("normal") @map("status_instalacion") // normal, novedad, critico, no_aplica
+  coberturaStatus     String   @default("pendiente") @map("cobertura_status") // pendiente, completa, parcial, descubierta
   notes               String?
   autoAsistencia      Boolean  @default(false) @map("auto_asistencia")
+  monitoreoType       String   @default("manual") @map("monitoreo_type") // "rondas" | "manual"
+  rondaFrecuencia     Int?     @map("ronda_frecuencia") // frecuencia en minutos (60, 90, 120)
+  rondasEsperadas     Int      @default(0) @map("rondas_esperadas")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -3560,6 +3564,10 @@ model OpsControlNocturnoGuardia {
   isExtra              Boolean  @default(false) @map("is_extra")
   horaLlegada          String?  @map("hora_llegada")
   fotoEvidenciaUrl     String?  @map("foto_evidencia_url")
+  status               String   @default("pendiente") @map("status") // pendiente, en_camino, presente, no_viene, reemplazo
+  turno                String   @default("nocturno") @map("turno") // nocturno, diurno
+  reemplazaDe          String?  @map("reemplaza_de")
+  notes                String?  @map("notes")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   controlInstalacion OpsControlNocturnoInstalacion @relation(fields: [controlInstalacionId], references: [id], onDelete: Cascade)
@@ -3586,6 +3594,7 @@ model OpsControlNocturnoRonda {
   overrideAt           DateTime? @map("override_at") @db.Timestamptz(6)
   trustScore           Int?     @map("trust_score")
   trustColor           String?  @map("trust_color") // "green" | "yellow" | "red"
+  rondaExpected        Boolean  @default(true) @map("ronda_expected")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   controlInstalacion OpsControlNocturnoInstalacion @relation(fields: [controlInstalacionId], references: [id], onDelete: Cascade)

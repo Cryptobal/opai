@@ -5,7 +5,11 @@ import { MonitoreoMap } from "@/components/ops/rondas/monitoreo-map";
 import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHeader";
 import { MonitoreoSidePanel } from "@/components/ops/rondas/MonitoreoSidePanel";
 import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import MonitoreoGrid from "@/components/ops/rondas/MonitoreoGrid";
+import type { CellModalData, CNInstalacion } from "@/components/ops/rondas/MonitoreoGrid";
+import { MonitoreoGridCellModal } from "@/components/ops/rondas/MonitoreoGridCellModal";
+import { GuardPanel } from "@/components/ops/rondas/GuardPanel";
+import { ResizableDivider } from "@/components/ops/rondas/ResizableDivider";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
@@ -58,7 +62,7 @@ export function RondasMonitoreoClient({
   tenantId: string;
 }) {
   const [rows, setRows] = useState<any[]>(initialRows);
-  const [installationFilter, setInstallationFilter] = useState("");
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string | null>(null);
   const [selectedRondaId, setSelectedRondaId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closeTurnoId, setCloseTurnoId] = useState<string | null>(null);
@@ -71,6 +75,11 @@ export function RondasMonitoreoClient({
   const [resolveNotes, setResolveNotes] = useState("");
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
+  const [controlNocturno, setControlNocturno] = useState<any>(null);
+  const [activeTurno, setActiveTurno] = useState<{ id: string; operatorName: string | null } | null>(null);
+  const [cellModal, setCellModal] = useState<CellModalData | null>(null);
+  const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
+  const [splitPct, setSplitPct] = useState(55);
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -83,20 +92,29 @@ export function RondasMonitoreoClient({
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => {
-    // Initial alert fetch
-    fetchAlerts();
+  const refreshMonitoreo = useCallback(async () => {
+    try {
+      const monRes = await fetch("/api/ops/rondas/monitoreo");
+      const monJson = await monRes.json();
+      if (monJson.success) {
+        setRows(monJson.data);
+        if (monJson.controlNocturno) setControlNocturno(monJson.controlNocturno);
+        if (monJson.activeTurno) setActiveTurno(monJson.activeTurno);
+      }
+    } catch { /* ignore polling errors */ }
+  }, []);
 
-    const interval = setInterval(async () => {
-      try {
-        const monRes = await fetch("/api/ops/rondas/monitoreo");
-        const monJson = await monRes.json();
-        if (monJson.success) setRows(monJson.data);
-      } catch { /* ignore polling errors */ }
+  useEffect(() => {
+    // Initial fetch
+    fetchAlerts();
+    refreshMonitoreo();
+
+    const interval = setInterval(() => {
+      refreshMonitoreo();
       fetchAlerts();
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchAlerts]);
+  }, [fetchAlerts, refreshMonitoreo]);
 
   // Real-time events via Pusher
   useEffect(() => {
@@ -108,39 +126,32 @@ export function RondasMonitoreoClient({
     );
     const channel = pusher.subscribe(`monitoreo-${tenantId}`);
 
-    const refreshRows = () => {
-      fetch("/api/ops/rondas/monitoreo")
-        .then((r) => r.json())
-        .then((json) => { if (json.success) setRows(json.data); })
-        .catch(() => {});
-    };
-
     channel.bind("alerta-panico", (data: PanicAlertData) => {
       setPanicAlerts((prev) => [...prev, data]);
       soundAlert();
-      refreshRows();
+      refreshMonitoreo();
       fetchAlerts();
     });
 
     channel.bind("ronda-started", () => {
       soundRondaStarted();
-      refreshRows();
+      refreshMonitoreo();
     });
 
     channel.bind("checkpoint-marked", () => {
       soundCheckpointMarked();
-      refreshRows();
+      refreshMonitoreo();
     });
 
     channel.bind("ronda-completed", () => {
       soundRondaCompleted();
-      refreshRows();
+      refreshMonitoreo();
     });
 
     channel.bind("alerta-ronda", () => {
       soundAlert();
       fetchAlerts();
-      refreshRows();
+      refreshMonitoreo();
     });
 
     return () => {
@@ -148,7 +159,7 @@ export function RondasMonitoreoClient({
       pusher.unsubscribe(`monitoreo-${tenantId}`);
       pusher.disconnect();
     };
-  }, [tenantId, fetchAlerts]);
+  }, [tenantId, fetchAlerts, refreshMonitoreo]);
 
   // Tab title with alert count
   useEffect(() => {
@@ -164,12 +175,8 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
-  const filtered = useMemo(
-    () => installationFilter
-      ? rows.filter((r: any) => r.rondaTemplate?.installation?.id === installationFilter)
-      : rows,
-    [rows, installationFilter],
-  );
+  // Show all rows — selectedInstallationId is for highlighting, not filtering
+  const filtered = rows;
 
   const mapCheckpoints = useMemo(() => {
     const cps: any[] = [];
@@ -222,15 +229,15 @@ export function RondasMonitoreoClient({
 
   const mapCenter = useMemo(() => {
     if (mapCenterOverride) return mapCenterOverride;
-    if (installationFilter) {
-      const inst = installations.find((i) => i.id === installationFilter) as any;
+    if (selectedInstallationId) {
+      const inst = installations.find((i) => i.id === selectedInstallationId) as any;
       if (inst?.lat != null && inst?.lng != null) return { lat: inst.lat, lng: inst.lng };
     }
     if (filtered[0]?.rondaTemplate?.installation?.lat) {
       return { lat: filtered[0].rondaTemplate?.installation?.lat, lng: filtered[0].rondaTemplate?.installation?.lng };
     }
     return null;
-  }, [filtered, installationFilter, installations, mapCenterOverride]);
+  }, [filtered, selectedInstallationId, installations, mapCenterOverride]);
 
   const guardPanelData = useMemo(() => {
     return filtered.map((r: any) => ({
@@ -355,6 +362,125 @@ export function RondasMonitoreoClient({
     });
   }, [installations, rows, alertRows]);
 
+  const handleGuardiaUpdate = useCallback((guardiaId: string, data: { status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null }) => {
+    if (!guardPanel) return;
+    const controlInstalacionId = guardPanel.instalacion.id;
+    // Optimistic update
+    setControlNocturno((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        instalaciones: prev.instalaciones.map((inst: any) => {
+          if (inst.id !== controlInstalacionId) return inst;
+          return {
+            ...inst,
+            guardias: inst.guardias.map((g: any) =>
+              g.id === guardiaId ? { ...g, ...data } : g,
+            ),
+          };
+        }),
+      };
+    });
+    // Also update the panel's local view
+    setGuardPanel((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        instalacion: {
+          ...prev.instalacion,
+          guardias: prev.instalacion.guardias.map((g) =>
+            g.id === guardiaId ? { ...g, ...data } : g,
+          ),
+        },
+      };
+    });
+    // Fire-and-forget API call
+    fetch("/api/ops/rondas/monitoreo/grid/guardias", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ controlInstalacionId, singleGuard: { id: guardiaId, ...data } }),
+    }).catch(() => refreshMonitoreo());
+  }, [refreshMonitoreo, guardPanel]);
+
+  const handleGuardiaAdd = useCallback(async (data: { guardiaNombre: string; guardiaId?: string | null; isExtra: boolean; turno: string }) => {
+    if (!guardPanel) return;
+    try {
+      const res = await fetch("/api/ops/rondas/monitoreo/grid/guardias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ controlInstalacionId: guardPanel.instalacion.id, ...data }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        refreshMonitoreo();
+        // Update panel with new guard
+        if (json.guardia) {
+          setGuardPanel((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              instalacion: {
+                ...prev.instalacion,
+                guardias: [...prev.instalacion.guardias, json.guardia],
+              },
+            };
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  }, [refreshMonitoreo, guardPanel]);
+
+  const handleGuardiaDelete = useCallback(async (guardiaId: string) => {
+    if (!guardPanel) return;
+    const controlInstalacionId = guardPanel.instalacion.id;
+    // Optimistic remove
+    setGuardPanel((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        instalacion: {
+          ...prev.instalacion,
+          guardias: prev.instalacion.guardias.filter((g) => g.id !== guardiaId),
+        },
+      };
+    });
+    setControlNocturno((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        instalaciones: prev.instalaciones.map((inst: any) => {
+          if (inst.id !== controlInstalacionId) return inst;
+          return { ...inst, guardias: inst.guardias.filter((g: any) => g.id !== guardiaId) };
+        }),
+      };
+    });
+    fetch("/api/ops/rondas/monitoreo/grid/guardias", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ controlInstalacionId, guardias: [{ id: guardiaId, _delete: true, guardiaNombre: "" }] }),
+    }).catch(() => refreshMonitoreo());
+  }, [refreshMonitoreo, guardPanel]);
+
+  const handleCellSave = useCallback(async (rondaId: string, update: { status: string; horaMarcada: string | null; notes: string | null }) => {
+    try {
+      const res = await fetch("/api/ops/rondas/monitoreo/grid/cell", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ controlNocturnoRondaId: rondaId, ...update }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Celda actualizada");
+        setCellModal(null);
+        refreshMonitoreo();
+      } else {
+        toast.error(json.error ?? "Error al actualizar celda");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }, [refreshMonitoreo]);
+
   const handleAddNote = useCallback(async (ejecucionId: string, guardiaId: string, installationId: string, note: string) => {
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/nota", {
@@ -374,14 +500,14 @@ export function RondasMonitoreoClient({
   }, []);
 
   return (
-    <div className="flex flex-col gap-0 min-w-0">
+    <div className="flex flex-col min-w-0 h-[calc(100vh-64px)]">
       <PanicAlertBanner
         alerts={panicAlerts}
         onAcknowledge={(alertaId) => {
           setCurrentAlertCount((c) => Math.max(0, c - 1));
         }}
       />
-      {/* Compact turno header — all info in 1-2 lines */}
+      {/* Compact turno header */}
       <MonitoreoTurnoHeader
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
         completedCount={rows.filter((r: any) => r.status === "completada").length}
@@ -393,33 +519,9 @@ export function RondasMonitoreoClient({
         onToggleAlerts={handleToggleAlerts}
       />
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 mt-2">
-        <div className="w-56">
-          <SearchableSelect
-            value={installationFilter}
-            options={installations.map((i) => ({ id: i.id, label: i.name }))}
-            placeholder="Buscar instalación..."
-            onChange={setInstallationFilter}
-          />
-        </div>
-        {selectedRondaId && (
-          <button
-            className="text-[11px] text-[#94a3b8] hover:text-[#f1f5f9] underline"
-            onClick={() => setSelectedRondaId(null)}
-          >
-            Ver todos
-          </button>
-        )}
-      </div>
-
-      {/* Main: map + side panel */}
-      <div className={isFullscreen
-        ? "fixed inset-0 z-50 bg-[#0a0e1a] p-4"
-        : "mt-3 grid grid-cols-1 lg:grid-cols-10 gap-4"
-      }>
-        {/* Map */}
-        <div className={isFullscreen ? "h-full" : "lg:col-span-7 h-[calc(100vh-280px)] min-h-[400px] rounded-xl overflow-hidden border border-[#1e293b]"}>
+      {/* Fullscreen map overlay */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-[#0a0e1a] p-4">
           <MonitoreoMap
             checkpoints={mapCheckpoints}
             guards={mapGuards}
@@ -428,37 +530,93 @@ export function RondasMonitoreoClient({
             center={mapCenter}
             selectedGuardId={selectedRondaId}
             isFullscreen={isFullscreen}
-            onFullscreenToggle={() => setIsFullscreen((prev) => !prev)}
-            onInstallationClick={(id) => setInstallationFilter(id)}
+            onFullscreenToggle={() => setIsFullscreen(false)}
+            onInstallationClick={(id) => setSelectedInstallationId(id)}
           />
         </div>
+      )}
 
-        {/* Side panel with tabs */}
-        {!isFullscreen && (
-          <div className="lg:col-span-3 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden h-[calc(100vh-280px)] min-h-[400px]">
-            <MonitoreoSidePanel
-              guardPanelData={guardPanelData}
-              selectedRondaId={selectedRondaId}
-              onSelectGuard={setSelectedRondaId}
-              onAddNote={handleAddNote}
-              upcomingData={upcomingData}
-              formatPersonName={formatPersonName}
-              alertRows={alertRows}
-              alertsLoading={alertsLoading}
-              resolvingAlertId={resolvingAlertId}
-              resolveNotes={resolveNotes}
-              onSetResolvingAlertId={setResolvingAlertId}
-              onSetResolveNotes={setResolveNotes}
-              onResolveAlert={handleResolveAlert}
-              onGoToAlert={handleGoToAlert}
-              installations={mapInstallations}
-              onInstallationClick={(id) => setInstallationFilter(id)}
-              selectedInstallationId={installationFilter}
-              initialTab={sidePanelTab}
+      {/* Main split layout: [Map + Panel] / Divider / [Grid] */}
+      {!isFullscreen && (
+        <div className="flex-1 flex flex-col overflow-hidden mt-2" data-monitor-layout>
+          {/* Top: Map + Side Panel */}
+          <div style={{ height: `${splitPct}%` }} className="flex min-h-0 gap-0">
+            {/* Map */}
+            <div className="flex-1 relative rounded-xl overflow-hidden border border-[#1e293b]">
+              <MonitoreoMap
+                checkpoints={mapCheckpoints}
+                guards={mapGuards}
+                installations={mapInstallations}
+                alerts={mapAlertMarkers}
+                center={mapCenter}
+                selectedGuardId={selectedRondaId}
+                isFullscreen={false}
+                onFullscreenToggle={() => setIsFullscreen(true)}
+                onInstallationClick={(id) => setSelectedInstallationId(id)}
+              />
+            </div>
+
+            {/* Side panel */}
+            <div className="w-80 flex-shrink-0 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden ml-2">
+              <MonitoreoSidePanel
+                guardPanelData={guardPanelData}
+                selectedRondaId={selectedRondaId}
+                onSelectGuard={setSelectedRondaId}
+                onAddNote={handleAddNote}
+                upcomingData={upcomingData}
+                formatPersonName={formatPersonName}
+                alertRows={alertRows}
+                alertsLoading={alertsLoading}
+                resolvingAlertId={resolvingAlertId}
+                resolveNotes={resolveNotes}
+                onSetResolvingAlertId={setResolvingAlertId}
+                onSetResolveNotes={setResolveNotes}
+                onResolveAlert={handleResolveAlert}
+                onGoToAlert={handleGoToAlert}
+                installations={mapInstallations}
+                onInstallationClick={(id) => setSelectedInstallationId(id)}
+                selectedInstallationId={selectedInstallationId}
+                initialTab={sidePanelTab}
+              />
+            </div>
+          </div>
+
+          <ResizableDivider onResize={setSplitPct} />
+
+          {/* Bottom: Grid */}
+          <div style={{ height: `${100 - splitPct}%` }} className="min-h-0 rounded-xl border border-[#1e293b] overflow-hidden">
+            <MonitoreoGrid
+              controlNocturno={controlNocturno}
+              turnoId={activeTurno?.id ?? null}
+              selectedInstallationId={selectedInstallationId}
+              onSelectInstallation={setSelectedInstallationId}
+              onCellClick={(data) => setCellModal(data)}
+              onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Cell modal */}
+      {cellModal && (
+        <MonitoreoGridCellModal
+          data={cellModal}
+          onClose={() => setCellModal(null)}
+          onSave={handleCellSave}
+        />
+      )}
+
+      {/* Guard slide-in panel */}
+      {guardPanel && (
+        <GuardPanel
+          instalacion={guardPanel.instalacion}
+          turno={guardPanel.turno}
+          onClose={() => setGuardPanel(null)}
+          onGuardiaUpdate={handleGuardiaUpdate}
+          onGuardiaAdd={handleGuardiaAdd}
+          onGuardiaDelete={handleGuardiaDelete}
+        />
+      )}
 
       <CerrarTurnoModal
         turnoId={closeTurnoId ?? ""}

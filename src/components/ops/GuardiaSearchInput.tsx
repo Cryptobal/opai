@@ -16,6 +16,7 @@ interface GuardiaSearchInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  dropdownDirection?: "down" | "up";
 }
 
 const DEBOUNCE_MS = 250;
@@ -26,6 +27,7 @@ export function GuardiaSearchInput({
   placeholder = "Buscar o escribir nombre",
   className = "",
   disabled = false,
+  dropdownDirection = "down",
 }: GuardiaSearchInputProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<GuardiaSearchResult[]>([]);
@@ -144,7 +146,9 @@ export function GuardiaSearchInput({
       <ul
         data-guardia-dropdown
         role="listbox"
-        className="absolute left-0 right-0 top-full z-[9999] mt-1 max-h-52 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl"
+        className={`absolute left-0 right-0 z-[9999] max-h-52 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl ${
+          dropdownDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
+        }`}
       >
         {results.map((g, idx) => (
           <li
