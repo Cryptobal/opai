@@ -678,7 +678,8 @@ export async function GET(request: NextRequest) {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    await ensureGuardiaDocExpiryNotifications(ctx.tenantId, true);
+    // Guardia doc expiry notifications are now created by the cron job at
+    // /api/cron/guardia-doc-notifications instead of as a side-effect here.
 
     const excludedTypes = new Set<string>(await getRoleExcludedNotificationTypes(ctx));
     const userDisabled = await getUserBellDisabledTypes(ctx);
