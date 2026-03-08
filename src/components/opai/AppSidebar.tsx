@@ -3,9 +3,18 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { ThemeLogo } from './ThemeLogo';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export interface NavSubItem {
   href: string;
@@ -62,6 +71,8 @@ export function AppSidebar({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [expandedSubSections, setExpandedSubSections] = useState<Set<string>>(new Set());
   const flyoutTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const showFlyout = collapsed && !showCloseButton;
 
@@ -206,10 +217,10 @@ export function AppSidebar({
       <nav
         className={cn(
           "flex-1 overflow-y-auto scrollbar-thin",
-          showCloseButton ? "px-2.5 py-3" : "px-2 py-2.5"
+          showCloseButton ? "px-2.5 py-2" : "px-2 py-2.5"
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div className={cn("flex flex-col", showCloseButton ? "gap-0.5" : "gap-1")}>
           {navItems.map((item) => {
             if (item.show === false) return null;
 
@@ -270,7 +281,7 @@ export function AppSidebar({
 
             // Module with children
             return (
-              <div key={item.href} className="flex flex-col gap-1">
+              <div key={item.href} className="flex flex-col">
                 {/* Module header: nombre navega al módulo, flecha expande/contrae */}
                 <div
                   className={cn(
@@ -650,12 +661,12 @@ export function AppSidebar({
           </Link>
         )}
 
-        <Link
-          href="/api/auth/signout?callbackUrl=/opai/login"
-          onClick={onNavigate}
+        <button
+          type="button"
+          onClick={() => setShowSignOutDialog(true)}
           title={collapsed ? "Cerrar sesión" : undefined}
           className={cn(
-            "flex rounded-md transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+            "flex w-full rounded-md transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
             collapsed
               ? "justify-center p-2 mb-1"
               : showCloseButton
@@ -674,7 +685,7 @@ export function AppSidebar({
               Cerrar sesión
             </span>
           )}
-        </Link>
+        </button>
 
         <div className={cn("flex gap-1 w-full", collapsed ? "flex-col items-center" : "items-center")}>
           {footer && (
@@ -701,6 +712,39 @@ export function AppSidebar({
           )}
         </div>
       </div>
+
+      {/* Sign-out confirmation dialog */}
+      <Dialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cerrar Sesión</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro que deseas cerrar sesión?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              type="button"
+              onClick={() => setShowSignOutDialog(false)}
+              disabled={isSigningOut}
+              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors border border-border bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setIsSigningOut(true);
+                await signOut({ callbackUrl: '/opai/login' });
+              }}
+              disabled={isSigningOut}
+              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {isSigningOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

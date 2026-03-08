@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   Activity,
   Bell,
@@ -178,14 +179,12 @@ export function TopbarActions({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link
-                href="/api/auth/signout?callbackUrl=/opai/login"
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar sesión
-              </Link>
+            <DropdownMenuItem
+              onClick={() => signOut({ callbackUrl: '/opai/login' })}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
