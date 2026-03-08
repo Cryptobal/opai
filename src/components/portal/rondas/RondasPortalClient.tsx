@@ -9,7 +9,7 @@ import type { RondaData, CompletionData } from "./RondaActiva";
 import { RondaCompletada } from "./RondaCompletada";
 import { ReportarIncidente } from "./ReportarIncidente";
 import { InstallBanner } from "./InstallBanner";
-import { ChatRondasSection } from "./ChatRondasSection";
+import { ChatRondasPortal } from "./ChatRondasPortal";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { PortalBottomNav } from "./PortalBottomNav";
 import type { PortalTab } from "./PortalBottomNav";
@@ -214,7 +214,7 @@ export function RondasPortalClient() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={`flex flex-col ${screen === "chat" ? "h-dvh" : "min-h-dvh"}`}>
       {isOffline && (
         <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white" role="status">
           Sin conexion — modo offline
@@ -297,10 +297,12 @@ export function RondasPortalClient() {
       )}
 
       {screen === "chat" && session && (
-        <ChatRondasSection
-          session={session}
-          onBack={() => setScreen("mis-rondas")}
-        />
+        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+          <ChatRondasPortal
+            session={session}
+            onBack={() => setScreen("mis-rondas")}
+          />
+        </div>
       )}
 
       {screen === "perfil" && session && (

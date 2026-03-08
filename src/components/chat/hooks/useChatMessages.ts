@@ -6,7 +6,19 @@ import type {
   MessagesResponse,
   SendMessagePayload,
   ChatAttachment,
+  ChatSenderType,
 } from "@/lib/chat-types";
+
+export type UseChatMessagesOptions = {
+  /** API base path (default: "/api/chat") */
+  apiBase?: string;
+  /** Extra headers for portal auth */
+  headers?: Record<string, string>;
+  /** Sender type for optimistic messages (default: "ADMIN") */
+  senderType?: ChatSenderType;
+  /** Sender display name for optimistic messages (default: "Yo") */
+  senderName?: string;
+};
 
 type UseChatMessagesReturn = {
   messages: ChatMessageData[];
@@ -23,7 +35,14 @@ type UseChatMessagesReturn = {
  * Hook that fetches messages from the API with cursor-based pagination,
  * and provides methods to send, edit, and delete messages.
  */
-export function useChatMessages(channelId: string | null): UseChatMessagesReturn {
+export function useChatMessages(
+  channelId: string | null,
+  options?: UseChatMessagesOptions,
+): UseChatMessagesReturn {
+  const apiBase = options?.apiBase ?? "/api/chat";
+  const extraHeaders = options?.headers ?? {};
+  const senderType = options?.senderType ?? "ADMIN";
+  const senderName = options?.senderName ?? "Yo";
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -50,7 +69,8 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         if (cursor) params.set("cursor", cursor);
 
         const res = await fetch(
-          `/api/chat/channels/${channelId}/messages?${params.toString()}`
+          `${apiBase}/channels/${channelId}/messages?${params.toString()}`,
+          { headers: extraHeaders },
         );
         if (!res.ok) throw new Error("Failed to fetch messages");
 
@@ -77,7 +97,7 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         setIsLoading(false);
       }
     },
-    [channelId]
+    [channelId, apiBase, extraHeaders]
   );
 
   // Initial fetch
@@ -103,9 +123,9 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
       const optimisticMsg: ChatMessageData = {
         id: tempId,
         channelId,
-        senderType: "ADMIN",
+        senderType: senderType,
         senderId: "current-user",
-        senderName: "Yo",
+        senderName: senderName,
         senderAvatar: null,
         content: payload.content,
         contentHtml: null,
@@ -124,9 +144,9 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
       setMessages((prev) => [...prev, optimisticMsg]);
 
       try {
-        const res = await fetch(`/api/chat/channels/${channelId}/messages`, {
+        const res = await fetch(`${apiBase}/channels/${channelId}/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...extraHeaders },
           body: JSON.stringify(payload),
         });
 
@@ -150,7 +170,7 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         return null;
       }
     },
-    [channelId]
+    [channelId, apiBase, extraHeaders, senderType, senderName]
   );
 
   // Edit an existing message
@@ -165,10 +185,10 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
 
       try {
         const res = await fetch(
-          `/api/chat/channels/${channelId}/messages/${messageId}`,
+          `${apiBase}/channels/${channelId}/messages/${messageId}`,
           {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...extraHeaders },
             body: JSON.stringify({ content }),
           }
         );
@@ -178,7 +198,7 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         return false;
       }
     },
-    [channelId]
+    [channelId, apiBase, extraHeaders]
   );
 
   // Delete a message
@@ -192,8 +212,8 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
 
       try {
         const res = await fetch(
-          `/api/chat/channels/${channelId}/messages/${messageId}`,
-          { method: "DELETE" }
+          `${apiBase}/channels/${channelId}/messages/${messageId}`,
+          { method: "DELETE", headers: extraHeaders }
         );
         if (!res.ok && removed) {
           // Restore on failure
@@ -212,7 +232,7 @@ export function useChatMessages(channelId: string | null): UseChatMessagesReturn
         return false;
       }
     },
-    [channelId, messages]
+    [channelId, messages, apiBase, extraHeaders]
   );
 
   return {
