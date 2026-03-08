@@ -39,7 +39,7 @@ async function fetchBranding(): Promise<Branding> {
     const json = await res.json();
     if (json.success && json.data) {
       cachedBranding = { ...DEFAULTS, ...json.data };
-      return cachedBranding;
+      return cachedBranding!;
     }
   } catch {
     // fall through to defaults
