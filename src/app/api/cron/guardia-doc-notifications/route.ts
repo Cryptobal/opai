@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tenants = await prisma.tenant.findMany({
-      where: { isActive: true },
+      where: { active: true },
       select: { id: true },
     });
 
