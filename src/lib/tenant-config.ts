@@ -33,6 +33,18 @@ export interface TenantCompanyConfig {
   website: string;           // "www.gard.cl"
   logoUrl: string;           // URL del logo
 
+  /* Branding / Imagen Corporativa */
+  brandingLogoFull: string;      // Logo completo horizontal
+  brandingLogoIcon: string;      // Ícono/isotipo
+  brandingLogoWhite: string;     // Logo para fondos oscuros
+  brandingLogoDark: string;      // Logo para fondos claros
+  brandingFavicon: string;       // Favicon URL
+  brandingPrimaryColor: string;  // Color principal (#0a1628)
+  brandingSecondaryColor: string;// Color secundario (#0d9488)
+  brandingAccentColor: string;   // Color accent (#2dd4bf)
+  brandingAppName: string;       // Nombre de la app ("OPAI")
+  brandingTagline: string;       // Subtítulo ("Plataforma de Operaciones")
+
   /* Contacto comercial */
   email: string;             // comercial@gard.cl
   emailOps: string;          // operaciones@gard.cl
@@ -67,6 +79,17 @@ const DEFAULTS: TenantCompanyConfig = {
   brandNameUpper: "GARD",
   website: "www.gard.cl",
   logoUrl: "",
+
+  brandingLogoFull: "",
+  brandingLogoIcon: "",
+  brandingLogoWhite: "",
+  brandingLogoDark: "",
+  brandingFavicon: "",
+  brandingPrimaryColor: "#0a1628",
+  brandingSecondaryColor: "#0d9488",
+  brandingAccentColor: "#2dd4bf",
+  brandingAppName: "OPAI",
+  brandingTagline: "Plataforma de Operaciones",
 
   email: "comercial@gard.cl",
   emailOps: "operaciones@gard.cl",
@@ -104,6 +127,17 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.brandNameUpper": "brandNameUpper",
   "empresa.website": "website",
   "empresa.logoUrl": "logoUrl",
+
+  "empresa.branding.logoFull": "brandingLogoFull",
+  "empresa.branding.logoIcon": "brandingLogoIcon",
+  "empresa.branding.logoWhite": "brandingLogoWhite",
+  "empresa.branding.logoDark": "brandingLogoDark",
+  "empresa.branding.favicon": "brandingFavicon",
+  "empresa.branding.primaryColor": "brandingPrimaryColor",
+  "empresa.branding.secondaryColor": "brandingSecondaryColor",
+  "empresa.branding.accentColor": "brandingAccentColor",
+  "empresa.branding.appName": "brandingAppName",
+  "empresa.branding.tagline": "brandingTagline",
 
   "empresa.email": "email",
   "empresa.emailOps": "emailOps",
