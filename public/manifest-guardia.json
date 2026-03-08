@@ -4,7 +4,7 @@
   "id": "/portal/guardia",
   "description": "Portal de guardias — Gard Security",
   "start_url": "/portal/guardia",
-  "scope": "/",
+  "scope": "/portal/guardia",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0a0a0f",

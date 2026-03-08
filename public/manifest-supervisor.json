@@ -4,7 +4,7 @@
   "id": "/portal/supervisor",
   "description": "Portal de supervisores — Gard Security",
   "start_url": "/portal/supervisor",
-  "scope": "/",
+  "scope": "/portal/supervisor",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0a0a0f",

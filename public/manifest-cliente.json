@@ -4,7 +4,7 @@
   "id": "/portal/cliente",
   "description": "Portal de clientes — Gard Security",
   "start_url": "/portal/cliente",
-  "scope": "/",
+  "scope": "/portal/cliente",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0a0a0f",

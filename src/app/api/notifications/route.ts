@@ -678,7 +678,8 @@ export async function GET(request: NextRequest) {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    await ensureGuardiaDocExpiryNotifications(ctx.tenantId, true);
+    // Guardia doc expiry notifications are now created by the cron job at
+    // /api/cron/guardia-doc-notifications instead of as a side-effect here.
 
     const excludedTypes = new Set<string>(await getRoleExcludedNotificationTypes(ctx));
     const userDisabled = await getUserBellDisabledTypes(ctx);
@@ -689,17 +690,39 @@ export async function GET(request: NextRequest) {
       types,
     });
 
+    const cursor = searchParams.get("cursor") || undefined;
+
     const notifications = await prisma.notification.findMany({
       where: notificationsWhere,
       orderBy: { createdAt: "desc" },
       take: limit,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      include: {
+        readStates: {
+          where: { userId: ctx.userId },
+          select: { readAt: true, seenAt: true },
+        },
+      },
     });
 
     const sourceLookups = await buildSourceLookups(ctx.tenantId, notifications);
     const enrichedNotifications = notifications.map((notification) => {
       const sourceContext = resolveSourceContext(notification, sourceLookups);
+      // Per-user read: broadcast notifications use readStates, targeted use read field
+      const data = asObject(notification.data);
+      const isTargeted = typeof data.targetUserId === "string" && data.targetUserId.length > 0;
+      const effectiveRead = isTargeted
+        ? notification.read
+        : notification.readStates.length > 0 && notification.readStates[0].readAt !== null;
+      const effectiveSeen = isTargeted
+        ? notification.read
+        : notification.readStates.length > 0 && notification.readStates[0].seenAt !== null;
+
       return {
         ...notification,
+        read: effectiveRead,
+        seen: effectiveSeen,
+        readStates: undefined,
         source_module: sourceContext.sourceModule,
         sourceModule: sourceContext.sourceModule,
         source_module_label: sourceContext.sourceModuleLabel,
@@ -711,17 +734,34 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const unreadCount = await prisma.notification.count({
-      where: visibleNotificationsWhere(ctx, excludedTypesList, {
-        unreadOnly: true,
-        types,
-      }),
-    });
+    // Calculate per-user unread count
+    const totalUnreadCount = enrichedNotifications.filter((n) => !n.read).length;
+    // If we fetched fewer than limit, count is exact; otherwise query for accurate count
+    let finalUnreadCount = totalUnreadCount;
+    if (notifications.length >= limit) {
+      const allVisibleIds = await prisma.notification.findMany({
+        where: visibleNotificationsWhere(ctx, excludedTypesList, { types }),
+        select: { id: true, read: true, data: true },
+      });
+      const readStateSet = new Set(
+        (await prisma.notificationReadState.findMany({
+          where: { userId: ctx.userId, notificationId: { in: allVisibleIds.map((n) => n.id) } },
+          select: { notificationId: true },
+        })).map((rs) => rs.notificationId)
+      );
+      finalUnreadCount = allVisibleIds.filter((n) => {
+        const d = asObject(n.data);
+        const targeted = typeof d.targetUserId === "string" && d.targetUserId.length > 0;
+        return targeted ? !n.read : !readStateSet.has(n.id);
+      }).length;
+    }
+
+    const hasMore = notifications.length >= limit;
 
     return NextResponse.json({
       success: true,
       data: enrichedNotifications,
-      meta: { unreadCount },
+      meta: { unreadCount: finalUnreadCount, hasMore },
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -730,6 +770,29 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/** Helper to compute per-user unread count for the PATCH response */
+async function getUnreadCountForUser(
+  ctx: AuthContext,
+  excludedTypesList: string[],
+  types?: string[],
+): Promise<number> {
+  const allVisible = await prisma.notification.findMany({
+    where: visibleNotificationsWhere(ctx, excludedTypesList, { types }),
+    select: { id: true, read: true, data: true },
+  });
+  const readStateSet = new Set(
+    (await prisma.notificationReadState.findMany({
+      where: { userId: ctx.userId, notificationId: { in: allVisible.map((n) => n.id) } },
+      select: { notificationId: true },
+    })).map((rs) => rs.notificationId)
+  );
+  return allVisible.filter((n) => {
+    const d = asObject(n.data);
+    const targeted = typeof d.targetUserId === "string" && d.targetUserId.length > 0;
+    return targeted ? !n.read : !readStateSet.has(n.id);
+  }).length;
 }
 
 export async function PATCH(request: NextRequest) {
@@ -741,33 +804,157 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
 
     const readValue = typeof body.read === "boolean" ? body.read : true;
+    const now = new Date();
+
+    // Handle markSeen: mark notifications as seen (not read) for this user
+    if (body.markSeen && body.ids && Array.isArray(body.ids)) {
+      await Promise.all(
+        body.ids.map((id: string) =>
+          prisma.notificationReadState.upsert({
+            where: { notificationId_userId: { notificationId: id, userId: ctx.userId } },
+            create: { notificationId: id, userId: ctx.userId, seenAt: now, readAt: now },
+            update: { seenAt: now },
+          })
+        )
+      );
+      const unreadCount = await getUnreadCountForUser(ctx, roleExcludedTypes);
+      return NextResponse.json({ success: true, unreadCount });
+    }
 
     if (body.markAllRead || body.markAllUnread) {
-      // Mark all notifications as read/unread
-      const where = body.markAllUnread
-        ? visibleNotificationsWhere(ctx, roleExcludedTypes, { read: true })
-        : visibleNotificationsWhere(ctx, roleExcludedTypes, { unreadOnly: true });
-      await prisma.notification.updateMany({
-        where,
-        data: { read: body.markAllUnread ? false : true },
-      });
+      if (body.markAllRead) {
+        // Get all unread visible notifications and create readStates for this user
+        const visibleNotifications = await prisma.notification.findMany({
+          where: visibleNotificationsWhere(ctx, roleExcludedTypes),
+          select: { id: true, data: true },
+        });
+
+        // Create readStates for broadcast notifications
+        const broadcastIds = visibleNotifications.filter((n) => {
+          const d = asObject(n.data);
+          return !(typeof d.targetUserId === "string" && d.targetUserId.length > 0);
+        }).map((n) => n.id);
+
+        if (broadcastIds.length > 0) {
+          await prisma.notificationReadState.createMany({
+            data: broadcastIds.map((id) => ({
+              notificationId: id,
+              userId: ctx.userId,
+              readAt: now,
+              seenAt: now,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // Also update targeted notifications the old way
+        const targetedIds = visibleNotifications.filter((n) => {
+          const d = asObject(n.data);
+          return typeof d.targetUserId === "string" && d.targetUserId.length > 0;
+        }).map((n) => n.id);
+
+        if (targetedIds.length > 0) {
+          await prisma.notification.updateMany({
+            where: { id: { in: targetedIds } },
+            data: { read: true },
+          });
+        }
+      } else {
+        // markAllUnread: remove readStates for broadcast, set read=false for targeted
+        const visibleNotifications = await prisma.notification.findMany({
+          where: visibleNotificationsWhere(ctx, roleExcludedTypes),
+          select: { id: true, data: true },
+        });
+
+        const broadcastIds = visibleNotifications.filter((n) => {
+          const d = asObject(n.data);
+          return !(typeof d.targetUserId === "string" && d.targetUserId.length > 0);
+        }).map((n) => n.id);
+
+        if (broadcastIds.length > 0) {
+          await prisma.notificationReadState.deleteMany({
+            where: { userId: ctx.userId, notificationId: { in: broadcastIds } },
+          });
+        }
+
+        const targetedIds = visibleNotifications.filter((n) => {
+          const d = asObject(n.data);
+          return typeof d.targetUserId === "string" && d.targetUserId.length > 0;
+        }).map((n) => n.id);
+
+        if (targetedIds.length > 0) {
+          await prisma.notification.updateMany({
+            where: { id: { in: targetedIds } },
+            data: { read: false },
+          });
+        }
+      }
     } else if (body.ids && Array.isArray(body.ids)) {
-      // Mark specific notifications read/unread
-      await prisma.notification.updateMany({
+      // Mark specific notifications as read/unread
+      // First, figure out which are targeted vs broadcast
+      const notifications = await prisma.notification.findMany({
         where: visibleNotificationsWhere(ctx, roleExcludedTypes, { ids: body.ids }),
-        data: { read: readValue },
+        select: { id: true, data: true },
       });
+
+      const broadcastIds: string[] = [];
+      const targetedIds: string[] = [];
+
+      for (const n of notifications) {
+        const d = asObject(n.data);
+        if (typeof d.targetUserId === "string" && d.targetUserId.length > 0) {
+          targetedIds.push(n.id);
+        } else {
+          broadcastIds.push(n.id);
+        }
+      }
+
+      if (readValue) {
+        // Mark as read: upsert readStates for broadcast, update read field for targeted
+        if (broadcastIds.length > 0) {
+          await Promise.all(
+            broadcastIds.map((id) =>
+              prisma.notificationReadState.upsert({
+                where: { notificationId_userId: { notificationId: id, userId: ctx.userId } },
+                create: { notificationId: id, userId: ctx.userId, readAt: now, seenAt: now },
+                update: { readAt: now, seenAt: now },
+              })
+            )
+          );
+        }
+        if (targetedIds.length > 0) {
+          await prisma.notification.updateMany({
+            where: { id: { in: targetedIds } },
+            data: { read: true },
+          });
+        }
+      } else {
+        // Mark as unread: delete readStates for broadcast, update read field for targeted
+        if (broadcastIds.length > 0) {
+          await prisma.notificationReadState.deleteMany({
+            where: { userId: ctx.userId, notificationId: { in: broadcastIds } },
+          });
+        }
+        if (targetedIds.length > 0) {
+          await prisma.notification.updateMany({
+            where: { id: { in: targetedIds } },
+            data: { read: false },
+          });
+        }
+      }
     } else {
       return NextResponse.json(
         {
           success: false,
-          error: "Provide 'markAllRead: true', 'markAllUnread: true' or 'ids: string[]'",
+          error: "Provide 'markAllRead: true', 'markAllUnread: true', 'markSeen: true' with ids, or 'ids: string[]'",
         },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    // Return the new unread count so the client can update immediately (no race condition)
+    const unreadCount = await getUnreadCountForUser(ctx, roleExcludedTypes);
+    return NextResponse.json({ success: true, unreadCount });
   } catch (error) {
     console.error("Error updating notifications:", error);
     return NextResponse.json(

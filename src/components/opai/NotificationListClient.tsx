@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -12,6 +12,7 @@ import {
   Loader2,
   Reply,
 } from "lucide-react";
+import { useNotifications, type NotificationItem as ContextNotificationItem } from "@/contexts/NotificationContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -280,9 +281,21 @@ function isSystemNotification(notification: NotificationItem): boolean {
  */
 export function NotificationListClient() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const {
+    notifications,
+    unreadCount,
+    isLoading: loading,
+    hasMore,
+    markAsRead,
+    markAsUnread,
+    markAllRead: ctxMarkAllRead,
+    markAllSeen,
+    deleteNotification,
+    deleteAll: ctxDeleteAll,
+    refetch,
+    loadMore,
+  } = useNotifications();
+
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [moduleFilter, setModuleFilter] = useState<string>("all");
@@ -294,125 +307,73 @@ export function NotificationListClient() {
   const [sendingReply, setSendingReply] = useState(false);
   const [replyFeedback, setReplyFeedback] = useState<string | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const selectedTypes = FILTER_TO_TYPES[filter];
-      const params = new URLSearchParams({ limit: "50" });
-      if (selectedTypes.length > 0) {
-        params.set("types", selectedTypes.join(","));
-      }
-      const res = await fetch(`/api/notifications?${params.toString()}`);
-      const json = await res.json();
-      if (json.success) {
-        setNotifications(json.data || []);
-        setUnreadCount(json.meta?.unreadCount ?? 0);
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
+  // Auto-mark as seen when visiting this page
+  const seenRef = useRef(false);
   useEffect(() => {
-    void fetchNotifications();
-  }, [fetchNotifications]);
-
-  const markAllRead = async () => {
-    setActionLoading(true);
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markAllRead: true }),
-      });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setUnreadCount(0);
-      window.dispatchEvent(new CustomEvent("opai-notification-read"));
-    } finally {
-      setActionLoading(false);
+    if (!seenRef.current && !loading) {
+      seenRef.current = true;
+      void markAllSeen();
     }
+  }, [loading, markAllSeen]);
+
+  // Infinite scroll: observe last element
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) void loadMore(); },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  const handleMarkAllRead = async () => {
+    setActionLoading(true);
+    try { await ctxMarkAllRead(); } finally { setActionLoading(false); }
   };
 
   const setOneReadState = async (id: string, read: boolean) => {
     const notification = notifications.find((n) => n.id === id);
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [id], read }),
-      });
-      const previous = notifications.find((n) => n.id === id);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
-      if (!previous) return;
-      if (!previous.read && read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      } else if (previous.read && !read) {
-        setUnreadCount((prev) => prev + 1);
+    if (read) {
+      await markAsRead([id]);
+    } else {
+      await markAsUnread([id]);
+    }
+    // Mark account activity as seen
+    if (read && notification?.link) {
+      const m = notification.link.match(/\/crm\/accounts\/([^/?]+)/);
+      if (m?.[1]) {
+        try {
+          localStorage.setItem(`opai-activity-seen-${m[1]}`, new Date().toISOString());
+          window.dispatchEvent(new CustomEvent("opai-activity-seen", { detail: { accountId: m[1] } }));
+        } catch { /* ignore */ }
       }
-      window.dispatchEvent(new CustomEvent("opai-notification-read"));
-      // Si se marca como leída y la notificación enlaza a una cuenta, marcar actividad de esa cuenta como vista (quita el 1 del tab Actividad)
-      if (read && notification?.link) {
-        const m = notification.link.match(/\/crm\/accounts\/([^/?]+)/);
-        if (m?.[1]) {
-          try {
-            localStorage.setItem(`opai-activity-seen-${m[1]}`, new Date().toISOString());
-            window.dispatchEvent(new CustomEvent("opai-activity-seen", { detail: { accountId: m[1] } }));
-          } catch { /* ignore */ }
-        }
+    }
+    // Mark note context as read for mentions
+    if (read && notification && ["mention", "mention_direct", "mention_group"].includes(notification.type)) {
+      const data = (notification.data || {}) as Record<string, unknown>;
+      const entityType = typeof data.entityType === "string" ? data.entityType.toUpperCase() : "";
+      const entityId = typeof data.entityId === "string" ? data.entityId : "";
+      const validContexts = ["LEAD", "ACCOUNT", "CONTACT", "DEAL", "QUOTATION", "INSTALLATION", "TICKET", "GUARD", "DOCUMENT", "OPERATION", "PAYROLL_RECORD", "RENDICION", "PUESTO", "PAUTA_MENSUAL", "SUPERVISION_VISIT"];
+      if (entityId && validContexts.includes(entityType)) {
+        try {
+          await fetch("/api/notes/mark-read", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contextType: entityType, contextId: entityId }),
+          });
+          window.dispatchEvent(new CustomEvent("opai-note-seen"));
+        } catch { /* ignore */ }
       }
-      // Si se marca como leída y es una mención con contexto de nota, marcar también el contexto para que el badge de la ficha se actualice
-      if (read && notification && ["mention", "mention_direct", "mention_group"].includes(notification.type)) {
-        const data = (notification.data || {}) as Record<string, unknown>;
-        const entityType = typeof data.entityType === "string" ? data.entityType.toUpperCase() : "";
-        const entityId = typeof data.entityId === "string" ? data.entityId : "";
-        const validContexts = ["LEAD", "ACCOUNT", "CONTACT", "DEAL", "QUOTATION", "INSTALLATION", "TICKET", "GUARD", "DOCUMENT", "OPERATION", "PAYROLL_RECORD", "RENDICION", "PUESTO", "PAUTA_MENSUAL", "SUPERVISION_VISIT"];
-        if (entityId && validContexts.includes(entityType)) {
-          try {
-            await fetch("/api/notes/mark-read", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contextType: entityType, contextId: entityId }),
-            });
-            window.dispatchEvent(new CustomEvent("opai-note-seen"));
-          } catch { /* ignore */ }
-        }
-      }
-    } catch {
-      // silent
     }
   };
 
-  const deleteAll = async () => {
+  const handleDeleteAll = async () => {
     setActionLoading(true);
-    try {
-      await fetch("/api/notifications", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deleteAll: true }),
-      });
-      setNotifications([]);
-      setUnreadCount(0);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const deleteOne = async (id: string) => {
-    try {
-      await fetch("/api/notifications", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [id] }),
-      });
-      const removed = notifications.find((n) => n.id === id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      if (removed && !removed.read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
-    } catch {
-      // silent
-    }
+    try { await ctxDeleteAll(); } finally { setActionLoading(false); }
   };
 
   const handleClick = (n: NotificationItem) => {
@@ -491,7 +452,7 @@ export function NotificationListClient() {
         setThreadContext(refreshedData.data as ThreadContext);
       }
 
-      await fetchNotifications();
+      await refetch();
     } catch (error) {
       console.error("No se pudo enviar respuesta inline", error);
       setReplyFeedback("No se pudo enviar la respuesta. Intenta nuevamente.");
@@ -558,7 +519,7 @@ export function NotificationListClient() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={markAllRead}
+                onClick={handleMarkAllRead}
                 disabled={actionLoading}
               >
                 <CheckCheck className="h-4 w-4 mr-1.5" />
@@ -571,7 +532,7 @@ export function NotificationListClient() {
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                onClick={deleteAll}
+                onClick={handleDeleteAll}
                 disabled={actionLoading}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
@@ -771,7 +732,7 @@ export function NotificationListClient() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteOne(n.id);
+                          deleteNotification(n.id);
                         }}
                         className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 sm:opacity-0 sm:group-hover:opacity-100"
                         title="Eliminar"
@@ -783,6 +744,12 @@ export function NotificationListClient() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {/* Infinite scroll sentinel */}
+        {hasMore && (
+          <div ref={loadMoreRef} className="py-4 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         )}
       </CardContent>
