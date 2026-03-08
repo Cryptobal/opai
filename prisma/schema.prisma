@@ -1237,10 +1237,28 @@ model Notification {
   link      String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  readStates NotificationReadState[]
+
   @@index([tenantId], map: "idx_notifications_tenant")
   @@index([tenantId, read], map: "idx_notifications_tenant_read")
   @@index([createdAt(sort: Desc)], map: "idx_notifications_created_desc")
   @@map("notifications")
+  @@schema("crm")
+}
+
+model NotificationReadState {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  notificationId String    @map("notification_id") @db.Uuid
+  userId         String    @map("user_id")
+  readAt         DateTime  @default(now()) @map("read_at") @db.Timestamptz(6)
+  seenAt         DateTime? @map("seen_at") @db.Timestamptz(6)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId], map: "uq_notification_read_state_notif_user")
+  @@index([userId], map: "idx_notification_read_state_user")
+  @@index([notificationId], map: "idx_notification_read_state_notif")
+  @@map("notification_read_states")
   @@schema("crm")
 }
 
