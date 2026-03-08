@@ -30,6 +30,17 @@ const EMPRESA_KEYS = [
   "empresa.phone",
   "empresa.phoneRaw",
   "empresa.whatsappLink",
+  // Branding / Imagen corporativa
+  "empresa.branding.logoFull",
+  "empresa.branding.logoIcon",
+  "empresa.branding.logoWhite",
+  "empresa.branding.logoDark",
+  "empresa.branding.favicon",
+  "empresa.branding.primaryColor",
+  "empresa.branding.secondaryColor",
+  "empresa.branding.accentColor",
+  "empresa.branding.appName",
+  "empresa.branding.tagline",
 ];
 
 function settingKey(tenantId: string, key: string): string {

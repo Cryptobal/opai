@@ -37,6 +37,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/rondas')) return true;
   if (pathname.startsWith('/portal/acceso')) return true; // Control de acceso (auth por device_token)
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
+  if (pathname === '/welcome') return true;
+  if (pathname.startsWith('/api/branding')) return true;
 
   // API (rutas reales en /api/)
   if (pathname.startsWith('/api/auth')) return true;
@@ -124,13 +126,16 @@ const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Entrada al sitio: siempre llevar a login (sin sesión) o al Hub (con sesión)
+  // Entrada al sitio: welcome (sin sesión) o Hub (con sesión)
   if (pathname === '/' || pathname === '/opai') {
     if (!req.auth) {
-      const loginUrl = new URL('/opai/login', req.nextUrl.origin);
-      loginUrl.searchParams.set('callbackUrl', '/hub');
-      return Response.redirect(loginUrl);
+      return Response.redirect(new URL('/welcome', req.nextUrl.origin));
     }
+    return Response.redirect(new URL('/hub', req.nextUrl.origin));
+  }
+
+  // Authenticated user on /welcome → skip to hub
+  if (pathname === '/welcome' && req.auth) {
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
   }
 

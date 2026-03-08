@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, FileSignature, Globe, Loader2, Mail, Phone, Save } from "lucide-react";
+import { Building, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,25 @@ const EMAIL_FIELDS = [
   { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@gard.cl", help: "Dirección a la que llegan las respuestas de los clientes." },
 ];
 
+const BRANDING_IMAGE_FIELDS = [
+  { key: "empresa.branding.logoFull", label: "Logo completo (horizontal)", help: "Para headers, documentos y emails. Recomendado: PNG transparente, min 400px ancho." },
+  { key: "empresa.branding.logoIcon", label: "Icono / Isotipo", help: "Para favicon, app icon y espacios reducidos. Recomendado: cuadrado, min 256px." },
+  { key: "empresa.branding.logoWhite", label: "Logo version clara", help: "Para fondos oscuros (dark mode). PNG con transparencia." },
+  { key: "empresa.branding.logoDark", label: "Logo version oscura", help: "Para fondos claros (light mode). PNG con transparencia." },
+  { key: "empresa.branding.favicon", label: "Favicon", help: "Icono del navegador. Recomendado: ICO o PNG 32x32." },
+];
+
+const BRANDING_COLOR_FIELDS = [
+  { key: "empresa.branding.primaryColor", label: "Color principal", help: "Navy principal de la marca.", placeholder: "#0a1628" },
+  { key: "empresa.branding.secondaryColor", label: "Color secundario", help: "Color secundario de la marca.", placeholder: "#0d9488" },
+  { key: "empresa.branding.accentColor", label: "Color accent", help: "Para CTAs y elementos destacados.", placeholder: "#2dd4bf" },
+];
+
+const BRANDING_TEXT_FIELDS = [
+  { key: "empresa.branding.appName", label: "Nombre de la aplicacion", placeholder: "OPAI", help: "Se muestra en la welcome screen y titulo de la app." },
+  { key: "empresa.branding.tagline", label: "Subtitulo / Tagline", placeholder: "Plataforma de Operaciones", help: "Se muestra debajo del nombre en la welcome screen." },
+];
+
 export function EmpresaConfigTabs() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -81,6 +100,24 @@ export function EmpresaConfigTabs() {
       toast.error(msg);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleBrandingUpload(fieldKey: string, file: File) {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/configuracion/branding/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        setForm((prev) => ({ ...prev, [fieldKey]: data.data.url }));
+        toast.success("Imagen subida");
+      } else {
+        throw new Error(data.error || "Error al subir");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al subir imagen";
+      toast.error(msg);
     }
   }
 
@@ -359,6 +396,157 @@ export function EmpresaConfigTabs() {
     </div>
   );
 
+  const brandingTab = (
+    <div className="max-w-2xl space-y-6">
+      {/* Image uploads */}
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Upload className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Logos e iconos</h3>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Sube las variantes del logo de tu empresa. Se usan en la welcome screen, headers, documentos y la app movil.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {BRANDING_IMAGE_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-2">
+              <Label className="text-xs">{field.label}</Label>
+              {form[field.key] ? (
+                <div className="relative group rounded-lg border border-border p-3 bg-muted/20">
+                  <img
+                    src={form[field.key]}
+                    alt={field.label}
+                    className="h-16 max-w-full object-contain mx-auto"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, [field.key]: "" }))}
+                    className="absolute top-1 right-1 p-1 rounded-full bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-24 rounded-lg border-2 border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors bg-muted/10">
+                  <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                  <span className="text-xs text-muted-foreground">Click o arrastra</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleBrandingUpload(field.key, file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-[11px] text-muted-foreground">{field.help}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Colors */}
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Paintbrush className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Colores corporativos</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {BRANDING_COLOR_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-2">
+              <Label className="text-xs">{field.label}</Label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={form[field.key] || field.placeholder}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  className="h-9 w-12 rounded border border-border cursor-pointer bg-transparent"
+                />
+                <Input
+                  value={form[field.key] ?? ""}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  placeholder={field.placeholder}
+                  className="text-sm font-mono flex-1"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">{field.help}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Text fields */}
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {BRANDING_TEXT_FIELDS.map((field) => (
+            <div key={field.key}>
+              <Label className="text-xs mb-1.5">{field.label}</Label>
+              <Input
+                value={form[field.key] ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">{field.help}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="rounded-lg border border-border p-6 space-y-3">
+        <h3 className="text-sm font-semibold">Vista previa</h3>
+        <div
+          className="rounded-lg p-6 flex flex-col items-center gap-3"
+          style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a1628" }}
+        >
+          {form["empresa.branding.logoWhite"] || form["empresa.branding.logoFull"] ? (
+            <img
+              src={form["empresa.branding.logoWhite"] || form["empresa.branding.logoFull"]}
+              alt="Logo preview"
+              className="h-12 object-contain"
+            />
+          ) : (
+            <div className="text-white/60 text-xs">Sin logo configurado</div>
+          )}
+          <span className="text-white font-bold text-lg">
+            {form["empresa.branding.appName"] || "OPAI"}
+          </span>
+          <span className="text-white/70 text-sm">
+            {form["empresa.branding.tagline"] || "Plataforma de Operaciones"}
+          </span>
+          <div className="flex gap-2 mt-2">
+            <div
+              className="w-8 h-8 rounded-full border border-white/20"
+              style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a1628" }}
+              title="Primary"
+            />
+            <div
+              className="w-8 h-8 rounded-full border border-white/20"
+              style={{ backgroundColor: form["empresa.branding.secondaryColor"] || "#0d9488" }}
+              title="Secondary"
+            />
+            <div
+              className="w-8 h-8 rounded-full border border-white/20"
+              style={{ backgroundColor: form["empresa.branding.accentColor"] || "#2dd4bf" }}
+              title="Accent"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-2">
+        <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar imagen corporativa
+        </Button>
+      </div>
+    </div>
+  );
+
   const tabs = [
     {
       id: "datos",
@@ -389,6 +577,12 @@ export function EmpresaConfigTabs() {
       label: "Firma Legal",
       icon: FileSignature,
       content: firmaTab,
+    },
+    {
+      id: "branding",
+      label: "Imagen Corporativa",
+      icon: Paintbrush,
+      content: brandingTab,
     },
   ];
 
