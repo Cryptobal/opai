@@ -31,7 +31,7 @@ import {
   MessageCircle,
   TrendingUp,
 } from "lucide-react";
-import { ChatGuardSection } from "@/components/portal/ChatGuardSection";
+import { ChatGuardPortal } from "@/components/portal/ChatGuardPortal";
 import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
@@ -122,83 +122,89 @@ export function GuardPortalClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col w-full">
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold truncate">
-            {session.firstName} {session.lastName}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">
-            {session.currentInstallationName ?? "Sin instalación"}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLogout}
-          aria-label="Cerrar sesión"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </header>
-
-      {/* Active section content */}
-      <main className="flex-1 overflow-y-auto pb-20 px-4 sm:px-6">
-        <PushPermissionPrompt
-          portalType="guardia"
-          userType="guardia"
-          userId={session.guardiaId}
-          tenantId={session.tenantId}
-        />
-        {activeSection === "inicio" && (
-          <InicioSection session={session} onNavigate={setActiveSection} />
-        )}
-        {activeSection === "solicitudes" && (
-          <SolicitudesSection session={session} />
-        )}
-        {activeSection === "pauta" && <PautaSection session={session} />}
-        {activeSection === "perfil" && (
-          <PerfilSection session={session} onLogout={handleLogout} />
-        )}
-        {activeSection === "protocolo" && (
-          <ProtocoloSection session={session} onBack={() => setActiveSection("inicio")} />
-        )}
-        {activeSection === "examenes" && (
-          <ExamenesSection session={session} onBack={() => setActiveSection("inicio")} />
-        )}
-        {activeSection === "resultados" && (
-          <ResultadosSection session={session} onBack={() => setActiveSection("inicio")} />
-        )}
-        {activeSection === "chat" && session.currentInstallationId && (
-          <ChatGuardSection session={session} />
-        )}
-        {activeSection === "chat" && !session.currentInstallationId && (
-          <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-            <MessageCircle className="h-12 w-12 text-zinc-600 mb-3" />
-            <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
-            <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
+    <div className={`${activeSection === "chat" && session.currentInstallationId ? "h-dvh" : "min-h-screen"} bg-background flex flex-col w-full`}>
+      {/* Top bar — hidden during chat for max space */}
+      {/* Header hidden during chat */}
+      {!(activeSection === "chat" && session.currentInstallationId) && (
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold truncate">
+              {session.firstName} {session.lastName}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {session.currentInstallationName ?? "Sin instalación"}
+            </p>
           </div>
-        )}
-        {activeSection === "desempeno" && (
-          <GuardDesempenoSection session={session} />
-        )}
-        {activeSection === "control-acceso" && session.currentInstallationId && (
-          <AccessControlGuardHome
-            installationId={session.currentInstallationId}
-            installationName={session.currentInstallationName ?? "Instalación"}
-            guardId={session.guardiaId}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            aria-label="Cerrar sesión"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </header>
+      )}
+
+      {/* Chat: rendered outside main for proper height constraint */}
+      {activeSection === "chat" && session.currentInstallationId ? (
+        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+          <ChatGuardPortal session={session} />
+        </div>
+      ) : (
+        <main className="flex-1 overflow-y-auto pb-20 px-4 sm:px-6">
+          <PushPermissionPrompt
+            portalType="guardia"
+            userType="guardia"
+            userId={session.guardiaId}
             tenantId={session.tenantId}
           />
-        )}
-        {activeSection === "control-acceso" && !session.currentInstallationId && (
-          <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-            <Shield className="h-12 w-12 text-zinc-600 mb-3" />
-            <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
-            <p className="text-zinc-500 text-xs mt-1">El control de acceso se habilitará cuando estés asignado a una instalación.</p>
-          </div>
-        )}
-      </main>
+          {activeSection === "inicio" && (
+            <InicioSection session={session} onNavigate={setActiveSection} />
+          )}
+          {activeSection === "solicitudes" && (
+            <SolicitudesSection session={session} />
+          )}
+          {activeSection === "pauta" && <PautaSection session={session} />}
+          {activeSection === "perfil" && (
+            <PerfilSection session={session} onLogout={handleLogout} />
+          )}
+          {activeSection === "protocolo" && (
+            <ProtocoloSection session={session} onBack={() => setActiveSection("inicio")} />
+          )}
+          {activeSection === "examenes" && (
+            <ExamenesSection session={session} onBack={() => setActiveSection("inicio")} />
+          )}
+          {activeSection === "resultados" && (
+            <ResultadosSection session={session} onBack={() => setActiveSection("inicio")} />
+          )}
+          {activeSection === "chat" && !session.currentInstallationId && (
+            <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+              <MessageCircle className="h-12 w-12 text-zinc-600 mb-3" />
+              <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
+              <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
+            </div>
+          )}
+          {activeSection === "desempeno" && (
+            <GuardDesempenoSection session={session} />
+          )}
+          {activeSection === "control-acceso" && session.currentInstallationId && (
+            <AccessControlGuardHome
+              installationId={session.currentInstallationId}
+              installationName={session.currentInstallationName ?? "Instalación"}
+              guardId={session.guardiaId}
+              tenantId={session.tenantId}
+            />
+          )}
+          {activeSection === "control-acceso" && !session.currentInstallationId && (
+            <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+              <Shield className="h-12 w-12 text-zinc-600 mb-3" />
+              <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
+              <p className="text-zinc-500 text-xs mt-1">El control de acceso se habilitará cuando estés asignado a una instalación.</p>
+            </div>
+          )}
+        </main>
+      )}
 
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t w-full">

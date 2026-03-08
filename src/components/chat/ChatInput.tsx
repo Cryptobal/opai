@@ -15,8 +15,6 @@ import {
   X,
   Image as ImageIcon,
   File as FileIcon,
-  Link2,
-  Camera,
 } from "lucide-react";
 import type Pusher from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
@@ -90,7 +88,6 @@ export function ChatInput({
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef(0);
 
   // Emoji picker state
@@ -112,15 +109,6 @@ export function ChatInput({
   const [hashtagStartPos, setHashtagStartPos] = useState(0);
   const hashtagFetchRef = useRef<AbortController | null>(null);
   const hashtagDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Link/pin panel state
-  const [showLinkPanel, setShowLinkPanel] = useState(false);
-  const [linkPanelQuery, setLinkPanelQuery] = useState("");
-  const [linkPanelResults, setLinkPanelResults] = useState<GlobalSearchResult[]>([]);
-  const [linkPanelLoading, setLinkPanelLoading] = useState(false);
-  const linkPanelRef = useRef<HTMLDivElement>(null);
-  const linkPanelFetchRef = useRef<AbortController | null>(null);
-  const linkPanelDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -153,20 +141,6 @@ export function ChatInput({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showEmojiPicker]);
-
-  // Close link panel on outside click
-  useEffect(() => {
-    if (!showLinkPanel) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (linkPanelRef.current && !linkPanelRef.current.contains(e.target as Node)) {
-        setShowLinkPanel(false);
-        setLinkPanelQuery("");
-        setLinkPanelResults([]);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showLinkPanel]);
 
   // Insert emoji at cursor position
   const handleEmojiSelect = useCallback((emojiData: { emoji: string }) => {
@@ -352,53 +326,6 @@ export function ChatInput({
     };
   }, [hashtagQuery]);
 
-  // Fetch link panel results (debounced 300ms, min 2 chars)
-  useEffect(() => {
-    if (!showLinkPanel || linkPanelQuery.length < 2) {
-      setLinkPanelResults([]);
-      setLinkPanelLoading(false);
-      return;
-    }
-
-    setLinkPanelLoading(true);
-
-    if (linkPanelDebounceRef.current) {
-      clearTimeout(linkPanelDebounceRef.current);
-    }
-
-    linkPanelDebounceRef.current = setTimeout(() => {
-      linkPanelFetchRef.current?.abort();
-      const controller = new AbortController();
-      linkPanelFetchRef.current = controller;
-
-      const fetchResults = async () => {
-        try {
-          const res = await fetch(`/api/search/global?q=${encodeURIComponent(linkPanelQuery)}`, {
-            signal: controller.signal,
-          });
-          if (!res.ok) return;
-          const json = await res.json();
-          if (json.success) {
-            setLinkPanelResults(json.data);
-          }
-        } catch {
-          // Ignore abort errors
-        } finally {
-          setLinkPanelLoading(false);
-        }
-      };
-
-      fetchResults();
-    }, 300);
-
-    return () => {
-      if (linkPanelDebounceRef.current) {
-        clearTimeout(linkPanelDebounceRef.current);
-      }
-      linkPanelFetchRef.current?.abort();
-    };
-  }, [showLinkPanel, linkPanelQuery]);
-
   // Insert entity token from # dropdown
   const insertHashtagEntity = useCallback(
     (result: GlobalSearchResult) => {
@@ -418,23 +345,6 @@ export function ChatInput({
       }, 0);
     },
     [content, hashtagStartPos, hashtagQuery]
-  );
-
-  // Insert entity token from link panel (append to end)
-  const insertLinkPanelEntity = useCallback(
-    (result: GlobalSearchResult) => {
-      const token = `<#${result.type}:${result.id}:${result.title}>`;
-      const separator = content.length > 0 && !content.endsWith(" ") ? " " : "";
-      setContent(prev => prev + separator + token + " ");
-      setShowLinkPanel(false);
-      setLinkPanelQuery("");
-      setLinkPanelResults([]);
-
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 0);
-    },
-    [content]
   );
 
   const insertMention = useCallback(
@@ -726,7 +636,7 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Input area */}
+      {/* Input area: [paperclip] [textarea] [emoji] [send] */}
       <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
         {/* File upload */}
         <button
@@ -747,133 +657,6 @@ export function ChatInput({
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
         />
-
-        {/* Camera button (mobile only) */}
-        <button
-          type="button"
-          onClick={() => cameraInputRef.current?.click()}
-          disabled={files.length >= MAX_FILES}
-          className="lg:hidden flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
-          aria-label="Tomar foto"
-          title="Tomar foto o elegir imagen"
-        >
-          <Camera className="h-4 w-4" />
-        </button>
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-
-        {/* Emoji picker */}
-        <div className="relative" ref={emojiPickerRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowEmojiPicker(!showEmojiPicker);
-              // Close link panel when opening emoji picker
-              if (!showEmojiPicker) {
-                setShowLinkPanel(false);
-                setLinkPanelQuery("");
-                setLinkPanelResults([]);
-              }
-            }}
-            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
-            aria-label="Emoji"
-            title="Emoji"
-          >
-            <Smile className="h-4 w-4" />
-          </button>
-          {showEmojiPicker && (
-            <div className="absolute bottom-full left-0 mb-2 z-50">
-              <EmojiPicker
-                theme={Theme.DARK}
-                onEmojiClick={handleEmojiSelect}
-                width={320}
-                height={400}
-                searchPlaceholder="Buscar emoji..."
-                previewConfig={{ showPreview: false }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Link/entity search button */}
-        <div className="relative" ref={linkPanelRef}>
-          <button
-            type="button"
-            onClick={() => {
-              const next = !showLinkPanel;
-              setShowLinkPanel(next);
-              // Close emoji picker when opening link panel
-              if (next) {
-                setShowEmojiPicker(false);
-              } else {
-                setLinkPanelQuery("");
-                setLinkPanelResults([]);
-              }
-            }}
-            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
-            aria-label="Vincular entidad"
-            title="Vincular entidad CRM"
-          >
-            <Link2 className="h-4 w-4" />
-          </button>
-          {showLinkPanel && (
-            <div className="absolute bottom-full left-0 mb-2 z-50 w-80 rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
-              <div className="p-2 border-b border-zinc-700">
-                <input
-                  type="text"
-                  value={linkPanelQuery}
-                  onChange={(e) => setLinkPanelQuery(e.target.value)}
-                  placeholder="Buscar entidad..."
-                  className="w-full rounded-md border border-zinc-600 bg-zinc-900/50 px-2.5 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-                  autoFocus
-                />
-              </div>
-              <div className="max-h-60 overflow-y-auto">
-                {linkPanelLoading && (
-                  <div className="flex items-center justify-center py-4 text-xs text-zinc-500">
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-blue-400 mr-2" />
-                    Buscando...
-                  </div>
-                )}
-                {!linkPanelLoading && linkPanelQuery.length >= 2 && linkPanelResults.length === 0 && (
-                  <div className="py-4 text-center text-xs text-zinc-500">
-                    Sin resultados
-                  </div>
-                )}
-                {!linkPanelLoading && linkPanelQuery.length < 2 && linkPanelQuery.length > 0 && (
-                  <div className="py-4 text-center text-xs text-zinc-500">
-                    Escribe al menos 2 caracteres
-                  </div>
-                )}
-                {linkPanelResults.map((result) => (
-                  <button
-                    key={`${result.type}-${result.id}`}
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 transition-colors"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      insertLinkPanelEntity(result);
-                    }}
-                  >
-                    <span className="shrink-0 text-base leading-none">
-                      {ENTITY_TYPE_ICONS[result.type]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-xs">{result.title}</p>
-                      <p className="truncate text-[10px] text-zinc-500">{result.subtitle}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Textarea + mention/hashtag popup */}
         <div className="flex-1 min-w-0 relative">
@@ -970,6 +753,31 @@ export function ChatInput({
             style={{ maxHeight: `${5 * 24}px` }}
             disabled={isSending || isUploading}
           />
+        </div>
+
+        {/* Emoji picker */}
+        <div className="relative" ref={emojiPickerRef}>
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="flex items-center justify-center h-8 w-8 text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.88)] transition-colors shrink-0 mb-0.5"
+            aria-label="Emoji"
+            title="Emoji"
+          >
+            <Smile className="h-4 w-4" />
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-0 mb-2 z-50">
+              <EmojiPicker
+                theme={Theme.DARK}
+                onEmojiClick={handleEmojiSelect}
+                width={320}
+                height={400}
+                searchPlaceholder="Buscar emoji..."
+                previewConfig={{ showPreview: false }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Send button */}
