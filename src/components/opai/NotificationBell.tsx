@@ -293,7 +293,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                     </p>
                   </button>
                   {(notification.type === 'followup_sent' || notification.type === 'email_opened') &&
-                    notification.data?.whatsappUrl && (
+                    (notification.data as Record<string, unknown>)?.whatsappUrl && (
                       <a
                         href={(notification.data as Record<string, string>).whatsappUrl}
                         target="_blank"
