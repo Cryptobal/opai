@@ -40,6 +40,7 @@ import {
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
+import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
 import { ChatFloatingProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 
@@ -56,7 +57,9 @@ interface AppLayoutClientProps {
 export function AppLayoutClient(props: AppLayoutClientProps) {
   return (
     <RoleSimulationProvider realRole={props.userRole} realPermissions={props.permissions}>
-      <AppLayoutClientInner {...props} />
+      <NotificationProvider>
+        <AppLayoutClientInner {...props} />
+      </NotificationProvider>
     </RoleSimulationProvider>
   );
 }
@@ -74,23 +77,20 @@ function AppLayoutClientInner({
   // Use simulated permissions when active, otherwise real permissions
   const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
-  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  // Notification unread count from centralized context (no more independent polling)
+  const { unreadCount: notificationUnreadCount } = useNotifications();
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
   const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
   const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
 
-  const fetchUnreadCounters = useCallback(() => {
+  const fetchOtherCounters = useCallback(() => {
     Promise.all([
-      fetch('/api/notifications?limit=1').then((r) => r.json()),
       fetch('/api/notifications?limit=1&types=mention,mention_direct,mention_group').then((r) => r.json()),
       fetch('/api/notes/unread-counts', { cache: 'no-store' }).then((r) => r.json()),
       fetch('/api/chat/unread-counts', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([allData, noteData, unreadCounts, chatCounts]) => {
-        if (allData?.success && typeof allData?.meta?.unreadCount === 'number') {
-          setNotificationUnreadCount(allData.meta.unreadCount);
-        }
+      .then(([noteData, unreadCounts, chatCounts]) => {
         if (noteData?.success && typeof noteData?.meta?.unreadCount === 'number') {
           setUnreadMentionNotesCount(noteData.meta.unreadCount);
         }
@@ -106,19 +106,15 @@ function AppLayoutClientInner({
   }, []);
 
   useEffect(() => {
-    fetchUnreadCounters();
-    const interval = setInterval(() => {
-      fetchUnreadCounters();
-    }, 30000);
-    const onRefresh = () => fetchUnreadCounters();
+    fetchOtherCounters();
+    const interval = setInterval(fetchOtherCounters, 30000);
+    const onRefresh = () => fetchOtherCounters();
     window.addEventListener('opai-note-seen', onRefresh as EventListener);
-    window.addEventListener('opai-notification-read', onRefresh as EventListener);
     return () => {
       clearInterval(interval);
       window.removeEventListener('opai-note-seen', onRefresh as EventListener);
-      window.removeEventListener('opai-notification-read', onRefresh as EventListener);
     };
-  }, [fetchUnreadCounters]);
+  }, [fetchOtherCounters]);
 
   // Compute per-module unread note totals for parent sidebar badges
   const crmNotesBadge = (notesByModule.account || 0) + (notesByModule.contact || 0) + (notesByModule.deal || 0) + (notesByModule.installation || 0) + (notesByModule.lead || 0) + (notesByModule.quotation || 0);
