@@ -137,17 +137,18 @@ function InstallationCard({
           <p className="text-xs text-zinc-600 truncate mt-0.5">{installation.address}</p>
         )}
         {installation.pairingCode && (
-          <button
+          <span
+            role="button"
             onClick={(e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(installation.pairingCode!);
             }}
-            className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300"
+            className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
             title="Copiar código de pareo"
           >
             <Copy size={10} />
             <span className="font-mono">{installation.pairingCode}</span>
-          </button>
+          </span>
         )}
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">

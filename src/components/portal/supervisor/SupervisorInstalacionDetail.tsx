@@ -71,7 +71,10 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
 
       if (guardsRes.status === "fulfilled" && guardsRes.value.ok) {
         const j = await guardsRes.value.json();
-        setGuards(j.data ?? []);
+        const d = j.data;
+        // API returns { regular: [...], reinforcement: [...] } — flatten to a single array
+        const allGuards = Array.isArray(d) ? d : [...(d?.regular ?? []), ...(d?.reinforcement ?? [])];
+        setGuards(allGuards);
       }
       if (findingsRes.status === "fulfilled" && findingsRes.value.ok) {
         const j = await findingsRes.value.json();
