@@ -107,13 +107,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Create alerts for each ronda
-    const alertData = allToClose.map((ej) => {
+    // Create alerts for each ronda (skip those without installationId)
+    const alertData = allToClose.filter((ej) => ej.installationId).map((ej) => {
       const isTimeout = toCloseTimeout.some((t) => t.id === ej.id);
       return {
         tenantId: ej.tenantId,
         ejecucionId: ej.id,
-        installationId: ej.installationId,
+        installationId: ej.installationId!,
         tipo: "ronda_libre_timeout",
         severidad: "warning",
         mensaje: isTimeout
