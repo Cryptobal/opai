@@ -33,9 +33,9 @@ interface Props {
 
 interface Guard {
   id: string;
-  firstName: string;
-  lastName: string;
-  rut?: string;
+  guardName: string;
+  guardRut?: string | null;
+  puestoName?: string;
 }
 
 interface Finding {
@@ -202,22 +202,29 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
               <EmptyState title="Sin guardias asignados" compact inline />
             ) : (
               <div className="flex flex-col gap-1.5">
-                {guards.slice(0, 5).map((g) => (
+                {guards.slice(0, 5).map((g) => {
+                  const initials = g.guardName
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("");
+                  return (
                   <div
                     key={g.id}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/50"
                   >
                     <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-400 font-medium">
-                      {g.firstName[0]}{g.lastName[0]}
+                      {initials}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm text-zinc-200 truncate">
-                        {g.firstName} {g.lastName}
+                        {g.guardName}
                       </p>
-                      {g.rut && <p className="text-xs text-zinc-500">{g.rut}</p>}
+                      {g.guardRut && <p className="text-xs text-zinc-500">{g.guardRut}</p>}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {guards.length > 5 && (
                   <p className="text-xs text-zinc-600 text-center">+{guards.length - 5} más</p>
                 )}
