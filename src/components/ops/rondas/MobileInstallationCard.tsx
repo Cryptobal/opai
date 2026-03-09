@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -117,6 +116,72 @@ function rondaTimelineIcon(ronda: CNRonda): { icon: string; color: string; label
   return { icon: "\u2014", color: "text-slate-600", label: "Programada" };
 }
 
+function guardSectionSummary(guardias: CNGuardia[], requeridos: number) {
+  const presentes = guardias.filter(
+    (g) => g.status === "presente" || g.status === "reemplazo",
+  ).length;
+  if (presentes >= requeridos) return { text: `${presentes}/${requeridos} ✅`, color: "text-emerald-400" };
+  const allPending = guardias.every((g) => g.status === "pendiente" || g.status === "en_camino");
+  if (allPending) return { text: `${presentes}/${requeridos} ⏳`, color: "text-slate-400" };
+  return { text: `${presentes}/${requeridos} 🔴`, color: "text-red-400" };
+}
+
+function GuardiaSection({
+  label,
+  guardias,
+  requeridos,
+}: {
+  label: string;
+  guardias: CNGuardia[];
+  requeridos: number;
+}) {
+  if (guardias.length === 0) return null;
+  const summary = guardSectionSummary(guardias, requeridos);
+
+  return (
+    <div className="mt-2 mb-3">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[9px] text-slate-500 font-semibold uppercase">{label}</span>
+        <span className={cn("text-[9px] font-semibold", summary.color)}>{summary.text}</span>
+      </div>
+      <div className="space-y-1">
+        {guardias.map((g) => {
+          const isNoViene = g.status === "no_viene";
+          return (
+            <div key={g.id} className="flex items-center gap-2">
+              <div className={cn("w-2 h-2 rounded-full flex-shrink-0", guardStatusDot(g.status))} />
+              <span
+                className={cn(
+                  "text-xs truncate",
+                  isNoViene ? "text-red-400 line-through" : "text-slate-300",
+                )}
+              >
+                {g.guardiaNombre}
+              </span>
+              {g.isExtra && (
+                <span className="text-[8px] font-bold text-amber-400 border border-amber-400/40 rounded px-1 leading-tight flex-shrink-0">
+                  EXT
+                </span>
+              )}
+              <span className="ml-auto flex-shrink-0 text-[10px] text-slate-500">
+                {isNoViene ? (
+                  <span className="text-red-400">
+                    — No viene{g.notes ? ` · ${g.notes}` : ""}
+                  </span>
+                ) : g.horaLlegada ? (
+                  g.horaLlegada
+                ) : (
+                  "—"
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function MobileInstallationCard({ instalacion, expanded, onToggle }: MobileInstallationCardProps) {
   const rondas = instalacion.rondas ?? [];
   const completadas = rondas.filter((r) => r.status === "completada").length;
@@ -125,7 +190,9 @@ export function MobileInstallationCard({ instalacion, expanded, onToggle }: Mobi
   const scores = rondas.filter((r) => r.trustScore != null);
   const avgTrust = scores.length > 0 ? Math.round(scores.reduce((a, r) => a + (r.trustScore ?? 0), 0) / scores.length) : null;
   const isDescubierta = instalacion.coberturaStatus === "descubierta";
-  const nocturnos = (instalacion.guardias ?? []).filter((g) => g.turno === "nocturno" || !g.turno);
+  const allGuardias = instalacion.guardias ?? [];
+  const nocturnos = allGuardias.filter((g) => g.turno === "nocturno" || !g.turno);
+  const diurnos = allGuardias.filter((g) => g.turno === "diurno");
 
   return (
     <div
@@ -192,23 +259,24 @@ export function MobileInstallationCard({ instalacion, expanded, onToggle }: Mobi
       {/* Expanded content */}
       {expanded && (
         <div className="px-3 pb-3 border-t border-slate-800/50">
-          {/* Guards section */}
-          {nocturnos.length > 0 && (
+          {/* Guards section — Noche */}
+          <GuardiaSection
+            label="TURNO NOCHE"
+            guardias={nocturnos}
+            requeridos={instalacion.guardiasRequeridos}
+          />
+
+          {/* Guards section — Día (Relevo) */}
+          {diurnos.length > 0 ? (
+            <GuardiaSection
+              label="RELEVO DÍA"
+              guardias={diurnos}
+              requeridos={diurnos.length}
+            />
+          ) : (
             <div className="mt-2 mb-3">
-              <div className="text-[9px] text-slate-500 font-semibold uppercase mb-1.5">Guardias Noche</div>
-              <div className="space-y-1">
-                {nocturnos.map((g) => (
-                  <div key={g.id} className="flex items-center gap-2">
-                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0", guardStatusDot(g.status))} />
-                    <span className="text-xs text-slate-300 truncate">{g.guardiaNombre}</span>
-                    {g.horaLlegada && (
-                      <span className="text-[10px] text-slate-500 ml-auto">{g.horaLlegada}</span>
-                    )}
-                    {g.status === "no_viene" && (
-                      <span className="text-[9px] text-red-400 ml-auto">No viene</span>
-                    )}
-                  </div>
-                ))}
+              <div className="text-[9px] text-slate-500 font-semibold uppercase">
+                RELEVO DÍA — Sin asignar
               </div>
             </div>
           )}
