@@ -107,8 +107,8 @@ export function RondasMonitoreoClient({
       const monJson = await monRes.json();
       if (monJson.success) {
         setRows(monJson.data);
-        if (monJson.controlNocturno) setControlNocturno(monJson.controlNocturno);
-        if (monJson.activeTurno) setActiveTurno(monJson.activeTurno);
+        setControlNocturno(monJson.controlNocturno ?? null);
+        setActiveTurno(monJson.activeTurno ?? null);
       }
     } catch { /* ignore polling errors */ }
   }, []);
@@ -544,6 +544,7 @@ export function RondasMonitoreoClient({
       />
       {/* Compact turno header */}
       <MonitoreoTurnoHeader
+        key={activeTurno?.id ?? "no-turno"}
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
         completedCount={rows.filter((r: any) => r.status === "completada").length}
         missedCount={rows.filter((r: any) => r.status === "no_realizada" || r.status === "incompleta").length}
@@ -552,6 +553,7 @@ export function RondasMonitoreoClient({
         operatorName={userName}
         onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}
         onToggleAlerts={handleToggleAlerts}
+        onTurnoStarted={refreshMonitoreo}
         isReadOnly={isReadOnly}
       />
 
@@ -698,7 +700,7 @@ export function RondasMonitoreoClient({
         turnoId={closeTurnoId ?? ""}
         open={!!closeTurnoId}
         onClose={() => setCloseTurnoId(null)}
-        onClosed={() => setCloseTurnoId(null)}
+        onClosed={() => { setCloseTurnoId(null); refreshMonitoreo(); }}
       />
     </div>
   );

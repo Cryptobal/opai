@@ -48,7 +48,6 @@ interface RondaItem {
 
 interface Props {
   session: RondasSession;
-  onLogout: () => void;
   onIniciarRonda: (ejecucionId: string) => void;
   onIniciarRondaLibre: () => void;
   onReportIncident: () => void;
@@ -179,7 +178,7 @@ function classifyPendiente(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLibre, onReportIncident }: Props) {
+export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onReportIncident }: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -304,7 +303,7 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLib
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#0a0a0f" }}>
       {/* ============ Content ============ */}
       <main className="flex-1 px-4 pt-3" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
-        {/* Status bar + Salir */}
+        {/* Status bar */}
         <div className="flex items-center justify-between mb-3">
           <span className="flex items-center gap-1.5 text-sm">
             <span
@@ -316,12 +315,6 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLib
               {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
             </span>
           </span>
-          <button
-            onClick={onLogout}
-            className="rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 active:bg-gray-600"
-          >
-            Salir
-          </button>
         </div>
 
         {/* Title row + refresh */}

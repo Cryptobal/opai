@@ -56,11 +56,106 @@ export async function GET() {
       select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true },
     });
 
+    // Self-heal: if active turno has no CN link, try to find/create one
+    if (activeTurno && !activeTurno.controlNocturnoId) {
+      try {
+        const { getCNDate } = await import("@/lib/rondas/cn-utils");
+        const cnDate = getCNDate(new Date());
+
+        // Try unlinked CN first
+        let healCN: { id: string } | null = await prisma.opsControlNocturno.findFirst({
+          where: { tenantId: ctx.tenantId, date: cnDate, monitoreoTurno: null },
+          select: { id: true },
+        });
+
+        // Try CN linked to a completed turno
+        if (!healCN) {
+          const linkedCN = await prisma.opsControlNocturno.findFirst({
+            where: { tenantId: ctx.tenantId, date: cnDate, monitoreoTurno: { status: "completed" } },
+            select: { id: true, monitoreoTurno: { select: { id: true } } },
+          });
+          if (linkedCN?.monitoreoTurno) {
+            await prisma.opsMonitoreoTurno.update({
+              where: { id: linkedCN.monitoreoTurno.id },
+              data: { controlNocturnoId: null },
+            });
+            healCN = { id: linkedCN.id };
+          }
+        }
+
+        // Auto-create CN if none exists for today
+        if (!healCN) {
+          const installations = await prisma.crmInstallation.findMany({
+            where: { tenantId: ctx.tenantId, isActive: true, nocturnoEnabled: true },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          });
+          if (installations.length > 0) {
+            const RONDA_HOURS = [
+              "20:00", "21:00", "22:00", "23:00",
+              "00:00", "01:00", "02:00", "03:00",
+              "04:00", "05:00", "06:00", "07:00",
+            ];
+            const newCN = await prisma.opsControlNocturno.create({
+              data: {
+                tenantId: ctx.tenantId,
+                date: cnDate,
+                centralOperatorName: activeTurno.operatorName ?? "Operador",
+                shiftStart: "19:00",
+                shiftEnd: "08:00",
+                status: "borrador",
+                createdBy: activeTurno.operatorId,
+                instalaciones: {
+                  create: installations.map((inst, idx) => ({
+                    installationId: inst.id,
+                    installationName: inst.name,
+                    orderIndex: idx + 1,
+                    guardiasRequeridos: 1,
+                    guardiasPresentes: 0,
+                    statusInstalacion: "normal",
+                    rondas: {
+                      create: RONDA_HOURS.map((hora, rIdx) => ({
+                        rondaNumber: rIdx + 1,
+                        horaEsperada: hora,
+                        status: "pendiente",
+                      })),
+                    },
+                  })),
+                },
+              },
+              select: { id: true },
+            });
+            healCN = newCN;
+          }
+        }
+
+        if (healCN) {
+          await prisma.opsMonitoreoTurno.update({
+            where: { id: activeTurno.id },
+            data: { controlNocturnoId: healCN.id },
+          });
+          activeTurno.controlNocturnoId = healCN.id;
+
+          // Generate grid slots for the newly linked CN
+          await generateGridSlots({
+            controlNocturnoId: healCN.id,
+            tenantId: ctx.tenantId,
+            shiftStart: "19:00",
+            shiftEnd: "08:00",
+          });
+        }
+      } catch (healErr) {
+        console.error("[RONDAS] self-heal failed:", healErr);
+        // Don't break the main response — continue without CN
+      }
+    }
+
     if (activeTurno?.controlNocturnoId) {
       controlNocturno = await prisma.opsControlNocturno.findUnique({
         where: { id: activeTurno.controlNocturnoId },
         include: {
           instalaciones: {
+            where: { installation: { nocturnoEnabled: true } },
             orderBy: { orderIndex: "asc" },
             include: {
               guardias: { orderBy: { guardiaNombre: "asc" } },
@@ -87,6 +182,7 @@ export async function GET() {
             where: { id: activeTurno.controlNocturnoId },
             include: {
               instalaciones: {
+                where: { installation: { nocturnoEnabled: true } },
                 orderBy: { orderIndex: "asc" },
                 include: {
                   guardias: { orderBy: { guardiaNombre: "asc" } },

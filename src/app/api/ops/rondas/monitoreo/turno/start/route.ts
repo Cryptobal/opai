@@ -20,9 +20,11 @@ export async function POST() {
       return NextResponse.json({ success: true, data: existing });
     }
 
-    // Find tonight's control nocturno to link (if not already linked to another turno)
+    // Find tonight's control nocturno to link
     const cnDate = getCNDate(new Date());
-    const cn = await prisma.opsControlNocturno.findFirst({
+
+    // 1) Try to find an unlinked CN for today
+    let cn = await prisma.opsControlNocturno.findFirst({
       where: {
         tenantId: ctx.tenantId,
         date: cnDate,
@@ -30,6 +32,73 @@ export async function POST() {
       },
       select: { id: true, shiftStart: true, shiftEnd: true },
     });
+
+    // 2) If not found, try to reuse a CN linked to a completed turno
+    if (!cn) {
+      const linkedCN = await prisma.opsControlNocturno.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          date: cnDate,
+          monitoreoTurno: { status: "completed" },
+        },
+        select: { id: true, shiftStart: true, shiftEnd: true, monitoreoTurno: { select: { id: true } } },
+      });
+      if (linkedCN) {
+        // Unlink the completed turno so we can reuse the CN
+        await prisma.opsMonitoreoTurno.update({
+          where: { id: linkedCN.monitoreoTurno!.id },
+          data: { controlNocturnoId: null },
+        });
+        cn = { id: linkedCN.id, shiftStart: linkedCN.shiftStart, shiftEnd: linkedCN.shiftEnd };
+      }
+    }
+
+    // 3) If no CN exists at all for today, auto-create one
+    if (!cn) {
+      const installations = await prisma.crmInstallation.findMany({
+        where: { tenantId: ctx.tenantId, isActive: true, nocturnoEnabled: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+
+      if (installations.length > 0) {
+        const RONDA_HOURS = [
+          "20:00", "21:00", "22:00", "23:00",
+          "00:00", "01:00", "02:00", "03:00",
+          "04:00", "05:00", "06:00", "07:00",
+        ];
+        const newCN = await prisma.opsControlNocturno.create({
+          data: {
+            tenantId: ctx.tenantId,
+            date: cnDate,
+            centralOperatorName: ctx.userEmail ?? "Operador",
+            shiftStart: "19:00",
+            shiftEnd: "08:00",
+            status: "borrador",
+            createdBy: ctx.userId,
+            instalaciones: {
+              create: installations.map((inst, idx) => ({
+                installationId: inst.id,
+                installationName: inst.name,
+                orderIndex: idx + 1,
+                guardiasRequeridos: 1,
+                guardiasPresentes: 0,
+                statusInstalacion: "normal",
+                rondas: {
+                  create: RONDA_HOURS.map((hora, rIdx) => ({
+                    rondaNumber: rIdx + 1,
+                    horaEsperada: hora,
+                    status: "pendiente",
+                  })),
+                },
+              })),
+            },
+          },
+          select: { id: true, shiftStart: true, shiftEnd: true },
+        });
+        cn = newCN;
+      }
+    }
 
     const turno = await prisma.opsMonitoreoTurno.create({
       data: {

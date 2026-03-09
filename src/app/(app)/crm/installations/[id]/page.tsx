@@ -46,6 +46,7 @@ export default async function CrmInstallationDetailPage({
         notes: true,
         metadata: true,
         nocturnoEnabled: true,
+        chatEnabled: true,
         startDate: true,
         endDate: true,
         createdAt: true,

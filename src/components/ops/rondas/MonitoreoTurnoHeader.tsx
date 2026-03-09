@@ -19,6 +19,7 @@ interface Props {
   operatorName: string;
   onOpenCloseTurno?: (turnoId: string) => void;
   onToggleAlerts?: () => void;
+  onTurnoStarted?: () => void;
   isReadOnly?: boolean;
 }
 
@@ -38,6 +39,7 @@ export function MonitoreoTurnoHeader({
   operatorName,
   onOpenCloseTurno,
   onToggleAlerts,
+  onTurnoStarted,
   isReadOnly,
 }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
@@ -72,7 +74,10 @@ export function MonitoreoTurnoHeader({
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/turno/start", { method: "POST" });
       const json = await res.json();
-      if (json.success) setTurno(json.data);
+      if (json.success) {
+        setTurno(json.data);
+        onTurnoStarted?.();
+      }
     } finally {
       setLoading(false);
     }
