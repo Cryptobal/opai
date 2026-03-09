@@ -586,6 +586,7 @@ export function RondasMonitoreoClient({
           mapCenter={mapCenter}
           selectedRondaId={selectedRondaId}
           onInstallationClick={(id) => setSelectedInstallationId(id)}
+          onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
         />
       ) : (
         <>

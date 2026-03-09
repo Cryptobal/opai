@@ -34,6 +34,7 @@ interface MobileMonitorViewProps {
   mapCenter: { lat: number; lng: number } | null;
   selectedRondaId: string | null;
   onInstallationClick: (id: string) => void;
+  onGuardClick?: (instalacion: any, turno: "nocturno" | "diurno") => void;
 }
 
 type MobileTab = "Estado" | "Alertas" | "Mapa";
@@ -55,6 +56,7 @@ export function MobileMonitorView({
   mapCenter,
   selectedRondaId,
   onInstallationClick,
+  onGuardClick,
 }: MobileMonitorViewProps) {
   const [tab, setTab] = useState<MobileTab>("Estado");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Todas");
@@ -263,6 +265,7 @@ export function MobileMonitorView({
                     instalacion={inst}
                     expanded={expandedIds.has(inst.id)}
                     onToggle={() => toggleExpand(inst.id)}
+                    onGuardClick={onGuardClick}
                   />
                 ))
               )}

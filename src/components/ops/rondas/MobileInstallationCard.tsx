@@ -44,6 +44,7 @@ interface MobileInstallationCardProps {
   instalacion: CNInstalacion;
   expanded: boolean;
   onToggle: () => void;
+  onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
 }
 
 function trustColor(score: number | null): string {
@@ -105,15 +106,32 @@ function rondaTimelineIcon(ronda: CNRonda): { icon: string; color: string; label
   if (ronda.status === "no_aplica") {
     return { icon: "\u2014", color: "text-slate-600", label: "N/A" };
   }
-  // Pending
+  // Pending — determine if past, current, or future
   const now = new Date();
   const currentHour = now.getHours();
   const slotHour = parseInt(ronda.horaEsperada.split(":")[0], 10);
+
+  // Normalize for overnight shifts (19:00 → 08:00)
+  const normalizedCurrent = currentHour < 12 ? currentHour + 24 : currentHour;
+  const normalizedSlot = slotHour < 12 ? slotHour + 24 : slotHour;
+  const isPastSlot = normalizedSlot < normalizedCurrent;
   const isCurrentSlot = slotHour === currentHour;
+
   if (isCurrentSlot) {
     return { icon: "\u25CF", color: "text-teal-400 animate-pulse", label: "Esperando..." };
   }
-  return { icon: "\u2014", color: "text-slate-600", label: "Programada" };
+  if (isPastSlot) {
+    if (ronda.rondaExpected) {
+      return { icon: "\u26A0", color: "text-red-400", label: "No realizada" };
+    }
+    // Manual slot that wasn't checked — subtle, not alarming
+    return { icon: "\u00B7", color: "text-slate-700", label: "" };
+  }
+  // Future
+  if (ronda.rondaExpected) {
+    return { icon: "\u2014", color: "text-slate-600", label: "Programada" };
+  }
+  return { icon: "\u00B7", color: "text-slate-700", label: "" };
 }
 
 function guardSectionSummary(guardias: CNGuardia[], requeridos: number) {
@@ -182,7 +200,7 @@ function GuardiaSection({
   );
 }
 
-export function MobileInstallationCard({ instalacion, expanded, onToggle }: MobileInstallationCardProps) {
+export function MobileInstallationCard({ instalacion, expanded, onToggle, onGuardClick }: MobileInstallationCardProps) {
   const rondas = instalacion.rondas ?? [];
   const completadas = rondas.filter((r) => r.status === "completada").length;
   const omitidas = rondas.filter((r) => r.status === "omitida").length;
@@ -260,23 +278,37 @@ export function MobileInstallationCard({ instalacion, expanded, onToggle }: Mobi
       {expanded && (
         <div className="px-3 pb-3 border-t border-slate-800/50">
           {/* Guards section — Noche */}
-          <GuardiaSection
-            label="TURNO NOCHE"
-            guardias={nocturnos}
-            requeridos={instalacion.guardiasRequeridos}
-          />
+          <div onClick={() => onGuardClick?.(instalacion, "nocturno")} className="cursor-pointer">
+            <GuardiaSection
+              label="TURNO NOCHE"
+              guardias={nocturnos}
+              requeridos={instalacion.guardiasRequeridos}
+            />
+          </div>
 
           {/* Guards section — Día (Relevo) */}
           {diurnos.length > 0 ? (
-            <GuardiaSection
-              label="RELEVO DÍA"
-              guardias={diurnos}
-              requeridos={diurnos.length}
-            />
+            <div onClick={() => onGuardClick?.(instalacion, "diurno")} className="cursor-pointer">
+              <GuardiaSection
+                label="RELEVO DÍA"
+                guardias={diurnos}
+                requeridos={diurnos.length}
+              />
+            </div>
           ) : (
             <div className="mt-2 mb-3">
-              <div className="text-[9px] text-slate-500 font-semibold uppercase">
-                RELEVO DÍA — Sin asignar
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-slate-500 font-semibold uppercase">
+                  RELEVO DÍA — Pendiente de asignar
+                </span>
+                {onGuardClick && (
+                  <button
+                    onClick={() => onGuardClick(instalacion, "diurno")}
+                    className="text-[9px] text-teal-400 font-medium px-2 py-0.5 rounded-full border border-teal-500/30 bg-teal-500/10"
+                  >
+                    + Asignar
+                  </button>
+                )}
               </div>
             </div>
           )}
