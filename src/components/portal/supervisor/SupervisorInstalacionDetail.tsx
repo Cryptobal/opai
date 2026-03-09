@@ -15,6 +15,9 @@ import {
   Loader2,
   ExternalLink,
   Briefcase,
+  Copy,
+  LinkIcon,
+  CheckCircle2,
 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -55,6 +58,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
   const [findings, setFindings] = useState<Finding[]>([]);
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -112,6 +116,46 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <MapPin size={14} />
           <span>{installation.address}</span>
+        </div>
+      )}
+
+      {/* Pairing Code */}
+      {installation.pairingCode && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <LinkIcon size={14} className="text-blue-400" />
+            <span className="text-sm font-medium text-zinc-200">Código de Pareo</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3">
+              <span className="font-mono text-2xl font-bold tracking-[0.25em] text-zinc-100">
+                {installation.pairingCode}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(installation.pairingCode!);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-300 hover:border-zinc-700 transition-colors"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 size={14} className="text-green-400" />
+                  Copiado
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  Copiar
+                </>
+              )}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-zinc-600">
+            Ingresa este código en el dispositivo para vincularlo a esta instalación.
+          </p>
         </div>
       )}
 

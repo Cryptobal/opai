@@ -24,19 +24,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalizedCode = code.toUpperCase().replace(/\s/g, "");
+    // Normalize: uppercase, remove spaces, ensure XXX-XXX format
+    const stripped = code.toUpperCase().replace(/[\s-]/g, "");
+    const formattedCode = `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
 
-    const device = await prisma.devicePairing.findFirst({
-      where: {
-        pairingCode: normalizedCode,
-        deviceToken: null,
-        pairingCodeExpiresAt: { gt: new Date() },
-      },
+    // Find installation by permanent pairing code
+    const installation = await prisma.crmInstallation.findUnique({
+      where: { pairingCode: formattedCode },
+      select: { id: true, name: true, address: true, tenantId: true },
     });
 
-    if (!device) {
+    if (!installation) {
       return NextResponse.json(
-        { success: false, error: "Código inválido o expirado" },
+        { success: false, error: "Código inválido" },
         { status: 400 }
       );
     }
@@ -53,11 +53,11 @@ export async function POST(request: NextRequest) {
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
-    await prisma.devicePairing.update({
-      where: { id: device.id },
+    // Create a new DevicePairing record (code is NOT consumed)
+    const device = await prisma.devicePairing.create({
       data: {
-        pairingCode: null,
-        pairingCodeExpiresAt: null,
+        tenantId: installation.tenantId,
+        installationId: installation.id,
         deviceToken,
         linkedAt: new Date(),
         name: deviceModel,
@@ -77,21 +77,18 @@ export async function POST(request: NextRequest) {
         lastBatteryLevel: metadata.batteryLevel ?? null,
         lastConnectionType: metadata.connectionType ?? null,
         lastIpAddress: ip,
+        portalRondasEnabled: true,
+        portalAccesoEnabled: true,
       },
-    });
-
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: device.installationId },
-      select: { id: true, name: true, address: true },
     });
 
     return NextResponse.json({
       success: true,
       data: {
         deviceToken,
-        installationId: device.installationId,
-        installationName: installation?.name || "",
-        installationAddress: installation?.address || "",
+        installationId: installation.id,
+        installationName: installation.name || "",
+        installationAddress: installation.address || "",
         deviceId: device.id,
       },
     });

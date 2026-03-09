@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, ChevronRight, Loader2, Search } from "lucide-react";
+import { MapPin, ChevronRight, Loader2, Search, Copy } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -135,6 +135,19 @@ function InstallationCard({
         <p className="text-xs text-zinc-500 truncate">{installation.accountName}</p>
         {installation.address && (
           <p className="text-xs text-zinc-600 truncate mt-0.5">{installation.address}</p>
+        )}
+        {installation.pairingCode && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(installation.pairingCode!);
+            }}
+            className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300"
+            title="Copiar código de pareo"
+          >
+            <Copy size={10} />
+            <span className="font-mono">{installation.pairingCode}</span>
+          </button>
         )}
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">

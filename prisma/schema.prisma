@@ -1383,6 +1383,7 @@ model CrmInstallation {
   isActive        Boolean   @default(false) @map("is_active")
   geoRadiusM      Int       @default(100) @map("geo_radius_m")
   marcacionCode   String?   @unique @map("marcacion_code") // código único 8 chars para URL/QR
+  pairingCode     String?   @unique @map("pairing_code")
   teMontoClp      Decimal   @default(0) @map("te_monto_clp") @db.Decimal(12, 2)
   notes           String?
   metadata        Json?     @db.JsonB // dotacion sugerida, datos extra
