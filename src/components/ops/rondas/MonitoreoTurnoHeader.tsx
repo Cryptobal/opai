@@ -79,6 +79,7 @@ export function MonitoreoTurnoHeader({
   };
 
   if (!turno) {
+    if (isReadOnly) return null;
     return (
       <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
         <Button size="sm" className="h-8 text-xs gap-1.5" onClick={startTurno} disabled={loading}>
