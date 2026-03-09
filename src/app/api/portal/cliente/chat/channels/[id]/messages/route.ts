@@ -5,10 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
-import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
-import { sendChatPushNotifications } from "@/lib/pwa/push-service";
+import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
+import { sendChatPushNotifications, getChatChannelRecipients } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -297,15 +298,23 @@ export async function POST(
       createdAt: message.createdAt.toISOString(),
     };
 
-    // Trigger Pusher event (non-blocking)
-    triggerChatEvent(channelId, "new-message", responseData).catch((err) =>
-      console.error("[Portal Cliente] Error triggering new-message event:", err)
-    );
+    after(async () => {
+      // 1. Pusher real-time event
+      try {
+        await triggerChatEvent(channelId, "new-message", responseData);
+      } catch (err) {
+        console.error("[Portal Cliente][PUSHER] Error triggering event:", err);
+      }
 
-    // Send push notifications to other channel participants (non-blocking)
-    prisma.chatChannel.findUnique({ where: { id: channelId }, select: { name: true, channelType: true } })
-      .then((ch) =>
-        sendChatPushNotifications({
+      // Fetch channel info for push + in-app notifications
+      const ch = await prisma.chatChannel.findUnique({
+        where: { id: channelId },
+        select: { name: true, channelType: true },
+      });
+
+      // 2. Push notifications
+      try {
+        await sendChatPushNotifications({
           tenantId: session.tenantId,
           channelId,
           channelName: ch?.name || "Chat",
@@ -315,9 +324,40 @@ export async function POST(
           senderName: session.contactName,
           messagePreview: content || "[Archivo adjunto]",
           timestamp: message.createdAt.getTime(),
-        })
-      )
-      .catch((err) => console.error("[Portal Cliente] Error sending chat push:", err));
+        });
+      } catch (err) {
+        console.error("[Portal Cliente][PUSH] Error sending push:", err);
+      }
+
+      // 3. In-app notifications via Pusher per-user channel
+      try {
+        const recipients = await getChatChannelRecipients(
+          channelId, session.tenantId, "CLIENT", session.contactId
+        );
+        if (recipients.length > 0) {
+          const pusher = getPusherServer();
+          const chName = ch?.name || "Chat";
+          const notifData = JSON.stringify({
+            type: "chat_message",
+            channelId,
+            channelName: chName,
+            senderName: session.contactName,
+            messagePreview: (content || "[Archivo adjunto]").substring(0, 120),
+            timestamp: new Date().toISOString(),
+          });
+          const batchEvents = recipients.map((r) => ({
+            channel: `private-user-${session.tenantId}-${r.subscriberType}-${r.subscriberId}`,
+            name: "in-app-notification",
+            data: notifData,
+          }));
+          for (let i = 0; i < batchEvents.length; i += 10) {
+            await pusher.triggerBatch(batchEvents.slice(i, i + 10));
+          }
+        }
+      } catch (err) {
+        console.error("[Portal Cliente][PUSHER] Error in-app notifications:", err);
+      }
+    });
 
     return NextResponse.json({ success: true, data: responseData });
   } catch (err: any) {

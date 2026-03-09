@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       update: {
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
+        portalType: portalType,
         isActive: true,
       },
       create: {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
         userAgent: req.headers.get('user-agent') || undefined,
+        portalType: portalType,
       },
     });
 

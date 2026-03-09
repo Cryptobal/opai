@@ -76,6 +76,15 @@ export function authorizePusherChannel(
   });
 }
 
+/**
+ * Authorize a Pusher private channel (non-presence).
+ * Used for per-user notification channels: private-user-{tenantId}-{type}-{userId}
+ */
+export function authorizePrivateChannel(socketId: string, channelName: string) {
+  const pusher = getPusher();
+  return pusher.authorizeChannel(socketId, channelName);
+}
+
 // ── Helper: extract sender ID from message ──
 
 export function getSenderId(message: {

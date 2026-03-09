@@ -97,6 +97,23 @@ export function ChatFloatingProvider({
   const [archivedChannels, setArchivedChannels] = useState<ChatFloatingChannel[]>([]);
   const fetchedRef = useRef(false);
 
+  // Expose unread increment for InAppNotificationProvider
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__incrementChatUnread = (channelId: string) => {
+      setChannels((prev) =>
+        prev.map((ch) =>
+          ch.id === channelId
+            ? { ...ch, unreadCount: (ch.unreadCount || 0) + 1 }
+            : ch
+        )
+      );
+    };
+    return () => {
+      delete (window as any).__incrementChatUnread;
+    };
+  }, []);
+
   const fetchChannels = useCallback(async () => {
     if (!currentUserId) return;
     setLoading(true);

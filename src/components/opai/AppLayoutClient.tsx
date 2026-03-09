@@ -42,6 +42,7 @@ import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimula
 import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
 import { ChatFloatingProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
+import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 
 interface AppLayoutClientProps {
   children: ReactNode;
@@ -249,30 +250,40 @@ function AppLayoutClientInner({
   ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
 
   return (
-    <ChatFloatingProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
-      <AppShell
-        sidebar={
-          <AppSidebar
-            navItems={navItems}
-            userName={userName ?? undefined}
-            userEmail={userEmail ?? undefined}
-          />
-        }
-        userName={userName ?? undefined}
-        userEmail={userEmail ?? undefined}
-        userRole={userRole}
-        notificationUnreadCount={notificationUnreadCount}
-      >
-        {currentUserId && tenantId && (
-          <PushPermissionPrompt
-            portalType="app"
-            userType="admin"
-            userId={currentUserId}
-            tenantId={tenantId}
-          />
-        )}
-        {children}
-      </AppShell>
-    </ChatFloatingProvider>
+    <InAppNotificationProvider
+      pusherKey={process.env.NEXT_PUBLIC_PUSHER_KEY!}
+      pusherCluster={process.env.NEXT_PUBLIC_PUSHER_CLUSTER!}
+      pusherAuthEndpoint="/api/chat/pusher/auth"
+      tenantId={tenantId ?? ""}
+      userType="ADMIN"
+      userId={currentUserId ?? ""}
+      chatUrlPrefix="/chat"
+    >
+      <ChatFloatingProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
+        <AppShell
+          sidebar={
+            <AppSidebar
+              navItems={navItems}
+              userName={userName ?? undefined}
+              userEmail={userEmail ?? undefined}
+            />
+          }
+          userName={userName ?? undefined}
+          userEmail={userEmail ?? undefined}
+          userRole={userRole}
+          notificationUnreadCount={notificationUnreadCount}
+        >
+          {currentUserId && tenantId && (
+            <PushPermissionPrompt
+              portalType="app"
+              userType="admin"
+              userId={currentUserId}
+              tenantId={tenantId}
+            />
+          )}
+          {children}
+        </AppShell>
+      </ChatFloatingProvider>
+    </InAppNotificationProvider>
   );
 }

@@ -101,6 +101,82 @@ async function calculateBadgeCount(
   }
 }
 
+/**
+ * Calculate badge counts for multiple recipients in batch
+ * instead of N individual calculateBadgeCount() calls.
+ */
+async function batchCalculateBadgeCounts(
+  recipients: ChatPushRecipient[],
+  tenantId: string,
+): Promise<Map<string, number>> {
+  const badgeCounts = new Map<string, number>();
+  if (recipients.length === 0) return badgeCounts;
+
+  try {
+    // 1. Batch: get all read cursors for all recipients
+    const allCursors = await prisma.chatReadCursor.findMany({
+      where: {
+        OR: recipients.map((r) => ({
+          readerType: r.subscriberType as any,
+          readerId: r.subscriberId,
+        })),
+      },
+      select: {
+        readerType: true,
+        readerId: true,
+        channelId: true,
+      },
+    });
+
+    // Group channel IDs by user
+    const channelsByUser = new Map<string, string[]>();
+    for (const cursor of allCursors) {
+      const key = `${cursor.readerType}:${cursor.readerId}`;
+      const list = channelsByUser.get(key) || [];
+      list.push(cursor.channelId);
+      channelsByUser.set(key, list);
+    }
+
+    // 2. For each user, batch their unread counts using batchUnreadCounts
+    // (single SQL per user, much better than N×3 queries)
+    await Promise.all(
+      recipients.map(async (r) => {
+        const key = `${r.subscriberType}:${r.subscriberId}`;
+        const channelIds = channelsByUser.get(key) || [];
+        let chatUnreads = 0;
+
+        if (channelIds.length > 0) {
+          const unreads = await batchUnreadCounts(
+            channelIds,
+            r.subscriberType,
+            r.subscriberId,
+            true,
+          );
+          for (const count of unreads.values()) chatUnreads += count;
+        }
+
+        // Bell notification unreads (admin only)
+        let bellUnreads = 0;
+        if (r.subscriberType === 'ADMIN') {
+          const bellResult = await prisma.$queryRaw<[{ count: bigint }]>`
+            SELECT COUNT(*) AS count FROM notifications
+            WHERE recipient_id = ${r.subscriberId}
+              AND tenant_id = ${tenantId}
+              AND read = false
+          `;
+          bellUnreads = Number(bellResult[0]?.count ?? 0);
+        }
+
+        badgeCounts.set(key, chatUnreads + bellUnreads);
+      }),
+    );
+  } catch (err) {
+    console.error('[push] Error batch calculating badge counts:', err);
+  }
+
+  return badgeCounts;
+}
+
 // ── Send to Individual Subscription ──
 
 async function sendToSubscription(
@@ -278,7 +354,7 @@ interface ChatPushRecipient {
   subscriberId: string;
 }
 
-async function getChatChannelRecipients(
+export async function getChatChannelRecipients(
   channelId: string,
   tenantId: string,
   senderType: string,
@@ -373,6 +449,38 @@ const SUBSCRIBER_TYPE_TO_PORTAL: Record<string, 'app' | 'guardia' | 'cliente'> =
   CLIENT: 'cliente',
 };
 
+function getNotificationClickUrl(
+  portalType: string | null | undefined,
+  subscriberType: string,
+  channelId: string,
+): string {
+  if (portalType) {
+    switch (portalType) {
+      case 'app':
+        return `/chat?channel=${channelId}`;
+      case 'guardia':
+        return `/portal/guardia?section=chat&channel=${channelId}`;
+      case 'rondas':
+        return `/portal/rondas?section=chat&channel=${channelId}`;
+      case 'cliente':
+        return `/portal/cliente?section=chat&channel=${channelId}`;
+      case 'supervisor':
+        return `/portal/supervisor?section=chat&channel=${channelId}`;
+    }
+  }
+  // Fallback for subscriptions without portalType
+  switch (subscriberType) {
+    case 'ADMIN':
+      return `/chat?channel=${channelId}`;
+    case 'GUARD':
+      return `/portal/guardia?section=chat&channel=${channelId}`;
+    case 'CLIENT':
+      return `/portal/cliente?section=chat&channel=${channelId}`;
+    default:
+      return `/chat?channel=${channelId}`;
+  }
+}
+
 interface SendChatPushParams {
   tenantId: string;
   channelId: string;
@@ -462,6 +570,9 @@ export async function sendChatPushNotifications({
 
     const hasTodosMention = mentionedUserIds?.includes('todos');
 
+    // Batch-calculate badge counts for all recipients at once
+    const badgeCounts = await batchCalculateBadgeCounts(recipients, tenantId);
+
     await Promise.allSettled(
       recipients.map(async (r) => {
         // Check per-channel preference
@@ -475,8 +586,7 @@ export async function sendChatPushNotifications({
         }
 
         const userType = SUBSCRIBER_TYPE_TO_USER[r.subscriberType];
-        const portalType = SUBSCRIBER_TYPE_TO_PORTAL[r.subscriberType];
-        if (!userType || !portalType) return;
+        if (!userType) return;
 
         // Check portal user-level preferences (non-admin)
         if (userType !== 'admin') {
@@ -489,37 +599,37 @@ export async function sendChatPushNotifications({
         const userSubs = subsByUser.get(`${r.subscriberType}:${r.subscriberId}`);
         if (!userSubs || userSubs.length === 0) return;
 
-        // Calculate badge count (Prompt 1)
-        const badgeCount = await calculateBadgeCount(tenantId, userType, r.subscriberId);
+        // Badge count from batch pre-calculation
+        const badgeCount = badgeCounts.get(`${r.subscriberType}:${r.subscriberId}`) || 1;
 
-        const url = portalType === 'app'
-          ? `/chat?channel=${channelId}`
-          : `/portal/${portalType}?section=chat&channel=${channelId}`;
-
-        // Enriched payload (Prompt 2)
-        const payload = JSON.stringify({
-          title: `\uD83D\uDCAC ${channelName}`,
-          body: `${senderName}: ${body}`,
-          icon: '/iconos_azul/icon-192x192.png',
-          badge: '/iconos_azul/icon-72x72.png',
-          image: imageUrl || undefined,
-          tag: `chat-${channelId}`,
-          renotify: true,
-          silent: false,
-          timestamp: timestamp || Date.now(),
-          data: {
-            url,
-            type: 'chat_message',
-            channelName,
-            senderName,
-            channelType: channelType || 'INSTALLATION',
-            messagePreview: body,
-            badgeCount,
-            channelId,
-          },
-        });
-
-        await Promise.allSettled(userSubs.map((sub) => sendToSubscription(sub, payload)));
+        // Send to each subscription with portal-specific URL
+        await Promise.allSettled(
+          userSubs.map((sub) => {
+            const url = getNotificationClickUrl(sub.portalType, r.subscriberType, channelId);
+            const payload = JSON.stringify({
+              title: `\uD83D\uDCAC ${channelName}`,
+              body: `${senderName}: ${body}`,
+              icon: '/iconos_azul/icon-192x192.png',
+              badge: '/iconos_azul/icon-72x72.png',
+              image: imageUrl || undefined,
+              tag: `chat-${channelId}`,
+              renotify: true,
+              silent: false,
+              timestamp: timestamp || Date.now(),
+              data: {
+                url,
+                type: 'chat_message',
+                channelName,
+                senderName,
+                channelType: channelType || 'INSTALLATION',
+                messagePreview: body,
+                badgeCount,
+                channelId,
+              },
+            });
+            return sendToSubscription(sub, payload);
+          }),
+        );
       })
     );
   } catch (err) {
