@@ -25,6 +25,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Turno no encontrado o ya cerrado" }, { status: 404 });
     }
 
+    // Only the operator who started the turno can close it
+    if (turno.operatorId !== ctx.userId) {
+      return NextResponse.json(
+        { success: false, error: "Solo el operador del turno puede cerrarlo" },
+        { status: 403 },
+      );
+    }
+
     const now = new Date();
 
     const [roundsData, alertsData] = await Promise.all([

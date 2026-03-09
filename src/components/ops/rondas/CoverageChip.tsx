@@ -13,7 +13,7 @@ interface CoverageChipProps {
   }>;
   guardiasRequeridos: number;
   coberturaStatus: string;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 const STATUS_BAR_COLOR: Record<string, string> = {

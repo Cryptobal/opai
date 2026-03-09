@@ -54,6 +54,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: "Missing controlInstalacionId" }, { status: 400 });
     }
 
+    // Verify current user is the active turno operator
+    const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
+      where: { tenantId: ctx.tenantId, status: "active" },
+      select: { operatorId: true },
+    });
+    if (activeTurno && activeTurno.operatorId !== ctx.userId) {
+      return NextResponse.json(
+        { success: false, error: "Solo el operador del turno activo puede realizar esta acción" },
+        { status: 403 },
+      );
+    }
+
     // Verify tenant ownership
     const inst = await prisma.opsControlNocturnoInstalacion.findUnique({
       where: { id: controlInstalacionId },
@@ -201,6 +213,18 @@ export async function POST(request: Request) {
 
     if (!body.controlInstalacionId || !body.guardiaNombre?.trim()) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Verify current user is the active turno operator
+    const activeTurnoPost = await prisma.opsMonitoreoTurno.findFirst({
+      where: { tenantId: ctx.tenantId, status: "active" },
+      select: { operatorId: true },
+    });
+    if (activeTurnoPost && activeTurnoPost.operatorId !== ctx.userId) {
+      return NextResponse.json(
+        { success: false, error: "Solo el operador del turno activo puede realizar esta acción" },
+        { status: 403 },
+      );
     }
 
     const inst = await prisma.opsControlNocturnoInstalacion.findUnique({

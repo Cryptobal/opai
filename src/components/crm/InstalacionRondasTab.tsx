@@ -65,27 +65,31 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/ops/rondas/reportes?${params}`);
       const json = await res.json();
-      if (json.success) setRows(json.data);
-    } catch { /* ignore */ }
+      if (json.success) setRows(Array.isArray(json.data?.rows) ? json.data.rows : []);
+    } catch {
+        setRows([]);
+      }
     setLoading(false);
   }, [installationId, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const kpis = useMemo(() => {
-    const completed = rows.filter((r) => r.status === "completada").length;
-    const total = rows.length;
+    const arr = rows ?? [];
+    const completed = arr.filter((r) => r.status === "completada").length;
+    const total = arr.length;
     const cumplimiento = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const scores = rows.filter((r) => r.trustScore != null && r.trustScore > 0).map((r) => r.trustScore as number);
+    const scores = arr.filter((r) => r.trustScore != null && r.trustScore > 0).map((r) => r.trustScore as number);
     const avgTrust = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
     const today = new Date().toISOString().slice(0, 10);
-    const todayRows = rows.filter((r) => r.scheduledAt.slice(0, 10) === today);
+    const todayRows = arr.filter((r) => r.scheduledAt?.slice(0, 10) === today);
     const todayCompleted = todayRows.filter((r) => r.status === "completada").length;
     return { cumplimiento, avgTrust, todayCompleted, todayTotal: todayRows.length, completed, total };
   }, [rows]);
 
-  const paginated = useMemo(() => rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [rows, page]);
-  const totalPages = Math.ceil(rows.length / PAGE_SIZE);
+  const arr = rows ?? [];
+  const paginated = useMemo(() => arr.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [arr, page]);
+  const totalPages = Math.ceil(arr.length / PAGE_SIZE);
 
   if (loading) {
     return (
@@ -163,11 +167,11 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
                     </td>
                   </tr>
-                  {isExpanded && row.marcaciones.length > 0 && (
+                  {isExpanded && (row.marcaciones ?? []).length > 0 && (
                     <tr>
                       <td colSpan={6} className="bg-muted/20 px-6 py-3">
                         <div className="space-y-1">
-                          {row.marcaciones.map((m) => (
+                          {(row.marcaciones ?? []).map((m) => (
                             <div key={m.id} className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="w-16">{new Date(m.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
                               <span className="flex-1">{m.checkpointName}</span>
@@ -191,7 +195,7 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{rows.length} rondas</span>
+          <span className="text-xs text-muted-foreground">{arr.length} rondas</span>
           <div className="flex gap-2">
             <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}
               className="rounded border border-border px-3 py-1 text-xs disabled:opacity-50">Anterior</button>

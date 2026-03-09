@@ -76,7 +76,7 @@ export function RondasMonitoreoClient({
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
-  const [activeTurno, setActiveTurno] = useState<{ id: string; operatorName: string | null } | null>(null);
+  const [activeTurno, setActiveTurno] = useState<{ id: string; operatorId: string; operatorName: string | null } | null>(null);
   const [cellModal, setCellModal] = useState<CellModalData | null>(null);
   const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
   const [splitPct, setSplitPct] = useState(55);
@@ -499,6 +499,9 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
+  const isOperator = activeTurno?.operatorId === userId;
+  const isReadOnly = !!activeTurno && !isOperator;
+
   return (
     <div className="flex flex-col min-w-0 h-[calc(100vh-64px)]">
       <PanicAlertBanner
@@ -515,9 +518,25 @@ export function RondasMonitoreoClient({
         trustAvg={(() => { const scored = rows.filter((r: any) => r.trustScore != null); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
         alertCount={currentAlertCount}
         operatorName={userName}
-        onOpenCloseTurno={(id) => setCloseTurnoId(id)}
+        onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}
         onToggleAlerts={handleToggleAlerts}
+        isReadOnly={isReadOnly}
       />
+
+      {/* Observer / Operator banner */}
+      {isReadOnly && (
+        <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-slate-800/80 border-b border-slate-700/50">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs text-slate-400">
+            Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> est&aacute; operando el turno
+          </span>
+        </div>
+      )}
+      {isOperator && activeTurno && (
+        <div className="flex items-center justify-center gap-2 px-4 py-0.5 bg-teal-500/5 border-b border-teal-500/10">
+          <span className="text-[10px] text-teal-400/60">Est&aacute;s operando este turno</span>
+        </div>
+      )}
 
       {/* Fullscreen map overlay */}
       {isFullscreen && (
@@ -590,8 +609,9 @@ export function RondasMonitoreoClient({
               turnoId={activeTurno?.id ?? null}
               selectedInstallationId={selectedInstallationId}
               onSelectInstallation={setSelectedInstallationId}
-              onCellClick={(data) => setCellModal(data)}
-              onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
+              onCellClick={isReadOnly ? undefined : (data) => setCellModal(data)}
+              onGuardClick={isReadOnly ? undefined : (inst, turno) => setGuardPanel({ instalacion: inst, turno })}
+              isReadOnly={isReadOnly}
             />
           </div>
         </div>

@@ -15,6 +15,18 @@ export async function PATCH(request: Request) {
     const { controlNocturnoId, generalNotes, controlInstalacionId, notes } =
       await request.json();
 
+    // Verify current user is the active turno operator
+    const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
+      where: { tenantId: ctx.tenantId, status: "active" },
+      select: { operatorId: true },
+    });
+    if (activeTurno && activeTurno.operatorId !== ctx.userId) {
+      return NextResponse.json(
+        { success: false, error: "Solo el operador del turno activo puede realizar esta acción" },
+        { status: 403 },
+      );
+    }
+
     if (controlNocturnoId && generalNotes !== undefined) {
       // Verify tenant ownership
       const cn = await prisma.opsControlNocturno.findUnique({
