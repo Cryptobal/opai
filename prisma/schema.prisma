@@ -3359,7 +3359,7 @@ model OpsRondaEjecucion {
   isAdHoc                Boolean   @default(false) @map("is_ad_hoc")
   programacionId         String?   @map("programacion_id") @db.Uuid
   guardiaId              String?   @map("guardia_id") @db.Uuid
-  status                 String    @default("pendiente") // "pendiente" | "en_curso" | "completada" | "incompleta" | "no_realizada"
+  status                 String    @default("pendiente") // "pendiente" | "en_curso" | "completada" | "incompleta" | "no_realizada" | "cerrada_auto" | "cerrada_admin"
   scheduledAt            DateTime  @map("scheduled_at") @db.Timestamptz(6)
   startedAt              DateTime? @map("started_at") @db.Timestamptz(6)
   completedAt            DateTime? @map("completed_at") @db.Timestamptz(6)

@@ -48,6 +48,8 @@ export default async function RondasMonitoreoPage() {
           { status: "pendiente", scheduledAt: { gte: now, lte: sixHoursFromNow } },
           { status: "pendiente", scheduledAt: { lt: now, gte: twelveHoursAgo } },
           { status: "no_realizada", scheduledAt: { gte: twelveHoursAgo } },
+          { status: "cerrada_auto", scheduledAt: { gte: twelveHoursAgo } },
+          { status: "cerrada_admin", scheduledAt: { gte: twelveHoursAgo } },
         ],
       },
       include: {

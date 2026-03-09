@@ -271,7 +271,7 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
     for (const r of rondas) {
       if (r.status === "en_curso") {
         map.en_curso.push(r);
-      } else if (r.status === "no_realizada") {
+      } else if (r.status === "no_realizada" || r.status === "cerrada_auto" || r.status === "cerrada_admin") {
         map.no_realizadas.push(r);
       } else if (r.status === "pendiente") {
         const scheduledMs = new Date(r.scheduledAt).getTime();
@@ -598,6 +598,16 @@ function RondaCard({
           {isNoRealizada && (
             <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
               No realizada
+            </span>
+          )}
+          {ronda.status === "cerrada_auto" && (
+            <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
+              Cerrada auto
+            </span>
+          )}
+          {ronda.status === "cerrada_admin" && (
+            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
+              Cerrada admin
             </span>
           )}
           <span className={`text-sm ${isCompletada || isNoRealizada ? "text-gray-600" : "text-gray-400"}`}>

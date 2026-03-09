@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         tenantId,
         rondaTemplateId: { in: templates.map(t => t.id) },
         scheduledAt: { gte: startOfDay, lte: endOfDay },
-        status: { in: ["pendiente", "en_curso", "incompleta", "completada", "no_realizada"] },
+        status: { in: ["pendiente", "en_curso", "incompleta", "completada", "no_realizada", "cerrada_auto", "cerrada_admin"] },
       },
       include: {
         marcaciones: {
