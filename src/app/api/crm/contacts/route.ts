@@ -54,10 +54,14 @@ export async function POST(request: NextRequest) {
         tenantId: ctx.tenantId,
         email: { equals: emailNormalized, mode: "insensitive" },
       },
+      include: { account: true },
     });
     if (existing) {
+      if (existing.accountId === body.accountId) {
+        return NextResponse.json({ success: true, data: existing }, { status: 200 });
+      }
       return NextResponse.json(
-        { success: false, error: "Ya existe un contacto con este email. Use el mismo para evitar duplicados." },
+        { success: false, error: "Ya existe un contacto con este email en otra cuenta. Use el mismo para evitar duplicados." },
         { status: 409 }
       );
     }

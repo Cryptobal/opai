@@ -29,6 +29,7 @@ export default async function CrmCotizacionesPage() {
       select: {
         id: true,
         code: true,
+        name: true,
         status: true,
         clientName: true,
         monthlyCost: true,
@@ -41,6 +42,9 @@ export default async function CrmCotizacionesPage() {
         dealId: true,
         parameters: {
           select: { salePriceMonthly: true, marginPct: true },
+        },
+        additionalLines: {
+          select: { precio: true },
         },
       },
     }),
@@ -69,6 +73,10 @@ export default async function CrmCotizacionesPage() {
     quotes.map(async (q) => {
       let salePriceMonthly = Number(q.parameters?.salePriceMonthly ?? 0);
       const marginPct = Number(q.parameters?.marginPct ?? 13);
+      const additionalLinesTotal = q.additionalLines.reduce(
+        (sum, l) => sum + Number(l.precio || 0),
+        0
+      );
       if (salePriceMonthly <= 0) {
         try {
           const summary = await computeCpqQuoteCosts(q.id);
@@ -87,10 +95,12 @@ export default async function CrmCotizacionesPage() {
           // mantener 0 si falla el cálculo
         }
       }
+      // Sumar líneas adicionales al precio de venta (igual que el detalle)
+      salePriceMonthly += additionalLinesTotal;
       return {
         id: q.id,
         code: q.code,
-        name: q.clientName,
+        name: q.name || q.clientName,
         status: q.status,
         clientName: q.clientName,
         monthlyCost: q.monthlyCost,

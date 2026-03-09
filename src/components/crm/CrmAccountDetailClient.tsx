@@ -585,17 +585,21 @@ export function CrmAccountDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
-      setAccount((prev) => ({
-        ...prev,
-        contacts: [data.data, ...prev.contacts],
-        _count: { ...prev._count, contacts: prev._count.contacts + 1 },
-      }));
+      const newContact = data.data;
+      setAccount((prev) => {
+        const alreadyInList = prev.contacts.some((c) => c.id === newContact.id);
+        return {
+          ...prev,
+          contacts: alreadyInList ? prev.contacts : [newContact, ...prev.contacts],
+          _count: { ...prev._count, contacts: alreadyInList ? prev._count.contacts : prev._count.contacts + 1 },
+        };
+      });
       setNewContactOpen(false);
       setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
       setPrimaryChangeConfirm(null);
       toast.success("Contacto creado");
-    } catch {
-      toast.error("No se pudo crear el contacto.");
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo crear el contacto.");
     } finally {
       setCreatingContact(false);
     }

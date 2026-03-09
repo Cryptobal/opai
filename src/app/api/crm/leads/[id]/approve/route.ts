@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { toSentenceCase } from "@/lib/text-format";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -688,6 +689,39 @@ export async function POST(
                 : "";
               const resolvedPositionName = [cargoNameForPosition, puestoNameToUse].filter(Boolean).join(" - ") || puestoNameToUse;
 
+              const numGuardsValue = normalizePositiveInt(d.cantidad, 1);
+
+              let employerCost = 0;
+              let netSalary = 0;
+              let monthlyPositionCost = 0;
+              let payrollSnapshot: any = null;
+              let payrollVersionId: string | null = null;
+              let calculatedAt: Date | null = null;
+
+              try {
+                const payroll = await computeEmployerCost({
+                  base_salary_clp: baseSalaryValue,
+                  contract_type: "indefinite",
+                  afp_name: "modelo",
+                  health_system: "fonasa",
+                  health_plan_pct: 0.07,
+                  assumptions: {
+                    include_vacation_provision: true,
+                    include_severance_provision: true,
+                    vacation_provision_pct: 0.0833,
+                    severance_provision_pct: 0.04166,
+                  },
+                });
+                employerCost = payroll.monthly_employer_cost_clp;
+                netSalary = payroll.worker_net_salary_estimate;
+                monthlyPositionCost = employerCost * numGuardsValue * numPuestos;
+                payrollSnapshot = payroll.parameters_snapshot;
+                payrollVersionId = payroll.parameters_snapshot?.version_id || null;
+                calculatedAt = new Date(payroll.computed_at);
+              } catch (costErr) {
+                console.warn("Could not compute employer cost for position during lead approval, defaulting to 0:", costErr);
+              }
+
               await tx.cpqPosition.create({
                 data: {
                   quoteId: quote.id,
@@ -696,14 +730,20 @@ export async function POST(
                   weekdays,
                   startTime,
                   endTime,
-                  numGuards: normalizePositiveInt(d.cantidad, 1),
+                  numGuards: numGuardsValue,
                   numPuestos,
                   cargoId: cargoIdToUse,
                   rolId: rolIdToUse,
                   baseSalary: baseSalaryValue,
-                  employerCost: 0, // Se recalcula al abrir en CPQ
-                  netSalary: 0,
-                  monthlyPositionCost: 0,
+                  employerCost,
+                  netSalary,
+                  monthlyPositionCost,
+                  afpName: "modelo",
+                  healthSystem: "fonasa",
+                  healthPlanPct: 0.07,
+                  payrollSnapshot,
+                  payrollVersionId,
+                  calculatedAt,
                 },
               });
             }

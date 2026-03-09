@@ -961,7 +961,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       <div className="space-y-3 min-w-0 lg:pr-6">
 
       {/* -- Section: Datos -- */}
-      <Card className="shadow-sm overflow-hidden">
+      <Card className="shadow-sm overflow-visible">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Datos</h2>
