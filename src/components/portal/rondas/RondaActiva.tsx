@@ -554,28 +554,54 @@ export function RondaActiva({
       <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
         {isAdHoc && (
           <div className="space-y-4">
-            {/* Timer + counter */}
-            <div className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-              <div>
-                <p className="text-2xl font-mono font-bold text-white">{formatElapsed(elapsedSeconds)}</p>
-                <p className="text-xs text-gray-500">Tiempo transcurrido</p>
+            {/* GPS active indicator + timer + counter */}
+            <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+              {/* GPS tracking status */}
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-medium text-emerald-400">GPS activo — registrando recorrido</span>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-teal-400">{completedCount}</p>
-                <p className="text-xs text-gray-500">Puntos registrados</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-mono font-bold text-white">{formatElapsed(elapsedSeconds)}</p>
+                  <p className="text-xs text-gray-500">Tiempo transcurrido</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-teal-400">{completedCount}</p>
+                  <p className="text-xs text-gray-500">Puntos QR escaneados</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mode explanation */}
+            <div className="flex gap-3 rounded-xl border border-gray-800/50 bg-gray-900/30 px-4 py-3">
+              <div className="flex-1 text-center">
+                <div className="mb-1 flex justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <p className="text-[11px] font-medium text-emerald-400">GPS</p>
+                <p className="text-[10px] text-gray-500">Siempre activo</p>
+              </div>
+              <div className="w-px bg-gray-800" />
+              <div className="flex-1 text-center">
+                <div className="mb-1 flex justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <p className="text-[11px] font-medium text-teal-400">QR</p>
+                <p className="text-[10px] text-gray-500">Opcional</p>
               </div>
             </div>
 
             {/* Mini-timeline of completed marcaciones */}
             {sortedCheckpoints.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-teal-500/10">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-gray-400">Recorrido en curso — escanea puntos QR o finaliza cuando termines</p>
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <p className="text-sm text-gray-500">Sin puntos QR escaneados aun</p>
+                <p className="mt-1 text-xs text-gray-600">Usa el boton QR para registrar checkpoints</p>
               </div>
             ) : (
               <div className="space-y-2">
