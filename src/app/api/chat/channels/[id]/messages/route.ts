@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
+import { sendChatPushNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -401,17 +402,29 @@ export async function POST(
     );
 
     // Send push notifications to other channel participants (non-blocking)
-    import("@/lib/pwa/push-service").then(({ sendChatPushNotifications }) =>
-      sendChatPushNotifications({
-        tenantId: ctx.tenantId,
-        channelId,
-        channelName: channel.name,
-        senderType: "ADMIN",
-        senderId: ctx.userId,
-        senderName,
-        messagePreview: content || "[Archivo adjunto]",
-      })
-    ).catch((err) => console.error("Error sending chat push:", err));
+    // Extract mentioned user IDs for MENTIONS_ONLY filter
+    const mentionedUserIds = parsedMentions.map((m) =>
+      m.type === 'ALL' ? 'todos' : m.userId!
+    ).filter(Boolean);
+
+    // Check if message has image attachment
+    const firstImageAttachment = attachments?.find(
+      (a: any) => a.type?.startsWith('image/') || a.contentType?.startsWith('image/')
+    );
+
+    sendChatPushNotifications({
+      tenantId: ctx.tenantId,
+      channelId,
+      channelName: channel.name,
+      channelType: channel.channelType,
+      senderType: "ADMIN",
+      senderId: ctx.userId,
+      senderName,
+      messagePreview: content || "[Archivo adjunto]",
+      mentionedUserIds: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+      imageUrl: firstImageAttachment?.url || undefined,
+      timestamp: message.createdAt.getTime(),
+    }).catch((err) => console.error("Error sending chat push:", err));
 
     return NextResponse.json({ success: true, data: responseData });
   } catch (err: any) {

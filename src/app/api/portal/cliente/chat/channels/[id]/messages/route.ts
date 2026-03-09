@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
 import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
+import { sendChatPushNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -302,19 +303,19 @@ export async function POST(
     );
 
     // Send push notifications to other channel participants (non-blocking)
-    prisma.chatChannel.findUnique({ where: { id: channelId }, select: { name: true } })
+    prisma.chatChannel.findUnique({ where: { id: channelId }, select: { name: true, channelType: true } })
       .then((ch) =>
-        import("@/lib/pwa/push-service").then(({ sendChatPushNotifications }) =>
-          sendChatPushNotifications({
-            tenantId: session.tenantId,
-            channelId,
-            channelName: ch?.name || "Chat",
-            senderType: "CLIENT",
-            senderId: session.contactId,
-            senderName: session.contactName,
-            messagePreview: content || "[Archivo adjunto]",
-          })
-        )
+        sendChatPushNotifications({
+          tenantId: session.tenantId,
+          channelId,
+          channelName: ch?.name || "Chat",
+          channelType: ch?.channelType,
+          senderType: "CLIENT",
+          senderId: session.contactId,
+          senderName: session.contactName,
+          messagePreview: content || "[Archivo adjunto]",
+          timestamp: message.createdAt.getTime(),
+        })
       )
       .catch((err) => console.error("[Portal Cliente] Error sending chat push:", err));
 

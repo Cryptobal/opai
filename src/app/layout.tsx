@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
+import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -52,6 +53,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <PWAProvider>
+            <BadgeClear />
             {children}
           </PWAProvider>
           <Toaster />

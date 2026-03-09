@@ -184,8 +184,22 @@ export function ChatFloatingProvider({
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
+  // Sync PWA app badge with real unread count
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    if (totalUnread > 0 && 'setAppBadge' in navigator) {
+      (navigator as any).setAppBadge(totalUnread).catch(() => {});
+    } else if (totalUnread === 0 && 'clearAppBadge' in navigator) {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  }, [totalUnread]);
+
   const selectChannel = useCallback((id: string | null) => {
     setSelectedChannelId(id);
+    // Expose active channel for InAppNotificationProvider to suppress duplicate toasts
+    if (typeof window !== 'undefined') {
+      (window as any).__activeChatChannelId = id;
+    }
     if (id) {
       // Optimistic update: clear unread count locally so the badge drops immediately
       setChannels(prev =>

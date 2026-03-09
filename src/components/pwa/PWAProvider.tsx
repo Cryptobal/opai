@@ -1,6 +1,7 @@
 'use client';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
+import { InAppNotificationProvider } from './InAppNotificationProvider';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 
@@ -20,5 +21,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isMobile, updateAvailable, applyUpdate]);
 
-  return <>{children}</>;
+  return (
+    <InAppNotificationProvider>
+      {children}
+    </InAppNotificationProvider>
+  );
 }

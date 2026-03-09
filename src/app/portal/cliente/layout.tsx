@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { PwaRegistrar } from "@/components/portal/cliente/PwaRegistrar";
+import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -26,6 +27,7 @@ export default function PortalClienteLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-dvh bg-[#0a0a0f] text-white">
       <PwaRegistrar />
+      <BadgeClear />
       {children}
     </div>
   );

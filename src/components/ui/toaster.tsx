@@ -10,9 +10,10 @@ export function Toaster() {
     <SonnerToaster
       theme="dark"
       richColors
-      position="bottom-right"
+      position="top-right"
       closeButton
       expand={false}
+      visibleToasts={3}
       duration={4000}
       toastOptions={{
         className: "!bg-card !border-border !text-foreground",

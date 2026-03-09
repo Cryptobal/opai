@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
+import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -26,6 +27,7 @@ export default function PortalGuardiaLayout({ children }: { children: React.Reac
   return (
     <>
       <ServiceWorkerRegistrar />
+      <BadgeClear />
       {children}
     </>
   );
