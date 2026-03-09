@@ -177,7 +177,7 @@ function getCellState(
 
 function calculateGridSummary(cn: ControlNocturnoData | null) {
   if (!cn) return { completadas: 0, omitidas: 0, cumplimiento: 0 };
-  const allRondas = cn.instalaciones.flatMap((i) => i.rondas);
+  const allRondas = (cn.instalaciones ?? []).flatMap((i) => i.rondas ?? []);
   const expected = allRondas.filter((r) => r.rondaExpected);
   const completadas = allRondas.filter((r) => r.status === "completada").length;
   const omitidas = allRondas.filter((r) => r.status === "omitida").length;
@@ -212,8 +212,8 @@ function GridRow({
 }) {
   const currentHour = new Date().getHours();
 
-  const nocturnos = instalacion.guardias.filter((g) => g.turno === "nocturno" || !g.turno);
-  const diurnos = instalacion.guardias.filter((g) => g.turno === "diurno");
+  const nocturnos = (instalacion.guardias ?? []).filter((g) => g.turno === "nocturno" || !g.turno);
+  const diurnos = (instalacion.guardias ?? []).filter((g) => g.turno === "diurno");
 
   const cobertura = instalacion.coberturaStatus ?? "pendiente";
   const isDescubierta = cobertura === "descubierta";
@@ -285,7 +285,7 @@ function GridRow({
 
       {/* Time slot cells */}
       {timeSlots.map((slot, i) => {
-        const ronda = instalacion.rondas.find((r) => r.rondaNumber === i + 1);
+        const ronda = (instalacion.rondas ?? []).find((r) => r.rondaNumber === i + 1);
         if (!ronda) {
           return (
             <td key={slot} className="px-0.5 py-1">
@@ -384,7 +384,7 @@ function GridSummaryRow({
       </td>
       {timeSlots.map((slot) => {
         const slotRondas = instalaciones.flatMap((inst) =>
-          inst.rondas.filter((r) => r.horaEsperada === slot),
+          (inst.rondas ?? []).filter((r) => r.horaEsperada === slot),
         );
         const completed = slotRondas.filter((r) => r.status === "completada").length;
         const expected = slotRondas.filter((r) => r.rondaExpected).length;
@@ -597,7 +597,7 @@ export default function MonitoreoGrid({
     return <GridEmptyState />;
   }
 
-  const instalaciones = controlNocturno.instalaciones;
+  const instalaciones = controlNocturno.instalaciones ?? [];
 
   return (
     <div className="flex flex-col h-full bg-slate-900/80">

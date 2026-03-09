@@ -125,7 +125,7 @@ export async function batchUnreadCounts(
         FROM chat.messages m
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
-          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_type = ${readerType}::chat."ChatSenderType"
           AND rc.reader_id = ${readerId}
         WHERE m.channel_id = ANY(${channelIds}::uuid[])
           AND m.deleted_at IS NULL
@@ -138,7 +138,7 @@ export async function batchUnreadCounts(
         FROM chat.messages m
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
-          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_type = ${readerType}::chat."ChatSenderType"
           AND rc.reader_id = ${readerId}
         WHERE m.channel_id = ANY(${channelIds}::uuid[])
           AND m.deleted_at IS NULL
