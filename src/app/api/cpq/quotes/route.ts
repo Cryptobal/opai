@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess, ensureCanCreateQuote } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -16,9 +16,18 @@ export async function GET() {
     if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
 
+    const { searchParams } = new URL(request.url);
+    const leadId = searchParams.get("leadId");
+    const dealId = searchParams.get("dealId");
+
+    const where: any = { tenantId };
+    if (leadId) where.createdFromLeadId = leadId;
+    if (dealId) where.dealId = dealId;
+
     const quotes = await prisma.cpqQuote.findMany({
-      where: { tenantId },
+      where,
       orderBy: { createdAt: "desc" },
+      include: leadId ? { installation: { select: { id: true, name: true } } } : undefined,
     });
 
     return NextResponse.json({ success: true, data: quotes });

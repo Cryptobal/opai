@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,7 +105,8 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
   const healthPlanPct = useMemo(() => (form.healthSystem === "fonasa" ? 0.07 : form.healthPlanPct || 0.07), [form.healthPlanPct, form.healthSystem]);
   const shiftHours = useMemo(() => getShiftHours(form.startTime, form.endTime), [form.startTime, form.endTime]);
 
-  const handleCalculate = async () => {
+  const handleCalculate = useCallback(async () => {
+    if (!form.baseSalary || Number(form.baseSalary) <= 0) return;
     setCalculating(true);
     try {
       const res = await fetch("/api/payroll/costing/compute", {
@@ -129,7 +130,15 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
     } finally {
       setCalculating(false);
     }
-  };
+  }, [form.baseSalary, form.afpName, form.healthSystem, healthPlanPct]);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!open || !form.baseSalary || Number(form.baseSalary) <= 0) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { handleCalculate(); }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [open, form.baseSalary, form.afpName, form.healthSystem, healthPlanPct, handleCalculate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

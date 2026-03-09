@@ -15,6 +15,11 @@ export interface CrmLead {
   website?: string | null;
   serviceType?: string | null;
   metadata?: any;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  convertedAccountId?: string | null;
+  convertedContactId?: string | null;
+  convertedDealId?: string | null;
   createdAt: string;
   updatedAt?: string | null;
 }

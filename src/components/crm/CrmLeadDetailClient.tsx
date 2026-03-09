@@ -375,6 +375,42 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [rejectEmailSubject, setRejectEmailSubject] = useState("");
   const [rejectEmailBody, setRejectEmailBody] = useState("");
 
+  // ─── Converted entities (for approved leads) ───
+  const [convertedEntities, setConvertedEntities] = useState<{
+    account: { id: string; name: string } | null;
+    contact: { id: string; firstName: string | null; lastName: string | null } | null;
+    deal: { id: string; title: string } | null;
+    quotes: { id: string; code: string; installationName: string | null }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (lead.status !== "approved") return;
+    const accountId = lead.convertedAccountId;
+    const contactId = lead.convertedContactId;
+    const dealId = lead.convertedDealId;
+    if (!accountId && !contactId && !dealId) return;
+
+    const fetches: Promise<any>[] = [];
+    if (accountId) fetches.push(fetch(`/api/crm/accounts/${accountId}`).then((r) => r.json()).catch(() => null));
+    else fetches.push(Promise.resolve(null));
+    if (contactId) fetches.push(fetch(`/api/crm/contacts/${contactId}`).then((r) => r.json()).catch(() => null));
+    else fetches.push(Promise.resolve(null));
+    if (dealId) fetches.push(fetch(`/api/crm/deals/${dealId}`).then((r) => r.json()).catch(() => null));
+    else fetches.push(Promise.resolve(null));
+    fetches.push(
+      fetch(`/api/cpq/quotes?leadId=${lead.id}`).then((r) => r.json()).catch(() => null)
+    );
+
+    Promise.all(fetches).then(([accRes, conRes, dealRes, quotesRes]) => {
+      setConvertedEntities({
+        account: accRes?.success && accRes.data ? { id: accRes.data.id, name: accRes.data.name } : null,
+        contact: conRes?.success && conRes.data ? { id: conRes.data.id, firstName: conRes.data.firstName, lastName: conRes.data.lastName } : null,
+        deal: dealRes?.success && dealRes.data ? { id: dealRes.data.id, title: dealRes.data.title } : null,
+        quotes: Array.isArray(quotesRes?.data) ? quotesRes.data.map((q: any) => ({ id: q.id, code: q.code, installationName: q.installation?.name || q.name || null })) : [],
+      });
+    });
+  }, [lead.id, lead.status, lead.convertedAccountId, lead.convertedContactId, lead.convertedDealId]);
+
   // ─── Delete confirm state ───
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -1051,6 +1087,58 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
           <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
+        )}
+
+        {/* Entidades creadas (lead aprobado) */}
+        {lead.status === "approved" && convertedEntities && (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+            <h4 className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Registros creados
+            </h4>
+            <div className="space-y-2 text-sm">
+              {convertedEntities.account && (
+                <Link href={`/crm/accounts/${convertedEntities.account.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Building2 className="h-4 w-4 text-violet-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Cuenta</p>
+                    <p className="font-medium truncate">{convertedEntities.account.name}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              )}
+              {convertedEntities.contact && (
+                <Link href={`/crm/contacts/${convertedEntities.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Contacto</p>
+                    <p className="font-medium truncate">{[convertedEntities.contact.firstName, convertedEntities.contact.lastName].filter(Boolean).join(" ")}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              )}
+              {convertedEntities.deal && (
+                <Link href={`/crm/deals/${convertedEntities.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <Briefcase className="h-4 w-4 text-amber-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Negocio</p>
+                    <p className="font-medium truncate">{convertedEntities.deal.title}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              )}
+              {convertedEntities.quotes.map((q) => (
+                <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
+                  <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Cotización CPQ</p>
+                    <p className="font-medium truncate">{q.code}{q.installationName ? ` — ${q.installationName}` : ""}</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Correo original (email_forward) */}
