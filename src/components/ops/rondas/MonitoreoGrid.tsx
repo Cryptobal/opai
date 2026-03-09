@@ -201,7 +201,6 @@ function GridRow({
   onSelectInstallation,
   onCellClick,
   onGuardClick,
-  isReadOnly,
 }: {
   index: number;
   instalacion: CNInstalacion;
@@ -211,7 +210,6 @@ function GridRow({
   onSelectInstallation: (id: string | null) => void;
   onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
-  isReadOnly?: boolean;
 }) {
   const currentHour = new Date().getHours();
 
@@ -275,7 +273,7 @@ function GridRow({
           guardias={nocturnos}
           guardiasRequeridos={instalacion.guardiasRequeridos}
           coberturaStatus={cobertura}
-          onClick={isReadOnly ? undefined : () => onGuardClick?.(instalacion, "nocturno")}
+          onClick={() => onGuardClick?.(instalacion, "nocturno")}
         />
       </td>
 
@@ -310,14 +308,14 @@ function GridRow({
         return (
           <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-teal-500/[0.03]" : ""}`}>
             <div
-              onClick={isReadOnly ? undefined : () => onCellClick?.({
+              onClick={() => onCellClick?.({
                 ronda,
                 installationName: instalacion.installationName,
                 installationId: instalacion.installationId,
               })}
-              className={`rounded ${state.border} px-1 py-1 text-center ${isReadOnly ? "cursor-default" : "cursor-pointer"}
+              className={`rounded ${state.border} px-1 py-1 text-center cursor-pointer
                 min-h-[36px] flex flex-col items-center justify-center transition-all
-                ${isReadOnly ? "" : "hover:scale-105 hover:z-10"} ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
+                hover:scale-105 hover:z-10 ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
             >
               {ronda.horaMarcada ? (
                 <>
@@ -357,7 +355,7 @@ function GridRow({
           guardias={diurnos}
           guardiasRequeridos={diurnos.length || 1}
           coberturaStatus="pendiente"
-          onClick={isReadOnly ? undefined : () => onGuardClick?.(instalacion, "diurno")}
+          onClick={() => onGuardClick?.(instalacion, "diurno")}
         />
       </td>
     </tr>
@@ -668,7 +666,6 @@ export default function MonitoreoGrid({
                 onSelectInstallation={onSelectInstallation}
                 onCellClick={onCellClick}
                 onGuardClick={onGuardClick}
-                isReadOnly={isReadOnly}
               />
             ))}
           </tbody>

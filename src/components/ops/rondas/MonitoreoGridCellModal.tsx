@@ -13,10 +13,12 @@ export function MonitoreoGridCellModal({
   data,
   onClose,
   onSave,
+  isReadOnly,
 }: {
   data: CellModalData;
   onClose: () => void;
   onSave: (rondaId: string, update: CellUpdate) => Promise<void>;
+  isReadOnly?: boolean;
 }) {
   const { ronda } = data;
   const [status, setStatus] = useState(ronda.status);
@@ -109,61 +111,75 @@ export function MonitoreoGridCellModal({
           {/* Status */}
           <div>
             <label className="text-xs text-slate-400 block mb-1.5">Estado</label>
-            <div className="flex flex-wrap gap-2">
-              {statusOptions.map((opt) => {
-                const isActive = status === opt.value;
-                const colorMap: Record<string, string> = {
-                  emerald: isActive
-                    ? "bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/50"
-                    : "bg-slate-800 text-slate-500 hover:bg-slate-700",
-                  red: isActive
-                    ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/50"
-                    : "bg-slate-800 text-slate-500 hover:bg-slate-700",
-                  amber: isActive
-                    ? "bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50"
-                    : "bg-slate-800 text-slate-500 hover:bg-slate-700",
-                  slate: isActive
-                    ? "bg-slate-600/50 text-slate-200 ring-1 ring-slate-500/50"
-                    : "bg-slate-800 text-slate-500 hover:bg-slate-700",
-                };
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setStatus(opt.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${colorMap[opt.color]}`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+            {isReadOnly ? (
+              <span className="text-sm text-slate-200">
+                {statusOptions.find((o) => o.value === status)?.label ?? status}
+              </span>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map((opt) => {
+                  const isActive = status === opt.value;
+                  const colorMap: Record<string, string> = {
+                    emerald: isActive
+                      ? "bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/50"
+                      : "bg-slate-800 text-slate-500 hover:bg-slate-700",
+                    red: isActive
+                      ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/50"
+                      : "bg-slate-800 text-slate-500 hover:bg-slate-700",
+                    amber: isActive
+                      ? "bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50"
+                      : "bg-slate-800 text-slate-500 hover:bg-slate-700",
+                    slate: isActive
+                      ? "bg-slate-600/50 text-slate-200 ring-1 ring-slate-500/50"
+                      : "bg-slate-800 text-slate-500 hover:bg-slate-700",
+                  };
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setStatus(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${colorMap[opt.color]}`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Hora */}
           <div>
             <label className="text-xs text-slate-400 block mb-1">Hora</label>
-            <input
-              type="time"
-              value={hora}
-              onChange={(e) => setHora(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none"
-            />
+            {isReadOnly ? (
+              <span className="text-sm font-mono text-slate-200">{hora || "\u2014"}</span>
+            ) : (
+              <input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none"
+              />
+            )}
           </div>
 
           {/* Note */}
           <div>
             <label className="text-xs text-slate-400 block mb-1">Nota</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none resize-none"
-              placeholder={
-                ronda.rondaExpected
-                  ? "Observaciones, motivo de omisi\u00F3n..."
-                  : "Resultado del llamado, novedades..."
-              }
-            />
+            {isReadOnly ? (
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{note || "\u2014"}</p>
+            ) : (
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-teal-500 focus:outline-none resize-none"
+                placeholder={
+                  ronda.rondaExpected
+                    ? "Observaciones, motivo de omisi\u00F3n..."
+                    : "Resultado del llamado, novedades..."
+                }
+              />
+            )}
           </div>
         </div>
 
@@ -171,21 +187,23 @@ export function MonitoreoGridCellModal({
         <div className="flex gap-2 mt-4">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg bg-slate-700 text-slate-300 text-sm hover:bg-slate-600"
+            className={`${isReadOnly ? "w-full" : "flex-1"} px-4 py-2 rounded-lg bg-slate-700 text-slate-300 text-sm hover:bg-slate-600`}
           >
-            Cancelar
+            {isReadOnly ? "Cerrar" : "Cancelar"}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-500 disabled:opacity-50"
-          >
-            {saving
-              ? "Guardando..."
-              : ronda.autoPopulated
-                ? "Override manual"
-                : "Guardar"}
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-500 disabled:opacity-50"
+            >
+              {saving
+                ? "Guardando..."
+                : ronda.autoPopulated
+                  ? "Override manual"
+                  : "Guardar"}
+            </button>
+          )}
         </div>
       </div>
     </div>

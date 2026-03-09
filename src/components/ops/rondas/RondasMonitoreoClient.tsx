@@ -609,8 +609,8 @@ export function RondasMonitoreoClient({
               turnoId={activeTurno?.id ?? null}
               selectedInstallationId={selectedInstallationId}
               onSelectInstallation={setSelectedInstallationId}
-              onCellClick={isReadOnly ? undefined : (data) => setCellModal(data)}
-              onGuardClick={isReadOnly ? undefined : (inst, turno) => setGuardPanel({ instalacion: inst, turno })}
+              onCellClick={(data) => setCellModal(data)}
+              onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
               isReadOnly={isReadOnly}
             />
           </div>
@@ -623,6 +623,7 @@ export function RondasMonitoreoClient({
           data={cellModal}
           onClose={() => setCellModal(null)}
           onSave={handleCellSave}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -635,6 +636,7 @@ export function RondasMonitoreoClient({
           onGuardiaUpdate={handleGuardiaUpdate}
           onGuardiaAdd={handleGuardiaAdd}
           onGuardiaDelete={handleGuardiaDelete}
+          isReadOnly={isReadOnly}
         />
       )}
 

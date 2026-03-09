@@ -46,6 +46,7 @@ export interface GuardPanelProps {
     turno: string;
   }) => void;
   onGuardiaDelete: (guardiaId: string) => void;
+  isReadOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +235,58 @@ function GuardCard({
 }
 
 // ---------------------------------------------------------------------------
+// GuardCardReadOnly — view-only version for observers
+// ---------------------------------------------------------------------------
+
+function GuardCardReadOnly({ guard }: { guard: GuardData }) {
+  const statusLabel =
+    STATUS_BUTTONS.find((b) => b.value === guard.status)?.label ??
+    (guard.status === "reemplazo" ? "Reemplazo" : guard.status);
+
+  const statusColor =
+    guard.status === "presente" || guard.status === "reemplazo"
+      ? "text-emerald-400"
+      : guard.status === "no_viene"
+        ? "text-red-400"
+        : guard.status === "en_camino"
+          ? "text-blue-400"
+          : "text-slate-500";
+
+  const cardBorder =
+    guard.status === "no_viene"
+      ? "bg-red-500/[0.05] border-red-500/20"
+      : guard.status === "presente" || guard.status === "reemplazo"
+        ? "bg-emerald-500/[0.05] border-emerald-500/20"
+        : "bg-slate-800/40 border-slate-700/50";
+
+  return (
+    <div className={`rounded-lg border p-3 space-y-2 ${cardBorder}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-200 font-medium">{guard.guardiaNombre}</span>
+          {guard.isExtra && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">EXTRA</span>
+          )}
+        </div>
+        <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
+      </div>
+      {guard.horaLlegada && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-slate-500">Llegada:</span>
+          <span className="font-mono text-slate-300">{guard.horaLlegada}</span>
+        </div>
+      )}
+      {guard.notes && (
+        <div className="text-xs text-slate-400 whitespace-pre-wrap">{guard.notes}</div>
+      )}
+      {guard.reemplazaDe && (
+        <div className="text-xs text-slate-500">Reemplaza a: {guard.reemplazaDe}</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // GuardPanel (main export)
 // ---------------------------------------------------------------------------
 
@@ -244,6 +297,7 @@ export function GuardPanel({
   onGuardiaUpdate,
   onGuardiaAdd,
   onGuardiaDelete,
+  isReadOnly,
 }: GuardPanelProps) {
   const [visible, setVisible] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -364,18 +418,23 @@ export function GuardPanel({
             </div>
           )}
 
-          {guardias.map((g) => (
-            <GuardCard
-              key={g.id}
-              guard={g}
-              onUpdate={(data) => onGuardiaUpdate(g.id, data)}
-              onDelete={() => onGuardiaDelete(g.id)}
-            />
-          ))}
+          {guardias.map((g) =>
+            isReadOnly ? (
+              <GuardCardReadOnly key={g.id} guard={g} />
+            ) : (
+              <GuardCard
+                key={g.id}
+                guard={g}
+                onUpdate={(data) => onGuardiaUpdate(g.id, data)}
+                onDelete={() => onGuardiaDelete(g.id)}
+              />
+            ),
+          )}
 
         </div>
 
         {/* Footer — Add form or add button (outside overflow-y-auto so dropdown isn't clipped) */}
+        {!isReadOnly && (
         <div className="sticky bottom-0 px-4 py-3 border-t border-slate-800 bg-slate-900 flex-shrink-0">
           {showAddForm ? (
             <div className="space-y-2">
@@ -427,6 +486,7 @@ export function GuardPanel({
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );
