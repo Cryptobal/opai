@@ -18,6 +18,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: "Missing rondaId" }, { status: 400 });
     }
 
+    // Verify current user is the active turno operator
+    const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
+      where: { tenantId: ctx.tenantId, status: "active" },
+      select: { operatorId: true },
+    });
+    if (activeTurno && activeTurno.operatorId !== ctx.userId) {
+      return NextResponse.json(
+        { success: false, error: "Solo el operador del turno activo puede realizar esta acción" },
+        { status: 403 },
+      );
+    }
+
     // Verify ownership via tenant
     const ronda = await prisma.opsControlNocturnoRonda.findUnique({
       where: { id: controlNocturnoRondaId },

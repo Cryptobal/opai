@@ -119,13 +119,14 @@ export async function batchUnreadCounts(
 ): Promise<Map<string, number>> {
   if (channelIds.length === 0) return new Map();
 
+  // Compare reader_type as text to avoid enum type resolution issues across environments
   const rows = excludeThreadReplies
     ? await prisma.$queryRaw<{ channel_id: string; unread_count: bigint }[]>`
         SELECT m.channel_id, COUNT(*) AS unread_count
         FROM chat.messages m
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
-          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_type::text = ${readerType}
           AND rc.reader_id = ${readerId}
         WHERE m.channel_id = ANY(${channelIds}::uuid[])
           AND m.deleted_at IS NULL
@@ -138,7 +139,7 @@ export async function batchUnreadCounts(
         FROM chat.messages m
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
-          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_type::text = ${readerType}
           AND rc.reader_id = ${readerId}
         WHERE m.channel_id = ANY(${channelIds}::uuid[])
           AND m.deleted_at IS NULL

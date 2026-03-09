@@ -53,7 +53,7 @@ export async function GET() {
     let controlNocturno = null;
     const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
       where: { tenantId: ctx.tenantId, status: "active" },
-      select: { id: true, controlNocturnoId: true, operatorName: true },
+      select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true },
     });
 
     if (activeTurno?.controlNocturnoId) {
@@ -108,7 +108,7 @@ export async function GET() {
       success: true,
       data: active,
       controlNocturno,
-      activeTurno: activeTurno ? { id: activeTurno.id, operatorName: activeTurno.operatorName } : null,
+      activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName } : null,
     });
   } catch (error) {
     console.error("[RONDAS] monitoreo", error);

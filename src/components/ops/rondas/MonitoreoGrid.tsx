@@ -76,8 +76,9 @@ interface MonitoreoGridProps {
   turnoId: string | null;
   selectedInstallationId: string | null;
   onSelectInstallation: (id: string | null) => void;
-  onCellClick: (data: CellModalData) => void;
+  onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
+  isReadOnly?: boolean;
 }
 
 export type { CNInstalacion };
@@ -177,7 +178,7 @@ function getCellState(
 
 function calculateGridSummary(cn: ControlNocturnoData | null) {
   if (!cn) return { completadas: 0, omitidas: 0, cumplimiento: 0 };
-  const allRondas = cn.instalaciones.flatMap((i) => i.rondas);
+  const allRondas = (cn.instalaciones ?? []).flatMap((i) => i.rondas ?? []);
   const expected = allRondas.filter((r) => r.rondaExpected);
   const completadas = allRondas.filter((r) => r.status === "completada").length;
   const omitidas = allRondas.filter((r) => r.status === "omitida").length;
@@ -200,6 +201,7 @@ function GridRow({
   onSelectInstallation,
   onCellClick,
   onGuardClick,
+  isReadOnly,
 }: {
   index: number;
   instalacion: CNInstalacion;
@@ -207,13 +209,14 @@ function GridRow({
   currentSlotIdx: number;
   isSelected: boolean;
   onSelectInstallation: (id: string | null) => void;
-  onCellClick: (data: CellModalData) => void;
+  onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
+  isReadOnly?: boolean;
 }) {
   const currentHour = new Date().getHours();
 
-  const nocturnos = instalacion.guardias.filter((g) => g.turno === "nocturno" || !g.turno);
-  const diurnos = instalacion.guardias.filter((g) => g.turno === "diurno");
+  const nocturnos = (instalacion.guardias ?? []).filter((g) => g.turno === "nocturno" || !g.turno);
+  const diurnos = (instalacion.guardias ?? []).filter((g) => g.turno === "diurno");
 
   const cobertura = instalacion.coberturaStatus ?? "pendiente";
   const isDescubierta = cobertura === "descubierta";
@@ -272,7 +275,7 @@ function GridRow({
           guardias={nocturnos}
           guardiasRequeridos={instalacion.guardiasRequeridos}
           coberturaStatus={cobertura}
-          onClick={() => onGuardClick?.(instalacion, "nocturno")}
+          onClick={isReadOnly ? undefined : () => onGuardClick?.(instalacion, "nocturno")}
         />
       </td>
 
@@ -285,7 +288,7 @@ function GridRow({
 
       {/* Time slot cells */}
       {timeSlots.map((slot, i) => {
-        const ronda = instalacion.rondas.find((r) => r.rondaNumber === i + 1);
+        const ronda = (instalacion.rondas ?? []).find((r) => r.rondaNumber === i + 1);
         if (!ronda) {
           return (
             <td key={slot} className="px-0.5 py-1">
@@ -307,14 +310,14 @@ function GridRow({
         return (
           <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-teal-500/[0.03]" : ""}`}>
             <div
-              onClick={() => onCellClick({
+              onClick={isReadOnly ? undefined : () => onCellClick?.({
                 ronda,
                 installationName: instalacion.installationName,
                 installationId: instalacion.installationId,
               })}
-              className={`rounded ${state.border} px-1 py-1 text-center cursor-pointer
+              className={`rounded ${state.border} px-1 py-1 text-center ${isReadOnly ? "cursor-default" : "cursor-pointer"}
                 min-h-[36px] flex flex-col items-center justify-center transition-all
-                hover:scale-105 hover:z-10 ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
+                ${isReadOnly ? "" : "hover:scale-105 hover:z-10"} ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
             >
               {ronda.horaMarcada ? (
                 <>
@@ -354,7 +357,7 @@ function GridRow({
           guardias={diurnos}
           guardiasRequeridos={diurnos.length || 1}
           coberturaStatus="pendiente"
-          onClick={() => onGuardClick?.(instalacion, "diurno")}
+          onClick={isReadOnly ? undefined : () => onGuardClick?.(instalacion, "diurno")}
         />
       </td>
     </tr>
@@ -384,7 +387,7 @@ function GridSummaryRow({
       </td>
       {timeSlots.map((slot) => {
         const slotRondas = instalaciones.flatMap((inst) =>
-          inst.rondas.filter((r) => r.horaEsperada === slot),
+          (inst.rondas ?? []).filter((r) => r.horaEsperada === slot),
         );
         const completed = slotRondas.filter((r) => r.status === "completada").length;
         const expected = slotRondas.filter((r) => r.rondaExpected).length;
@@ -492,10 +495,12 @@ function GridNotesSection({
   controlNocturnoId,
   generalNotes,
   instalaciones,
+  isReadOnly,
 }: {
   controlNocturnoId: string;
   generalNotes: string | null;
   instalaciones: CNInstalacion[];
+  isReadOnly?: boolean;
 }) {
   const [notes, setNotes] = useState(generalNotes ?? "");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -517,9 +522,10 @@ function GridNotesSection({
       <div className="text-[10px] font-semibold text-slate-400 mb-2">NOTAS GENERALES</div>
       <textarea
         value={notes}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={isReadOnly ? undefined : (e) => handleChange(e.target.value)}
+        readOnly={isReadOnly}
         rows={2}
-        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:border-teal-500 focus:outline-none resize-none"
+        className={`w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:border-teal-500 focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
         placeholder="Notas generales del turno..."
       />
 
@@ -556,6 +562,7 @@ export default function MonitoreoGrid({
   onSelectInstallation,
   onCellClick,
   onGuardClick,
+  isReadOnly,
 }: MonitoreoGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [showNotes, setShowNotes] = useState(false);
@@ -597,7 +604,7 @@ export default function MonitoreoGrid({
     return <GridEmptyState />;
   }
 
-  const instalaciones = controlNocturno.instalaciones;
+  const instalaciones = controlNocturno.instalaciones ?? [];
 
   return (
     <div className="flex flex-col h-full bg-slate-900/80">
@@ -661,6 +668,7 @@ export default function MonitoreoGrid({
                 onSelectInstallation={onSelectInstallation}
                 onCellClick={onCellClick}
                 onGuardClick={onGuardClick}
+                isReadOnly={isReadOnly}
               />
             ))}
           </tbody>
@@ -680,6 +688,7 @@ export default function MonitoreoGrid({
           controlNocturnoId={controlNocturno.id}
           generalNotes={controlNocturno.generalNotes}
           instalaciones={instalaciones}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

@@ -17,8 +17,9 @@ interface Props {
   missedCount: number;
   trustAvg: number;
   operatorName: string;
-  onOpenCloseTurno: (turnoId: string) => void;
+  onOpenCloseTurno?: (turnoId: string) => void;
   onToggleAlerts?: () => void;
+  isReadOnly?: boolean;
 }
 
 function formatDuration(startedAt: string): string {
@@ -37,6 +38,7 @@ export function MonitoreoTurnoHeader({
   operatorName,
   onOpenCloseTurno,
   onToggleAlerts,
+  isReadOnly,
 }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -133,14 +135,16 @@ export function MonitoreoTurnoHeader({
             </span>
           </button>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-[11px] gap-1 text-red-400 border-red-500/30 hover:bg-red-500/10"
-          onClick={() => onOpenCloseTurno(turno.id)}
-        >
-          <Square className="h-3 w-3" /> Cerrar turno
-        </Button>
+        {!isReadOnly && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 text-red-400 border-red-500/30 hover:bg-red-500/10"
+            onClick={() => onOpenCloseTurno?.(turno.id)}
+          >
+            <Square className="h-3 w-3" /> Cerrar turno
+          </Button>
+        )}
       </div>
     </div>
   );
