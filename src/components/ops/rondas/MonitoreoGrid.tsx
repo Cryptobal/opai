@@ -98,9 +98,9 @@ function useCurrentHour() {
 
 function trustBg(score: number | null): string {
   if (score == null) return "bg-slate-800/40";
-  if (score >= 80) return "bg-emerald-500/15 border-emerald-500/25";
-  if (score >= 60) return "bg-amber-500/15 border-amber-500/25";
-  return "bg-red-500/15 border-red-500/25";
+  if (score >= 80) return "bg-emerald-500/20 border-emerald-500/40";
+  if (score >= 60) return "bg-amber-500/18 border-amber-500/35";
+  return "bg-red-500/18 border-red-500/35";
 }
 
 function trustTextColor(score: number | null): string {
@@ -144,10 +144,10 @@ function getCellState(
       return { ...base, bg: trustBg(ronda.trustScore), border: "border border-solid", icon: "\u26A1\u270B", textColor: trustTextColor(ronda.trustScore), showTrust: true };
     }
     if (ronda.status === "completada" && !ronda.autoPopulated) {
-      return { ...base, bg: "bg-emerald-500/10 border-emerald-500/20", border: "border border-solid", icon: "\u270B", textColor: "text-emerald-400" };
+      return { ...base, bg: "bg-emerald-500/15 border-emerald-500/25", border: "border border-solid", icon: "\u270B", textColor: "text-emerald-400" };
     }
     if (ronda.status === "omitida") {
-      return { ...base, bg: "bg-red-500/20 border-red-500/30", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
+      return { ...base, bg: "bg-red-500/20 border-red-500/35", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
     }
     if (ronda.status === "no_aplica") {
       return { ...base, bg: "bg-slate-800/20", border: "border border-dashed border-slate-700/30", icon: "\u2014", textColor: "text-slate-600", subtle: true };
@@ -220,7 +220,7 @@ function GridRow({
   const isDescubierta = cobertura === "descubierta";
 
   const rowBg = isDescubierta
-    ? "bg-red-500/[0.06] border-l-[3px] border-l-red-500"
+    ? "bg-red-500/[0.08] border-l-[4px] border-l-red-500"
     : isSelected
       ? "bg-teal-500/[0.06] ring-1 ring-inset ring-teal-500/30"
       : "";
@@ -322,7 +322,7 @@ function GridRow({
                   <div className={`text-[10px] font-medium ${state.textColor}`}>
                     {ronda.horaMarcada}
                   </div>
-                  <div className="text-[8px] flex items-center gap-0.5">
+                  <div className="text-[9px] font-bold flex items-center gap-0.5">
                     {state.showTrust && ronda.trustScore != null && (
                       <span className={trustTextColor(ronda.trustScore)}>
                         {ronda.trustScore}
@@ -445,12 +445,16 @@ function GridHeaderBar({
   summary,
   showNotes,
   onToggleNotes,
+  isSaving,
+  onExportPDF,
 }: {
   totalInstalaciones: number;
   totalSlots: number;
   summary: { completadas: number; omitidas: number; cumplimiento: number };
   showNotes: boolean;
   onToggleNotes: () => void;
+  isSaving?: boolean;
+  onExportPDF?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 flex-shrink-0">
@@ -459,6 +463,12 @@ function GridHeaderBar({
         <span className="text-[10px] text-slate-500">
           {totalInstalaciones} instalaciones &middot; {totalSlots} slots
         </span>
+        {isSaving && (
+          <div className="flex items-center gap-1.5 text-[10px] text-teal-400/60">
+            <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+            Guardando
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <span className="text-[10px] text-emerald-400">{summary.completadas} completadas</span>
@@ -472,6 +482,14 @@ function GridHeaderBar({
         }`}>
           {summary.cumplimiento}%
         </span>
+        {onExportPDF && (
+          <button
+            onClick={onExportPDF}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] text-slate-400 hover:text-white transition-colors"
+          >
+            {"\uD83D\uDCC4"} PDF
+          </button>
+        )}
         <button
           onClick={onToggleNotes}
           className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
@@ -564,6 +582,16 @@ export default function MonitoreoGrid({
 }: MonitoreoGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPDF = () => {
+    setIsExporting(true);
+    try {
+      window.print();
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
+  };
 
   const timeSlots = useMemo(
     () => generateTimeSlots(
@@ -612,6 +640,7 @@ export default function MonitoreoGrid({
         summary={summary}
         showNotes={showNotes}
         onToggleNotes={() => setShowNotes(!showNotes)}
+        onExportPDF={handleExportPDF}
       />
 
       <div ref={gridRef} className="flex-1 overflow-auto scrollbar-thin">

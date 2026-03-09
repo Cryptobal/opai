@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }).catch((err) => console.error("[RONDAS] CN auto-submit failed:", err));
     }
 
-    // Send email in background — don't block the response
+    // Always send email — ops email is always included by sendMonitorTurnoEmail
     const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
     const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
 

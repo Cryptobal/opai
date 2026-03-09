@@ -172,7 +172,8 @@ export async function sendMonitorTurnoEmail(
   try {
     const cfg = await getTenantCompanyConfig(data.tenantId);
 
-    const to = recipients?.length ? recipients : [cfg.emailOps];
+    const defaultEmail = cfg.emailOps || "operaciones@gard.cl";
+    const to = [...new Set([defaultEmail, ...(recipients ?? [])])];
     const dateStr = data.startedAt.toLocaleDateString("es-CL", {
       day: "2-digit",
       month: "short",
