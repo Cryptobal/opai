@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function OpsControlNocturnoPage() {
-  redirect("/ops/rondas/monitoreo");
+  redirect("/ops/control-nocturno/historial");
 }
