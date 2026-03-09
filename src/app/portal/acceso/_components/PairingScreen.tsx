@@ -84,31 +84,64 @@ export function PairingScreen({ onPaired }: PairingScreenProps) {
     const fullCode = `${raw.slice(0, 3)}-${raw.slice(3)}`;
 
     try {
-      const res = await fetch("/api/access-control/pair", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: fullCode,
-          deviceFingerprint: generateFingerprint(),
-          userAgent: navigator.userAgent,
-          screenResolution: `${screen.width}x${screen.height}`,
-        }),
-      });
+      let result: Record<string, any> | null = null;
 
-      const data = await res.json().catch(() => null);
+      // Try unified endpoint first
+      try {
+        const unifiedRes = await fetch("/api/devices/pair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: fullCode,
+            metadata: {
+              userAgent: navigator.userAgent,
+              screenWidth: screen.width,
+              screenHeight: screen.height,
+              screenResolution: `${screen.width}x${screen.height}`,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              language: navigator.language,
+              deviceFingerprint: generateFingerprint(),
+            },
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error(
-          data?.error ?? "Código inválido o expirado. Verifica e intenta de nuevo."
-        );
+        if (unifiedRes.ok) {
+          const unifiedData = await unifiedRes.json().catch(() => null);
+          result = unifiedData?.data ?? unifiedData;
+        }
+      } catch {
+        // Unified endpoint not available, fall through to legacy
       }
 
-      const result = data?.data ?? data;
+      // Fall back to legacy endpoint
+      if (!result) {
+        const res = await fetch("/api/access-control/pair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: fullCode,
+            deviceFingerprint: generateFingerprint(),
+            userAgent: navigator.userAgent,
+            screenResolution: `${screen.width}x${screen.height}`,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          throw new Error(
+            data?.error ?? "Código inválido o expirado. Verifica e intenta de nuevo."
+          );
+        }
+
+        result = data?.data ?? data;
+      }
+
       onPaired({
-        deviceToken: result.deviceToken,
-        installationId: result.installationId,
-        installationName: result.installationName,
-        installationAddress: result.installationAddress ?? "",
+        deviceToken: result!.deviceToken,
+        installationId: result!.installationId,
+        installationName: result!.installationName,
+        installationAddress: result!.installationAddress ?? "",
       });
     } catch (err) {
       setError(

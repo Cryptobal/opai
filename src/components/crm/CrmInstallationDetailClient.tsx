@@ -41,6 +41,7 @@ import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
 import { AccessControlDevicesSection } from "@/components/access-control/AccessControlDevicesSection";
+import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2356,6 +2357,11 @@ export function CrmInstallationDetailClient({
           <div className="space-y-6">
             <AccessControlConfigTab installationId={installation.id} />
             <div className="border-t border-border pt-6">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados (Unificado)</h3>
+              <UnifiedDevicesSection installationId={installation.id} />
+            </div>
+            <div className="border-t border-border pt-6">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos (Legacy)</h3>
               <AccessControlDevicesSection installationId={installation.id} />
             </div>
             <div className="border-t border-border pt-6">

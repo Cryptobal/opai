@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { LoginScreen } from "./LoginScreen";
+import { DevicePairingScreen } from "./DevicePairingScreen";
+import { GuardSelectorHeader } from "./GuardSelectorHeader";
 import { MisRondas } from "./MisRondas";
 import { RondaActiva } from "./RondaActiva";
 import type { RondaData, CompletionData } from "./RondaActiva";
@@ -15,6 +18,8 @@ import { PortalBottomNav } from "./PortalBottomNav";
 import type { PortalTab } from "./PortalBottomNav";
 import { PanicoModal } from "./PanicoModal";
 import { PortalPerfil } from "./PortalPerfil";
+import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
+import { DEVICE_TOKEN_KEY } from "@/lib/device-constants";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
 
@@ -27,10 +32,18 @@ export interface RondasSession {
   authenticatedAt: string;
 }
 
+type AuthMode = "loading" | "pairing" | "legacy-login" | "ready";
+
+interface DeviceInfo {
+  installationId: string;
+  installationName: string;
+  tenantId: string;
+}
+
 export function RondasPortalClient() {
   const searchParams = useSearchParams();
   const [screen, setScreen] = useState<RondasScreen>("login");
-  const [session, setSession] = useState<RondasSession | null>(null);
+  const [legacySession, setLegacySession] = useState<RondasSession | null>(null);
   const [activeEjecucionId, setActiveEjecucionId] = useState<string | null>(null);
   const [activeRondaData, setActiveRondaData] = useState<RondaData | null>(null);
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
@@ -40,7 +53,22 @@ export function RondasPortalClient() {
   const [showPanicoModal, setShowPanicoModal] = useState(false);
   const [panicBannerActive, setPanicBannerActive] = useState(false);
 
-  // Track online/offline status
+  const [deviceToken, setDeviceToken] = useState<string | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [currentGuard, setCurrentGuard] = useState<{ id: string; name: string } | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("loading");
+  const [legacyAuthEnabled, setLegacyAuthEnabled] = useState(false);
+
+  useDeviceHeartbeat();
+
+  useEffect(() => {
+    fetch("/api/devices/legacy-auth-enabled")
+      .then((r) => r.json())
+      .then((json) => setLegacyAuthEnabled(json.enabled === true))
+      .catch(() => {});
+  }, []);
+
+  // Online/offline tracking
   useEffect(() => {
     setIsOffline(!navigator.onLine);
     const goOffline = () => setIsOffline(true);
@@ -53,45 +81,219 @@ export function RondasPortalClient() {
     };
   }, []);
 
-  // Restore session from localStorage on mount (with 7d TTL)
+  // Init: determine auth mode on mount
   useEffect(() => {
-    try {
+    const token = localStorage.getItem(DEVICE_TOKEN_KEY);
+
+    if (token) {
+      fetch("/api/devices/validate", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) {
+            setDeviceToken(token);
+            setDeviceInfo({
+              installationId: json.data.installationId,
+              installationName: json.data.installationName,
+              tenantId: json.data.tenantId,
+            });
+            if (json.data.currentGuardId && json.data.currentGuardName) {
+              setCurrentGuard({
+                id: json.data.currentGuardId,
+                name: json.data.currentGuardName,
+              });
+            }
+            if (json.data.portalRondasEnabled) {
+              setAuthMode("ready");
+              const sectionParam = searchParams.get("section");
+              setScreen(sectionParam === "chat" ? "chat" : "mis-rondas");
+            } else {
+              setAuthMode("pairing");
+            }
+          } else {
+            localStorage.removeItem(DEVICE_TOKEN_KEY);
+            setAuthMode("pairing");
+          }
+        })
+        .catch(() => {
+          // Offline — try cached legacy session
+          const cachedSession = localStorage.getItem("rondas_portal_session");
+          if (cachedSession) {
+            try {
+              const { session: s } = JSON.parse(cachedSession);
+              if (s.guardiaId && s.tenantId && s.installationId) {
+                setDeviceToken(token);
+                setDeviceInfo({
+                  installationId: s.installationId,
+                  installationName: s.installationName,
+                  tenantId: s.tenantId,
+                });
+                setCurrentGuard({ id: s.guardiaId, name: s.nombre });
+                setAuthMode("ready");
+                setScreen("mis-rondas");
+                return;
+              }
+            } catch {
+              // ignore
+            }
+          }
+          setAuthMode("pairing");
+        });
+    } else {
+      // No device token — check for legacy session
       const raw = localStorage.getItem("rondas_portal_session");
       if (raw) {
-        const wrapped = JSON.parse(raw) as { session: RondasSession; storedAt: number };
-        const MAX_SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-        if (Date.now() - wrapped.storedAt > MAX_SESSION_MS) {
-          localStorage.removeItem("rondas_portal_session");
-          return;
-        }
-        const parsed = wrapped.session;
-        if (parsed.guardiaId && parsed.tenantId && parsed.installationId) {
-          setSession(parsed);
-          const sectionParam = searchParams.get("section");
-          setScreen(sectionParam === "chat" ? "chat" : "mis-rondas");
+        try {
+          const wrapped = JSON.parse(raw);
+          const MAX_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+          if (Date.now() - wrapped.storedAt <= MAX_SESSION_MS) {
+            const s = wrapped.session as RondasSession;
+            if (s.guardiaId && s.tenantId && s.installationId) {
+              setLegacySession(s);
+              setDeviceInfo({
+                installationId: s.installationId,
+                installationName: s.installationName,
+                tenantId: s.tenantId,
+              });
+              setCurrentGuard({ id: s.guardiaId, name: s.nombre });
+              setAuthMode("ready");
+              const sectionParam = searchParams.get("section");
+              setScreen(sectionParam === "chat" ? "chat" : "mis-rondas");
+              return;
+            }
+          }
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      // Ignore parse errors
+      setAuthMode("pairing");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Derive session from device+guard (for paired devices)
+  const derivedSession: RondasSession | null = useMemo(() => {
+    if (!deviceInfo || !currentGuard) return null;
+    return {
+      guardiaId: currentGuard.id,
+      tenantId: deviceInfo.tenantId,
+      installationId: deviceInfo.installationId,
+      nombre: currentGuard.name,
+      installationName: deviceInfo.installationName,
+      authenticatedAt: new Date().toISOString(),
+    };
+  }, [deviceInfo, currentGuard]);
+
+  // The active session: prefer derived (device+guard), fall back to legacy
+  const session: RondasSession | null = derivedSession ?? legacySession;
+
+  // --- Handlers ---
+
+  const handlePaired = (data: {
+    deviceToken: string;
+    installationId: string;
+    installationName: string;
+  }) => {
+    setDeviceToken(data.deviceToken);
+    // We don't know tenantId from pair response alone — validate to get it
+    fetch("/api/devices/validate", {
+      headers: { Authorization: `Bearer ${data.deviceToken}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setDeviceInfo({
+            installationId: json.data.installationId,
+            installationName: json.data.installationName,
+            tenantId: json.data.tenantId,
+          });
+          if (json.data.currentGuardId && json.data.currentGuardName) {
+            setCurrentGuard({
+              id: json.data.currentGuardId,
+              name: json.data.currentGuardName,
+            });
+          }
+          setAuthMode("ready");
+          setScreen("mis-rondas");
+        }
+      })
+      .catch(() => {
+        setDeviceInfo({
+          installationId: data.installationId,
+          installationName: data.installationName,
+          tenantId: "",
+        });
+        setAuthMode("ready");
+        setScreen("mis-rondas");
+      });
+  };
+
   const handleLogin = (newSession: RondasSession) => {
-    setSession(newSession);
+    setLegacySession(newSession);
+    setDeviceInfo({
+      installationId: newSession.installationId,
+      installationName: newSession.installationName,
+      tenantId: newSession.tenantId,
+    });
+    setCurrentGuard({ id: newSession.guardiaId, name: newSession.nombre });
+    setAuthMode("ready");
     setScreen("mis-rondas");
   };
 
   const handleLogout = () => {
-    setSession(null);
+    setLegacySession(null);
+    setCurrentGuard(null);
     setActiveRondaData(null);
     setActiveEjecucionId(null);
     setCompletionData(null);
     setShowIncidentModal(false);
-    setScreen("login");
     localStorage.removeItem("rondas_portal_session");
+    // Keep device token — unpairing is an admin action
+    if (deviceToken) {
+      setAuthMode("ready");
+      setScreen("mis-rondas");
+    } else {
+      setAuthMode("pairing");
+      setScreen("login");
+    }
   };
 
-  // Fetch fresh ronda data for the active ejecucion
+  const handleUnpair = () => {
+    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    localStorage.removeItem("rondas_portal_session");
+    setDeviceToken(null);
+    setDeviceInfo(null);
+    setCurrentGuard(null);
+    setLegacySession(null);
+    setActiveRondaData(null);
+    setActiveEjecucionId(null);
+    setCompletionData(null);
+    setShowIncidentModal(false);
+    setAuthMode("pairing");
+    setScreen("login");
+  };
+
+  const handleGuardChange = (guard: { id: string; name: string } | null) => {
+    setCurrentGuard(guard);
+    if (guard && deviceInfo) {
+      const s: RondasSession = {
+        guardiaId: guard.id,
+        tenantId: deviceInfo.tenantId,
+        installationId: deviceInfo.installationId,
+        nombre: guard.name,
+        installationName: deviceInfo.installationName,
+        authenticatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(
+        "rondas_portal_session",
+        JSON.stringify({ session: s, storedAt: Date.now() }),
+      );
+    }
+  };
+
+  // --- Ronda navigation ---
+
   const fetchRondaData = useCallback(
     async (ejecucionId: string): Promise<RondaData | null> => {
       if (!session) return null;
@@ -114,15 +316,12 @@ export function RondasPortalClient() {
     [session],
   );
 
-  // Navigate: mis-rondas -> ronda-activa
-  // First POST to /api/portal/rondas/iniciar to set startedAt, then fetch data
   const handleIniciarRonda = useCallback(
     async (ejecucionId: string) => {
       if (!session) return;
       setLoadingRonda(true);
       setActiveEjecucionId(ejecucionId);
 
-      // Register start immediately (fire-and-forget for status=en_curso rondas)
       try {
         await fetch("/api/portal/rondas/iniciar", {
           method: "POST",
@@ -133,7 +332,7 @@ export function RondasPortalClient() {
           }),
         });
       } catch {
-        // Non-blocking: if this fails, the first marcar will still set startedAt
+        // Non-blocking
       }
 
       const data = await fetchRondaData(ejecucionId);
@@ -188,13 +387,11 @@ export function RondasPortalClient() {
     }
   }, [session]);
 
-  // Navigate: ronda-activa -> completada
   const handleRondaComplete = (data: CompletionData) => {
     setCompletionData(data);
     setScreen("completada");
   };
 
-  // Navigate: completada -> mis-rondas
   const handleBackToRondas = () => {
     setActiveRondaData(null);
     setActiveEjecucionId(null);
@@ -213,10 +410,43 @@ export function RondasPortalClient() {
     setScreen(tab);
   };
 
+  // --- Render ---
+
+  if (authMode === "loading") {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[#0A0F1C]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          <span className="text-sm text-zinc-400">Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMode === "pairing") {
+    return (
+      <DevicePairingScreen
+        onPaired={handlePaired}
+        onLegacyLogin={legacyAuthEnabled ? () => setAuthMode("legacy-login") : undefined}
+      />
+    );
+  }
+
+  if (authMode === "legacy-login") {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  // authMode === "ready"
+  const showGuardSelector = deviceToken && deviceInfo && screen !== "login";
+  const needsGuardWarning = authMode === "ready" && !currentGuard;
+
   return (
     <div className={`flex flex-col ${screen === "chat" ? "h-dvh" : "min-h-dvh"}`}>
       {isOffline && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white" role="status">
+        <div
+          className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white"
+          role="status"
+        >
           Sin conexion — modo offline
         </div>
       )}
@@ -230,7 +460,21 @@ export function RondasPortalClient() {
       )}
       {panicBannerActive && <div className="h-10 shrink-0" aria-hidden="true" />}
 
-      {screen === "login" && <LoginScreen onLogin={handleLogin} />}
+      {showGuardSelector && (
+        <GuardSelectorHeader
+          installationName={deviceInfo.installationName}
+          deviceToken={deviceToken}
+          currentGuardId={currentGuard?.id ?? null}
+          currentGuardName={currentGuard?.name ?? null}
+          onGuardChange={handleGuardChange}
+        />
+      )}
+
+      {needsGuardWarning && screen !== "login" && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-300">
+          Selecciona un guardia para continuar
+        </div>
+      )}
 
       {screen === "mis-rondas" && session && (
         <>
@@ -260,7 +504,11 @@ export function RondasPortalClient() {
                   aria-hidden="true"
                 >
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
                 <span className="text-base text-gray-300">Cargando ronda...</span>
               </div>
@@ -298,10 +546,7 @@ export function RondasPortalClient() {
 
       {screen === "chat" && session && (
         <div className="flex-1 min-h-0 overflow-hidden pb-16">
-          <ChatRondasPortal
-            session={session}
-            onBack={() => setScreen("mis-rondas")}
-          />
+          <ChatRondasPortal session={session} onBack={() => setScreen("mis-rondas")} />
         </div>
       )}
 
@@ -309,7 +554,6 @@ export function RondasPortalClient() {
         <PortalPerfil session={session} onLogout={handleLogout} />
       )}
 
-      {/* Incident reporting modal overlay */}
       {showIncidentModal && session && (
         <ReportarIncidente
           session={session}
@@ -319,12 +563,10 @@ export function RondasPortalClient() {
         />
       )}
 
-      {/* Bottom Navigation */}
       {session && screen !== "login" && (
         <PortalBottomNav activeScreen={screen} onNavigate={handleBottomNav} />
       )}
 
-      {/* Panic Modal */}
       {showPanicoModal && session && (
         <PanicoModal
           session={session}
