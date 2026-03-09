@@ -15,6 +15,9 @@ import {
   Loader2,
   ExternalLink,
   Briefcase,
+  Copy,
+  LinkIcon,
+  CheckCircle2,
 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -30,9 +33,9 @@ interface Props {
 
 interface Guard {
   id: string;
-  firstName: string;
-  lastName: string;
-  rut?: string;
+  guardName: string;
+  guardRut?: string | null;
+  puestoName?: string;
 }
 
 interface Finding {
@@ -55,6 +58,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
   const [findings, setFindings] = useState<Finding[]>([]);
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -67,7 +71,10 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
 
       if (guardsRes.status === "fulfilled" && guardsRes.value.ok) {
         const j = await guardsRes.value.json();
-        setGuards(j.data ?? []);
+        const d = j.data;
+        // API returns { regular: [...], reinforcement: [...] } — flatten to a single array
+        const allGuards = Array.isArray(d) ? d : [...(d?.regular ?? []), ...(d?.reinforcement ?? [])];
+        setGuards(allGuards);
       }
       if (findingsRes.status === "fulfilled" && findingsRes.value.ok) {
         const j = await findingsRes.value.json();
@@ -115,6 +122,46 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
         </div>
       )}
 
+      {/* Pairing Code */}
+      {installation.pairingCode && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <LinkIcon size={14} className="text-blue-400" />
+            <span className="text-sm font-medium text-zinc-200">Código de Pareo</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3">
+              <span className="font-mono text-2xl font-bold tracking-[0.25em] text-zinc-100">
+                {installation.pairingCode}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(installation.pairingCode!);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-300 hover:border-zinc-700 transition-colors"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 size={14} className="text-green-400" />
+                  Copiado
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  Copiar
+                </>
+              )}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-zinc-600">
+            Ingresa este código en el dispositivo para vincularlo a esta instalación.
+          </p>
+        </div>
+      )}
+
       {/* Quick actions */}
       <div className="grid grid-cols-4 gap-2">
         {[
@@ -155,22 +202,29 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
               <EmptyState title="Sin guardias asignados" compact inline />
             ) : (
               <div className="flex flex-col gap-1.5">
-                {guards.slice(0, 5).map((g) => (
+                {guards.slice(0, 5).map((g) => {
+                  const initials = g.guardName
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("");
+                  return (
                   <div
                     key={g.id}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/50"
                   >
                     <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-400 font-medium">
-                      {g.firstName[0]}{g.lastName[0]}
+                      {initials}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm text-zinc-200 truncate">
-                        {g.firstName} {g.lastName}
+                        {g.guardName}
                       </p>
-                      {g.rut && <p className="text-xs text-zinc-500">{g.rut}</p>}
+                      {g.guardRut && <p className="text-xs text-zinc-500">{g.guardRut}</p>}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {guards.length > 5 && (
                   <p className="text-xs text-zinc-600 text-center">+{guards.length - 5} más</p>
                 )}

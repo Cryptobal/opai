@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Smartphone,
@@ -9,7 +9,6 @@ import {
   Copy,
   Trash2,
   LinkIcon,
-  Clock,
   CheckCircle2,
   Wifi,
   Battery,
@@ -57,17 +56,10 @@ interface DevicePairingRecord {
   } | null;
 }
 
-interface PairingCodeResponse {
-  code: string;
-  expiresAt: string;
-  devicePairingId: string;
-}
-
 interface Props {
   installationId: string;
+  pairingCode: string | null;
 }
-
-const CODE_EXPIRY_MS = 10 * 60 * 1000;
 
 function getRelativeTime(dateStr: string | null): { label: string; color: string } {
   if (!dateStr) return { label: "Sin actividad", color: "text-zinc-600" };
@@ -99,27 +91,15 @@ function connectionIcon(type: string | null) {
   return <Signal className="h-3 w-3" />;
 }
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "Expirado";
-  const totalSec = Math.floor(ms / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
-
-export function UnifiedDevicesSection({ installationId }: Props) {
+export function UnifiedDevicesSection({ installationId, pairingCode: initialPairingCode }: Props) {
   const [devices, setDevices] = useState<DevicePairingRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pairingCode, setPairingCode] = useState<PairingCodeResponse | null>(null);
+  const [currentCode, setCurrentCode] = useState<string | null>(initialPairingCode);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<DevicePairingRecord | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const [genRondas, setGenRondas] = useState(true);
-  const [genAcceso, setGenAcceso] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -137,57 +117,32 @@ export function UnifiedDevicesSection({ installationId }: Props) {
     fetchDevices();
   }, [fetchDevices]);
 
-  // Countdown timer for pairing code
-  useEffect(() => {
-    if (!pairingCode) {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      return;
-    }
-    const expiresAt = new Date(pairingCode.expiresAt).getTime();
-    const update = () => {
-      const remaining = expiresAt - Date.now();
-      setCountdown(Math.max(0, remaining));
-      if (remaining <= 0 && countdownRef.current) {
-        clearInterval(countdownRef.current);
-        setPairingCode(null);
-      }
-    };
-    update();
-    countdownRef.current = setInterval(update, 1000);
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [pairingCode]);
-
-  const generateCode = async () => {
+  const regenerateCode = async () => {
     setGeneratingCode(true);
     try {
       const res = await fetch(`/api/devices/generate-code/${installationId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          portalRondasEnabled: genRondas,
-          portalAccesoEnabled: genAcceso,
-        }),
       });
       const json = await res.json();
       if (json.success) {
-        setPairingCode(json.data);
-        toast.success("Código de emparejamiento generado");
+        setCurrentCode(json.data.code);
+        toast.success("Código regenerado");
       } else {
-        toast.error(json.error || "Error al generar código");
+        toast.error(json.error || "Error al regenerar código");
       }
     } catch {
-      toast.error("Error al generar código");
+      toast.error("Error al regenerar código");
     } finally {
       setGeneratingCode(false);
     }
   };
 
   const copyCode = () => {
-    if (pairingCode?.code) {
-      navigator.clipboard.writeText(pairingCode.code);
-      toast.success("Código copiado al portapapeles");
+    if (currentCode) {
+      navigator.clipboard.writeText(currentCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Código copiado");
     }
   };
 
@@ -414,19 +369,19 @@ export function UnifiedDevicesSection({ installationId }: Props) {
         </details>
       )}
 
-      {/* Generate Pairing Code */}
+      {/* Permanent Pairing Code */}
       <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900/50 p-4">
         <div className="flex items-center gap-2 text-sm text-zinc-300">
           <LinkIcon className="h-4 w-4" />
           Vincular Nuevo Dispositivo
         </div>
 
-        {pairingCode && countdown > 0 ? (
+        {currentCode ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center gap-3">
               <div className="rounded-lg border border-zinc-600 bg-zinc-800 px-5 py-3">
                 <span className="font-mono text-2xl font-bold tracking-[0.25em] text-zinc-100">
-                  {pairingCode.code}
+                  {currentCode}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
@@ -436,56 +391,40 @@ export function UnifiedDevicesSection({ installationId }: Props) {
                   onClick={copyCode}
                   className="text-zinc-400 hover:text-zinc-200"
                 >
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copiar
+                  {copied ? (
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-green-400" />
+                  ) : (
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {copied ? "Copiado" : "Copiar"}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={generateCode}
+                  onClick={regenerateCode}
                   disabled={generatingCode}
                   className="text-zinc-500 hover:text-zinc-300"
                 >
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  {generatingCode ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
                   Regenerar
                 </Button>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <Clock className="h-3 w-3" />
-              Expira en {formatCountdown(countdown)}
-            </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="h-3 w-3 text-green-500" />
               <span className="text-xs text-zinc-500">
-                Rondas {genRondas ? "✓" : "✗"} · Acceso {genAcceso ? "✓" : "✗"}
+                Código permanente · Rondas y Acceso
               </span>
             </div>
           </div>
         ) : (
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={genRondas}
-                  onChange={(e) => setGenRondas(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
-                />
-                Habilitar Rondas
-              </label>
-              <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={genAcceso}
-                  onChange={(e) => setGenAcceso(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
-                />
-                Habilitar Acceso
-              </label>
-            </div>
+          <div className="mt-3">
             <Button
-              onClick={generateCode}
+              onClick={regenerateCode}
               disabled={generatingCode}
               variant="outline"
               size="sm"

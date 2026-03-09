@@ -42,6 +42,7 @@ export default async function CrmInstallationDetailPage({
         geoRadiusM: true,
         teMontoClp: true,
         marcacionCode: true,
+        pairingCode: true,
         notes: true,
         metadata: true,
         nocturnoEnabled: true,

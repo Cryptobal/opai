@@ -57,6 +57,7 @@ export type InstallationDetail = {
   teMontoClp?: number | string | null;
   notes?: string | null;
   marcacionCode?: string | null;
+  pairingCode?: string | null;
   geoRadiusM?: number;
   metadata?: Record<string, unknown> | null;
   nocturnoEnabled?: boolean;
@@ -2358,7 +2359,7 @@ export function CrmInstallationDetailClient({
             <AccessControlConfigTab installationId={installation.id} />
             <div className="border-t border-border pt-6">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados (Unificado)</h3>
-              <UnifiedDevicesSection installationId={installation.id} />
+              <UnifiedDevicesSection installationId={installation.id} pairingCode={installation.pairingCode ?? null} />
             </div>
             <div className="border-t border-border pt-6">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos (Legacy)</h3>

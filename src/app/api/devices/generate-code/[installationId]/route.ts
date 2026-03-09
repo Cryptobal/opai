@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+
 const PAIRING_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
-const CODE_EXPIRY_MINUTES = 10;
 
 function generatePairingCode(): string {
   const bytes = new Uint8Array(CODE_LENGTH);
@@ -25,53 +25,38 @@ export async function POST(
 
     const { installationId } = await params;
 
-    let body: { portalRondasEnabled?: boolean; portalAccesoEnabled?: boolean } = {};
-    try {
-      body = await request.json();
-    } catch {
-      // empty body is valid
+    // Generate unique code with retry
+    let code: string;
+    let attempts = 0;
+    while (true) {
+      code = generatePairingCode();
+      const existing = await prisma.crmInstallation.findUnique({
+        where: { pairingCode: code },
+      });
+      if (!existing) break;
+      attempts++;
+      if (attempts > 10) {
+        return NextResponse.json(
+          { success: false, error: "No se pudo generar un código único" },
+          { status: 500 }
+        );
+      }
     }
 
-    const portalRondasEnabled = body.portalRondasEnabled ?? true;
-    const portalAccesoEnabled = body.portalAccesoEnabled ?? true;
-
-    await prisma.devicePairing.deleteMany({
-      where: {
-        installationId,
-        tenantId: ctx.tenantId,
-        deviceToken: null,
-        pairingCode: { not: null },
-      },
-    });
-
-    const code = generatePairingCode();
-    const expiresAt = new Date(Date.now() + CODE_EXPIRY_MINUTES * 60 * 1000);
-
-    const devicePairing = await prisma.devicePairing.create({
-      data: {
-        tenantId: ctx.tenantId,
-        installationId,
-        pairingCode: code,
-        pairingCodeExpiresAt: expiresAt,
-        portalRondasEnabled,
-        portalAccesoEnabled,
-        linkedByUserId: ctx.userId,
-      },
+    await prisma.crmInstallation.update({
+      where: { id: installationId, tenantId: ctx.tenantId },
+      data: { pairingCode: code },
     });
 
     return NextResponse.json({
       success: true,
-      data: {
-        code,
-        expiresAt: expiresAt.toISOString(),
-        devicePairingId: devicePairing.id,
-      },
+      data: { code },
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[devices/generate-code] Error:", msg);
     return NextResponse.json(
-      { success: false, error: "Error al generar código de vinculación", detail: msg },
+      { success: false, error: "Error al regenerar código de vinculación", detail: msg },
       { status: 500 }
     );
   }

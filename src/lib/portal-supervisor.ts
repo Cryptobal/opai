@@ -10,6 +10,7 @@ export interface SupervisorInstallation {
   lng: number | null;
   geoRadiusM: number;
   isActive: boolean;
+  pairingCode: string | null;
 }
 
 export interface SupervisorSession {
@@ -64,6 +65,7 @@ export async function validateSupervisorSession(session: {
     lng: a.installation.lng ?? null,
     geoRadiusM: a.installation.geoRadiusM,
     isActive: a.installation.isActive,
+    pairingCode: a.installation.pairingCode ?? null,
   }));
 
   return {

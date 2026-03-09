@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, ChevronRight, Loader2, Search } from "lucide-react";
+import { MapPin, ChevronRight, Loader2, Search, Copy } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -10,15 +10,11 @@ interface Props {
   onSelect: (installation: SupervisorInstallation) => void;
 }
 
-type Tab = "activas" | "prospectos" | "todas";
-
 export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props) {
-  const [tab, setTab] = useState<Tab>("activas");
   const [query, setQuery] = useState("");
   const [allInstallations, setAllInstallations] = useState<SupervisorInstallation[]>(tenantInstallations);
   const [loading, setLoading] = useState(false);
 
-  // Enrich with all installations from the supervision API (may include more details)
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -27,9 +23,20 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Merge: prefer the API response (more fields), but ensure assigned ones are included
-            const apiMap = new Map(json.data.map((i: SupervisorInstallation) => [i.id, i]));
-            const merged = tenantInstallations.map((t) => (apiMap.get(t.id) as SupervisorInstallation) ?? t);
+            const apiMap = new Map<string, Record<string, unknown>>(
+              json.data.map((i: { id: string }) => [i.id, i])
+            );
+            const merged = tenantInstallations.map((t) => {
+              const api = apiMap.get(t.id);
+              if (!api) return t;
+              return {
+                ...t,
+                address: (api.address as string | null) ?? t.address,
+                lat: (api.lat as number | null) ?? t.lat,
+                lng: (api.lng as number | null) ?? t.lng,
+                geoRadiusM: (api.geoRadiusM as number) ?? t.geoRadiusM,
+              };
+            });
             setAllInstallations(merged);
           }
         }
@@ -42,26 +49,15 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
     load();
   }, [tenantInstallations]);
 
-  const filtered = allInstallations
-    .filter((inst) => {
-      if (tab === "activas") return inst.isActive;
-      if (tab === "prospectos") return !inst.isActive;
-      return true;
-    })
-    .filter((inst) => {
-      const q = query.toLowerCase();
-      return (
-        inst.name.toLowerCase().includes(q) ||
-        inst.accountName.toLowerCase().includes(q) ||
-        (inst.address ?? "").toLowerCase().includes(q)
-      );
-    });
-
-  const TABS: Array<{ id: Tab; label: string }> = [
-    { id: "activas", label: "Activas" },
-    { id: "prospectos", label: "Prospectos" },
-    { id: "todas", label: "Todas" },
-  ];
+  const filtered = allInstallations.filter((inst) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (
+      inst.name.toLowerCase().includes(q) ||
+      inst.accountName.toLowerCase().includes(q) ||
+      (inst.address ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="flex flex-col gap-3 px-4 py-4 pb-24">
@@ -78,21 +74,6 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
         />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-900 rounded-lg p-1">
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              tab === id ? "bg-zinc-700 text-white" : "text-zinc-500"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="animate-spin text-zinc-600" size={24} />
@@ -101,7 +82,7 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
         <EmptyState
           icon={<MapPin size={24} />}
           title="Sin instalaciones"
-          description={query ? "Intenta con otro término de búsqueda" : "No hay instalaciones en esta categoría"}
+          description={query ? "Intenta con otro término de búsqueda" : "No tienes instalaciones asignadas"}
           compact
         />
       ) : (
@@ -128,7 +109,7 @@ function InstallationCard({
       className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors text-left w-full"
     >
       <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
-        <MapPin size={16} className={installation.isActive ? "text-blue-400" : "text-zinc-500"} />
+        <MapPin size={16} className="text-blue-400" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{installation.name}</p>
@@ -136,19 +117,22 @@ function InstallationCard({
         {installation.address && (
           <p className="text-xs text-zinc-600 truncate mt-0.5">{installation.address}</p>
         )}
+        {installation.pairingCode && (
+          <span
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(installation.pairingCode!);
+            }}
+            className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+            title="Copiar código de pareo"
+          >
+            <Copy size={10} />
+            <span className="font-mono">{installation.pairingCode}</span>
+          </span>
+        )}
       </div>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <span
-          className={`text-[10px] px-2 py-0.5 rounded-full ${
-            installation.isActive
-              ? "bg-emerald-500/15 text-emerald-400"
-              : "bg-zinc-700 text-zinc-400"
-          }`}
-        >
-          {installation.isActive ? "Activa" : "Prospecto"}
-        </span>
-        <ChevronRight size={14} className="text-zinc-600" />
-      </div>
+      <ChevronRight size={14} className="text-zinc-600 flex-shrink-0" />
     </button>
   );
 }
