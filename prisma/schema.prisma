@@ -5846,6 +5846,7 @@ model ChatPushSubscription {
   p256dh         String         @map("p256dh") @db.Text
   auth           String         @db.Text
   userAgent      String?        @map("user_agent")
+  portalType     String?        @map("portal_type")
   isActive       Boolean        @default(true) @map("is_active")
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)

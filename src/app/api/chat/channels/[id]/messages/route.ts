@@ -5,10 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
-import { sendChatPushNotifications } from "@/lib/pwa/push-service";
+import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
+import { sendChatPushNotifications, getChatChannelRecipients } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -392,39 +393,74 @@ export async function POST(
       createdAt: message.createdAt.toISOString(),
     };
 
-    // Trigger Pusher event (non-blocking)
-    const eventName = threadRootId ? "thread-reply" : "new-message";
-    const eventData = threadRootId
-      ? { threadRootId, message: responseData }
-      : responseData;
-    triggerChatEvent(channelId, eventName, eventData).catch((err) =>
-      console.error("Error triggering Pusher event:", err)
-    );
+    after(async () => {
+      // 1. Pusher real-time event
+      try {
+        const eventName = threadRootId ? "thread-reply" : "new-message";
+        const eventData = threadRootId
+          ? { threadRootId, message: responseData }
+          : responseData;
+        await triggerChatEvent(channelId, eventName, eventData);
+      } catch (err) {
+        console.error("[PUSHER] Error triggering chat event:", err);
+      }
 
-    // Send push notifications to other channel participants (non-blocking)
-    // Extract mentioned user IDs for MENTIONS_ONLY filter
-    const mentionedUserIds = parsedMentions.map((m) =>
-      m.type === 'ALL' ? 'todos' : m.userId!
-    ).filter(Boolean);
+      // 2. Push notifications
+      try {
+        const mentionedUserIds = parsedMentions
+          .map((m) => (m.type === "ALL" ? "todos" : m.userId!))
+          .filter(Boolean);
+        const firstImageAttachment = attachments?.find(
+          (a: any) =>
+            a.type?.startsWith("image/") || a.contentType?.startsWith("image/")
+        );
 
-    // Check if message has image attachment
-    const firstImageAttachment = attachments?.find(
-      (a: any) => a.type?.startsWith('image/') || a.contentType?.startsWith('image/')
-    );
+        await sendChatPushNotifications({
+          tenantId: ctx.tenantId,
+          channelId,
+          channelName: channel.name,
+          channelType: channel.channelType,
+          senderType: "ADMIN",
+          senderId: ctx.userId,
+          senderName,
+          messagePreview: content || "[Archivo adjunto]",
+          mentionedUserIds:
+            mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+          imageUrl: firstImageAttachment?.url || undefined,
+          timestamp: message.createdAt.getTime(),
+        });
+      } catch (err) {
+        console.error("[PUSH] Error sending chat push notifications:", err);
+      }
 
-    sendChatPushNotifications({
-      tenantId: ctx.tenantId,
-      channelId,
-      channelName: channel.name,
-      channelType: channel.channelType,
-      senderType: "ADMIN",
-      senderId: ctx.userId,
-      senderName,
-      messagePreview: content || "[Archivo adjunto]",
-      mentionedUserIds: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
-      imageUrl: firstImageAttachment?.url || undefined,
-      timestamp: message.createdAt.getTime(),
-    }).catch((err) => console.error("Error sending chat push:", err));
+      // 3. In-app notifications via Pusher per-user channel
+      try {
+        const recipients = await getChatChannelRecipients(
+          channelId, ctx.tenantId, "ADMIN", ctx.userId
+        );
+        if (recipients.length > 0) {
+          const pusher = getPusherServer();
+          const notifData = JSON.stringify({
+            type: "chat_message",
+            channelId,
+            channelName: channel.name,
+            senderName,
+            messagePreview: (content || "[Archivo adjunto]").substring(0, 120),
+            timestamp: new Date().toISOString(),
+          });
+          const batchEvents = recipients.map((r) => ({
+            channel: `private-user-${ctx.tenantId}-${r.subscriberType}-${r.subscriberId}`,
+            name: "in-app-notification",
+            data: notifData,
+          }));
+          for (let i = 0; i < batchEvents.length; i += 10) {
+            await pusher.triggerBatch(batchEvents.slice(i, i + 10));
+          }
+        }
+      } catch (err) {
+        console.error("[PUSHER] Error sending in-app notifications:", err);
+      }
+    });
 
     return NextResponse.json({ success: true, data: responseData });
   } catch (err: any) {

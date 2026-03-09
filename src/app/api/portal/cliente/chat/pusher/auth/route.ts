@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
-import { authorizePusherChannel } from "@/lib/chat";
+import { authorizePusherChannel, authorizePrivateChannel } from "@/lib/chat";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +39,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "socket_id y channel_name son requeridos" },
         { status: 400 }
+      );
+    }
+
+    // Handle private-user notification channels
+    const privateUserMatch = channelName.match(
+      /^private-user-(.+)-(ADMIN|GUARD|CLIENT)-(.+)$/
+    );
+    if (privateUserMatch) {
+      const [, channelTenantId, , channelUserId] = privateUserMatch;
+      if (channelTenantId === session.tenantId && channelUserId === session.contactId) {
+        const authResponse = authorizePrivateChannel(socketId, channelName);
+        return NextResponse.json(authResponse);
+      }
+      return NextResponse.json(
+        { success: false, error: "No autorizado para este canal" },
+        { status: 403 }
       );
     }
 

@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { authorizePusherChannel } from "@/lib/chat";
+import { authorizePusherChannel, authorizePrivateChannel } from "@/lib/chat";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +35,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "socket_id y channel_name son requeridos" },
         { status: 400 }
+      );
+    }
+
+    // Handle private-user notification channels
+    const privateUserMatch = channelName.match(
+      /^private-user-(.+)-(ADMIN|GUARD|CLIENT)-(.+)$/
+    );
+    if (privateUserMatch) {
+      const [, channelTenantId, , channelUserId] = privateUserMatch;
+      if (channelTenantId === ctx.tenantId && channelUserId === ctx.userId) {
+        const authResponse = authorizePrivateChannel(socketId, channelName);
+        return NextResponse.json(authResponse);
+      }
+      return NextResponse.json(
+        { success: false, error: "No autorizado para este canal" },
+        { status: 403 }
       );
     }
 
