@@ -1,5 +1,8 @@
 import webPush from 'web-push';
 import { prisma } from '@/lib/prisma';
+import { batchUnreadCounts } from '@/lib/chat';
+
+// ── VAPID Initialization ──
 
 let vapidInitialized = false;
 function ensureVapidInitialized() {
@@ -15,24 +18,38 @@ function ensureVapidInitialized() {
   vapidInitialized = true;
 }
 
+// ── Global Config Cache (TTL 5 min) ──
+
+const globalConfigCache = new Map<string, { data: boolean; expiry: number }>();
+
 function globalSettingKey(tenantId: string) {
   return `notification_preferences:${tenantId}`;
 }
 
-/** Returns false only when the admin has explicitly set pushEnabled = false for this notifKey. Fails open (returns true) on any error to avoid silently dropping pushes. */
 async function isGloballyEnabled(tenantId: string, notifKey: string): Promise<boolean> {
+  const cacheKey = `${tenantId}:${notifKey}`;
+  const cached = globalConfigCache.get(cacheKey);
+  if (cached && cached.expiry > Date.now()) return cached.data;
+
   try {
     const setting = await prisma.setting.findFirst({
       where: { key: globalSettingKey(tenantId) },
       select: { value: true },
     });
-    if (!setting?.value) return true;
+    if (!setting?.value) {
+      globalConfigCache.set(cacheKey, { data: true, expiry: Date.now() + 5 * 60_000 });
+      return true;
+    }
     const parsed = JSON.parse(setting.value) as { pushGlobalConfig?: Record<string, { pushEnabled?: boolean }> };
-    return parsed.pushGlobalConfig?.[notifKey]?.pushEnabled !== false;
+    const enabled = parsed.pushGlobalConfig?.[notifKey]?.pushEnabled !== false;
+    globalConfigCache.set(cacheKey, { data: enabled, expiry: Date.now() + 5 * 60_000 });
+    return enabled;
   } catch {
-    return true; // fail open — never silently drop pushes on read error
+    return true; // fail open
   }
 }
+
+// ── Types ──
 
 type UserType = 'contact' | 'guardia' | 'admin';
 
@@ -40,6 +57,73 @@ function toChatSenderType(userType: UserType) {
   const map = { contact: 'CLIENT', guardia: 'GUARD', admin: 'ADMIN' } as const;
   return map[userType];
 }
+
+// ── Badge Count Calculation (Prompt 1) ──
+
+async function calculateBadgeCount(
+  tenantId: string,
+  userType: UserType,
+  userId: string,
+): Promise<number> {
+  try {
+    const senderType = toChatSenderType(userType);
+
+    // Get channels the user participates in via read cursors
+    const cursors = await prisma.chatReadCursor.findMany({
+      where: { readerType: senderType, readerId: userId },
+      select: { channelId: true },
+    });
+    const channelIds = cursors.map((c) => c.channelId);
+
+    // Batch chat unreads
+    let chatUnreads = 0;
+    if (channelIds.length > 0) {
+      const unreads = await batchUnreadCounts(channelIds, senderType, userId, true);
+      for (const count of unreads.values()) chatUnreads += count;
+    }
+
+    // Bell notification unreads (admin only)
+    let bellUnreads = 0;
+    if (userType === 'admin') {
+      const bellResult = await prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) AS count FROM notifications
+        WHERE recipient_id = ${userId}
+          AND tenant_id = ${tenantId}
+          AND read = false
+      `;
+      bellUnreads = Number(bellResult[0]?.count ?? 0);
+    }
+
+    return chatUnreads + bellUnreads;
+  } catch (err) {
+    console.error('[push] Error calculating badge count:', err);
+    return 0;
+  }
+}
+
+// ── Send to Individual Subscription ──
+
+async function sendToSubscription(
+  sub: { id: string; endpoint: string; p256dh: string; auth: string },
+  payload: string,
+): Promise<void> {
+  try {
+    await webPush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      payload,
+    );
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number };
+    if (err.statusCode === 410 || err.statusCode === 404) {
+      await prisma.chatPushSubscription.update({
+        where: { id: sub.id },
+        data: { isActive: false },
+      });
+    }
+  }
+}
+
+// ── sendPushToPortalUser (Prompt 2 — enriched payload) ──
 
 interface SendPushParams {
   tenantId: string;
@@ -53,6 +137,9 @@ interface SendPushParams {
   tag?: string;
   notificationId?: string;
   badgeCount?: number;
+  icon?: string;
+  image?: string;
+  timestamp?: number;
 }
 
 export async function sendPushToPortalUser({
@@ -67,6 +154,9 @@ export async function sendPushToPortalUser({
   tag,
   notificationId,
   badgeCount,
+  icon,
+  image,
+  timestamp,
 }: SendPushParams) {
   ensureVapidInitialized();
 
@@ -83,15 +173,15 @@ export async function sendPushToPortalUser({
     }
   }
 
-  // 1b. Check global config — admin can disable a notification type for all users
+  // 1b. Check global config
   if (!(await isGloballyEnabled(tenantId, notifKey))) return;
 
   // 2. Get active push subscriptions
-  const senderType = toChatSenderType(userType);
+  const subscriberType = toChatSenderType(userType);
   const subscriptions = await prisma.chatPushSubscription.findMany({
     where: {
       tenantId,
-      subscriberType: senderType,
+      subscriberType: subscriberType,
       subscriberId: userId,
       isActive: true,
     },
@@ -99,48 +189,36 @@ export async function sendPushToPortalUser({
 
   if (subscriptions.length === 0) return;
 
-  const icon = '/iconos_azul/icon-192x192.png';
+  // 3. Calculate real badge count if not provided (Prompt 1)
+  const realBadgeCount = badgeCount ?? await calculateBadgeCount(tenantId, userType, userId);
 
-  // 3. Send to each subscription
-  await Promise.allSettled(
-    subscriptions.map(async (sub) => {
-      try {
-        await webPush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          JSON.stringify({
-            title,
-            body,
-            icon,
-            badge: icon,
-            tag: tag || notifKey,
-            data: {
-              url,
-              type: notifKey,
-              ...(notificationId && { notificationId }),
-              ...(badgeCount && { badgeCount }),
-            },
-          })
-        );
-      } catch (error: unknown) {
-        const err = error as { statusCode?: number };
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await prisma.chatPushSubscription.update({
-            where: { id: sub.id },
-            data: { isActive: false },
-          });
-        }
-      }
-    })
-  );
+  // 4. Build enriched payload (Prompt 2)
+  const defaultIcon = '/iconos_azul/icon-192x192.png';
+
+  const payload = JSON.stringify({
+    title,
+    body,
+    icon: icon || defaultIcon,
+    badge: '/iconos_azul/icon-72x72.png',
+    image: image || undefined,
+    tag: tag || notifKey,
+    renotify: !!tag,
+    silent: false,
+    timestamp: timestamp || Date.now(),
+    data: {
+      url,
+      type: notifKey === 'chat_message' ? 'chat_message' : 'system_notification',
+      ...(notificationId && { notificationId }),
+      badgeCount: realBadgeCount,
+    },
+  });
+
+  // 5. Send to each subscription
+  await Promise.allSettled(subscriptions.map((sub) => sendToSubscription(sub, payload)));
 }
 
-/**
- * Broadcast push to all active owner/admin users in a tenant.
- * Fails open — individual subscription failures are swallowed.
- */
+// ── Broadcast to Admins ──
+
 export async function sendPushToAdmins(
   tenantId: string,
   notifKey: string,
@@ -160,7 +238,7 @@ export async function sendPushToAdmins(
         userType: 'admin',
         userId: admin.id,
         portalType: 'app',
-        title,
+        title: `\uD83D\uDD14 ${title}`,
         body,
         url,
       })
@@ -168,9 +246,6 @@ export async function sendPushToAdmins(
   );
 }
 
-/**
- * Push to a specific list of admin user IDs (e.g., approval group members).
- */
 export async function sendPushToSpecificAdmins(
   tenantId: string,
   adminIds: string[],
@@ -188,7 +263,7 @@ export async function sendPushToSpecificAdmins(
         userType: 'admin',
         userId,
         portalType: 'app',
-        title,
+        title: `\uD83D\uDD14 ${title}`,
         body,
         url,
       })
@@ -196,16 +271,13 @@ export async function sendPushToSpecificAdmins(
   );
 }
 
-// ── Chat message push notifications ──
+// ── Chat Message Push Notifications ──
 
 interface ChatPushRecipient {
   subscriberType: 'ADMIN' | 'GUARD' | 'CLIENT';
   subscriberId: string;
 }
 
-/**
- * Resolves all push-eligible recipients for a chat channel, excluding the sender.
- */
 async function getChatChannelRecipients(
   channelId: string,
   tenantId: string,
@@ -225,7 +297,6 @@ async function getChatChannelRecipients(
   const recipients: ChatPushRecipient[] = [];
 
   if (channel.channelType === 'INSTALLATION' && channel.installationId) {
-    // Guards assigned to this installation
     const guards = await prisma.opsAsignacionGuardia.findMany({
       where: { tenantId, installationId: channel.installationId, isActive: true },
       select: { guardiaId: true },
@@ -235,7 +306,6 @@ async function getChatChannelRecipients(
       recipients.push({ subscriberType: 'GUARD', subscriberId: g.guardiaId });
     }
 
-    // Contacts linked to this installation's account
     const installation = await prisma.crmInstallation.findUnique({
       where: { id: channel.installationId },
       select: { accountId: true },
@@ -250,8 +320,6 @@ async function getChatChannelRecipients(
       }
     }
 
-    // Guards who have participated (have a read cursor) — catches guards
-    // accessing via currentInstallationId without an active assignment
     const guardCursors = await prisma.chatReadCursor.findMany({
       where: { channelId, readerType: 'GUARD' },
       select: { readerId: true },
@@ -263,7 +331,6 @@ async function getChatChannelRecipients(
       }
     }
 
-    // Admins who have participated (have a read cursor)
     const adminCursors = await prisma.chatReadCursor.findMany({
       where: { channelId, readerType: 'ADMIN' },
       select: { readerId: true },
@@ -273,7 +340,6 @@ async function getChatChannelRecipients(
       recipients.push({ subscriberType: 'ADMIN', subscriberId: c.readerId });
     }
   } else if (channel.channelType === 'GROUP' && channel.groupId) {
-    // All group members (admins only)
     const members = await prisma.adminGroupMembership.findMany({
       where: { groupId: channel.groupId },
       select: { adminId: true },
@@ -282,7 +348,6 @@ async function getChatChannelRecipients(
       recipients.push({ subscriberType: 'ADMIN', subscriberId: m.adminId });
     }
   } else if (channel.channelType === 'DIRECT') {
-    // DM participants (admins only for now)
     const participants = await prisma.chatDmParticipant.findMany({
       where: { channelId },
       select: { adminId: true },
@@ -292,7 +357,6 @@ async function getChatChannelRecipients(
     }
   }
 
-  // Exclude sender
   return recipients.filter(
     (r) => !(r.subscriberType === senderType && r.subscriberId === senderId)
   );
@@ -313,29 +377,42 @@ interface SendChatPushParams {
   tenantId: string;
   channelId: string;
   channelName: string;
+  channelType?: string;
   senderType: string;  // 'ADMIN' | 'GUARD' | 'CLIENT'
   senderId: string;
   senderName: string;
   messagePreview: string;
+  mentionedUserIds?: string[];
+  imageUrl?: string;
+  timestamp?: number;
 }
 
 /**
  * Send push notifications to all eligible recipients of a chat channel message.
  * Respects per-channel notification preferences (ALL, MENTIONS_ONLY, MUTED).
- * Non-blocking — all errors are swallowed to avoid affecting message delivery.
+ * Batches queries for subscriptions and preferences to avoid N+1.
  */
 export async function sendChatPushNotifications({
   tenantId,
   channelId,
   channelName,
+  channelType,
   senderType,
   senderId,
   senderName,
   messagePreview,
+  mentionedUserIds,
+  imageUrl,
+  timestamp,
 }: SendChatPushParams): Promise<void> {
   try {
+    ensureVapidInitialized();
+
     const recipients = await getChatChannelRecipients(channelId, tenantId, senderType, senderId);
     if (recipients.length === 0) return;
+
+    // Check global config once for the entire batch (Prompt 6)
+    if (!(await isGloballyEnabled(tenantId, 'chat_message'))) return;
 
     // Fetch per-channel notification preferences for all recipients at once
     const prefs = await prisma.chatNotificationPreference.findMany({
@@ -344,33 +421,105 @@ export async function sendChatPushNotifications({
     });
     const prefMap = new Map(prefs.map((p) => [`${p.userType}:${p.userId}`, p.preference]));
 
-    const body = messagePreview.length > 120
-      ? messagePreview.slice(0, 120) + '…'
+    // Batch-fetch all active subscriptions for all recipients (Prompt 6)
+    const recipientFilters = recipients.map((r) => ({
+      subscriberType: r.subscriberType as any,
+      subscriberId: r.subscriberId,
+    }));
+    const allSubscriptions = await prisma.chatPushSubscription.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: recipientFilters,
+      },
+    });
+    const subsByUser = new Map<string, typeof allSubscriptions>();
+    for (const sub of allSubscriptions) {
+      const key = `${sub.subscriberType}:${sub.subscriberId}`;
+      const list = subsByUser.get(key) || [];
+      list.push(sub);
+      subsByUser.set(key, list);
+    }
+
+    // Batch-fetch portal notification preferences for non-admin recipients (Prompt 6)
+    const portalRecipients = recipients.filter((r) => r.subscriberType !== 'ADMIN');
+    const portalPrefsMap = new Map<string, Record<string, { push?: boolean }>>();
+    if (portalRecipients.length > 0) {
+      const portalPrefs = await prisma.portalNotificationPreference.findMany({
+        where: {
+          userId: { in: portalRecipients.map((r) => r.subscriberId) },
+        },
+        select: { userType: true, userId: true, preferences: true },
+      });
+      for (const pp of portalPrefs) {
+        portalPrefsMap.set(`${pp.userType}:${pp.userId}`, pp.preferences as Record<string, { push?: boolean }>);
+      }
+    }
+
+    const body = messagePreview.length > 200
+      ? messagePreview.slice(0, 200) + '\u2026'
       : messagePreview;
 
+    const hasTodosMention = mentionedUserIds?.includes('todos');
+
     await Promise.allSettled(
-      recipients.map((r) => {
-        // Check per-channel preference: MUTED users get no push
+      recipients.map(async (r) => {
+        // Check per-channel preference
         const pref = prefMap.get(`${r.subscriberType}:${r.subscriberId}`) || 'ALL';
-        if (pref === 'MUTED') return Promise.resolve();
+        if (pref === 'MUTED') return;
+
+        // MENTIONS_ONLY filter (Prompt 4)
+        if (pref === 'MENTIONS_ONLY') {
+          const isMentioned = hasTodosMention || mentionedUserIds?.includes(r.subscriberId) || false;
+          if (!isMentioned) return;
+        }
 
         const userType = SUBSCRIBER_TYPE_TO_USER[r.subscriberType];
         const portalType = SUBSCRIBER_TYPE_TO_PORTAL[r.subscriberType];
-        if (!userType || !portalType) return Promise.resolve();
+        if (!userType || !portalType) return;
 
-        return sendPushToPortalUser({
-          tenantId,
-          notifKey: 'chat_message',
-          userType,
-          userId: r.subscriberId,
-          portalType,
-          title: `${senderName} · ${channelName}`,
-          body,
-          url: portalType === 'app'
-            ? `/chat?channel=${channelId}`
-            : `/portal/${portalType}?section=chat&channel=${channelId}`,
+        // Check portal user-level preferences (non-admin)
+        if (userType !== 'admin') {
+          const ppKey = `${userType}:${r.subscriberId}`;
+          const pp = portalPrefsMap.get(ppKey);
+          if (pp?.chat_message?.push === false) return;
+        }
+
+        // Get pre-fetched subscriptions for this user
+        const userSubs = subsByUser.get(`${r.subscriberType}:${r.subscriberId}`);
+        if (!userSubs || userSubs.length === 0) return;
+
+        // Calculate badge count (Prompt 1)
+        const badgeCount = await calculateBadgeCount(tenantId, userType, r.subscriberId);
+
+        const url = portalType === 'app'
+          ? `/chat?channel=${channelId}`
+          : `/portal/${portalType}?section=chat&channel=${channelId}`;
+
+        // Enriched payload (Prompt 2)
+        const payload = JSON.stringify({
+          title: `\uD83D\uDCAC ${channelName}`,
+          body: `${senderName}: ${body}`,
+          icon: '/iconos_azul/icon-192x192.png',
+          badge: '/iconos_azul/icon-72x72.png',
+          image: imageUrl || undefined,
           tag: `chat-${channelId}`,
+          renotify: true,
+          silent: false,
+          timestamp: timestamp || Date.now(),
+          data: {
+            url,
+            type: 'chat_message',
+            channelName,
+            senderName,
+            channelType: channelType || 'INSTALLATION',
+            messagePreview: body,
+            badgeCount,
+            channelId,
+          },
         });
+
+        await Promise.allSettled(userSubs.map((sub) => sendToSubscription(sub, payload)));
       })
     );
   } catch (err) {

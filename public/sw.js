@@ -9,6 +9,9 @@ const PRECACHE_URLS = [
   OFFLINE_URL,
 ];
 
+// Notification grouping: track message counts per tag
+const tagCounts = new Map();
+
 // INSTALL: pre-cache shell (allSettled so individual failures don't abort install)
 // NOTE: Do NOT call skipWaiting() here — it causes an infinite update loop.
 // skipWaiting is triggered by the SKIP_WAITING message from the update banner.
@@ -83,15 +86,14 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// PUSH NOTIFICATIONS
+// === PUSH NOTIFICATIONS (Prompt 2 — enriched) ===
 self.addEventListener('push', (event) => {
   if (!event.data) {
-    // Always show a notification to satisfy the browser requirement
     event.waitUntil(
       self.registration.showNotification('OPAI', {
         body: 'Tienes una nueva notificacion',
         icon: '/iconos_azul/icon-192x192.png',
-        badge: '/iconos_azul/icon-192x192.png',
+        badge: '/iconos_azul/icon-72x72.png',
       })
     );
     return;
@@ -111,37 +113,84 @@ self.addEventListener('push', (event) => {
     badge,
     tag,
     image,
+    renotify,
+    silent,
+    timestamp,
     data: notifData,
   } = data;
 
-  const promiseChain = self.registration.showNotification(title, {
-    body,
-    icon: icon || '/iconos_azul/icon-192x192.png',
-    badge: badge || '/iconos_azul/icon-192x192.png',
-    image,
-    tag,
-    renotify: !!tag,
-    data: notifData,
-    vibrate: [200, 100, 200],
-    actions: notifData?.actions || [],
-  });
-
-  // Badge API: set unread count
-  if (navigator.setAppBadge) {
-    const count = notifData?.badgeCount || 1;
-    promiseChain.then(() => navigator.setAppBadge(count)).catch(() => {});
+  // Notification grouping: track counts per tag for multi-message display
+  let displayBody = body;
+  if (tag && tag.startsWith('chat-')) {
+    const count = (tagCounts.get(tag) || 0) + 1;
+    tagCounts.set(tag, count);
+    if (count > 1) {
+      const channelName = notifData?.channelName || 'Chat';
+      displayBody = `${count} mensajes nuevos en ${channelName}`;
+    }
   }
 
-  event.waitUntil(promiseChain);
+  const options = {
+    body: displayBody,
+    icon: icon || '/iconos_azul/icon-192x192.png',
+    badge: badge || '/iconos_azul/icon-72x72.png',
+    image: image || undefined,
+    tag: tag || undefined,
+    renotify: renotify !== undefined ? renotify : !!tag,
+    silent: silent || false,
+    timestamp: timestamp || Date.now(),
+    data: notifData,
+    vibrate: [200, 100, 200],
+  };
+
+  // Notify open clients for in-app toast (Prompt 3)
+  // The client decides whether to show the toast based on visibility/active channel
+  const clientNotify = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clients) => {
+      for (const client of clients) {
+        client.postMessage({
+          type: 'PUSH_RECEIVED',
+          title,
+          body: displayBody,
+          data: notifData,
+          tag,
+          timestamp: timestamp || Date.now(),
+        });
+      }
+    })
+    .catch(() => {});
+
+  const promiseChain = self.registration.showNotification(title, options)
+    .then(() => {
+      // Set real badge count from payload
+      if (navigator.setAppBadge && notifData?.badgeCount) {
+        return navigator.setAppBadge(notifData.badgeCount);
+      }
+    })
+    .catch(() => {});
+
+  event.waitUntil(Promise.all([promiseChain, clientNotify]));
 });
 
-// NOTIFICATION CLICK
+// === NOTIFICATION CLICK (Prompt 2 — enriched) ===
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  const tag = event.notification.tag;
+
+  // Reset tag count on click
+  if (tag) {
+    tagCounts.delete(tag);
+  }
 
   // Clear badge on click
   if (navigator.clearAppBadge) {
     navigator.clearAppBadge().catch(() => {});
+  }
+
+  // Handle action clicks
+  if (event.action === 'dismiss') {
+    return; // Just close, don't navigate
   }
 
   // Mark notification as read if notificationId is present
@@ -170,7 +219,6 @@ self.addEventListener('notificationclick', (event) => {
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
-        // Try to reuse an existing window from the same origin
         for (const client of clients) {
           if (new URL(client.url).origin === target.origin) {
             return client.navigate(target.href).then(() => client.focus());
@@ -181,8 +229,7 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// PUSH SUBSCRIPTION CHANGE: re-subscribe automatically when the browser
-// rotates the push subscription (e.g. after expiration).
+// PUSH SUBSCRIPTION CHANGE: re-subscribe automatically
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     self.registration.pushManager

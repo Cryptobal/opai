@@ -13,6 +13,9 @@ const STATIC_ASSETS = [
   "/iconos_azul/icon-512x512.png",
 ];
 
+// Notification grouping
+const tagCounts = new Map();
+
 // Install: pre-cache static assets
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -78,14 +81,14 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// PUSH NOTIFICATIONS
+// === PUSH NOTIFICATIONS ===
 self.addEventListener("push", (event) => {
   if (!event.data) {
     event.waitUntil(
       self.registration.showNotification("Control de Acceso", {
         body: "Tienes una nueva notificacion",
         icon: "/iconos_azul/icon-192x192.png",
-        badge: "/iconos_azul/icon-192x192.png",
+        badge: "/iconos_azul/icon-72x72.png",
       })
     );
     return;
@@ -105,38 +108,76 @@ self.addEventListener("push", (event) => {
     badge,
     tag,
     image,
+    renotify,
+    silent,
+    timestamp,
     data: notifData,
   } = data;
 
-  const promiseChain = self.registration.showNotification(title, {
-    body,
-    icon: icon || "/iconos_azul/icon-192x192.png",
-    badge: badge || "/iconos_azul/icon-192x192.png",
-    image,
-    tag,
-    renotify: !!tag,
-    data: notifData,
-    vibrate: [200, 100, 200],
-    actions: notifData?.actions || [],
-  });
-
-  if (navigator.setAppBadge) {
-    const count = notifData?.badgeCount || 1;
-    promiseChain.then(() => navigator.setAppBadge(count)).catch(() => {});
+  // Notification grouping
+  let displayBody = body;
+  if (tag && tag.startsWith("chat-")) {
+    const count = (tagCounts.get(tag) || 0) + 1;
+    tagCounts.set(tag, count);
+    if (count > 1) {
+      const channelName = notifData?.channelName || "Chat";
+      displayBody = `${count} mensajes nuevos en ${channelName}`;
+    }
   }
 
-  event.waitUntil(promiseChain);
+  const options = {
+    body: displayBody,
+    icon: icon || "/iconos_azul/icon-192x192.png",
+    badge: badge || "/iconos_azul/icon-72x72.png",
+    image: image || undefined,
+    tag: tag || undefined,
+    renotify: renotify !== undefined ? renotify : !!tag,
+    silent: silent || false,
+    timestamp: timestamp || Date.now(),
+    data: notifData,
+    vibrate: [200, 100, 200],
+  };
+
+  // Notify open clients for in-app toast
+  const clientNotify = self.clients.matchAll({ type: "window", includeUncontrolled: true })
+    .then((clients) => {
+      for (const client of clients) {
+        client.postMessage({
+          type: "PUSH_RECEIVED",
+          title,
+          body: displayBody,
+          data: notifData,
+          tag,
+          timestamp: timestamp || Date.now(),
+        });
+      }
+    })
+    .catch(() => {});
+
+  const promiseChain = self.registration.showNotification(title, options)
+    .then(() => {
+      if (navigator.setAppBadge && notifData?.badgeCount) {
+        return navigator.setAppBadge(notifData.badgeCount);
+      }
+    })
+    .catch(() => {});
+
+  event.waitUntil(Promise.all([promiseChain, clientNotify]));
 });
 
-// NOTIFICATION CLICK
+// === NOTIFICATION CLICK ===
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+
+  const tag = event.notification.tag;
+  if (tag) tagCounts.delete(tag);
 
   if (navigator.clearAppBadge) {
     navigator.clearAppBadge().catch(() => {});
   }
 
-  // Mark notification as read if notificationId is present
+  if (event.action === "dismiss") return;
+
   const notificationId = event.notification.data?.notificationId;
   if (notificationId) {
     fetch("/api/notifications", {
@@ -147,15 +188,6 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   const targetUrl = event.notification.data?.url || "/portal/acceso";
-
-  if (event.action) {
-    const actionUrl = event.notification.data?.actionUrls?.[event.action];
-    if (actionUrl) {
-      event.waitUntil(self.clients.openWindow(actionUrl));
-      return;
-    }
-  }
-
   const target = new URL(targetUrl, self.location.origin);
 
   event.waitUntil(

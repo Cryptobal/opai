@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
+import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -24,11 +26,8 @@ export const metadata: Metadata = {
 export default function PortalAccesoLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-[#0A0F1C] text-[#F9FAFB] antialiased">
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw-acceso.js')}`,
-        }}
-      />
+      <ServiceWorkerRegistrar />
+      <BadgeClear />
       {children}
     </div>
   );
