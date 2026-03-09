@@ -67,7 +67,8 @@ export async function renderQuotationToBuffer(
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;
   const React = nodeRequire('react');
-  const pdf = nodeRequire('@react-pdf/renderer');
+  // @react-pdf/renderer is ESM-only; require() fails in production. Use dynamic import.
+  const pdf = await import('@react-pdf/renderer');
 
   const {
     renderToBuffer,
