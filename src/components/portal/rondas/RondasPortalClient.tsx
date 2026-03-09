@@ -354,6 +354,7 @@ export function RondasPortalClient() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         setLoadingRonda(false);
+        alert(json.error || "No se pudo iniciar la ronda libre");
         return;
       }
 
