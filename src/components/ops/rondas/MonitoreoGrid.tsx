@@ -584,20 +584,12 @@ export default function MonitoreoGrid({
   const [showNotes, setShowNotes] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     setIsExporting(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(gridRef.current!, { scale: 2, backgroundColor: "#0f172a" });
-      const link = document.createElement("a");
-      link.download = `grid-operativo-${new Date().toISOString().slice(0, 10)}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
-    } catch {
-      // Fallback: print
       window.print();
     } finally {
-      setIsExporting(false);
+      setTimeout(() => setIsExporting(false), 500);
     }
   };
 
