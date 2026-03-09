@@ -73,16 +73,19 @@ export async function GET() {
         },
       });
 
-      // Safety net: if any installation has 0 rondas, regenerate grid slots
-      if (controlNocturno?.instalaciones.some((inst) => inst.rondas.length === 0)) {
+      // Safety net: if any installation has 0 rondas or 0 guards, regenerate grid
+      const needsRegen = controlNocturno?.instalaciones.some(
+        (inst: { rondas: unknown[]; guardias: unknown[] }) => inst.rondas.length === 0 || inst.guardias.length === 0,
+      );
+      if (needsRegen) {
         try {
           await generateGridSlots({
             controlNocturnoId: activeTurno.controlNocturnoId,
             tenantId: ctx.tenantId,
-            shiftStart: controlNocturno.shiftStart,
-            shiftEnd: controlNocturno.shiftEnd,
+            shiftStart: controlNocturno!.shiftStart,
+            shiftEnd: controlNocturno!.shiftEnd,
           });
-          // Re-fetch with the newly generated slots
+          // Re-fetch with the newly generated slots and guards
           controlNocturno = await prisma.opsControlNocturno.findUnique({
             where: { id: activeTurno.controlNocturnoId },
             include: {

@@ -59,8 +59,35 @@ function turnoFromShift(shiftStart: string): "nocturno" | "diurno" {
 }
 
 /**
+ * Helper to extract guard info from a pauta/asistencia row with included relations.
+ */
+function extractGuardInfo(row: {
+  replacementGuardia?: { id: string; persona: { firstName: string; lastName: string } } | null;
+  plannedGuardia?: { id: string; persona: { firstName: string; lastName: string } } | null;
+  puesto: { shiftStart: string; shiftEnd?: string | null };
+}): { guardia: { id: string; nombre: string }; turno: "nocturno" | "diurno"; isExtra: boolean } | null {
+  const effective = row.replacementGuardia ?? row.plannedGuardia;
+  if (!effective) return null;
+  const nombre = `${effective.persona.firstName} ${effective.persona.lastName}`.trim();
+  return {
+    guardia: { id: effective.id, nombre },
+    turno: turnoFromShift(row.puesto.shiftStart),
+    isExtra: !!row.replacementGuardia,
+  };
+}
+
+/**
  * Pre-populate guards for a CN installation from available sources.
- * Priority: 1) Pauta mensual for today  2) Active asignaciones  3) Previous CN
+ *
+ * For a nocturnal CN (e.g. 19:00-08:00):
+ *   - Night guards: from cnDate where puesto shiftStart >= 18:00 (nocturno)
+ *   - Day guards (relevo): from cnDate+1 where puesto shiftStart < 18:00 (diurno)
+ *
+ * Source priority:
+ *   1) OpsAsistenciaDiaria (materialized attendance — has check-in data & actual replacements)
+ *   2) OpsPautaMensual (planning — only shiftCode="T" work days)
+ *   3) OpsAsignacionGuardia (permanent assignments — fallback)
+ *   4) Previous CN (copy — last resort)
  */
 async function populateGuards(
   controlInstalacionId: string,
@@ -76,61 +103,147 @@ async function populateGuards(
   });
   if (existingCount > 0) return;
 
-  // ── Source 1: Pauta mensual for today ──
-  const pautas = await prisma.opsPautaMensual.findMany({
-    where: {
-      tenantId,
-      installationId,
-      date: cnDate,
-    },
-    include: {
-      plannedGuardia: {
-        include: { persona: { select: { firstName: true, lastName: true } } },
-      },
-      replacementGuardia: {
-        include: { persona: { select: { firstName: true, lastName: true } } },
-      },
-      puesto: { select: { shiftStart: true } },
-    },
-  });
+  // Day after CN date for diurno relay guards
+  const dayDate = new Date(cnDate);
+  dayDate.setDate(dayDate.getDate() + 1);
 
-  if (pautas.length > 0) {
-    const seen = new Set<string>();
-    for (const pauta of pautas) {
-      const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
-      if (!effective) continue;
-      const key = `${effective.id}-${turnoFromShift(pauta.puesto.shiftStart)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+  const guardInclude = {
+    plannedGuardia: {
+      include: { persona: { select: { firstName: true, lastName: true } } },
+    },
+    replacementGuardia: {
+      include: { persona: { select: { firstName: true, lastName: true } } },
+    },
+    puesto: { select: { shiftStart: true, shiftEnd: true } },
+  } as const;
 
-      const nombre = `${effective.persona.firstName} ${effective.persona.lastName}`.trim();
-      await prisma.opsControlNocturnoGuardia.create({
-        data: {
-          controlInstalacionId,
-          guardiaId: effective.id,
-          guardiaNombre: nombre,
-          isExtra: !!pauta.replacementGuardia,
-          turno: turnoFromShift(pauta.puesto.shiftStart),
-          status: "pendiente",
-        },
+  const seen = new Set<string>();
+  let nightCount = 0;
+
+  async function createGuard(
+    info: { guardia: { id: string; nombre: string }; turno: "nocturno" | "diurno"; isExtra: boolean },
+    checkInAt?: Date | null,
+  ): Promise<void> {
+    const key = `${info.guardia.id}-${info.turno}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    // If asistencia already has check-in, mark as presente
+    let status: string = "pendiente";
+    let horaLlegada: string | null = null;
+    if (checkInAt) {
+      status = "presente";
+      horaLlegada = new Date(checkInAt).toLocaleTimeString("es-CL", {
+        hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Santiago",
       });
     }
-    if (seen.size > 0) return; // Pautas found, done
+
+    await prisma.opsControlNocturnoGuardia.create({
+      data: {
+        controlInstalacionId,
+        guardiaId: info.guardia.id,
+        guardiaNombre: info.guardia.nombre,
+        isExtra: info.isExtra,
+        turno: info.turno,
+        status,
+        horaLlegada,
+      },
+    });
+
+    if (info.turno === "nocturno") nightCount++;
   }
 
-  // ── Source 2: Active asignaciones ──
+  // ── Source 1: OpsAsistenciaDiaria (materialized attendance) ──
+  // Night guards from cnDate
+  const nightAsistencia = await prisma.opsAsistenciaDiaria.findMany({
+    where: { tenantId, installationId, date: cnDate },
+    include: guardInclude,
+  });
+  const nightFromAsist = nightAsistencia.filter(
+    (a: (typeof nightAsistencia)[number]) => turnoFromShift(a.puesto.shiftStart) === "nocturno",
+  );
+
+  // Day relay guards from cnDate+1
+  const dayAsistencia = await prisma.opsAsistenciaDiaria.findMany({
+    where: { tenantId, installationId, date: dayDate },
+    include: guardInclude,
+  });
+  const dayFromAsist = dayAsistencia.filter(
+    (a: (typeof dayAsistencia)[number]) => turnoFromShift(a.puesto.shiftStart) === "diurno",
+  );
+
+  if (nightFromAsist.length > 0 || dayFromAsist.length > 0) {
+    for (const asist of nightFromAsist) {
+      const info = extractGuardInfo(asist);
+      if (info) await createGuard(info, asist.checkInAt);
+    }
+    for (const asist of dayFromAsist) {
+      const info = extractGuardInfo(asist);
+      if (info) await createGuard(info, asist.checkInAt);
+    }
+    if (seen.size > 0) {
+      // Update guardiasRequeridos based on actual night slots
+      if (nightCount > 0) {
+        await prisma.opsControlNocturnoInstalacion.update({
+          where: { id: controlInstalacionId },
+          data: { guardiasRequeridos: nightCount },
+        });
+      }
+      return;
+    }
+  }
+
+  // ── Source 2: OpsPautaMensual (planning — only work days) ──
+  // Night guards from cnDate
+  const nightPautas = await prisma.opsPautaMensual.findMany({
+    where: { tenantId, installationId, date: cnDate, shiftCode: "T" },
+    include: guardInclude,
+  });
+  const nightFromPauta = nightPautas.filter(
+    (p: (typeof nightPautas)[number]) => turnoFromShift(p.puesto.shiftStart) === "nocturno",
+  );
+
+  // Day relay guards from cnDate+1
+  const dayPautas = await prisma.opsPautaMensual.findMany({
+    where: { tenantId, installationId, date: dayDate, shiftCode: "T" },
+    include: guardInclude,
+  });
+  const dayFromPauta = dayPautas.filter(
+    (p: (typeof dayPautas)[number]) => turnoFromShift(p.puesto.shiftStart) === "diurno",
+  );
+
+  if (nightFromPauta.length > 0 || dayFromPauta.length > 0) {
+    for (const pauta of nightFromPauta) {
+      const info = extractGuardInfo(pauta);
+      if (info) await createGuard(info);
+    }
+    for (const pauta of dayFromPauta) {
+      const info = extractGuardInfo(pauta);
+      if (info) await createGuard(info);
+    }
+    if (seen.size > 0) {
+      if (nightCount > 0) {
+        await prisma.opsControlNocturnoInstalacion.update({
+          where: { id: controlInstalacionId },
+          data: { guardiasRequeridos: nightCount },
+        });
+      }
+      return;
+    }
+  }
+
+  // ── Source 3: OpsAsignacionGuardia (permanent assignments) ──
   const asignaciones = await prisma.opsAsignacionGuardia.findMany({
     where: { tenantId, installationId, isActive: true },
     include: {
       guardia: {
         include: { persona: { select: { firstName: true, lastName: true } } },
       },
-      puesto: { select: { shiftStart: true } },
+      puesto: { select: { shiftStart: true, shiftEnd: true } },
     },
   });
 
   if (asignaciones.length > 0) {
-    const seen = new Set<string>();
     for (const asig of asignaciones) {
       const turno = turnoFromShift(asig.puesto.shiftStart);
       const key = `${asig.guardiaId}-${turno}`;
@@ -148,11 +261,20 @@ async function populateGuards(
           status: "pendiente",
         },
       });
+      if (turno === "nocturno") nightCount++;
     }
-    if (seen.size > 0) return;
+    if (seen.size > 0) {
+      if (nightCount > 0) {
+        await prisma.opsControlNocturnoInstalacion.update({
+          where: { id: controlInstalacionId },
+          data: { guardiasRequeridos: nightCount },
+        });
+      }
+      return;
+    }
   }
 
-  // ── Source 3: Copy from previous CN ──
+  // ── Source 4: Copy from previous CN ──
   const prevCNInst = await prisma.opsControlNocturnoInstalacion.findFirst({
     where: {
       installationId,
@@ -237,7 +359,7 @@ export async function generateGridSlots(params: GenerateGridParams): Promise<voi
       const rondaNumber = i + 1;
       const rondaExpected = expectedSlots.get(slotHour) ?? false;
 
-      const existing = inst.rondas.find((r) => r.rondaNumber === rondaNumber);
+      const existing = inst.rondas.find((r: (typeof inst.rondas)[number]) => r.rondaNumber === rondaNumber);
       if (existing) {
         if (existing.rondaExpected !== rondaExpected) {
           await prisma.opsControlNocturnoRonda.update({
