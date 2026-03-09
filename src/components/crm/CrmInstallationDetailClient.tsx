@@ -2057,7 +2057,7 @@ export function CrmInstallationDetailClient({
       }
     />
   ) : (
-    <CrmRelatedRecordGrid>
+    <CrmRelatedRecordGrid className="!grid-cols-1">
       {installation.contactsOfAccount.map((c) => (
         <CrmRelatedRecordCard
           key={c.id}
@@ -2087,7 +2087,7 @@ export function CrmInstallationDetailClient({
       }
     />
   ) : (
-    <CrmRelatedRecordGrid>
+    <CrmRelatedRecordGrid className="!grid-cols-1">
       {installation.dealsOfAccount.map((deal) => (
         <CrmRelatedRecordCard
           key={deal.id}
@@ -2121,7 +2121,7 @@ export function CrmInstallationDetailClient({
       }
     />
   ) : (
-    <CrmRelatedRecordGrid>
+    <CrmRelatedRecordGrid className="!grid-cols-1">
       {installation.quotesInstalacion.map((q) => (
         <CrmRelatedRecordCard
           key={q.id}
