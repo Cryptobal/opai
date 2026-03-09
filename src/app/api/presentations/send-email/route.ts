@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
-    const tenantId = await getDefaultTenantId();
+    // Use the tenantId from the webhook session (set during create-draft with auth context)
+    // instead of getDefaultTenantId() which returns a hardcoded value and causes tenant mismatch
+    const tenantId = webhookSession.tenantId || await getDefaultTenantId();
 
     // 4. Si ya existe una presentación draft para esta sesión (flujo CPQ), usar su uniqueId
     //    para el enlace del email. Así el link del correo y el de WhatsApp apuntan a la misma página.
@@ -238,7 +240,8 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Update deal, schedule follow-ups, and move to "Cotización enviada"
+          // Update deal, schedule follow-ups, and move stage
+          const followUpDecision = zohoData._followUpDecision as { include: boolean; targetStageId: string | null } | undefined;
           try {
             const deal = await prisma.crmDeal.findFirst({
               where: { id: cpqDealId, tenantId: dealTenantId },
@@ -249,26 +252,55 @@ export async function POST(req: NextRequest) {
                 where: { id: cpqDealId },
                 data: { proposalLink: presentationUrl, proposalSentAt: new Date() },
               });
-              const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
-              await scheduleFollowUps({ tenantId: dealTenantId, dealId: cpqDealId });
 
-              const cotizacionStage = await prisma.crmPipelineStage.findFirst({
-                where: { tenantId: dealTenantId, name: "Cotización enviada", isActive: true },
-              });
-              if (cotizacionStage && deal.stageId !== cotizacionStage.id) {
-                await prisma.crmDeal.update({
-                  where: { id: cpqDealId },
-                  data: { stageId: cotizacionStage.id },
+              if (followUpDecision?.include === false) {
+                // User chose NOT to include follow-up: cancel existing + move to chosen stage
+                const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
+                await cancelPendingFollowUps(cpqDealId, "Usuario eligió no incluir seguimiento");
+
+                if (followUpDecision.targetStageId) {
+                  const targetStage = await prisma.crmPipelineStage.findFirst({
+                    where: { id: followUpDecision.targetStageId, tenantId: dealTenantId, isActive: true },
+                  });
+                  if (targetStage && deal.stageId !== targetStage.id) {
+                    await prisma.crmDeal.update({
+                      where: { id: cpqDealId },
+                      data: { stageId: targetStage.id },
+                    });
+                    await prisma.crmDealStageHistory.create({
+                      data: {
+                        tenantId: dealTenantId,
+                        dealId: cpqDealId,
+                        fromStageId: deal.stageId,
+                        toStageId: targetStage.id,
+                        changedBy: "system",
+                      },
+                    });
+                  }
+                }
+              } else {
+                // Default: schedule follow-ups + move to "Cotización enviada"
+                const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+                await scheduleFollowUps({ tenantId: dealTenantId, dealId: cpqDealId });
+
+                const cotizacionStage = await prisma.crmPipelineStage.findFirst({
+                  where: { tenantId: dealTenantId, name: "Cotización enviada", isActive: true },
                 });
-                await prisma.crmDealStageHistory.create({
-                  data: {
-                    tenantId: dealTenantId,
-                    dealId: cpqDealId,
-                    fromStageId: deal.stageId,
-                    toStageId: cotizacionStage.id,
-                    changedBy: "system",
-                  },
-                });
+                if (cotizacionStage && deal.stageId !== cotizacionStage.id) {
+                  await prisma.crmDeal.update({
+                    where: { id: cpqDealId },
+                    data: { stageId: cotizacionStage.id },
+                  });
+                  await prisma.crmDealStageHistory.create({
+                    data: {
+                      tenantId: dealTenantId,
+                      dealId: cpqDealId,
+                      fromStageId: deal.stageId,
+                      toStageId: cotizacionStage.id,
+                      changedBy: "system",
+                    },
+                  });
+                }
               }
             }
           } catch (fuErr) {

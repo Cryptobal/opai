@@ -46,6 +46,7 @@ import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
+import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -109,6 +110,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
+  const [portalFollowUpModalOpen, setPortalFollowUpModalOpen] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
@@ -651,15 +653,27 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     }
   };
 
-  const handleSendPortal = async () => {
+  const handleSendPortal = () => {
     if (!quote || !crmContext.accountId || !crmContext.contactId || !crmContext.dealId) {
       toast.error("Asigna cuenta, contacto y negocio antes de enviar por portal");
       return;
     }
+    setPortalFollowUpModalOpen(true);
+  };
+
+  const handleSendPortalConfirmed = async (decision: FollowUpDecision) => {
+    setPortalFollowUpModalOpen(false);
     setSendingPortal(true);
     try {
       const response = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          followUp: {
+            include: decision.includeFollowUp,
+            targetStageId: decision.targetStageId,
+          },
+        }),
       });
       const payload = await response.json();
 
@@ -1492,6 +1506,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           hasAccount={!!crmContext.accountId}
           hasContact={!!crmContext.contactId}
           hasDeal={!!crmContext.dealId}
+          dealId={crmContext.dealId || undefined}
           contactName={(() => {
             const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
             return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
@@ -1574,6 +1589,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             hasAccount={!!crmContext.accountId}
             hasContact={!!crmContext.contactId}
             hasDeal={!!crmContext.dealId}
+            dealId={crmContext.dealId || undefined}
             contactName={(() => {
               const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
               return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
@@ -1593,6 +1609,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             hasAccount={!!crmContext.accountId}
             hasContact={!!crmContext.contactId}
             hasDeal={!!crmContext.dealId}
+            dealId={crmContext.dealId || undefined}
             contactName={(() => {
               const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
               return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
@@ -1604,6 +1621,17 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           />
         }
       />
+
+      {/* Modal de decisión de seguimiento para Portal */}
+      {crmContext.dealId && (
+        <FollowUpDecisionModal
+          open={portalFollowUpModalOpen}
+          onOpenChange={setPortalFollowUpModalOpen}
+          dealId={crmContext.dealId}
+          onConfirm={handleSendPortalConfirmed}
+          loading={sendingPortal}
+        />
+      )}
 
       {/* Confirmacion Volver a borrador */}
       <Dialog open={statusChangePending === "draft"} onOpenChange={(v) => !v && setStatusChangePending(null)}>

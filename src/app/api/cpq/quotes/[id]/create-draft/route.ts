@@ -30,6 +30,7 @@ export async function POST(
       recipientEmail: customEmail,
       recipientName: customName,
       ccEmails = [],
+      followUp,
     } = body;
 
     // 1. Load quote with full CRM context
@@ -257,6 +258,7 @@ export async function POST(
       _cpqQuoteId: quote.id,
       _cpqQuoteCode: quote.code,
       _cpqDealId: quote.dealId || null,
+      _followUpDecision: followUp || { include: true, targetStageId: null },
       // Contact data for the send modal
       contact: {
         ...payload.contact,
