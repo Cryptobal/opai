@@ -30,6 +30,8 @@ const EMPRESA_KEYS = [
   "empresa.phone",
   "empresa.phoneRaw",
   "empresa.whatsappLink",
+  // Portales (rondas/acceso)
+  "portales.logoutPin",
   // Branding / Imagen corporativa
   "empresa.branding.logoFull",
   "empresa.branding.logoIcon",

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Upload, X } from "lucide-react";
+import { Building, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -547,6 +547,45 @@ export function EmpresaConfigTabs() {
     </div>
   );
 
+  const portalesTab = (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Smartphone className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Portales de Rondas y Acceso</h3>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Configuración de seguridad para los dispositivos de guardia.
+        </p>
+
+        <div>
+          <Label className="text-xs mb-1.5">PIN de cierre de sesión</Label>
+          <Input
+            value={form["portales.logoutPin"] ?? ""}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+              setForm((prev) => ({ ...prev, "portales.logoutPin": val }));
+            }}
+            placeholder="0000"
+            inputMode="numeric"
+            maxLength={4}
+            className="text-sm font-mono max-w-[120px] tracking-widest"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            PIN de 4 dígitos que los guardias deben ingresar para cerrar sesión en los portales de rondas y acceso. Por defecto: 0000.
+          </p>
+        </div>
+
+        <div className="pt-2">
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar configuración de portales
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   const tabs = [
     {
       id: "datos",
@@ -583,6 +622,12 @@ export function EmpresaConfigTabs() {
       label: "Imagen Corporativa",
       icon: Paintbrush,
       content: brandingTab,
+    },
+    {
+      id: "portales",
+      label: "Portales",
+      icon: Smartphone,
+      content: portalesTab,
     },
   ];
 

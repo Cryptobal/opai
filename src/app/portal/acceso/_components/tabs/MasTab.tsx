@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Info,
+  LogOut,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import EsperadosHoySection from "./EsperadosHoySection";
@@ -30,6 +31,7 @@ interface MasTabProps {
   deviceToken: string;
   pairedAt?: string;
   onChangeGuard: () => void;
+  onLogout: () => void;
 }
 
 // ── Menu Item Component ─────────────────────────────────────────────────────
@@ -100,6 +102,7 @@ export default function MasTab({
   deviceToken,
   pairedAt,
   onChangeGuard,
+  onLogout,
 }: MasTabProps) {
   const [activeSection, setActiveSection] = useState<SubSection>(null);
   const [esperadosCount, setEsperadosCount] = useState<number | null>(null);
@@ -286,6 +289,18 @@ export default function MasTab({
           </div>
         </div>
       </div>
+
+      <MenuSeparator />
+
+      {/* Logout */}
+      <button
+        type="button"
+        onClick={onLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-950/20 px-4 py-3.5 text-sm font-medium text-red-400 transition-colors active:bg-red-900/30"
+      >
+        <LogOut className="h-4 w-4" />
+        Cerrar sesión
+      </button>
 
       <MenuSeparator />
 

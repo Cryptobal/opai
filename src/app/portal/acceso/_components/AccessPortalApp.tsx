@@ -16,6 +16,7 @@ import MasTab from "./tabs/MasTab";
 import type { AccessControlConfigData } from "@/lib/access-control/types";
 import { DEVICE_TOKEN_KEY, LEGACY_ACCESS_TOKEN_KEY } from "@/lib/device-constants";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
+import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 
 export type TabId = "inicio" | "registro" | "en-sitio" | "mas";
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -339,6 +340,20 @@ export function AccessPortalApp() {
     }
   }, []);
 
+  // ── Logout with PIN ─────────────────────────────────────────────────
+  const [showLogoutPin, setShowLogoutPin] = useState(false);
+
+  const handleLogoutRequest = useCallback(() => {
+    setShowLogoutPin(true);
+  }, []);
+
+  const doLogout = useCallback(() => {
+    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    setDevice(null);
+    setConfig(null);
+    setAppState("pairing");
+  }, []);
+
   // ── Renders ────────────────────────────────────────────────────────
 
   if (appState === "loading") {
@@ -438,6 +453,7 @@ export function AccessPortalApp() {
             deviceToken={device.deviceToken}
             pairedAt={device.pairedAt}
             onChangeGuard={handleChangeGuard}
+            onLogout={handleLogoutRequest}
           />
         )}
       </main>
@@ -457,6 +473,13 @@ export function AccessPortalApp() {
           <Plus className="h-7 w-7" />
         </button>
       )}
+
+      <LogoutPinModal
+        open={showLogoutPin}
+        deviceToken={device.deviceToken}
+        onConfirm={() => { setShowLogoutPin(false); doLogout(); }}
+        onCancel={() => setShowLogoutPin(false)}
+      />
     </div>
   );
 }

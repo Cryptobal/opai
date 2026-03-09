@@ -20,6 +20,7 @@ import { PanicoModal } from "./PanicoModal";
 import { PortalPerfil } from "./PortalPerfil";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { DEVICE_TOKEN_KEY } from "@/lib/device-constants";
+import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
 
@@ -241,7 +242,9 @@ export function RondasPortalClient() {
     setScreen("mis-rondas");
   };
 
-  const handleLogout = () => {
+  const [showLogoutPin, setShowLogoutPin] = useState(false);
+
+  const doLogout = () => {
     setLegacySession(null);
     setCurrentGuard(null);
     setActiveRondaData(null);
@@ -249,13 +252,20 @@ export function RondasPortalClient() {
     setCompletionData(null);
     setShowIncidentModal(false);
     localStorage.removeItem("rondas_portal_session");
-    // Keep device token — unpairing is an admin action
     if (deviceToken) {
       setAuthMode("ready");
       setScreen("mis-rondas");
     } else {
       setAuthMode("pairing");
       setScreen("login");
+    }
+  };
+
+  const handleLogout = () => {
+    if (deviceToken) {
+      setShowLogoutPin(true);
+    } else {
+      doLogout();
     }
   };
 
@@ -580,6 +590,13 @@ export function RondasPortalClient() {
       )}
 
       <InstallBanner />
+
+      <LogoutPinModal
+        open={showLogoutPin}
+        deviceToken={deviceToken ?? ""}
+        onConfirm={() => { setShowLogoutPin(false); doLogout(); }}
+        onCancel={() => setShowLogoutPin(false)}
+      />
     </div>
   );
 }
