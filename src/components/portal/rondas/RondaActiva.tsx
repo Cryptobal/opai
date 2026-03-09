@@ -10,6 +10,13 @@ import type { MapCheckpoint } from "./RondaMap";
 const RondaMap = dynamic(() => import("./RondaMap"), { ssr: false });
 
 // ---------------------------------------------------------------------------
+// Free-round auto-close thresholds
+// ---------------------------------------------------------------------------
+const FREE_ROUND_MAX_DURATION_MINUTES = 120;
+const FREE_ROUND_WARNING_MINUTES = 15;
+const FREE_ROUND_CRITICAL_MINUTES = 5;
+
+// ---------------------------------------------------------------------------
 // Types — matches API shape from /api/portal/rondas/mis-rondas
 // ---------------------------------------------------------------------------
 
@@ -180,6 +187,42 @@ export function RondaActiva({
     };
   }, []);
 
+  // Ad-hoc flag (needed early for tracking effect)
+  const isAdHoc = !rondaData.templateId;
+
+  // -- Server-side GPS tracking (every 30s for ad-hoc rondas) --
+  const trackingPointsRef = useRef<Array<{ lat: number; lng: number; ts: number }>>([]);
+
+  useEffect(() => {
+    if (!isAdHoc) return;
+
+    const sendTracking = async () => {
+      if (!guardPos) return;
+      try {
+        await fetch("/api/portal/rondas/tracking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ejecucionId: rondaData.ejecucionId,
+            guardiaId: session.guardiaId,
+            lat: guardPos.lat,
+            lng: guardPos.lng,
+          }),
+        });
+        trackingPointsRef.current = [
+          ...trackingPointsRef.current,
+          { lat: guardPos.lat, lng: guardPos.lng, ts: Date.now() },
+        ];
+      } catch {
+        // Silent fail — tracking is best-effort
+      }
+    };
+
+    sendTracking();
+    const id = setInterval(sendTracking, 30000);
+    return () => clearInterval(id);
+  }, [isAdHoc, guardPos?.lat, guardPos?.lng, rondaData.ejecucionId, session?.guardiaId]);
+
   // Timer interval
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -189,8 +232,6 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
-  const isAdHoc = !rondaData.templateId;
-
   const completedCount = checkpoints.filter((c) => c.completed).length;
   const total = checkpoints.length;
 
@@ -203,6 +244,12 @@ export function RondaActiva({
   const elapsedSeconds = startTime
     ? Math.max(0, Math.floor((now - startTime) / 1000))
     : 0;
+
+  const freeRoundTimeLeftMinutes = isAdHoc && startTime
+    ? FREE_ROUND_MAX_DURATION_MINUTES - Math.floor((now - startTime) / 60000)
+    : null;
+  const showFreeRoundWarning = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_WARNING_MINUTES && freeRoundTimeLeftMinutes > FREE_ROUND_CRITICAL_MINUTES;
+  const showFreeRoundCritical = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_CRITICAL_MINUTES;
 
   // Map checkpoints
   const mapCheckpoints = useMemo<MapCheckpoint[]>(
@@ -457,12 +504,24 @@ export function RondaActiva({
         </div>
       </header>
 
+      {/* Auto-close warning banner for free rounds */}
+      {showFreeRoundWarning && (
+        <div className="mx-4 mt-2 rounded-lg border border-yellow-600/50 bg-yellow-950/40 px-4 py-2 text-center text-sm font-medium text-yellow-300">
+          Tu ronda libre se cerrará automáticamente en {freeRoundTimeLeftMinutes} min
+        </div>
+      )}
+      {showFreeRoundCritical && (
+        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-red-300">
+          Tu ronda se cerrará en {Math.max(0, freeRoundTimeLeftMinutes!)} min — finalízala ahora
+        </div>
+      )}
+
       {/* ============ Leaflet Map ============ */}
       <div className="relative" style={{ isolation: "isolate" }}>
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
-          height={mapCollapsed ? "20vh" : "45vh"}
+          height={mapCollapsed ? "20vh" : isAdHoc ? "55vh" : "45vh"}
           showRoute={true}
           interactive={true}
           showCenterButton={true}
@@ -493,18 +552,49 @@ export function RondaActiva({
 
       {/* ============ Checkpoint List (scrollable) ============ */}
       <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
-        {isAdHoc && sortedCheckpoints.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-500/10">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
+        {isAdHoc && (
+          <div className="space-y-4">
+            {/* Timer + counter */}
+            <div className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+              <div>
+                <p className="text-2xl font-mono font-bold text-white">{formatElapsed(elapsedSeconds)}</p>
+                <p className="text-xs text-gray-500">Tiempo transcurrido</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-teal-400">{completedCount}</p>
+                <p className="text-xs text-gray-500">Puntos registrados</p>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-white">Ronda Libre</h3>
-            <p className="mt-1 text-sm text-gray-400">Escanea codigos QR de los checkpoints que visites</p>
+
+            {/* Mini-timeline of completed marcaciones */}
+            {sortedCheckpoints.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-teal-500/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-400">Recorrido en curso — escanea puntos QR o finaliza cuando termines</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Puntos registrados</p>
+                {sortedCheckpoints.filter(c => c.completed).map((cp, i) => (
+                  <div key={cp.id} className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-500/20 text-xs font-semibold text-teal-400">
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 text-sm text-gray-300">{cp.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        {sortedCheckpoints.map((cp) => {
+
+        {/* Non-ad-hoc checkpoint list */}
+        {!isAdHoc && sortedCheckpoints.map((cp) => {
           const isCompleted = cp.completed;
           const isActive = cp.id === activeCheckpointId;
           const needsQr =
