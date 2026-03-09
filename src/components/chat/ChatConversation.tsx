@@ -24,6 +24,8 @@ interface ChatConversationProps {
   userRole?: string;
   /** Optional callback to close the entire panel (e.g. floating chat) */
   onClose?: () => void;
+  /** Called after messages are marked as read — use to update sidebar unread counts */
+  onMarkAsRead?: (channelId: string) => void;
 }
 
 /**
@@ -39,6 +41,7 @@ export function ChatConversation({
   currentUserId: currentUserIdProp,
   userRole,
   onClose,
+  onMarkAsRead,
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
@@ -101,12 +104,17 @@ export function ChatConversation({
     const lastMsg = apiMessages[apiMessages.length - 1];
     if (!lastMsg || lastMsg.id === lastReadMsgRef.current) return;
     lastReadMsgRef.current = lastMsg.id;
+
+    // Optimistic: update badge immediately, don't wait for API
+    onMarkAsRead?.(channelId);
+
+    // Fire-and-forget API call
     fetch(`/api/chat/channels/${channelId}/read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lastReadMessageId: lastMsg.id }),
     }).catch(() => {});
-  }, [channelId, apiMessages]);
+  }, [channelId, apiMessages, onMarkAsRead]);
 
   // Merge real-time messages into API messages
   useEffect(() => {

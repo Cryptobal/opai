@@ -578,7 +578,7 @@ export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
       if (json.success) {
         toast.success("Reporte eliminado");
         setDeleteConfirmOpen(false);
-        router.push("/ops/control-nocturno");
+        router.push("/ops/rondas/monitoreo");
       } else {
         toast.error(json.error || "Error al eliminar");
       }

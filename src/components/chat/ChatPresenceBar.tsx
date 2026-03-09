@@ -69,11 +69,10 @@ export function ChatPresenceBar({
     <>
       <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Back button (mobile only) */}
           <button
             type="button"
             onClick={onBack}
-            className="lg:hidden shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+            className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
             aria-label="Volver a canales"
           >
             <ArrowLeft className="h-4 w-4" />

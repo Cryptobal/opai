@@ -4,6 +4,7 @@
  */
 
 import Pusher from "pusher";
+import { prisma } from "@/lib/prisma";
 
 // ── Pusher Server Singleton ──
 
@@ -100,4 +101,50 @@ export function getSenderId(message: {
 export function truncatePreview(content: string, maxLen = 100): string {
   if (content.length <= maxLen) return content;
   return content.slice(0, maxLen) + "…";
+}
+
+// ── Batch unread counts ──
+
+/**
+ * Compute unread counts for multiple channels in a single SQL query.
+ * Replaces the N+1 pattern of individual COUNT queries per channel.
+ *
+ * @param excludeThreadReplies If true, only count main messages (thread_root_id IS NULL).
+ */
+export async function batchUnreadCounts(
+  channelIds: string[],
+  readerType: string,
+  readerId: string,
+  excludeThreadReplies = false,
+): Promise<Map<string, number>> {
+  if (channelIds.length === 0) return new Map();
+
+  const rows = excludeThreadReplies
+    ? await prisma.$queryRaw<{ channel_id: string; unread_count: bigint }[]>`
+        SELECT m.channel_id, COUNT(*) AS unread_count
+        FROM chat.messages m
+        LEFT JOIN chat.read_cursors rc
+          ON rc.channel_id = m.channel_id
+          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_id = ${readerId}
+        WHERE m.channel_id = ANY(${channelIds}::uuid[])
+          AND m.deleted_at IS NULL
+          AND m.thread_root_id IS NULL
+          AND (rc.last_read_at IS NULL OR m.created_at > rc.last_read_at)
+        GROUP BY m.channel_id
+      `
+    : await prisma.$queryRaw<{ channel_id: string; unread_count: bigint }[]>`
+        SELECT m.channel_id, COUNT(*) AS unread_count
+        FROM chat.messages m
+        LEFT JOIN chat.read_cursors rc
+          ON rc.channel_id = m.channel_id
+          AND rc.reader_type = ${readerType}::"ChatSenderType"
+          AND rc.reader_id = ${readerId}
+        WHERE m.channel_id = ANY(${channelIds}::uuid[])
+          AND m.deleted_at IS NULL
+          AND (rc.last_read_at IS NULL OR m.created_at > rc.last_read_at)
+        GROUP BY m.channel_id
+      `;
+
+  return new Map(rows.map((r) => [r.channel_id, Number(r.unread_count)]));
 }

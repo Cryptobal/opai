@@ -31,9 +31,41 @@ type UseChatMessagesReturn = {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessageData[]>>;
 };
 
+// ── LRU Message Cache (max 5 channels) ──
+
+type CacheEntry = {
+  messages: ChatMessageData[];
+  cursor: string | null;
+  hasMore: boolean;
+};
+
+const MAX_CACHE_SIZE = 5;
+const messageCache = new Map<string, CacheEntry>();
+
+function cacheGet(channelId: string): CacheEntry | undefined {
+  const entry = messageCache.get(channelId);
+  if (entry) {
+    // Move to end (most recently used)
+    messageCache.delete(channelId);
+    messageCache.set(channelId, entry);
+  }
+  return entry;
+}
+
+function cacheSet(channelId: string, entry: CacheEntry) {
+  messageCache.delete(channelId);
+  messageCache.set(channelId, entry);
+  // Evict oldest if over limit
+  if (messageCache.size > MAX_CACHE_SIZE) {
+    const oldest = messageCache.keys().next().value;
+    if (oldest) messageCache.delete(oldest);
+  }
+}
+
 /**
  * Hook that fetches messages from the API with cursor-based pagination,
  * and provides methods to send, edit, and delete messages.
+ * Includes an LRU cache (5 channels) for instant channel switching.
  */
 export function useChatMessages(
   channelId: string | null,
@@ -47,23 +79,64 @@ export function useChatMessages(
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const cursorRef = useRef<string | null>(null);
+  const hasMoreRef = useRef(true);
   const initialFetchDone = useRef(false);
+  const prevChannelRef = useRef<string | null>(null);
 
-  // Reset state when channel changes
+  // Keep hasMoreRef in sync
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+
+  // Save current messages to cache before switching, then restore from cache or reset
   useEffect(() => {
-    setMessages([]);
+    // Save previous channel's messages to cache
+    if (prevChannelRef.current && prevChannelRef.current !== channelId) {
+      const prevId = prevChannelRef.current;
+      setMessages((currentMsgs) => {
+        if (currentMsgs.length > 0) {
+          cacheSet(prevId, {
+            messages: currentMsgs,
+            cursor: cursorRef.current,
+            hasMore: hasMoreRef.current,
+          });
+        }
+        return currentMsgs;
+      });
+    }
+    prevChannelRef.current = channelId;
+
+    // Restore from cache or reset
+    if (channelId) {
+      const cached = cacheGet(channelId);
+      if (cached) {
+        setMessages(cached.messages);
+        setHasMore(cached.hasMore);
+        cursorRef.current = cached.cursor;
+        // Still revalidate in background (stale-while-revalidate)
+        initialFetchDone.current = false;
+      } else {
+        setMessages([]);
+        setHasMore(true);
+        cursorRef.current = null;
+        initialFetchDone.current = false;
+      }
+    } else {
+      setMessages([]);
+      setHasMore(true);
+      cursorRef.current = null;
+      initialFetchDone.current = false;
+    }
     setIsLoading(false);
-    setHasMore(true);
-    cursorRef.current = null;
-    initialFetchDone.current = false;
-  }, [channelId]);
+  }, [channelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch messages (initial + pagination)
   const fetchMessages = useCallback(
     async (cursor?: string | null) => {
       if (!channelId) return;
 
-      setIsLoading(true);
+      // Only show loading spinner if no cached messages
+      const hasCached = cacheGet(channelId);
+      if (!hasCached) setIsLoading(true);
+
       try {
         const params = new URLSearchParams({ limit: "50" });
         if (cursor) params.set("cursor", cursor);
@@ -90,6 +163,13 @@ export function useChatMessages(
           });
           setHasMore(json.meta.hasMore);
           cursorRef.current = json.meta.nextCursor;
+
+          // Update cache with fresh data
+          cacheSet(channelId, {
+            messages: sorted,
+            cursor: json.meta.nextCursor,
+            hasMore: json.meta.hasMore,
+          });
         }
       } catch (err) {
         console.error("[useChatMessages] fetchMessages error:", err);
@@ -100,7 +180,7 @@ export function useChatMessages(
     [channelId, apiBase, extraHeaders]
   );
 
-  // Initial fetch
+  // Initial fetch (also serves as revalidation for cached data)
   useEffect(() => {
     if (!channelId || initialFetchDone.current) return;
     initialFetchDone.current = true;

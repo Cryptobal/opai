@@ -13,7 +13,6 @@ import {
   Fingerprint,
   ShieldAlert,
   UserRoundCheck,
-  Moon,
   Users,
   Building2,
   Ticket,
@@ -111,13 +110,6 @@ export default async function OpsDashboardPage() {
       description: "Brechas de cobertura: sin guardia o con vacaciones/licencia.",
       icon: ShieldAlert,
       count: ppcCount > 0 ? ppcCount : null,
-    },
-    {
-      href: "/ops/control-nocturno",
-      title: "Control nocturno",
-      description: "Reportes nocturnos de la central de operaciones: rondas, asistencia y novedades.",
-      icon: Moon,
-      count: null,
     },
     {
       href: "/ops/tickets",

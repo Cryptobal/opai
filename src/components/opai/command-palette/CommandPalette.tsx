@@ -10,7 +10,24 @@ import {
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Command } from 'cmdk';
-import { Clock, Search, CornerDownLeft, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  Clock,
+  Search,
+  CornerDownLeft,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+  Users,
+  Building2,
+  Contact,
+  TrendingUp,
+  MapPin,
+  FileText,
+  ShieldUser,
+  File,
+  CalendarDays,
+  MessageCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CommandItem } from './types';
 import { useCommandPalette } from './use-command-palette';
@@ -78,18 +95,50 @@ function highlightMatch(text: string, query: string): ReactNode {
   );
 }
 
+// ── Search result types ──
+
+type SearchResultType =
+  | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
+  | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel';
+
+type ApiSearchResult = {
+  id: string;
+  type: SearchResultType;
+  title: string;
+  subtitle: string;
+  href: string;
+  badgeLabel?: string;
+};
+
+const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
+  lead:           { icon: Users,        color: 'text-emerald-400', bgColor: 'bg-emerald-400/10', label: 'Lead' },
+  account:        { icon: Building2,    color: 'text-blue-400',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
+  contact:        { icon: Contact,      color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
+  deal:           { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
+  quote:          { icon: FileText,     color: 'text-amber-400',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
+  installation:   { icon: MapPin,       color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
+  guardia:        { icon: ShieldUser,   color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
+  document:       { icon: File,         color: 'text-orange-400',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
+  pauta_mensual:  { icon: CalendarDays, color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
+  channel:        { icon: MessageCircle,color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+};
+
 // ── Main component ──
 
 interface CommandPaletteProps {
   userRole?: string;
+  onOpenChat?: (channelId: string) => void;
 }
 
-export function CommandPalette({ userRole }: CommandPaletteProps) {
+export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isOpen, close, addRecent, getRecents, externalCommands } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [apiResults, setApiResults] = useState<ApiSearchResult[]>([]);
+  const [apiLoading, setApiLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Merge default + external commands, filter by role
   const allCommands = useMemo(() => {
@@ -119,7 +168,6 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
   // Filter & sort commands
   const filteredCommands = useMemo(() => {
     if (!query.trim()) {
-      // Show recents + suggested actions when no query
       const suggested = allCommands
         .filter((c) => c.category === 'action')
         .slice(0, 4);
@@ -134,12 +182,32 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
     return scored.map(({ cmd }) => cmd);
   }, [query, allCommands, recentItems]);
 
+  // Convert API results to CommandItems
+  const searchItems = useMemo<CommandItem[]>(() => {
+    return apiResults.map((r) => {
+      const config = SEARCH_TYPE_CONFIG[r.type];
+      return {
+        id: `search-${r.type}-${r.id}`,
+        label: r.title,
+        description: r.subtitle,
+        category: 'search' as const,
+        icon: config?.icon ?? File,
+        href: r.type === 'channel' ? undefined : r.href,
+        action: r.type === 'channel' && onOpenChat ? () => onOpenChat(r.id) : undefined,
+        keywords: [],
+      };
+    });
+  }, [apiResults, onOpenChat]);
+
+  // All items = static commands + API search results
+  const allItems = useMemo(() => [...filteredCommands, ...searchItems], [filteredCommands, searchItems]);
+
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'navigation', 'action', 'config'];
+    const order = ['recent', 'navigation', 'action', 'config', 'search'];
 
-    for (const cmd of filteredCommands) {
+    for (const cmd of allItems) {
       const cat = cmd.category;
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(cmd);
@@ -152,7 +220,36 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
         label: CATEGORY_LABELS[cat] ?? cat,
         items: groups[cat],
       }));
-  }, [filteredCommands]);
+  }, [allItems]);
+
+  // Debounced API search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!isOpen || query.trim().length < 2) {
+      setApiResults([]);
+      setApiLoading(false);
+      return;
+    }
+
+    setApiLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search/global?q=${encodeURIComponent(query.trim())}`);
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setApiResults(json.data);
+        }
+      } catch {
+        setApiResults([]);
+      } finally {
+        setApiLoading(false);
+      }
+    }, 300);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, isOpen]);
 
   // Execute command
   const runCommand = useCallback(
@@ -160,21 +257,19 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
       close();
       setQuery('');
 
-      // Save to recents
       if (cmd.href) {
         const iconName =
           Object.entries(ICON_MAP).find(
             ([, comp]) => comp === cmd.icon,
           )?.[0] ?? 'FileText';
         addRecent({
-          id: cmd.id.replace(/^recent-/, ''),
+          id: cmd.id.replace(/^(recent|search)-/, ''),
           label: cmd.label,
           icon: iconName,
           href: cmd.href,
         });
       }
 
-      // Execute
       if (cmd.action) {
         cmd.action();
       } else if (cmd.href) {
@@ -184,11 +279,11 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
     [close, router, addRecent],
   );
 
-  // Reset query on open
+  // Reset on open
   useEffect(() => {
     if (isOpen) {
       setQuery('');
-      // Small delay to ensure the input is mounted
+      setApiResults([]);
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -248,10 +343,13 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder="Buscar acciones, páginas, configuración..."
+              placeholder="Buscar guardias, instalaciones, chats, acciones..."
               className="flex h-12 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               aria-label="Buscar en el command palette"
             />
+            {apiLoading && (
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+            )}
             <button
               type="button"
               onClick={() => {
@@ -269,7 +367,7 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
             className="max-h-[360px] overflow-y-auto overscroll-contain p-2"
             role="listbox"
           >
-            {filteredCommands.length === 0 && (
+            {allItems.length === 0 && !apiLoading && (
               <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
                 No se encontraron resultados para &ldquo;{query}&rdquo;
               </Command.Empty>
@@ -281,66 +379,78 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
                 heading={group.label}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
-                {group.items.map((cmd) => (
-                  <Command.Item
-                    key={cmd.id}
-                    value={cmd.id}
-                    onSelect={() => runCommand(cmd)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
-                    role="option"
-                  >
-                    {/* Icon */}
-                    <div
-                      className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                        cmd.category === 'recent'
-                          ? 'bg-muted'
-                          : cmd.category === 'action'
-                            ? 'bg-primary/10'
-                            : cmd.category === 'config'
-                              ? 'bg-amber-500/10'
-                              : 'bg-blue-500/10',
-                      )}
+                {group.items.map((cmd) => {
+                  const isSearch = cmd.category === 'search';
+                  const searchType = isSearch ? cmd.id.split('-')[1] as SearchResultType : null;
+                  const searchConfig = searchType ? SEARCH_TYPE_CONFIG[searchType] : null;
+
+                  return (
+                    <Command.Item
+                      key={cmd.id}
+                      value={cmd.id}
+                      onSelect={() => runCommand(cmd)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                      role="option"
                     >
-                      <cmd.icon
+                      <div
                         className={cn(
-                          'h-4 w-4',
-                          cmd.category === 'recent'
-                            ? 'text-muted-foreground'
-                            : cmd.category === 'action'
-                              ? 'text-primary'
-                              : cmd.category === 'config'
-                                ? 'text-amber-500'
-                                : 'text-blue-500',
+                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                          isSearch && searchConfig
+                            ? searchConfig.bgColor
+                            : cmd.category === 'recent'
+                              ? 'bg-muted'
+                              : cmd.category === 'action'
+                                ? 'bg-primary/10'
+                                : cmd.category === 'config'
+                                  ? 'bg-amber-500/10'
+                                  : 'bg-blue-500/10',
                         )}
-                      />
-                    </div>
+                      >
+                        <cmd.icon
+                          className={cn(
+                            'h-4 w-4',
+                            isSearch && searchConfig
+                              ? searchConfig.color
+                              : cmd.category === 'recent'
+                                ? 'text-muted-foreground'
+                                : cmd.category === 'action'
+                                  ? 'text-primary'
+                                  : cmd.category === 'config'
+                                    ? 'text-amber-500'
+                                    : 'text-blue-500',
+                          )}
+                        />
+                      </div>
 
-                    {/* Label + description */}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">
-                        {highlightMatch(cmd.label, query)}
-                      </p>
-                      {cmd.description && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {highlightMatch(cmd.description, query)}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {highlightMatch(cmd.label, query)}
                         </p>
+                        {cmd.description && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {highlightMatch(cmd.description, query)}
+                          </p>
+                        )}
+                      </div>
+
+                      {cmd.shortcut && (
+                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                          {cmd.shortcut}
+                        </kbd>
                       )}
-                    </div>
 
-                    {/* Shortcut badge */}
-                    {cmd.shortcut && (
-                      <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                        {cmd.shortcut}
-                      </kbd>
-                    )}
+                      {cmd.category === 'recent' && (
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                      )}
 
-                    {/* Category badge for recents */}
-                    {cmd.category === 'recent' && (
-                      <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-                    )}
-                  </Command.Item>
-                ))}
+                      {isSearch && searchConfig && (
+                        <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium', searchConfig.bgColor, searchConfig.color)}>
+                          {searchConfig.label}
+                        </span>
+                      )}
+                    </Command.Item>
+                  );
+                })}
               </Command.Group>
             ))}
           </Command.List>
@@ -365,7 +475,7 @@ export function CommandPalette({ userRole }: CommandPaletteProps) {
               </span>
             </div>
             <span className="text-[10px] text-muted-foreground/60">
-              {filteredCommands.length} resultado{filteredCommands.length !== 1 ? 's' : ''}
+              {allItems.length} resultado{allItems.length !== 1 ? 's' : ''}
             </span>
           </div>
         </Command>

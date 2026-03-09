@@ -36,7 +36,6 @@ import {
   Fingerprint,
   Route,
   Radio,
-  Moon,
   Ticket,
   // TE
   CheckCircle2,
@@ -105,7 +104,6 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
   { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { key: "ops-control-nocturno", href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
 ];
 

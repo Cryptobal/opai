@@ -15,6 +15,7 @@ import {
   ShieldUser,
   File,
   CalendarDays,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,8 @@ type SearchResult = {
     | "installation"
     | "guardia"
     | "document"
-    | "pauta_mensual";
+    | "pauta_mensual"
+    | "channel";
   title: string;
   subtitle: string;
   href: string;
@@ -104,6 +106,13 @@ const TYPE_CONFIG: Record<
     color: "text-teal-400",
     bgColor: "bg-teal-400/10",
   },
+  channel: {
+    label: "Chat",
+    groupLabel: "Chats",
+    icon: MessageCircle,
+    color: "text-teal-400",
+    bgColor: "bg-teal-400/10",
+  },
 };
 
 interface GlobalSearchProps {
@@ -114,6 +123,8 @@ interface GlobalSearchProps {
   showShortcutHint?: boolean;
   /** Compact placeholder for topbar usage */
   compact?: boolean;
+  /** Called when a chat channel result is selected (opens floating panel) */
+  onOpenChat?: (channelId: string) => void;
   /** Called after the user selects a result and navigation starts */
   onNavigate?: () => void;
 }
@@ -123,6 +134,7 @@ export function GlobalSearch({
   listenToCommandK = false,
   showShortcutHint = false,
   compact = false,
+  onOpenChat,
   onNavigate,
 }: GlobalSearchProps) {
   const router = useRouter();
@@ -194,7 +206,11 @@ export function GlobalSearch({
     setResults([]);
     setOpen(false);
     onNavigate?.();
-    router.push(result.href);
+    if (result.type === "channel" && onOpenChat) {
+      onOpenChat(result.id);
+    } else {
+      router.push(result.href);
+    }
   };
 
   useEffect(() => {

@@ -11,7 +11,6 @@ import {
   ShieldAlert,
   Fingerprint,
   Route,
-  Moon,
   Ticket,
   Package,
   ClipboardCheck,
@@ -31,7 +30,6 @@ const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
-  { href: "/ops/control-nocturno", label: "Nocturno", icon: Moon, subKey: "control_nocturno" },
   { href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 

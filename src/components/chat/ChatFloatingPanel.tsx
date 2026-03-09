@@ -716,7 +716,7 @@ function ChannelSection({
                         <MoreHorizontal className="h-3.5 w-3.5" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="z-[70] w-48">
                       {!isArchivedSection && onArchive && (
                         <DropdownMenuItem
                           onClick={(e) => { e.stopPropagation(); onArchive(ch.id); }}

@@ -256,7 +256,16 @@ export function AppShell({
         {isMobileSearchOpen && (
           <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
             <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-              <GlobalSearch compact className="flex-1" onNavigate={() => setIsMobileSearchOpen(false)} />
+              <GlobalSearch
+                compact
+                className="flex-1"
+                onNavigate={() => setIsMobileSearchOpen(false)}
+                onOpenChat={(channelId) => {
+                  setIsMobileSearchOpen(false);
+                  chatCtx.openPanel();
+                  chatCtx.selectChannel(channelId);
+                }}
+              />
               <button
                 type="button"
                 className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -302,7 +311,13 @@ export function AppShell({
         <BottomNav userRole={userRole} />
 
         {/* ── Command Palette ── */}
-        <CommandPalette userRole={userRole} />
+        <CommandPalette
+          userRole={userRole}
+          onOpenChat={(channelId) => {
+            chatCtx.openPanel();
+            chatCtx.selectChannel(channelId);
+          }}
+        />
 
         {/* ── Asistente IA ── */}
         <AiHelpChatWidget />

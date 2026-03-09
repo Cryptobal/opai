@@ -20,6 +20,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
     name: string;
   } | null>(null);
   const [lockedChannels, setLockedChannels] = useState<LockedChannel[]>([]);
+  const [prefetchedChannels, setPrefetchedChannels] = useState<any[] | null>(null);
   const [autoSelectDone, setAutoSelectDone] = useState(false);
 
   const senderName = session.lastName
@@ -43,8 +44,10 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
         if (res.lockedChannels) {
           setLockedChannels(res.lockedChannels);
         }
-        // Auto-select single channel
+        // Save fetched channels to avoid re-fetching in ChatPortalChannelList
         const channels = res.success ? res.data ?? [] : [];
+        setPrefetchedChannels(channels);
+        // Auto-select single channel
         if (channels.length === 1 && !res.lockedChannels?.length) {
           setSelectedChannel({ id: channels[0].id, name: channels[0].name });
         }
@@ -101,6 +104,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
         selectedChannelId={null}
         lockedChannels={lockedChannels}
         autoSelectSingle
+        initialChannels={prefetchedChannels ?? undefined}
       />
     </div>
   );

@@ -183,7 +183,7 @@ export function OpsControlNocturnoListClient(_props: Props) {
         onViewChange={setDisplayView}
         actionSlot={
           <div className="flex items-center gap-2">
-            <Link href="/ops/control-nocturno/kpis">
+            <Link href="/ops/rondas/monitoreo">
               <Button size="icon" variant="outline" className="h-9 w-9 shrink-0">
                 <BarChart3 className="h-4 w-4" />
                 <span className="sr-only">KPIs</span>

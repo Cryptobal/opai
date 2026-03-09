@@ -27,6 +27,8 @@ interface ChatPortalChannelListProps {
   lockedChannels?: LockedChannel[];
   /** If true, auto-selects the first channel when there's only one */
   autoSelectSingle?: boolean;
+  /** Pre-fetched channels to avoid a duplicate fetch */
+  initialChannels?: ChatChannelData[];
 }
 
 type ChannelSection = {
@@ -59,8 +61,9 @@ export function ChatPortalChannelList({
   groupsEndpoint,
   lockedChannels,
   autoSelectSingle = false,
+  initialChannels,
 }: ChatPortalChannelListProps) {
-  const [channels, setChannels] = useState<ChatChannelData[]>([]);
+  const [channels, setChannels] = useState<ChatChannelData[]>(initialChannels ?? []);
   const [groupChannels, setGroupChannels] = useState<ChatChannelData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,20 +71,28 @@ export function ChatPortalChannelList({
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const autoSelectedRef = useRef(false);
 
-  // Fetch channels
+  // Fetch channels (skip main channels fetch if initialChannels provided)
   useEffect(() => {
+    if (initialChannels && !groupsEndpoint) {
+      // All data was provided upfront, no fetch needed
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     const promises: Promise<void>[] = [];
 
-    // Main channels
-    promises.push(
-      fetch(`${apiBase}/channels`, { headers: apiHeaders })
-        .then((r) => r.json())
-        .then((res) => {
-          if (res.success) setChannels(res.data ?? []);
-        })
-        .catch(() => {}),
-    );
+    // Main channels (skip if pre-fetched)
+    if (!initialChannels) {
+      promises.push(
+        fetch(`${apiBase}/channels`, { headers: apiHeaders })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success) setChannels(res.data ?? []);
+          })
+          .catch(() => {}),
+      );
+    }
 
     // Optional groups
     if (groupsEndpoint) {
@@ -179,8 +190,19 @@ export function ChatPortalChannelList({
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-teal-400" />
+      <div className="flex flex-col h-full overflow-hidden px-2 pt-3">
+        {/* Skeleton search bar */}
+        <div className="mx-1 mb-3 h-8 rounded-lg bg-[rgba(255,255,255,0.04)] animate-pulse" />
+        {/* Skeleton channel items */}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 px-3 py-2.5">
+            <div className="h-4 w-4 rounded bg-[rgba(255,255,255,0.06)] animate-pulse" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3.5 rounded bg-[rgba(255,255,255,0.06)] animate-pulse" style={{ width: `${55 + i * 8}%` }} />
+              <div className="h-2.5 rounded bg-[rgba(255,255,255,0.04)] animate-pulse" style={{ width: `${70 + i * 5}%` }} />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
