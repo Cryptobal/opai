@@ -3,7 +3,7 @@
 import { FormEvent, useState, useCallback, useRef } from "react";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { collectDeviceMetadata } from "@/lib/device-metadata";
-import { DEVICE_TOKEN_KEY } from "@/lib/device-constants";
+import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 
 interface Props {
   onPaired: (data: {
@@ -76,7 +76,12 @@ export function DevicePairingScreen({ onPaired, onLegacyLogin }: Props) {
     const fullCode = `${raw.slice(0, 3)}-${raw.slice(3)}`;
 
     try {
-      const metadata = await collectDeviceMetadata();
+      let metadata = {};
+      try {
+        metadata = await collectDeviceMetadata();
+      } catch {
+        // Metadata collection failed (restricted browser) — proceed without it
+      }
 
       const res = await fetch("/api/devices/pair", {
         method: "POST",
@@ -92,7 +97,7 @@ export function DevicePairingScreen({ onPaired, onLegacyLogin }: Props) {
       }
 
       const { deviceToken, installationId, installationName } = json.data;
-      localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
+      safeStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
       onPaired({ deviceToken, installationId, installationName });
     } catch {
       setError("Error de conexión. Intenta de nuevo.");

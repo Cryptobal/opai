@@ -14,7 +14,7 @@ import RegistroTab from "./tabs/RegistroTab";
 import EnSitioTab from "./tabs/EnSitioTab";
 import MasTab from "./tabs/MasTab";
 import type { AccessControlConfigData } from "@/lib/access-control/types";
-import { DEVICE_TOKEN_KEY, LEGACY_ACCESS_TOKEN_KEY } from "@/lib/device-constants";
+import { DEVICE_TOKEN_KEY, LEGACY_ACCESS_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 
@@ -122,11 +122,11 @@ export function AccessPortalApp() {
   useEffect(() => {
     async function init() {
       // Migrate legacy localStorage key to unified key
-      const legacyToken = localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
-      const currentToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      const legacyToken = safeStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
+      const currentToken = safeStorage.getItem(DEVICE_TOKEN_KEY);
       if (legacyToken && !currentToken) {
-        localStorage.setItem(DEVICE_TOKEN_KEY, legacyToken);
-        localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+        safeStorage.setItem(DEVICE_TOKEN_KEY, legacyToken);
+        safeStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
       }
 
       // Admin preview mode
@@ -151,7 +151,7 @@ export function AccessPortalApp() {
         }
       }
 
-      const storedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      const storedToken = safeStorage.getItem(DEVICE_TOKEN_KEY);
       if (!storedToken) {
         setAppState("pairing");
         return;
@@ -182,7 +182,7 @@ export function AccessPortalApp() {
           setAppState(needsGuard ? "guard-select" : "active");
         } else {
           // Token invalid — clear and show pairing
-          localStorage.removeItem(DEVICE_TOKEN_KEY);
+          safeStorage.removeItem(DEVICE_TOKEN_KEY);
           setAppState("pairing");
         }
       } catch {
@@ -287,7 +287,7 @@ export function AccessPortalApp() {
       installationName: string;
       installationAddress: string;
     }) => {
-      localStorage.setItem(DEVICE_TOKEN_KEY, data.deviceToken);
+      safeStorage.setItem(DEVICE_TOKEN_KEY, data.deviceToken);
       setDevice({
         deviceToken: data.deviceToken,
         installationId: data.installationId,
@@ -348,7 +348,7 @@ export function AccessPortalApp() {
   }, []);
 
   const doLogout = useCallback(() => {
-    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    safeStorage.removeItem(DEVICE_TOKEN_KEY);
     setDevice(null);
     setConfig(null);
     setAppState("pairing");

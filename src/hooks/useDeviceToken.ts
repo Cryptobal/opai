@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   DEVICE_TOKEN_KEY,
   LEGACY_ACCESS_TOKEN_KEY,
+  safeStorage,
 } from "@/lib/device-constants";
 
 interface DeviceInfo {
@@ -25,15 +26,15 @@ export function useDeviceToken() {
 
   useEffect(() => {
     async function init() {
-      const legacyToken = localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
-      const currentToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      const legacyToken = safeStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
+      const currentToken = safeStorage.getItem(DEVICE_TOKEN_KEY);
 
       if (legacyToken && !currentToken) {
-        localStorage.setItem(DEVICE_TOKEN_KEY, legacyToken);
-        localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+        safeStorage.setItem(DEVICE_TOKEN_KEY, legacyToken);
+        safeStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
       }
 
-      const deviceToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      const deviceToken = safeStorage.getItem(DEVICE_TOKEN_KEY);
       if (!deviceToken) {
         setLoading(false);
         return;
@@ -48,7 +49,7 @@ export function useDeviceToken() {
 
         if (!res.ok) {
           if (res.status === 401) {
-            localStorage.removeItem(DEVICE_TOKEN_KEY);
+            safeStorage.removeItem(DEVICE_TOKEN_KEY);
             setToken(null);
           }
           throw new Error("Dispositivo no válido");
@@ -69,12 +70,12 @@ export function useDeviceToken() {
   }, []);
 
   function saveToken(newToken: string) {
-    localStorage.setItem(DEVICE_TOKEN_KEY, newToken);
+    safeStorage.setItem(DEVICE_TOKEN_KEY, newToken);
     setToken(newToken);
   }
 
   function clearToken() {
-    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    safeStorage.removeItem(DEVICE_TOKEN_KEY);
     setToken(null);
     setDevice(null);
   }

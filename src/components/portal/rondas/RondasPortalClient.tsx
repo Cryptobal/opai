@@ -19,7 +19,7 @@ import type { PortalTab } from "./PortalBottomNav";
 import { PanicoModal } from "./PanicoModal";
 import { PortalPerfil } from "./PortalPerfil";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
-import { DEVICE_TOKEN_KEY } from "@/lib/device-constants";
+import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
@@ -84,7 +84,7 @@ export function RondasPortalClient() {
 
   // Init: determine auth mode on mount
   useEffect(() => {
-    const token = localStorage.getItem(DEVICE_TOKEN_KEY);
+    const token = safeStorage.getItem(DEVICE_TOKEN_KEY);
 
     if (token) {
       fetch("/api/devices/validate", {
@@ -113,13 +113,13 @@ export function RondasPortalClient() {
               setAuthMode("pairing");
             }
           } else {
-            localStorage.removeItem(DEVICE_TOKEN_KEY);
+            safeStorage.removeItem(DEVICE_TOKEN_KEY);
             setAuthMode("pairing");
           }
         })
         .catch(() => {
           // Offline — try cached legacy session
-          const cachedSession = localStorage.getItem("rondas_portal_session");
+          const cachedSession = safeStorage.getItem("rondas_portal_session");
           if (cachedSession) {
             try {
               const { session: s } = JSON.parse(cachedSession);
@@ -143,7 +143,7 @@ export function RondasPortalClient() {
         });
     } else {
       // No device token — check for legacy session
-      const raw = localStorage.getItem("rondas_portal_session");
+      const raw = safeStorage.getItem("rondas_portal_session");
       if (raw) {
         try {
           const wrapped = JSON.parse(raw);
@@ -245,8 +245,8 @@ export function RondasPortalClient() {
   const [showLogoutPin, setShowLogoutPin] = useState(false);
 
   const doFullLogout = () => {
-    localStorage.removeItem(DEVICE_TOKEN_KEY);
-    localStorage.removeItem("rondas_portal_session");
+    safeStorage.removeItem(DEVICE_TOKEN_KEY);
+    safeStorage.removeItem("rondas_portal_session");
     setDeviceToken(null);
     setDeviceInfo(null);
     setCurrentGuard(null);
@@ -278,7 +278,7 @@ export function RondasPortalClient() {
         installationName: deviceInfo.installationName,
         authenticatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(
+      safeStorage.setItem(
         "rondas_portal_session",
         JSON.stringify({ session: s, storedAt: Date.now() }),
       );
@@ -481,7 +481,6 @@ export function RondasPortalClient() {
           </div>
           <MisRondas
             session={session}
-            onLogout={handleLogout}
             onIniciarRonda={handleIniciarRonda}
             onIniciarRondaLibre={handleIniciarRondaLibre}
             onReportIncident={() => setShowIncidentModal(true)}

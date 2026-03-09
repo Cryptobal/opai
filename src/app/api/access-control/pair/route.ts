@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { code, deviceFingerprint, userAgent, screenResolution } = body;
 
-    if (!code || !deviceFingerprint) {
+    if (!code) {
       return NextResponse.json(
-        { success: false, error: "Código y fingerprint son requeridos" },
+        { success: false, error: "Código requerido" },
         { status: 400 }
       );
     }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           data: {
             tenantId: installation.tenantId,
             installationId: installation.id,
-            deviceFingerprint,
+            deviceFingerprint: deviceFingerprint || `anon_${Date.now()}`,
             deviceName,
             deviceToken,
             userAgent: userAgent || null,
