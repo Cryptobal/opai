@@ -90,6 +90,7 @@ export interface FinancialPanelProps {
   hasAccount: boolean;
   hasContact: boolean;
   hasDeal: boolean;
+  dealId?: string;
   contactName?: string;
   contactEmail?: string;
 }
@@ -194,6 +195,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
     hasAccount,
     hasContact,
     hasDeal,
+    dealId,
     contactName,
     contactEmail,
   } = props;
@@ -301,6 +303,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             hasAccount={hasAccount}
             hasContact={hasContact}
             hasDeal={hasDeal}
+            dealId={dealId}
             contactName={contactName}
             contactEmail={contactEmail}
           />
@@ -512,6 +515,7 @@ interface PreviewTabProps {
   hasAccount: boolean;
   hasContact: boolean;
   hasDeal: boolean;
+  dealId?: string;
   contactName?: string;
   contactEmail?: string;
 }
@@ -552,6 +556,7 @@ function PreviewTab({
   hasAccount,
   hasContact,
   hasDeal,
+  dealId,
   contactName,
   contactEmail,
 }: PreviewTabProps) {
@@ -964,6 +969,7 @@ function PreviewTab({
           hasAccount={hasAccount}
           hasContact={hasContact}
           hasDeal={hasDeal}
+          dealId={dealId}
           contactName={contactName}
           contactEmail={contactEmail}
         />
@@ -994,6 +1000,7 @@ function PreviewTab({
           contactName={contactName}
           companyName={quote.clientName || undefined}
           disabled={!contactEmail}
+          dealId={dealId}
         />
       </div>
     </div>

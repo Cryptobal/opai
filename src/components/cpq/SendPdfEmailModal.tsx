@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Loader2, Send, RefreshCw, Paperclip, CheckCircle2 } from "lucide-react";
+import { Mail, Loader2, Send, RefreshCw, Paperclip, CheckCircle2, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
+import { FollowUpDecisionContent, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 
 interface SendPdfEmailModalProps {
   quoteId: string;
@@ -23,7 +24,10 @@ interface SendPdfEmailModalProps {
   contactName?: string;
   companyName?: string;
   disabled?: boolean;
+  dealId?: string;
 }
+
+type Step = "compose" | "followup" | "sent";
 
 export function SendPdfEmailModal({
   quoteId,
@@ -32,8 +36,10 @@ export function SendPdfEmailModal({
   contactName,
   companyName,
   disabled,
+  dealId,
 }: SendPdfEmailModalProps) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<Step>("compose");
   const [to, setTo] = useState(contactEmail || "");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -42,7 +48,6 @@ export function SendPdfEmailModal({
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingBody, setGeneratingBody] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (contactEmail) setTo(contactEmail);
@@ -75,10 +80,10 @@ export function SendPdfEmailModal({
   const handleOpen = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
+      setStep("compose");
       setCc("");
       setBcc("");
       setAiPrompt("");
-      setSent(false);
       generateBody();
     }
   };
@@ -87,7 +92,24 @@ export function SendPdfEmailModal({
     generateBody(aiPrompt || undefined);
   };
 
-  const handleSend = async () => {
+  const handleGoToFollowUp = () => {
+    if (!to || !subject || !emailBody) {
+      toast.error("Completa todos los campos requeridos");
+      return;
+    }
+    if (dealId) {
+      setStep("followup");
+    } else {
+      // No deal linked — send directly without follow-up decision
+      handleSend();
+    }
+  };
+
+  const handleFollowUpConfirm = (decision: FollowUpDecision) => {
+    handleSend(decision);
+  };
+
+  const handleSend = async (followUp?: FollowUpDecision) => {
     if (!to || !subject || !emailBody) {
       toast.error("Completa todos los campos requeridos");
       return;
@@ -103,11 +125,17 @@ export function SendPdfEmailModal({
           bcc: bcc || undefined,
           subject,
           htmlBody: emailBody,
+          ...(followUp && {
+            followUp: {
+              include: followUp.includeFollowUp,
+              targetStageId: followUp.targetStageId,
+            },
+          }),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al enviar");
-      setSent(true);
+      setStep("sent");
       toast.success("Mail enviado");
       setTimeout(() => {
         setOpen(false);
@@ -116,6 +144,8 @@ export function SendPdfEmailModal({
       toast.error(
         error instanceof Error ? error.message : "Error al enviar email"
       );
+      // Go back to compose if it was on followup step
+      if (step === "followup") setStep("compose");
     } finally {
       setSending(false);
     }
@@ -135,13 +165,17 @@ export function SendPdfEmailModal({
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Enviar PDF por email</DialogTitle>
+          <DialogTitle>
+            {step === "followup" ? "Opciones de seguimiento" : "Enviar PDF por email"}
+          </DialogTitle>
           <DialogDescription>
-            Envia la cotizacion {quoteCode} como PDF adjunto
+            {step === "followup"
+              ? "Configura el seguimiento antes de enviar"
+              : `Envia la cotizacion ${quoteCode} como PDF adjunto`}
           </DialogDescription>
         </DialogHeader>
 
-        {sent ? (
+        {step === "sent" ? (
           <div className="text-center py-6 space-y-4">
             <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
             <p className="text-sm font-medium">Mail enviado</p>
@@ -152,6 +186,24 @@ export function SendPdfEmailModal({
               Cerrar
             </Button>
           </div>
+        ) : step === "followup" && dealId ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep("compose")}
+              className="w-fit gap-1 -mt-2 mb-1 text-xs text-muted-foreground"
+            >
+              <ChevronLeft className="h-3 w-3" />
+              Volver al email
+            </Button>
+            <FollowUpDecisionContent
+              dealId={dealId}
+              onConfirm={handleFollowUpConfirm}
+              onCancel={() => setStep("compose")}
+              loading={sending}
+            />
+          </>
         ) : (
         <div className="space-y-4">
           {/* To */}
@@ -264,7 +316,7 @@ export function SendPdfEmailModal({
               Cancelar
             </Button>
             <Button
-              onClick={handleSend}
+              onClick={handleGoToFollowUp}
               disabled={sending || generatingBody || !to || !emailBody}
               className="flex-1 gap-2"
             >

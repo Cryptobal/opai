@@ -1,6 +1,6 @@
 /**
  * Modal para enviar cotización CPQ como Presentación
- * Flujo: Selección de template + destinatario → Crear borrador → Abrir preview
+ * Flujo: Selección de template + destinatario → Seguimiento → Crear borrador → Abrir preview
  * El envío real se hace desde la vista de preview (/preview/[sessionId])
  */
 
@@ -29,6 +29,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FollowUpDecisionContent, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 
 interface SendCpqQuoteModalProps {
   quoteId: string;
@@ -40,6 +41,7 @@ interface SendCpqQuoteModalProps {
   hasDeal?: boolean;
   contactName?: string;
   contactEmail?: string;
+  dealId?: string;
 }
 
 interface TemplateOption {
@@ -51,7 +53,7 @@ const TEMPLATES: TemplateOption[] = [
   { slug: "commercial", name: "Presentación Comercial" },
 ];
 
-type Step = "template" | "recipient" | "creating" | "success";
+type Step = "template" | "recipient" | "followup" | "creating" | "success";
 
 export function SendCpqQuoteModal({
   quoteId,
@@ -63,6 +65,7 @@ export function SendCpqQuoteModal({
   hasDeal,
   contactName,
   contactEmail,
+  dealId,
 }: SendCpqQuoteModalProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("template");
@@ -75,6 +78,9 @@ export function SendCpqQuoteModal({
   const [recipientName, setRecipientName] = useState(contactName || "");
   const [recipientEmail, setRecipientEmail] = useState(contactEmail || "");
 
+  // Follow-up decision (stored for create-draft)
+  const [followUpDecision, setFollowUpDecision] = useState<FollowUpDecision | null>(null);
+
   // Success state
   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -85,12 +91,28 @@ export function SendCpqQuoteModal({
     if (contactEmail) setRecipientEmail(contactEmail);
   }, [contactName, contactEmail]);
 
-  const handleCreateDraft = async () => {
+  const handleGoToFollowUp = () => {
+    if (!canSend || !recipientEmail.trim()) return;
+    if (dealId) {
+      setStep("followup");
+    } else {
+      // No deal — skip follow-up step
+      handleCreateDraft();
+    }
+  };
+
+  const handleFollowUpConfirm = (decision: FollowUpDecision) => {
+    setFollowUpDecision(decision);
+    handleCreateDraft(decision);
+  };
+
+  const handleCreateDraft = async (decision?: FollowUpDecision) => {
     if (!canSend || !recipientEmail.trim()) return;
 
     setCreating(true);
     setStep("creating");
     try {
+      const followUp = decision || followUpDecision;
       const response = await fetch(
         `/api/cpq/quotes/${quoteId}/create-draft`,
         {
@@ -100,6 +122,12 @@ export function SendCpqQuoteModal({
             templateSlug: selectedTemplate,
             recipientEmail: recipientEmail.trim(),
             recipientName: recipientName.trim(),
+            ...(followUp && {
+              followUp: {
+                include: followUp.includeFollowUp,
+                targetStageId: followUp.targetStageId,
+              },
+            }),
           }),
         }
       );
@@ -134,6 +162,7 @@ export function SendCpqQuoteModal({
     setStep("template");
     setSelectedTemplate("commercial");
     setPreviewUrl("");
+    setFollowUpDecision(null);
   };
 
   return (
@@ -155,12 +184,14 @@ export function SendCpqQuoteModal({
           <DialogTitle>
             {step === "template" && "Enviar propuesta"}
             {step === "recipient" && "Confirmar destinatario"}
+            {step === "followup" && "Opciones de seguimiento"}
             {step === "creating" && "Generando borrador..."}
             {step === "success" && "Borrador listo"}
           </DialogTitle>
           <DialogDescription>
             {step === "template" && `Selecciona el template para ${quoteCode}`}
             {step === "recipient" && "Confirma el destinatario y genera el borrador"}
+            {step === "followup" && "Configura el seguimiento antes de enviar"}
             {step === "creating" && "Preparando la propuesta para revisión"}
             {step === "success" && "Revisa la propuesta y envíala desde la vista previa"}
           </DialogDescription>
@@ -266,27 +297,39 @@ export function SendCpqQuoteModal({
                 Atrás
               </Button>
               <Button
-                onClick={handleCreateDraft}
+                onClick={handleGoToFollowUp}
                 disabled={creating || !recipientEmail.trim()}
                 className="flex-1 gap-2"
               >
-                {creating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Ver borrador
-                  </>
-                )}
+                <ChevronRight className="h-4 w-4" />
+                Siguiente
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Creating */}
+        {/* Step 3: Follow-up Decision */}
+        {step === "followup" && dealId && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep("recipient")}
+              className="w-fit gap-1 -mt-2 mb-1 text-xs text-muted-foreground"
+            >
+              <ChevronLeft className="h-3 w-3" />
+              Volver
+            </Button>
+            <FollowUpDecisionContent
+              dealId={dealId}
+              onConfirm={handleFollowUpConfirm}
+              onCancel={() => setStep("recipient")}
+              loading={creating}
+            />
+          </div>
+        )}
+
+        {/* Step 4: Creating */}
         {step === "creating" && (
           <div className="text-center py-8 space-y-4">
             <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
@@ -296,7 +339,7 @@ export function SendCpqQuoteModal({
           </div>
         )}
 
-        {/* Step 4: Success */}
+        {/* Step 5: Success */}
         {step === "success" && (
           <div className="text-center py-4 space-y-4">
             <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
-import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -35,6 +35,9 @@ type QuoteRow = {
   dealId?: string | null;
   dealTitle?: string | null;
   accountName?: string | null;
+  dealStageName?: string | null;
+  dealStageColor?: string | null;
+  pendingFollowUps?: number;
 };
 
 type AccountRow = {
@@ -231,6 +234,20 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           <Badge variant="outline" className={status.className}>
             {status.label}
           </Badge>
+          {quote.dealStageName && (
+            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
+              {quote.dealStageColor && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: quote.dealStageColor }} />
+              )}
+              {quote.dealStageName}
+            </Badge>
+          )}
+          {(quote.pendingFollowUps ?? 0) > 0 && (
+            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-violet-500/30 text-violet-600 dark:text-violet-400">
+              <CalendarClock className="h-3 w-3" />
+              Seguimiento
+            </Badge>
+          )}
         </div>
         {quote.dealTitle && (
           <p className="mt-0.5 text-sm truncate">
@@ -314,6 +331,25 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           {status.label}
         </Badge>
       </div>
+      {/* Stage & follow-up badges */}
+      {(quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0) && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+          {quote.dealStageName && (
+            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
+              {quote.dealStageColor && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: quote.dealStageColor }} />
+              )}
+              {quote.dealStageName}
+            </Badge>
+          )}
+          {(quote.pendingFollowUps ?? 0) > 0 && (
+            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-violet-500/30 text-violet-600 dark:text-violet-400">
+              <CalendarClock className="h-3 w-3" />
+              Seguimiento
+            </Badge>
+          )}
+        </div>
+      )}
       {quote.name && (
         <p className="text-sm font-medium truncate">{quote.name}</p>
       )}

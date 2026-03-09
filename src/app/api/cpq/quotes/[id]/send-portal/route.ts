@@ -30,6 +30,10 @@ export async function POST(
 
     const { id } = await params;
 
+    // Parse optional body (follow-up decision)
+    const body = await _request.json().catch(() => ({}));
+    const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null } | undefined);
+
     // 2. Fetch quote with deal, account, contact, installation
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
@@ -206,35 +210,65 @@ export async function POST(
           },
         });
 
-        const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
-        await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: quote.dealId });
+        if (followUpDecision?.include === false) {
+          // User chose NOT to include follow-up: cancel existing + move to chosen stage
+          const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
+          await cancelPendingFollowUps(quote.dealId, "Usuario eligió no incluir seguimiento");
 
-        // Move deal to "Cotizacion enviada" stage
-        const cotizacionStage = await prisma.crmPipelineStage.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            name: "Cotización enviada",
-            isActive: true,
-          },
-        });
-        if (cotizacionStage) {
-          const deal = await prisma.crmDeal.findFirst({
-            where: { id: quote.dealId },
+          if (followUpDecision.targetStageId) {
+            const targetStage = await prisma.crmPipelineStage.findFirst({
+              where: { id: followUpDecision.targetStageId, tenantId: ctx.tenantId, isActive: true },
+            });
+            if (targetStage) {
+              const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+              if (deal && deal.stageId !== targetStage.id) {
+                await prisma.crmDeal.update({
+                  where: { id: deal.id },
+                  data: { stageId: targetStage.id },
+                });
+                await prisma.crmDealStageHistory.create({
+                  data: {
+                    tenantId: ctx.tenantId,
+                    dealId: deal.id,
+                    fromStageId: deal.stageId,
+                    toStageId: targetStage.id,
+                    changedBy: ctx.userId,
+                  },
+                });
+              }
+            }
+          }
+        } else {
+          // Default: schedule follow-ups + move to "Cotización enviada"
+          const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+          await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: quote.dealId });
+
+          const cotizacionStage = await prisma.crmPipelineStage.findFirst({
+            where: {
+              tenantId: ctx.tenantId,
+              name: "Cotización enviada",
+              isActive: true,
+            },
           });
-          if (deal && deal.stageId !== cotizacionStage.id) {
-            await prisma.crmDeal.update({
-              where: { id: deal.id },
-              data: { stageId: cotizacionStage.id },
+          if (cotizacionStage) {
+            const deal = await prisma.crmDeal.findFirst({
+              where: { id: quote.dealId },
             });
-            await prisma.crmDealStageHistory.create({
-              data: {
-                tenantId: ctx.tenantId,
-                dealId: deal.id,
-                fromStageId: deal.stageId,
-                toStageId: cotizacionStage.id,
-                changedBy: ctx.userId,
-              },
-            });
+            if (deal && deal.stageId !== cotizacionStage.id) {
+              await prisma.crmDeal.update({
+                where: { id: deal.id },
+                data: { stageId: cotizacionStage.id },
+              });
+              await prisma.crmDealStageHistory.create({
+                data: {
+                  tenantId: ctx.tenantId,
+                  dealId: deal.id,
+                  fromStageId: deal.stageId,
+                  toStageId: cotizacionStage.id,
+                  changedBy: ctx.userId,
+                },
+              });
+            }
           }
         }
       } catch (followUpError) {

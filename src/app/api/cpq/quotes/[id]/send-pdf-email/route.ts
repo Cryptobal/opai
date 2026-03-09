@@ -21,7 +21,8 @@ export async function POST(
     if (!ctx) return unauthorized();
 
     const { id } = await params;
-    const { to, cc, bcc, subject, htmlBody } = await request.json();
+    const { to, cc, bcc, subject, htmlBody, followUp } = await request.json();
+    const followUpDecision = followUp as { include: boolean; targetStageId: string | null } | undefined;
 
     if (!to || !subject || !htmlBody) {
       return NextResponse.json(
@@ -135,29 +136,59 @@ ${htmlBody.replace(/\n/g, "<br>")}
           },
         });
 
-        const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
-        await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: quote.dealId });
+        if (followUpDecision?.include === false) {
+          // User chose NOT to include follow-up: cancel existing + move to chosen stage
+          const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
+          await cancelPendingFollowUps(quote.dealId, "Usuario eligió no incluir seguimiento");
 
-        // Move deal to "Cotización enviada" stage
-        const cotizacionStage = await prisma.crmPipelineStage.findFirst({
-          where: { tenantId: ctx.tenantId, name: "Cotización enviada", isActive: true },
-        });
-        if (cotizacionStage) {
-          const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
-          if (deal && deal.stageId !== cotizacionStage.id) {
-            await prisma.crmDeal.update({
-              where: { id: deal.id },
-              data: { stageId: cotizacionStage.id },
+          if (followUpDecision.targetStageId) {
+            const targetStage = await prisma.crmPipelineStage.findFirst({
+              where: { id: followUpDecision.targetStageId, tenantId: ctx.tenantId, isActive: true },
             });
-            await prisma.crmDealStageHistory.create({
-              data: {
-                tenantId: ctx.tenantId,
-                dealId: deal.id,
-                fromStageId: deal.stageId,
-                toStageId: cotizacionStage.id,
-                changedBy: ctx.userId,
-              },
-            });
+            if (targetStage) {
+              const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+              if (deal && deal.stageId !== targetStage.id) {
+                await prisma.crmDeal.update({
+                  where: { id: deal.id },
+                  data: { stageId: targetStage.id },
+                });
+                await prisma.crmDealStageHistory.create({
+                  data: {
+                    tenantId: ctx.tenantId,
+                    dealId: deal.id,
+                    fromStageId: deal.stageId,
+                    toStageId: targetStage.id,
+                    changedBy: ctx.userId,
+                  },
+                });
+              }
+            }
+          }
+        } else {
+          // Default: schedule follow-ups + move to "Cotización enviada"
+          const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
+          await scheduleFollowUps({ tenantId: ctx.tenantId, dealId: quote.dealId });
+
+          const cotizacionStage = await prisma.crmPipelineStage.findFirst({
+            where: { tenantId: ctx.tenantId, name: "Cotización enviada", isActive: true },
+          });
+          if (cotizacionStage) {
+            const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+            if (deal && deal.stageId !== cotizacionStage.id) {
+              await prisma.crmDeal.update({
+                where: { id: deal.id },
+                data: { stageId: cotizacionStage.id },
+              });
+              await prisma.crmDealStageHistory.create({
+                data: {
+                  tenantId: ctx.tenantId,
+                  dealId: deal.id,
+                  fromStageId: deal.stageId,
+                  toStageId: cotizacionStage.id,
+                  changedBy: ctx.userId,
+                },
+              });
+            }
           }
         }
       } catch (followUpError) {

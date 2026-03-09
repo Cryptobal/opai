@@ -56,17 +56,27 @@ export default async function CrmCotizacionesPage() {
     getUfValue(),
   ]);
 
-  // Resolver nombres de negocio y cuenta
+  // Resolver nombres de negocio y cuenta + stage info + follow-up status
   const dealIds = quotes.map((q) => q.dealId).filter((id): id is string => Boolean(id));
   const accountIds = quotes.map((q) => q.accountId).filter((id): id is string => Boolean(id));
-  const [dealsMap, accountsMap] = await Promise.all([
+  const [dealsRaw, accountsMap, followUpCounts] = await Promise.all([
     dealIds.length > 0
-      ? prisma.crmDeal.findMany({ where: { id: { in: dealIds } }, select: { id: true, title: true } }).then((rows) => new Map(rows.map((r) => [r.id, r.title])))
-      : Promise.resolve(new Map<string, string>()),
+      ? prisma.crmDeal.findMany({
+          where: { id: { in: dealIds } },
+          select: { id: true, title: true, stage: { select: { name: true, color: true } } },
+        })
+      : Promise.resolve([]),
     accountIds.length > 0
       ? prisma.crmAccount.findMany({ where: { id: { in: accountIds } }, select: { id: true, name: true } }).then((rows) => new Map(rows.map((r) => [r.id, r.name])))
       : Promise.resolve(new Map<string, string>()),
+    dealIds.length > 0
+      ? prisma.crmFollowUpLog
+          .groupBy({ by: ["dealId"], where: { dealId: { in: dealIds }, status: "pending" }, _count: true })
+          .then((rows) => new Map(rows.map((r) => [r.dealId, r._count])))
+      : Promise.resolve(new Map<string, number>()),
   ]);
+  const dealsMap = new Map(dealsRaw.map((r) => [r.id, r.title]));
+  const dealStageMap = new Map(dealsRaw.map((r) => [r.id, r.stage ? { name: r.stage.name, color: r.stage.color } : null]));
 
   // Enriquecer con salePriceMonthly calculado si está en 0
   const enrichedQuotes = await Promise.all(
@@ -115,6 +125,9 @@ export default async function CrmCotizacionesPage() {
         dealId: q.dealId || null,
         dealTitle: (q.dealId && dealsMap.get(q.dealId)) || null,
         accountName: (q.accountId && accountsMap.get(q.accountId)) || null,
+        dealStageName: (q.dealId && dealStageMap.get(q.dealId)?.name) || null,
+        dealStageColor: (q.dealId && dealStageMap.get(q.dealId)?.color) || null,
+        pendingFollowUps: (q.dealId && followUpCounts.get(q.dealId)) || 0,
       };
     })
   );
