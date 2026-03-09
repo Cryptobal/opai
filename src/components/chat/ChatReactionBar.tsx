@@ -112,7 +112,12 @@ export function ChatReactionBar({
   return (
     <>
       {/* Transparent overlay */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+        onTouchStart={(e) => { e.preventDefault(); onClose(); }}
+        style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const, touchAction: "none" }}
+      />
 
       {/* Floating menu */}
       <div
@@ -124,6 +129,9 @@ export function ChatReactionBar({
           backgroundColor: "#0d1220",
           border: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          WebkitUserSelect: "none",
+          userSelect: "none" as const,
+          WebkitTouchCallout: "none" as const,
         }}
       >
         {/* Quick emojis row */}

@@ -181,7 +181,13 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
   const showHeader = isFirstInGroup ?? true;
   const senderColorClass = senderColor(message.senderType);
 
-  const closeMobile = useCallback(() => setShowMobileMenu(false), []);
+  const [mobileMenuCooldown, setMobileMenuCooldown] = useState(false);
+  const closeMobile = useCallback(() => {
+    if (mobileMenuCooldown) return;
+    setShowMobileMenu(false);
+    setMobileMenuCooldown(true);
+    setTimeout(() => setMobileMenuCooldown(false), 300);
+  }, [mobileMenuCooldown]);
   const closeDesktop = useCallback(() => { setShowReactionBar(false); setShowTrigger(false); }, []);
 
   return (
@@ -193,9 +199,10 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
       )}
       onMouseEnter={() => { if (!message.systemEventType) setShowTrigger(true); }}
       onMouseLeave={() => { if (!dropdownOpen) { setShowTrigger(false); setShowReactionBar(false); } }}
-      onTouchStart={() => {
+      onTouchStart={(e) => {
         if (message.systemEventType) return;
         longPressTimerRef.current = setTimeout(() => {
+          e.preventDefault();
           navigator.vibrate?.(10);
           setShowMobileMenu(true);
         }, 500);
@@ -207,6 +214,7 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
       }}
       onContextMenu={(e) => { if (showMobileMenu) e.preventDefault(); }}
+      style={showMobileMenu ? { WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const } : undefined}
     >
       {/* Avatar or hover timestamp */}
       {showHeader ? (

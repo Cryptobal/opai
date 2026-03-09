@@ -10,6 +10,7 @@ import type { CellModalData, CNInstalacion } from "@/components/ops/rondas/Monit
 import { MonitoreoGridCellModal } from "@/components/ops/rondas/MonitoreoGridCellModal";
 import { GuardPanel } from "@/components/ops/rondas/GuardPanel";
 import { ResizableDivider } from "@/components/ops/rondas/ResizableDivider";
+import { MobileMonitorView } from "@/components/ops/rondas/MobileMonitorView";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
@@ -80,6 +81,14 @@ export function RondasMonitoreoClient({
   const [cellModal, setCellModal] = useState<CellModalData | null>(null);
   const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
   const [splitPct, setSplitPct] = useState(55);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -143,15 +152,31 @@ export function RondasMonitoreoClient({
       refreshMonitoreo();
     });
 
-    channel.bind("ronda-completed", () => {
+    channel.bind("ronda-completed", (data: any) => {
       soundRondaCompleted();
       refreshMonitoreo();
+      // Browser notification when tab is hidden
+      if (document.hidden && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification("Ronda completada", {
+          body: data?.installationName ? `${data.installationName} — Trust ${data?.trustScore ?? "?"}` : "Una ronda fue completada",
+          tag: "monitor-ronda",
+        });
+      }
     });
 
-    channel.bind("alerta-ronda", () => {
+    channel.bind("alerta-ronda", (data: any) => {
       soundAlert();
       fetchAlerts();
       refreshMonitoreo();
+      // Browser notification for critical alerts when tab is hidden
+      if (document.hidden && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification(`\uD83D\uDEA8 ${data?.tipo ?? "Alerta"}`, {
+          body: data?.guardiaName
+            ? `${data.guardiaName} — ${data.installationName ?? ""}`
+            : data?.mensaje ?? "Nueva alerta de ronda",
+          tag: "monitor-alert",
+        });
+      }
     });
 
     return () => {
@@ -161,12 +186,19 @@ export function RondasMonitoreoClient({
     };
   }, [tenantId, fetchAlerts, refreshMonitoreo]);
 
-  // Tab title with alert count
+  // Tab title with descubiertas / alert count
   useEffect(() => {
-    const original = document.title;
-    document.title = currentAlertCount > 0 ? `(${currentAlertCount}) Monitoreo` : "Monitoreo";
-    return () => { document.title = original; };
-  }, [currentAlertCount]);
+    const descubiertas = controlNocturno?.instalaciones
+      ?.filter((i: any) => i.coberturaStatus === "descubierta").length || 0;
+    const unackAlerts = alertRows.filter(a => !a.isAcknowledged).length;
+
+    let prefix = "";
+    if (descubiertas > 0) prefix = `\uD83D\uDD34 (${descubiertas}) `;
+    else if (unackAlerts > 0) prefix = `\u26A0\uFE0F (${unackAlerts}) `;
+
+    document.title = `${prefix}Monitor — OPAI`;
+    return () => { document.title = "OPAI"; };
+  }, [alertRows, controlNocturno]);
 
   // Request browser notification permission on mount
   useEffect(() => {
@@ -538,30 +570,28 @@ export function RondasMonitoreoClient({
         </div>
       )}
 
-      {/* Fullscreen map overlay */}
-      {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-[#0a0e1a] p-4">
-          <MonitoreoMap
-            checkpoints={mapCheckpoints}
-            guards={mapGuards}
-            installations={mapInstallations}
-            alerts={mapAlertMarkers}
-            center={mapCenter}
-            selectedGuardId={selectedRondaId}
-            isFullscreen={isFullscreen}
-            onFullscreenToggle={() => setIsFullscreen(false)}
-            onInstallationClick={(id) => setSelectedInstallationId(id)}
-          />
-        </div>
-      )}
-
-      {/* Main split layout: [Map + Panel] / Divider / [Grid] */}
-      {!isFullscreen && (
-        <div className="flex-1 flex flex-col overflow-hidden mt-2" data-monitor-layout>
-          {/* Top: Map + Side Panel */}
-          <div style={{ height: `${splitPct}%` }} className="flex min-h-0 gap-0">
-            {/* Map */}
-            <div className="flex-1 relative rounded-xl overflow-hidden border border-[#1e293b]">
+      {isMobile ? (
+        <MobileMonitorView
+          controlNocturno={controlNocturno}
+          activeTurno={activeTurno}
+          alerts={alertRows}
+          activeRondas={rows}
+          isReadOnly={isReadOnly}
+          currentUserId={userId}
+          installations={installations}
+          mapCheckpoints={mapCheckpoints}
+          mapGuards={mapGuards}
+          mapInstallations={mapInstallations}
+          mapAlertMarkers={mapAlertMarkers}
+          mapCenter={mapCenter}
+          selectedRondaId={selectedRondaId}
+          onInstallationClick={(id) => setSelectedInstallationId(id)}
+        />
+      ) : (
+        <>
+          {/* Fullscreen map overlay */}
+          {isFullscreen && (
+            <div className="fixed inset-0 z-50 bg-[#0a0e1a] p-4">
               <MonitoreoMap
                 checkpoints={mapCheckpoints}
                 guards={mapGuards}
@@ -569,52 +599,75 @@ export function RondasMonitoreoClient({
                 alerts={mapAlertMarkers}
                 center={mapCenter}
                 selectedGuardId={selectedRondaId}
-                isFullscreen={false}
-                onFullscreenToggle={() => setIsFullscreen(true)}
+                isFullscreen={isFullscreen}
+                onFullscreenToggle={() => setIsFullscreen(false)}
                 onInstallationClick={(id) => setSelectedInstallationId(id)}
               />
             </div>
+          )}
 
-            {/* Side panel */}
-            <div className="w-80 flex-shrink-0 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden ml-2">
-              <MonitoreoSidePanel
-                guardPanelData={guardPanelData}
-                selectedRondaId={selectedRondaId}
-                onSelectGuard={setSelectedRondaId}
-                onAddNote={handleAddNote}
-                upcomingData={upcomingData}
-                formatPersonName={formatPersonName}
-                alertRows={alertRows}
-                alertsLoading={alertsLoading}
-                resolvingAlertId={resolvingAlertId}
-                resolveNotes={resolveNotes}
-                onSetResolvingAlertId={setResolvingAlertId}
-                onSetResolveNotes={setResolveNotes}
-                onResolveAlert={handleResolveAlert}
-                onGoToAlert={handleGoToAlert}
-                installations={mapInstallations}
-                onInstallationClick={(id) => setSelectedInstallationId(id)}
-                selectedInstallationId={selectedInstallationId}
-                initialTab={sidePanelTab}
-              />
+          {/* Main split layout: [Map + Panel] / Divider / [Grid] */}
+          {!isFullscreen && (
+            <div className="flex-1 flex flex-col overflow-hidden mt-2" data-monitor-layout>
+              {/* Top: Map + Side Panel */}
+              <div style={{ height: `${splitPct}%` }} className="flex min-h-0 gap-0">
+                {/* Map */}
+                <div className="flex-1 relative rounded-xl overflow-hidden border border-[#1e293b]">
+                  <MonitoreoMap
+                    checkpoints={mapCheckpoints}
+                    guards={mapGuards}
+                    installations={mapInstallations}
+                    alerts={mapAlertMarkers}
+                    center={mapCenter}
+                    selectedGuardId={selectedRondaId}
+                    isFullscreen={false}
+                    onFullscreenToggle={() => setIsFullscreen(true)}
+                    onInstallationClick={(id) => setSelectedInstallationId(id)}
+                  />
+                </div>
+
+                {/* Side panel */}
+                <div className="w-80 flex-shrink-0 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden ml-2">
+                  <MonitoreoSidePanel
+                    guardPanelData={guardPanelData}
+                    selectedRondaId={selectedRondaId}
+                    onSelectGuard={setSelectedRondaId}
+                    onAddNote={handleAddNote}
+                    upcomingData={upcomingData}
+                    formatPersonName={formatPersonName}
+                    alertRows={alertRows}
+                    alertsLoading={alertsLoading}
+                    resolvingAlertId={resolvingAlertId}
+                    resolveNotes={resolveNotes}
+                    onSetResolvingAlertId={setResolvingAlertId}
+                    onSetResolveNotes={setResolveNotes}
+                    onResolveAlert={handleResolveAlert}
+                    onGoToAlert={handleGoToAlert}
+                    installations={mapInstallations}
+                    onInstallationClick={(id) => setSelectedInstallationId(id)}
+                    selectedInstallationId={selectedInstallationId}
+                    initialTab={sidePanelTab}
+                  />
+                </div>
+              </div>
+
+              <ResizableDivider onResize={setSplitPct} />
+
+              {/* Bottom: Grid */}
+              <div style={{ height: `${100 - splitPct}%` }} className="min-h-0 rounded-xl border border-[#1e293b] overflow-hidden">
+                <MonitoreoGrid
+                  controlNocturno={controlNocturno}
+                  turnoId={activeTurno?.id ?? null}
+                  selectedInstallationId={selectedInstallationId}
+                  onSelectInstallation={setSelectedInstallationId}
+                  onCellClick={(data) => setCellModal(data)}
+                  onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
+                  isReadOnly={isReadOnly}
+                />
+              </div>
             </div>
-          </div>
-
-          <ResizableDivider onResize={setSplitPct} />
-
-          {/* Bottom: Grid */}
-          <div style={{ height: `${100 - splitPct}%` }} className="min-h-0 rounded-xl border border-[#1e293b] overflow-hidden">
-            <MonitoreoGrid
-              controlNocturno={controlNocturno}
-              turnoId={activeTurno?.id ?? null}
-              selectedInstallationId={selectedInstallationId}
-              onSelectInstallation={setSelectedInstallationId}
-              onCellClick={(data) => setCellModal(data)}
-              onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
-              isReadOnly={isReadOnly}
-            />
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* Cell modal */}

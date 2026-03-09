@@ -436,6 +436,23 @@ html {
 }
 
 /* ============================================
+   Monitor: Cell flash animation on update
+   ============================================ */
+@keyframes cell-flash {
+  0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.5); }
+  50% { box-shadow: 0 0 12px 4px rgba(20, 184, 166, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+.cell-just-updated { animation: cell-flash 1s ease-out; }
+
+/* Monitor: EN VIVO beacon */
+@keyframes live-beacon {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 8px 3px rgba(34, 197, 94, 0.2); }
+}
+.live-beacon { animation: live-beacon 2s ease-in-out infinite; }
+
+/* ============================================
    Accessibility: Reduced Motion
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
