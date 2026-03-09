@@ -244,32 +244,7 @@ export function RondasPortalClient() {
 
   const [showLogoutPin, setShowLogoutPin] = useState(false);
 
-  const doLogout = () => {
-    setLegacySession(null);
-    setCurrentGuard(null);
-    setActiveRondaData(null);
-    setActiveEjecucionId(null);
-    setCompletionData(null);
-    setShowIncidentModal(false);
-    localStorage.removeItem("rondas_portal_session");
-    if (deviceToken) {
-      setAuthMode("ready");
-      setScreen("mis-rondas");
-    } else {
-      setAuthMode("pairing");
-      setScreen("login");
-    }
-  };
-
-  const handleLogout = () => {
-    if (deviceToken) {
-      setShowLogoutPin(true);
-    } else {
-      doLogout();
-    }
-  };
-
-  const handleUnpair = () => {
+  const doFullLogout = () => {
     localStorage.removeItem(DEVICE_TOKEN_KEY);
     localStorage.removeItem("rondas_portal_session");
     setDeviceToken(null);
@@ -282,6 +257,14 @@ export function RondasPortalClient() {
     setShowIncidentModal(false);
     setAuthMode("pairing");
     setScreen("login");
+  };
+
+  const handleLogout = () => {
+    if (deviceToken) {
+      setShowLogoutPin(true);
+    } else {
+      doFullLogout();
+    }
   };
 
   const handleGuardChange = (guard: { id: string; name: string } | null) => {
@@ -594,7 +577,7 @@ export function RondasPortalClient() {
       <LogoutPinModal
         open={showLogoutPin}
         deviceToken={deviceToken ?? ""}
-        onConfirm={() => { setShowLogoutPin(false); doLogout(); }}
+        onConfirm={() => { setShowLogoutPin(false); doFullLogout(); }}
         onCancel={() => setShowLogoutPin(false)}
       />
     </div>

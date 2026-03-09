@@ -14,21 +14,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const device = await safeAccessControlQuery(
-      () =>
-        prisma.accessControlDevice.findUnique({
-          where: { deviceToken: token },
-        }),
-      null
-    );
-
-    if (!device || !device.isActive) {
-      return NextResponse.json(
-        { success: false, error: "Dispositivo no válido o desvinculado" },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { guardId } = body;
 
@@ -39,17 +24,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await safeAccessControlQuery(
+    // Try legacy table first
+    const legacyDevice = await safeAccessControlQuery(
       () =>
-        prisma.accessControlDevice.update({
-          where: { id: device.id },
-          data: {
-            currentGuardId: guardId,
-            guardSelectedAt: new Date(),
-          },
+        prisma.accessControlDevice.findUnique({
+          where: { deviceToken: token },
         }),
       null
     );
+
+    if (legacyDevice && legacyDevice.isActive) {
+      await safeAccessControlQuery(
+        () =>
+          prisma.accessControlDevice.update({
+            where: { id: legacyDevice.id },
+            data: {
+              currentGuardId: guardId,
+              guardSelectedAt: new Date(),
+            },
+          }),
+        null
+      );
+      return NextResponse.json({ success: true });
+    }
+
+    // Fallback: unified DevicePairing table
+    const unifiedDevice = await prisma.devicePairing.findFirst({
+      where: { deviceToken: token },
+      select: { id: true },
+    });
+
+    if (!unifiedDevice) {
+      return NextResponse.json(
+        { success: false, error: "Dispositivo no válido o desvinculado" },
+        { status: 401 }
+      );
+    }
+
+    await prisma.devicePairing.update({
+      where: { id: unifiedDevice.id },
+      data: { lastSeenAt: new Date() },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

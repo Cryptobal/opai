@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const device = await safeAccessControlQuery(
+    // Try legacy table first
+    const legacyDevice = await safeAccessControlQuery(
       () =>
         prisma.accessControlDevice.findUnique({
           where: { deviceToken: token },
@@ -22,7 +23,22 @@ export async function GET(request: NextRequest) {
       null
     );
 
-    if (!device || !device.isActive) {
+    let installationId: string | null = null;
+
+    if (legacyDevice && legacyDevice.isActive) {
+      installationId = legacyDevice.installationId;
+    } else {
+      // Fallback: unified DevicePairing table
+      const unifiedDevice = await prisma.devicePairing.findFirst({
+        where: { deviceToken: token },
+        select: { installationId: true },
+      });
+      if (unifiedDevice) {
+        installationId = unifiedDevice.installationId;
+      }
+    }
+
+    if (!installationId) {
       return NextResponse.json(
         { success: false, error: "Dispositivo no válido o desvinculado" },
         { status: 401 }
@@ -32,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Fetch guards assigned to this device's installation
     const assignments = await prisma.opsAsignacionGuardia.findMany({
       where: {
-        installationId: device.installationId,
+        installationId,
         isActive: true,
         guardia: { status: "active" },
       },

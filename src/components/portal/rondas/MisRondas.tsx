@@ -302,41 +302,28 @@ export function MisRondas({ session, onLogout, onIniciarRonda, onIniciarRondaLib
   // ---- Render ----
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#0a0a0f" }}>
-      {/* ============ Header ============ */}
-      <header
-        className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
-        style={{ backgroundColor: "#0a0a0f" }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold text-white">{session.nombre}</h1>
-            <p className="truncate text-sm text-gray-400">{session.installationName}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Online/Offline indicator */}
-            <span className="flex items-center gap-1.5 text-sm">
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${
-                  isOnline ? "bg-green-500" : "bg-red-500"
-                }`}
-              />
-              <span className={isOnline ? "text-green-400" : "text-red-400"}>
-                {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
-              </span>
-            </span>
-            {/* Logout */}
-            <button
-              onClick={onLogout}
-              className="rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 active:bg-gray-600"
-            >
-              Salir
-            </button>
-          </div>
-        </div>
-      </header>
-
       {/* ============ Content ============ */}
-      <main className="flex-1 px-4 pt-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
+      <main className="flex-1 px-4 pt-3" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
+        {/* Status bar + Salir */}
+        <div className="flex items-center justify-between mb-3">
+          <span className="flex items-center gap-1.5 text-sm">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isOnline ? "bg-green-500" : "bg-red-500"
+              }`}
+            />
+            <span className={isOnline ? "text-green-400" : "text-red-400"}>
+              {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
+            </span>
+          </span>
+          <button
+            onClick={onLogout}
+            className="rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700 active:bg-gray-600"
+          >
+            Salir
+          </button>
+        </div>
+
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
