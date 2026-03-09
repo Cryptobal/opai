@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
 /** Contract-type categories visible in the client portal */
 const CONTRACT_CATEGORIES = [
@@ -17,6 +19,14 @@ const CONTRACT_CATEGORIES = [
  */
 export async function GET(request: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const session = parsePortalClienteSessionCookie(
+      cookieStore.get("portal_cliente_session")?.value
+    );
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const tenantId = request.nextUrl.searchParams.get("tenantId");
     const accountId = request.nextUrl.searchParams.get("accountId");
 
@@ -25,6 +35,10 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Parámetros requeridos" },
         { status: 400 },
       );
+    }
+
+    if (session.accountId !== accountId) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     const documents = await prisma.document.findMany({

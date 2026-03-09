@@ -9,6 +9,7 @@ import { KpiGrid } from "@/components/opai/KpiGrid";
 import { LoadingState } from "@/components/opai/LoadingState";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { ClienteSession } from "@/lib/portal-cliente-types";
+import { PreviewBadge } from "./PreviewBadge";
 
 /* ─── Types ─── */
 
@@ -39,27 +40,76 @@ interface Props {
   isProspect?: boolean;
 }
 
+const DEMO_GAMIFICATION: DesempenoData = {
+  trustScore: 8.6,
+  promedioGard: 7.8,
+  kpis: {
+    guardiasActivos: 3,
+    asistenciaMes: 95.3,
+    rondasCompletadas: 24,
+    diasSinIncidentes: 18,
+  },
+  guardias: [
+    { guardiaId: "demo-1", nombre: "R. Muñoz", nivel: "Avanzado", trustScore: 9.2, asistencia: 98, tendencia: "up" },
+    { guardiaId: "demo-2", nombre: "C. Soto", nivel: "Intermedio", trustScore: 8.8, asistencia: 95, tendencia: "up" },
+    { guardiaId: "demo-3", nombre: "P. Vargas", nivel: "Intermedio", trustScore: 8.1, asistencia: 93, tendencia: "neutral" },
+  ],
+};
+
 /* ─── Component ─── */
 
-export function PortalDesempeno({ session, selectedInstallation }: Props) {
+export function PortalDesempeno({ session, selectedInstallation, isProspect }: Props) {
   const [data, setData] = useState<DesempenoData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    if (isProspect) {
+      setData(DEMO_GAMIFICATION);
+      return;
+    }
     if (!selectedInstallation) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/portal/cliente/gamification/instalacion/${selectedInstallation}?tenantId=${encodeURIComponent(session.tenantId)}`
       );
       const j = await res.json();
-      if (j.success) setData(j.data);
-    } catch {
-      // silently fail
+      if (j.success && j.data) {
+        const apiData = j.data;
+        const ranking = apiData.ranking ?? [];
+        const avgScore = apiData.trustScoreAvg ?? 0;
+        setData({
+          trustScore: avgScore,
+          promedioGard: avgScore > 0 ? Math.max(avgScore - 0.8, 0) : 0,
+          kpis: {
+            guardiasActivos: ranking.length,
+            asistenciaMes: ranking.length > 0
+              ? Math.round(ranking.reduce((s: number, g: { scoreAsistencia: number }) => s + (g.scoreAsistencia ?? 0), 0) / ranking.length)
+              : 0,
+            rondasCompletadas: ranking.length > 0
+              ? Math.round(ranking.reduce((s: number, g: { scoreRondas: number }) => s + (g.scoreRondas ?? 0), 0) / ranking.length)
+              : 0,
+            diasSinIncidentes: 0,
+          },
+          guardias: ranking.map((g: { guardiaId: string; nombre: string; nivelActual: string; trustScore: number; scoreAsistencia: number; rachaActual: number }) => ({
+            guardiaId: g.guardiaId,
+            nombre: g.nombre,
+            nivel: g.nivelActual ?? "Básico",
+            trustScore: g.trustScore ?? 0,
+            asistencia: g.scoreAsistencia ?? 0,
+            tendencia: (g.rachaActual ?? 0) > 0 ? "up" as const : (g.rachaActual ?? 0) < 0 ? "down" as const : "neutral" as const,
+          })),
+        });
+      }
+    } catch (err) {
+      console.error("[PortalDesempeno] Error:", err);
+      setError("No se pudieron cargar los datos de desempeño");
     } finally {
       setLoading(false);
     }
-  }, [selectedInstallation, session.tenantId]);
+  }, [selectedInstallation, session.tenantId, isProspect]);
 
   useEffect(() => {
     fetchData();
@@ -67,8 +117,8 @@ export function PortalDesempeno({ session, selectedInstallation }: Props) {
 
   /* ── Early returns ── */
 
-  if (!selectedInstallation) {
-    return <EmptyState title="Selecciona una instalaci\u00f3n" compact />;
+  if (!isProspect && !selectedInstallation) {
+    return <EmptyState title="Selecciona una instalación" compact />;
   }
 
   if (loading) {
@@ -79,8 +129,12 @@ export function PortalDesempeno({ session, selectedInstallation }: Props) {
     );
   }
 
+  if (error) {
+    return <EmptyState title={error} compact />;
+  }
+
   if (!data) {
-    return <EmptyState title="Sin datos de desempe\u00f1o" compact />;
+    return <EmptyState title="Sin datos de desempeño" compact />;
   }
 
   /* ── Derived values ── */
@@ -98,6 +152,13 @@ export function PortalDesempeno({ session, selectedInstallation }: Props) {
 
   return (
     <div className="max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
+      {isProspect && (
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-sm font-semibold">Desempeño del servicio</h3>
+          <PreviewBadge />
+        </div>
+      )}
+
       {/* ── 1. Trust Score Card ── */}
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-6">
@@ -135,7 +196,7 @@ export function PortalDesempeno({ session, selectedInstallation }: Props) {
           variant="blue"
         />
         <KpiCard
-          title="D\u00edas sin incidentes"
+          title="Días sin incidentes"
           value={data.kpis.diasSinIncidentes}
           icon={<CheckCircle2 className="h-4 w-4" />}
           variant="amber"

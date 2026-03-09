@@ -114,16 +114,11 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
     if (!contact.portalPin && !contact.portalPinVisible) continue;
 
     let pinValid = false;
-    if (contact.portalPin) {
-      if (contact.portalPin.startsWith("$2")) {
-        pinValid = await bcrypt.compare(pin, contact.portalPin);
-      } else {
-        pinValid = contact.portalPin === pin;
-      }
+    if (contact.portalPin && contact.portalPin.startsWith("$2")) {
+      pinValid = await bcrypt.compare(pin, contact.portalPin);
     }
-    if (!pinValid && contact.portalPinVisible) {
-      pinValid = contact.portalPinVisible === pin;
-    }
+    // TODO: Migrar todos los contactos con portalPinVisible a portalPin (bcrypt)
+    // y luego eliminar el campo portalPinVisible del schema
 
     if (pinValid) {
       try {

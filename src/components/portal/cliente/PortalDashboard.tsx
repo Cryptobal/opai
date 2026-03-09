@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, XCircle,
-  Clock, Loader2,
+  Clock, Loader2, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente'
@@ -202,6 +202,15 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
               <PreviewBadge />
             </div>
           )}
+          {!isProspect && summary.totalRounds === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <BarChart3 className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-sm font-medium">Sin datos operacionales este mes</p>
+              <p className="text-xs opacity-60 mt-1">Los datos aparecerán cuando se registren rondas</p>
+            </div>
+          )}
+          {(isProspect || summary.totalRounds > 0) && (
+            <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
             <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
@@ -297,6 +306,9 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
               </div>
             )}
           </div>
+
+            </>
+          )}
 
           {/* Footer */}
           <footer className="text-center text-[10px] text-zinc-600 pt-4 pb-8">
