@@ -8,7 +8,7 @@ import {
   Shield, Loader2, ChevronDown,
 } from "lucide-react";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
-import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
+import { PortalDocumentos } from "@/components/portal/cliente/PortalDocumentos";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
 import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
 import { PortalInstallations } from "@/components/portal/cliente/PortalInstallations";
@@ -178,11 +178,7 @@ export function PortalClienteClient() {
           </div>
         );
       case "documentacion":
-        return (
-          <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
-            <PortalContractsSection tenantId={session.tenantId} accountId={session.accountId} />
-          </div>
-        );
+        return <PortalDocumentos session={session} isProspect={session?.isProspect} />;
       case "reportes":
         return <PortalReportes session={session} />;
       case "comparativa":

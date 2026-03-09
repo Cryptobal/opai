@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  CheckCircle, XCircle, ChevronDown, ChevronUp, FileText, Loader2,
+  CheckCircle, XCircle, ChevronDown, ChevronUp, FileText, Loader2, AlertTriangle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PortalContractForm } from "./PortalContractForm";
 
@@ -71,6 +70,10 @@ function formatDate(d: string | null): string {
 function formatHorario(start: string | null, end: string | null): string {
   if (!start && !end) return "—";
   return `${start ?? ""}–${end ?? ""}`;
+}
+
+function seemsCurrencyWrong(amount: number, currency: string): boolean {
+  return (currency === "UF" && amount > 5000) || (currency === "CLP" && amount > 0 && amount < 1000);
 }
 
 /* ══════════════════════════════════════════════════════ */
@@ -242,6 +245,12 @@ export function PortalCotizaciones({ session }: Props) {
                   <span className="text-sm font-semibold text-teal-400">
                     {formatCurrency(quote.monthlyCost, quote.currency === "UF" ? "UF" : "CLP")}
                     <span className="text-xs font-normal text-zinc-500">/mes</span>
+                    {seemsCurrencyWrong(quote.monthlyCost, quote.currency) && (
+                      <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400" title="El monto parece no corresponder a la moneda indicada">
+                        <AlertTriangle className="h-3 w-3" />
+                        Verificar moneda
+                      </span>
+                    )}
                   </span>
                   {quote.validUntil && (
                     <span className="text-xs text-zinc-500">

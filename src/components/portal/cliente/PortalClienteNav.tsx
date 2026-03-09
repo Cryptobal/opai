@@ -16,31 +16,41 @@ export type PortalSection =
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
   | 'control-acceso'
 
+type NavGroup = 'operaciones' | 'comunicacion' | 'documentacion' | 'administracion'
+
+const GROUP_LABELS: Record<NavGroup, string> = {
+  operaciones: 'Operaciones',
+  comunicacion: 'Comunicación',
+  documentacion: 'Documentación',
+  administracion: 'Administración',
+}
+
 const ALL_NAV_ITEMS: Array<{
   id: PortalSection
   label: string
   icon: React.ComponentType<{ className?: string }>
   configKey?: keyof PortalConfig
   prospectOnly?: boolean
+  group?: NavGroup
 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
   { id: 'rondas', label: 'Rondas', icon: MapPin, configKey: 'rondas' },
   { id: 'posta', label: 'Posta', icon: BookOpen, configKey: 'posta' },
-  { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion' },
-  { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets' },
-  { id: 'documentacion', label: 'Documentos', icon: FileText, configKey: 'documentacion' },
-  { id: 'cotizaciones', label: 'Cotizaciones', icon: Receipt, configKey: 'cotizaciones' },
-  { id: 'reportes', label: 'Reportes', icon: BarChart3, configKey: 'reportes' },
-  { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa' },
-  { id: 'desempeno', label: 'Desempe\u00f1o', icon: TrendingUp, configKey: 'gamificacion' },
-  { id: 'encuestas', label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
-  { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas' },
-  { id: 'personal', label: 'Personal', icon: UserCheck },
+  { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion', group: 'comunicacion' },
+  { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets', group: 'comunicacion' },
+  { id: 'alertas', label: 'Notificaciones', icon: Bell, configKey: 'alertas', group: 'comunicacion' },
+  { id: 'reportes', label: 'Reportes', icon: BarChart3, configKey: 'reportes', group: 'operaciones' },
+  { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa', group: 'operaciones' },
+  { id: 'desempeno', label: 'Desempeño', icon: TrendingUp, configKey: 'gamificacion', group: 'operaciones' },
+  { id: 'encuestas', label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas', group: 'operaciones' },
+  { id: 'documentacion', label: 'Documentos', icon: FileText, configKey: 'documentacion', group: 'documentacion' },
+  { id: 'cotizaciones', label: 'Cotizaciones', icon: Receipt, configKey: 'cotizaciones', group: 'documentacion' },
+  { id: 'personal', label: 'Personal', icon: UserCheck, group: 'administracion' },
+  { id: 'empresa', label: 'Empresa', icon: Briefcase, group: 'administracion' },
+  { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck, group: 'administracion' },
   { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
   { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
-  { id: 'empresa', label: 'Empresa', icon: Briefcase },
-  { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck },
 ]
 
 interface Props {
@@ -52,6 +62,8 @@ interface Props {
 
 // Fixed 4 tabs for prospect mode per spec: Inicio, Propuesta, Nosotros, Chat
 const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'propuesta', 'nosotros', 'chat']
+
+const GROUP_ORDER: NavGroup[] = ['operaciones', 'comunicacion', 'documentacion', 'administracion']
 
 export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
@@ -72,6 +84,22 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
     ? []
     : visibleItems.slice(4)
   const hasExtra = extraItems.length > 0
+
+  // Group extra items
+  const groupedExtras = hasExtra ? (() => {
+    const groups: Array<{ group: NavGroup; items: typeof extraItems }> = []
+    const ungrouped: typeof extraItems = []
+
+    for (const g of GROUP_ORDER) {
+      const items = extraItems.filter(i => i.group === g)
+      if (items.length > 0) groups.push({ group: g, items })
+    }
+    for (const item of extraItems) {
+      if (!item.group) ungrouped.push(item)
+    }
+
+    return { groups, ungrouped }
+  })() : null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-50 safe-area-pb">
@@ -110,25 +138,55 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-[10px] leading-tight font-medium">Mas</span>
             </button>
-            {moreOpen && (
-              <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[160px] z-10">
-                {extraItems.map(item => {
-                  const Icon = item.icon
-                  const active = activeSection === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => { onSection(item.id); setMoreOpen(false) }}
-                      className={cn(
-                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
-                      )}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      {item.label}
-                    </button>
-                  )
-                })}
+            {moreOpen && groupedExtras && (
+              <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[180px] max-h-[70vh] overflow-y-auto z-10">
+                {groupedExtras.groups.map((group, gIdx) => (
+                  <div key={group.group}>
+                    {gIdx > 0 && <div className="border-t border-border my-2" />}
+                    <p className="px-4 py-1 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                      {GROUP_LABELS[group.group]}
+                    </p>
+                    {group.items.map(item => {
+                      const Icon = item.icon
+                      const active = activeSection === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => { onSection(item.id); setMoreOpen(false) }}
+                          className={cn(
+                            'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
+                            active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
+                          )}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+                {groupedExtras.ungrouped.length > 0 && (
+                  <>
+                    {groupedExtras.groups.length > 0 && <div className="border-t border-border my-2" />}
+                    {groupedExtras.ungrouped.map(item => {
+                      const Icon = item.icon
+                      const active = activeSection === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => { onSection(item.id); setMoreOpen(false) }}
+                          className={cn(
+                            'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
+                            active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700'
+                          )}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             )}
           </div>
