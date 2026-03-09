@@ -555,9 +555,9 @@ export function RondasMonitoreoClient({
         isReadOnly={isReadOnly}
       />
 
-      {/* Observer / Operator banner */}
+      {/* Observer / Operator banner — desktop only (mobile has its own in MobileMonitorView) */}
       {isReadOnly && (
-        <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-slate-800/80 border-b border-slate-700/50">
+        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-1.5 bg-slate-800/80 border-b border-slate-700/50">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-xs text-slate-400">
             Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> est&aacute; operando el turno
@@ -565,7 +565,7 @@ export function RondasMonitoreoClient({
         </div>
       )}
       {isOperator && activeTurno && (
-        <div className="flex items-center justify-center gap-2 px-4 py-0.5 bg-teal-500/5 border-b border-teal-500/10">
+        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-0.5 bg-teal-500/5 border-b border-teal-500/10">
           <span className="text-[10px] text-teal-400/60">Est&aacute;s operando este turno</span>
         </div>
       )}
@@ -586,6 +586,7 @@ export function RondasMonitoreoClient({
           mapCenter={mapCenter}
           selectedRondaId={selectedRondaId}
           onInstallationClick={(id) => setSelectedInstallationId(id)}
+          onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
         />
       ) : (
         <>

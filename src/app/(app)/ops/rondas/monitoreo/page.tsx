@@ -73,11 +73,15 @@ export default async function RondasMonitoreoPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Monitoreo en tiempo real"
-        description="Rondas activas y posición de guardias."
-      />
-      <RondasSubnav />
+      <div className="hidden md:block">
+        <PageHeader
+          title="Monitoreo en tiempo real"
+          description="Rondas activas y posición de guardias."
+        />
+      </div>
+      <div className="hidden md:block">
+        <RondasSubnav />
+      </div>
       <RondasMonitoreoClient
         initialRows={JSON.parse(JSON.stringify(activeRows))}
         upcomingRows={JSON.parse(JSON.stringify(upcomingRows))}

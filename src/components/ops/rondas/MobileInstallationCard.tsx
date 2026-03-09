@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CNRonda {
@@ -37,6 +35,7 @@ interface CNInstalacion {
   monitoreoType: string;
   notes: string | null;
   rondasEsperadas: number;
+  rondaFrecuencia?: number | null;
   guardias: CNGuardia[];
   rondas: CNRonda[];
 }
@@ -45,200 +44,303 @@ interface MobileInstallationCardProps {
   instalacion: CNInstalacion;
   expanded: boolean;
   onToggle: () => void;
+  onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
+  isReadOnly?: boolean;
 }
 
-function trustColor(score: number | null): string {
-  if (score == null) return "text-slate-500";
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function statusDot(status: string): string {
+  switch (status) {
+    case "presente": case "reemplazo": return "bg-emerald-500";
+    case "en_camino": return "bg-amber-400 animate-pulse";
+    case "no_viene": return "bg-red-500";
+    default: return "bg-slate-500";
+  }
 }
 
-function coberturaColor(status: string): string {
+function coberturaBarColor(status: string): string {
   switch (status) {
     case "completa": return "bg-emerald-500";
-    case "parcial": return "bg-amber-500";
+    case "parcial": return "bg-amber-400";
     case "descubierta": return "bg-red-500";
     default: return "bg-slate-600";
   }
 }
 
-function slotColor(ronda: CNRonda): string {
-  if (ronda.status === "completada") {
-    if (ronda.trustScore != null && ronda.trustScore >= 80) return "bg-emerald-500";
-    if (ronda.trustScore != null && ronda.trustScore >= 60) return "bg-amber-500";
-    if (ronda.trustScore != null) return "bg-red-500";
-    return "bg-emerald-500/60";
-  }
-  if (ronda.status === "omitida") return "bg-red-500";
-  if (ronda.status === "no_aplica") return "bg-slate-700";
-  return "bg-slate-700/50";
-}
+function getSlotVisual(slot: CNRonda, currentHour: number): {
+  bg: string; color: string; icon: string; label: string;
+} {
+  const slotHour = parseInt(slot.horaEsperada.split(":")[0], 10);
+  const normalizedSlot = slotHour < 12 ? slotHour + 24 : slotHour;
+  const normalizedCurrent = currentHour < 12 ? currentHour + 24 : currentHour;
+  const isPast = normalizedSlot < normalizedCurrent;
+  const isCurrent = normalizedSlot === normalizedCurrent;
 
-function guardStatusDot(status: string): string {
-  switch (status) {
-    case "presente": return "bg-emerald-500";
-    case "reemplazo": return "bg-emerald-500";
-    case "en_camino": return "bg-amber-500 animate-pulse";
-    case "no_viene": return "bg-red-500";
-    default: return "bg-slate-600";
-  }
-}
-
-function rondaTimelineIcon(ronda: CNRonda): { icon: string; color: string; label: string } {
-  if (ronda.status === "completada" && ronda.autoPopulated) {
+  if (slot.status === "completada" && slot.autoPopulated) {
+    const t = slot.trustScore ?? 0;
     return {
+      bg: t >= 80 ? "bg-emerald-500/10" : t >= 60 ? "bg-amber-500/8" : "bg-red-500/8",
+      color: t >= 80 ? "text-emerald-400" : t >= 60 ? "text-amber-400" : "text-red-400",
       icon: "\u26A1",
-      color: "text-emerald-400",
-      label: `${ronda.horaMarcada}${ronda.trustScore != null ? ` · Trust ${ronda.trustScore}` : ""}`,
+      label: `${slot.horaMarcada}${t ? ` \u00B7 Trust ${t}` : ""}`,
     };
   }
-  if (ronda.status === "completada" && !ronda.autoPopulated) {
-    return {
-      icon: "\u270B",
-      color: "text-emerald-300",
-      label: ronda.horaMarcada ?? "Manual",
-    };
+  if (slot.status === "completada" && !slot.autoPopulated) {
+    return { bg: "bg-emerald-500/8", color: "text-emerald-300", icon: "\u270B", label: slot.horaMarcada || "OK" };
   }
-  if (ronda.status === "omitida") {
-    return { icon: "\u2715", color: "text-red-400", label: "Omitida" };
+  if (slot.status === "omitida") {
+    return { bg: "bg-red-500/10", color: "text-red-400", icon: "\u2715", label: slot.notes || "Omitida" };
   }
-  if (ronda.status === "no_aplica") {
-    return { icon: "\u2014", color: "text-slate-600", label: "N/A" };
+  if (slot.status === "no_aplica") {
+    return { bg: "", color: "text-slate-600", icon: "\u2014", label: "N/A" };
   }
   // Pending
-  const now = new Date();
-  const currentHour = now.getHours();
-  const slotHour = parseInt(ronda.horaEsperada.split(":")[0], 10);
-  const isCurrentSlot = slotHour === currentHour;
-  if (isCurrentSlot) {
-    return { icon: "\u25CF", color: "text-teal-400 animate-pulse", label: "Esperando..." };
+  if (isCurrent) {
+    return { bg: "bg-teal-500/8", color: "text-teal-400", icon: "\u25CF", label: "Esperando..." };
   }
-  return { icon: "\u2014", color: "text-slate-600", label: "Programada" };
+  if (isPast && slot.rondaExpected) {
+    return { bg: "bg-red-500/8", color: "text-red-400", icon: "\u26A0", label: "No realizada" };
+  }
+  if (isPast && !slot.rondaExpected) {
+    return { bg: "", color: "text-slate-700", icon: "\u00B7", label: "" };
+  }
+  if (slot.rondaExpected) {
+    return { bg: "bg-slate-800/40", color: "text-slate-500", icon: "\u2014", label: "Programada" };
+  }
+  return { bg: "", color: "text-slate-700", icon: "", label: "" };
 }
 
-export function MobileInstallationCard({ instalacion, expanded, onToggle }: MobileInstallationCardProps) {
+// ---------------------------------------------------------------------------
+// Guard row component
+// ---------------------------------------------------------------------------
+
+function GuardRow({ g }: { g: CNGuardia }) {
+  const isNoViene = g.status === "no_viene";
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-3 py-1.5 rounded-lg",
+      isNoViene ? "bg-red-500/10" :
+      g.status === "presente" || g.status === "reemplazo" ? "bg-emerald-500/5" :
+      g.status === "en_camino" ? "bg-amber-500/5" : "bg-slate-800/50"
+    )}>
+      <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", statusDot(g.status))} />
+      <span className={cn(
+        "text-xs flex-1 truncate",
+        isNoViene ? "line-through text-red-400/60" : "text-slate-200"
+      )}>
+        {g.guardiaNombre}
+      </span>
+      {g.isExtra && (
+        <span className="text-[8px] text-amber-400 font-bold bg-amber-500/20 px-1 rounded flex-shrink-0">EXT</span>
+      )}
+      <span className="text-[10px] text-slate-500 font-mono flex-shrink-0">
+        {isNoViene ? (
+          <span className="text-red-400 font-sans">
+            No viene{g.notes ? ` \u00B7 ${g.notes}` : ""}
+          </span>
+        ) : g.horaLlegada ? g.horaLlegada : "\u2014"}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Guard section header with count
+// ---------------------------------------------------------------------------
+
+function guardSummaryColor(guardias: CNGuardia[]): string {
+  if (guardias.length === 0) return "text-slate-600";
+  const presentes = guardias.filter(g => g.status === "presente" || g.status === "reemplazo").length;
+  if (presentes >= guardias.length) return "text-emerald-400";
+  if (guardias.some(g => g.status === "no_viene")) return "text-red-400";
+  if (presentes > 0) return "text-amber-400";
+  return "text-slate-500";
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export function MobileInstallationCard({
+  instalacion,
+  expanded,
+  onToggle,
+  onGuardClick,
+  isReadOnly,
+}: MobileInstallationCardProps) {
   const rondas = instalacion.rondas ?? [];
+  const allGuardias = instalacion.guardias ?? [];
+  const nocturnos = allGuardias.filter((g) => g.turno === "nocturno" || !g.turno);
+  const diurnos = allGuardias.filter((g) => g.turno === "diurno");
+
   const completadas = rondas.filter((r) => r.status === "completada").length;
   const omitidas = rondas.filter((r) => r.status === "omitida").length;
   const expected = rondas.filter((r) => r.rondaExpected).length;
   const scores = rondas.filter((r) => r.trustScore != null);
   const avgTrust = scores.length > 0 ? Math.round(scores.reduce((a, r) => a + (r.trustScore ?? 0), 0) / scores.length) : null;
+
   const isDescubierta = instalacion.coberturaStatus === "descubierta";
-  const nocturnos = (instalacion.guardias ?? []).filter((g) => g.turno === "nocturno" || !g.turno);
+  const currentHour = new Date().getHours();
+  const nocPresentes = nocturnos.filter(g => g.status === "presente" || g.status === "reemplazo").length;
+  const diaPresentes = diurnos.filter(g => g.status === "presente" || g.status === "reemplazo").length;
 
   return (
-    <div
-      className={cn(
-        "rounded-xl border overflow-hidden transition-all",
-        isDescubierta
-          ? "border-red-500/40 bg-red-500/[0.06]"
-          : "border-slate-800 bg-slate-900/60"
-      )}
-    >
-      {/* Collapsed header */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-      >
+    <div className={cn(
+      "rounded-xl border transition-all",
+      isDescubierta
+        ? "bg-red-500/[0.06] border-red-500/30"
+        : "bg-slate-800/50 border-slate-700/50"
+    )}>
+      {/* ═══ COLLAPSED HEADER ═══ */}
+      <button onClick={onToggle} className="w-full px-4 py-3 flex items-start gap-3 text-left">
         {/* Color bar */}
-        <div className={cn("w-1 self-stretch rounded-full flex-shrink-0", coberturaColor(instalacion.coberturaStatus))} />
+        <div className={cn("w-1.5 rounded-full self-stretch mt-0.5 flex-shrink-0", coberturaBarColor(instalacion.coberturaStatus))} />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px]">
-              {instalacion.monitoreoType === "rondas" ? "\uD83D\uDD04" : "\uD83D\uDCDE"}
-            </span>
-            <span className="text-xs font-medium text-slate-200 truncate">
-              {instalacion.installationName}
+          {/* Name + type */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white truncate">{instalacion.installationName}</span>
+            <span className="text-[10px] text-slate-500 flex-shrink-0">
+              {instalacion.monitoreoType === "rondas"
+                ? `\uD83D\uDD04${instalacion.rondaFrecuencia ? ` c/${instalacion.rondaFrecuencia}m` : ""}`
+                : "\uD83D\uDCDE"}
             </span>
           </div>
 
-          {/* Mini slot bar */}
-          <div className="flex gap-[2px] mt-1.5">
-            {rondas.map((r) => (
-              <div
-                key={r.id}
-                className={cn("h-[3px] flex-1 rounded-full", slotColor(r))}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right">
-            <div className="text-[10px] text-slate-400">
-              {completadas}/{expected || rondas.length}
-            </div>
-            {avgTrust != null && (
-              <div className={cn("text-[10px] font-bold", trustColor(avgTrust))}>
-                T{avgTrust}
+          {/* Dots de cobertura noche + día */}
+          <div className="flex items-center gap-3 mt-1.5">
+            {nocturnos.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-slate-500">N:</span>
+                <div className="flex gap-0.5">
+                  {nocturnos.map((g) => (
+                    <div key={g.id} className={cn("w-2 h-2 rounded-full", statusDot(g.status))} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {diurnos.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-slate-500">D:</span>
+                <div className="flex gap-0.5">
+                  {diurnos.map((g) => (
+                    <div key={g.id} className={cn("w-2 h-2 rounded-full", statusDot(g.status))} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          {omitidas > 0 && (
-            <span className="text-[9px] text-red-400 font-medium">{omitidas} om</span>
-          )}
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-slate-500 transition-transform",
-              expanded && "rotate-180"
+
+          {/* Stats row */}
+          <div className="flex items-center gap-3 mt-1 text-[10px]">
+            <span className="text-slate-400">{completadas}/{expected || rondas.length} check-ins</span>
+            {avgTrust != null && (
+              <span className={avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"}>
+                Trust {avgTrust}
+              </span>
             )}
-          />
+            {omitidas > 0 && <span className="text-red-400">{omitidas} omitidas</span>}
+          </div>
+
+          {/* Note preview */}
+          {instalacion.notes && (
+            <div className="mt-1 text-[9px] text-amber-400/70 truncate">{"\uD83D\uDCDD"} {instalacion.notes}</div>
+          )}
+        </div>
+
+        {/* Right: badge + chevron */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {isDescubierta && (
+            <span className="text-[8px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded font-bold">DESC</span>
+          )}
+          <span className={cn("text-slate-500 text-xs transition-transform duration-200", expanded && "rotate-180")}>{"\u25BE"}</span>
         </div>
       </button>
 
-      {/* Expanded content */}
+      {/* ═══ EXPANDED CONTENT ═══ */}
       {expanded && (
-        <div className="px-3 pb-3 border-t border-slate-800/50">
-          {/* Guards section */}
-          {nocturnos.length > 0 && (
-            <div className="mt-2 mb-3">
-              <div className="text-[9px] text-slate-500 font-semibold uppercase mb-1.5">Guardias Noche</div>
-              <div className="space-y-1">
-                {nocturnos.map((g) => (
-                  <div key={g.id} className="flex items-center gap-2">
-                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0", guardStatusDot(g.status))} />
-                    <span className="text-xs text-slate-300 truncate">{g.guardiaNombre}</span>
-                    {g.horaLlegada && (
-                      <span className="text-[10px] text-slate-500 ml-auto">{g.horaLlegada}</span>
-                    )}
-                    {g.status === "no_viene" && (
-                      <span className="text-[9px] text-red-400 ml-auto">No viene</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="px-4 pb-4 space-y-3 border-t border-slate-700/50 pt-3">
 
-          {/* Timeline */}
-          <div className="text-[9px] text-slate-500 font-semibold uppercase mb-1.5">Rondas</div>
-          <div className="space-y-1">
-            {rondas.map((r) => {
-              const timeline = rondaTimelineIcon(r);
-              return (
-                <div key={r.id} className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-500 font-mono w-10 flex-shrink-0">
-                    {r.horaEsperada}
-                  </span>
-                  <span className={cn("text-xs", timeline.color)}>
-                    {timeline.icon}
-                  </span>
-                  <span className={cn("text-[11px]", timeline.color)}>
-                    {timeline.label}
-                  </span>
-                  {r.notes && <span className="text-blue-400 text-[10px] ml-auto">{"\uD83D\uDCAC"}</span>}
-                </div>
-              );
-            })}
+          {/* ─── GUARDIAS NOCHE ─── */}
+          <div onClick={() => onGuardClick?.(instalacion, "nocturno")} className={onGuardClick ? "cursor-pointer" : undefined}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Turno Noche</span>
+              <span className={cn("text-[10px] font-bold", guardSummaryColor(nocturnos))}>
+                {nocPresentes}/{nocturnos.length}
+              </span>
+            </div>
+            {nocturnos.length > 0 ? (
+              <div className="space-y-1.5">
+                {nocturnos.map((g) => <GuardRow key={g.id} g={g} />)}
+              </div>
+            ) : (
+              <div className="text-[11px] text-slate-500 italic px-3 py-2 bg-slate-800/30 rounded-lg">
+                Sin guardias nocturnos asignados
+              </div>
+            )}
           </div>
 
-          {/* Notes */}
+          {/* ─── GUARDIAS DÍA ─── */}
+          <div
+            onClick={() => onGuardClick?.(instalacion, "diurno")}
+            className={onGuardClick ? "cursor-pointer" : undefined}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Relevo D&iacute;a</span>
+              <span className={cn("text-[10px] font-bold", guardSummaryColor(diurnos))}>
+                {diurnos.length > 0
+                  ? `${diaPresentes}/${diurnos.length}`
+                  : "\u2014"}
+              </span>
+            </div>
+            {diurnos.length > 0 ? (
+              <div className="space-y-1.5">
+                {diurnos.map((g) => <GuardRow key={g.id} g={g} />)}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/30 rounded-lg">
+                <span className="text-[11px] text-slate-500 italic flex-1">Sin guardias de d&iacute;a asignados</span>
+                {!isReadOnly && onGuardClick && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onGuardClick(instalacion, "diurno"); }}
+                    className="text-[9px] text-teal-400 font-medium px-2 py-0.5 rounded-full border border-teal-500/30 bg-teal-500/10"
+                  >
+                    + Asignar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ─── TIMELINE DE SLOTS ─── */}
+          <div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">
+              {instalacion.monitoreoType === "rondas" ? "Rondas" : "Check-ins"}
+            </div>
+            <div className="space-y-1">
+              {rondas.map((r) => {
+                const v = getSlotVisual(r, currentHour);
+                // Skip empty future non-expected slots
+                if (!v.icon && !v.label) return null;
+                return (
+                  <div key={r.id} className={cn("flex items-center gap-2.5 px-3 py-1.5 rounded-lg", v.bg)}>
+                    <span className="text-[11px] text-slate-500 font-mono w-12 flex-shrink-0">{r.horaEsperada}</span>
+                    <span className={cn("text-xs", v.color)}>{v.icon}</span>
+                    <span className={cn("text-xs flex-1", v.color)}>{v.label}</span>
+                    {r.notes && <span className="text-blue-400 text-[10px] flex-shrink-0">{"\uD83D\uDCAC"}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ─── NOTAS ─── */}
           {instalacion.notes && (
-            <div className="mt-2 px-2 py-1.5 rounded-lg bg-slate-800/50 text-[11px] text-slate-400">
-              {instalacion.notes}
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+              <div className="text-[10px] text-amber-400/80">{instalacion.notes}</div>
             </div>
           )}
         </div>
