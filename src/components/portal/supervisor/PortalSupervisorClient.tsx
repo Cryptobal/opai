@@ -102,7 +102,7 @@ export function PortalSupervisorClient() {
   }
 
   function handleDashboardAction(
-    action: "nueva-visita" | "novedad" | "turno-extra" | "rendicion"
+    action: "nueva-visita" | "novedad" | "turno-extra" | "rendicion" | "visita-tecnica"
   ) {
     switch (action) {
       case "nueva-visita":
@@ -110,10 +110,14 @@ export function PortalSupervisorClient() {
         setWizardOpen(true);
         break;
       case "turno-extra":
-        setActiveSection("turnos-extra");
+        window.open("/personas/guardias/ingreso-te", "_blank");
         break;
       case "rendicion":
         setActiveSection("rendiciones");
+        break;
+      case "visita-tecnica":
+        setActiveSection("visita-tecnica");
+        setVisitaTecnicaMode("form");
         break;
       // "novedad" is handled by FAB
     }

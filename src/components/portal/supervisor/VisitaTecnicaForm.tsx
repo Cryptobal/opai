@@ -19,6 +19,7 @@ import {
   Loader2,
   MapPin,
   Pen,
+  Search,
   Send,
   X,
 } from "lucide-react";
@@ -425,6 +426,14 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
 
 // ─── Step components ────────────────────────────────────────────────────────
 
+interface SearchResult {
+  id: string;
+  name: string;
+  address: string | null;
+  accountId: string;
+  accountName: string;
+}
+
 function Step1({
   installations,
   installationId,
@@ -440,25 +449,124 @@ function Step1({
   onCheckIn: () => void;
   saving: boolean;
 }) {
-  const inst = installations.find((i) => i.id === installationId);
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const allOptions = [...installations];
+  const inst =
+    allOptions.find((i) => i.id === installationId) ??
+    searchResults.find((r) => r.id === installationId);
+
+  useEffect(() => {
+    if (!searchMode || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `/api/portal/supervisor/search-installations?q=${encodeURIComponent(searchQuery)}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          const known = new Set(installations.map((i) => i.id));
+          setSearchResults(
+            (json.data ?? []).filter((r: SearchResult) => !known.has(r.id))
+          );
+        }
+      } catch {
+        // ignore
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchMode, installations]);
+
   return (
     <div className="flex flex-col gap-4 py-4">
       <Field label="Instalación *">
-        <select
-          value={installationId}
-          onChange={(e) => {
-            const i = installations.find((x) => x.id === e.target.value);
-            onInstallationChange(e.target.value, i?.accountId ?? "");
-          }}
-          className="form-select"
-        >
-          {installations.map((i) => (
-            <option key={i.id} value={i.id}>{i.name} — {i.accountName}</option>
-          ))}
-        </select>
+        {!searchMode ? (
+          <div className="flex flex-col gap-2">
+            <select
+              value={installationId}
+              onChange={(e) => {
+                const i = installations.find((x) => x.id === e.target.value);
+                onInstallationChange(e.target.value, i?.accountId ?? "");
+              }}
+              className="form-select"
+            >
+              {installations.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name} — {i.accountName}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setSearchMode(true)}
+              className="text-xs text-blue-400 hover:text-blue-300 self-start"
+            >
+              Buscar instalación prospecto...
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar prospecto por nombre..."
+                className="form-input pl-9"
+              />
+            </div>
+            {searching && (
+              <div className="flex justify-center py-2">
+                <Loader2 size={16} className="animate-spin text-zinc-500" />
+              </div>
+            )}
+            {searchResults.length > 0 && (
+              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+                {searchResults.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      onInstallationChange(r.id, r.accountId);
+                      setSearchMode(false);
+                      setSearchQuery("");
+                    }}
+                    className="text-left px-3 py-2 rounded-md hover:bg-zinc-800 transition-colors"
+                  >
+                    <p className="text-xs font-medium text-zinc-200 truncate">{r.name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate">{r.accountName}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <p className="text-xs text-zinc-600 text-center py-2">Sin resultados</p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchMode(false);
+                setSearchQuery("");
+              }}
+              className="text-xs text-zinc-500 hover:text-zinc-300 self-start"
+            >
+              Volver a mis instalaciones
+            </button>
+          </div>
+        )}
       </Field>
 
-      {inst?.address && (
+      {inst && "address" in inst && inst.address && (
         <div className="flex items-start gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800">
           <MapPin size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
           <p className="text-xs text-zinc-400">{inst.address}</p>
@@ -494,7 +602,7 @@ function Step1({
       </div>
 
       <style jsx>{`
-        .form-select {
+        .form-select, .form-input {
           width: 100%;
           background: rgb(9 9 11);
           border: 1px solid rgb(39 39 42);
@@ -504,6 +612,7 @@ function Step1({
           color: white;
           outline: none;
         }
+        .form-input::placeholder { color: rgb(82 82 91); }
       `}</style>
     </div>
   );

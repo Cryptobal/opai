@@ -81,7 +81,7 @@ export function DevicePairingScreen({ onPaired, onLegacyLogin }: Props) {
       const res = await fetch("/api/devices/pair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pairingCode: fullCode.replace(/-/g, ""), metadata }),
+        body: JSON.stringify({ code: fullCode, metadata }),
       });
 
       const json = await res.json();
