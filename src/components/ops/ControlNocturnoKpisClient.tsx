@@ -181,7 +181,7 @@ export function ControlNocturnoKpisClient() {
       {/* ── Back link + filters ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
-          href="/ops/control-nocturno"
+          href="/ops/rondas/monitoreo"
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

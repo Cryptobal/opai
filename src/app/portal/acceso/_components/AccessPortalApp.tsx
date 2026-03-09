@@ -14,10 +14,10 @@ import RegistroTab from "./tabs/RegistroTab";
 import EnSitioTab from "./tabs/EnSitioTab";
 import MasTab from "./tabs/MasTab";
 import type { AccessControlConfigData } from "@/lib/access-control/types";
+import { DEVICE_TOKEN_KEY, LEGACY_ACCESS_TOKEN_KEY } from "@/lib/device-constants";
+import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 
 export type TabId = "inicio" | "registro" | "en-sitio" | "mas";
-
-const DEVICE_TOKEN_KEY = "gard_access_device_token";
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 interface DeviceInfo {
@@ -114,9 +114,20 @@ export function AccessPortalApp() {
     return () => releaseWakeLock();
   }, [appState, requestWakeLock, releaseWakeLock]);
 
+  // ── Heartbeat (works for tokens in unified DevicePairing table) ────
+  useDeviceHeartbeat();
+
   // ── Initialize: check for stored device token ──────────────────────
   useEffect(() => {
     async function init() {
+      // Migrate legacy localStorage key to unified key
+      const legacyToken = localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
+      const currentToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+      if (legacyToken && !currentToken) {
+        localStorage.setItem(DEVICE_TOKEN_KEY, legacyToken);
+        localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+      }
+
       // Admin preview mode
       if (isPreview && previewInstallationId) {
         try {

@@ -19,7 +19,7 @@ import { SupervisorRendiciones } from "./SupervisorRendiciones";
 import { SupervisorCrearRendicion } from "./SupervisorCrearRendicion";
 import { SupervisorRefuerzos } from "./SupervisorRefuerzos";
 import { SupervisorTickets } from "./SupervisorTickets";
-import { SupervisorChat } from "./SupervisorChat";
+import { ChatSupervisorPortal } from "./ChatSupervisorPortal";
 import { SupervisorVisitasTecnicas } from "./SupervisorVisitasTecnicas";
 import { VisitaTecnicaForm } from "./VisitaTecnicaForm";
 import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
@@ -205,7 +205,7 @@ export function PortalSupervisorClient() {
         return <SupervisorTickets installations={session!.installations} />;
 
       case "chat":
-        return <SupervisorChat session={session!} />;
+        return null; // Rendered outside <main> for proper height constraint
 
       case "visita-tecnica":
         if (visitaTecnicaMode === "form") {
@@ -264,16 +264,25 @@ export function PortalSupervisorClient() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#0a0a0f] text-white">
-      <div className="px-4 pt-2">
-        <PushPermissionPrompt
-          portalType="app"
-          userType="admin"
-          userId={session.adminId}
-          tenantId={session.tenantId}
-        />
-      </div>
-      <main className="pb-20">{renderSection()}</main>
+    <div className={`${activeSection === "chat" ? "h-dvh flex flex-col" : "min-h-dvh"} bg-[#0a0a0f] text-white`}>
+      {activeSection !== "chat" && (
+        <div className="px-4 pt-2">
+          <PushPermissionPrompt
+            portalType="app"
+            userType="admin"
+            userId={session.adminId}
+            tenantId={session.tenantId}
+          />
+        </div>
+      )}
+
+      {activeSection === "chat" ? (
+        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+          <ChatSupervisorPortal session={session} />
+        </div>
+      ) : (
+        <main className="pb-20">{renderSection()}</main>
+      )}
 
       <PortalSupervisorNav
         active={activeSection}

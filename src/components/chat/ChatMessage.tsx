@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
-import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy } from "lucide-react";
+import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
+import { ChatReactionBar } from "./ChatReactionBar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,27 +155,14 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
 }
 
 export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
-  const [showActions, setShowActions] = useState(false);
-  const [actionsExpanded, setActionsExpanded] = useState(false);
+  const [showTrigger, setShowTrigger] = useState(false);
+  const [showReactionBar, setShowReactionBar] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
-  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const actionBarRef = useRef<HTMLDivElement>(null);
-
-  // Close expanded action bar on any click outside it
-  useEffect(() => {
-    if (!actionsExpanded || dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (actionBarRef.current && !actionBarRef.current.contains(e.target as Node)) {
-        setActionsExpanded(false);
-        setShowActions(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [actionsExpanded, dropdownOpen]);
+  const messageRowRef = useRef<HTMLDivElement>(null);
 
   const handleReaction = useCallback(async (emoji: string) => {
     if (!channelId) return;
@@ -193,31 +181,32 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
   const showHeader = isFirstInGroup ?? true;
   const senderColorClass = senderColor(message.senderType);
 
+  const closeMobile = useCallback(() => setShowMobileMenu(false), []);
+  const closeDesktop = useCallback(() => { setShowReactionBar(false); setShowTrigger(false); }, []);
+
   return (
     <div
+      ref={messageRowRef}
       className={cn(
         "group relative flex items-start hover:bg-[rgba(255,255,255,0.04)] px-4 transition-colors duration-100",
         showHeader ? "pt-2 pb-0.5" : "py-0.5"
       )}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => { if (!dropdownOpen) { setShowActions(false); setActionsExpanded(false); } }}
+      onMouseEnter={() => { if (!message.systemEventType) setShowTrigger(true); }}
+      onMouseLeave={() => { if (!dropdownOpen) { setShowTrigger(false); setShowReactionBar(false); } }}
       onTouchStart={() => {
+        if (message.systemEventType) return;
         longPressTimerRef.current = setTimeout(() => {
-          setShowMobileActions(true);
+          navigator.vibrate?.(10);
+          setShowMobileMenu(true);
         }, 500);
       }}
       onTouchEnd={() => {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = null;
-        }
+        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
       }}
       onTouchMove={() => {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = null;
-        }
+        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
       }}
+      onContextMenu={(e) => { if (showMobileMenu) e.preventDefault(); }}
     >
       {/* Avatar or hover timestamp */}
       {showHeader ? (
@@ -355,169 +344,91 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
         )}
       </div>
 
-      {/* Action bar -- positioned at top-right on hover */}
-      {(showActions || actionsExpanded || dropdownOpen) && (
-        <div
-          ref={actionBarRef}
-          className="absolute right-4 -top-3 flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg px-1 py-0.5"
+      {/* Desktop: emoji trigger on hover (hidden on mobile via lg: prefix) */}
+      {showTrigger && !showReactionBar && !message.systemEventType && (
+        <button
+          type="button"
+          onClick={() => setShowReactionBar(true)}
+          className="absolute right-4 -top-3 z-10 hidden lg:flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-150 hover:bg-white/[0.08]"
+          style={{
+            backgroundColor: "#0d1220",
+            border: "1px solid rgba(255,255,255,0.06)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          }}
+          title="Reaccionar"
         >
-          {actionsExpanded || dropdownOpen ? (
-            <>
-              {/* Expanded: quick reactions + action buttons */}
-              {channelId && (
-                <>
-                  {["👍", "❤️", "😂", "🎉", "👀"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => { handleReaction(emoji); setActionsExpanded(false); setShowActions(false); }}
-                      className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-zinc-800 transition-colors"
-                      title={emoji}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                  <div className="w-px h-4 bg-zinc-700 mx-0.5" />
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => { onReply(); setActionsExpanded(false); setShowActions(false); }}
-                className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                title="Responder"
-              >
-                <Reply className="h-3.5 w-3.5" />
-              </button>
-              {onOpenThread && (
-                <button
-                  type="button"
-                  onClick={() => { onOpenThread(message.id); setActionsExpanded(false); setShowActions(false); }}
-                  className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                  title="Abrir hilo"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <DropdownMenu open={dropdownOpen} onOpenChange={(open) => {
-                setDropdownOpen(open);
-                if (!open) { setActionsExpanded(false); setShowActions(false); }
-              }}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                    title="Mas opciones"
-                  >
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  {onOpenThread && (
-                    <DropdownMenuItem onClick={() => onOpenThread(message.id)}>
-                      <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                      Abrir hilo
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => {
-                    navigator.clipboard.writeText(message.content);
-                  }}>
-                    <Copy className="mr-2 h-3.5 w-3.5" />
-                    Copiar texto
-                  </DropdownMenuItem>
-                  {isOwn && onEdit && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => {
-                        setEditContent(message.content);
-                        setIsEditing(true);
-                      }}>
-                        <Pencil className="mr-2 h-3.5 w-3.5" />
-                        Editar mensaje
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {(isOwn || canDeleteAny) && onDelete && (
-                    <DropdownMenuItem
-                      onClick={() => onDelete(message.id)}
-                      className="text-red-400 focus:text-red-400"
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" />
-                      Eliminar mensaje
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            /* Collapsed: just a small smiley trigger button */
-            <button
-              type="button"
-              onClick={() => setActionsExpanded(true)}
-              className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-zinc-800 transition-colors"
-              title="Acciones"
-            >
-              😊
-            </button>
-          )}
-        </div>
+          <SmilePlus className="h-4 w-4 text-zinc-400" />
+        </button>
       )}
 
-      {/* Mobile action sheet (long-press) */}
-      {showMobileActions && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/50"
-            onClick={() => setShowMobileActions(false)}
-          />
-          {/* Action sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border-t border-zinc-700 bg-zinc-900 p-4 pb-8 animate-in slide-in-from-bottom">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-700" />
+      {/* Desktop: expanded reaction bar */}
+      {showReactionBar && channelId && (
+        <ChatReactionBar
+          mode="hover"
+          onReact={(emoji) => { handleReaction(emoji); closeDesktop(); }}
+          onReply={() => { onReply(); closeDesktop(); }}
+          onThread={onOpenThread ? () => { onOpenThread(message.id); closeDesktop(); } : undefined}
+          onClose={closeDesktop}
+          moreSlot={
+            <DropdownMenu open={dropdownOpen} onOpenChange={(open) => {
+              setDropdownOpen(open);
+              if (!open) closeDesktop();
+            }}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 transition-colors"
+                  title="Más opciones"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[70] w-44">
+                {onOpenThread && (
+                  <DropdownMenuItem onClick={() => { onOpenThread(message.id); closeDesktop(); }}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                    Abrir hilo
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(message.content); closeDesktop(); }}>
+                  <Copy className="mr-2 h-3.5 w-3.5" />
+                  Copiar texto
+                </DropdownMenuItem>
+                {isOwn && onEdit && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setEditContent(message.content); setIsEditing(true); closeDesktop(); }}>
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      Editar mensaje
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {(isOwn || canDeleteAny) && onDelete && (
+                  <DropdownMenuItem
+                    onClick={() => { onDelete(message.id); closeDesktop(); }}
+                    className="text-red-400 focus:text-red-400"
+                  >
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                    Eliminar mensaje
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
+      )}
 
-            {/* Mobile: emojis first */}
-            {channelId && (
-              <div className="px-4 mb-3">
-                <div className="flex items-center justify-around">
-                  {["👍", "✅", "👀", "🎉", "❤️"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => { handleReaction(emoji); setShowMobileActions(false); }}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-[22px] hover:bg-zinc-800"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Then action buttons */}
-            <div className="space-y-1">
-              <button type="button" onClick={() => { onReply(); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
-                <Reply className="h-4 w-4 text-zinc-400" /> Responder
-              </button>
-              {onOpenThread && (
-                <button type="button" onClick={() => { onOpenThread(message.id); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
-                  <MessageSquare className="h-4 w-4 text-zinc-400" /> Abrir hilo
-                </button>
-              )}
-              <button type="button" onClick={() => { navigator.clipboard.writeText(message.content); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
-                <Copy className="h-4 w-4 text-zinc-400" /> Copiar texto
-              </button>
-              {isOwn && onEdit && (
-                <button type="button" onClick={() => { setEditContent(message.content); setIsEditing(true); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors">
-                  <Pencil className="h-4 w-4 text-zinc-400" /> Editar mensaje
-                </button>
-              )}
-              {(isOwn || canDeleteAny) && onDelete && (
-                <button type="button" onClick={() => { onDelete(message.id); setShowMobileActions(false); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-400 hover:bg-zinc-800 transition-colors">
-                  <Trash2 className="h-4 w-4" /> Eliminar mensaje
-                </button>
-              )}
-            </div>
-          </div>
-        </>
+      {/* Mobile: floating reaction menu (long-press) */}
+      {showMobileMenu && channelId && (
+        <ChatReactionBar
+          mode="longpress"
+          messageRef={messageRowRef}
+          onReact={(emoji) => { handleReaction(emoji); closeMobile(); }}
+          onReply={() => { onReply(); closeMobile(); }}
+          onThread={onOpenThread ? () => { onOpenThread(message.id); closeMobile(); } : undefined}
+          onCopy={() => { navigator.clipboard.writeText(message.content); closeMobile(); }}
+          onClose={closeMobile}
+        />
       )}
     </div>
   );

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGuardSession } from "@/lib/portal-chat-auth";
+import { batchUnreadCounts } from "@/lib/chat";
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,43 +76,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch read cursors for this guard in one query
+    // Batch unread counts in a single SQL query
     const channelIds = channels.map((ch) => ch.id);
-
-    const readCursors = await prisma.chatReadCursor.findMany({
-      where: {
-        channelId: { in: channelIds },
-        readerType: "GUARD",
-        readerId: session.guardiaId,
-      },
-      select: {
-        channelId: true,
-        lastReadAt: true,
-      },
-    });
-
-    const cursorMap = new Map(
-      readCursors.map((c) => [c.channelId, c.lastReadAt])
-    );
-
-    // Compute unread counts per channel
-    const unreadCounts = await Promise.all(
-      channels.map(async (ch) => {
-        const lastReadAt = cursorMap.get(ch.id);
-        const count = await prisma.chatMessage.count({
-          where: {
-            channelId: ch.id,
-            deletedAt: null,
-            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
-          },
-        });
-        return { channelId: ch.id, count };
-      })
-    );
-
-    const unreadMap = new Map(
-      unreadCounts.map((u) => [u.channelId, u.count])
-    );
+    const unreadMap = await batchUnreadCounts(channelIds, "GUARD", session.guardiaId);
 
     const data = channels.map((ch) => ({
       id: ch.id,

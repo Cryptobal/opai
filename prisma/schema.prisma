@@ -1426,6 +1426,8 @@ model CrmInstallation {
   rondaIncidentes                 OpsRondaIncidente[]              @relation("IncidenteInstallation")
   opsDispositivosInstalacion      OpsDispositivoInstalacion[]
   opsPatrullajeSesiones           OpsPatrullajeSesion[]
+  devicePairings                  DevicePairing[]
+  guardSelectionLogs              GuardSelectionLog[]
   encuestasCliente                OpsEncuestaCliente[]
   chatChannels                    ChatChannel[]
   visitasTecnicas                 OpsVisitaTecnica[]
@@ -2289,6 +2291,9 @@ model OpsGuardia {
   rondaAlertas                OpsAlertaRonda[]                @relation("alertaGuardia")
   patrolSessions              OpsPatrullajeSesion[]
   checkpointTaskResponses     OpsCheckpointTaskResponse[]
+  devicePairingsAsCurrentGuard DevicePairing[]                @relation("device_pairing_current_guard")
+  guardSelectionLogsFrom       GuardSelectionLog[]            @relation("guard_selection_from")
+  guardSelectionLogsTo         GuardSelectionLog[]            @relation("guard_selection_to")
   gamificacionScores           GamificacionScoreGuardia[]
   gamificacionEventos          GamificacionEvento[]
   gamificacionBadges           GamificacionGuardiaBadge[]
@@ -3645,6 +3650,78 @@ model OpsDispositivoInstalacion {
   @@index([tenantId], map: "idx_ops_dispositivos_tenant")
   @@index([installationId], map: "idx_ops_dispositivos_installation")
   @@map("dispositivos_instalacion")
+  @@schema("ops")
+}
+
+model DevicePairing {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  installationId       String    @map("installation_id") @db.Uuid
+  deviceToken          String?   @unique @map("device_token")
+  pairingCode          String?   @unique @map("pairing_code")
+  pairingCodeExpiresAt DateTime? @map("pairing_code_expires_at") @db.Timestamptz(6)
+  name                 String?
+  status               String    @default("ACTIVE") // ACTIVE | DISABLED | REVOKED
+
+  portalRondasEnabled  Boolean   @default(true) @map("portal_rondas_enabled")
+  portalAccesoEnabled  Boolean   @default(true) @map("portal_acceso_enabled")
+
+  deviceModel          String?   @map("device_model")
+  androidVersion       String?   @map("android_version")
+  browserVersion       String?   @map("browser_version")
+  screenResolution     String?   @map("screen_resolution")
+  cpuCores             Int?      @map("cpu_cores")
+  ramGB                Float?    @map("ram_gb")
+  pairingLatitude      Float?    @map("pairing_latitude")
+  pairingLongitude     Float?    @map("pairing_longitude")
+  deviceFingerprint    String?   @map("device_fingerprint")
+  userAgent            String?   @map("user_agent")
+
+  lastSeenAt           DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  lastBatteryLevel     Float?    @map("last_battery_level")
+  lastConnectionType   String?   @map("last_connection_type")
+  lastIpAddress        String?   @map("last_ip_address")
+
+  currentGuardId       String?   @map("current_guard_id") @db.Uuid
+  guardSelectedAt      DateTime? @map("guard_selected_at") @db.Timestamptz(6)
+
+  linkedAt             DateTime? @map("linked_at") @db.Timestamptz(6)
+  linkedByUserId       String?   @map("linked_by_user_id")
+  migratedFromDeviceId String?   @map("migrated_from_device_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation         CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  currentGuard         OpsGuardia?       @relation("device_pairing_current_guard", fields: [currentGuardId], references: [id], onDelete: SetNull)
+  guardSelectionLogs   GuardSelectionLog[]
+
+  @@index([deviceToken], map: "idx_device_pairing_token")
+  @@index([pairingCode], map: "idx_device_pairing_code")
+  @@index([installationId], map: "idx_device_pairing_installation")
+  @@index([tenantId], map: "idx_device_pairing_tenant")
+  @@index([status], map: "idx_device_pairing_status")
+  @@map("device_pairings")
+  @@schema("ops")
+}
+
+model GuardSelectionLog {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  devicePairingId String  @map("device_pairing_id") @db.Uuid
+  installationId String   @map("installation_id") @db.Uuid
+  fromGuardId    String?  @map("from_guard_id") @db.Uuid
+  toGuardId      String?  @map("to_guard_id") @db.Uuid
+  timestamp      DateTime @default(now()) @db.Timestamptz(6)
+
+  devicePairing  DevicePairing   @relation(fields: [devicePairingId], references: [id], onDelete: Cascade)
+  installation   CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  fromGuard      OpsGuardia?     @relation("guard_selection_from", fields: [fromGuardId], references: [id], onDelete: SetNull)
+  toGuard        OpsGuardia?     @relation("guard_selection_to", fields: [toGuardId], references: [id], onDelete: SetNull)
+
+  @@index([devicePairingId], map: "idx_guard_selection_log_device")
+  @@index([installationId], map: "idx_guard_selection_log_installation")
+  @@index([timestamp], map: "idx_guard_selection_log_timestamp")
+  @@map("guard_selection_logs")
   @@schema("ops")
 }
 

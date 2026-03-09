@@ -7,7 +7,7 @@ import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
   Shield, Loader2, ChevronDown,
 } from "lucide-react";
-import { ChatClienteSection } from "@/components/portales/ChatClienteSection";
+import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
 import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
 import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
@@ -168,7 +168,7 @@ export function PortalClienteClient() {
           />
         );
       case "chat":
-        return <ChatClienteSection session={session} isProspect={session?.isProspect} />;
+        return null; // Rendered outside <main> for proper height constraint
       case "alertas":
         return <PortalAlertas session={session} />;
       case "cotizaciones":
@@ -309,8 +309,9 @@ export function PortalClienteClient() {
 
   /* ══════════════════════════════════════ DASHBOARD ══════════════════════════════════════ */
   return (
-    <div className="min-h-dvh flex flex-col">
-      {/* Header */}
+    <div className={`flex flex-col ${activeSection === "chat" ? "h-dvh" : "min-h-dvh"}`}>
+      {/* Header — hidden during chat for max space */}
+      {activeSection !== "chat" && (
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-teal-400" />
@@ -356,19 +357,26 @@ export function PortalClienteClient() {
           )}
         </div>
       </header>
+      )}
 
-      {/* Main content */}
-      <main className="flex-1 pb-20">
-        {session && (
-          <PushPermissionPrompt
-            portalType="cliente"
-            userType="contact"
-            userId={session.contactId}
-            tenantId={session.tenantId}
-          />
-        )}
-        {renderSection()}
-      </main>
+      {/* Chat — rendered outside main for proper height constraint */}
+      {activeSection === "chat" && session ? (
+        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+          <ChatClientePortal session={session} />
+        </div>
+      ) : (
+        <main className="flex-1 pb-20">
+          {session && (
+            <PushPermissionPrompt
+              portalType="cliente"
+              userType="contact"
+              userId={session.contactId}
+              tenantId={session.tenantId}
+            />
+          )}
+          {renderSection()}
+        </main>
+      )}
 
       {/* Bottom nav */}
       <PortalClienteNav

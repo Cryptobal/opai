@@ -7,6 +7,7 @@ type UseChatUnreadCountsReturn = {
   total: number;
   channels: Record<string, number>;
   refresh: () => void;
+  markChannelAsRead: (channelId: string) => void;
 };
 
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
@@ -43,5 +44,15 @@ export function useChatUnreadCounts(): UseChatUnreadCountsReturn {
     };
   }, [fetchCounts]);
 
-  return { total, channels, refresh: fetchCounts };
+  /** Optimistically set a channel's unread count to 0 */
+  const markChannelAsRead = useCallback((channelId: string) => {
+    setChannels((prev) => {
+      const diff = prev[channelId] ?? 0;
+      if (diff === 0) return prev;
+      setTotal((t) => Math.max(0, t - diff));
+      return { ...prev, [channelId]: 0 };
+    });
+  }, []);
+
+  return { total, channels, refresh: fetchCounts, markChannelAsRead };
 }

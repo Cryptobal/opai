@@ -59,6 +59,12 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/portal/rondas')) return true;
   if (pathname.startsWith('/api/access-control/pair')) return true; // Device pairing (no auth needed)
   if (pathname.startsWith('/api/access-control/device')) return true; // Device validation/guards (auth by device_token)
+  if (pathname === '/api/devices/pair') return true; // Unified device pairing (no auth)
+  if (pathname === '/api/devices/validate') return true; // Device validation (auth by device_token)
+  if (pathname === '/api/devices/guards') return true; // Guards for device (auth by device_token)
+  if (pathname === '/api/devices/set-guard') return true; // Set guard (auth by device_token)
+  if (pathname === '/api/devices/heartbeat') return true; // Heartbeat (auth by device_token)
+  if (pathname === '/api/devices/legacy-auth-enabled') return true; // Public config check
   // Push subscription & preferences — portal users authenticate via PIN, not NextAuth
   if (pathname.startsWith('/api/notifications/push/subscribe')) return true;
   if (pathname.startsWith('/api/notifications/push/preferences')) return true;
