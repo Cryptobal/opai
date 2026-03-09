@@ -8,6 +8,7 @@ import {
   Settings,
   BarChart3,
   Brain,
+  History,
 } from "lucide-react";
 
 const RONDAS_ITEMS: SubNavItem[] = [
@@ -17,6 +18,7 @@ const RONDAS_ITEMS: SubNavItem[] = [
   { href: "/ops/rondas/configuracion", label: "Configuración", icon: Settings },
   { href: "/ops/rondas/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/ops/rondas/centro-ia", label: "Centro IA", icon: Brain },
+  { href: "/ops/rondas/historial", label: "Historial", icon: History },
 ];
 
 export function RondasSubnav() {
