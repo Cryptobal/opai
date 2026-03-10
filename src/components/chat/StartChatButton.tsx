@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { MessageCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useChatFloatingContext } from "./ChatFloatingProvider";
+import { useChatSidePanelContext } from "./ChatFloatingProvider";
 
 interface Props {
   contactId: string;
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function StartChatButton({ contactId, portalEnabled }: Props) {
-  const ctx = useChatFloatingContext();
+  const ctx = useChatSidePanelContext();
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {

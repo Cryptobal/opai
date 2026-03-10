@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
-import { useChatFloatingContext } from "@/components/chat/ChatFloatingProvider";
+import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { ThemeToggle } from "./ThemeToggle";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "./Avatar";
@@ -66,7 +66,7 @@ export function TopbarActions({
   const [mounted, setMounted] = useState(false);
   const [quickCreateType, setQuickCreateType] = useState<QuickCreateType>(null);
   const router = useRouter();
-  const chatCtx = useChatFloatingContext();
+  const chatCtx = useChatSidePanelContext();
   useEffect(() => setMounted(true), []);
 
   return (

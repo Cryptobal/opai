@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useChatFloatingContext, type ChatFloatingChannel } from "./ChatFloatingProvider";
+import { useChatSidePanelContext, type ChatSidePanelChannel } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
 import { usePusher } from "./hooks/usePusher";
@@ -39,7 +39,7 @@ type AdminUser = { id: string; name: string; email: string };
 /* ─── Component ─── */
 
 export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
-  const ctx = useChatFloatingContext();
+  const ctx = useChatSidePanelContext();
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const pusher = usePusher("/api/chat/pusher/auth");
@@ -185,7 +185,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
 
   // Derive display name for a channel
-  const getChannelDisplayName = useCallback((ch: ChatFloatingChannel) => {
+  const getChannelDisplayName = useCallback((ch: ChatSidePanelChannel) => {
     if (ch.channelType === "DIRECT") return ch.dmParticipant?.name ?? ch.name;
     if (ch.channelType === "INSTALLATION") return ch.installation?.name ?? ch.name;
     return ch.name;
@@ -643,11 +643,11 @@ function ChannelSection({
 }: {
   label: string;
   icon: React.ReactNode;
-  channels: ChatFloatingChannel[];
+  channels: ChatSidePanelChannel[];
   collapsed: boolean;
   onToggle: () => void;
   onSelectChannel: (id: string) => void;
-  getDisplayName: (ch: ChatFloatingChannel) => string;
+  getDisplayName: (ch: ChatSidePanelChannel) => string;
   onArchive?: (channelId: string) => void;
   onUnarchive?: (channelId: string) => void;
   canDelete?: boolean;
@@ -828,7 +828,7 @@ function ChannelListItem({
   displayName,
   onClick,
 }: {
-  channel: ChatFloatingChannel;
+  channel: ChatSidePanelChannel;
   displayName: string;
   onClick: () => void;
 }) {

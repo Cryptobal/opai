@@ -15,7 +15,7 @@ import { AiHelpChatWidget } from './AiHelpChatWidget';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
-import { useChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
+import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +67,7 @@ export function AppShell({
 }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const chatCtx = useChatFloatingContext();
+  const chatCtx = useChatSidePanelContext();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);

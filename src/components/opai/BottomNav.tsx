@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
-import { ChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
+import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -78,7 +78,7 @@ function LinkBottomNav({
   useBottomNavHeight(navRef);
 
   // Read chat unread count from context (null-safe — returns 0 if no provider)
-  const chatCtx = useContext(ChatFloatingContext);
+  const chatCtx = useContext(ChatSidePanelContext);
   const chatUnread = chatCtx?.totalUnread ?? 0;
 
   return (
