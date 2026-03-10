@@ -15,7 +15,8 @@ import { AiHelpChatWidget } from './AiHelpChatWidget';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
-import { useChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
+import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
+import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +68,7 @@ export function AppShell({
 }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const chatCtx = useChatFloatingContext();
+  const chatCtx = useChatSidePanelContext();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -190,7 +191,7 @@ export function AppShell({
               </button>
               <button
                 type="button"
-                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 sm:hidden"
+                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 lg:hidden"
                 onClick={chatCtx.togglePanel}
                 aria-label="Abrir chat"
               >
@@ -281,9 +282,10 @@ export function AppShell({
         {/* ── Main content ── */}
         <div
           className={cn(
-            'transition-[padding] duration-200 ease-out min-w-0 w-full',
+            'transition-[padding,margin] duration-300 ease-out min-w-0 w-full',
             'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
+            chatCtx.isPanelOpen && 'lg:mr-[400px]',
             className
           )}
         >
@@ -309,6 +311,9 @@ export function AppShell({
 
         {/* ── Bottom Nav (mobile) ── */}
         <BottomNav userRole={userRole} />
+
+        {/* ── Chat Side Panel ── */}
+        <ChatSidePanel userRole={userRole} />
 
         {/* ── Command Palette ── */}
         <CommandPalette

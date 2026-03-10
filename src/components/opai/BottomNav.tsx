@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
-import { ChatFloatingContext } from '@/components/chat/ChatFloatingProvider';
+import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -78,7 +78,7 @@ function LinkBottomNav({
   useBottomNavHeight(navRef);
 
   // Read chat unread count from context (null-safe — returns 0 if no provider)
-  const chatCtx = useContext(ChatFloatingContext);
+  const chatCtx = useContext(ChatSidePanelContext);
   const chatUnread = chatCtx?.totalUnread ?? 0;
 
   return (
@@ -90,22 +90,23 @@ function LinkBottomNav({
         )}
       >
         {items.map((item) => {
-          const isActive =
-            pathname === item.href || pathname?.startsWith(item.href + '/');
+          const isChatToggle = item.key === 'chat';
+          const isActive = isChatToggle
+            ? !!chatCtx?.isPanelOpen
+            : (pathname === item.href || pathname?.startsWith(item.href + '/'));
           const Icon = item.icon;
-          const unread = item.key === 'chat' && chatUnread > 0 ? chatUnread : 0;
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              className={cn(
-                "relative flex flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-all min-w-0 shrink-0 active:scale-95",
-                compact ? "px-1.5" : "px-3",
-                isActive
-                  ? "text-primary"
-                  : "text-muted-foreground active:text-foreground"
-              )}
-            >
+          const unread = isChatToggle && chatUnread > 0 ? chatUnread : 0;
+
+          const itemClassName = cn(
+            "relative flex flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-all min-w-0 shrink-0 active:scale-95",
+            compact ? "px-1.5" : "px-3",
+            isActive
+              ? "text-primary"
+              : "text-muted-foreground active:text-foreground"
+          );
+
+          const itemContent = (
+            <>
               {isActive && (
                 <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-primary" />
               )}
@@ -125,6 +126,29 @@ function LinkBottomNav({
               >
                 {item.label}
               </span>
+            </>
+          );
+
+          if (isChatToggle) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => chatCtx?.togglePanel()}
+                className={itemClassName}
+              >
+                {itemContent}
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={itemClassName}
+            >
+              {itemContent}
             </Link>
           );
         })}

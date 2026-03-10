@@ -40,7 +40,7 @@ import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
-import { ChatFloatingProvider } from '@/components/chat/ChatFloatingProvider';
+import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 
@@ -259,7 +259,7 @@ function AppLayoutClientInner({
       userId={currentUserId ?? ""}
       chatUrlPrefix="/chat"
     >
-      <ChatFloatingProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
+      <ChatSidePanelProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
         <AppShell
           sidebar={
             <AppSidebar
@@ -283,7 +283,7 @@ function AppLayoutClientInner({
           )}
           {children}
         </AppShell>
-      </ChatFloatingProvider>
+      </ChatSidePanelProvider>
     </InAppNotificationProvider>
   );
 }

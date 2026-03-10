@@ -9,12 +9,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChatFloatingButton } from "./ChatFloatingButton";
-import { ChatFloatingPanel } from "./ChatFloatingPanel";
 
 /* ─── Types ─── */
 
-export type ChatFloatingChannel = {
+export type ChatSidePanelChannel = {
   id: string;
   name: string;
   channelType: string; // "DIRECT" | "GROUP" | "INSTALLATION" | "EXTERNAL"
@@ -45,12 +43,12 @@ export type ChatFloatingChannel = {
   } | null;
 };
 
-interface ChatFloatingContextValue {
+interface ChatSidePanelContextValue {
   isPanelOpen: boolean;
   openPanel: () => void;
   closePanel: () => void;
   togglePanel: () => void;
-  channels: ChatFloatingChannel[];
+  channels: ChatSidePanelChannel[];
   loading: boolean;
   totalUnread: number;
   selectedChannelId: string | null;
@@ -61,40 +59,39 @@ interface ChatFloatingContextValue {
   archiveChannel: (channelId: string) => Promise<void>;
   unarchiveChannel: (channelId: string) => Promise<void>;
   deleteChannel: (channelId: string) => Promise<void>;
-  archivedChannels: ChatFloatingChannel[];
+  archivedChannels: ChatSidePanelChannel[];
   fetchArchivedChannels: () => Promise<void>;
 }
 
-export const ChatFloatingContext = createContext<ChatFloatingContextValue | null>(null);
+export const ChatSidePanelContext = createContext<ChatSidePanelContextValue | null>(null);
 
-export function useChatFloatingContext() {
-  const ctx = useContext(ChatFloatingContext);
+export function useChatSidePanelContext() {
+  const ctx = useContext(ChatSidePanelContext);
   if (!ctx) {
-    throw new Error("useChatFloatingContext must be used inside <ChatFloatingProvider>");
+    throw new Error("useChatSidePanelContext must be used inside <ChatSidePanelProvider>");
   }
   return ctx;
 }
 
 /* ─── Provider ─── */
 
-interface ChatFloatingProviderProps {
+interface ChatSidePanelProviderProps {
   currentUserId: string;
   userRole?: string;
   autoContext?: { pageUrl: string; pageLabel: string };
   children: ReactNode;
 }
 
-export function ChatFloatingProvider({
+export function ChatSidePanelProvider({
   currentUserId,
-  userRole,
   autoContext,
   children,
-}: ChatFloatingProviderProps) {
+}: ChatSidePanelProviderProps) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [channels, setChannels] = useState<ChatFloatingChannel[]>([]);
+  const [channels, setChannels] = useState<ChatSidePanelChannel[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
-  const [archivedChannels, setArchivedChannels] = useState<ChatFloatingChannel[]>([]);
+  const [archivedChannels, setArchivedChannels] = useState<ChatSidePanelChannel[]>([]);
   const fetchedRef = useRef(false);
 
   // Expose unread increment for InAppNotificationProvider
@@ -126,7 +123,7 @@ export function ChatFloatingProvider({
         }
         const text = await res.text().catch(() => "");
         const preview = text.startsWith("<") ? "(HTML error page)" : text.slice(0, 150);
-        console.error("[ChatFloating] API error:", res.status, preview);
+        console.error("[ChatSidePanel] API error:", res.status, preview);
         setChannels([]);
         return;
       }
@@ -135,7 +132,7 @@ export function ChatFloatingProvider({
         setChannels(json.data);
       }
     } catch (err) {
-      console.error("[ChatFloating] Error fetching channels:", err);
+      console.error("[ChatSidePanel] Error fetching channels:", err);
       setChannels([]);
     } finally {
       setLoading(false);
@@ -225,7 +222,7 @@ export function ChatFloatingProvider({
     }
   }, []);
 
-  const value: ChatFloatingContextValue = {
+  const value: ChatSidePanelContextValue = {
     isPanelOpen,
     openPanel,
     closePanel,
@@ -246,10 +243,9 @@ export function ChatFloatingProvider({
   };
 
   return (
-    <ChatFloatingContext.Provider value={value}>
+    <ChatSidePanelContext.Provider value={value}>
       {children}
-      <ChatFloatingButton />
-      <ChatFloatingPanel userRole={userRole} />
-    </ChatFloatingContext.Provider>
+    </ChatSidePanelContext.Provider>
   );
 }
+

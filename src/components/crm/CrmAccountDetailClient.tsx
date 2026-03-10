@@ -55,7 +55,7 @@ import { AccountPortalSection } from "./AccountPortalSection";
 import { AccountContractsSection } from "./AccountContractsSection";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { NewExternalChatModal } from "@/components/chat/NewExternalChatModal";
-import { useChatFloatingContext } from "@/components/chat/ChatFloatingProvider";
+import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -197,7 +197,7 @@ export function CrmAccountDetailClient({
   currentUserId: string;
 }) {
   const router = useRouter();
-  const chatCtx = useChatFloatingContext();
+  const chatCtx = useChatSidePanelContext();
   const [account, setAccount] = useState(initialAccount);
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
     extractAccountLogoUrl(initialAccount.notes)

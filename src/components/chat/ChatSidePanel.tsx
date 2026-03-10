@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useChatFloatingContext, type ChatFloatingChannel } from "./ChatFloatingProvider";
+import { useChatSidePanelContext, type ChatSidePanelChannel } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
 import { usePusher } from "./hooks/usePusher";
@@ -36,12 +36,10 @@ import {
 
 type AdminUser = { id: string; name: string; email: string };
 
-/* ─── Component ─── */
+/* ─── Side Panel Component ─── */
 
-export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
-  const ctx = useChatFloatingContext();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
+export function ChatSidePanel({ userRole }: { userRole?: string }) {
+  const ctx = useChatSidePanelContext();
   const pusher = usePusher("/api/chat/pusher/auth");
 
   // Track whether auto-context was injected for this panel session
@@ -51,42 +49,6 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   useEffect(() => {
     if (!ctx.isPanelOpen) setContextInjected(false);
   }, [ctx.isPanelOpen]);
-
-  // ── Mobile drag-to-close ──
-  const dragStartY = useRef<number | null>(null);
-  const dragCurrentY = useRef<number>(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const isDragging = useRef(false);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const rect = panelRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const relativeY = touch.clientY - rect.top;
-    if (relativeY > 60) return;
-    dragStartY.current = touch.clientY;
-    isDragging.current = true;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current || dragStartY.current === null) return;
-    const delta = e.touches[0].clientY - dragStartY.current;
-    if (delta > 0) {
-      dragCurrentY.current = delta;
-      setDragOffset(delta);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (dragCurrentY.current > 120) {
-      ctx.closePanel();
-    }
-    dragStartY.current = null;
-    dragCurrentY.current = 0;
-    setDragOffset(0);
-  }, [ctx]);
 
   // Close on Escape
   useEffect(() => {
@@ -98,9 +60,11 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
     return () => document.removeEventListener("keydown", handler);
   }, [ctx.isPanelOpen, ctx]);
 
-  // Lock body scroll on mobile when open
+  // Lock body scroll ONLY on mobile (< lg) when open
   useEffect(() => {
     if (!ctx.isPanelOpen) return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    if (mq.matches) return; // desktop — no scroll lock
     const scrollY = window.scrollY;
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
@@ -114,18 +78,6 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
       window.scrollTo(0, scrollY);
     };
   }, [ctx.isPanelOpen]);
-
-  // Close on backdrop click
-  useEffect(() => {
-    if (!ctx.isPanelOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (backdropRef.current && e.target === backdropRef.current) {
-        ctx.closePanel();
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [ctx.isPanelOpen, ctx]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -185,7 +137,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
 
   // Derive display name for a channel
-  const getChannelDisplayName = useCallback((ch: ChatFloatingChannel) => {
+  const getChannelDisplayName = useCallback((ch: ChatSidePanelChannel) => {
     if (ch.channelType === "DIRECT") return ch.dmParticipant?.name ?? ch.name;
     if (ch.channelType === "INSTALLATION") return ch.installation?.name ?? ch.name;
     return ch.name;
@@ -251,7 +203,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
         ctx.selectChannel(json.data.id);
       }
     } catch (err) {
-      console.error("[ChatFloating] create DM error:", err);
+      console.error("[ChatSidePanel] create DM error:", err);
     } finally {
       setCreatingDmFor(null);
     }
@@ -266,8 +218,6 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
 
   // Resolve the channel name for conversation header
   const selectedChannelName = selectedChannel ? getChannelDisplayName(selectedChannel) : "";
-
-  if (!ctx.isPanelOpen) return null;
 
   /* ── Shared channel list content (used by both mobile and desktop) ── */
   const channelListContent = (
@@ -485,76 +435,78 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
   return (
     <>
       {/* ══════════════════════════════════════════════
-          MOBILE: Full-screen panel (< lg / 1024px)
+          MOBILE: Full-screen overlay (< lg / 1024px)
          ══════════════════════════════════════════════ */}
-      <div
-        className="fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17]"
-        style={{ bottom: 'var(--bottom-nav-height, 0px)' }}
-        role="dialog"
-        aria-label="Panel de chat"
-      >
-        {/* Mobile header (channel list only -- conversation has its own via ChatPresenceBar) */}
-        {!selectedChannel && (
-          <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
-              <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
-            </div>
-            <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        )}
-
-        {/* Mobile content area */}
-        <div className="relative flex-1 overflow-hidden">
-          {/* Channel list layer */}
-          <div className={cn(
-            "absolute inset-0 bg-[#0a0e17] flex flex-col",
-            selectedChannel ? "hidden" : "flex"
-          )}>
-            {channelListContent}
-          </div>
-
-          {/* Conversation layer (slides in from right) */}
-          <div className={cn(
-            "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
-            selectedChannel ? "translate-x-0" : "translate-x-full"
-          )}>
-            {ctx.selectedChannelId && selectedChannel && (
-              <ChatConversation
-                channelId={ctx.selectedChannelId}
-                channelName={selectedChannelName}
-                pusher={pusher}
-                onBack={() => ctx.selectChannel(null)}
-                autoContextPrefix={getAutoContextPrefix}
-                currentUserId={ctx.currentUserId}
-                userRole={userRole}
-                onClose={ctx.closePanel}
-              />
+      {ctx.isPanelOpen && (
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
+            onClick={ctx.closePanel}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17]"
+            style={{ bottom: 'var(--bottom-nav-height, 0px)' }}
+            role="dialog"
+            aria-label="Panel de chat"
+          >
+            {/* Mobile header (channel list only -- conversation has its own via ChatPresenceBar) */}
+            {!selectedChannel && (
+              <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+                  <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+                </div>
+                <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             )}
+
+            {/* Mobile content area */}
+            <div className="relative flex-1 overflow-hidden">
+              {/* Channel list layer */}
+              <div className={cn(
+                "absolute inset-0 bg-[#0a0e17] flex flex-col",
+                selectedChannel ? "hidden" : "flex"
+              )}>
+                {channelListContent}
+              </div>
+
+              {/* Conversation layer (slides in from right) */}
+              <div className={cn(
+                "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
+                selectedChannel ? "translate-x-0" : "translate-x-full"
+              )}>
+                {ctx.selectedChannelId && selectedChannel && (
+                  <ChatConversation
+                    channelId={ctx.selectedChannelId}
+                    channelName={selectedChannelName}
+                    pusher={pusher}
+                    onBack={() => ctx.selectChannel(null)}
+                    autoContextPrefix={getAutoContextPrefix}
+                    currentUserId={ctx.currentUserId}
+                    userRole={userRole}
+                    onClose={ctx.closePanel}
+                  />
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* ══════════════════════════════════════════════
-          DESKTOP: Fixed bottom-right panel (>= lg / 1024px)
+          DESKTOP: Right side panel (>= lg / 1024px)
          ══════════════════════════════════════════════ */}
-
-      {/* Desktop backdrop */}
       <div
-        ref={backdropRef}
-        className="fixed inset-0 z-[60] hidden lg:block transition-opacity duration-300 bg-black/20"
-        aria-hidden="true"
-      />
-
-      {/* Desktop panel */}
-      <div
-        ref={panelRef}
         className={cn(
-          "fixed z-[61] hidden lg:flex flex-col bg-[#0a0e17] border-[rgba(255,255,255,0.06)] transition-transform duration-300 ease-out",
-          "bottom-0 right-6 left-auto top-4 w-[600px] rounded-t-2xl rounded-b-none border border-b-0 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]",
-          ctx.isPanelOpen ? "translate-y-0" : "translate-y-full",
+          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40",
+          "flex-col bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)]",
+          "transition-transform duration-300 ease-out",
+          "shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
+          ctx.isPanelOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         )}
         role="dialog"
         aria-label="Panel de chat"
@@ -576,13 +528,10 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
           /* ── Desktop channel list view ── */
           <>
             {/* Desktop header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] rounded-t-2xl shrink-0">
+            <div className="flex items-center gap-2 px-4 h-12 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] shrink-0">
               <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-semibold truncate">Chat</h2>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  {ctx.channels.length} {ctx.channels.length === 1 ? "conversación" : "conversaciones"}
-                </p>
               </div>
               <Button
                 variant="ghost"
@@ -600,7 +549,7 @@ export function ChatFloatingPanel({ userRole }: { userRole?: string }) {
         )}
       </div>
 
-      {/* Shared dialogs (rendered once, outside both panels) */}
+      {/* ── Shared dialogs ── */}
       <ConfirmDialog
         open={!!channelToDelete}
         onOpenChange={(open) => { if (!open) setChannelToDelete(null); }}
@@ -643,11 +592,11 @@ function ChannelSection({
 }: {
   label: string;
   icon: React.ReactNode;
-  channels: ChatFloatingChannel[];
+  channels: ChatSidePanelChannel[];
   collapsed: boolean;
   onToggle: () => void;
   onSelectChannel: (id: string) => void;
-  getDisplayName: (ch: ChatFloatingChannel) => string;
+  getDisplayName: (ch: ChatSidePanelChannel) => string;
   onArchive?: (channelId: string) => void;
   onUnarchive?: (channelId: string) => void;
   canDelete?: boolean;
@@ -828,7 +777,7 @@ function ChannelListItem({
   displayName,
   onClick,
 }: {
-  channel: ChatFloatingChannel;
+  channel: ChatSidePanelChannel;
   displayName: string;
   onClick: () => void;
 }) {
