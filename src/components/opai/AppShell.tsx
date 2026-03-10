@@ -12,6 +12,7 @@ import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidget } from './AiHelpChatWidget';
+import { NotificationPopover } from './NotificationPopover';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
@@ -200,6 +201,7 @@ export function AppShell({
                   <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-card" />
                 )}
               </button>
+              <NotificationPopover compact />
               <button
                 type="button"
                 className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
@@ -207,9 +209,6 @@ export function AppShell({
                 aria-label="Abrir menú"
               >
                 <Menu className="h-5 w-5" />
-                {notificationUnreadCount > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
-                )}
               </button>
             </div>
           </header>
