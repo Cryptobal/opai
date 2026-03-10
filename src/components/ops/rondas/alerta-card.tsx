@@ -1,8 +1,10 @@
 "use client";
 
-import { CheckCircle2, Eye, Shield } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Eye, MapPin, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
+import { AlertGeofenceMap } from "./alert-geofence-map";
 
 interface Alerta {
   id: string;
@@ -72,6 +74,23 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
     ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
     : null;
 
+  // Geo data for map (populated by geo_fuera_rango alerts)
+  const geoData = alerta.data as {
+    checkpointLat?: number;
+    checkpointLng?: number;
+    checkpointRadius?: number;
+    guardiaLat?: number;
+    guardiaLng?: number;
+    guardiaAccuracy?: number | null;
+    distancia?: number | null;
+  } | null;
+  const hasGeoMap =
+    alerta.tipo === "geo_fuera_rango" &&
+    geoData?.checkpointLat != null &&
+    geoData?.guardiaLat != null;
+
+  const [showMap, setShowMap] = useState(false);
+
   return (
     <div
       className={cn(
@@ -135,10 +154,31 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
         </div>
       )}
 
+      {/* Geofence map (expandable) */}
+      {hasGeoMap && showMap && (
+        <AlertGeofenceMap
+          checkpointLat={geoData!.checkpointLat!}
+          checkpointLng={geoData!.checkpointLng!}
+          checkpointRadius={geoData!.checkpointRadius!}
+          guardiaLat={geoData!.guardiaLat!}
+          guardiaLng={geoData!.guardiaLng!}
+          guardiaAccuracy={geoData!.guardiaAccuracy}
+          distancia={geoData!.distancia}
+        />
+      )}
+
       {/* Actions */}
-      {!alerta.resuelta && (
+      {(!alerta.resuelta || hasGeoMap) && (
         <div className="flex gap-1.5 pt-0.5">
-          {!alerta.isAcknowledged && onAcknowledge && (
+          {hasGeoMap && (
+            <button
+              onClick={() => setShowMap((v) => !v)}
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-blue-500/40 transition-colors flex items-center gap-1"
+            >
+              <MapPin className="h-3 w-3" /> {showMap ? "Ocultar mapa" : "Ver mapa"}
+            </button>
+          )}
+          {!alerta.resuelta && !alerta.isAcknowledged && onAcknowledge && (
             <button
               onClick={() => onAcknowledge(alerta.id)}
               className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40 transition-colors flex items-center gap-1"
@@ -146,7 +186,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
               <Eye className="h-3 w-3" /> Reconocer
             </button>
           )}
-          {onResolve && (
+          {!alerta.resuelta && onResolve && (
             <button
               onClick={() => onResolve(alerta.id)}
               className="text-[11px] px-2.5 py-1 rounded-lg border border-green-500/20 text-green-400 hover:bg-green-500/10 transition-colors flex items-center gap-1"

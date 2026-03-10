@@ -85,10 +85,10 @@ export function RondasDashboardClient({ rows, stats }: { rows: Row[]; stats: Sta
     },
     {
       key: "scheduledAt",
-      label: "Hora",
+      label: "Fecha/Hora",
       render: (_v: unknown, row: Row) => (
         <span className="text-[13px] text-[#94a3b8] tabular-nums">
-          {new Date(row.scheduledAt).toLocaleString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+          {new Date(row.scheduledAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
         </span>
       ),
     },

@@ -24,6 +24,56 @@ export function isWithinGeoRadius(
   return { valid: distanceM <= radiusM, distanceM };
 }
 
+export type GeoConfidence = "high" | "low" | "unknown";
+
+export interface GeofenceResult {
+  valid: boolean;
+  distanceM: number | null;
+  confidence: GeoConfidence;
+}
+
+/**
+ * Validate geofence considering GPS accuracy.
+ *
+ * - No accuracy → standard check, confidence "unknown"
+ * - Good accuracy (< radius) → tolerance = 50% of accuracy, confidence "high"
+ * - Bad accuracy (>= radius) → tolerance = full accuracy, confidence "low"
+ */
+export function validateGeofenceWithAccuracy(
+  fromLat: number,
+  fromLng: number,
+  toLat: number | null,
+  toLng: number | null,
+  radiusM: number,
+  geoAccuracy: number | null | undefined,
+): GeofenceResult {
+  const distanceM = distanceMeters(fromLat, fromLng, toLat, toLng);
+  if (distanceM == null) {
+    return { valid: false, distanceM: null, confidence: "unknown" };
+  }
+
+  // No accuracy → standard behavior
+  if (geoAccuracy == null || geoAccuracy <= 0) {
+    return { valid: distanceM <= radiusM, distanceM, confidence: "unknown" };
+  }
+
+  // Bad accuracy (>= radius): generous tolerance, low confidence
+  if (geoAccuracy >= radiusM) {
+    return {
+      valid: distanceM <= radiusM + geoAccuracy,
+      distanceM,
+      confidence: "low",
+    };
+  }
+
+  // Good accuracy (< radius): moderate tolerance, high confidence
+  return {
+    valid: distanceM <= radiusM + geoAccuracy * 0.5,
+    distanceM,
+    confidence: "high",
+  };
+}
+
 export function speedKmh(distanceM: number, elapsedSec: number): number {
   if (elapsedSec <= 0) return 0;
   return (distanceM / 1000) / (elapsedSec / 3600);

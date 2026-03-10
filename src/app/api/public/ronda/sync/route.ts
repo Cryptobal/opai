@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rondaSyncSchema } from "@/lib/validations/rondas";
 import { computeMarcacionHash } from "@/lib/marcacion";
-import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
+import { isWithinGeoRadius, validateGeofenceWithAccuracy, speedKmh } from "@/lib/rondas/geo-utils";
 import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,12 +24,17 @@ export async function POST(request: NextRequest) {
 
     for (const round of parsed.data.rounds) {
       try {
+        const roundAlerts: Array<{ tipo: string; severidad: string; mensaje: string }> = [];
+        let roundTenantId = "";
         await prisma.$transaction(async (tx) => {
           const template = await tx.opsRondaTemplate.findFirst({
             where: { id: round.templateId },
             include: { checkpoints: { orderBy: { orderIndex: "asc" } } },
           });
           if (!template) throw new Error(`Template ${round.templateId} not found`);
+          roundTenantId = template.tenantId;
+
+          const turnoId = await getActiveTurnoId(template.tenantId);
 
           const ejecucion = await tx.opsRondaEjecucion.create({
             data: {
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
             });
             if (!checkpoint) continue;
 
-            const geo = isWithinGeoRadius(m.lat, m.lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM);
+            const geo = validateGeofenceWithAccuracy(m.lat, m.lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, m.gpsAccuracy);
             const elapsedSec = prevM
               ? Math.max(1, (new Date(m.marcadoAt).getTime() - new Date(prevM.marcadoAt).getTime()) / 1000)
               : 0;
@@ -101,6 +108,8 @@ export async function POST(request: NextRequest) {
                 lng: m.lng,
                 geoValidada: geo.valid,
                 geoDistanciaM: geo.distanceM,
+                geoAccuracy: m.gpsAccuracy ?? null,
+                geoConfidence: geo.confidence,
                 batteryLevel: m.batteryLevel ?? null,
                 motionData: (m.motionData ?? null) as never,
                 speedFromPrevKmh: speed,
@@ -117,18 +126,44 @@ export async function POST(request: NextRequest) {
             });
 
             if (anomalies.length > 0) {
+              const baseAlertSeveridad = toAlertSeverityFromAnomalies(anomalies);
+              const alertSeveridad =
+                baseAlertSeveridad === "critical" &&
+                anomalies.includes("geo_fuera_rango") &&
+                geo.confidence === "low"
+                  ? "warning"
+                  : baseAlertSeveridad;
+              const geoNote =
+                anomalies.includes("geo_fuera_rango") && m.gpsAccuracy
+                  ? ` — GPS accuracy: ${Math.round(m.gpsAccuracy)}m (${geo.confidence === "low" ? "baja confiabilidad" : "alta confiabilidad"})`
+                  : "";
+              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}${geoNote}`;
               await tx.opsAlertaRonda.create({
                 data: {
                   tenantId: template.tenantId,
                   ejecucionId: ejecucion.id,
                   installationId: round.installationId,
                   guardiaId: round.guardiaId,
+                  turnoId,
                   tipo: anomalies[0],
-                  severidad: toAlertSeverityFromAnomalies(anomalies),
-                  mensaje: `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
-                  data: { anomalies, checkpointId: m.checkpointId, offline: true } as never,
+                  severidad: alertSeveridad,
+                  mensaje: alertMensaje,
+                  data: {
+                    anomalies,
+                    checkpointId: m.checkpointId,
+                    offline: true,
+                    checkpointLat: checkpoint.lat,
+                    checkpointLng: checkpoint.lng,
+                    checkpointRadius: checkpoint.geoRadiusM,
+                    guardiaLat: m.lat,
+                    guardiaLng: m.lng,
+                    guardiaAccuracy: m.gpsAccuracy ?? null,
+                    distancia: geo.distanceM != null ? Math.round(geo.distanceM) : null,
+                    geoConfidence: geo.confidence,
+                  } as never,
                 },
               });
+              roundAlerts.push({ tipo: anomalies[0], severidad: alertSeveridad, mensaje: alertMensaje });
             }
           }
 
@@ -161,6 +196,13 @@ export async function POST(request: NextRequest) {
             },
           });
         });
+
+        // Push + chat notification for critical alerts from this round (fire-and-forget)
+        if (roundAlerts.length > 0 && roundTenantId) {
+          notifyCriticalAlertsBatch(roundTenantId, roundAlerts).catch((err) =>
+            console.error("[SYNC] Alert notification failed:", err),
+          );
+        }
 
         synced++;
       } catch (err) {
