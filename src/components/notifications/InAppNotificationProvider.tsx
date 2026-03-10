@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { ChatToast } from "./ChatToast";
+import { playNotificationSound } from "@/lib/notification-sounds";
 
 interface InAppNotification {
   type: "chat_message";
@@ -48,20 +49,6 @@ export function InAppNotificationProvider({
     >
   >(new Map());
   const timerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const lastSoundRef = useRef<number>(0);
-
-  const playSound = useCallback(() => {
-    const now = Date.now();
-    if (now - lastSoundRef.current < 2000) return;
-    lastSoundRef.current = now;
-    try {
-      const audio = new Audio("/sounds/notification.mp3");
-      audio.volume = 0.3;
-      audio.play().catch(() => {});
-    } catch {
-      // Sound not available or blocked
-    }
-  }, []);
 
   const handleNotification = useCallback(
     (data: InAppNotification) => {
@@ -114,7 +101,7 @@ export function InAppNotificationProvider({
             : `${chatUrlPrefix}?section=chat&channel=${data.channelId}`;
 
         // Play sound (debounced)
-        playSound();
+        playNotificationSound("chat");
 
         toast.custom(
           (t) => (
@@ -135,7 +122,7 @@ export function InAppNotificationProvider({
 
       timerRef.current.set(data.channelId, timer);
     },
-    [chatUrlPrefix, playSound],
+    [chatUrlPrefix],
   );
 
   useEffect(() => {
