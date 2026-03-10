@@ -303,6 +303,7 @@ export function GuardPanel({
   const [showAddForm, setShowAddForm] = useState(false);
   const [newGuardName, setNewGuardName] = useState("");
   const [newGuardId, setNewGuardId] = useState<string | null>(null);
+  const [newIsExtra, setNewIsExtra] = useState(false);
 
   // Filter by turno — guards without turno default to "nocturno"
   const guardias = instalacion.guardias.filter((g) =>
@@ -347,13 +348,14 @@ export function GuardPanel({
     onGuardiaAdd({
       guardiaNombre: newGuardName.trim(),
       guardiaId: newGuardId,
-      isExtra: true,
+      isExtra: newIsExtra,
       turno,
     });
     setNewGuardName("");
     setNewGuardId(null);
+    setNewIsExtra(false);
     setShowAddForm(false);
-  }, [newGuardName, newGuardId, turno, onGuardiaAdd]);
+  }, [newGuardName, newGuardId, newIsExtra, turno, onGuardiaAdd]);
 
   const turnoLabel =
     turno === "nocturno" ? "Guardias Nocturnos" : "Guardias de Día";
@@ -448,6 +450,31 @@ export function GuardPanel({
                 className="h-9 text-sm bg-slate-800 border-slate-600"
                 dropdownDirection="up"
               />
+              {/* Tipo: Planificado / Extra */}
+              <div className="flex rounded-md overflow-hidden border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setNewIsExtra(false)}
+                  className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
+                    !newIsExtra
+                      ? `${accentColor === "teal" ? "bg-teal-600" : "bg-blue-600"} text-white`
+                      : "bg-slate-800 text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  Planificado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewIsExtra(true)}
+                  className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
+                    newIsExtra
+                      ? "bg-purple-600 text-white"
+                      : "bg-slate-800 text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  Extra
+                </button>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleAddGuard}
@@ -465,6 +492,7 @@ export function GuardPanel({
                     setShowAddForm(false);
                     setNewGuardName("");
                     setNewGuardId(null);
+                    setNewIsExtra(false);
                   }}
                   className="px-3 py-1.5 rounded-md text-xs text-slate-500 hover:text-slate-300 transition-colors"
                 >
