@@ -42,6 +42,7 @@ import {
   MODULE_SORT_ORDER,
   MODULE_BADGE_STYLES,
 } from "@/lib/notification-ui-utils";
+import { SoundSettingsButton } from "@/components/notifications/SoundSettings";
 
 type NotificationFilter = "all" | "unread";
 
@@ -410,6 +411,7 @@ export function NotificationPopover({
               )}
             </div>
             <div className="flex items-center gap-1">
+              <SoundSettingsButton />
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"

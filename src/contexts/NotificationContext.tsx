@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { playNotificationSound } from '@/lib/notification-sounds';
 
 export interface NotificationItem {
   id: string;
@@ -59,7 +60,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (data.success) {
         setNotifications(data.data || []);
-        setUnreadCount(data.meta?.unreadCount ?? 0);
+        const count = data.meta?.unreadCount ?? 0;
+        setUnreadCount(count);
+        if (prevUnreadRef.current === null) prevUnreadRef.current = count;
         setHasMore(data.meta?.hasMore ?? false);
       }
     } catch (err) {
@@ -69,13 +72,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const prevUnreadRef = useRef<number | null>(null);
+
   const fetchUnreadCountOnly = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications?limit=1');
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && typeof data.meta?.unreadCount === 'number') {
-        setUnreadCount(data.meta.unreadCount);
+        const newCount = data.meta.unreadCount;
+        // Play sound when new unread notifications arrive (not on first load)
+        if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
+          playNotificationSound('system');
+        }
+        prevUnreadRef.current = newCount;
+        setUnreadCount(newCount);
       }
     } catch (err) {
       console.error('Failed to fetch unread count:', err);

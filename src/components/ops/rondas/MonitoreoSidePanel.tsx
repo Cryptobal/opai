@@ -1,10 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2 } from "lucide-react";
 import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+
+/* ─── Alert classification ─── */
+const COMPLIANCE_ALERT_TYPES = new Set([
+  "ronda_no_iniciada",
+  "ronda_no_realizada",
+  "ronda_incompleta",
+]);
+
+const COMPLIANCE_LABELS: Record<string, string> = {
+  ronda_no_iniciada: "no iniciadas",
+  ronda_no_realizada: "no realizadas",
+  ronda_incompleta: "incompletas",
+};
 
 /* ─── Alert types ─── */
 interface AlertRow {
@@ -59,6 +72,10 @@ interface Props {
   onSetResolveNotes: (notes: string) => void;
   onResolveAlert: (id: string, notes?: string) => void;
   onGoToAlert: (alert: AlertRow) => void;
+  // Alertas: installation filter + bulk resolve
+  alertInstallationFilter: { id: string; name: string } | null;
+  onSetAlertInstallationFilter: (filter: { id: string; name: string } | null) => void;
+  onBulkResolveAlerts: (filter: { tipos: string[]; installationId?: string }) => Promise<void>;
   // Instalaciones tab
   installations: InstallationCard[];
   onInstallationClick: (id: string) => void;
@@ -84,6 +101,9 @@ export function MonitoreoSidePanel({
   onSetResolveNotes,
   onResolveAlert,
   onGoToAlert,
+  alertInstallationFilter,
+  onSetAlertInstallationFilter,
+  onBulkResolveAlerts,
   installations,
   onInstallationClick,
   selectedInstallationId,
@@ -93,6 +113,19 @@ export function MonitoreoSidePanel({
   const [expandedInstallations, setExpandedInstallations] = useState<Set<string>>(new Set());
 
   const openAlerts = useMemo(() => alertRows.filter((a) => !a.resuelta), [alertRows]);
+
+  // Badge only counts operational alerts (not compliance)
+  const operationalAlertCount = useMemo(
+    () => openAlerts.filter((a) => !COMPLIANCE_ALERT_TYPES.has(a.tipo)).length,
+    [openAlerts],
+  );
+
+  // Switch to alertas tab when installation filter is set
+  useEffect(() => {
+    if (alertInstallationFilter) {
+      setActiveTab("alertas");
+    }
+  }, [alertInstallationFilter]);
 
   const tabs: { key: TabKey; label: string; icon: ReactNode; badge?: number }[] = [
     {
@@ -105,7 +138,7 @@ export function MonitoreoSidePanel({
       key: "alertas",
       label: "Alertas",
       icon: <AlertTriangle className="h-3 w-3" />,
-      badge: openAlerts.length > 0 ? openAlerts.length : undefined,
+      badge: operationalAlertCount > 0 ? operationalAlertCount : undefined,
     },
     {
       key: "instalaciones",
@@ -175,6 +208,9 @@ export function MonitoreoSidePanel({
             onSetResolveNotes={onSetResolveNotes}
             onResolveAlert={onResolveAlert}
             onGoToAlert={onGoToAlert}
+            installationFilter={alertInstallationFilter}
+            onClearInstallationFilter={() => onSetAlertInstallationFilter(null)}
+            onBulkResolveAlerts={onBulkResolveAlerts}
           />
         )}
         {activeTab === "instalaciones" && (
@@ -182,6 +218,7 @@ export function MonitoreoSidePanel({
             installations={installations}
             onInstallationClick={onInstallationClick}
             selectedId={selectedInstallationId}
+            onAlertBadgeClick={(inst) => onSetAlertInstallationFilter(inst)}
           />
         )}
       </div>
@@ -321,7 +358,7 @@ function RondasTab({
 }
 
 /* ═══════════════════════════════════════════════
-   ALERTAS TAB
+   ALERTAS TAB (Two sections: operational + compliance)
    ═══════════════════════════════════════════════ */
 function AlertasTab({
   alerts,
@@ -332,6 +369,9 @@ function AlertasTab({
   onSetResolveNotes,
   onResolveAlert,
   onGoToAlert,
+  installationFilter,
+  onClearInstallationFilter,
+  onBulkResolveAlerts,
 }: {
   alerts: AlertRow[];
   loading: boolean;
@@ -341,103 +381,276 @@ function AlertasTab({
   onSetResolveNotes: (notes: string) => void;
   onResolveAlert: (id: string, notes?: string) => void;
   onGoToAlert: (alert: AlertRow) => void;
+  installationFilter: { id: string; name: string } | null;
+  onClearInstallationFilter: () => void;
+  onBulkResolveAlerts: (filter: { tipos: string[]; installationId?: string }) => Promise<void>;
 }) {
+  const [complianceExpanded, setComplianceExpanded] = useState(false);
+  const [bulkResolvingId, setBulkResolvingId] = useState<string | null>(null); // "all" or installationId
+
+  // Filter by installation if active
+  const filteredAlerts = useMemo(() => {
+    if (!installationFilter) return alerts;
+    return alerts.filter((a) => a.installation?.id === installationFilter.id);
+  }, [alerts, installationFilter]);
+
+  // Split into operational vs compliance
+  const operationalAlerts = useMemo(
+    () => filteredAlerts.filter((a) => !COMPLIANCE_ALERT_TYPES.has(a.tipo)),
+    [filteredAlerts],
+  );
+  const complianceAlerts = useMemo(
+    () => filteredAlerts.filter((a) => COMPLIANCE_ALERT_TYPES.has(a.tipo)),
+    [filteredAlerts],
+  );
+
+  // Group compliance by installation
+  const complianceByInstallation = useMemo(() => {
+    const map = new Map<string, { installationId: string; installationName: string; alerts: AlertRow[]; byType: Map<string, number> }>();
+    for (const alert of complianceAlerts) {
+      const instId = alert.installation?.id ?? "sin-instalacion";
+      const instName = alert.installation?.name ?? "Sin instalación";
+      if (!map.has(instId)) {
+        map.set(instId, { installationId: instId, installationName: instName, alerts: [], byType: new Map() });
+      }
+      const group = map.get(instId)!;
+      group.alerts.push(alert);
+      group.byType.set(alert.tipo, (group.byType.get(alert.tipo) ?? 0) + 1);
+    }
+    return Array.from(map.values()).sort((a, b) => b.alerts.length - a.alerts.length);
+  }, [complianceAlerts]);
+
+  const handleBulkResolve = async (installationId?: string) => {
+    const resolveId = installationId ?? "all";
+    setBulkResolvingId(resolveId);
+    try {
+      await onBulkResolveAlerts({
+        tipos: Array.from(COMPLIANCE_ALERT_TYPES),
+        installationId,
+      });
+    } finally {
+      setBulkResolvingId(null);
+    }
+  };
+
   if (loading) {
     return <div className="px-4 py-8 text-center text-sm text-muted-foreground">Cargando alertas...</div>;
   }
 
-  if (alerts.length === 0) {
+  if (filteredAlerts.length === 0) {
     return (
-      <div className="px-4 py-8 text-center">
-        <Check className="h-8 w-8 mx-auto mb-2 text-emerald-400/40" />
-        <p className="text-sm text-muted-foreground">Sin alertas abiertas</p>
+      <div>
+        {/* Installation filter chip */}
+        {installationFilter && (
+          <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+            <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
+              {installationFilter.name}
+              <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          </div>
+        )}
+        <div className="px-4 py-8 text-center">
+          <Check className="h-8 w-8 mx-auto mb-2 text-emerald-400/40" />
+          <p className="text-sm text-muted-foreground">Sin alertas abiertas</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-[#1e293b]">
-      {alerts.map((alert) => {
-        const isResolving = resolvingAlertId === alert.id;
-        const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/20" : alert.severidad === "high" ? "text-orange-400 bg-orange-500/20" : "text-yellow-400 bg-yellow-500/20";
-        const alertIcon = alert.severidad === "critical" ? "text-red-400" : alert.severidad === "high" ? "text-orange-400" : "text-yellow-400";
-        return (
-          <div key={alert.id} className="px-4 py-3 hover:bg-zinc-800/30">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${alertIcon}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${severityColor}`}>
-                    {alert.severidad}
-                  </span>
-                  <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">
-                    {alert.tipo}
-                  </span>
-                </div>
-                <p className="text-xs text-foreground leading-snug">{alert.mensaje}</p>
-                <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
-                  <span>
-                    {new Date(alert.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  {alert.installation?.name && (
-                    <>
-                      <span className="text-zinc-600">·</span>
-                      <span className="truncate">{alert.installation.name}</span>
-                    </>
-                  )}
-                </div>
-                {/* Action buttons */}
-                <div className="flex items-center gap-1.5 mt-2">
-                  {alert.installation && (
-                    <button
-                      onClick={() => onGoToAlert(alert)}
-                      className="flex items-center gap-1 rounded bg-blue-500/10 border border-blue-500/20 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-colors"
-                    >
-                      <MapPin className="h-3 w-3" /> Mapa
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (isResolving) {
-                        onSetResolvingAlertId(null);
-                        onSetResolveNotes("");
-                      } else {
-                        onSetResolvingAlertId(alert.id);
-                        onSetResolveNotes("");
-                      }
-                    }}
-                    className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                  >
-                    <Check className="h-3 w-3" /> Resolver
-                  </button>
-                </div>
-                {/* Inline resolve form */}
-                {isResolving && (
-                  <div className="mt-2 flex gap-1.5">
-                    <input
-                      autoFocus
-                      className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-[11px] text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
-                      placeholder="Comentario (opcional)..."
-                      value={resolveNotes}
-                      onChange={(e) => onSetResolveNotes(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") onResolveAlert(alert.id, resolveNotes);
-                        if (e.key === "Escape") { onSetResolvingAlertId(null); onSetResolveNotes(""); }
-                      }}
-                    />
-                    <button
-                      onClick={() => onResolveAlert(alert.id, resolveNotes)}
-                      className="rounded bg-emerald-600 px-2.5 py-1.5 text-[11px] text-white font-medium hover:bg-emerald-500 transition-colors"
-                    >
-                      OK
-                    </button>
+    <div>
+      {/* Installation filter chip */}
+      {installationFilter && (
+        <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+          <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
+            {installationFilter.name}
+            <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* ── Section 1: Operational alerts ── */}
+      {operationalAlerts.length > 0 && (
+        <>
+          <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+            <AlertTriangle className="h-3 w-3 text-red-400" />
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Alertas operacionales</p>
+            <span className="ml-auto rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+              {operationalAlerts.length}
+            </span>
+          </div>
+          <div className="divide-y divide-[#1e293b]">
+            {operationalAlerts.map((alert) => (
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                isResolving={resolvingAlertId === alert.id}
+                resolveNotes={resolveNotes}
+                onSetResolvingAlertId={onSetResolvingAlertId}
+                onSetResolveNotes={onSetResolveNotes}
+                onResolveAlert={onResolveAlert}
+                onGoToAlert={onGoToAlert}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Section 2: Compliance alerts (collapsible, grouped) ── */}
+      {complianceAlerts.length > 0 && (
+        <>
+          <button
+            onClick={() => setComplianceExpanded(!complianceExpanded)}
+            className="w-full px-4 py-2 border-t border-b border-[#1e293b] flex items-center gap-2 hover:bg-zinc-800/30 transition-colors"
+          >
+            <ChevronRight className={cn("h-3 w-3 text-zinc-500 transition-transform", complianceExpanded && "rotate-90")} />
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Cumplimiento</span>
+            <span className="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+              {complianceAlerts.length}
+            </span>
+          </button>
+          {complianceExpanded && (
+            <div>
+              {complianceByInstallation.map((group) => {
+                const summary = Array.from(group.byType.entries())
+                  .map(([tipo, count]) => `${count} ${COMPLIANCE_LABELS[tipo] ?? tipo}`)
+                  .join(", ");
+                const isResolving = bulkResolvingId === group.installationId;
+                return (
+                  <div key={group.installationId} className="px-4 py-2.5 border-b border-[#1e293b]/50 hover:bg-zinc-800/20">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground truncate flex-1">{group.installationName}</span>
+                      <button
+                        onClick={() => handleBulkResolve(group.installationId)}
+                        disabled={isResolving}
+                        className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                      >
+                        {isResolving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Resolver todas
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{summary}</p>
                   </div>
-                )}
+                );
+              })}
+              {/* Global bulk resolve */}
+              <div className="px-4 py-3 border-b border-[#1e293b]">
+                <button
+                  onClick={() => handleBulkResolve(installationFilter?.id)}
+                  disabled={bulkResolvingId === "all"}
+                  className="w-full flex items-center justify-center gap-1.5 rounded bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                >
+                  {bulkResolvingId === "all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                  Resolver todo cumplimiento ({complianceAlerts.length})
+                </button>
               </div>
             </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Individual alert card (extracted for reuse) ── */
+function AlertCard({
+  alert,
+  isResolving,
+  resolveNotes,
+  onSetResolvingAlertId,
+  onSetResolveNotes,
+  onResolveAlert,
+  onGoToAlert,
+}: {
+  alert: AlertRow;
+  isResolving: boolean;
+  resolveNotes: string;
+  onSetResolvingAlertId: (id: string | null) => void;
+  onSetResolveNotes: (notes: string) => void;
+  onResolveAlert: (id: string, notes?: string) => void;
+  onGoToAlert: (alert: AlertRow) => void;
+}) {
+  const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/20" : alert.severidad === "high" ? "text-orange-400 bg-orange-500/20" : "text-yellow-400 bg-yellow-500/20";
+  const alertIcon = alert.severidad === "critical" ? "text-red-400" : alert.severidad === "high" ? "text-orange-400" : "text-yellow-400";
+
+  return (
+    <div className="px-4 py-3 hover:bg-zinc-800/30">
+      <div className="flex items-start gap-2.5">
+        <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${alertIcon}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${severityColor}`}>
+              {alert.severidad}
+            </span>
+            <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">
+              {alert.tipo}
+            </span>
           </div>
-        );
-      })}
+          <p className="text-xs text-foreground leading-snug">{alert.mensaje}</p>
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
+            <span>
+              {new Date(alert.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+            {alert.installation?.name && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span className="truncate">{alert.installation.name}</span>
+              </>
+            )}
+          </div>
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 mt-2">
+            {alert.installation && (
+              <button
+                onClick={() => onGoToAlert(alert)}
+                className="flex items-center gap-1 rounded bg-blue-500/10 border border-blue-500/20 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-colors"
+              >
+                <MapPin className="h-3 w-3" /> Mapa
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (isResolving) {
+                  onSetResolvingAlertId(null);
+                  onSetResolveNotes("");
+                } else {
+                  onSetResolvingAlertId(alert.id);
+                  onSetResolveNotes("");
+                }
+              }}
+              className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+            >
+              <Check className="h-3 w-3" /> Resolver
+            </button>
+          </div>
+          {/* Inline resolve form */}
+          {isResolving && (
+            <div className="mt-2 flex gap-1.5">
+              <input
+                autoFocus
+                className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-[11px] text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                placeholder="Comentario (opcional)..."
+                value={resolveNotes}
+                onChange={(e) => onSetResolveNotes(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onResolveAlert(alert.id, resolveNotes);
+                  if (e.key === "Escape") { onSetResolvingAlertId(null); onSetResolveNotes(""); }
+                }}
+              />
+              <button
+                onClick={() => onResolveAlert(alert.id, resolveNotes)}
+                className="rounded bg-emerald-600 px-2.5 py-1.5 text-[11px] text-white font-medium hover:bg-emerald-500 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -449,10 +662,12 @@ function InstalacionesTab({
   installations,
   onInstallationClick,
   selectedId,
+  onAlertBadgeClick,
 }: {
   installations: InstallationCard[];
   onInstallationClick: (id: string) => void;
   selectedId: string | null;
+  onAlertBadgeClick: (inst: { id: string; name: string }) => void;
 }) {
   if (installations.length === 0) {
     return <div className="px-4 py-8 text-center text-sm text-muted-foreground">Sin instalaciones</div>;
@@ -487,7 +702,15 @@ function InstalacionesTab({
               <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", semaforoColor)} />
               <span className="text-xs font-medium text-foreground truncate flex-1">{inst.name}</span>
               {hasAlert && (
-                <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAlertBadgeClick({ id: inst.id, name: inst.name });
+                  }}
+                  className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 hover:bg-red-500/30 transition-colors cursor-pointer"
+                  title={`Ver ${inst.alertCount} alertas de ${inst.name}`}
+                >
                   {inst.alertCount}
                 </span>
               )}
