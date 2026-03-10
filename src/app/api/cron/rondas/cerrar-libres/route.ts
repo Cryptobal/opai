@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 
 /**
  * CRON: /api/cron/rondas/cerrar-libres
@@ -108,12 +110,20 @@ export async function GET(request: NextRequest) {
     });
 
     // Create alerts for each ronda (skip those without installationId)
+    // Batch-lookup turnoId per tenant
+    const alertTenantIds = [...new Set(allToClose.map((ej) => ej.tenantId))];
+    const turnoMap = new Map<string, string | null>();
+    await Promise.all(alertTenantIds.map(async (tid) => {
+      turnoMap.set(tid, await getActiveTurnoId(tid));
+    }));
+
     const alertData = allToClose.filter((ej) => ej.installationId).map((ej) => {
       const isTimeout = toCloseTimeout.some((t) => t.id === ej.id);
       return {
         tenantId: ej.tenantId,
         ejecucionId: ej.id,
         installationId: ej.installationId!,
+        turnoId: turnoMap.get(ej.tenantId) ?? null,
         tipo: "ronda_libre_timeout",
         severidad: "warning",
         mensaje: isTimeout
@@ -129,6 +139,16 @@ export async function GET(request: NextRequest) {
 
     if (alertData.length > 0) {
       await prisma.opsAlertaRonda.createMany({ data: alertData });
+
+      // Push + chat notification for critical alerts per tenant (fire-and-forget)
+      for (const tid of alertTenantIds) {
+        const tenantAlerts = alertData.filter((a) => a.tenantId === tid);
+        if (tenantAlerts.length > 0) {
+          notifyCriticalAlertsBatch(tid, tenantAlerts).catch((err) =>
+            console.error("[CRON] cerrar-libres notification failed:", err),
+          );
+        }
+      }
     }
 
     // Notify each unique tenant's monitoring dashboard via Pusher

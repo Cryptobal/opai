@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { RondasDashboardClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
+import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 
 export default async function OpsRondasPage() {
   const session = await auth();
@@ -15,8 +16,9 @@ export default async function OpsRondasPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const start = new Date(new Date().toISOString().slice(0, 10));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const start = startOfDayChile(now);
+  const end = endOfDayChile(now);
 
   const rondaDelegate = (prisma as any).opsRondaEjecucion;
   const rows = rondaDelegate

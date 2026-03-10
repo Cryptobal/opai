@@ -35,7 +35,7 @@ export default async function RondasMonitoreoPage() {
         },
         guardia: { include: { persona: { select: { firstName: true, lastName: true, phoneMobile: true } } } },
         marcaciones: { orderBy: { timestamp: "desc" }, take: 20 },
-        alertasRows: { where: { resuelta: false }, orderBy: { createdAt: "desc" }, take: 3 },
+        alertasRows: { where: { resuelta: false, archivedAt: null }, orderBy: { createdAt: "desc" }, take: 3 },
       },
       orderBy: { scheduledAt: "asc" },
       take: 50,
@@ -69,7 +69,7 @@ export default async function RondasMonitoreoPage() {
       orderBy: { name: "asc" },
     }),
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false },
+      where: { tenantId, resuelta: false, archivedAt: null },
     }),
   ]);
 

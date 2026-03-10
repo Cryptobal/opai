@@ -36,7 +36,7 @@ export async function GET() {
           take: 20,
         },
         alertasRows: {
-          where: { resuelta: false },
+          where: { resuelta: false, archivedAt: null },
           orderBy: { createdAt: "desc" },
           take: 3,
         },

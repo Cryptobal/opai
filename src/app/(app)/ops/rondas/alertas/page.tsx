@@ -18,7 +18,7 @@ export default async function RondasAlertasPage() {
 
   const [rows, installations] = await Promise.all([
     prisma.opsAlertaRonda.findMany({
-      where: { tenantId },
+      where: { tenantId, archivedAt: null },
       include: {
         installation: { select: { id: true, name: true } },
         ejecucion: {

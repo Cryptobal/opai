@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatChileTime } from "@/lib/rondas/timezone";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 
 /**
  * CRON: /api/cron/rondas/cerrar-atrasadas
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
     // Find all pending executions that were never started.
     // We fetch those scheduled more than 30 minutes ago (minimum grace),
     // then apply per-programacion tolerance in JS.
-    const cutoffMin = new Date(now.getTime() - 60 * 60 * 1000); // 60 min ago as safe lower bound
+    const cutoffMin = new Date(now.getTime() - 30 * 60 * 1000); // 30 min ago as safe lower bound
     const pendingEjecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         status: "pendiente",
@@ -77,10 +79,18 @@ export async function GET(request: NextRequest) {
     });
 
     // Create warning alerts for each (skip ad-hoc rondas without template)
+    // Batch-lookup turnoId per tenant
+    const uniqueTenants = [...new Set(toClose.map((ej) => ej.tenantId))];
+    const turnoMap = new Map<string, string | null>();
+    await Promise.all(uniqueTenants.map(async (tid) => {
+      turnoMap.set(tid, await getActiveTurnoId(tid));
+    }));
+
     const alertData = toClose.filter((ej) => ej.rondaTemplate).map((ej) => ({
       tenantId: ej.tenantId,
       ejecucionId: ej.id,
       installationId: ej.rondaTemplate!.installationId,
+      turnoId: turnoMap.get(ej.tenantId) ?? null,
       tipo: "ronda_no_realizada",
       severidad: "warning",
       mensaje: `Ronda "${ej.rondaTemplate!.name}" de las ${formatChileTime(ej.scheduledAt)} no fue realizada`,
@@ -93,6 +103,16 @@ export async function GET(request: NextRequest) {
 
     if (alertData.length > 0) {
       await prisma.opsAlertaRonda.createMany({ data: alertData });
+
+      // Push + chat notification for critical alerts per tenant (fire-and-forget)
+      for (const tid of uniqueTenants) {
+        const tenantAlerts = alertData.filter((a) => a.tenantId === tid);
+        if (tenantAlerts.length > 0) {
+          notifyCriticalAlertsBatch(tid, tenantAlerts).catch((err) =>
+            console.error("[CRON] cerrar-atrasadas notification failed:", err),
+          );
+        }
+      }
     }
 
     console.log(`[CRON] cerrar-atrasadas: ${toClose.length} rondas cerradas como no_realizada`);

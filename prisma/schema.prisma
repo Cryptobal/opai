@@ -3431,6 +3431,8 @@ model OpsMarcacionCheckpoint {
   lng              Float?
   geoValidada      Boolean  @default(false) @map("geo_validada")
   geoDistanciaM    Float?   @map("geo_distancia_m")
+  geoAccuracy      Float?   @map("geo_accuracy")
+  geoConfidence    String?  @map("geo_confidence") // "high" | "low" | "unknown"
   batteryLevel     Int?     @map("battery_level")
   motionData       Json?    @map("motion_data") @db.JsonB
   speedFromPrevKmh Float?   @map("speed_from_prev_kmh")
@@ -3479,9 +3481,13 @@ model OpsAlertaRonda {
   acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(6)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  turnoId      String?           @map("turno_id") @db.Uuid
+  archivedAt   DateTime?         @map("archived_at") @db.Timestamptz(6)
+
   ejecucion    OpsRondaEjecucion? @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
   installation CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
   guardia      OpsGuardia?       @relation("alertaGuardia", fields: [guardiaId], references: [id], onDelete: SetNull)
+  turno        OpsMonitoreoTurno? @relation(fields: [turnoId], references: [id])
 
   @@index([tenantId], map: "idx_ops_alerta_ronda_tenant")
   @@index([ejecucionId], map: "idx_ops_alerta_ronda_ejecucion")
@@ -3492,6 +3498,8 @@ model OpsAlertaRonda {
   @@index([severidad, isAcknowledged], map: "idx_ops_alerta_ronda_sev_ack")
   @@index([createdAt], map: "idx_ops_alerta_ronda_created")
   @@index([guardiaId], map: "idx_ops_alerta_ronda_guardia")
+  @@index([turnoId], map: "idx_ops_alerta_ronda_turno")
+  @@index([archivedAt], map: "idx_ops_alerta_ronda_archived")
   @@map("alertas_ronda")
   @@schema("ops")
 }
@@ -3788,6 +3796,7 @@ model OpsMonitoreoTurno {
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   controlNocturno       OpsControlNocturno? @relation("TurnoControlNocturno", fields: [controlNocturnoId], references: [id])
+  alertas               OpsAlertaRonda[]
 
   @@index([tenantId], map: "idx_ops_monitoreo_turno_tenant")
   @@index([operatorId, status], map: "idx_ops_monitoreo_turno_operator_status")
