@@ -33,8 +33,10 @@ import {
   ChevronUp,
   Loader2,
   Search,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 // ── Types ──────────────────────────────────────────────
 type PhoneLineAssignment = {
@@ -155,7 +157,11 @@ export function InventarioLineasClient() {
       const res = await fetch("/api/crm/installations");
       const json = await res.json();
       const list = json?.data ?? json;
-      if (Array.isArray(list)) setInstallations(list.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })));
+      if (Array.isArray(list)) {
+        // filter by active items only
+        const activeOnly = list.filter((i: any) => i.isActive === true);
+        setInstallations(activeOnly.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })));
+      }
     } catch {
       // silent - installations are for assignment only
     }
@@ -327,6 +333,44 @@ export function InventarioLineasClient() {
 
   const hasActiveFilters = filterCarrier || filterStatus || filterInstallation || filterUnassigned || searchQuery;
 
+  const handleExportExcel = () => {
+    try {
+      const dataToExport = lines.map((line) => {
+        const activeAssignment = line.assignments?.[0] ?? null;
+        return {
+          "Número": line.phoneNumber, // raw number is often better for excel
+          "Número (Formato)": formatPhone(line.phoneNumber),
+          "Compañía": line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1),
+          "Plan":
+            line.planType === "prepago"
+              ? "Prepago"
+              : line.planType === "contrato"
+              ? "Contrato"
+              : "Sin especificar",
+          "Estado": STATUS_LABELS[line.status] ?? line.status,
+          "Etiqueta": line.label || "",
+          "Instalación": activeAssignment ? activeAssignment.installation.name : "Sin asignar",
+          "Asignada desde": activeAssignment
+            ? new Date(activeAssignment.assignedAt).toLocaleDateString("es-CL")
+            : "",
+          "Notas": line.notes || "",
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Líneas Telefónicas");
+
+      const fileName = `Lineas_Telefonicas_${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast.success("Excel descargado correctamente");
+    } catch (error) {
+      console.error("Error exporting to excel:", error);
+      toast.error("No se pudo exportar el archivo Excel");
+    }
+  };
+
   // ── Render ─────────────────────────────────────────
   return (
     <>
@@ -338,10 +382,20 @@ export function InventarioLineasClient() {
               Líneas SIM y números asignados a instalaciones. Gestiona compañía, plan y estado.
             </CardDescription>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva línea
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportExcel}
+              disabled={loading || lines.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva línea
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* ── Filters ── */}
@@ -649,7 +703,7 @@ export function InventarioLineasClient() {
 
       {/* ── Assign Dialog ── */}
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-        <DialogContent>
+        <DialogContent className="overflow-visible sm:max-w-md">
           <form onSubmit={handleAssign}>
             <DialogHeader>
               <DialogTitle>Asignar línea a instalación</DialogTitle>

@@ -41,6 +41,14 @@ const MONITOREO_EVENT_TYPES = new Set([
 ]);
 
 /**
+ * Format time from ISO string to HH:MM.
+ */
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
  * System message component.
  * Displayed centered with a visible, italic style and an event-specific icon.
  * Operational events (cobertura, no_viene) link to the monitoring page.
@@ -70,12 +78,19 @@ export function ChatMessageSystem({ message }: ChatMessageSystemProps) {
 
   const inner = (
     <div
-      className={`flex items-start gap-2.5 py-2.5 my-1 mx-auto max-w-lg rounded-lg border px-4 ${bgClass} ${isMonitoreoEvent ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+      className={`flex flex-col gap-1.5 py-2 my-1 mx-auto max-w-lg rounded-lg border px-4 ${bgClass} ${isMonitoreoEvent ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
     >
-      <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
-      <p className={`text-xs leading-relaxed whitespace-pre-wrap ${textColor}`}>
-        {message.content}
-      </p>
+      <div className="flex items-start gap-2.5">
+        <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
+        <p className={`flex-1 text-xs leading-relaxed whitespace-pre-wrap ${textColor}`}>
+          {message.content}
+        </p>
+      </div>
+      <div className="flex justify-end">
+        <span className="text-[10px] text-[rgba(255,255,255,0.35)] select-none">
+          {formatTime(message.createdAt)}
+        </span>
+      </div>
     </div>
   );
 
