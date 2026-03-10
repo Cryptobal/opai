@@ -280,14 +280,18 @@ export function AppShell({
         <div
           className={cn(
             'transition-[padding,margin] duration-300 ease-out min-w-0',
-            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
+            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija en mobile y desktop
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             chatCtx.isPanelOpen && 'lg:mr-[400px]',
             className
           )}
         >
-          {/* Topbar actions desktop — búsqueda + tema + avatar */}
-          <div className="hidden lg:flex sticky top-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0">
+          {/* Topbar actions desktop — fija al viewport */}
+          <div className={cn(
+            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0 transition-[left,right] duration-300 ease-out",
+            isSidebarOpen ? 'left-64' : 'left-[72px]',
+            chatCtx.isPanelOpen && 'right-[400px]',
+          )}>
             <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
           </div>
           {/* Simulation Banner — visible when simulating a different role */}
