@@ -17,7 +17,8 @@ export type ClientChatSession = {
 export function getGuardSession(request: NextRequest): GuardChatSession | null {
   const guardiaId = request.headers.get("x-guardia-id");
   const tenantId = request.headers.get("x-tenant-id");
-  const guardiaName = request.headers.get("x-guardia-name") || "Guardia";
+  const rawGuardiaName = request.headers.get("x-guardia-name") || "Guardia";
+  const guardiaName = decodeURIComponent(rawGuardiaName);
   if (!guardiaId || !tenantId) return null;
   return { guardiaId, tenantId, guardiaName };
 }
@@ -26,7 +27,8 @@ export function getClientSession(request: NextRequest): ClientChatSession | null
   const contactId = request.headers.get("x-contact-id");
   const tenantId = request.headers.get("x-tenant-id");
   const accountId = request.headers.get("x-account-id");
-  const contactName = request.headers.get("x-contact-name") || "Cliente";
+  const rawContactName = request.headers.get("x-contact-name") || "Cliente";
+  const contactName = decodeURIComponent(rawContactName);
   if (!contactId || !tenantId || !accountId) return null;
   return { contactId, tenantId, accountId, contactName };
 }

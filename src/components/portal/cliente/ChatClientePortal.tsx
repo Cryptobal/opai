@@ -31,7 +31,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
     "x-contact-id": session.contactId,
     "x-tenant-id": session.tenantId,
     "x-account-id": session.accountId,
-    "x-contact-name": senderName,
+    "x-contact-name": encodeURIComponent(senderName),
   };
 
   // Fetch locked channels from the channels endpoint

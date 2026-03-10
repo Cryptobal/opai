@@ -91,7 +91,8 @@ export function ProgramacionForm({
             min={30}
             max={360}
             value={String(frecuenciaMinutos)}
-            onChange={(e) => setFrecuenciaMinutos(Math.max(30, Number(e.target.value)))}
+            onChange={(e) => setFrecuenciaMinutos(Number(e.target.value))}
+            onBlur={() => setFrecuenciaMinutos((v) => Math.max(30, Math.min(360, v || 30)))}
             placeholder="Ej: 120"
           />
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
