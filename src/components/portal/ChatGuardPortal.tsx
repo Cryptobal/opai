@@ -23,7 +23,7 @@ export function ChatGuardPortal({ session }: ChatGuardPortalProps) {
   const apiHeaders: Record<string, string> = {
     "x-guardia-id": session.guardiaId,
     "x-tenant-id": session.tenantId,
-    "x-guardia-name": senderName,
+    "x-guardia-name": encodeURIComponent(senderName),
   };
 
   useEffect(() => {

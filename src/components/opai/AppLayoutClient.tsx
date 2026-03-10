@@ -14,9 +14,6 @@ import {
   Contact,
   DollarSign,
   CalendarDays,
-  Clock3,
-  UserRoundCheck,
-  ShieldAlert,
   Fingerprint,
   Route,
   Ticket,
@@ -28,10 +25,7 @@ import {
   Landmark,
   Package,
   BookText,
-  Inbox,
-  ClipboardList,
   Monitor,
-  MessageCircle,
   Shield,
   Trophy,
 } from 'lucide-react';
@@ -79,24 +73,19 @@ function AppLayoutClientInner({
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
   const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
-  const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
 
   const fetchOtherCounters = useCallback(() => {
     Promise.all([
       fetch('/api/notifications?limit=1&types=mention,mention_direct,mention_group').then((r) => r.json()),
       fetch('/api/notes/unread-counts', { cache: 'no-store' }).then((r) => r.json()),
-      fetch('/api/chat/unread-counts', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([noteData, unreadCounts, chatCounts]) => {
+      .then(([noteData, unreadCounts]) => {
         if (noteData?.success && typeof noteData?.meta?.unreadCount === 'number') {
           setUnreadMentionNotesCount(noteData.meta.unreadCount);
         }
         if (unreadCounts?.success && unreadCounts?.data?.byModule) {
           setNotesByModule(unreadCounts.data.byModule);
           setActivityUnreadTotal(typeof unreadCounts.data.total === 'number' ? unreadCounts.data.total : 0);
-        }
-        if (chatCounts?.success && typeof chatCounts?.data?.total === 'number') {
-          setChatUnreadTotal(chatCounts.data.total);
         }
       })
       .catch(() => { });
@@ -127,13 +116,6 @@ function AppLayoutClientInner({
       label: 'Inicio',
       icon: Grid3x3,
       show: hasModuleAccess(permissions, 'hub'),
-    },
-    {
-      href: '/chat',
-      label: 'Chat',
-      icon: MessageCircle,
-      show: true,
-      badge: chatUnreadTotal,
     },
     {
       href: '/crm',
@@ -237,7 +219,7 @@ function AppLayoutClientInner({
         { href: '/portal/acceso', label: 'Control de Acceso', icon: Fingerprint },
       ],
     },
-  ], [permissions, isAdmin, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
+  ], [permissions, isAdmin, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
 
   return (
     <InAppNotificationProvider
