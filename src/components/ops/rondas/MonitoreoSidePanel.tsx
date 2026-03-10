@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2, History, ChevronDown, FileText, Moon, Sun } from "lucide-react";
+import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2, History, ChevronDown, FileText, Moon, Sun, Search } from "lucide-react";
 import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
 import { HistorialGridDialog, type HistorialTurno } from "./HistorialGridDialog";
 import { cn } from "@/lib/utils";
@@ -121,6 +121,11 @@ export function MonitoreoSidePanel({
     [openAlerts],
   );
 
+  // Switch tab when parent requests it (e.g., alert badge click)
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
+
   // Switch to alertas tab when installation filter is set
   useEffect(() => {
     if (alertInstallationFilter) {
@@ -143,7 +148,7 @@ export function MonitoreoSidePanel({
     },
     {
       key: "instalaciones",
-      label: "Instalaciones",
+      label: "Sitios",
       icon: <Shield className="h-3 w-3" />,
       badge: installations.length,
     },
@@ -157,7 +162,7 @@ export function MonitoreoSidePanel({
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex border-b border-[#1a1f2e] shrink-0 bg-[#080c16]">
+      <div className="flex border-b border-[#1a1f2e] shrink-0 bg-[#080c16] overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -677,13 +682,50 @@ function InstalacionesTab({
   selectedId: string | null;
   onAlertBadgeClick: (inst: { id: string; name: string }) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return installations;
+    const q = searchQuery.toLowerCase();
+    return installations.filter((inst) =>
+      inst.name.toLowerCase().includes(q)
+    );
+  }, [installations, searchQuery]);
+
   if (installations.length === 0) {
     return <div className="px-4 py-8 text-center text-sm text-muted-foreground">Sin instalaciones</div>;
   }
 
   return (
-    <div className="divide-y divide-[#1e293b]">
-      {installations.map((inst) => {
+    <div>
+      {/* Search input */}
+      <div className="px-3 py-2 border-b border-[#1a1f2e]">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[#475569]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar instalación..."
+            className="w-full h-7 pl-7 pr-2 rounded-md bg-[#0a0f1c] border border-[#1a1f2e] text-[11px] text-[#f1f5f9] placeholder:text-[#475569] focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#94a3b8]"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      {filtered.length === 0 ? (
+        <div className="px-4 py-6 text-center text-[11px] text-[#64748b]">
+          Sin resultados para &ldquo;{searchQuery}&rdquo;
+        </div>
+      ) : (
+      <div className="divide-y divide-[#1e293b]">
+      {filtered.map((inst) => {
         const isSelected = selectedId === inst.id;
         // Semáforo: green if guards present + ronda active, yellow if guards but no ronda, red if no guards or alerts
         const hasAlert = inst.alertCount > 0;
@@ -746,6 +788,8 @@ function InstalacionesTab({
           </button>
         );
       })}
+    </div>
+      )}
     </div>
   );
 }

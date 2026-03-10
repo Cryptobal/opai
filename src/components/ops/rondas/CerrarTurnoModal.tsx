@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Loader2, Send, AlertTriangle, Moon, Sun } from "lucide-react";
+import { X, Loader2, Send, AlertTriangle, Moon, Sun, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,16 +18,20 @@ interface Props {
   onClose: () => void;
   onClosed: () => void;
   onSendCobertura?: (turnoFilter: "nocturno" | "diurno") => void;
+  userRole?: string;
 }
 
-export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCobertura }: Props) {
+export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCobertura, userRole }: Props) {
   const [comments, setComments] = useState("");
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [coberturaStatus, setCoberturaStatus] = useState<CoberturaStatus>({});
   const [loadingCobertura, setLoadingCobertura] = useState(false);
+  const isAdmin = userRole === "owner" || userRole === "admin";
 
   // Fetch cobertura status when modal opens
   useEffect(() => {
@@ -216,11 +220,50 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <div className="flex gap-2 flex-1">
+            <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancelar</Button>
+            {isAdmin && !confirmDelete && (
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDelete(true)}
+                disabled={saving || deleting}
+                className="gap-1 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Eliminar
+              </Button>
+            )}
+            {isAdmin && confirmDelete && (
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    const res = await fetch(`/api/ops/rondas/monitoreo/turno/${turnoId}/close`, { method: "DELETE" });
+                    const json = await res.json();
+                    if (!res.ok || !json.success) {
+                      toast.error(json.error ?? "Error eliminando turno");
+                      return;
+                    }
+                    toast.success("Turno eliminado");
+                    onClosed();
+                  } finally {
+                    setDeleting(false);
+                    setConfirmDelete(false);
+                  }
+                }}
+                disabled={deleting}
+                className="gap-1"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Confirmar eliminar
+              </Button>
+            )}
+          </div>
           <Button
             onClick={handleClose}
-            disabled={saving || (!ambasCoberturas && !loadingCobertura)}
+            disabled={saving || deleting || (!ambasCoberturas && !loadingCobertura)}
             className="gap-1"
             title={!ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
           >

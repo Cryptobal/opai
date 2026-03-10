@@ -44,13 +44,11 @@ export function MonitoreoGridCellModal({
         { value: "completada", label: "Completada", color: "emerald" },
         { value: "omitida", label: "Omitida", color: "red" },
         { value: "pendiente", label: "Pendiente", color: "slate" },
-        { value: "no_aplica", label: "No aplica", color: "slate" },
       ]
     : [
         { value: "completada", label: "Llam\u00E9, todo OK", color: "emerald" },
         { value: "omitida", label: "Llam\u00E9, novedad", color: "amber" },
-        { value: "pendiente", label: "No contact\u00E9", color: "slate" },
-        { value: "no_aplica", label: "No aplica", color: "slate" },
+        { value: "pendiente", label: "No contact\u00E9", color: "red" },
       ];
 
   return (
@@ -59,7 +57,7 @@ export function MonitoreoGridCellModal({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 border border-slate-600 rounded-xl p-5 w-96 shadow-2xl"
+        className="bg-[#111827] border border-[#1a1f2e] rounded-xl p-5 w-96 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

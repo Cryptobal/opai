@@ -17,7 +17,14 @@ export default async function RondasMonitoreoPage() {
 
   const now = new Date();
   const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
-  const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+
+  // Use active turno start time as lower bound; fallback to 12h window
+  const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
+    where: { tenantId, status: "active" },
+    select: { startedAt: true },
+  });
+  const lookbackStart = activeTurno?.startedAt
+    ?? new Date(now.getTime() - 12 * 60 * 60 * 1000);
 
   const [activeRows, upcomingRows, installations, alerts] = await Promise.all([
     prisma.opsRondaEjecucion.findMany({
@@ -45,10 +52,10 @@ export default async function RondasMonitoreoPage() {
         tenantId,
         OR: [
           { status: "pendiente", scheduledAt: { gte: now, lte: sixHoursFromNow } },
-          { status: "pendiente", scheduledAt: { lt: now, gte: twelveHoursAgo } },
-          { status: "no_realizada", scheduledAt: { gte: twelveHoursAgo } },
-          { status: "cerrada_auto", scheduledAt: { gte: twelveHoursAgo } },
-          { status: "cerrada_admin", scheduledAt: { gte: twelveHoursAgo } },
+          { status: "pendiente", scheduledAt: { lt: now, gte: lookbackStart } },
+          { status: "no_realizada", scheduledAt: { gte: lookbackStart } },
+          { status: "cerrada_auto", scheduledAt: { gte: lookbackStart } },
+          { status: "cerrada_admin", scheduledAt: { gte: lookbackStart } },
         ],
       },
       include: {
@@ -85,6 +92,7 @@ export default async function RondasMonitoreoPage() {
         userId={session.user.id ?? ""}
         userName={session.user.name ?? ""}
         tenantId={tenantId}
+        userRole={session.user.role}
       />
     </div>
   );

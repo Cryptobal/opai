@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { canEdit, canDelete } from "@/lib/permissions";
 import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 
@@ -228,6 +228,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[RONDAS] POST monitoreo turno close", error);
+    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE — Admin/owner only: delete turno without saving or sending email.
+ * Used for testing purposes.
+ */
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    // Only admin/owner can delete
+    if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo admin/owner puede eliminar turnos" },
+        { status: 403 },
+      );
+    }
+
+    const turno = await prisma.opsMonitoreoTurno.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+    if (!turno) {
+      return NextResponse.json({ success: false, error: "Turno no encontrado" }, { status: 404 });
+    }
+
+    // Archive alerts linked to this turno
+    await prisma.opsAlertaRonda.updateMany({
+      where: { turnoId: id },
+      data: { archivedAt: new Date() },
+    });
+
+    // Delete the turno
+    await prisma.opsMonitoreoTurno.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[RONDAS] DELETE monitoreo turno", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }
 }

@@ -85,10 +85,14 @@ function GuardCard({
 }) {
   const [localHora, setLocalHora] = useState(guard.horaLlegada ?? "");
   const [localNotes, setLocalNotes] = useState(guard.notes ?? "");
-  const [localReemplaza, setLocalReemplaza] = useState(
-    guard.reemplazaDe ?? "",
-  );
   const notesSaveRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // "No viene" sub-flow: null → choosing → sin_cobertura | con_cobertura
+  const [noVieneStep, setNoVieneStep] = useState<
+    null | "choosing" | "sin_cobertura" | "con_cobertura"
+  >(guard.status === "no_viene" ? (guard.reemplazaDe ? "con_cobertura" : "sin_cobertura") : null);
+  const [replacementName, setReplacementName] = useState("");
+  const [replacementId, setReplacementId] = useState<string | null>(null);
 
   // Sync with prop changes (optimistic updates from parent)
   useEffect(() => {
@@ -96,6 +100,13 @@ function GuardCard({
   }, [guard.horaLlegada]);
 
   const handleStatusChange = (newStatus: string) => {
+    if (newStatus === "no_viene") {
+      // Show sub-options instead of immediately setting status
+      setNoVieneStep("choosing");
+      return;
+    }
+    // Switching away from no_viene: clear sub-flow
+    setNoVieneStep(null);
     const patch: { status: string; horaLlegada?: string } = {
       status: newStatus,
     };
@@ -103,6 +114,22 @@ function GuardCard({
       patch.horaLlegada = nowHHMM();
     }
     onUpdate(patch);
+  };
+
+  const handleSinCobertura = () => {
+    setNoVieneStep("sin_cobertura");
+    onUpdate({ status: "no_viene", reemplazaDe: null, notes: "Sin cobertura — puesto descubierto" });
+  };
+
+  const handleConCobertura = () => {
+    setNoVieneStep("con_cobertura");
+    onUpdate({ status: "no_viene" });
+  };
+
+  const handleReplacementConfirm = () => {
+    if (!replacementName.trim()) return;
+    onUpdate({ status: "no_viene", reemplazaDe: replacementName.trim() });
+    // Keep in con_cobertura step to show the confirmed replacement
   };
 
   const handleHoraBlur = () => {
@@ -119,18 +146,14 @@ function GuardCard({
     }, 1500);
   };
 
-  const handleReemplazaBlur = () => {
-    if (localReemplaza !== (guard.reemplazaDe ?? "")) {
-      onUpdate({ reemplazaDe: localReemplaza || null });
-    }
-  };
-
   const cardBorder =
     guard.status === "no_viene"
       ? "bg-red-500/[0.05] border-red-500/20"
       : guard.status === "presente" || guard.status === "reemplazo"
         ? "bg-emerald-500/[0.05] border-emerald-500/20"
         : "bg-slate-800/40 border-slate-700/50";
+
+  const isNoViene = guard.status === "no_viene" || noVieneStep === "choosing";
 
   return (
     <div className={`rounded-lg border p-3 space-y-3 ${cardBorder}`}>
@@ -146,78 +169,151 @@ function GuardCard({
             </span>
           )}
         </div>
-        <button
-          onClick={onDelete}
-          className="text-slate-600 hover:text-red-400 transition-colors p-1"
-          title="Eliminar guardia"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Status buttons */}
-      <div className="flex gap-1.5">
-        {STATUS_BUTTONS.map((btn) => (
+        {guard.isExtra && (
           <button
-            key={btn.value}
-            onClick={() => handleStatusChange(btn.value)}
-            className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all ${
-              guard.status === btn.value
-                ? `${btn.activeBg} text-white shadow-sm`
-                : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
-            }`}
+            onClick={onDelete}
+            className="text-slate-600 hover:text-red-400 transition-colors p-1"
+            title="Eliminar guardia"
           >
-            {btn.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Arrival time — always visible */}
-      <div className="flex items-center gap-2">
-        <label className="text-[10px] text-slate-500 uppercase tracking-wide w-16 flex-shrink-0">
-          Llegada
-        </label>
-        <input
-          type="time"
-          value={localHora}
-          onChange={(e) => setLocalHora(e.target.value)}
-          onBlur={handleHoraBlur}
-          className="flex-1 h-8 text-xs bg-slate-900 border border-slate-700 rounded-md px-2 text-slate-300 focus:border-teal-500 focus:outline-none font-mono"
-        />
-        {!guard.horaLlegada && (
-          <button
-            onClick={() =>
-              onUpdate({
-                horaLlegada: nowHHMM(),
-                status:
-                  guard.status === "pendiente" ? "presente" : guard.status,
-              })
-            }
-            className="h-8 px-2.5 text-[10px] rounded-md bg-teal-500/20 text-teal-400 hover:bg-teal-500/30 transition-colors flex items-center gap-1 flex-shrink-0"
-            title="Usar hora actual"
-          >
-            <Clock className="w-3 h-3" />
-            Ahora
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* No viene — expanded section */}
-      {guard.status === "no_viene" && (
+      {/* Status buttons */}
+      <div className="flex gap-1.5">
+        {STATUS_BUTTONS.map((btn) => {
+          // When in any noViene step, only "No viene" should be highlighted
+          const isActive = noVieneStep != null
+            ? btn.value === "no_viene"
+            : guard.status === btn.value;
+          return (
+            <button
+              key={btn.value}
+              onClick={() => handleStatusChange(btn.value)}
+              className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all ${
+                isActive
+                  ? `${btn.activeBg} text-white shadow-sm`
+                  : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              {btn.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Arrival time — visible unless no_viene */}
+      {!isNoViene && (
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-slate-500 uppercase tracking-wide w-16 flex-shrink-0">
+            Llegada
+          </label>
+          <input
+            type="time"
+            value={localHora}
+            onChange={(e) => setLocalHora(e.target.value)}
+            onBlur={handleHoraBlur}
+            className="flex-1 h-8 text-xs bg-slate-900 border border-slate-700 rounded-md px-2 text-slate-300 focus:border-teal-500 focus:outline-none font-mono"
+          />
+          {!guard.horaLlegada && (
+            <button
+              onClick={() =>
+                onUpdate({
+                  horaLlegada: nowHHMM(),
+                  status:
+                    guard.status === "pendiente" ? "presente" : guard.status,
+                })
+              }
+              className="h-8 px-2.5 text-[10px] rounded-md bg-teal-500/20 text-teal-400 hover:bg-teal-500/30 transition-colors flex items-center gap-1 flex-shrink-0"
+              title="Usar hora actual"
+            >
+              <Clock className="w-3 h-3" />
+              Ahora
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* No viene — sub-options */}
+      {noVieneStep === "choosing" && (
         <div className="space-y-2 pt-1 border-t border-red-500/10">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">¿Tiene cobertura?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSinCobertura}
+              className="flex-1 py-2 rounded-lg border-2 border-red-500/30 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors"
+            >
+              Sin cobertura
+              <span className="block text-[9px] font-normal text-red-400/70 mt-0.5">Alerta máxima</span>
+            </button>
+            <button
+              onClick={handleConCobertura}
+              className="flex-1 py-2 rounded-lg border-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors"
+            >
+              Con cobertura
+              <span className="block text-[9px] font-normal text-emerald-400/70 mt-0.5">Buscar reemplazo</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sin cobertura — confirmed state */}
+      {noVieneStep === "sin_cobertura" && guard.status === "no_viene" && (
+        <div className="space-y-2 pt-1 border-t border-red-500/10">
+          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            <span className="text-[11px] font-semibold text-red-400">Puesto descubierto — Alerta máxima</span>
+          </div>
           <div>
-            <label className="text-[9px] text-slate-500 uppercase">
-              Reemplaza a
-            </label>
-            <input
-              type="text"
-              value={localReemplaza}
-              onChange={(e) => setLocalReemplaza(e.target.value)}
-              onBlur={handleReemplazaBlur}
-              placeholder="Nombre del guardia ausente"
-              className="mt-0.5 w-full h-7 text-xs bg-slate-900 border border-slate-600 rounded-md px-2 text-slate-300 focus:border-teal-500 focus:outline-none"
+            <label className="text-[9px] text-slate-500 uppercase">Nota</label>
+            <textarea
+              value={localNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Motivo de ausencia..."
+              rows={2}
+              className="mt-0.5 w-full text-xs bg-slate-900 border border-slate-600 rounded-md px-2 py-1.5 text-slate-300 focus:border-teal-500 focus:outline-none resize-none"
             />
           </div>
+        </div>
+      )}
+
+      {/* Con cobertura — replacement guard search */}
+      {noVieneStep === "con_cobertura" && (
+        <div className="space-y-2 pt-1 border-t border-emerald-500/10">
+          {guard.reemplazaDe ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-[11px] text-emerald-400">
+                Reemplazado por: <span className="font-semibold">{guard.reemplazaDe}</span>
+              </span>
+            </div>
+          ) : (
+            <>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Buscar reemplazo</p>
+              <GuardiaSearchInput
+                value={replacementName}
+                onChange={(patch) => {
+                  setReplacementName(patch.guardiaNombre);
+                  if (patch.guardiaId) setReplacementId(patch.guardiaId);
+                }}
+                placeholder="Buscar guardia reemplazo..."
+                className="h-8 text-xs bg-slate-900 border-slate-600"
+                dropdownDirection="down"
+              />
+              <button
+                onClick={handleReplacementConfirm}
+                disabled={!replacementName.trim()}
+                className={`w-full py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  replacementName.trim()
+                    ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                }`}
+              >
+                Confirmar reemplazo
+              </button>
+            </>
+          )}
           <div>
             <label className="text-[9px] text-slate-500 uppercase">Nota</label>
             <textarea

@@ -151,7 +151,9 @@ export function MonitoreoTurnoHeader({
         </div>
         <span className="text-[#1a1f2e]">|</span>
         <span className="text-[11px] text-[#94a3b8]">{startTime}</span>
+        <span className="text-[10px] text-[#475569]">·</span>
         <span className="text-[13px] font-mono font-semibold text-[#f1f5f9] tabular-nums">{elapsed}</span>
+        <span className="text-[9px] text-[#475569] -ml-1">hrs</span>
         <span className="text-[10px] text-[#64748b] truncate max-w-[120px]">{operatorName}</span>
       </div>
 

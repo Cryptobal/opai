@@ -40,6 +40,7 @@ export default async function CrmCotizacionesPage() {
         updatedAt: true,
         accountId: true,
         dealId: true,
+        contactId: true,
         parameters: {
           select: { salePriceMonthly: true, marginPct: true },
         },
@@ -56,14 +57,16 @@ export default async function CrmCotizacionesPage() {
     getUfValue(),
   ]);
 
-  // Resolver nombres de negocio y cuenta + stage info + follow-up status
+  // Resolver nombres de negocio, cuenta, info de stage, follow-up status y contactos
   const dealIds = quotes.map((q) => q.dealId).filter((id): id is string => Boolean(id));
   const accountIds = quotes.map((q) => q.accountId).filter((id): id is string => Boolean(id));
+  let contactIds = quotes.map((q) => q.contactId).filter((id): id is string => Boolean(id));
+
   const [dealsRaw, accountsMap, followUpCounts] = await Promise.all([
     dealIds.length > 0
       ? prisma.crmDeal.findMany({
           where: { id: { in: dealIds } },
-          select: { id: true, title: true, stage: { select: { name: true, color: true } } },
+          select: { id: true, title: true, stage: { select: { name: true, color: true } }, primaryContactId: true },
         })
       : Promise.resolve([]),
     accountIds.length > 0
@@ -77,6 +80,20 @@ export default async function CrmCotizacionesPage() {
   ]);
   const dealsMap = new Map(dealsRaw.map((r) => [r.id, r.title]));
   const dealStageMap = new Map(dealsRaw.map((r) => [r.id, r.stage ? { name: r.stage.name, color: r.stage.color } : null]));
+
+  // Obtener contactos (de la cotización o del deal)
+  dealsRaw.forEach(d => {
+    if (d.primaryContactId) contactIds.push(d.primaryContactId);
+  });
+  contactIds = Array.from(new Set(contactIds));
+  
+  const contactsRaw = contactIds.length > 0
+    ? await prisma.crmContact.findMany({
+        where: { id: { in: contactIds } },
+        select: { id: true, firstName: true, lastName: true },
+      })
+    : [];
+  const contactsMap = new Map(contactsRaw.map(c => [c.id, `${c.firstName} ${c.lastName}`.trim()]));
 
   // Enriquecer con salePriceMonthly calculado si está en 0
   const enrichedQuotes = await Promise.all(
@@ -105,6 +122,7 @@ export default async function CrmCotizacionesPage() {
           // mantener 0 si falla el cálculo
         }
       }
+        const resolvedContactId = q.contactId || (q.dealId && dealsMap.get(q.dealId) ? dealsRaw.find(d => d.id === q.dealId)?.primaryContactId : null) || null;
       // Sumar líneas adicionales al precio de venta (igual que el detalle)
       salePriceMonthly += additionalLinesTotal;
       return {
@@ -125,6 +143,8 @@ export default async function CrmCotizacionesPage() {
         dealId: q.dealId || null,
         dealTitle: (q.dealId && dealsMap.get(q.dealId)) || null,
         accountName: (q.accountId && accountsMap.get(q.accountId)) || null,
+        contactId: resolvedContactId,
+        contactName: resolvedContactId ? contactsMap.get(resolvedContactId) || null : null,
         dealStageName: (q.dealId && dealStageMap.get(q.dealId)?.name) || null,
         dealStageColor: (q.dealId && dealStageMap.get(q.dealId)?.color) || null,
         pendingFollowUps: (q.dealId && followUpCounts.get(q.dealId)) || 0,

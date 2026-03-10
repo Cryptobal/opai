@@ -35,6 +35,8 @@ type QuoteRow = {
   dealId?: string | null;
   dealTitle?: string | null;
   accountName?: string | null;
+  contactId?: string | null;
+  contactName?: string | null;
   dealStageName?: string | null;
   dealStageColor?: string | null;
   pendingFollowUps?: number;
@@ -265,7 +267,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
             )}
           </p>
         )}
-        <p className="mt-0.5 text-xs text-muted-foreground truncate">
+        <p className="mt-0.5 text-xs text-muted-foreground truncate flex items-center gap-1">
           {quote.accountId ? (
             <Link
               href={`/crm/accounts/${quote.accountId}`}
@@ -277,7 +279,19 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           ) : (
             <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
           )}
-          {" · "}{quote.totalGuards} guardias · {quote.totalPositions} puestos
+          {quote.contactName && (
+            <>
+              <span>·</span>
+              <Link
+                href={`/crm/contacts/${quote.contactId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sky-500 hover:text-sky-400 hover:underline transition-colors"
+              >
+                {quote.contactName}
+              </Link>
+            </>
+          )}
+          <span>· {quote.totalGuards} guardias · {quote.totalPositions} puestos</span>
         </p>
         <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-0.5" />
       </div>
@@ -369,7 +383,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           )}
         </p>
       )}
-      <p className="text-xs text-muted-foreground truncate">
+      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
         {quote.accountId ? (
           <Link
             href={`/crm/accounts/${quote.accountId}`}
@@ -380,6 +394,19 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           </Link>
         ) : (
           <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
+        )}
+        {quote.contactName && (
+          <>
+            <span>·</span>
+            <Link
+              href={`/crm/contacts/${quote.contactId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-sky-500 hover:text-sky-400 hover:underline transition-colors block truncate w-full"
+              title={quote.contactName}
+            >
+              {quote.contactName}
+            </Link>
+          </>
         )}
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">

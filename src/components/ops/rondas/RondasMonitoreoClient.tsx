@@ -57,6 +57,7 @@ export function RondasMonitoreoClient({
   userId,
   userName,
   tenantId,
+  userRole,
 }: {
   initialRows: any[];
   upcomingRows: UpcomingRow[];
@@ -65,6 +66,7 @@ export function RondasMonitoreoClient({
   userId: string;
   userName: string;
   tenantId: string;
+  userRole?: string;
 }) {
   const [rows, setRows] = useState<any[]>(initialRows);
   const [closingOrphans, setClosingOrphans] = useState(false);
@@ -349,7 +351,9 @@ export function RondasMonitoreoClient({
   }, [filtered]);
 
   const handleToggleAlerts = useCallback(async () => {
-    setSidePanelTab("alertas");
+    // Force re-trigger: reset to rondas then immediately set alertas
+    setSidePanelTab("rondas");
+    requestAnimationFrame(() => setSidePanelTab("alertas"));
     setAlertsLoading(true);
     await fetchAlerts();
     setAlertsLoading(false);
@@ -867,6 +871,7 @@ export function RondasMonitoreoClient({
         onClose={() => setCloseTurnoId(null)}
         onClosed={() => { setCloseTurnoId(null); refreshMonitoreo(); }}
         onSendCobertura={handleSendCoberturaEmail}
+        userRole={userRole}
       />
 
       {/* 22:00 nocturna reminder modal */}
