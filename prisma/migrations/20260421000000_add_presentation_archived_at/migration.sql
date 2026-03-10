@@ -1,5 +1,5 @@
 -- AlterTable: add archived_at column to Presentation
-ALTER TABLE "Presentation" ADD COLUMN "archived_at" TIMESTAMP(3);
+ALTER TABLE "Presentation" ADD COLUMN IF NOT EXISTS "archived_at" TIMESTAMP(3);
 
 -- DataMigration: archive presentations linked to closed deals (won/lost)
 -- Path 1: Presentation → cpq.quotes → crm.deal_quotes → crm.deals → crm.pipeline_stages
