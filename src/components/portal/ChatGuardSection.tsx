@@ -96,7 +96,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
   const headers = {
     "x-guardia-id": session.guardiaId,
     "x-tenant-id": session.tenantId,
-    "x-guardia-name": `${session.firstName} ${session.lastName}`,
+    "x-guardia-name": encodeURIComponent(`${session.firstName} ${session.lastName}`),
     "Content-Type": "application/json",
   };
 
@@ -145,7 +145,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
         headers: {
           "x-guardia-id": session.guardiaId,
           "x-tenant-id": session.tenantId,
-          "x-guardia-name": `${session.firstName} ${session.lastName}`,
+          "x-guardia-name": encodeURIComponent(`${session.firstName} ${session.lastName}`),
         },
       },
     });
@@ -236,7 +236,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
       headers: {
         "x-guardia-id": session.guardiaId,
         "x-tenant-id": session.tenantId,
-        "x-guardia-name": `${session.firstName} ${session.lastName}`,
+        "x-guardia-name": encodeURIComponent(`${session.firstName} ${session.lastName}`),
       },
       body: formData,
     });

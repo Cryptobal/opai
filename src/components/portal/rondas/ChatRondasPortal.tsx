@@ -22,7 +22,7 @@ export function ChatRondasPortal({ session, onBack }: ChatRondasPortalProps) {
   const apiHeaders: Record<string, string> = {
     "x-guardia-id": session.guardiaId,
     "x-tenant-id": session.tenantId,
-    "x-guardia-name": session.nombre,
+    "x-guardia-name": encodeURIComponent(session.nombre),
   };
 
   useEffect(() => {
