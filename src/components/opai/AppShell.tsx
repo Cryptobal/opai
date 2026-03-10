@@ -16,6 +16,7 @@ import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { BottomNav } from './BottomNav';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
+import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -281,9 +282,10 @@ export function AppShell({
         {/* ── Main content ── */}
         <div
           className={cn(
-            'transition-[padding] duration-200 ease-out min-w-0 w-full',
+            'transition-[padding,margin] duration-300 ease-out min-w-0 w-full',
             'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
+            chatCtx.isPanelOpen && 'lg:mr-[400px]',
             className
           )}
         >
@@ -309,6 +311,9 @@ export function AppShell({
 
         {/* ── Bottom Nav (mobile) ── */}
         <BottomNav userRole={userRole} />
+
+        {/* ── Chat Side Panel ── */}
+        <ChatSidePanel userRole={userRole} />
 
         {/* ── Command Palette ── */}
         <CommandPalette

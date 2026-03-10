@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { ThemeLogo } from './ThemeLogo';
 import {
   Dialog,
@@ -66,6 +67,7 @@ export function AppSidebar({
   onClose,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const chatCtx = useChatSidePanelContext();
   const collapsed = !isSidebarOpen;
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -225,37 +227,31 @@ export function AppSidebar({
             if (item.show === false) return null;
 
             const hasChildren = item.children && item.children.length > 0;
-            const isModuleActive =
-              isItemActive(item.href) ||
-              (hasChildren && item.children!.some((child) => isItemActive(child.href)));
+            const isChatToggle = item.href === '/chat';
+            const isModuleActive = isChatToggle
+              ? chatCtx.isPanelOpen
+              : (isItemActive(item.href) ||
+                (hasChildren && item.children!.some((child) => isItemActive(child.href))));
             const isExpanded = expandedSections.has(item.href);
             const Icon = item.icon;
 
-            // Simple item (no children) - e.g. "Inicio", "Guardias"
+            // Simple item (no children) - e.g. "Inicio", "Chat"
             if (!hasChildren) {
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  onMouseEnter={(e) => {
-                    if (!showFlyout) return;
-                    openFlyout(item, e.currentTarget);
-                  }}
-                  onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
-                  className={cn(
-                    "group relative flex items-center rounded-md transition-colors",
-                    showCloseButton ? "text-[15px]" : "text-sm",
-                    collapsed
-                      ? "justify-center px-0 py-2.5"
-                      : showCloseButton
-                      ? "gap-3 px-3 py-2.5"
-                      : "gap-3 px-3 py-2",
-                    isModuleActive
-                      ? "bg-primary/15 text-primary font-medium shadow-sm"
-                      : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
-                  )}
-                >
+              const itemClassName = cn(
+                "group relative flex items-center rounded-md transition-colors w-full",
+                showCloseButton ? "text-[15px]" : "text-sm",
+                collapsed
+                  ? "justify-center px-0 py-2.5"
+                  : showCloseButton
+                  ? "gap-3 px-3 py-2.5"
+                  : "gap-3 px-3 py-2",
+                isModuleActive
+                  ? "bg-primary/15 text-primary font-medium shadow-sm"
+                  : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
+              );
+
+              const itemContent = (
+                <>
                   {isModuleActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-primary to-primary/60" />
                   )}
@@ -274,7 +270,42 @@ export function AppSidebar({
                       </span>
                     )}
                   </span>
-                  {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+                  {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
+                </>
+              );
+
+              // Chat item: render button that toggles side panel
+              if (isChatToggle) {
+                return (
+                  <button
+                    key={item.href}
+                    type="button"
+                    onClick={() => { chatCtx.togglePanel(); onNavigate?.(); }}
+                    onMouseEnter={(e) => {
+                      if (!showFlyout) return;
+                      openFlyout(item, e.currentTarget);
+                    }}
+                    onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
+                    className={itemClassName}
+                  >
+                    {itemContent}
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  onMouseEnter={(e) => {
+                    if (!showFlyout) return;
+                    openFlyout(item, e.currentTarget);
+                  }}
+                  onMouseLeave={() => showFlyout && scheduleFlyoutClose()}
+                  className={itemClassName}
+                >
+                  {itemContent}
                 </Link>
               );
             }
