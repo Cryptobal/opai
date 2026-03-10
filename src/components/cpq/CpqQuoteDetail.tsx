@@ -902,7 +902,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   return (
     <div className="space-y-2 pb-20 lg:pb-4">
       {/* -- Compact header -- */}
-      <div className="sticky top-[53px] z-30 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
+      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">

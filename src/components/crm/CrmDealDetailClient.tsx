@@ -1363,8 +1363,6 @@ export function CrmDealDetailClient({
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "followup", label: "Seguimiento", icon: CalendarClock },
-    { id: "communication", label: "Comunicación", icon: Mail },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -1414,17 +1412,31 @@ export function CrmDealDetailClient({
         onTabChange={setActiveTab}
         rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
-        {activeTab === "general" && generalSection.children}
-        {activeTab === "followup" && (
-          <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Seguimiento automático</h3>
-              {followUpSection.action}
+        {activeTab === "general" && (
+          <div className="space-y-4">
+            {generalSection.children}
+
+            <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-muted-foreground" /> Seguimiento automático
+                </h3>
+                {followUpSection.action}
+              </div>
+              {followUpSection.children}
             </div>
-            {followUpSection.children}
+
+            <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" /> Comunicación
+                </h3>
+                {communicationSection.action}
+              </div>
+              {communicationSection.children}
+            </div>
           </div>
         )}
-        {activeTab === "communication" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{communicationSection.children}</div>}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
             <CrmActivityTimeline events={activityEvents} />
