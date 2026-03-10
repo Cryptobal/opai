@@ -1,25 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2, Send } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Loader2, Send, AlertTriangle, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+
+interface CoberturaStatus {
+  coberturaNocturnaSentAt?: string | null;
+  coberturaDiurnaSentAt?: string | null;
+}
 
 interface Props {
   turnoId: string;
   open: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onSendCobertura?: (turnoFilter: "nocturno" | "diurno") => void;
 }
 
-export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
+export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCobertura }: Props) {
   const [comments, setComments] = useState("");
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [coberturaStatus, setCoberturaStatus] = useState<CoberturaStatus>({});
+  const [loadingCobertura, setLoadingCobertura] = useState(false);
+
+  // Fetch cobertura status when modal opens
+  useEffect(() => {
+    if (!open || !turnoId) return;
+    setLoadingCobertura(true);
+    fetch("/api/ops/rondas/monitoreo/turno/active")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.emailSentTo) {
+          setCoberturaStatus(json.data.emailSentTo as CoberturaStatus);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCobertura(false));
+  }, [open, turnoId]);
+
+  const nocturnaEnviada = !!coberturaStatus.coberturaNocturnaSentAt;
+  const diurnaEnviada = !!coberturaStatus.coberturaDiurnaSentAt;
+  const ambasCoberturas = nocturnaEnviada && diurnaEnviada;
 
   const addEmail = () => {
     const trimmed = emailInput.trim();
@@ -57,6 +84,21 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
     }
   };
 
+  const handleSendAndRefresh = (turno: "nocturno" | "diurno") => {
+    onSendCobertura?.(turno);
+    // Refresh status after a short delay for the API to complete
+    setTimeout(() => {
+      fetch("/api/ops/rondas/monitoreo/turno/active")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && json.data?.emailSentTo) {
+            setCoberturaStatus(json.data.emailSentTo as CoberturaStatus);
+          }
+        })
+        .catch(() => {});
+    }, 3000);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
@@ -65,6 +107,63 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Cobertura enforcement */}
+          {!loadingCobertura && !ambasCoberturas && (
+            <div className="rounded-lg border-2 border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-medium text-amber-300">Coberturas pendientes de envío</p>
+              </div>
+              <p className="text-xs text-amber-200/70">
+                Debes enviar ambas coberturas antes de cerrar el turno.
+              </p>
+              <div className="flex gap-2 mt-2">
+                {!nocturnaEnviada && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                    onClick={() => handleSendAndRefresh("nocturno")}
+                  >
+                    <Moon className="h-3 w-3" /> Enviar nocturna
+                  </Button>
+                )}
+                {nocturnaEnviada && (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                    <Moon className="h-3 w-3" /> Nocturna enviada
+                  </span>
+                )}
+                {!diurnaEnviada && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                    onClick={() => handleSendAndRefresh("diurno")}
+                  >
+                    <Sun className="h-3 w-3" /> Enviar diurna
+                  </Button>
+                )}
+                {diurnaEnviada && (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                    <Sun className="h-3 w-3" /> Diurna enviada
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Coberturas OK badge */}
+          {!loadingCobertura && ambasCoberturas && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 flex items-center gap-2">
+              <span className="text-emerald-400 text-xs font-medium">Coberturas enviadas</span>
+              <span className="text-[10px] text-emerald-300/60 ml-auto">
+                Nocturna {new Date(coberturaStatus.coberturaNocturnaSentAt!).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                {" · "}
+                Diurna {new Date(coberturaStatus.coberturaDiurnaSentAt!).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+          )}
+
           {summary ? (
             <div className="rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap max-h-[200px] overflow-y-auto">
               {summary}
@@ -119,7 +218,12 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleClose} disabled={saving} className="gap-1">
+          <Button
+            onClick={handleClose}
+            disabled={saving || (!ambasCoberturas && !loadingCobertura)}
+            className="gap-1"
+            title={!ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {saving ? "Cerrando..." : "Cerrar turno y enviar"}
           </Button>

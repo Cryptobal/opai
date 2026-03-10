@@ -17,6 +17,9 @@ import Pusher from "pusher-js";
 import { PanicAlertBanner } from "./PanicAlertBanner";
 import type { PanicAlertData } from "./PanicAlertBanner";
 import { soundCheckpointMarked, soundRondaCompleted, soundRondaStarted, soundAlert } from "@/lib/rondas/monitor-sounds";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Moon } from "lucide-react";
 
 interface AlertRow {
   id: string;
@@ -76,7 +79,7 @@ export function RondasMonitoreoClient({
   const [resolvingAlertId, setResolvingAlertId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
   const [alertInstallationFilter, setAlertInstallationFilter] = useState<{ id: string; name: string } | null>(null);
-  const [sendingCoberturaEmail, setSendingCoberturaEmail] = useState(false);
+  const [sendingCoberturaEmail, setSendingCoberturaEmail] = useState<"nocturno" | "diurno" | null>(null);
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
@@ -209,6 +212,34 @@ export function RondasMonitoreoClient({
       Notification.requestPermission().catch(() => {});
     }
   }, []);
+
+  // 22:00 nocturna reminder — modal-style alert if cobertura nocturna hasn't been sent
+  const [showNocturnaReminder, setShowNocturnaReminder] = useState(false);
+  const isCurrentOperator = activeTurno?.operatorId === userId;
+  useEffect(() => {
+    if (!activeTurno || !isCurrentOperator) return;
+    const check = () => {
+      const now = new Date();
+      if (now.getHours() >= 22) {
+        // Check if nocturna was already sent
+        fetch("/api/ops/rondas/monitoreo/turno/active")
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.success && json.data?.emailSentTo) {
+              if (!json.data.emailSentTo.coberturaNocturnaSentAt) {
+                setShowNocturnaReminder(true);
+              }
+            } else if (json.success) {
+              setShowNocturnaReminder(true);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    check();
+    const interval = setInterval(check, 60000); // check every minute
+    return () => clearInterval(interval);
+  }, [activeTurno, isCurrentOperator]);
 
   // Show all rows — selectedInstallationId is for highlighting, not filtering
   const filtered = rows;
@@ -380,22 +411,25 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
-  const handleSendCoberturaEmail = useCallback(async () => {
-    setSendingCoberturaEmail(true);
+  const handleSendCoberturaEmail = useCallback(async (turnoFilter: "nocturno" | "diurno") => {
+    setSendingCoberturaEmail(turnoFilter);
+    const label = turnoFilter === "nocturno" ? "nocturna" : "diurna";
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/cobertura-email", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ turnoFilter }),
       });
       const json = await res.json();
       if (json.success) {
-        toast.success("Email de cobertura enviado a operaciones");
+        toast.success(`Cobertura ${label} enviada a operaciones y al chat`);
       } else {
-        toast.error(json.error ?? "Error al enviar email");
+        toast.error(json.error ?? "Error al enviar cobertura");
       }
     } catch {
       toast.error("Error de conexión");
     } finally {
-      setSendingCoberturaEmail(false);
+      setSendingCoberturaEmail(null);
     }
   }, []);
 
@@ -785,7 +819,37 @@ export function RondasMonitoreoClient({
         open={!!closeTurnoId}
         onClose={() => setCloseTurnoId(null)}
         onClosed={() => { setCloseTurnoId(null); refreshMonitoreo(); }}
+        onSendCobertura={handleSendCoberturaEmail}
       />
+
+      {/* 22:00 nocturna reminder modal */}
+      <Dialog open={showNocturnaReminder} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
+              Cobertura nocturna pendiente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Son las 22:00 o más y aún no has enviado la cobertura nocturna.
+              Debes enviarla para registrar la asistencia de los guardias nocturnos.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              className="gap-1.5"
+              onClick={() => {
+                handleSendCoberturaEmail("nocturno");
+                setShowNocturnaReminder(false);
+              }}
+            >
+              <Moon className="h-4 w-4" /> Enviar cobertura nocturna
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

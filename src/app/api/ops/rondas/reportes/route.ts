@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
             installation: { select: { id: true, name: true } },
           },
         },
+        installation: { select: { id: true, name: true } },
         guardia: {
           include: {
             persona: { select: { firstName: true, lastName: true, rut: true } },
@@ -71,8 +72,8 @@ export async function GET(request: NextRequest) {
       startedAt: row.startedAt?.toISOString() ?? null,
       completedAt: row.completedAt?.toISOString() ?? null,
       installationId: row.installationId ?? row.rondaTemplate?.installationId ?? null,
-      installation: row.rondaTemplate?.installation?.name ?? "Ronda Libre",
-      template: row.rondaTemplate?.name ?? "Ronda Libre",
+      installation: row.rondaTemplate?.installation?.name ?? (row as any).installation?.name ?? "Sin instalación",
+      template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
       guardiaId: row.guardiaId,
       guardia: row.guardia
         ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)

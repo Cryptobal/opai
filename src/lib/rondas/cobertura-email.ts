@@ -1,7 +1,7 @@
 /**
  * Email template for coverage snapshot.
  *
- * Sends a mid-shift summary of guard coverage per installation
+ * Sends a per-turno summary of guard coverage per installation
  * to the ops email (operaciones@gard.cl).
  */
 
@@ -14,18 +14,23 @@ export interface CoberturaGuardia {
   status: string; // pendiente, en_camino, presente, no_viene, reemplazo
   turno: string; // nocturno, diurno
   horaLlegada: string | null;
+  isExtra: boolean;
+  notes: string | null;
 }
 
 export interface CoberturaInstalacion {
   name: string;
   guardiasRequeridos: number;
-  guardiasPresentes: number;
   coberturaStatus: string; // completa, parcial, descubierta, pendiente
   guardias: CoberturaGuardia[];
-  noViene: string[]; // names of guards with no_viene status
+  presentes: number;
+  extras: number;
+  noViene: { nombre: string; notes: string | null }[];
 }
 
 export interface CoberturaSnapshot {
+  turnoFilter: "nocturno" | "diurno";
+  turnoLabel: string;
   instalaciones: CoberturaInstalacion[];
   summary: {
     completas: number;
@@ -33,6 +38,10 @@ export interface CoberturaSnapshot {
     descubiertas: number;
     pendientes: number;
     total: number;
+    totalGuardias: number;
+    totalPresentes: number;
+    totalNoViene: number;
+    totalExtras: number;
   };
 }
 
@@ -80,18 +89,18 @@ function statusLabel(status: string): string {
   }
 }
 
-function guardStatusLabel(status: string): string {
+function guardStatusIcon(status: string): string {
   switch (status) {
     case "presente":
-      return "Presente";
-    case "no_viene":
-      return "No viene";
-    case "en_camino":
-      return "En camino";
+      return "✅";
     case "reemplazo":
-      return "Reemplazo";
+      return "🔄";
+    case "no_viene":
+      return "❌";
+    case "en_camino":
+      return "🚗";
     default:
-      return "Pendiente";
+      return "⏳";
   }
 }
 
@@ -109,6 +118,26 @@ function guardStatusColor(status: string): string {
   }
 }
 
+function calculateTurnoCoberturaStatus(
+  guardiasRequeridos: number,
+  guardias: { status: string }[],
+): string {
+  const presentes = guardias.filter(
+    (g) => g.status === "presente" || g.status === "reemplazo",
+  ).length;
+  const noVienen = guardias.filter((g) => g.status === "no_viene").length;
+  const pendientes = guardias.filter(
+    (g) => g.status === "pendiente" || g.status === "en_camino",
+  ).length;
+
+  if (presentes >= guardiasRequeridos) return "completa";
+  if (presentes > 0 && pendientes > 0) return "parcial";
+  if (noVienen > 0 && presentes + pendientes < guardiasRequeridos)
+    return "descubierta";
+  if (presentes > 0) return "parcial";
+  return "pendiente";
+}
+
 /* ------------------------------------------------------------------ */
 /*  Build snapshot from DB data                                        */
 /* ------------------------------------------------------------------ */
@@ -124,35 +153,142 @@ export function buildCoberturaSnapshot(
       status: string;
       turno: string;
       horaLlegada: string | null;
+      isExtra: boolean;
+      notes: string | null;
     }[];
   }[],
+  turnoFilter: "nocturno" | "diurno",
 ): CoberturaSnapshot {
-  const mapped: CoberturaInstalacion[] = instalaciones.map((inst) => ({
-    name: inst.installationName,
-    guardiasRequeridos: inst.guardiasRequeridos,
-    guardiasPresentes: inst.guardiasPresentes,
-    coberturaStatus: inst.coberturaStatus,
-    guardias: inst.guardias.map((g) => ({
-      nombre: g.guardiaNombre,
-      status: g.status,
-      turno: g.turno,
-      horaLlegada: g.horaLlegada,
-    })),
-    noViene: inst.guardias
+  const turnoLabel =
+    turnoFilter === "nocturno"
+      ? "Cobertura Nocturna"
+      : "Cobertura Diurna";
+
+  const mapped: CoberturaInstalacion[] = instalaciones.map((inst) => {
+    // Filter guards by turno
+    const turnoGuardias = inst.guardias.filter((g) =>
+      turnoFilter === "nocturno"
+        ? g.turno === "nocturno" || !g.turno
+        : g.turno === "diurno",
+    );
+
+    const presentes = turnoGuardias.filter(
+      (g) => g.status === "presente" || g.status === "reemplazo",
+    ).length;
+    const extras = turnoGuardias.filter((g) => g.isExtra).length;
+    const noViene = turnoGuardias
       .filter((g) => g.status === "no_viene")
-      .map((g) => g.guardiaNombre),
-  }));
+      .map((g) => ({ nombre: g.guardiaNombre, notes: g.notes }));
+
+    // Recalculate cobertura for this specific turno
+    const requeridos =
+      turnoFilter === "nocturno"
+        ? inst.guardiasRequeridos
+        : turnoGuardias.length || 1;
+    const coberturaStatus = calculateTurnoCoberturaStatus(
+      requeridos,
+      turnoGuardias,
+    );
+
+    return {
+      name: inst.installationName,
+      guardiasRequeridos: requeridos,
+      coberturaStatus,
+      guardias: turnoGuardias.map((g) => ({
+        nombre: g.guardiaNombre,
+        status: g.status,
+        turno: g.turno,
+        horaLlegada: g.horaLlegada,
+        isExtra: g.isExtra,
+        notes: g.notes,
+      })),
+      presentes,
+      extras,
+      noViene,
+    };
+  });
+
+  // Only include installations that have guards for this turno
+  const withGuards = mapped.filter((i) => i.guardias.length > 0);
 
   const summary = {
-    completas: mapped.filter((i) => i.coberturaStatus === "completa").length,
-    parciales: mapped.filter((i) => i.coberturaStatus === "parcial").length,
-    descubiertas: mapped.filter((i) => i.coberturaStatus === "descubierta")
+    completas: withGuards.filter((i) => i.coberturaStatus === "completa")
       .length,
-    pendientes: mapped.filter((i) => i.coberturaStatus === "pendiente").length,
-    total: mapped.length,
+    parciales: withGuards.filter((i) => i.coberturaStatus === "parcial")
+      .length,
+    descubiertas: withGuards.filter(
+      (i) => i.coberturaStatus === "descubierta",
+    ).length,
+    pendientes: withGuards.filter((i) => i.coberturaStatus === "pendiente")
+      .length,
+    total: withGuards.length,
+    totalGuardias: withGuards.reduce((s, i) => s + i.guardias.length, 0),
+    totalPresentes: withGuards.reduce((s, i) => s + i.presentes, 0),
+    totalNoViene: withGuards.reduce((s, i) => s + i.noViene.length, 0),
+    totalExtras: withGuards.reduce((s, i) => s + i.extras, 0),
   };
 
-  return { instalaciones: mapped, summary };
+  return { turnoFilter, turnoLabel, instalaciones: withGuards, summary };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Build chat summary (plain text for chat message)                   */
+/* ------------------------------------------------------------------ */
+
+export function buildCoberturaChatSummary(snapshot: CoberturaSnapshot): string {
+  const { summary, turnoLabel, instalaciones } = snapshot;
+  const lines: string[] = [];
+
+  lines.push(`📊 ${turnoLabel}`);
+  lines.push("");
+  lines.push(
+    `✅ ${summary.completas} completas · ⚠️ ${summary.parciales} parciales · 🔴 ${summary.descubiertas} descubiertas · ⏳ ${summary.pendientes} pendientes`,
+  );
+  lines.push(
+    `👥 ${summary.totalPresentes}/${summary.totalGuardias} presentes` +
+      (summary.totalExtras > 0
+        ? ` (${summary.totalExtras} extra${summary.totalExtras !== 1 ? "s" : ""})`
+        : "") +
+      (summary.totalNoViene > 0
+        ? ` · ❌ ${summary.totalNoViene} no viene${summary.totalNoViene !== 1 ? "n" : ""}`
+        : ""),
+  );
+
+  // List descubiertas
+  const descubiertas = instalaciones.filter(
+    (i) => i.coberturaStatus === "descubierta",
+  );
+  if (descubiertas.length > 0) {
+    lines.push("");
+    lines.push("🔴 Puestos descubiertos:");
+    for (const inst of descubiertas) {
+      const noVieneNames = inst.noViene
+        .map(
+          (g) =>
+            `${g.nombre}${g.notes ? ` (${g.notes})` : ""}`,
+        )
+        .join(", ");
+      lines.push(
+        `  • ${inst.name}: ${inst.presentes}/${inst.guardiasRequeridos} — No viene: ${noVieneNames || "—"}`,
+      );
+    }
+  }
+
+  // List parciales
+  const parciales = instalaciones.filter(
+    (i) => i.coberturaStatus === "parcial",
+  );
+  if (parciales.length > 0) {
+    lines.push("");
+    lines.push("⚠️ Cobertura parcial:");
+    for (const inst of parciales) {
+      lines.push(
+        `  • ${inst.name}: ${inst.presentes}/${inst.guardiasRequeridos}`,
+      );
+    }
+  }
+
+  return lines.join("\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -180,38 +316,81 @@ export function buildCoberturaEmailHtml(
   const baseUrl = meta.baseUrl.replace(/\/+$/, "");
   const monitorUrl = `${baseUrl}/ops/rondas/monitoreo`;
 
-  const { summary } = snapshot;
+  const { summary, turnoLabel } = snapshot;
+  const headerBg =
+    snapshot.turnoFilter === "nocturno" ? "#0f172a" : "#1e3a5f";
 
   const instalacionRows = snapshot.instalaciones
     .map((inst) => {
       const color = statusColor(inst.coberturaStatus);
-      const bgColor =
-        inst.coberturaStatus === "descubierta" ? "#fef2f2" : "#ffffff";
+      const isDescubierta = inst.coberturaStatus === "descubierta";
+      const bgColor = isDescubierta ? "#fef2f2" : "#ffffff";
+      const borderLeft = isDescubierta
+        ? "border-left:4px solid #dc2626;"
+        : "";
 
+      // Build guard detail lines with clearer formatting
       const guardLines = inst.guardias
         .map((g) => {
           const gColor = guardStatusColor(g.status);
-          const arrival = g.horaLlegada ? ` (${escapeHtml(g.horaLlegada)})` : "";
-          return `<span style="color:${gColor};font-size:11px">${escapeHtml(g.nombre)} - ${guardStatusLabel(g.status)}${arrival}</span>`;
+          const icon = guardStatusIcon(g.status);
+          const arrival = g.horaLlegada
+            ? ` · ${escapeHtml(g.horaLlegada)}`
+            : "";
+          const extraBadge = g.isExtra
+            ? ' <span style="background:#7c3aed;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">EXTRA</span>'
+            : ' <span style="background:#e2e8f0;color:#475569;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">PAUTA</span>';
+          const notesStr =
+            g.notes && g.status === "no_viene"
+              ? `<br/><span style="color:#94a3b8;font-size:10px;padding-left:16px">↳ ${escapeHtml(g.notes)}</span>`
+              : "";
+          return `<span style="color:${gColor};font-size:11px">${icon} ${escapeHtml(g.nombre)}${extraBadge}${arrival}</span>${notesStr}`;
         })
         .join("<br/>");
 
+      // No viene section with notes
       const noVieneStr =
         inst.noViene.length > 0
-          ? `<span style="color:#dc2626;font-size:11px;font-weight:600">${inst.noViene.map(escapeHtml).join(", ")}</span>`
+          ? inst.noViene
+              .map((g) => {
+                const noteStr = g.notes
+                  ? `<br/><span style="color:#94a3b8;font-size:10px">↳ ${escapeHtml(g.notes)}</span>`
+                  : "";
+                return `<span style="color:#dc2626;font-size:11px;font-weight:600">❌ ${escapeHtml(g.nombre)}</span>${noteStr}`;
+              })
+              .join("<br/>")
           : '<span style="color:#94a3b8;font-size:11px">—</span>';
 
       return `<tr style="background:${bgColor}">
-        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;font-weight:500">${escapeHtml(inst.name)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;text-align:center">${inst.guardiasPresentes}/${inst.guardiasRequeridos}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center">
-          <span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;color:#fff;background:${color}">${statusLabel(inst.coberturaStatus)}</span>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;font-weight:500;${borderLeft}">${escapeHtml(inst.name)}${isDescubierta ? '<br/><span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ PUESTO DESCUBIERTO</span>' : ""}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:center;font-weight:600">
+          <span style="color:${inst.presentes >= inst.guardiasRequeridos ? "#15803d" : inst.presentes > 0 ? "#d97706" : "#dc2626"}">${inst.presentes}</span>/${inst.guardiasRequeridos}${inst.extras > 0 ? `<br/><span style="font-size:10px;color:#7c3aed">+${inst.extras} extra</span>` : ""}
         </td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${guardLines || '<span style="color:#94a3b8;font-size:11px">—</span>'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${noVieneStr}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center">
+          <span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:10px;font-weight:700;color:#fff;background:${color}">${statusLabel(inst.coberturaStatus)}</span>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${guardLines || '<span style="color:#94a3b8;font-size:11px">—</span>'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${noVieneStr}</td>
       </tr>`;
     })
     .join("\n");
+
+  // Alert banner for descubiertas
+  const descubiertasBanner =
+    summary.descubiertas > 0
+      ? `<tr>
+          <td style="padding:0 32px 16px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:2px solid #dc2626;border-radius:6px">
+              <tr>
+                <td style="padding:14px 16px;text-align:center">
+                  <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626">⚠️ ${summary.descubiertas} instalacion${summary.descubiertas !== 1 ? "es" : ""} con puesto descubierto</p>
+                  <p style="margin:4px 0 0;font-size:12px;color:#991b1b">${snapshot.instalaciones.filter((i) => i.coberturaStatus === "descubierta").map((i) => escapeHtml(i.name)).join(" · ")}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`
+      : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -219,11 +398,11 @@ export function buildCoberturaEmailHtml(
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
     <tr><td align="center">
-      <table width="700" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden">
+      <table width="720" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden">
         <!-- Header -->
         <tr>
-          <td style="background:#0f172a;padding:24px 32px">
-            <p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px">Snapshot de Cobertura</p>
+          <td style="background:${headerBg};padding:24px 32px">
+            <p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px">${escapeHtml(turnoLabel)}</p>
             <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff">${escapeHtml(dateStr)} · ${timeStr}</p>
           </td>
         </tr>
@@ -239,29 +418,43 @@ export function buildCoberturaEmailHtml(
                 <td style="padding:4px 0;font-size:13px;color:#64748b">Inicio turno</td>
                 <td style="padding:4px 0;font-size:13px;color:#1e293b;font-weight:500">${turnoStart}</td>
               </tr>
+              <tr>
+                <td style="padding:4px 0;font-size:13px;color:#64748b">Hora reporte</td>
+                <td style="padding:4px 0;font-size:13px;color:#1e293b;font-weight:500">${timeStr}</td>
+              </tr>
             </table>
           </td>
         </tr>
+        <!-- Descubiertas alert -->
+        ${descubiertasBanner}
         <!-- KPIs -->
         <tr>
           <td style="padding:0 32px 16px">
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
               <tr>
-                <td style="padding:12px 16px;text-align:center;border-right:1px solid #e2e8f0;width:25%">
-                  <p style="margin:0;font-size:24px;font-weight:700;color:#15803d">${summary.completas}</p>
-                  <p style="margin:2px 0 0;font-size:11px;color:#64748b">Completas</p>
+                <td style="padding:12px 12px;text-align:center;border-right:1px solid #e2e8f0;width:16%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#15803d">${summary.completas}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">Completas</p>
                 </td>
-                <td style="padding:12px 16px;text-align:center;border-right:1px solid #e2e8f0;width:25%">
-                  <p style="margin:0;font-size:24px;font-weight:700;color:#d97706">${summary.parciales}</p>
-                  <p style="margin:2px 0 0;font-size:11px;color:#64748b">Parciales</p>
+                <td style="padding:12px 12px;text-align:center;border-right:1px solid #e2e8f0;width:16%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#d97706">${summary.parciales}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">Parciales</p>
                 </td>
-                <td style="padding:12px 16px;text-align:center;border-right:1px solid #e2e8f0;width:25%">
-                  <p style="margin:0;font-size:24px;font-weight:700;color:#dc2626">${summary.descubiertas}</p>
-                  <p style="margin:2px 0 0;font-size:11px;color:#64748b">Descubiertas</p>
+                <td style="padding:12px 12px;text-align:center;border-right:1px solid #e2e8f0;width:16%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#dc2626">${summary.descubiertas}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">Descubiertas</p>
                 </td>
-                <td style="padding:12px 16px;text-align:center;width:25%">
-                  <p style="margin:0;font-size:24px;font-weight:700;color:#475569">${summary.pendientes}</p>
-                  <p style="margin:2px 0 0;font-size:11px;color:#64748b">Pendientes</p>
+                <td style="padding:12px 12px;text-align:center;border-right:1px solid #e2e8f0;width:16%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#475569">${summary.pendientes}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">Pendientes</p>
+                </td>
+                <td style="padding:12px 12px;text-align:center;border-right:1px solid #e2e8f0;width:18%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#1e293b">${summary.totalPresentes}/${summary.totalGuardias}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">Presentes</p>
+                </td>
+                <td style="padding:12px 12px;text-align:center;width:18%">
+                  <p style="margin:0;font-size:22px;font-weight:700;color:#dc2626">${summary.totalNoViene}</p>
+                  <p style="margin:2px 0 0;font-size:10px;color:#64748b">No vienen</p>
                 </td>
               </tr>
             </table>
@@ -271,12 +464,12 @@ export function buildCoberturaEmailHtml(
         <tr>
           <td style="padding:0 32px 24px">
             <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-              <tr style="background:#f8fafc">
-                <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0">Instalacion</th>
-                <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:center;font-weight:600;border-bottom:1px solid #e2e8f0">Guardias</th>
-                <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:center;font-weight:600;border-bottom:1px solid #e2e8f0">Estado</th>
-                <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0">Detalle</th>
-                <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0">No viene</th>
+              <tr style="background:#f1f5f9">
+                <th style="padding:10px 12px;font-size:11px;color:#475569;text-align:left;font-weight:700;border-bottom:2px solid #e2e8f0">Instalación</th>
+                <th style="padding:10px 12px;font-size:11px;color:#475569;text-align:center;font-weight:700;border-bottom:2px solid #e2e8f0">Guardias</th>
+                <th style="padding:10px 12px;font-size:11px;color:#475569;text-align:center;font-weight:700;border-bottom:2px solid #e2e8f0">Estado</th>
+                <th style="padding:10px 12px;font-size:11px;color:#475569;text-align:left;font-weight:700;border-bottom:2px solid #e2e8f0">Detalle</th>
+                <th style="padding:10px 12px;font-size:11px;color:#475569;text-align:left;font-weight:700;border-bottom:2px solid #e2e8f0">No viene</th>
               </tr>
               ${instalacionRows}
             </table>
@@ -289,7 +482,7 @@ export function buildCoberturaEmailHtml(
               href="${monitorUrl}"
               target="_blank"
               rel="noopener noreferrer"
-              style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 18px;border-radius:6px"
+              style="display:inline-block;background:${headerBg};color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 18px;border-radius:6px"
             >
               Ver en OPAI
             </a>
@@ -299,7 +492,7 @@ export function buildCoberturaEmailHtml(
         <tr>
           <td style="padding:16px 32px;border-top:1px solid #e2e8f0">
             <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center">
-              Sistema OPAI - Snapshot generado automaticamente
+              Sistema OPAI — Snapshot generado automáticamente
             </p>
           </td>
         </tr>
