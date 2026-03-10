@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2, History, ChevronDown, FileText, Moon, Sun } from "lucide-react";
 import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
+import { HistorialGridDialog, type HistorialTurno } from "./HistorialGridDialog";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -84,7 +85,7 @@ interface Props {
   initialTab?: "rondas" | "alertas" | "instalaciones";
 }
 
-type TabKey = "rondas" | "alertas" | "instalaciones";
+type TabKey = "rondas" | "alertas" | "instalaciones" | "historial";
 
 export function MonitoreoSidePanel({
   guardPanelData,
@@ -145,6 +146,11 @@ export function MonitoreoSidePanel({
       label: "Instalaciones",
       icon: <Shield className="h-3 w-3" />,
       badge: installations.length,
+    },
+    {
+      key: "historial",
+      label: "Historial",
+      icon: <History className="h-3 w-3" />,
     },
   ];
 
@@ -221,6 +227,7 @@ export function MonitoreoSidePanel({
             onAlertBadgeClick={(inst) => onSetAlertInstallationFilter(inst)}
           />
         )}
+        {activeTab === "historial" && <HistorialTab />}
       </div>
     </div>
   );
@@ -739,5 +746,157 @@ function InstalacionesTab({
         );
       })}
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   HISTORIAL TAB
+   ═══════════════════════════════════════════════ */
+function HistorialTab() {
+  const [turnos, setTurnos] = useState<HistorialTurno[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dialogTurno, setDialogTurno] = useState<HistorialTurno | null>(null);
+
+  const fetchHistory = useCallback(async (offset = 0) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/ops/rondas/monitoreo/turno/history?limit=20&offset=${offset}`);
+      const json = await res.json();
+      if (json.success) {
+        if (offset === 0) {
+          setTurnos(json.data.turnos);
+        } else {
+          setTurnos((prev) => [...prev, ...json.data.turnos]);
+        }
+        setTotal(json.data.total);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  if (loading && turnos.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12 text-zinc-500">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-xs">Cargando historial...</span>
+      </div>
+    );
+  }
+
+  if (turnos.length === 0) {
+    return (
+      <div className="text-center py-12 text-zinc-500 text-xs">
+        No hay turnos cerrados
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="divide-y divide-[#1e293b]">
+        {turnos.map((t) => {
+          const isExpanded = expandedId === t.id;
+          const startDate = new Date(t.startedAt);
+          const endDate = t.endedAt ? new Date(t.endedAt) : null;
+          const dateStr = startDate.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+          const startTime = startDate.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+          const endTime = endDate?.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) ?? "—";
+
+          const coberturas = t.emailSentTo as Record<string, string> | null;
+          const nocturnaOk = !!coberturas?.coberturaNocturnaSentAt;
+          const diurnaOk = !!coberturas?.coberturaDiurnaSentAt;
+
+          return (
+            <div key={t.id} className="px-3 py-2.5">
+              {/* Summary row */}
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{dateStr}</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 text-zinc-500 transition-transform",
+                      isExpanded && "rotate-180",
+                    )}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-zinc-400">
+                  <Clock className="h-3 w-3" />
+                  <span>{startTime} → {endTime}</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>{t.operatorName ?? "Operador"}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-500">
+                  <span>{t.totalRoundsMonitored} rondas</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>{t.totalAlertsHandled} alertas</span>
+                  {/* Cobertura dots */}
+                  <span className="ml-auto flex items-center gap-1">
+                    <Moon className={cn("h-2.5 w-2.5", nocturnaOk ? "text-emerald-400" : "text-zinc-600")} />
+                    <Sun className={cn("h-2.5 w-2.5", diurnaOk ? "text-emerald-400" : "text-zinc-600")} />
+                  </span>
+                </div>
+              </button>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div className="mt-2 space-y-2">
+                  {t.aiSummary && (
+                    <div className="rounded bg-zinc-800/50 p-2 text-[10px] text-zinc-300 whitespace-pre-wrap max-h-[120px] overflow-y-auto">
+                      {t.aiSummary}
+                    </div>
+                  )}
+                  {t.operatorComments && (
+                    <div className="rounded bg-zinc-800/30 border border-zinc-700/50 p-2 text-[10px] text-zinc-400 italic">
+                      {t.operatorComments}
+                    </div>
+                  )}
+                  {t.controlNocturno && (
+                    <button
+                      onClick={() => setDialogTurno(t)}
+                      className="flex items-center gap-1.5 text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Ver planilla de cobertura
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Load more */}
+      {turnos.length < total && (
+        <div className="p-3 text-center">
+          <button
+            onClick={() => fetchHistory(turnos.length)}
+            disabled={loading}
+            className="text-[10px] text-sky-400 hover:text-sky-300 disabled:opacity-50"
+          >
+            {loading ? "Cargando..." : `Cargar más (${turnos.length}/${total})`}
+          </button>
+        </div>
+      )}
+
+      {/* Grid dialog */}
+      {dialogTurno && (
+        <HistorialGridDialog
+          open={!!dialogTurno}
+          onClose={() => setDialogTurno(null)}
+          turno={dialogTurno}
+        />
+      )}
+    </>
   );
 }
