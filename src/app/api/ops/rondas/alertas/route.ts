@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const onlyOpen = request.nextUrl.searchParams.get("open") !== "false";
     const isAcknowledged = request.nextUrl.searchParams.get("isAcknowledged");
     const severidad = request.nextUrl.searchParams.get("severidad");
+    const tipo = request.nextUrl.searchParams.get("tipo");
     const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
 
     const activeTurnoId = await getActiveTurnoId(ctx.tenantId);
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       ...(onlyOpen ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),
+      ...(tipo ? { tipo } : {}),
       // Filter by active turno; fallback to last 24h if no turno active
       ...(!includeArchived
         ? {

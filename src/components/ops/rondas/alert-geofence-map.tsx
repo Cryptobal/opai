@@ -160,7 +160,7 @@ export function AlertGeofenceMap({
     <div className="space-y-1.5">
       <div
         ref={mapRef}
-        className="w-full h-48 rounded-lg overflow-hidden border border-[#1e293b]"
+        className="w-full h-48 rounded-lg overflow-hidden border border-[#1a1f2e]"
       />
       <div className="flex items-center gap-3 text-[10px] text-[#64748b]">
         <span className="flex items-center gap-1">

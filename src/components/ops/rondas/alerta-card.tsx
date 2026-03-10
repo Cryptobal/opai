@@ -32,6 +32,8 @@ interface Props {
   alerta: Alerta;
   onAcknowledge?: (id: string) => void;
   onResolve?: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string; label: string }> = {
@@ -48,9 +50,9 @@ const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string;
     label: "Warning",
   },
   info: {
-    dot: "bg-blue-400",
-    border: "border-blue-500/20 border-l-blue-500",
-    bg: "bg-blue-500/5",
+    dot: "bg-cyan-400",
+    border: "border-cyan-500/20 border-l-cyan-500",
+    bg: "bg-cyan-500/5",
     label: "Info",
   },
 };
@@ -66,9 +68,10 @@ const TIPO_LABELS: Record<string, string> = {
   sin_movimiento: "Sin movimiento",
   mismo_punto_repetido: "Punto repetido",
   bateria_baja: "Batería baja",
+  bateria_estatica: "Batería estática",
 };
 
-export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
+export function AlertaCard({ alerta, onAcknowledge, onResolve, selected, onToggleSelect }: Props) {
   const sev = SEVERITY_CONFIG[alerta.severidad] ?? SEVERITY_CONFIG.info;
   const guardiaNombre = alerta.ejecucion?.guardia?.persona
     ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
@@ -94,14 +97,34 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-l-2 p-3.5 space-y-2.5 transition-all",
+        "rounded-xl border border-l-2 p-3.5 space-y-2.5 transition-all relative",
         sev.border,
         sev.bg,
         alerta.resuelta && "opacity-50",
+        selected && "ring-1 ring-cyan-500/50",
       )}
     >
+      {/* Selection checkbox */}
+      {onToggleSelect && !alerta.resuelta && (
+        <button
+          onClick={() => onToggleSelect(alerta.id)}
+          className={cn(
+            "absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+            selected
+              ? "bg-cyan-500 border-cyan-500"
+              : "border-[#1a1f2e] hover:border-cyan-500/50",
+          )}
+        >
+          {selected && (
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Header: severity dot + tipo + timestamp */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 pr-6">
         <div className="flex items-center gap-2 min-w-0">
           <span className={cn("w-2 h-2 rounded-full shrink-0 mt-0.5", sev.dot)} />
           <div className="min-w-0">
@@ -109,7 +132,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
               {TIPO_LABELS[alerta.tipo] ?? alerta.tipo}
             </p>
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{
-              color: alerta.severidad === "critical" ? "#ef4444" : alerta.severidad === "warning" ? "#f59e0b" : "#3b82f6"
+              color: alerta.severidad === "critical" ? "#ef4444" : alerta.severidad === "warning" ? "#f59e0b" : "#06b6d4"
             }}>
               {sev.label}
             </span>
@@ -140,7 +163,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
 
       {/* Status line */}
       {alerta.isAcknowledged && !alerta.resuelta && (
-        <div className="flex items-center gap-1.5 text-[11px] text-green-400">
+        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
           <Eye className="h-3 w-3" />
           Reconocida{alerta.acknowledgedBy ? ` por ${alerta.acknowledgedBy}` : ""}
         </div>
@@ -173,7 +196,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
           {hasGeoMap && (
             <button
               onClick={() => setShowMap((v) => !v)}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-blue-500/40 transition-colors flex items-center gap-1"
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-cyan-500/40 transition-colors flex items-center gap-1"
             >
               <MapPin className="h-3 w-3" /> {showMap ? "Ocultar mapa" : "Ver mapa"}
             </button>
@@ -181,7 +204,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
           {!alerta.resuelta && !alerta.isAcknowledged && onAcknowledge && (
             <button
               onClick={() => onAcknowledge(alerta.id)}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40 transition-colors flex items-center gap-1"
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-cyan-500/40 transition-colors flex items-center gap-1"
             >
               <Eye className="h-3 w-3" /> Reconocer
             </button>
@@ -189,7 +212,7 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve }: Props) {
           {!alerta.resuelta && onResolve && (
             <button
               onClick={() => onResolve(alerta.id)}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-green-500/20 text-green-400 hover:bg-green-500/10 transition-colors flex items-center gap-1"
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-1"
             >
               <CheckCircle2 className="h-3 w-3" /> Resolver
             </button>

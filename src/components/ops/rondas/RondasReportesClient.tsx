@@ -243,7 +243,7 @@ export function RondasReportesClient({
   return (
     <div className="space-y-4">
       {/* Global filters */}
-      <div className="rounded-xl border border-[#1e293b] bg-[#111827] p-3">
+      <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-56">
             <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Instalación</p>
@@ -269,7 +269,7 @@ export function RondasReportesClient({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
             />
           </div>
           <div>
@@ -278,7 +278,7 @@ export function RondasReportesClient({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
             />
           </div>
           <div>
@@ -286,7 +286,7 @@ export function RondasReportesClient({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-lg border border-[#1e293b] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.id} value={o.id}>{o.label}</option>
@@ -295,7 +295,7 @@ export function RondasReportesClient({
           </div>
           {loading && (
             <div className="flex items-center gap-1.5 text-[#64748b]">
-              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#2dd4bf] border-t-transparent animate-spin" />
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#06b6d4] border-t-transparent animate-spin" />
               <span className="text-[11px]">Actualizando...</span>
             </div>
           )}
@@ -310,7 +310,7 @@ export function RondasReportesClient({
           { label: "Incompletas",   value: totals.incompletas,     color: "#f59e0b" },
           { label: "No realizadas", value: totals.noRealizadas,    color: "#ef4444" },
           { label: "Cumplimiento",  value: `${totals.compliance}%`, color: "#22c55e" },
-          { label: "Trust Score",   value: totals.trustPromedio,   color: "#2dd4bf" },
+          { label: "Trust Score",   value: totals.trustPromedio,   color: "#06b6d4" },
         ].map((kpi) => (
           <div
             key={kpi.label}
@@ -328,7 +328,7 @@ export function RondasReportesClient({
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-xl border border-[#1e293b] overflow-hidden">
+      <div className="flex rounded-xl border border-[#1a1f2e] overflow-hidden">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -337,8 +337,8 @@ export function RondasReportesClient({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] text-[13px] font-semibold transition-colors border-r border-[#1e293b] last:border-r-0",
-                isActive ? "bg-[#2dd4bf]/10 text-[#2dd4bf]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] text-[13px] font-semibold transition-colors border-r border-[#1a1f2e] last:border-r-0",
+                isActive ? "bg-[#06b6d4]/10 text-[#06b6d4]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
               ].join(" ")}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -376,7 +376,7 @@ export function RondasReportesClient({
               size="sm"
               onClick={handleExportCsv}
               disabled={exporting !== null}
-              className="border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40"
+              className="border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#06b6d4]/40"
             >
               {exporting === "csv" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -390,7 +390,7 @@ export function RondasReportesClient({
               size="sm"
               onClick={handleExportPdf}
               disabled={exporting !== null}
-              className="border-[#1e293b] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#2dd4bf]/40"
+              className="border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#06b6d4]/40"
             >
               {exporting === "pdf" ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />

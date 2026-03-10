@@ -9,17 +9,18 @@ import MonitoreoGrid from "@/components/ops/rondas/MonitoreoGrid";
 import type { CellModalData, CNInstalacion } from "@/components/ops/rondas/MonitoreoGrid";
 import { MonitoreoGridCellModal } from "@/components/ops/rondas/MonitoreoGridCellModal";
 import { GuardPanel } from "@/components/ops/rondas/GuardPanel";
-import { ResizableDivider } from "@/components/ops/rondas/ResizableDivider";
+import { ChevronUp, ChevronDown, Shield, AlertTriangle, Moon } from "lucide-react";
 import { MobileMonitorView } from "@/components/ops/rondas/MobileMonitorView";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
 import { PanicAlertBanner } from "./PanicAlertBanner";
 import type { PanicAlertData } from "./PanicAlertBanner";
+import { CoberturaSheet } from "./CoberturaSheet";
+import { InstallationDetailModal } from "./InstallationDetailModal";
 import { soundCheckpointMarked, soundRondaCompleted, soundRondaStarted, soundAlert } from "@/lib/rondas/monitor-sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Moon } from "lucide-react";
 
 interface AlertRow {
   id: string;
@@ -80,14 +81,17 @@ export function RondasMonitoreoClient({
   const [resolveNotes, setResolveNotes] = useState("");
   const [alertInstallationFilter, setAlertInstallationFilter] = useState<{ id: string; name: string } | null>(null);
   const [sendingCoberturaEmail, setSendingCoberturaEmail] = useState<"nocturno" | "diurno" | null>(null);
+  const [coberturaSheetTurno, setCoberturaSheetTurno] = useState<"nocturno" | "diurno" | null>(null);
+  const [mapCollapsed, setMapCollapsed] = useState(false);
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
   const [activeTurno, setActiveTurno] = useState<{ id: string; operatorId: string; operatorName: string | null } | null>(null);
   const [cellModal, setCellModal] = useState<CellModalData | null>(null);
   const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
-  const [splitPct, setSplitPct] = useState(55);
+  const [splitPct, setSplitPct] = useState(45);
   const [isMobile, setIsMobile] = useState(false);
+  const [detailInstallation, setDetailInstallation] = useState<CNInstalacion | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -652,7 +656,7 @@ export function RondasMonitoreoClient({
           setCurrentAlertCount((c) => Math.max(0, c - 1));
         }}
       />
-      {/* Compact turno header */}
+      {/* Turno header */}
       <MonitoreoTurnoHeader
         key={activeTurno?.id ?? "no-turno"}
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
@@ -668,22 +672,23 @@ export function RondasMonitoreoClient({
         orphanCount={orphanCount}
         onCloseOrphans={handleCloseOrphans}
         closingOrphans={closingOrphans}
+        onOpenCoberturaSheet={isReadOnly ? undefined : (t) => setCoberturaSheetTurno(t)}
         onSendCoberturaEmail={isReadOnly ? undefined : handleSendCoberturaEmail}
         sendingCoberturaEmail={sendingCoberturaEmail}
       />
 
-      {/* Observer / Operator banner — desktop only (mobile has its own in MobileMonitorView) */}
+      {/* Observer / Operator banner */}
       {isReadOnly && (
-        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-1.5 bg-slate-800/80 border-b border-slate-700/50">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs text-slate-400">
-            Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> est&aacute; operando el turno
+        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-1 bg-[#0a0f1c]/80 border-b border-[#1a1f2e]">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] text-[#64748b]">
+            Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> opera el turno
           </span>
         </div>
       )}
       {isOperator && activeTurno && (
-        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-0.5 bg-teal-500/5 border-b border-teal-500/10">
-          <span className="text-[10px] text-teal-400/60">Est&aacute;s operando este turno</span>
+        <div className="hidden md:flex items-center justify-center gap-2 px-4 py-0.5 bg-cyan-500/3 border-b border-cyan-500/10">
+          <span className="text-[10px] text-cyan-400/50">Operando este turno</span>
         </div>
       )}
 
@@ -705,11 +710,24 @@ export function RondasMonitoreoClient({
           onInstallationClick={(id) => setSelectedInstallationId(id)}
           onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
         />
+      ) : !activeTurno && !controlNocturno ? (
+        /* Sin turno activo — empty state */
+        <div className="flex-1 flex items-center justify-center bg-[#080c16]">
+          <div className="text-center max-w-sm px-6">
+            <div className="w-16 h-16 rounded-2xl bg-[#0a0f1c] border border-[#1a1f2e] flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-7 w-7 text-[#475569]" />
+            </div>
+            <h2 className="text-[16px] font-semibold text-[#94a3b8] mb-2">No hay turno activo</h2>
+            <p className="text-[12px] text-[#64748b] leading-relaxed mb-6">
+              Inicia un turno de monitoreo para ver la planilla de control, mapa de guardias y alertas en tiempo real.
+            </p>
+          </div>
+        </div>
       ) : (
         <>
           {/* Fullscreen map overlay */}
           {isFullscreen && (
-            <div className="fixed inset-0 z-50 bg-[#0a0e1a] p-4">
+            <div className="fixed inset-0 z-50 bg-[#080c16] p-4">
               <MonitoreoMap
                 checkpoints={mapCheckpoints}
                 guards={mapGuards}
@@ -724,66 +742,74 @@ export function RondasMonitoreoClient({
             </div>
           )}
 
-          {/* Main split layout: [Map + Panel] / Divider / [Grid] */}
+          {/* 3-zone layout: [Left: Map + Grid] | [Right: Side Panel] */}
           {!isFullscreen && (
-            <div className="flex-1 flex flex-col overflow-hidden mt-2" data-monitor-layout>
-              {/* Top: Map + Side Panel */}
-              <div style={{ height: `${splitPct}%` }} className="flex min-h-0 gap-0">
-                {/* Map */}
-                <div className="flex-1 relative rounded-xl overflow-hidden border border-[#1e293b]">
-                  <MonitoreoMap
-                    checkpoints={mapCheckpoints}
-                    guards={mapGuards}
-                    installations={mapInstallations}
-                    alerts={mapAlertMarkers}
-                    center={mapCenter}
-                    selectedGuardId={selectedRondaId}
-                    isFullscreen={false}
-                    onFullscreenToggle={() => setIsFullscreen(true)}
-                    onInstallationClick={(id) => setSelectedInstallationId(id)}
-                  />
-                </div>
-
-                {/* Side panel */}
-                <div className="w-80 flex-shrink-0 flex flex-col rounded-xl border border-[#1e293b] bg-[#111827] overflow-hidden ml-2">
-                  <MonitoreoSidePanel
-                    guardPanelData={guardPanelData}
-                    selectedRondaId={selectedRondaId}
-                    onSelectGuard={setSelectedRondaId}
-                    onAddNote={handleAddNote}
-                    upcomingData={upcomingData}
-                    formatPersonName={formatPersonName}
-                    alertRows={alertRows}
-                    alertsLoading={alertsLoading}
-                    resolvingAlertId={resolvingAlertId}
-                    resolveNotes={resolveNotes}
-                    onSetResolvingAlertId={setResolvingAlertId}
-                    onSetResolveNotes={setResolveNotes}
-                    onResolveAlert={handleResolveAlert}
-                    onGoToAlert={handleGoToAlert}
-                    alertInstallationFilter={alertInstallationFilter}
-                    onSetAlertInstallationFilter={setAlertInstallationFilter}
-                    onBulkResolveAlerts={handleBulkResolveAlerts}
-                    installations={mapInstallations}
-                    onInstallationClick={(id) => setSelectedInstallationId(id)}
+            <div className="flex-1 flex overflow-hidden gap-2 p-2 pt-1" data-monitor-layout>
+              {/* Left zone: Map (collapsible) + Grid */}
+              <div className="flex-1 flex flex-col min-w-0 gap-1.5">
+                {/* Map with collapse toggle */}
+                {!mapCollapsed && (
+                  <div className="relative rounded-lg overflow-hidden border border-[#1a1f2e]" style={{ height: `${splitPct}%`, minHeight: 180 }}>
+                    <MonitoreoMap
+                      checkpoints={mapCheckpoints}
+                      guards={mapGuards}
+                      installations={mapInstallations}
+                      alerts={mapAlertMarkers}
+                      center={mapCenter}
+                      selectedGuardId={selectedRondaId}
+                      isFullscreen={false}
+                      onFullscreenToggle={() => setIsFullscreen(true)}
+                      onInstallationClick={(id) => setSelectedInstallationId(id)}
+                    />
+                  </div>
+                )}
+                {/* Map collapse bar */}
+                <button
+                  onClick={() => setMapCollapsed((v) => !v)}
+                  className="flex items-center justify-center gap-1 h-5 rounded bg-[#0a0f1c] border border-[#1a1f2e] text-[#64748b] hover:text-[#94a3b8] hover:border-[#2a3040] transition-colors shrink-0"
+                >
+                  {mapCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                  <span className="text-[9px] uppercase tracking-wider font-semibold">{mapCollapsed ? "Mostrar mapa" : "Ocultar mapa"}</span>
+                </button>
+                {/* Grid */}
+                <div className="flex-1 min-h-0 rounded-lg border border-[#1a1f2e] overflow-hidden">
+                  <MonitoreoGrid
+                    controlNocturno={controlNocturno}
+                    turnoId={activeTurno?.id ?? null}
                     selectedInstallationId={selectedInstallationId}
-                    initialTab={sidePanelTab}
+                    onSelectInstallation={setSelectedInstallationId}
+                    onCellClick={(data) => setCellModal(data)}
+                    onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
+                    onInstallationDetail={setDetailInstallation}
+                    isReadOnly={isReadOnly}
                   />
                 </div>
               </div>
 
-              <ResizableDivider onResize={setSplitPct} />
-
-              {/* Bottom: Grid */}
-              <div style={{ height: `${100 - splitPct}%` }} className="min-h-0 rounded-xl border border-[#1e293b] overflow-hidden">
-                <MonitoreoGrid
-                  controlNocturno={controlNocturno}
-                  turnoId={activeTurno?.id ?? null}
+              {/* Right zone: Side Panel (full height) */}
+              <div className="w-80 flex-shrink-0 flex flex-col rounded-lg border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
+                <MonitoreoSidePanel
+                  guardPanelData={guardPanelData}
+                  selectedRondaId={selectedRondaId}
+                  onSelectGuard={setSelectedRondaId}
+                  onAddNote={handleAddNote}
+                  upcomingData={upcomingData}
+                  formatPersonName={formatPersonName}
+                  alertRows={alertRows}
+                  alertsLoading={alertsLoading}
+                  resolvingAlertId={resolvingAlertId}
+                  resolveNotes={resolveNotes}
+                  onSetResolvingAlertId={setResolvingAlertId}
+                  onSetResolveNotes={setResolveNotes}
+                  onResolveAlert={handleResolveAlert}
+                  onGoToAlert={handleGoToAlert}
+                  alertInstallationFilter={alertInstallationFilter}
+                  onSetAlertInstallationFilter={setAlertInstallationFilter}
+                  onBulkResolveAlerts={handleBulkResolveAlerts}
+                  installations={mapInstallations}
+                  onInstallationClick={(id) => setSelectedInstallationId(id)}
                   selectedInstallationId={selectedInstallationId}
-                  onSelectInstallation={setSelectedInstallationId}
-                  onCellClick={(data) => setCellModal(data)}
-                  onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
-                  isReadOnly={isReadOnly}
+                  initialTab={sidePanelTab}
                 />
               </div>
             </div>
@@ -813,6 +839,27 @@ export function RondasMonitoreoClient({
           isReadOnly={isReadOnly}
         />
       )}
+
+      {/* Installation detail modal */}
+      <InstallationDetailModal
+        open={!!detailInstallation}
+        onClose={() => setDetailInstallation(null)}
+        instalacion={detailInstallation}
+        alertRows={alertRows}
+      />
+
+      {/* Cobertura sheet */}
+      <CoberturaSheet
+        open={!!coberturaSheetTurno}
+        onClose={() => setCoberturaSheetTurno(null)}
+        turnoFilter={coberturaSheetTurno ?? "nocturno"}
+        instalaciones={controlNocturno?.instalaciones ?? []}
+        onSendCobertura={(t) => {
+          handleSendCoberturaEmail(t);
+          setCoberturaSheetTurno(null);
+        }}
+        sendingEmail={sendingCoberturaEmail}
+      />
 
       <CerrarTurnoModal
         turnoId={closeTurnoId ?? ""}

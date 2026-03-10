@@ -206,7 +206,7 @@ export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props
         const info = infoRef.current;
         if (!info) return;
         info.setContent(`
-          <div style="color:#e2e8f0;background:#1e293b;padding:8px 12px;border-radius:8px;font-size:12px;min-width:180px">
+          <div style="color:#e2e8f0;background:#1a1f2e;padding:8px 12px;border-radius:8px;font-size:12px;min-width:180px">
             <p style="font-weight:600;margin-bottom:4px">${pt.name}</p>
             <p>Cobertura: <strong>${pt.coveragePercent}%</strong> (${pt.totalMarks}/${pt.totalRounds})</p>
             <p>Última marcación: ${lastStr}</p>

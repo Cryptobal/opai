@@ -78,6 +78,7 @@ interface MonitoreoGridProps {
   onSelectInstallation: (id: string | null) => void;
   onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
+  onInstallationDetail?: (instalacion: CNInstalacion) => void;
   isReadOnly?: boolean;
 }
 
@@ -97,17 +98,24 @@ function useCurrentHour() {
 }
 
 function trustBg(score: number | null): string {
-  if (score == null) return "bg-slate-800/40";
-  if (score >= 80) return "bg-emerald-500/20 border-emerald-500/40";
-  if (score >= 60) return "bg-amber-500/18 border-amber-500/35";
-  return "bg-red-500/18 border-red-500/35";
+  if (score == null) return "bg-zinc-800/30";
+  if (score >= 80) return "bg-emerald-500/12 border-emerald-500/25";
+  if (score >= 60) return "bg-amber-500/12 border-amber-500/25";
+  return "bg-red-500/12 border-red-500/25";
 }
 
 function trustTextColor(score: number | null): string {
-  if (score == null) return "text-slate-500";
+  if (score == null) return "text-zinc-600";
   if (score >= 80) return "text-emerald-400";
   if (score >= 60) return "text-amber-400";
   return "text-red-400";
+}
+
+function coberturaDot(status: string): string {
+  if (status === "completa") return "bg-emerald-500";
+  if (status === "parcial") return "bg-amber-500";
+  if (status === "descubierta") return "bg-red-500";
+  return "bg-zinc-600";
 }
 
 interface CellState {
@@ -126,10 +134,10 @@ function getCellState(
   isPastSlot: boolean,
 ): CellState {
   const base: CellState = {
-    bg: "bg-slate-800/10",
+    bg: "bg-[#0a0f1c]/50",
     border: "border-none",
     icon: "",
-    textColor: "text-slate-400",
+    textColor: "text-[#64748b]",
     showTrust: false,
     pulse: false,
     subtle: false,
@@ -144,36 +152,36 @@ function getCellState(
       return { ...base, bg: trustBg(ronda.trustScore), border: "border border-solid", icon: "\u26A1\u270B", textColor: trustTextColor(ronda.trustScore), showTrust: true };
     }
     if (ronda.status === "completada" && !ronda.autoPopulated) {
-      return { ...base, bg: "bg-emerald-500/15 border-emerald-500/25", border: "border border-solid", icon: "\u270B", textColor: "text-emerald-400" };
+      return { ...base, bg: "bg-emerald-500/10 border-emerald-500/20", border: "border border-solid", icon: "\u270B", textColor: "text-emerald-400" };
     }
     if (ronda.status === "omitida") {
-      return { ...base, bg: "bg-red-500/20 border-red-500/35", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
+      return { ...base, bg: "bg-red-500/12 border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
     }
     if (ronda.status === "no_aplica") {
-      return { ...base, bg: "bg-slate-800/20", border: "border border-dashed border-slate-700/30", icon: "\u2014", textColor: "text-slate-600", subtle: true };
+      return { ...base, bg: "bg-zinc-800/20", border: "border border-dashed border-zinc-700/20", icon: "\u2014", textColor: "text-zinc-600", subtle: true };
     }
     if (ronda.status === "pendiente" && isPastSlot) {
-      return { ...base, bg: "bg-red-500/10 border-red-500/20", border: "border border-solid", icon: "\u26A0", textColor: "text-red-400" };
+      return { ...base, bg: "bg-red-500/8 border-red-500/15", border: "border border-solid", icon: "\u26A0", textColor: "text-red-400" };
     }
     if (ronda.status === "pendiente" && isCurrentSlot) {
-      return { ...base, bg: "bg-teal-500/5 border-teal-500/20", border: "border border-solid", pulse: true };
+      return { ...base, bg: "bg-cyan-500/8 border-cyan-500/20", border: "border border-solid", pulse: true };
     }
     // Future with expected ronda
-    return { ...base, bg: "bg-slate-800/40 border-slate-700/30", border: "border border-solid" };
+    return { ...base, bg: "bg-[#0a0f1c]/60 border-[#1a1f2e]", border: "border border-solid" };
   }
 
   // CELL WITHOUT EXPECTED RONDA (manual check-in)
   if (ronda.status === "completada") {
-    return { ...base, bg: "bg-emerald-500/8 border-emerald-500/15", border: "border border-dashed", icon: "\u270B", textColor: "text-emerald-400" };
+    return { ...base, bg: "bg-emerald-500/6 border-emerald-500/12", border: "border border-dashed", icon: "\u270B", textColor: "text-emerald-400" };
   }
   if (ronda.status === "omitida") {
-    return { ...base, bg: "bg-amber-500/10 border-amber-500/20", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-amber-400" };
+    return { ...base, bg: "bg-amber-500/8 border-amber-500/15", border: "border border-dashed", icon: "\u270B\uD83D\uDCDD", textColor: "text-amber-400" };
   }
   if (isPastSlot) {
-    return { ...base, bg: "bg-slate-800/15", icon: "\u00B7", subtle: true, textColor: "text-slate-700" };
+    return { ...base, bg: "bg-[#0a0f1c]/30", icon: "\u00B7", subtle: true, textColor: "text-zinc-700" };
   }
   // Future without expected ronda
-  return { ...base, bg: "bg-slate-800/10", subtle: true, textColor: "text-slate-700" };
+  return { ...base, bg: "bg-[#0a0f1c]/20", subtle: true, textColor: "text-zinc-700" };
 }
 
 function calculateGridSummary(cn: ControlNocturnoData | null) {
@@ -201,6 +209,7 @@ function GridRow({
   onSelectInstallation,
   onCellClick,
   onGuardClick,
+  onInstallationDetail,
 }: {
   index: number;
   instalacion: CNInstalacion;
@@ -210,6 +219,7 @@ function GridRow({
   onSelectInstallation: (id: string | null) => void;
   onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
+  onInstallationDetail?: (instalacion: CNInstalacion) => void;
 }) {
   const currentHour = new Date().getHours();
 
@@ -220,9 +230,9 @@ function GridRow({
   const isDescubierta = cobertura === "descubierta";
 
   const rowBg = isDescubierta
-    ? "bg-red-500/[0.08] border-l-[4px] border-l-red-500"
+    ? "bg-red-500/[0.06] border-l-[3px] border-l-red-500"
     : isSelected
-      ? "bg-teal-500/[0.06] ring-1 ring-inset ring-teal-500/30"
+      ? "bg-cyan-500/[0.04] ring-1 ring-inset ring-cyan-500/20"
       : "";
 
   // First present guard's hora for the read-only Lleg. columns
@@ -232,35 +242,35 @@ function GridRow({
   return (
     <tr
       data-installation-id={instalacion.installationId}
-      className={`border-b border-slate-800/50 transition-colors hover:bg-slate-800/30 ${rowBg}`}
+      className={`border-b border-[#1a1f2e]/60 transition-colors hover:bg-[#0a0f1c]/40 ${rowBg}`}
     >
       {/* # */}
-      <td className="sticky left-0 z-10 bg-slate-900 px-2 py-1.5 text-[10px] text-slate-600 font-mono">
+      <td className="sticky left-0 z-10 bg-[#0a0f1c] px-2 py-1.5 text-[10px] text-zinc-600 font-mono tabular-nums">
         {index}
       </td>
 
       {/* Installation name */}
-      <td className="sticky left-8 z-10 bg-slate-900 px-2 py-1.5">
+      <td className="sticky left-8 z-10 bg-[#0a0f1c] px-2 py-1.5">
         <button
           onClick={() => onSelectInstallation(
             isSelected ? null : instalacion.installationId,
           )}
+          onDoubleClick={() => onInstallationDetail?.(instalacion)}
           className="text-left group"
+          title="Click: seleccionar · Doble click: ver detalle"
         >
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px]">
-              {instalacion.monitoreoType === "rondas" ? "\uD83D\uDD04" : "\uD83D\uDCDE"}
-            </span>
-            <span className="text-[11px] font-medium text-slate-200 group-hover:text-teal-400 transition-colors truncate max-w-[140px]">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${coberturaDot(cobertura)}`} />
+            <span className="text-[11px] font-medium text-[#f1f5f9] group-hover:text-cyan-400 transition-colors truncate max-w-[140px]">
               {instalacion.installationName}
             </span>
           </div>
           {instalacion.statusInstalacion !== "normal" && (
-            <div className="text-[9px] mt-0.5">
+            <div className="text-[9px] mt-0.5 pl-3">
               <span className={
                 instalacion.statusInstalacion === "critico" ? "text-red-400" : "text-amber-400"
               }>
-                {instalacion.statusInstalacion === "critico" ? "\u26A0\uFE0F" : "\u2139\uFE0F"} {instalacion.statusInstalacion}
+                {instalacion.statusInstalacion}
               </span>
             </div>
           )}
@@ -279,7 +289,7 @@ function GridRow({
 
       {/* Llegada noche — read-only */}
       <td className="px-1 py-1.5 text-center">
-        <span className="text-[10px] font-mono text-slate-400">
+        <span className="text-[10px] font-mono text-[#94a3b8] tabular-nums">
           {primerLlegadaNoche || "\u2014"}
         </span>
       </td>
@@ -306,7 +316,7 @@ function GridRow({
         const state = getCellState(ronda, isCurrentSlot, isPastSlot);
 
         return (
-          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-teal-500/[0.03]" : ""}`}>
+          <td key={slot} className={`px-0.5 py-1 ${isCurrentSlot ? "bg-cyan-500/[0.03]" : ""}`}>
             <div
               onClick={() => onCellClick?.({
                 ronda,
@@ -315,7 +325,7 @@ function GridRow({
               })}
               className={`rounded ${state.border} px-1 py-1 text-center cursor-pointer
                 min-h-[36px] flex flex-col items-center justify-center transition-all
-                hover:scale-105 hover:z-10 ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
+                hover:scale-[1.03] hover:z-10 ${state.bg} ${state.pulse ? "animate-pulse" : ""}`}
             >
               {ronda.horaMarcada ? (
                 <>
@@ -344,7 +354,7 @@ function GridRow({
 
       {/* Llegada dia — read-only */}
       <td className="px-1 py-1.5 text-center">
-        <span className="text-[10px] font-mono text-slate-400">
+        <span className="text-[10px] font-mono text-[#94a3b8] tabular-nums">
           {primerLlegadaDia || "\u2014"}
         </span>
       </td>
@@ -378,8 +388,8 @@ function GridSummaryRow({
   return (
     <tr>
       <td colSpan={4} className="px-3 py-2">
-        <span className="text-xs text-slate-400 font-semibold">RESUMEN</span>
-        <span className="text-[10px] text-slate-500 ml-2">
+        <span className="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider">Resumen</span>
+        <span className="text-[10px] text-[#64748b] ml-2 tabular-nums">
           {summary.completadas} completadas &middot; {summary.omitidas} omitidas &middot; {summary.cumplimiento}%
         </span>
       </td>
@@ -396,11 +406,11 @@ function GridSummaryRow({
 
         return (
           <td key={slot} className="text-center py-2">
-            <div className="text-[9px] text-slate-500">
+            <div className="text-[9px] text-[#64748b] tabular-nums">
               {completed}/{expected > 0 ? expected : "\u2014"}
             </div>
             {avgTrust !== null && (
-              <div className={`text-[8px] font-medium ${
+              <div className={`text-[8px] font-medium tabular-nums ${
                 avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"
               }`}>
                 {avgTrust}
@@ -420,15 +430,14 @@ function GridSummaryRow({
 
 function GridEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 py-12 bg-slate-900/50">
-      <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center">
-        <span className="text-3xl">\uD83D\uDCCB</span>
+    <div className="flex flex-col items-center justify-center h-full gap-4 py-12 bg-[#080c16]">
+      <div className="w-14 h-14 rounded-xl bg-[#0a0f1c] border border-[#1a1f2e] flex items-center justify-center">
+        <span className="text-2xl opacity-50">\uD83D\uDCCB</span>
       </div>
       <div className="text-center">
-        <h3 className="text-sm font-medium text-slate-300">Grid Operativo</h3>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs">
-          Inicia un turno para ver la planilla de control. Las rondas se auto-poblar&aacute;n
-          y podr&aacute;s registrar check-ins manuales para instalaciones sin rondas.
+        <h3 className="text-[13px] font-medium text-[#94a3b8]">Grid Operativo</h3>
+        <p className="text-[11px] text-[#64748b] mt-1.5 max-w-xs leading-relaxed">
+          Inicia un turno para ver la planilla de control.
         </p>
       </div>
     </div>
@@ -457,25 +466,25 @@ function GridHeaderBar({
   onExportPDF?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 flex-shrink-0">
+    <div className="flex items-center justify-between px-4 py-2 bg-[#0a0f1c] border-b border-[#1a1f2e] flex-shrink-0">
       <div className="flex items-center gap-3">
-        <span className="text-xs font-semibold text-slate-300">GRID OPERATIVO</span>
-        <span className="text-[10px] text-slate-500">
-          {totalInstalaciones} instalaciones &middot; {totalSlots} slots
+        <span className="text-[10px] font-semibold text-[#64748b] uppercase tracking-wider">Grid operativo</span>
+        <span className="text-[10px] text-[#475569] tabular-nums">
+          {totalInstalaciones} inst. &middot; {totalSlots} slots
         </span>
         {isSaving && (
-          <div className="flex items-center gap-1.5 text-[10px] text-teal-400/60">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+          <div className="flex items-center gap-1.5 text-[10px] text-cyan-400/60">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             Guardando
           </div>
         )}
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-emerald-400">{summary.completadas} completadas</span>
+        <span className="text-[10px] text-emerald-400 tabular-nums">{summary.completadas} completadas</span>
         {summary.omitidas > 0 && (
-          <span className="text-[10px] text-red-400">{summary.omitidas} omitidas</span>
+          <span className="text-[10px] text-red-400 tabular-nums">{summary.omitidas} omitidas</span>
         )}
-        <span className={`text-[10px] font-semibold ${
+        <span className={`text-[10px] font-bold tabular-nums ${
           summary.cumplimiento >= 80 ? "text-emerald-400"
           : summary.cumplimiento >= 60 ? "text-amber-400"
           : "text-red-400"
@@ -485,15 +494,15 @@ function GridHeaderBar({
         {onExportPDF && (
           <button
             onClick={onExportPDF}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] text-slate-400 hover:text-white transition-colors"
+            className="px-2 py-0.5 rounded bg-[#111827] border border-[#1a1f2e] text-[10px] text-[#64748b] hover:text-[#f1f5f9] transition-colors"
           >
-            {"\uD83D\uDCC4"} PDF
+            PDF
           </button>
         )}
         <button
           onClick={onToggleNotes}
           className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-            showNotes ? "bg-teal-500/20 text-teal-400" : "text-slate-500 hover:text-slate-300"
+            showNotes ? "bg-cyan-500/15 text-cyan-400" : "text-[#64748b] hover:text-[#94a3b8]"
           }`}
         >
           Notas
@@ -534,31 +543,31 @@ function GridNotesSection({
   };
 
   return (
-    <div className="border-t border-slate-800 px-4 py-3 bg-slate-950/50 flex-shrink-0">
-      <div className="text-[10px] font-semibold text-slate-400 mb-2">NOTAS GENERALES</div>
+    <div className="border-t border-[#1a1f2e] px-4 py-3 bg-[#080c16] flex-shrink-0">
+      <div className="text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-2">Notas generales</div>
       <textarea
         value={notes}
         onChange={isReadOnly ? undefined : (e) => handleChange(e.target.value)}
         readOnly={isReadOnly}
         rows={2}
-        className={`w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:border-teal-500 focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
+        className={`w-full bg-[#0a0f1c] border border-[#1a1f2e] rounded-lg px-3 py-2 text-xs text-[#94a3b8] focus:border-cyan-500/50 focus:outline-none resize-none ${isReadOnly ? "opacity-60 cursor-default" : ""}`}
         placeholder="Notas generales del turno..."
       />
 
       {instalaciones.filter((i) => i.notes).length > 0 && (
         <>
-          <div className="mt-3 text-[10px] font-semibold text-slate-400 mb-2">
-            COMENTARIOS POR INSTALACION
+          <div className="mt-3 text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-2">
+            Comentarios por instalacion
           </div>
           <div className="space-y-1.5 max-h-24 overflow-y-auto scrollbar-thin">
             {instalaciones
               .filter((i) => i.notes)
               .map((inst, idx) => (
                 <div key={inst.id} className="flex gap-2 text-[10px]">
-                  <span className="text-slate-500 font-medium min-w-[120px]">
+                  <span className="text-[#64748b] font-medium min-w-[120px]">
                     {idx + 1}. {inst.installationName}
                   </span>
-                  <span className="text-slate-400">{inst.notes}</span>
+                  <span className="text-[#94a3b8]">{inst.notes}</span>
                 </div>
               ))}
           </div>
@@ -578,6 +587,7 @@ export default function MonitoreoGrid({
   onSelectInstallation,
   onCellClick,
   onGuardClick,
+  onInstallationDetail,
   isReadOnly,
 }: MonitoreoGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -620,8 +630,8 @@ export default function MonitoreoGrid({
       );
       if (row) {
         row.scrollIntoView({ behavior: "smooth", block: "center" });
-        row.classList.add("ring-1", "ring-teal-500/50");
-        setTimeout(() => row.classList.remove("ring-1", "ring-teal-500/50"), 2000);
+        row.classList.add("ring-1", "ring-cyan-500/40");
+        setTimeout(() => row.classList.remove("ring-1", "ring-cyan-500/40"), 2000);
       }
     }
   }, [selectedInstallationId]);
@@ -633,7 +643,7 @@ export default function MonitoreoGrid({
   const instalaciones = controlNocturno.instalaciones ?? [];
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/80">
+    <div className="flex flex-col h-full bg-[#080c16]">
       <GridHeaderBar
         totalInstalaciones={instalaciones.length}
         totalSlots={timeSlots.length}
@@ -648,37 +658,39 @@ export default function MonitoreoGrid({
           className="w-full text-[11px] border-collapse"
           style={{ fontFamily: "'JetBrains Mono', monospace", minWidth: "1200px" }}
         >
-          <thead className="sticky top-0 z-20 bg-slate-900">
+          <thead className="sticky top-0 z-20 bg-[#0a0f1c]">
             <tr>
-              <th className="sticky left-0 z-30 bg-slate-900 w-8 px-2 py-2 text-left text-slate-500 font-medium">
+              <th className="sticky left-0 z-30 bg-[#0a0f1c] w-8 px-2 py-2 text-left text-[10px] text-[#475569] font-medium uppercase tracking-wider">
                 #
               </th>
-              <th className="sticky left-8 z-30 bg-slate-900 min-w-[160px] px-2 py-2 text-left text-slate-500 font-medium">
+              <th className="sticky left-8 z-30 bg-[#0a0f1c] min-w-[160px] px-2 py-2 text-left text-[10px] text-[#475569] font-medium uppercase tracking-wider">
                 Instalaci&oacute;n
               </th>
-              <th className="min-w-[140px] px-2 py-2 text-left text-slate-500 font-medium">
-                Guardia Nocturno
+              <th className="min-w-[140px] px-2 py-2 text-left text-[10px] text-[#475569] font-medium uppercase tracking-wider">
+                Gdia. Nocturno
               </th>
-              <th className="w-14 px-2 py-2 text-center text-slate-500 font-medium">
+              <th className="w-14 px-2 py-2 text-center text-[10px] text-[#475569] font-medium uppercase tracking-wider">
                 Lleg.
               </th>
               {timeSlots.map((slot, i) => (
                 <th
                   key={slot}
                   data-current-slot={i === currentSlotIdx}
-                  className={`w-16 px-1 py-2 text-center font-medium ${
-                    i === currentSlotIdx ? "bg-teal-500/10 text-teal-400" : "text-slate-500"
+                  className={`w-16 px-1 py-2 text-center font-medium text-[10px] ${
+                    i === currentSlotIdx
+                      ? "text-cyan-400 border-b-2 border-cyan-500"
+                      : "text-[#475569]"
                   }`}
                 >
-                  <div className="text-[9px] text-slate-600">R{i + 1}</div>
-                  <div>{slot}</div>
+                  <div className="text-[8px] text-[#475569] uppercase tracking-wider">R{i + 1}</div>
+                  <div className="tabular-nums">{slot}</div>
                 </th>
               ))}
-              <th className="w-14 px-2 py-2 text-center text-slate-500 font-medium">
+              <th className="w-14 px-2 py-2 text-center text-[10px] text-[#475569] font-medium uppercase tracking-wider">
                 Lleg.
               </th>
-              <th className="min-w-[120px] px-2 py-2 text-left text-slate-500 font-medium">
-                Guardia D&iacute;a
+              <th className="min-w-[120px] px-2 py-2 text-left text-[10px] text-[#475569] font-medium uppercase tracking-wider">
+                Gdia. D&iacute;a
               </th>
             </tr>
           </thead>
@@ -695,11 +707,12 @@ export default function MonitoreoGrid({
                 onSelectInstallation={onSelectInstallation}
                 onCellClick={onCellClick}
                 onGuardClick={onGuardClick}
+                onInstallationDetail={onInstallationDetail}
               />
             ))}
           </tbody>
 
-          <tfoot className="sticky bottom-0 z-20 bg-slate-900/95 backdrop-blur-sm border-t-2 border-slate-700">
+          <tfoot className="sticky bottom-0 z-20 bg-[#0a0f1c]/95 backdrop-blur-sm border-t border-[#1a1f2e]">
             <GridSummaryRow
               timeSlots={timeSlots}
               instalaciones={instalaciones}

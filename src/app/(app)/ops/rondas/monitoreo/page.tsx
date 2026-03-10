@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
 import { RondasMonitoreoClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
 
@@ -74,14 +73,8 @@ export default async function RondasMonitoreoPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <div className="hidden md:block">
-        <PageHeader
-          title="Monitoreo en tiempo real"
-          description="Rondas activas y posición de guardias."
-        />
-      </div>
-      <div className="hidden md:block">
+    <div className="min-w-0">
+      <div className="hidden md:block px-4 pt-2">
         <RondasSubnav />
       </div>
       <RondasMonitoreoClient

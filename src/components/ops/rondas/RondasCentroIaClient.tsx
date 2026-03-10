@@ -11,7 +11,7 @@ const TRUST_FACTORS = [
   { weight: 20, name: "Tiempo",      hex: "#3b82f6", desc1: "Duración vs estimada", desc2: "de la plantilla" },
   { weight: 20, name: "Velocidad",   hex: "#a855f7", desc1: "Consistencia entre", desc2: "checkpoints consecutivos" },
   { weight: 15, name: "Secuencia",   hex: "#f59e0b", desc1: "Orden de marcación", desc2: "vs plantilla configurada" },
-  { weight: 15, name: "Puntualidad", hex: "#2dd4bf", desc1: "Inicio de ronda vs", desc2: "hora programada" },
+  { weight: 15, name: "Puntualidad", hex: "#06b6d4", desc1: "Inicio de ronda vs", desc2: "hora programada" },
 ];
 
 export function RondasCentroIaClient() {
@@ -21,8 +21,8 @@ export function RondasCentroIaClient() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-[#2dd4bf]/10 flex items-center justify-center">
-          <Brain className="w-4 h-4 text-[#2dd4bf]" />
+        <div className="w-8 h-8 rounded-lg bg-[#06b6d4]/10 flex items-center justify-center">
+          <Brain className="w-4 h-4 text-[#06b6d4]" />
         </div>
         <div>
           <h2 className="text-[15px] font-bold text-[#f1f5f9]">Centro IA</h2>
@@ -37,13 +37,13 @@ export function RondasCentroIaClient() {
       </div>
 
       {/* Trust Score explanation */}
-      <div className="rounded-xl border border-[#1e293b] bg-[#111827] p-5">
+      <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-5">
         <h3 className="text-[13px] font-semibold text-[#f1f5f9] mb-4">Cómo se calcula el Trust Score</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {TRUST_FACTORS.map((factor) => (
             <div
               key={factor.name}
-              className="rounded-xl border border-[#1e293b] p-3 text-center"
+              className="rounded-xl border border-[#1a1f2e] p-3 text-center"
               style={{ borderColor: `${factor.hex}20`, background: `${factor.hex}08` }}
             >
               <div className="flex items-center justify-center mb-2">
@@ -66,13 +66,13 @@ export function RondasCentroIaClient() {
       </div>
 
       {/* Historial de recomendaciones (collapsible) */}
-      <div className="rounded-xl border border-[#1e293b] overflow-hidden">
+      <div className="rounded-xl border border-[#1a1f2e] overflow-hidden">
         <button
           onClick={() => setHistorialOpen((prev) => !prev)}
           className="w-full flex items-center justify-between px-4 py-3 bg-[#111827] hover:bg-white/[0.02] transition-colors"
         >
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-[#2dd4bf]" />
+            <History className="w-4 h-4 text-[#06b6d4]" />
             <span className="text-[13px] font-semibold text-[#f1f5f9]">Historial de recomendaciones</span>
           </div>
           <ChevronDown className={cn(
@@ -81,7 +81,7 @@ export function RondasCentroIaClient() {
           )} />
         </button>
         {historialOpen && (
-          <div className="p-4 bg-[#111827] border-t border-[#1e293b]">
+          <div className="p-4 bg-[#111827] border-t border-[#1a1f2e]">
             <p className="text-[13px] text-[#64748b] text-center py-6">
               Las recomendaciones generadas anteriormente aparecerán aquí.
             </p>

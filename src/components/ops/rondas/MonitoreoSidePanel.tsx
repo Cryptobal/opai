@@ -157,16 +157,16 @@ export function MonitoreoSidePanel({
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex border-b border-[#1e293b] shrink-0">
+      <div className="flex border-b border-[#1a1f2e] shrink-0 bg-[#080c16]">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-[11px] font-medium transition-colors relative",
+              "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors relative",
               activeTab === tab.key
-                ? "text-foreground"
-                : "text-[#64748b] hover:text-[#94a3b8]"
+                ? "text-[#f1f5f9]"
+                : "text-[#475569] hover:text-[#94a3b8]"
             )}
           >
             {tab.icon}
@@ -174,17 +174,17 @@ export function MonitoreoSidePanel({
             {tab.badge != null && tab.badge > 0 && (
               <span
                 className={cn(
-                  "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold",
+                  "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums",
                   tab.key === "alertas"
-                    ? "bg-red-500/20 text-red-400"
-                    : "bg-zinc-700/50 text-zinc-400"
+                    ? "bg-red-500/15 text-red-400"
+                    : "bg-[#1a1f2e] text-[#64748b]"
                 )}
               >
                 {tab.badge}
               </span>
             )}
             {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-400 rounded-full" />
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-cyan-400 rounded-full" />
             )}
           </button>
         ))}
@@ -283,8 +283,8 @@ function RondasTab({
     if (rows.length === 0) return null;
     const groups = groupByInstallation(rows);
     return (
-      <div className="border-t border-[#1e293b]">
-        <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+      <div className="border-t border-[#1a1f2e]">
+        <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
           {icon}
           <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">{title}</p>
           <span className={`ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${isMissedSection ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}`}>
@@ -333,7 +333,7 @@ function RondasTab({
   return (
     <>
       {/* En curso header */}
-      <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+      <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">En curso</p>
         <span className="ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-emerald-500/20 text-emerald-400">
@@ -449,7 +449,7 @@ function AlertasTab({
       <div>
         {/* Installation filter chip */}
         {installationFilter && (
-          <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+          <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
             <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
               {installationFilter.name}
               <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
@@ -470,7 +470,7 @@ function AlertasTab({
     <div>
       {/* Installation filter chip */}
       {installationFilter && (
-        <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+        <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
           <span className="text-[11px] rounded-full bg-blue-500/20 text-blue-400 px-2 py-0.5 flex items-center gap-1">
             {installationFilter.name}
             <button onClick={onClearInstallationFilter} className="hover:text-blue-300">
@@ -483,7 +483,7 @@ function AlertasTab({
       {/* ── Section 1: Operational alerts ── */}
       {operationalAlerts.length > 0 && (
         <>
-          <div className="px-4 py-2 border-b border-[#1e293b] flex items-center gap-2">
+          <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
             <AlertTriangle className="h-3 w-3 text-red-400" />
             <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Alertas operacionales</p>
             <span className="ml-auto rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
@@ -512,7 +512,7 @@ function AlertasTab({
         <>
           <button
             onClick={() => setComplianceExpanded(!complianceExpanded)}
-            className="w-full px-4 py-2 border-t border-b border-[#1e293b] flex items-center gap-2 hover:bg-zinc-800/30 transition-colors"
+            className="w-full px-4 py-2 border-t border-b border-[#1a1f2e] flex items-center gap-2 hover:bg-zinc-800/30 transition-colors"
           >
             <ChevronRight className={cn("h-3 w-3 text-zinc-500 transition-transform", complianceExpanded && "rotate-90")} />
             <span className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Cumplimiento</span>
@@ -528,7 +528,7 @@ function AlertasTab({
                   .join(", ");
                 const isResolving = bulkResolvingId === group.installationId;
                 return (
-                  <div key={group.installationId} className="px-4 py-2.5 border-b border-[#1e293b]/50 hover:bg-zinc-800/20">
+                  <div key={group.installationId} className="px-4 py-2.5 border-b border-[#1a1f2e]/50 hover:bg-zinc-800/20">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-foreground truncate flex-1">{group.installationName}</span>
                       <button
@@ -545,7 +545,7 @@ function AlertasTab({
                 );
               })}
               {/* Global bulk resolve */}
-              <div className="px-4 py-3 border-b border-[#1e293b]">
+              <div className="px-4 py-3 border-b border-[#1a1f2e]">
                 <button
                   onClick={() => handleBulkResolve(installationFilter?.id)}
                   disabled={bulkResolvingId === "all"}
@@ -581,11 +581,12 @@ function AlertCard({
   onResolveAlert: (id: string, notes?: string) => void;
   onGoToAlert: (alert: AlertRow) => void;
 }) {
-  const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/20" : alert.severidad === "high" ? "text-orange-400 bg-orange-500/20" : "text-yellow-400 bg-yellow-500/20";
-  const alertIcon = alert.severidad === "critical" ? "text-red-400" : alert.severidad === "high" ? "text-orange-400" : "text-yellow-400";
+  const severityColor = alert.severidad === "critical" ? "text-red-400 bg-red-500/15" : alert.severidad === "warning" ? "text-amber-400 bg-amber-500/15" : "text-cyan-400 bg-cyan-500/15";
+  const alertIcon = alert.severidad === "critical" ? "text-red-400" : alert.severidad === "warning" ? "text-amber-400" : "text-cyan-400";
+  const leftBorder = alert.severidad === "critical" ? "border-l-red-500" : alert.severidad === "warning" ? "border-l-amber-500" : "border-l-cyan-500";
 
   return (
-    <div className="px-4 py-3 hover:bg-zinc-800/30">
+    <div className={cn("px-4 py-3 hover:bg-[#0a0f1c]/40 border-l-[3px]", leftBorder)}>
       <div className="flex items-start gap-2.5">
         <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${alertIcon}`} />
         <div className="flex-1 min-w-0">
@@ -639,7 +640,7 @@ function AlertCard({
             <div className="mt-2 flex gap-1.5">
               <input
                 autoFocus
-                className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-[11px] text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                className="flex-1 rounded border border-[#1a1f2e] bg-[#0a0f1c] px-2 py-1.5 text-[11px] text-[#f1f5f9] placeholder:text-[#475569] focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 placeholder="Comentario (opcional)..."
                 value={resolveNotes}
                 onChange={(e) => onSetResolveNotes(e.target.value)}
@@ -702,7 +703,7 @@ function InstalacionesTab({
             onClick={() => onInstallationClick(inst.id)}
             className={cn(
               "w-full text-left px-4 py-3 hover:bg-zinc-800/30 transition-colors",
-              isSelected && "bg-zinc-800/50 border-l-2 border-emerald-400"
+              isSelected && "bg-cyan-500/[0.04] border-l-2 border-l-cyan-400"
             )}
           >
             <div className="flex items-center gap-2.5">
