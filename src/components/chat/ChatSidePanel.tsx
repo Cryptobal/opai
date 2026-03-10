@@ -435,6 +435,17 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   return (
     <>
       {/* ══════════════════════════════════════════════
+          DESKTOP: Backdrop (>= lg) — click outside to close
+         ══════════════════════════════════════════════ */}
+      {ctx.isPanelOpen && (
+        <div
+          className="hidden lg:block fixed inset-0 z-30"
+          onClick={ctx.closePanel}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ══════════════════════════════════════════════
           MOBILE: Full-screen overlay (< lg / 1024px)
          ══════════════════════════════════════════════ */}
       {ctx.isPanelOpen && (
