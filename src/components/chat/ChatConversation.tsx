@@ -270,6 +270,7 @@ export function ChatConversation({
         <ChatPresenceBar
           channelName={channelName}
           onlineCount={onlineCount}
+          members={members}
           onBack={onBack}
           onSearch={handleSearch}
           isSearching={isSearching}

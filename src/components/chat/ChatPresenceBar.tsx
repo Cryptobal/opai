@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { ArrowLeft, Bell, BellOff, AtSign, Search, X } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, AtSign, Search, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -9,12 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import type { PresenceMember } from "./hooks/useChatChannel";
 
 type NotifPreference = "ALL" | "MENTIONS_ONLY" | "MUTED";
 
 interface ChatPresenceBarProps {
   channelName: string;
   onlineCount: number;
+  members?: PresenceMember[];
   onBack: () => void;
   onSearch?: (query: string) => void;
   isSearching?: boolean;
@@ -25,6 +28,7 @@ interface ChatPresenceBarProps {
 export function ChatPresenceBar({
   channelName,
   onlineCount,
+  members = [],
   onBack,
   onSearch,
   isSearching,
@@ -162,14 +166,54 @@ export function ChatPresenceBar({
             </DropdownMenu>
           )}
 
-          {/* Online indicator */}
+          {/* Online indicator with member popover */}
           {onlineCount > 0 && !showSearch && (
-            <div className="flex items-center gap-1.5 ml-1">
-              <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
-              <span className="text-xs text-[rgba(255,255,255,0.45)]">
-                {onlineCount} en línea
-              </span>
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 ml-1 rounded-md px-2 py-1 hover:bg-zinc-800 transition-colors"
+                  title="Ver usuarios en línea"
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
+                  <span className="text-xs text-[rgba(255,255,255,0.45)]">
+                    {onlineCount} en línea
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="w-56 max-w-56 p-0 border-zinc-700/60 bg-[#0d1220]"
+              >
+                <div className="px-3 py-2 border-b border-zinc-700/40">
+                  <p className="text-xs font-medium text-[rgba(255,255,255,0.6)] flex items-center gap-1.5">
+                    <Users className="h-3 w-3" />
+                    En línea ({members.length})
+                  </p>
+                </div>
+                <div className="max-h-48 overflow-y-auto py-1">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-2 px-3 py-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />
+                      <span className="text-sm text-[rgba(255,255,255,0.85)] truncate flex-1">
+                        {m.name}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0",
+                          m.type === "ADMIN" && "bg-blue-500/15 text-blue-400",
+                          m.type === "GUARD" && "bg-emerald-500/15 text-emerald-400",
+                          m.type === "CLIENT" && "bg-amber-500/15 text-amber-400",
+                        )}
+                      >
+                        {m.type === "ADMIN" ? "Admin" : m.type === "GUARD" ? "Guardia" : "Cliente"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
       </div>
