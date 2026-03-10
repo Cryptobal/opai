@@ -7,9 +7,11 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import {
   buildCoberturaSnapshot,
   buildCoberturaEmailHtml,
+  buildCoberturaChatSummary,
 } from "@/lib/rondas/cobertura-email";
+import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
 
-/* ── Simple rate limit: 1 email per 2 min per tenant ── */
+/* ── Simple rate limit: 1 email per 2 min per tenant+turnoFilter ── */
 const lastSentMap = new Map<string, number>();
 const MIN_INTERVAL_MS = 2 * 60 * 1000;
 
@@ -25,8 +27,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Rate limit check
-    const lastSent = lastSentMap.get(ctx.tenantId);
+    const body = await request.json().catch(() => ({})) as {
+      turnoFilter?: "nocturno" | "diurno";
+    };
+    const turnoFilter = body.turnoFilter ?? "nocturno";
+
+    if (turnoFilter !== "nocturno" && turnoFilter !== "diurno") {
+      return NextResponse.json(
+        { success: false, error: "turnoFilter debe ser 'nocturno' o 'diurno'" },
+        { status: 400 },
+      );
+    }
+
+    // Rate limit per turnoFilter
+    const rateKey = `${ctx.tenantId}:${turnoFilter}`;
+    const lastSent = lastSentMap.get(rateKey);
     if (lastSent && Date.now() - lastSent < MIN_INTERVAL_MS) {
       return NextResponse.json(
         {
@@ -45,6 +60,7 @@ export async function POST(request: Request) {
         controlNocturnoId: true,
         startedAt: true,
         operatorName: true,
+        emailSentTo: true,
       },
     });
 
@@ -78,8 +94,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build snapshot and email
-    const snapshot = buildCoberturaSnapshot(cn.instalaciones);
+    // Build snapshot filtered by turno
+    const snapshot = buildCoberturaSnapshot(cn.instalaciones, turnoFilter);
+
+    if (snapshot.instalaciones.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No hay guardias ${turnoFilter === "nocturno" ? "nocturnos" : "diurnos"} registrados`,
+        },
+        { status: 400 },
+      );
+    }
+
     const cfg = await getTenantCompanyConfig(ctx.tenantId);
     const baseUrl =
       request.headers.get("origin") ||
@@ -97,12 +124,13 @@ export async function POST(request: Request) {
       hour: "2-digit",
       minute: "2-digit",
     });
+    const turnoLabel = turnoFilter === "nocturno" ? "Nocturna" : "Diurna";
 
     const response = await resend.emails.send({
       from: cfg.emailFrom,
       to: cfg.emailOps || "operaciones@gard.cl",
       replyTo: cfg.emailReplyTo,
-      subject: `Cobertura ${timeStr} - Monitoreo`,
+      subject: `Cobertura ${turnoLabel} ${timeStr} - Monitoreo`,
       html,
       tags: [{ name: "type", value: "cobertura_snapshot" }],
     });
@@ -115,9 +143,44 @@ export async function POST(request: Request) {
       );
     }
 
-    lastSentMap.set(ctx.tenantId, Date.now());
+    lastSentMap.set(rateKey, Date.now());
 
-    return NextResponse.json({ success: true });
+    // Track cobertura send on the turno record (for enforcement before close)
+    const coberturaKey = turnoFilter === "nocturno" ? "coberturaNocturnaSentAt" : "coberturaDiurnaSentAt";
+    const existingMeta = (activeTurno.emailSentTo ?? {}) as Record<string, unknown>;
+    await prisma.opsMonitoreoTurno.update({
+      where: { id: activeTurno.id },
+      data: {
+        emailSentTo: {
+          ...existingMeta,
+          [coberturaKey]: new Date().toISOString(),
+        } as any,
+      },
+    });
+
+    // Fire-and-forget: send chat message to Operaciones
+    (async () => {
+      try {
+        const channelId = await getOpsChannelId(ctx.tenantId);
+        if (!channelId) return;
+        const chatSummary = buildCoberturaChatSummary(snapshot);
+        await sendSystemChatMessage({
+          tenantId: ctx.tenantId,
+          channelId,
+          content: chatSummary,
+          systemEventType: "cobertura_snapshot",
+          systemEventData: {
+            turnoFilter,
+            summary: snapshot.summary,
+            operatorName: activeTurno.operatorName,
+          },
+        });
+      } catch (err) {
+        console.error("[COBERTURA_EMAIL] chat notification:", err);
+      }
+    })();
+
+    return NextResponse.json({ success: true, turnoFilter });
   } catch (error) {
     console.error("[COBERTURA_EMAIL] Error:", error);
     return NextResponse.json(

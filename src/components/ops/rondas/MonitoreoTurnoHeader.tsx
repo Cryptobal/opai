@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Play, Square, AlertTriangle, Mail, Loader2 } from "lucide-react";
+import { Play, Square, AlertTriangle, Moon, Sun, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TurnoData {
@@ -24,8 +24,8 @@ interface Props {
   orphanCount?: number;
   onCloseOrphans?: () => void;
   closingOrphans?: boolean;
-  onSendCoberturaEmail?: () => void;
-  sendingCoberturaEmail?: boolean;
+  onSendCoberturaEmail?: (turnoFilter: "nocturno" | "diurno") => void;
+  sendingCoberturaEmail?: "nocturno" | "diurno" | null;
 }
 
 function formatDuration(startedAt: string): string {
@@ -105,6 +105,7 @@ export function MonitoreoTurnoHeader({
   }
 
   const startTime = new Date(turno.startedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  const isSending = !!sendingCoberturaEmail;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-[#1e293b] bg-[#111827] px-4 py-2">
@@ -142,7 +143,7 @@ export function MonitoreoTurnoHeader({
         </span>
       </div>
 
-      {/* Alerts + close turno */}
+      {/* Actions */}
       <div className="flex items-center gap-2 ml-auto">
         {(orphanCount ?? 0) > 0 && !isReadOnly && (
           <Button
@@ -157,16 +158,28 @@ export function MonitoreoTurnoHeader({
           </Button>
         )}
         {!isReadOnly && onSendCoberturaEmail && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-[11px] gap-1 text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
-            onClick={onSendCoberturaEmail}
-            disabled={sendingCoberturaEmail}
-          >
-            {sendingCoberturaEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
-            Enviar cobertura
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] gap-1 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+              onClick={() => onSendCoberturaEmail("nocturno")}
+              disabled={isSending}
+            >
+              {sendingCoberturaEmail === "nocturno" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Moon className="h-3 w-3" />}
+              Cobertura nocturna
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] gap-1 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+              onClick={() => onSendCoberturaEmail("diurno")}
+              disabled={isSending}
+            >
+              {sendingCoberturaEmail === "diurno" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sun className="h-3 w-3" />}
+              Cobertura diurna
+            </Button>
+          </>
         )}
         {alertCount > 0 && (
           <button onClick={onToggleAlerts} className="transition-transform hover:scale-105 active:scale-95">
