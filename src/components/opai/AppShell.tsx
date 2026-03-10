@@ -282,7 +282,7 @@ export function AppShell({
         {/* ── Main content ── */}
         <div
           className={cn(
-            'transition-[padding,margin] duration-300 ease-out min-w-0 w-full',
+            'transition-[padding,margin] duration-300 ease-out min-w-0',
             'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-0', // espacio para topbar fija en mobile
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             chatCtx.isPanelOpen && 'lg:mr-[400px]',
@@ -312,9 +312,6 @@ export function AppShell({
         {/* ── Bottom Nav (mobile) ── */}
         <BottomNav userRole={userRole} />
 
-        {/* ── Chat Side Panel ── */}
-        <ChatSidePanel userRole={userRole} />
-
         {/* ── Command Palette ── */}
         <CommandPalette
           userRole={userRole}
@@ -332,6 +329,9 @@ export function AppShell({
           <QuickCreateModal type={mobileCreateType} onClose={() => setMobileCreateType(null)} />
         )}
       </div>
+
+      {/* ── Chat Side Panel (outside overflow-x-hidden to avoid fixed clipping) ── */}
+      <ChatSidePanel userRole={userRole} />
     </CommandPaletteProvider>
   );
 }
