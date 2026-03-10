@@ -58,7 +58,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
   const headers: Record<string, string> = {
     "x-guardia-id": session.guardiaId,
     "x-tenant-id": session.tenantId,
-    "x-guardia-name": session.nombre,
+    "x-guardia-name": encodeURIComponent(session.nombre),
     "Content-Type": "application/json",
   };
 
@@ -107,7 +107,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
         headers: {
           "x-guardia-id": session.guardiaId,
           "x-tenant-id": session.tenantId,
-          "x-guardia-name": session.nombre,
+          "x-guardia-name": encodeURIComponent(session.nombre),
         },
       },
     });

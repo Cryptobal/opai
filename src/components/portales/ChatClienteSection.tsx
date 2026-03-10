@@ -94,7 +94,7 @@ export function ChatClienteSection({ session, isProspect }: ChatClienteSectionPr
     "x-contact-id": session.contactId,
     "x-tenant-id": session.tenantId,
     "x-account-id": session.accountId,
-    "x-contact-name": senderName,
+    "x-contact-name": encodeURIComponent(senderName),
     "Content-Type": "application/json",
   };
 
@@ -260,7 +260,7 @@ function ClienteChatConversation({
     "x-contact-id": session.contactId,
     "x-tenant-id": session.tenantId,
     "x-account-id": session.accountId,
-    "x-contact-name": senderName,
+    "x-contact-name": encodeURIComponent(senderName),
     "Content-Type": "application/json",
   };
 
@@ -293,7 +293,7 @@ function ClienteChatConversation({
           "x-contact-id": session.contactId,
           "x-tenant-id": session.tenantId,
           "x-account-id": session.accountId,
-          "x-contact-name": senderName,
+          "x-contact-name": encodeURIComponent(senderName),
         },
       },
     });
@@ -381,7 +381,7 @@ function ClienteChatConversation({
         "x-contact-id": session.contactId,
         "x-tenant-id": session.tenantId,
         "x-account-id": session.accountId,
-        "x-contact-name": senderName,
+        "x-contact-name": encodeURIComponent(senderName),
       },
       body: formData,
     });

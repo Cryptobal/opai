@@ -24,6 +24,13 @@ interface Props {
   chatUrlPrefix?: string;
 }
 
+/** Detect if the message preview indicates a file/attachment rather than text. */
+function isFileMessage(preview: string): boolean {
+  if (!preview) return false;
+  const lower = preview.toLowerCase();
+  return lower.startsWith("[archivo adjunto]");
+}
+
 export function InAppNotificationProvider({
   children,
   pusherKey,
@@ -37,10 +44,24 @@ export function InAppNotificationProvider({
   const bufferRef = useRef<
     Map<
       string,
-      { count: number; lastSender: string; channelName: string; preview: string }
+      { count: number; lastSender: string; channelName: string; preview: string; isFile: boolean }
     >
   >(new Map());
   const timerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const lastSoundRef = useRef<number>(0);
+
+  const playSound = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSoundRef.current < 2000) return;
+    lastSoundRef.current = now;
+    try {
+      const audio = new Audio("/sounds/notification.mp3");
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+    } catch {
+      // Sound not available or blocked
+    }
+  }, []);
 
   const handleNotification = useCallback(
     (data: InAppNotification) => {
@@ -59,6 +80,8 @@ export function InAppNotificationProvider({
         (window as any).__incrementChatUnread(data.channelId);
       }
 
+      const fileMsg = isFileMessage(data.messagePreview);
+
       // Buffer rapid messages from same channel
       const buffer = bufferRef.current;
       const existing = buffer.get(data.channelId);
@@ -67,6 +90,7 @@ export function InAppNotificationProvider({
         existing.count++;
         existing.lastSender = data.senderName;
         existing.preview = data.messagePreview;
+        existing.isFile = fileMsg;
         return; // Flush timer already running
       }
 
@@ -75,6 +99,7 @@ export function InAppNotificationProvider({
         lastSender: data.senderName,
         channelName: data.channelName,
         preview: data.messagePreview,
+        isFile: fileMsg,
       });
 
       const timer = setTimeout(() => {
@@ -88,6 +113,9 @@ export function InAppNotificationProvider({
             ? `/chat?channel=${data.channelId}`
             : `${chatUrlPrefix}?section=chat&channel=${data.channelId}`;
 
+        // Play sound (debounced)
+        playSound();
+
         toast.custom(
           (t) => (
             <ChatToast
@@ -98,15 +126,16 @@ export function InAppNotificationProvider({
               channelId={data.channelId}
               toastId={t}
               chatUrl={chatUrl}
+              isFile={info.count === 1 ? info.isFile : false}
             />
           ),
-          { duration: 6000, position: "top-right" },
+          { duration: 5000, position: "bottom-right" },
         );
       }, 1500);
 
       timerRef.current.set(data.channelId, timer);
     },
-    [chatUrlPrefix],
+    [chatUrlPrefix, playSound],
   );
 
   useEffect(() => {

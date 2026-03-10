@@ -28,7 +28,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        keys.filter((k) => k !== CACHE_NAME && k !== 'push-context').map((k) => caches.delete(k))
       )
     )
   );
@@ -232,25 +232,48 @@ self.addEventListener('notificationclick', (event) => {
 // PUSH SUBSCRIPTION CHANGE: re-subscribe automatically
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
-    self.registration.pushManager
-      .subscribe(event.oldSubscription?.options || { userVisibleOnly: true })
-      .then((newSub) =>
-        fetch('/api/notifications/push/subscribe', {
+    Promise.all([
+      self.registration.pushManager
+        .subscribe(event.oldSubscription?.options || { userVisibleOnly: true }),
+      caches.open('push-context')
+        .then((cache) => cache.match('/_push-context'))
+        .then((res) => res ? res.json() : null)
+        .catch(() => null),
+    ])
+      .then(([newSub, ctx]) => {
+        if (!ctx) {
+          console.warn('[SW] pushsubscriptionchange: no stored context, cannot re-subscribe');
+          return;
+        }
+        return fetch('/api/notifications/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subscription: newSub.toJSON(),
-            oldEndpoint: event.oldSubscription?.endpoint,
+            portalType: ctx.portalType,
+            userType: ctx.userType,
+            userId: ctx.userId,
+            tenantId: ctx.tenantId,
           }),
-        })
-      )
+        });
+      })
       .catch((err) => console.error('[SW] pushsubscriptionchange failed:', err))
   );
 });
 
-// SKIP WAITING message
+// Message handlers
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  // Store push subscription context for pushsubscriptionchange re-subscribe
+  if (event.data?.type === 'STORE_PUSH_CONTEXT') {
+    const ctx = event.data.context;
+    if (ctx) {
+      caches.open('push-context').then((cache) => {
+        cache.put('/_push-context', new Response(JSON.stringify(ctx)));
+      });
+    }
   }
 });
