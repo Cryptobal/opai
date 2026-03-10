@@ -98,7 +98,13 @@ export function CoverageChip({
   const bars: string[] = [];
   for (let i = 0; i < barCount; i++) {
     if (i < guardias.length) {
-      bars.push(STATUS_BAR_COLOR[guardias[i].status] ?? "bg-slate-600");
+      const g = guardias[i];
+      // PPC guards get amber bar when still unassigned
+      if (g.guardiaNombre === "PPC") {
+        bars.push(g.status === "no_viene" ? "bg-red-400" : "bg-amber-500");
+      } else {
+        bars.push(STATUS_BAR_COLOR[g.status] ?? "bg-slate-600");
+      }
     } else {
       bars.push("bg-slate-800");
     }

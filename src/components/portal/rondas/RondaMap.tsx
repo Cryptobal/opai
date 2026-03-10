@@ -26,6 +26,8 @@ export interface RondaMapProps {
   interactive?: boolean;
   showCenterButton?: boolean;
   onCenterGuard?: () => void;
+  /** GPS trail points for ad-hoc rondas — rendered as a continuous polyline */
+  trailPoints?: { lat: number; lng: number }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +321,7 @@ export default function RondaMap({
   interactive = true,
   showCenterButton = false,
   onCenterGuard,
+  trailPoints,
 }: RondaMapProps) {
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
@@ -378,6 +381,19 @@ export default function RondaMap({
         {/* Route polylines */}
         {showRoute && checkpoints.length > 1 && (
           <RoutePolylines checkpoints={checkpoints} />
+        )}
+
+        {/* GPS trail polyline (ad-hoc rondas) */}
+        {trailPoints && trailPoints.length > 1 && (
+          <Polyline
+            positions={trailPoints.map((p) => [p.lat, p.lng] as L.LatLngExpression)}
+            pathOptions={{
+              color: "#14b8a6",
+              weight: 3,
+              opacity: 0.5,
+              dashArray: undefined,
+            }}
+          />
         )}
 
         {/* Checkpoint markers */}

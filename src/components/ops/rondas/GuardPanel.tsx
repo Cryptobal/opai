@@ -37,6 +37,8 @@ export interface GuardPanelProps {
       horaLlegada?: string | null;
       notes?: string | null;
       reemplazaDe?: string | null;
+      guardiaNombre?: string;
+      guardiaId?: string | null;
     },
   ) => void;
   onGuardiaAdd: (data: {
@@ -62,7 +64,7 @@ const STATUS_BUTTONS = [
   { value: "pendiente", label: "Pendiente", activeBg: "bg-slate-500" },
   { value: "en_camino", label: "En camino", activeBg: "bg-blue-500" },
   { value: "presente", label: "Presente", activeBg: "bg-emerald-500" },
-  { value: "no_viene", label: "No viene", activeBg: "bg-red-500" },
+  { value: "no_viene", label: "Sin cobertura", activeBg: "bg-red-500" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -80,12 +82,20 @@ function GuardCard({
     horaLlegada?: string | null;
     notes?: string | null;
     reemplazaDe?: string | null;
+    guardiaNombre?: string;
+    guardiaId?: string | null;
   }) => void;
   onDelete: () => void;
 }) {
   const [localHora, setLocalHora] = useState(guard.horaLlegada ?? "");
   const [localNotes, setLocalNotes] = useState(guard.notes ?? "");
   const notesSaveRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // PPC detection
+  const isPPC = guard.guardiaNombre === "PPC";
+  const isPPCUnassigned = isPPC && !guard.guardiaId;
+  const [ppcSearchName, setPpcSearchName] = useState("");
+  const [ppcSearchId, setPpcSearchId] = useState<string | null>(null);
 
   // "No viene" sub-flow: null → choosing → sin_cobertura | con_cobertura
   const [noVieneStep, setNoVieneStep] = useState<
@@ -154,6 +164,61 @@ function GuardCard({
         : "bg-slate-800/40 border-slate-700/50";
 
   const isNoViene = guard.status === "no_viene" || noVieneStep === "choosing";
+
+  const handlePPCAssign = () => {
+    if (!ppcSearchName.trim()) return;
+    onUpdate({
+      guardiaNombre: ppcSearchName.trim(),
+      guardiaId: ppcSearchId,
+      status: "presente",
+      horaLlegada: nowHHMM(),
+    });
+  };
+
+  // PPC unassigned — show guard selector instead of status buttons
+  if (isPPCUnassigned) {
+    return (
+      <div className="rounded-lg border p-3 space-y-3 bg-amber-500/[0.05] border-amber-500/20">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold">
+            PPC
+          </span>
+          <span className="text-sm text-amber-300 font-medium">Por cubrir</span>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Asignar guardia</p>
+          <GuardiaSearchInput
+            value={ppcSearchName}
+            onChange={(patch) => {
+              setPpcSearchName(patch.guardiaNombre);
+              if (patch.guardiaId) setPpcSearchId(patch.guardiaId);
+            }}
+            placeholder="Buscar guardia..."
+            className="h-8 text-xs bg-slate-900 border-slate-600"
+            dropdownDirection="down"
+          />
+          <button
+            onClick={handlePPCAssign}
+            disabled={!ppcSearchName.trim()}
+            className={`w-full py-1.5 rounded-md text-xs font-medium transition-colors ${
+              ppcSearchName.trim()
+                ? "bg-amber-600 hover:bg-amber-500 text-white"
+                : "bg-slate-800 text-slate-600 cursor-not-allowed"
+            }`}
+          >
+            Asignar guardia
+          </button>
+        </div>
+        {/* Sin cobertura shortcut */}
+        <button
+          onClick={() => onUpdate({ status: "no_viene", notes: "Sin cobertura — puesto descubierto" })}
+          className="w-full py-1.5 rounded-md text-[11px] font-medium border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          Marcar sin cobertura
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-lg border p-3 space-y-3 ${cardBorder}`}>

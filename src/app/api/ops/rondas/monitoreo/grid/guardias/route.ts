@@ -46,7 +46,7 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as {
       controlInstalacionId: string;
       guardias?: GuardiaInput[];
-      singleGuard?: { id: string; status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null };
+      singleGuard?: { id: string; status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null; guardiaNombre?: string; guardiaId?: string | null };
     };
 
     const { controlInstalacionId, guardias, singleGuard } = body;
@@ -84,6 +84,8 @@ export async function PATCH(request: Request) {
       if (singleGuard.horaLlegada !== undefined) patch.horaLlegada = singleGuard.horaLlegada || null;
       if (singleGuard.notes !== undefined) patch.notes = singleGuard.notes || null;
       if (singleGuard.reemplazaDe !== undefined) patch.reemplazaDe = singleGuard.reemplazaDe || null;
+      if (singleGuard.guardiaNombre !== undefined) patch.guardiaNombre = singleGuard.guardiaNombre;
+      if (singleGuard.guardiaId !== undefined) patch.guardiaId = singleGuard.guardiaId || null;
       // Auto-set horaLlegada when status becomes "presente"
       if (singleGuard.status === "presente" && singleGuard.horaLlegada === undefined) {
         const now = new Date();

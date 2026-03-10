@@ -187,34 +187,38 @@ export async function marcarCheckpoint(
   const fullConfig = await getFullAlertConfig(execution.tenantId);
   const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;
 
-  // 6. Anomaly detection (with configurable thresholds)
-  const anomalies = detectCheckpointAnomalies({
-    geoValidada: geo.valid,
-    speedFromPrevKmh: speed,
-    movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
-    batteryLevel: batteryLevel,
-    prevBatteryLevel: prev?.batteryLevel ?? null,
-    sameGeoAsPrev: Boolean(prev && prevDistance <= 5),
-    speedThresholdKmh: speedThreshold,
-    movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
-    batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
-    batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
-    elapsedMinutes: prev ? elapsedSec / 60 : undefined,
-  });
+  // 6. Anomaly detection — skip entirely for ad-hoc GPS marks (ronda libre)
+  const anomalies = isAdHocGps
+    ? []
+    : detectCheckpointAnomalies({
+        geoValidada: geo.valid,
+        speedFromPrevKmh: speed,
+        movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
+        batteryLevel: batteryLevel,
+        prevBatteryLevel: prev?.batteryLevel ?? null,
+        sameGeoAsPrev: Boolean(prev && prevDistance <= 5),
+        speedThresholdKmh: speedThreshold,
+        movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
+        batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
+        batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
+        elapsedMinutes: prev ? elapsedSec / 60 : undefined,
+      });
 
   // Filter to only enabled alert types for alert creation / notifications
   const alertAnomalies = anomalies.filter(code => fullConfig[code]?.enabled !== false);
 
-  // 7. Trust score (uses ALL anomalies regardless of enabled status)
-  const trustScore = computeCheckpointTrustScore({
-    geoValidada: geo.valid,
-    hasPhoto: Boolean(fotoEvidenciaUrl),
-    hasMovement: !anomalies.includes("sin_movimiento"),
-    sameDevice: true,
-    batteryLevel: batteryLevel ?? null,
-    speedFromPrevKmh: speed,
-    speedThresholdKmh: speedThreshold,
-  });
+  // 7. Trust score — ad-hoc marks always get 100 (no anomaly validation applies)
+  const trustScore = isAdHocGps
+    ? 100
+    : computeCheckpointTrustScore({
+        geoValidada: geo.valid,
+        hasPhoto: Boolean(fotoEvidenciaUrl),
+        hasMovement: !anomalies.includes("sin_movimiento"),
+        sameDevice: true,
+        batteryLevel: batteryLevel ?? null,
+        speedFromPrevKmh: speed,
+        speedThresholdKmh: speedThreshold,
+      });
 
   // 8. Integrity hash
   const hash = computeMarcacionHash({

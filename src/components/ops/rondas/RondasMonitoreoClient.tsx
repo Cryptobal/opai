@@ -497,7 +497,7 @@ export function RondasMonitoreoClient({
     });
   }, [installations, rows, alertRows]);
 
-  const handleGuardiaUpdate = useCallback((guardiaId: string, data: { status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null }) => {
+  const handleGuardiaUpdate = useCallback((guardiaId: string, data: { status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null; guardiaNombre?: string; guardiaId?: string | null }) => {
     if (!guardPanel) return;
     const controlInstalacionId = guardPanel.instalacion.id;
     // Optimistic update

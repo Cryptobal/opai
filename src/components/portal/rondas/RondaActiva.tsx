@@ -169,6 +169,9 @@ export function RondaActiva({
   } | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
+  // -- GPS trail for ad-hoc map display --
+  const [trailPoints, setTrailPoints] = useState<{ lat: number; lng: number }[]>([]);
+
   // -- Live timer --
   const [now, setNow] = useState(() => Date.now());
 
@@ -177,12 +180,23 @@ export function RondaActiva({
     setCheckpoints(rondaData.checkpoints);
   }, [rondaData.checkpoints]);
 
-  // GPS watchPosition
+  // GPS watchPosition + trail accumulation
   useEffect(() => {
     if (!navigator.geolocation) return;
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) =>
-        setGuardPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGuardPos(pt);
+        setTrailPoints((prev) => {
+          // Only add if moved >3m from last point (avoid clutter)
+          if (prev.length === 0) return [pt];
+          const last = prev[prev.length - 1];
+          const dx = (pt.lat - last.lat) * 111320;
+          const dy = (pt.lng - last.lng) * 111320 * Math.cos(pt.lat * Math.PI / 180);
+          if (Math.sqrt(dx * dx + dy * dy) < 3) return prev;
+          return [...prev, pt];
+        });
+      },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
@@ -566,33 +580,36 @@ export function RondaActiva({
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
-          height={mapCollapsed ? "20vh" : isAdHoc ? "35vh" : "45vh"}
+          height={isAdHoc ? "25vh" : mapCollapsed ? "20vh" : "45vh"}
           showRoute={true}
           interactive={true}
           showCenterButton={true}
+          trailPoints={isAdHoc ? trailPoints : undefined}
         />
 
-        {/* Map collapse toggle */}
-        <button
-          onClick={() => setMapCollapsed((v) => !v)}
-          className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className={`h-4 w-4 transition-transform ${mapCollapsed ? "rotate-180" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+        {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
+        {!isAdHoc && (
+          <button
+            onClick={() => setMapCollapsed((v) => !v)}
+            className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 15l7-7 7 7"
-            />
-          </svg>
-          {mapCollapsed ? "Expandir" : "Colapsar"}
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-4 w-4 transition-transform ${mapCollapsed ? "rotate-180" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 15l7-7 7 7"
+              />
+            </svg>
+            {mapCollapsed ? "Expandir" : "Colapsar"}
+          </button>
+        )}
       </div>
 
       {/* ============ Checkpoint List (scrollable) ============ */}
