@@ -1,10 +1,7 @@
-import { prisma } from "@/lib/prisma";
+import { getFullAlertConfig, saveFullAlertConfig, toLegacyAlertConfig } from "./alert-config-service";
 
 /** Default speed threshold in km/h — used by anomaly detection and trust scoring */
 export const DEFAULT_SPEED_THRESHOLD_KMH = 15;
-
-const SETTING_KEY = "rondas_ia_config";
-const SETTING_CATEGORY = "ops";
 
 export interface AlertConfig {
   staticGuardMinutes: number;
@@ -30,55 +27,25 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   routeDeviationEnabled: true,
 };
 
-function settingKey(tenantId: string) {
-  return `${SETTING_KEY}_${tenantId}`;
-}
-
+/** Read alert config (legacy shape — delegates to v2 service) */
 export async function getAlertConfig(tenantId: string): Promise<AlertConfig> {
-  try {
-    const setting = await prisma.setting.findFirst({
-      where: { key: settingKey(tenantId) },
-    });
-
-    if (!setting) return { ...DEFAULT_ALERT_CONFIG };
-
-    const parsed = JSON.parse(setting.value);
-    return {
-      staticGuardMinutes: parsed.staticGuardMinutes ?? DEFAULT_ALERT_CONFIG.staticGuardMinutes,
-      staticGuardEnabled: parsed.staticGuardEnabled ?? DEFAULT_ALERT_CONFIG.staticGuardEnabled,
-      speedAnomalyKmh: parsed.speedAnomalyKmh ?? DEFAULT_ALERT_CONFIG.speedAnomalyKmh,
-      speedAnomalyEnabled: parsed.speedAnomalyEnabled ?? DEFAULT_ALERT_CONFIG.speedAnomalyEnabled,
-      roundNotStartedMinutes: parsed.roundNotStartedMinutes ?? DEFAULT_ALERT_CONFIG.roundNotStartedMinutes,
-      roundNotStartedEnabled: parsed.roundNotStartedEnabled ?? DEFAULT_ALERT_CONFIG.roundNotStartedEnabled,
-      checkpointSkippedEnabled: parsed.checkpointSkippedEnabled ?? DEFAULT_ALERT_CONFIG.checkpointSkippedEnabled,
-      routeDeviationMultiplier: parsed.routeDeviationMultiplier ?? DEFAULT_ALERT_CONFIG.routeDeviationMultiplier,
-      routeDeviationEnabled: parsed.routeDeviationEnabled ?? DEFAULT_ALERT_CONFIG.routeDeviationEnabled,
-    };
-  } catch {
-    return { ...DEFAULT_ALERT_CONFIG };
-  }
+  const full = await getFullAlertConfig(tenantId);
+  return toLegacyAlertConfig(full) as AlertConfig;
 }
 
+/** Save alert config (legacy shape — converts to v2 and saves) */
 export async function saveAlertConfig(tenantId: string, config: AlertConfig): Promise<void> {
-  const key = settingKey(tenantId);
-  const value = JSON.stringify(config);
+  const full = await getFullAlertConfig(tenantId);
 
-  const existing = await prisma.setting.findFirst({ where: { key } });
+  full.guardia_estatico.enabled = config.staticGuardEnabled;
+  full.guardia_estatico.thresholds.staticGuardMinutes = config.staticGuardMinutes;
+  full.velocidad_anomala.enabled = config.speedAnomalyEnabled;
+  full.velocidad_anomala.thresholds.speedAnomalyKmh = config.speedAnomalyKmh;
+  full.ronda_no_iniciada.enabled = config.roundNotStartedEnabled;
+  full.ronda_no_iniciada.thresholds.roundNotStartedMinutes = config.roundNotStartedMinutes;
+  full.checkpoint_saltado.enabled = config.checkpointSkippedEnabled;
+  full.geo_fuera_rango.enabled = config.routeDeviationEnabled;
+  full.geo_fuera_rango.thresholds.routeDeviationMultiplier = config.routeDeviationMultiplier;
 
-  if (existing) {
-    await prisma.setting.update({
-      where: { id: existing.id },
-      data: { value },
-    });
-  } else {
-    await prisma.setting.create({
-      data: {
-        key,
-        value,
-        type: "json",
-        category: SETTING_CATEGORY,
-        tenantId,
-      },
-    });
-  }
+  await saveFullAlertConfig(tenantId, full);
 }

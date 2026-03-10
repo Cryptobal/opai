@@ -11,6 +11,8 @@ import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
+import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
+import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
 import { getPusherServer } from "@/lib/chat";
 
 // ── Input / Output types ──
@@ -170,7 +172,11 @@ export async function marcarCheckpoint(
       : 0;
   const speed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
 
-  // 6. Anomaly detection
+  // 5.5. Fetch alert config for configurable thresholds
+  const fullConfig = await getFullAlertConfig(execution.tenantId);
+  const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;
+
+  // 6. Anomaly detection (with configurable thresholds)
   const anomalies = detectCheckpointAnomalies({
     geoValidada: geo.valid,
     speedFromPrevKmh: speed,
@@ -178,9 +184,17 @@ export async function marcarCheckpoint(
     batteryLevel: batteryLevel,
     prevBatteryLevel: prev?.batteryLevel ?? null,
     sameGeoAsPrev: Boolean(prev && prevDistance <= 5),
+    speedThresholdKmh: speedThreshold,
+    movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
+    batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
+    batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
+    elapsedMinutes: prev ? elapsedSec / 60 : undefined,
   });
 
-  // 7. Trust score
+  // Filter to only enabled alert types for alert creation / notifications
+  const alertAnomalies = anomalies.filter(code => fullConfig[code]?.enabled !== false);
+
+  // 7. Trust score (uses ALL anomalies regardless of enabled status)
   const trustScore = computeCheckpointTrustScore({
     geoValidada: geo.valid,
     hasPhoto: Boolean(fotoEvidenciaUrl),
@@ -188,6 +202,7 @@ export async function marcarCheckpoint(
     sameDevice: true,
     batteryLevel: batteryLevel ?? null,
     speedFromPrevKmh: speed,
+    speedThresholdKmh: speedThreshold,
   });
 
   // 8. Integrity hash
@@ -284,17 +299,17 @@ export async function marcarCheckpoint(
       data: updateData,
     });
 
-    if (anomalies.length) {
+    if (alertAnomalies.length) {
       const cpName = checkpoint?.name ?? "Punto GPS";
-      const baseSeverity = toAlertSeverityFromAnomalies(anomalies);
+      const baseSeverity = toAlertSeverityFromAnomalies(alertAnomalies);
       const severidad =
         baseSeverity === "critical" &&
-        anomalies.includes("geo_fuera_rango") &&
+        alertAnomalies.includes("geo_fuera_rango") &&
         geo.confidence === "low"
           ? "warning"
           : baseSeverity;
       const geoNote =
-        anomalies.includes("geo_fuera_rango") && gpsAccuracy
+        alertAnomalies.includes("geo_fuera_rango") && gpsAccuracy
           ? ` — GPS accuracy: ${Math.round(gpsAccuracy)}m (${geo.confidence === "low" ? "baja confiabilidad" : "alta confiabilidad"})`
           : "";
       await tx.opsAlertaRonda.create({
@@ -303,13 +318,13 @@ export async function marcarCheckpoint(
           ejecucionId: execution.id,
           installationId: cpInstallationId,
           turnoId,
-          tipo: anomalies[0],
+          tipo: alertAnomalies[0],
           severidad,
-          mensaje: `Anomalía detectada en checkpoint ${cpName}: ${anomalies.join(", ")}${geoNote}`,
+          mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}${geoNote}`,
           data: {
             checkpointId: checkpoint?.id ?? null,
             checkpointName: cpName,
-            anomalies,
+            anomalies: alertAnomalies,
             trustScore,
             checkpointLat: checkpoint?.lat ?? null,
             checkpointLng: checkpoint?.lng ?? null,
@@ -328,20 +343,20 @@ export async function marcarCheckpoint(
   });
 
   // 10. Fire-and-forget: push + chat notification for critical alerts
-  if (anomalies.length) {
-    const baseSeverity = toAlertSeverityFromAnomalies(anomalies);
+  if (alertAnomalies.length) {
+    const baseSeverity = toAlertSeverityFromAnomalies(alertAnomalies);
     const severidad =
       baseSeverity === "critical" &&
-      anomalies.includes("geo_fuera_rango") &&
+      alertAnomalies.includes("geo_fuera_rango") &&
       geo.confidence === "low"
         ? "warning"
         : baseSeverity;
     const cpName = checkpoint?.name ?? "Punto GPS";
     notifyCriticalAlert({
       tenantId: execution.tenantId,
-      tipo: anomalies[0],
+      tipo: alertAnomalies[0],
       severidad,
-      mensaje: `Anomalía detectada en checkpoint ${cpName}: ${anomalies.join(", ")}`,
+      mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}`,
     }).catch((err) => console.error("[MARCAR] Alert notification failed:", err));
   }
 

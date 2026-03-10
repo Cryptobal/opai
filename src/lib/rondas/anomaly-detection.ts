@@ -16,6 +16,9 @@ export interface DetectAnomaliesInput {
   prevBatteryLevel?: number | null;
   sameGeoAsPrev?: boolean;
   speedThresholdKmh?: number;
+  movementScoreThreshold?: number;
+  batteryLowThreshold?: number;
+  batteryStaticMinMinutes?: number;
   elapsedMinutes?: number;
 }
 
@@ -25,15 +28,14 @@ export function detectCheckpointAnomalies(input: DetectAnomaliesInput): RondaAno
   if (!input.geoValidada) anomalies.push("geo_fuera_rango");
   if (input.sameGeoAsPrev) anomalies.push("mismo_punto_repetido");
   if ((input.speedFromPrevKmh ?? 0) > (input.speedThresholdKmh ?? DEFAULT_SPEED_THRESHOLD_KMH)) anomalies.push("velocidad_anomala");
-  if ((input.movementScore ?? 0) < 0.05) anomalies.push("sin_movimiento");
+  if ((input.movementScore ?? 0) < (input.movementScoreThreshold ?? 0.05)) anomalies.push("sin_movimiento");
 
-  if ((input.batteryLevel ?? 100) <= 10) anomalies.push("bateria_baja");
-  // Only flag static battery if >10 minutes elapsed between checkpoints
+  if ((input.batteryLevel ?? 100) <= (input.batteryLowThreshold ?? 10)) anomalies.push("bateria_baja");
   if (
     input.batteryLevel != null &&
     input.prevBatteryLevel != null &&
     input.batteryLevel === input.prevBatteryLevel &&
-    (input.elapsedMinutes ?? 0) > 10
+    (input.elapsedMinutes ?? 0) > (input.batteryStaticMinMinutes ?? 10)
   ) {
     anomalies.push("bateria_estatica");
   }

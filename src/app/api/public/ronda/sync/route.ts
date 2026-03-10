@@ -8,6 +8,8 @@ import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
+import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
+import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +37,8 @@ export async function POST(request: NextRequest) {
           roundTenantId = template.tenantId;
 
           const turnoId = await getActiveTurnoId(template.tenantId);
+          const fullConfig = await getFullAlertConfig(template.tenantId);
+          const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;
 
           const ejecucion = await tx.opsRondaEjecucion.create({
             data: {
@@ -84,7 +88,13 @@ export async function POST(request: NextRequest) {
               speedFromPrevKmh: speed,
               batteryLevel: m.batteryLevel ?? null,
               sameGeoAsPrev: Boolean(prevM && prevDist <= 5),
+              speedThresholdKmh: speedThreshold,
+              movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
+              batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
+              batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
+              elapsedMinutes: prevM ? elapsedSec / 60 : undefined,
             });
+            const alertAnomalies = anomalies.filter(code => fullConfig[code]?.enabled !== false);
 
             const hash = computeMarcacionHash({
               tenantId: template.tenantId,
@@ -125,19 +135,19 @@ export async function POST(request: NextRequest) {
               },
             });
 
-            if (anomalies.length > 0) {
-              const baseAlertSeveridad = toAlertSeverityFromAnomalies(anomalies);
+            if (alertAnomalies.length > 0) {
+              const baseAlertSeveridad = toAlertSeverityFromAnomalies(alertAnomalies);
               const alertSeveridad =
                 baseAlertSeveridad === "critical" &&
-                anomalies.includes("geo_fuera_rango") &&
+                alertAnomalies.includes("geo_fuera_rango") &&
                 geo.confidence === "low"
                   ? "warning"
                   : baseAlertSeveridad;
               const geoNote =
-                anomalies.includes("geo_fuera_rango") && m.gpsAccuracy
+                alertAnomalies.includes("geo_fuera_rango") && m.gpsAccuracy
                   ? ` — GPS accuracy: ${Math.round(m.gpsAccuracy)}m (${geo.confidence === "low" ? "baja confiabilidad" : "alta confiabilidad"})`
                   : "";
-              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}${geoNote}`;
+              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${alertAnomalies.join(", ")}${geoNote}`;
               await tx.opsAlertaRonda.create({
                 data: {
                   tenantId: template.tenantId,
@@ -145,11 +155,11 @@ export async function POST(request: NextRequest) {
                   installationId: round.installationId,
                   guardiaId: round.guardiaId,
                   turnoId,
-                  tipo: anomalies[0],
+                  tipo: alertAnomalies[0],
                   severidad: alertSeveridad,
                   mensaje: alertMensaje,
                   data: {
-                    anomalies,
+                    anomalies: alertAnomalies,
                     checkpointId: m.checkpointId,
                     offline: true,
                     checkpointLat: checkpoint.lat,
@@ -163,7 +173,7 @@ export async function POST(request: NextRequest) {
                   } as never,
                 },
               });
-              roundAlerts.push({ tipo: anomalies[0], severidad: alertSeveridad, mensaje: alertMensaje });
+              roundAlerts.push({ tipo: alertAnomalies[0], severidad: alertSeveridad, mensaje: alertMensaje });
             }
           }
 
