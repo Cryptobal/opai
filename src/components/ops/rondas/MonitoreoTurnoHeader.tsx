@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Play, Square, AlertTriangle } from "lucide-react";
+import { Play, Square, AlertTriangle, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TurnoData {
@@ -24,6 +24,8 @@ interface Props {
   orphanCount?: number;
   onCloseOrphans?: () => void;
   closingOrphans?: boolean;
+  onSendCoberturaEmail?: () => void;
+  sendingCoberturaEmail?: boolean;
 }
 
 function formatDuration(startedAt: string): string {
@@ -47,6 +49,8 @@ export function MonitoreoTurnoHeader({
   orphanCount,
   onCloseOrphans,
   closingOrphans,
+  onSendCoberturaEmail,
+  sendingCoberturaEmail,
 }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -150,6 +154,18 @@ export function MonitoreoTurnoHeader({
           >
             <AlertTriangle className="h-3 w-3" />
             {closingOrphans ? "Cerrando..." : `${orphanCount} huérfana${orphanCount !== 1 ? "s" : ""}`}
+          </Button>
+        )}
+        {!isReadOnly && onSendCoberturaEmail && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
+            onClick={onSendCoberturaEmail}
+            disabled={sendingCoberturaEmail}
+          >
+            {sendingCoberturaEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+            Enviar cobertura
           </Button>
         )}
         {alertCount > 0 && (

@@ -75,6 +75,8 @@ export function RondasMonitoreoClient({
   const [mapCenterOverride, setMapCenterOverride] = useState<{ lat: number; lng: number } | null>(null);
   const [resolvingAlertId, setResolvingAlertId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
+  const [alertInstallationFilter, setAlertInstallationFilter] = useState<{ id: string; name: string } | null>(null);
+  const [sendingCoberturaEmail, setSendingCoberturaEmail] = useState(false);
   const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
@@ -348,6 +350,55 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
+  const handleBulkResolveAlerts = useCallback(async (filter: { tipos: string[]; installationId?: string }) => {
+    try {
+      const res = await fetch("/api/ops/rondas/alertas/bulk-resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipos: filter.tipos,
+          installationId: filter.installationId,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        // Optimistic removal from local state
+        setAlertRows((prev) =>
+          prev.filter((a) => {
+            if (!filter.tipos.includes(a.tipo)) return true;
+            if (filter.installationId && a.installation?.id !== filter.installationId) return true;
+            return false;
+          }),
+        );
+        setCurrentAlertCount((c) => Math.max(0, c - (json.data?.resolved ?? 0)));
+        toast.success(`${json.data?.resolved ?? 0} alertas resueltas`);
+      } else {
+        toast.error(json.error ?? "Error al resolver alertas");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }, []);
+
+  const handleSendCoberturaEmail = useCallback(async () => {
+    setSendingCoberturaEmail(true);
+    try {
+      const res = await fetch("/api/ops/rondas/monitoreo/cobertura-email", {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Email de cobertura enviado a operaciones");
+      } else {
+        toast.error(json.error ?? "Error al enviar email");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setSendingCoberturaEmail(false);
+    }
+  }, []);
+
   // Build alert markers for the map — show at installation coords
   const mapAlertMarkers = useMemo(() => {
     return alertRows
@@ -583,6 +634,8 @@ export function RondasMonitoreoClient({
         orphanCount={orphanCount}
         onCloseOrphans={handleCloseOrphans}
         closingOrphans={closingOrphans}
+        onSendCoberturaEmail={isReadOnly ? undefined : handleSendCoberturaEmail}
+        sendingCoberturaEmail={sendingCoberturaEmail}
       />
 
       {/* Observer / Operator banner — desktop only (mobile has its own in MobileMonitorView) */}
@@ -674,6 +727,9 @@ export function RondasMonitoreoClient({
                     onSetResolveNotes={setResolveNotes}
                     onResolveAlert={handleResolveAlert}
                     onGoToAlert={handleGoToAlert}
+                    alertInstallationFilter={alertInstallationFilter}
+                    onSetAlertInstallationFilter={setAlertInstallationFilter}
+                    onBulkResolveAlerts={handleBulkResolveAlerts}
                     installations={mapInstallations}
                     onInstallationClick={(id) => setSelectedInstallationId(id)}
                     selectedInstallationId={selectedInstallationId}

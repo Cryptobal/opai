@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
 
 interface GuardiaInput {
   id?: string;
@@ -111,6 +112,39 @@ export async function PATCH(request: Request) {
           data: { guardiasPresentes: presentesNoche, coberturaStatus },
         });
       }).catch((err) => console.error("[GRID] cobertura recalc:", err));
+
+      // Fire-and-forget: notify Operaciones chat when guard marked no_viene
+      if (singleGuard.status === "no_viene") {
+        (async () => {
+          try {
+            const channelId = await getOpsChannelId(ctx.tenantId);
+            if (!channelId) return;
+            const guardInfo = await prisma.opsControlNocturnoGuardia.findUnique({
+              where: { id: singleGuard.id },
+              select: {
+                guardiaNombre: true,
+                turno: true,
+                controlInstalacion: { select: { installationName: true } },
+              },
+            });
+            if (!guardInfo) return;
+            const turnoLabel = guardInfo.turno === "nocturno" ? "Nocturno" : "Diurno";
+            await sendSystemChatMessage({
+              tenantId: ctx.tenantId,
+              channelId,
+              content: `⚠️ Guardia ${guardInfo.guardiaNombre} marcado como NO VIENE para ${guardInfo.controlInstalacion.installationName} - Turno ${turnoLabel}`,
+              systemEventType: "guard_no_viene",
+              systemEventData: {
+                guardiaNombre: guardInfo.guardiaNombre,
+                installationName: guardInfo.controlInstalacion.installationName,
+                turno: guardInfo.turno,
+              },
+            });
+          } catch (err) {
+            console.error("[GRID] no_viene chat notification:", err);
+          }
+        })();
+      }
 
       return response;
     }
