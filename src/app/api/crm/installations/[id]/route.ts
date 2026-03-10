@@ -93,6 +93,8 @@ export async function PATCH(
         geoRadiusM: true,
         teMontoClp: true,
         notes: true,
+        nocturnoEnabled: true,
+        chatEnabled: true,
         startDate: true,
         endDate: true,
         accountId: true,
@@ -238,6 +240,9 @@ export async function PATCH(
     revalidatePath(`/crm/installations/${id}`);
     if (installation.accountId) {
       revalidatePath(`/crm/accounts/${installation.accountId}`);
+    }
+    if (payload.nocturnoEnabled !== undefined) {
+      revalidatePath(`/ops/rondas/monitoreo`);
     }
     const diff = computeChangedFields(
       existing as unknown as Record<string, unknown>,

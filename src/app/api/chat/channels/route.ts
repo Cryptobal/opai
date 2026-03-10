@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       where.groupId = { in: memberGroupIds };
     } else if (typeFilter === "INSTALLATION") {
       where.channelType = "INSTALLATION";
+      where.installation = { chatEnabled: true };
     } else if (typeFilter === "DIRECT") {
       // DM channels - only show channels where current admin is a participant
       where.channelType = "DIRECT";
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Show installation channels + group channels the user belongs to + DM channels + EXTERNAL channels
       where.OR = [
-        { channelType: "INSTALLATION" },
+        { channelType: "INSTALLATION", installation: { chatEnabled: true } },
         { channelType: "GROUP", groupId: { in: memberGroupIds } },
         { channelType: "DIRECT", dmParticipants: { some: { adminId: ctx.userId } } },
         { channelType: "EXTERNAL", participants: { some: { participantType: "ADMIN", participantId: ctx.userId } } },
@@ -179,13 +180,13 @@ export async function GET(request: NextRequest) {
     const accountsMap =
       externalAccountIds.length > 0
         ? new Map(
-            (
-              await prisma.crmAccount.findMany({
-                where: { id: { in: externalAccountIds } },
-                select: { id: true, name: true, status: true },
-              })
-            ).map((a) => [a.id, a])
-          )
+          (
+            await prisma.crmAccount.findMany({
+              where: { id: { in: externalAccountIds } },
+              select: { id: true, name: true, status: true },
+            })
+          ).map((a) => [a.id, a])
+        )
         : new Map<string, { id: string; name: string; status: string }>();
 
     const data = channels.map((ch) => ({
@@ -204,12 +205,12 @@ export async function GET(request: NextRequest) {
       updatedAt: ch.updatedAt.toISOString(),
       installation: ch.installation
         ? {
-            id: ch.installation.id,
-            name: ch.installation.name,
-            account: ch.installation.account
-              ? { id: ch.installation.account.id, name: ch.installation.account.name }
-              : null,
-          }
+          id: ch.installation.id,
+          name: ch.installation.name,
+          account: ch.installation.account
+            ? { id: ch.installation.account.id, name: ch.installation.account.name }
+            : null,
+        }
         : null,
       group: ch.groupId && groupMap.has(ch.groupId)
         ? groupMap.get(ch.groupId)!

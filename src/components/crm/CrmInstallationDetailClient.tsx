@@ -40,7 +40,6 @@ import { formatPersonName } from "@/lib/personas";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
-import { AccessControlDevicesSection } from "@/components/access-control/AccessControlDevicesSection";
 import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -1896,8 +1895,8 @@ export function CrmInstallationDetailClient({
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "rondas", label: "Rondas", icon: Route },
-    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "access-control", label: "Control Acceso", icon: Shield },
+    { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
@@ -2322,7 +2321,15 @@ export function CrmInstallationDetailClient({
           ) : null
         }
       >
-        {activeTab === "general" && generalContent}
+        {activeTab === "general" && (
+          <>
+            {generalContent}
+            <div className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-5">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados</h3>
+              <UnifiedDevicesSection installationId={installation.id} pairingCode={installation.pairingCode ?? null} />
+            </div>
+          </>
+        )}
         {activeTab === "staffing" && (
           <StaffingSection
             installation={installation}
@@ -2357,14 +2364,6 @@ export function CrmInstallationDetailClient({
         {activeTab === "access-control" && (
           <div className="space-y-6">
             <AccessControlConfigTab installationId={installation.id} />
-            <div className="border-t border-border pt-6">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados (Unificado)</h3>
-              <UnifiedDevicesSection installationId={installation.id} pairingCode={installation.pairingCode ?? null} />
-            </div>
-            <div className="border-t border-border pt-6">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos (Legacy)</h3>
-              <AccessControlDevicesSection installationId={installation.id} />
-            </div>
             <div className="border-t border-border pt-6">
               <AccessControlListsManager installationId={installation.id} />
             </div>

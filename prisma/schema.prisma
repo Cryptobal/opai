@@ -3359,7 +3359,7 @@ model OpsRondaEjecucion {
   isAdHoc                Boolean   @default(false) @map("is_ad_hoc")
   programacionId         String?   @map("programacion_id") @db.Uuid
   guardiaId              String?   @map("guardia_id") @db.Uuid
-  status                 String    @default("pendiente") // "pendiente" | "en_curso" | "completada" | "incompleta" | "no_realizada"
+  status                 String    @default("pendiente") // "pendiente" | "en_curso" | "completada" | "incompleta" | "no_realizada" | "cerrada_auto" | "cerrada_admin"
   scheduledAt            DateTime  @map("scheduled_at") @db.Timestamptz(6)
   startedAt              DateTime? @map("started_at") @db.Timestamptz(6)
   completedAt            DateTime? @map("completed_at") @db.Timestamptz(6)
@@ -3386,6 +3386,7 @@ model OpsRondaEjecucion {
   alertasRows           OpsAlertaRonda[]
   incidentes            OpsRondaIncidente[]
   controlNocturnoRondas OpsControlNocturnoRonda[] @relation("ControlNocturnoRonda")
+  trackingPoints        OpsRondaTracking[]
 
   @@index([tenantId], map: "idx_ops_ronda_ejecuciones_tenant")
   @@index([rondaTemplateId], map: "idx_ops_ronda_ejecuciones_template")
@@ -3397,6 +3398,22 @@ model OpsRondaEjecucion {
   @@index([guardiaId, status], map: "idx_ops_ronda_ejecuciones_guardia_status")
   @@index([tenantId, rondaTemplateId, scheduledAt, status], map: "idx_ops_ronda_ejecuciones_tenant_tmpl_sched_status")
   @@map("ronda_ejecuciones")
+  @@schema("ops")
+}
+
+model OpsRondaTracking {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ejecucionId String   @map("ejecucion_id") @db.Uuid
+  lat         Float
+  lng         Float
+  accuracy    Float?
+  battery     Int?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ejecucion OpsRondaEjecucion @relation(fields: [ejecucionId], references: [id], onDelete: Cascade)
+
+  @@index([ejecucionId, createdAt], map: "idx_ronda_tracking_ej_created")
+  @@map("ronda_tracking")
   @@schema("ops")
 }
 

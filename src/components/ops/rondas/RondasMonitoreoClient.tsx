@@ -63,6 +63,7 @@ export function RondasMonitoreoClient({
   tenantId: string;
 }) {
   const [rows, setRows] = useState<any[]>(initialRows);
+  const [closingOrphans, setClosingOrphans] = useState(false);
   const [selectedInstallationId, setSelectedInstallationId] = useState<string | null>(null);
   const [selectedRondaId, setSelectedRondaId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -107,8 +108,8 @@ export function RondasMonitoreoClient({
       const monJson = await monRes.json();
       if (monJson.success) {
         setRows(monJson.data);
-        if (monJson.controlNocturno) setControlNocturno(monJson.controlNocturno);
-        if (monJson.activeTurno) setActiveTurno(monJson.activeTurno);
+        setControlNocturno(monJson.controlNocturno ?? null);
+        setActiveTurno(monJson.activeTurno ?? null);
       }
     } catch { /* ignore polling errors */ }
   }, []);
@@ -531,6 +532,30 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
+  const orphanCount = rows.filter((r: any) => {
+    if (!r.isAdHoc || r.status !== "en_curso" || !r.startedAt) return false;
+    const hoursOpen = (Date.now() - new Date(r.startedAt).getTime()) / 3600000;
+    return hoursOpen > 4;
+  }).length;
+
+  const handleCloseOrphans = async () => {
+    if (!confirm(`¿Cerrar ${orphanCount} ronda${orphanCount !== 1 ? "s" : ""} libre${orphanCount !== 1 ? "s" : ""} huérfana${orphanCount !== 1 ? "s" : ""}?`)) return;
+    setClosingOrphans(true);
+    try {
+      const res = await fetch("/api/ops/rondas/cerrar-huerfanas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxHoursOpen: 4 }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        refreshMonitoreo();
+      }
+    } finally {
+      setClosingOrphans(false);
+    }
+  };
+
   const isOperator = activeTurno?.operatorId === userId;
   const isReadOnly = !!activeTurno && !isOperator;
 
@@ -544,6 +569,7 @@ export function RondasMonitoreoClient({
       />
       {/* Compact turno header */}
       <MonitoreoTurnoHeader
+        key={activeTurno?.id ?? "no-turno"}
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
         completedCount={rows.filter((r: any) => r.status === "completada").length}
         missedCount={rows.filter((r: any) => r.status === "no_realizada" || r.status === "incompleta").length}
@@ -552,7 +578,11 @@ export function RondasMonitoreoClient({
         operatorName={userName}
         onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}
         onToggleAlerts={handleToggleAlerts}
+        onTurnoStarted={refreshMonitoreo}
         isReadOnly={isReadOnly}
+        orphanCount={orphanCount}
+        onCloseOrphans={handleCloseOrphans}
+        closingOrphans={closingOrphans}
       />
 
       {/* Observer / Operator banner — desktop only (mobile has its own in MobileMonitorView) */}
@@ -698,7 +728,7 @@ export function RondasMonitoreoClient({
         turnoId={closeTurnoId ?? ""}
         open={!!closeTurnoId}
         onClose={() => setCloseTurnoId(null)}
-        onClosed={() => setCloseTurnoId(null)}
+        onClosed={() => { setCloseTurnoId(null); refreshMonitoreo(); }}
       />
     </div>
   );

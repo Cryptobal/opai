@@ -17,12 +17,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { code, metadata } = body;
 
-    if (!code || !metadata?.userAgent) {
+    if (!code) {
       return NextResponse.json(
-        { success: false, error: "Código y metadata requeridos" },
+        { success: false, error: "Código requerido" },
         { status: 400 }
       );
     }
+
+    // Metadata is nice-to-have, not blocking
+    const meta = metadata ?? {};
 
     // Normalize: uppercase, remove spaces, ensure XXX-XXX format
     const stripped = code.toUpperCase().replace(/[\s-]/g, "");
@@ -42,13 +45,14 @@ export async function POST(request: NextRequest) {
     }
 
     const deviceToken = globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID();
-    const deviceModel = parseDeviceModel(metadata.userAgent);
-    const androidVersionMatch = metadata.userAgent.match(/Android\s+([\d.]+)/);
+    const ua = meta.userAgent || "unknown";
+    const deviceModel = parseDeviceModel(ua);
+    const androidVersionMatch = ua.match(/Android\s+([\d.]+)/);
     const androidVersion = androidVersionMatch ? androidVersionMatch[1] : null;
-    const browserVersionMatch = metadata.userAgent.match(/Chrome\/([\d.]+)/);
+    const browserVersionMatch = ua.match(/Chrome\/([\d.]+)/);
     const browserVersion = browserVersionMatch ? browserVersionMatch[1] : null;
-    const screenResolution = metadata.screenWidth && metadata.screenHeight
-      ? `${metadata.screenWidth}x${metadata.screenHeight}@${metadata.devicePixelRatio || 1}`
+    const screenResolution = meta.screenWidth && meta.screenHeight
+      ? `${meta.screenWidth}x${meta.screenHeight}@${meta.devicePixelRatio || 1}`
       : null;
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -65,17 +69,17 @@ export async function POST(request: NextRequest) {
         androidVersion,
         browserVersion,
         screenResolution,
-        cpuCores: metadata.cpuCores ?? null,
-        ramGB: metadata.ramGB ?? null,
-        userAgent: metadata.userAgent,
-        deviceFingerprint: metadata.timezone
-          ? `${metadata.language || ""}|${metadata.timezone}|${screenResolution || ""}`
+        cpuCores: meta.cpuCores ?? null,
+        ramGB: meta.ramGB ?? null,
+        userAgent: ua,
+        deviceFingerprint: meta.timezone
+          ? `${meta.language || ""}|${meta.timezone}|${screenResolution || ""}`
           : null,
-        pairingLatitude: metadata.latitude ?? null,
-        pairingLongitude: metadata.longitude ?? null,
+        pairingLatitude: meta.latitude ?? null,
+        pairingLongitude: meta.longitude ?? null,
         lastSeenAt: new Date(),
-        lastBatteryLevel: metadata.batteryLevel ?? null,
-        lastConnectionType: metadata.connectionType ?? null,
+        lastBatteryLevel: meta.batteryLevel ?? null,
+        lastConnectionType: meta.connectionType ?? null,
         lastIpAddress: ip,
         portalRondasEnabled: true,
         portalAccesoEnabled: true,

@@ -122,6 +122,7 @@ export function CheckpointMapCreator({
   const draftCircleRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const userCircleRef = useRef<any>(null);
+  const installationMarkerRef = useRef<any>(null);
   const hasAutocenteredRef = useRef(false);
 
   const [mapReady, setMapReady] = useState(false);
@@ -227,6 +228,37 @@ export function CheckpointMapCreator({
     circlesRef.current.forEach((c) => c.setMap(null));
     markersRef.current = [];
     circlesRef.current = [];
+
+    // Draw installation marker
+    installationMarkerRef.current?.setMap(null);
+    installationMarkerRef.current = null;
+    if (installationLat != null && installationLng != null) {
+      const instPos = new gm.LatLng(installationLat, installationLng);
+      installationMarkerRef.current = new gm.Marker({
+        position: instPos,
+        map,
+        title: installationName ?? "Instalación",
+        icon: {
+          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z",
+          fillColor: "#3b82f6",
+          fillOpacity: 1,
+          strokeColor: "#1e40af",
+          strokeWeight: 1.5,
+          scale: 1.8,
+          anchor: new gm.Point(12, 22),
+        },
+        zIndex: 997,
+      });
+      const instInfo = new gm.InfoWindow({
+        content: `<div style="font-family:system-ui;font-size:13px;max-width:220px">
+          <strong>📍 ${installationName ?? "Instalación"}</strong><br/>
+          <span style="color:#666">Ubicación de la instalación</span>
+        </div>`,
+      });
+      installationMarkerRef.current.addListener("click", () =>
+        instInfo.open(map, installationMarkerRef.current),
+      );
+    }
 
     const activeCheckpoints = checkpoints.filter((cp) => cp.isActive && cp.lat != null && cp.lng != null);
 

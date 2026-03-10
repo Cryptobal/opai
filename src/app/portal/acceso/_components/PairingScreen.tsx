@@ -12,12 +12,20 @@ interface PairingScreenProps {
   }) => void;
 }
 
+function safe(fn: () => string, fallback = "unknown"): string {
+  try {
+    return fn() ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function generateFingerprint(): string {
   return [
-    navigator.userAgent,
-    `${screen.width}x${screen.height}`,
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
-    navigator.language,
+    safe(() => navigator.userAgent),
+    safe(() => `${screen.width}x${screen.height}`, "0x0"),
+    safe(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+    safe(() => navigator.language),
   ].join("|");
 }
 
@@ -94,12 +102,12 @@ export function PairingScreen({ onPaired }: PairingScreenProps) {
           body: JSON.stringify({
             code: fullCode,
             metadata: {
-              userAgent: navigator.userAgent,
-              screenWidth: screen.width,
-              screenHeight: screen.height,
-              screenResolution: `${screen.width}x${screen.height}`,
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              language: navigator.language,
+              userAgent: safe(() => navigator.userAgent),
+              screenWidth: safe(() => String(screen.width), "0"),
+              screenHeight: safe(() => String(screen.height), "0"),
+              screenResolution: safe(() => `${screen.width}x${screen.height}`, "0x0"),
+              timezone: safe(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+              language: safe(() => navigator.language),
               deviceFingerprint: generateFingerprint(),
             },
           }),
@@ -121,8 +129,8 @@ export function PairingScreen({ onPaired }: PairingScreenProps) {
           body: JSON.stringify({
             code: fullCode,
             deviceFingerprint: generateFingerprint(),
-            userAgent: navigator.userAgent,
-            screenResolution: `${screen.width}x${screen.height}`,
+            userAgent: safe(() => navigator.userAgent),
+            screenResolution: safe(() => `${screen.width}x${screen.height}`, "0x0"),
           }),
         });
 

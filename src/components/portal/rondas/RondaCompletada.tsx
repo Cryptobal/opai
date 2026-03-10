@@ -22,6 +22,7 @@ interface Props {
   checkpoints?: CheckpointDetail[];
   scheduledAt?: string;
   startedAt?: string;
+  status?: "cerrada_auto" | "cerrada_admin" | string;
   onBackToRondas: () => void;
 }
 
@@ -67,6 +68,7 @@ export function RondaCompletada({
   checkpoints,
   scheduledAt,
   startedAt,
+  status,
   onBackToRondas,
 }: Props) {
   const clampedScore = Math.min(100, Math.max(0, Math.round(trustScore)));
@@ -99,6 +101,17 @@ export function RondaCompletada({
 
       {/* ============ Content ============ */}
       <main className="flex flex-1 flex-col items-center space-y-6 px-4 pb-8 pt-6">
+        {/* ---- Status Banner ---- */}
+        {(status === "cerrada_auto" || status === "cerrada_admin") && (
+          <div className="mb-4 w-full max-w-sm rounded-xl border border-orange-700/50 bg-orange-950/20 p-4 text-center">
+            <p className="text-sm font-medium text-orange-300">
+              {status === "cerrada_auto"
+                ? "Esta ronda fue cerrada automáticamente por exceder el tiempo máximo"
+                : "Esta ronda fue cerrada por un administrador"}
+            </p>
+          </div>
+        )}
+
         {/* ---- Trust Score Gauge ---- */}
         <div
           className="relative flex items-center justify-center"

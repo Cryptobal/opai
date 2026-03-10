@@ -48,6 +48,8 @@ export default async function RondasMonitoreoPage() {
           { status: "pendiente", scheduledAt: { gte: now, lte: sixHoursFromNow } },
           { status: "pendiente", scheduledAt: { lt: now, gte: twelveHoursAgo } },
           { status: "no_realizada", scheduledAt: { gte: twelveHoursAgo } },
+          { status: "cerrada_auto", scheduledAt: { gte: twelveHoursAgo } },
+          { status: "cerrada_admin", scheduledAt: { gte: twelveHoursAgo } },
         ],
       },
       include: {
@@ -62,7 +64,7 @@ export default async function RondasMonitoreoPage() {
       take: 30,
     }),
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, isActive: true, nocturnoEnabled: true },
       select: { id: true, name: true, lat: true, lng: true },
       orderBy: { name: "asc" },
     }),

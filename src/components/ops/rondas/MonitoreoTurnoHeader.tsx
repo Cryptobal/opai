@@ -19,7 +19,11 @@ interface Props {
   operatorName: string;
   onOpenCloseTurno?: (turnoId: string) => void;
   onToggleAlerts?: () => void;
+  onTurnoStarted?: () => void;
   isReadOnly?: boolean;
+  orphanCount?: number;
+  onCloseOrphans?: () => void;
+  closingOrphans?: boolean;
 }
 
 function formatDuration(startedAt: string): string {
@@ -38,7 +42,11 @@ export function MonitoreoTurnoHeader({
   operatorName,
   onOpenCloseTurno,
   onToggleAlerts,
+  onTurnoStarted,
   isReadOnly,
+  orphanCount,
+  onCloseOrphans,
+  closingOrphans,
 }: Props) {
   const [turno, setTurno] = useState<TurnoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,7 +80,10 @@ export function MonitoreoTurnoHeader({
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/turno/start", { method: "POST" });
       const json = await res.json();
-      if (json.success) setTurno(json.data);
+      if (json.success) {
+        setTurno(json.data);
+        onTurnoStarted?.();
+      }
     } finally {
       setLoading(false);
     }
@@ -129,6 +140,18 @@ export function MonitoreoTurnoHeader({
 
       {/* Alerts + close turno */}
       <div className="flex items-center gap-2 ml-auto">
+        {(orphanCount ?? 0) > 0 && !isReadOnly && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1 text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+            onClick={onCloseOrphans}
+            disabled={closingOrphans}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {closingOrphans ? "Cerrando..." : `${orphanCount} huérfana${orphanCount !== 1 ? "s" : ""}`}
+          </Button>
+        )}
         {alertCount > 0 && (
           <button onClick={onToggleAlerts} className="transition-transform hover:scale-105 active:scale-95">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/30 px-2.5 py-1 text-[10px] font-semibold text-red-400 animate-pulse">

@@ -4,18 +4,19 @@ import { useEffect, useRef } from "react";
 import {
   DEVICE_TOKEN_KEY,
   HEARTBEAT_INTERVAL_MS,
+  safeStorage,
 } from "@/lib/device-constants";
 
 export function useDeviceHeartbeat() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem(DEVICE_TOKEN_KEY);
+    const token = safeStorage.getItem(DEVICE_TOKEN_KEY);
     if (!token) return;
 
     async function sendHeartbeat() {
       try {
-        const token = localStorage.getItem(DEVICE_TOKEN_KEY);
+        const token = safeStorage.getItem(DEVICE_TOKEN_KEY);
         if (!token) return;
 
         const payload: Record<string, unknown> = {};

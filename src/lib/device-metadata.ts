@@ -14,18 +14,29 @@ export interface DeviceMetadata {
   batteryCharging: boolean | null;
   connectionType: string | null;
   connectionDownlink: number | null;
+  isWebView: boolean;
+}
+
+function safeGet<T>(fn: () => T, fallback: T): T {
+  try {
+    return fn() ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function collectDeviceMetadata(): Promise<DeviceMetadata> {
+  const ua = safeGet(() => navigator.userAgent, "unknown");
+
   const base: DeviceMetadata = {
-    userAgent: navigator.userAgent,
-    screenWidth: screen.width,
-    screenHeight: screen.height,
-    devicePixelRatio: window.devicePixelRatio,
-    cpuCores: navigator.hardwareConcurrency ?? null,
-    ramGB: (navigator as any).deviceMemory ?? null,
-    language: navigator.language,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    userAgent: ua,
+    screenWidth: safeGet(() => screen.width, 0),
+    screenHeight: safeGet(() => screen.height, 0),
+    devicePixelRatio: safeGet(() => window.devicePixelRatio, 1),
+    cpuCores: safeGet(() => navigator.hardwareConcurrency, null),
+    ramGB: safeGet(() => (navigator as any).deviceMemory, null),
+    language: safeGet(() => navigator.language, "unknown"),
+    timezone: safeGet(() => Intl.DateTimeFormat().resolvedOptions().timeZone, "unknown"),
     latitude: null,
     longitude: null,
     gpsAccuracy: null,
@@ -33,6 +44,10 @@ export async function collectDeviceMetadata(): Promise<DeviceMetadata> {
     batteryCharging: null,
     connectionType: null,
     connectionDownlink: null,
+    isWebView: safeGet(
+      () => /wv|WebView/i.test(navigator.userAgent) || !(window as any).chrome,
+      false
+    ),
   };
 
   try {
