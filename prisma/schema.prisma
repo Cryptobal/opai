@@ -136,6 +136,7 @@ model Presentation {
   openCount        Int                @default(0)
   tenantId         String
   quoteId          String?            @map("quote_id") // Links to CpqQuote for document generation
+  archivedAt       DateTime?          @map("archived_at") // Set when linked deal closes (won/lost); null = active
   template         Template           @relation(fields: [templateId], references: [id])
   tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   views            PresentationView[]

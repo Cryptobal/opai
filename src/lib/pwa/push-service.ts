@@ -269,7 +269,7 @@ export async function sendPushToPortalUser({
   const realBadgeCount = badgeCount ?? await calculateBadgeCount(tenantId, userType, userId);
 
   // 4. Build enriched payload (Prompt 2)
-  const defaultIcon = '/iconos_azul/icon-192x192.png';
+  const defaultIcon = '/icons/icon-192x192.png';
 
   const payload = JSON.stringify({
     title,
@@ -609,7 +609,7 @@ export async function sendChatPushNotifications({
             const payload = JSON.stringify({
               title: `\uD83D\uDCAC ${channelName}`,
               body: `${senderName}: ${body}`,
-              icon: '/iconos_azul/icon-192x192.png',
+              icon: '/icons/icon-192x192.png',
               badge: '/iconos_azul/icon-72x72.png',
               image: imageUrl || undefined,
               tag: `chat-${channelId}`,

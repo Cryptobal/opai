@@ -59,30 +59,20 @@ function turnoFromShift(shiftStart: string): "nocturno" | "diurno" {
 }
 
 /**
- * Pre-populate guards for a CN installation from available sources.
+ * Resolve guards from assignment sources.
  * Priority: 1) Pauta mensual for today  2) Active asignaciones  3) Previous CN
+ * Returns array of guard data to create.
  */
-async function populateGuards(
-  controlInstalacionId: string,
-  installationId: string | null,
+async function resolveGuardsFromSources(
+  installationId: string,
   tenantId: string,
   cnDate: Date,
-): Promise<void> {
-  if (!installationId) return;
-
-  // Check if guards already exist (skip if already populated)
-  const existingCount = await prisma.opsControlNocturnoGuardia.count({
-    where: { controlInstalacionId },
-  });
-  if (existingCount > 0) return;
+): Promise<Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }>> {
+  const result: Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }> = [];
 
   // ── Source 1: Pauta mensual for today ──
   const pautas = await prisma.opsPautaMensual.findMany({
-    where: {
-      tenantId,
-      installationId,
-      date: cnDate,
-    },
+    where: { tenantId, installationId, date: cnDate },
     include: {
       plannedGuardia: {
         include: { persona: { select: { firstName: true, lastName: true } } },
@@ -98,24 +88,32 @@ async function populateGuards(
     const seen = new Set<string>();
     for (const pauta of pautas) {
       const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
-      if (!effective) continue;
-      const key = `${effective.id}-${turnoFromShift(pauta.puesto.shiftStart)}`;
+      const turno = turnoFromShift(pauta.puesto.shiftStart);
+      if (!effective) {
+        // PPC entry: slot exists in pauta but no guard assigned
+        const ppcKey = `ppc-${pauta.id}-${turno}`;
+        if (!seen.has(ppcKey)) {
+          seen.add(ppcKey);
+          result.push({
+            guardiaId: "",
+            guardiaNombre: "PPC",
+            isExtra: false,
+            turno,
+          });
+        }
+        continue;
+      }
+      const key = `${effective.id}-${turno}`;
       if (seen.has(key)) continue;
       seen.add(key);
-
-      const nombre = `${effective.persona.firstName} ${effective.persona.lastName}`.trim();
-      await prisma.opsControlNocturnoGuardia.create({
-        data: {
-          controlInstalacionId,
-          guardiaId: effective.id,
-          guardiaNombre: nombre,
-          isExtra: !!pauta.replacementGuardia,
-          turno: turnoFromShift(pauta.puesto.shiftStart),
-          status: "pendiente",
-        },
+      result.push({
+        guardiaId: effective.id,
+        guardiaNombre: `${effective.persona.firstName} ${effective.persona.lastName}`.trim(),
+        isExtra: !!pauta.replacementGuardia,
+        turno,
       });
     }
-    if (seen.size > 0) return; // Pautas found, done
+    if (result.length > 0) return result;
   }
 
   // ── Source 2: Active asignaciones ──
@@ -136,20 +134,14 @@ async function populateGuards(
       const key = `${asig.guardiaId}-${turno}`;
       if (seen.has(key)) continue;
       seen.add(key);
-
-      const nombre = `${asig.guardia.persona.firstName} ${asig.guardia.persona.lastName}`.trim();
-      await prisma.opsControlNocturnoGuardia.create({
-        data: {
-          controlInstalacionId,
-          guardiaId: asig.guardiaId,
-          guardiaNombre: nombre,
-          isExtra: false,
-          turno,
-          status: "pendiente",
-        },
+      result.push({
+        guardiaId: asig.guardiaId,
+        guardiaNombre: `${asig.guardia.persona.firstName} ${asig.guardia.persona.lastName}`.trim(),
+        isExtra: false,
+        turno,
       });
     }
-    if (seen.size > 0) return;
+    if (result.length > 0) return result;
   }
 
   // ── Source 3: Copy from previous CN ──
@@ -164,17 +156,77 @@ async function populateGuards(
 
   if (prevCNInst?.guardias && prevCNInst.guardias.length > 0) {
     for (const g of prevCNInst.guardias) {
-      await prisma.opsControlNocturnoGuardia.create({
-        data: {
-          controlInstalacionId,
-          guardiaId: g.guardiaId,
-          guardiaNombre: g.guardiaNombre,
-          isExtra: g.isExtra,
-          turno: g.turno,
-          status: "pendiente",
-        },
+      result.push({
+        guardiaId: g.guardiaId ?? "",
+        guardiaNombre: g.guardiaNombre,
+        isExtra: g.isExtra,
+        turno: g.turno as "nocturno" | "diurno",
       });
     }
+  }
+
+  return result;
+}
+
+/**
+ * Pre-populate/refresh guards for a CN installation.
+ * Merges assignment data with existing guards:
+ * - Keeps guards that were manually modified (non-pendiente status, replacements)
+ * - Only adds guards that are missing (new assignments)
+ * - Removes auto-populated guards that are no longer in assignment data
+ * - Never deletes then recreates — avoids flicker during polling
+ */
+async function populateGuards(
+  controlInstalacionId: string,
+  installationId: string | null,
+  tenantId: string,
+  cnDate: Date,
+): Promise<void> {
+  if (!installationId) return;
+
+  const existing = await prisma.opsControlNocturnoGuardia.findMany({
+    where: { controlInstalacionId },
+  });
+
+  // Get fresh guard data from sources
+  const resolved = await resolveGuardsFromSources(installationId, tenantId, cnDate);
+
+  // Build lookup keys for existing and resolved guards
+  // PPC entries use guardiaNombre="PPC" as key since guardiaId is null/empty
+  const guardKey = (guardiaId: string | null, nombre: string, turno: string) =>
+    guardiaId ? `${guardiaId}-${turno}` : `ppc-${nombre}-${turno}`;
+  const existingKeys = new Set(existing.map((g) => guardKey(g.guardiaId, g.guardiaNombre, g.turno)));
+  const resolvedKeys = new Set(resolved.map((g) => guardKey(g.guardiaId || null, g.guardiaNombre, g.turno)));
+
+  // Add guards that don't already exist
+  for (const guard of resolved) {
+    const key = guardKey(guard.guardiaId || null, guard.guardiaNombre, guard.turno);
+    if (existingKeys.has(key)) continue;
+    await prisma.opsControlNocturnoGuardia.create({
+      data: {
+        controlInstalacionId,
+        guardiaId: guard.guardiaId || null,
+        guardiaNombre: guard.guardiaNombre,
+        isExtra: guard.isExtra,
+        turno: guard.turno,
+        status: "pendiente",
+      },
+    });
+  }
+
+  // Remove auto-populated guards that are no longer in assignment data
+  // (only remove "pendiente" guards without manual modifications)
+  const staleGuards = existing.filter(
+    (g) =>
+      g.status === "pendiente" &&
+      g.reemplazaDe == null &&
+      !g.isExtra &&
+      !resolvedKeys.has(guardKey(g.guardiaId, g.guardiaNombre, g.turno)),
+  );
+  if (staleGuards.length > 0) {
+    await prisma.opsControlNocturnoGuardia.deleteMany({
+      where: { id: { in: staleGuards.map((g) => g.id) } },
+    });
   }
 }
 
