@@ -9,6 +9,7 @@ import {
   UserRoundCheck,
   Layers,
   Smartphone,
+  Phone,
 } from "lucide-react";
 
 const INVENTARIO_ITEMS: SubNavItem[] = [
@@ -19,6 +20,7 @@ const INVENTARIO_ITEMS: SubNavItem[] = [
   { href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
   { href: "/ops/inventario/stock", label: "Stock", icon: Layers },
   { href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
+  { href: "/ops/inventario/lineas", label: "Líneas", icon: Phone },
 ];
 
 export function InventarioSubnav() {

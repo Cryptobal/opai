@@ -506,7 +506,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           "flex-col bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)]",
           "transition-transform duration-300 ease-out",
           "shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
-          ctx.isPanelOpen ? "translate-x-0" : "translate-x-full"
+          ctx.isPanelOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         )}
         role="dialog"
         aria-label="Panel de chat"

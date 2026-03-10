@@ -48,6 +48,8 @@ model Tenant {
   inventoryGuardiaAssignments InventoryGuardiaAssignment[]
   inventoryAssets             InventoryAsset[]
   inventoryAssetAssignments   InventoryAssetAssignment[]
+  inventoryPhoneLines         InventoryPhoneLine[]
+  inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
   aiProviders                 AiProvider[]
   globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
   gamificacionConfig          GamificacionConfig?
@@ -1417,6 +1419,7 @@ model CrmInstallation {
   installationHealthScore         OpsInstallationHealthScore?     @relation("installation_health_score")
   inventoryWarehouses             InventoryWarehouse[]            @relation("inventory_warehouse_installation")
   inventoryAssetAssignments       InventoryAssetAssignment[]
+  inventoryPhoneLineAssignments   InventoryPhoneLineAssignment[]
   inventoryMovements              InventoryMovement[]
   inventoryGuardiaAssignments     InventoryGuardiaAssignment[]
   protocolSections                ProtocolSection[]
@@ -5391,6 +5394,7 @@ model InventoryAsset {
   variant       InventoryProductVariant?      @relation(fields: [variantId], references: [id], onDelete: SetNull)
   assignments   InventoryAssetAssignment[]
   statusHistory InventoryAssetStatusHistory[]
+  phoneLines    InventoryPhoneLine[]
 
   @@index([tenantId], map: "idx_inv_asset_tenant")
   @@index([variantId], map: "idx_inv_asset_variant")
@@ -5434,6 +5438,54 @@ model InventoryAssetStatusHistory {
 
   @@index([assetId], map: "idx_inv_asset_status_history_asset")
   @@map("asset_status_history")
+  @@schema("inventory")
+}
+
+// ── Línea Telefónica (SIM/Número) ──────────────────────────────────────────────
+model InventoryPhoneLine {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  phoneNumber String   @map("phone_number")
+  carrier     String
+  planType    String?  @map("plan_type")
+  status      String   @default("active")
+  label       String?
+  assetId     String?  @map("asset_id") @db.Uuid
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset       InventoryAsset?                 @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  assignments InventoryPhoneLineAssignment[]
+
+  @@index([tenantId], map: "idx_inv_phone_line_tenant")
+  @@index([status], map: "idx_inv_phone_line_status")
+  @@index([carrier], map: "idx_inv_phone_line_carrier")
+  @@unique([tenantId, phoneNumber], map: "uq_inv_phone_line_number")
+  @@map("phone_lines")
+  @@schema("inventory")
+}
+
+// ── Historial de asignaciones línea → instalación ──────────────────────────────
+model InventoryPhoneLineAssignment {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  phoneLineId    String    @map("phone_line_id") @db.Uuid
+  installationId String    @map("installation_id") @db.Uuid
+  assignedAt     DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy     String?   @map("assigned_by")
+  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6)
+  notes          String?   @db.Text
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phoneLine    InventoryPhoneLine @relation(fields: [phoneLineId], references: [id], onDelete: Cascade)
+  installation CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_inv_phone_assign_tenant")
+  @@index([phoneLineId], map: "idx_inv_phone_assign_line")
+  @@index([installationId], map: "idx_inv_phone_assign_installation")
+  @@map("phone_line_assignments")
   @@schema("inventory")
 }
 

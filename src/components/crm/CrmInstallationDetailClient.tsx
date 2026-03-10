@@ -41,6 +41,7 @@ import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
 import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
+import { InstallationPhoneLines } from "@/components/inventario/InstallationPhoneLines";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2324,6 +2325,9 @@ export function CrmInstallationDetailClient({
         {activeTab === "general" && (
           <>
             {generalContent}
+            <div className="mt-6">
+              <InstallationPhoneLines installationId={installation.id} />
+            </div>
             <div className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-5">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispositivos Vinculados</h3>
               <UnifiedDevicesSection installationId={installation.id} pairingCode={installation.pairingCode ?? null} />

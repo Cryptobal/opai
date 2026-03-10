@@ -191,7 +191,7 @@ export function AppShell({
               </button>
               <button
                 type="button"
-                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 sm:hidden"
+                className="relative inline-flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 lg:hidden"
                 onClick={chatCtx.togglePanel}
                 aria-label="Abrir chat"
               >

@@ -22,6 +22,7 @@ import {
   BarChart3,
   Landmark,
   BookText,
+  MessageCircle,
   // CRM
   Users,
   MapPin,
@@ -76,6 +77,7 @@ export interface BottomNavItem {
 
 const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
   { key: "hub", href: "/hub", label: "Inicio", icon: Grid3x3, app: "hub" },
+  { key: "chat", href: "/chat", label: "Chat", icon: MessageCircle, app: "chat" },
   { key: "docs", href: "/opai/inicio", label: "Docs", icon: FileText, app: "docs" },
   { key: "crm", href: "/crm", label: "CRM", icon: Building2, app: "crm" },
   { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator, app: "payroll" },
@@ -330,6 +332,8 @@ export function getBottomNavItems(
   };
 
   return MAIN_ITEMS.filter((item) => {
+    // Chat is always visible (not permission-gated)
+    if (item.app === "chat") return true;
     const moduleKey = moduleMapping[item.app];
     if (!moduleKey) return false;
     return hasModuleAccess(perms, moduleKey);
