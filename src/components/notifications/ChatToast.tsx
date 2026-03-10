@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageSquare, X } from "lucide-react";
+import { X } from "lucide-react";
 
 interface ChatToastProps {
   channelName: string;
@@ -12,6 +12,29 @@ interface ChatToastProps {
   channelId: string;
   toastId: string | number;
   chatUrl?: string;
+  isFile?: boolean;
+}
+
+/** Generate a deterministic color from a string (for avatar background). */
+function avatarColor(name: string): string {
+  const colors = [
+    "bg-teal-600", "bg-blue-600", "bg-violet-600", "bg-rose-600",
+    "bg-amber-600", "bg-emerald-600", "bg-cyan-600", "bg-pink-600",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+/** Get initials (first two chars of first two words, or first two chars). */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
 }
 
 export function ChatToast({
@@ -22,8 +45,15 @@ export function ChatToast({
   channelId,
   toastId,
   chatUrl,
+  isFile,
 }: ChatToastProps) {
   const router = useRouter();
+
+  const displayPreview = isFile
+    ? "\uD83D\uDCCE Envió un archivo"
+    : messagePreview || "Nuevo mensaje";
+
+  const hasSender = !!senderName;
 
   return (
     <div
@@ -31,31 +61,54 @@ export function ChatToast({
         toast.dismiss(toastId);
         router.push(chatUrl || `/chat?channel=${channelId}`);
       }}
-      className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg shadow-lg cursor-pointer hover:bg-accent/50 transition-colors w-80"
+      className="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-white/[0.03] w-[360px] bg-[#0d1220] border border-white/[0.08] border-l-[3px] border-l-teal-400 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
     >
-      <div className="flex-shrink-0 mt-0.5">
-        <MessageSquare className="h-5 w-5 text-primary" />
-      </div>
+      {/* Avatar */}
+      {hasSender && (
+        <div
+          className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold ${avatarColor(senderName!)}`}
+        >
+          {initials(senderName!)}
+        </div>
+      )}
+
+      {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {channelName}
-        </p>
-        <p className="text-sm text-muted-foreground truncate">
+        {/* Sender + Channel */}
+        {hasSender && (
+          <>
+            <p className="text-[13px] font-bold text-white truncate">
+              {senderName}
+            </p>
+            <p className="text-[12px] text-teal-400 truncate">
+              en # {channelName}
+            </p>
+          </>
+        )}
+        {!hasSender && (
+          <p className="text-[13px] font-bold text-white truncate">
+            # {channelName}
+          </p>
+        )}
+
+        {/* Preview or count */}
+        <p className="text-[13px] text-zinc-400 line-clamp-2 mt-0.5">
           {messageCount
             ? `${messageCount} mensajes nuevos`
-            : senderName && messagePreview
-              ? `${senderName}: ${messagePreview}`
-              : senderName || "Nuevo mensaje"}
+            : displayPreview}
         </p>
       </div>
+
+      {/* Close button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           toast.dismiss(toastId);
         }}
-        className="flex-shrink-0 text-muted-foreground hover:text-foreground p-0.5"
+        className="flex-shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 mt-0.5"
+        aria-label="Cerrar notificación"
       >
-        <X className="h-4 w-4" />
+        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   );

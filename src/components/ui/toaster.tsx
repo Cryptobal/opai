@@ -10,7 +10,7 @@ export function Toaster() {
     <SonnerToaster
       theme="dark"
       richColors
-      position="top-right"
+      position="bottom-right"
       closeButton
       expand={false}
       visibleToasts={3}
