@@ -87,7 +87,18 @@ export async function marcarCheckpoint(
     },
     include: {
       rondaTemplate: { include: { installation: true } },
-      marcaciones: { orderBy: { timestamp: "desc" }, take: 1 },
+      marcaciones: {
+        select: {
+          id: true,
+          timestamp: true,
+          lat: true,
+          lng: true,
+          batteryLevel: true,
+          checkpointId: true,
+        },
+        orderBy: { timestamp: "desc" },
+        take: 1,
+      },
     },
   });
   if (!execution) {
@@ -232,8 +243,6 @@ export async function marcarCheckpoint(
         lng,
         geoValidada: geo.valid,
         geoDistanciaM: geo.distanceM,
-        geoAccuracy: gpsAccuracy ?? null,
-        geoConfidence: geo.confidence,
         batteryLevel: batteryLevel ?? null,
         motionData: (motionData ?? null) as never,
         speedFromPrevKmh: speed,

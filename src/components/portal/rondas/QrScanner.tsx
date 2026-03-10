@@ -16,8 +16,11 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerIdRef = useRef("qr-reader-" + Date.now());
   const hasScannedRef = useRef(false);
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
 
   useEffect(() => {
+    let cancelled = false;
     const scanner = new Html5Qrcode(containerIdRef.current);
     scannerRef.current = scanner;
 
@@ -30,23 +33,26 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
           aspectRatio: 1,
         },
         (decodedText) => {
-          if (hasScannedRef.current) return;
+          if (hasScannedRef.current || cancelled) return;
           hasScannedRef.current = true;
           scanner.stop().catch(() => {});
-          onScan(decodedText);
+          onScanRef.current(decodedText);
         },
         () => {} // ignore scan failures (no QR in frame yet)
       )
       .catch((err: Error) => {
+        if (cancelled) return;
         setError("No se pudo acceder a la cámara. Verifica los permisos.");
         setShowManual(true);
         console.error("QR scanner error:", err);
       });
 
     return () => {
+      cancelled = true;
       scanner.stop().catch(() => {});
     };
-  }, [onScan]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleManualSubmit = () => {
     const code = manualCode.trim();

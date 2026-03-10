@@ -118,8 +118,6 @@ export async function POST(request: NextRequest) {
                 lng: m.lng,
                 geoValidada: geo.valid,
                 geoDistanciaM: geo.distanceM,
-                geoAccuracy: m.gpsAccuracy ?? null,
-                geoConfidence: geo.confidence,
                 batteryLevel: m.batteryLevel ?? null,
                 motionData: (m.motionData ?? null) as never,
                 speedFromPrevKmh: speed,
