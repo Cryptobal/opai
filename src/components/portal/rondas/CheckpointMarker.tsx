@@ -399,9 +399,10 @@ export function CheckpointMarker({
         : undefined;
 
       // 6. POST marcacion
+      const isAdHocMark = checkpoint.id.startsWith("ad-hoc");
       const body = {
         ejecucionId,
-        checkpointId: checkpoint.id,
+        checkpointId: isAdHocMark ? undefined : checkpoint.id,
         checkpointQrCode: qrCode ?? undefined,
         lat: coords.lat,
         lng: coords.lng,

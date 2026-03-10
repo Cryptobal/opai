@@ -154,6 +154,11 @@ export function RondaActiva({
   // -- Map collapse state --
   const [mapCollapsed, setMapCollapsed] = useState(false);
 
+  // -- Ad-hoc marked points (for map display) --
+  const [adHocMarkedPoints, setAdHocMarkedPoints] = useState<
+    { id: string; lat: number; lng: number; name: string }[]
+  >([]);
+
   // -- Confirmation modal state --
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -251,23 +256,35 @@ export function RondaActiva({
   const showFreeRoundWarning = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_WARNING_MINUTES && freeRoundTimeLeftMinutes > FREE_ROUND_CRITICAL_MINUTES;
   const showFreeRoundCritical = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_CRITICAL_MINUTES;
 
-  // Map checkpoints
-  const mapCheckpoints = useMemo<MapCheckpoint[]>(
-    () =>
-      checkpoints.map((cp) => ({
-        id: cp.id,
-        name: cp.name,
-        lat: cp.lat,
-        lng: cp.lng,
-        orderIndex: cp.orderIndex,
-        status: cp.completed
-          ? "completed"
-          : cp.id === activeCheckpointId
-            ? "active"
-            : "pending",
-      })),
-    [checkpoints, activeCheckpointId],
-  );
+  // Map checkpoints (include ad-hoc marked points for libre rondas)
+  const mapCheckpoints = useMemo<MapCheckpoint[]>(() => {
+    const templateCps = checkpoints.map((cp) => ({
+      id: cp.id,
+      name: cp.name,
+      lat: cp.lat,
+      lng: cp.lng,
+      orderIndex: cp.orderIndex,
+      status: cp.completed
+        ? ("completed" as const)
+        : cp.id === activeCheckpointId
+          ? ("active" as const)
+          : ("pending" as const),
+    }));
+
+    if (!isAdHoc) return templateCps;
+
+    // For ad-hoc rondas, add locally tracked marked points
+    const adHocCps = adHocMarkedPoints.map((pt, i) => ({
+      id: pt.id,
+      name: pt.name,
+      lat: pt.lat,
+      lng: pt.lng,
+      orderIndex: i,
+      status: "completed" as const,
+    }));
+
+    return [...templateCps, ...adHocCps];
+  }, [checkpoints, activeCheckpointId, isAdHoc, adHocMarkedPoints]);
 
   // Distance to active checkpoint
   const activeCheckpoint = checkpoints.find(
@@ -392,7 +409,8 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Render: CheckpointMarker bottom sheet overlay
   // ---------------------------------------------------------------------------
-  if (markingCheckpointId && (markingCheckpoint || markingCheckpointId === "ad-hoc-scan")) {
+  const isAdHocMark = markingCheckpointId === "ad-hoc-scan" || markingCheckpointId === "ad-hoc-gps";
+  if (markingCheckpointId && (markingCheckpoint || isAdHocMark)) {
     const cpInfo = markingCheckpoint
       ? {
           id: markingCheckpoint.id,
@@ -404,23 +422,48 @@ export function RondaActiva({
           verificationType: markingCheckpoint.verificationType,
           tasks: markingCheckpoint.tasks,
         }
-      : {
-          id: "ad-hoc-scan",
-          name: "Checkpoint libre",
-          instrucciones: null,
-          lat: guardPos?.lat ?? 0,
-          lng: guardPos?.lng ?? 0,
-          geoRadiusM: 9999,
-          verificationType: "QR" as const,
-          tasks: undefined,
-        };
+      : markingCheckpointId === "ad-hoc-gps"
+        ? {
+            id: "ad-hoc-gps",
+            name: "Punto GPS",
+            instrucciones: null,
+            lat: guardPos?.lat ?? 0,
+            lng: guardPos?.lng ?? 0,
+            geoRadiusM: 9999,
+            verificationType: "GEOFENCE" as const,
+            tasks: undefined,
+          }
+        : {
+            id: "ad-hoc-scan",
+            name: "Checkpoint libre",
+            instrucciones: null,
+            lat: guardPos?.lat ?? 0,
+            lng: guardPos?.lng ?? 0,
+            geoRadiusM: 9999,
+            verificationType: "QR" as const,
+            tasks: undefined,
+          };
+    const adHocQrRequerido = markingCheckpointId === "ad-hoc-scan";
     return (
       <CheckpointMarker
         checkpoint={cpInfo}
         ejecucionId={rondaData.ejecucionId}
         guardiaId={session.guardiaId}
-        qrRequerido={true}
+        qrRequerido={markingCheckpoint ? rondaData.qrRequerido : adHocQrRequerido}
         onComplete={() => {
+          // For ad-hoc marks, capture the point locally for map display
+          if (isAdHoc && guardPos) {
+            const label = markingCheckpointId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
+            setAdHocMarkedPoints((prev) => [
+              ...prev,
+              {
+                id: `adhoc-${Date.now()}`,
+                lat: guardPos.lat,
+                lng: guardPos.lng,
+                name: `${label} #${prev.length + 1}`,
+              },
+            ]);
+          }
           setMarkingCheckpointId(null);
           refreshCheckpoints();
         }}
@@ -436,7 +479,7 @@ export function RondaActiva({
 
   return (
     <div
-      className="flex min-h-dvh flex-col"
+      className="flex min-h-dvh flex-col overflow-x-hidden"
       style={{ backgroundColor: "#0a0a0f" }}
     >
       {/* ============ Header ============ */}
@@ -521,7 +564,7 @@ export function RondaActiva({
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
-          height={mapCollapsed ? "20vh" : isAdHoc ? "55vh" : "45vh"}
+          height={mapCollapsed ? "20vh" : isAdHoc ? "35vh" : "45vh"}
           showRoute={true}
           interactive={true}
           showCenterButton={true}
@@ -568,40 +611,46 @@ export function RondaActiva({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-teal-400">{completedCount}</p>
-                  <p className="text-xs text-gray-500">Puntos QR escaneados</p>
+                  <p className="text-xs text-gray-500">Puntos registrados</p>
                 </div>
               </div>
             </div>
 
-            {/* Mode explanation */}
-            <div className="flex gap-3 rounded-xl border border-gray-800/50 bg-gray-900/30 px-4 py-3">
-              <div className="flex-1 text-center">
-                <div className="mb-1 flex justify-center">
+            {/* Action buttons: GPS + QR side by side */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setMarkingCheckpointId("ad-hoc-gps")}
+                className="flex flex-col items-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 px-3 py-4 text-center transition-colors active:bg-emerald-900/40"
+                style={{ minHeight: 80 }}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <p className="text-[11px] font-medium text-emerald-400">GPS</p>
-                <p className="text-[10px] text-gray-500">Siempre activo</p>
-              </div>
-              <div className="w-px bg-gray-800" />
-              <div className="flex-1 text-center">
-                <div className="mb-1 flex justify-center">
+                <p className="text-sm font-semibold text-emerald-400">Marcar GPS</p>
+              </button>
+
+              <button
+                onClick={() => setMarkingCheckpointId("ad-hoc-scan")}
+                className="flex flex-col items-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 px-3 py-4 text-center transition-colors active:bg-teal-900/40"
+                style={{ minHeight: 80 }}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/20">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                   </svg>
                 </div>
-                <p className="text-[11px] font-medium text-teal-400">QR</p>
-                <p className="text-[10px] text-gray-500">Opcional</p>
-              </div>
+                <p className="text-sm font-semibold text-teal-400">Marcar QR</p>
+              </button>
             </div>
 
             {/* Mini-timeline of completed marcaciones */}
             {sortedCheckpoints.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-4 text-center">
-                <p className="text-sm text-gray-500">Sin puntos QR escaneados aun</p>
-                <p className="mt-1 text-xs text-gray-600">Usa el boton QR para registrar checkpoints</p>
+                <p className="text-sm text-gray-500">Sin puntos registrados aun</p>
+                <p className="mt-1 text-xs text-gray-600">Usa los botones para registrar puntos</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -848,19 +897,6 @@ export function RondaActiva({
           </button>
         </div>
       </div>
-
-      {/* ============ Floating scan button for ad-hoc ============ */}
-        {isAdHoc && (
-          <button
-            onClick={() => setMarkingCheckpointId("ad-hoc-scan")}
-            className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 shadow-lg shadow-teal-500/30 transition-transform active:scale-95"
-            aria-label="Escanear checkpoint"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-          </button>
-        )}
 
       {/* ============ Confirmation Modal ============ */}
       {showConfirmModal && (

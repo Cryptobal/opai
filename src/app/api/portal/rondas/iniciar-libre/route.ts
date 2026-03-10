@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
-    // Check no other ad-hoc ronda is already en_curso for this guard
+    // If an ad-hoc ronda is already en_curso, return it so the frontend can resume
     const existing = await prisma.opsRondaEjecucion.findFirst({
       where: {
         guardiaId,
@@ -40,9 +40,14 @@ export async function POST(request: NextRequest) {
     });
     if (existing) {
       return NextResponse.json({
-        success: false,
-        error: "Ya tienes una ronda libre en curso",
-      }, { status: 409 });
+        success: true,
+        data: {
+          ejecucionId: existing.id,
+          status: existing.status,
+          startedAt: existing.startedAt?.toISOString(),
+          resumed: true,
+        },
+      });
     }
 
     const now = new Date();

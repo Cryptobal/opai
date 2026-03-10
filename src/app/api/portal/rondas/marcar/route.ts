@@ -53,10 +53,6 @@ export async function POST(request: NextRequest) {
     if (!bodyGuardiaId || typeof bodyGuardiaId !== "string") {
       return NextResponse.json({ success: false, error: "guardiaId es requerido" }, { status: 400 });
     }
-    if (!checkpointId && !checkpointQrCode) {
-      return NextResponse.json({ success: false, error: "checkpointId o checkpointQrCode es requerido" }, { status: 400 });
-    }
-
     const execution = await prisma.opsRondaEjecucion.findFirst({
       where: {
         id: ejecucionId,
@@ -69,6 +65,12 @@ export async function POST(request: NextRequest) {
     });
     if (!execution) {
       return NextResponse.json({ success: false, error: "Ejecucion no encontrada" }, { status: 404 });
+    }
+
+    // For non-ad-hoc rounds, checkpointId or checkpointQrCode is required
+    const isAdHocGps = execution.isAdHoc && !checkpointId && !checkpointQrCode;
+    if (!isAdHocGps && !checkpointId && !checkpointQrCode) {
+      return NextResponse.json({ success: false, error: "checkpointId o checkpointQrCode es requerido" }, { status: 400 });
     }
 
     // Auto-assign guard: if execution has no guardiaId, claim it
@@ -91,42 +93,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Instalacion no encontrada" }, { status: 400 });
     }
 
-    const checkpoint = await prisma.opsCheckpoint.findFirst({
-      where: {
-        tenantId: execution.tenantId,
-        installationId: cpInstallationId,
-        isActive: true,
-        ...(checkpointId
-          ? { id: checkpointId }
-          : { qrCode: checkpointQrCode }),
-      },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
-    });
-    if (!checkpoint) {
-      return NextResponse.json({ success: false, error: "Checkpoint invalido" }, { status: 404 });
-    }
+    // For ad-hoc GPS-only marks, no checkpoint to resolve
+    let checkpoint: { id: string; name: string; lat: number | null; lng: number | null; geoRadiusM: number; verificationType: string } | null = null;
 
-    // QR verification enforcement: if template requires QR and checkpoint supports QR/BOTH,
-    // the request must include a matching checkpointQrCode
-    if (
-      execution.rondaTemplate?.qrRequerido &&
-      (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
-      !checkpointQrCode
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Se requiere escaneo QR para este checkpoint" },
-        { status: 400 },
-      );
+    if (!isAdHocGps) {
+      checkpoint = await prisma.opsCheckpoint.findFirst({
+        where: {
+          tenantId: execution.tenantId,
+          installationId: cpInstallationId,
+          isActive: true,
+          ...(checkpointId
+            ? { id: checkpointId }
+            : { qrCode: checkpointQrCode }),
+        },
+        select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
+      });
+      if (!checkpoint) {
+        return NextResponse.json({ success: false, error: "Checkpoint invalido" }, { status: 404 });
+      }
+
+      // QR verification enforcement: if template requires QR and checkpoint supports QR/BOTH,
+      // the request must include a matching checkpointQrCode
+      if (
+        execution.rondaTemplate?.qrRequerido &&
+        (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
+        !checkpointQrCode
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Se requiere escaneo QR para este checkpoint" },
+          { status: 400 },
+        );
+      }
     }
 
     const prev = execution.marcaciones[0];
-    const geo = isWithinGeoRadius(
-      lat,
-      lng,
-      checkpoint.lat,
-      checkpoint.lng,
-      checkpoint.geoRadiusM,
-    );
+    const geo = checkpoint
+      ? isWithinGeoRadius(
+          lat,
+          lng,
+          checkpoint.lat,
+          checkpoint.lng,
+          checkpoint.geoRadiusM,
+        )
+      : { valid: true, distanceM: 0 }; // GPS-only ad-hoc: no reference point
     const now = new Date();
     const elapsedSec = prev ? Math.max(1, Math.round((now.getTime() - prev.timestamp.getTime()) / 1000)) : 0;
     const prevDistance = prev?.lat != null && prev?.lng != null
@@ -167,7 +176,7 @@ export async function POST(request: NextRequest) {
         data: {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
-          checkpointId: checkpoint.id,
+          checkpointId: checkpoint?.id ?? null,
           guardiaId,
           timestamp: now,
           lat,
@@ -183,7 +192,7 @@ export async function POST(request: NextRequest) {
           hashIntegridad: hash,
           anomalias: anomalies as never,
           status: "COMPLETED",
-          verificationMethod: verificationMethod ?? (checkpointId ? "GEOFENCE" : "QR"),
+          verificationMethod: verificationMethod ?? (isAdHocGps ? "GEOFENCE" : checkpointId ? "GEOFENCE" : "QR"),
           isOfflineSync: isOfflineSync ?? false,
         },
       });
@@ -239,6 +248,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (anomalies.length) {
+        const cpName = checkpoint?.name ?? "Punto GPS";
         await tx.opsAlertaRonda.create({
           data: {
             tenantId: execution.tenantId,
@@ -246,10 +256,10 @@ export async function POST(request: NextRequest) {
             installationId: cpInstallationId,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
-            mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
+            mensaje: `Anomalia detectada en checkpoint ${cpName}: ${anomalies.join(", ")}`,
             data: {
-              checkpointId: checkpoint.id,
-              checkpointName: checkpoint.name,
+              checkpointId: checkpoint?.id ?? null,
+              checkpointName: cpName,
               anomalies,
               trustScore,
             } as never,
@@ -261,7 +271,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Evaluate post-mark alerts asynchronously (don't block response)
-    if (execution.rondaTemplate) {
+    if (execution.rondaTemplate && checkpoint) {
       evaluatePostMarkAlerts({
         tenantId: execution.tenantId,
         ejecucionId: execution.id,
@@ -284,10 +294,11 @@ export async function POST(request: NextRequest) {
     // Fire-and-forget Pusher event
     try {
       const pusher = getPusherServer();
+      const cpName = checkpoint?.name ?? "Punto GPS";
       await pusher.trigger(`monitoreo-${execution.tenantId}`, "checkpoint-marked", {
         ejecucionId: execution.id,
-        checkpointId: checkpoint.id,
-        checkpointName: checkpoint.name,
+        checkpointId: checkpoint?.id ?? null,
+        checkpointName: cpName,
         trustScore,
       });
     } catch (pusherErr) {

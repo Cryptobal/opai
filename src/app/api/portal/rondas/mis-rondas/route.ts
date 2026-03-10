@@ -44,11 +44,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get today's ejecuciones + overnight rondas from previous evening (Chile timezone)
+    // Get today's ejecuciones + overnight rondas (Chile timezone)
     const now = new Date();
-    // Start from 6 hours before midnight to capture overnight shifts (e.g., 22:00 previous day)
+    // -6h captures evening shift starts from previous day (e.g., 18:00)
     const startOfDay = new Date(startOfDayChile(now).getTime() - 6 * 60 * 60 * 1000);
-    const endOfDay = endOfDayChile(now);
+    // +10h past midnight captures overnight shift ends (e.g., shifts ending at 08:00-09:00)
+    const endOfDay = new Date(endOfDayChile(now).getTime() + 10 * 60 * 60 * 1000);
 
     // Show ALL pending/in-progress rounds for this installation today.
     // Any authenticated guard can take any round, regardless of assignment.

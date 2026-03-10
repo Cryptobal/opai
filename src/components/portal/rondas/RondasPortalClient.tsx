@@ -358,9 +358,21 @@ export function RondasPortalClient() {
         return;
       }
 
-      setActiveEjecucionId(json.data.ejecucionId);
+      const ejecucionId = json.data.ejecucionId;
+      setActiveEjecucionId(ejecucionId);
+
+      // If resuming an existing ronda, fetch full data (may have checkpoints already)
+      if (json.data.resumed) {
+        const fullData = await fetchRondaData(ejecucionId);
+        if (fullData) {
+          setActiveRondaData(fullData);
+          setScreen("ronda-activa");
+          return;
+        }
+      }
+
       setActiveRondaData({
-        ejecucionId: json.data.ejecucionId,
+        ejecucionId,
         templateId: "",
         templateName: "Ronda Libre",
         status: "en_curso",

@@ -101,8 +101,8 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
       </div>
       <canvas ref={canvasRef} className="hidden" />
       {preview ? (
-        <div className="flex flex-1 flex-col">
-          <img src={preview} alt="Preview" className="flex-1 object-contain" />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <img src={preview} alt="Preview" className="min-h-0 flex-1 object-contain" />
           <div className="flex gap-3 px-4 py-4">
             <button onClick={retake} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
               Repetir
