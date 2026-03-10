@@ -21,8 +21,10 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
+import { NotificationPopover } from "./NotificationPopover";
 import { ThemeToggle } from "./ThemeToggle";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "./Avatar";
@@ -128,8 +130,20 @@ export function TopbarActions({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Tema + Configuración juntos */}
+      {/* Right icons: Theme → Chat → Notifications → Settings */}
       <ThemeToggle />
+      <button
+        type="button"
+        className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        onClick={chatCtx.togglePanel}
+        aria-label="Abrir chat"
+      >
+        <MessageCircle className="h-4 w-4" />
+        {chatCtx.totalUnread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+        )}
+      </button>
+      <NotificationPopover />
       <Link
         href="/opai/configuracion"
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
