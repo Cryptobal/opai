@@ -102,6 +102,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const aiSummary = summaryLines.join("\n");
 
+    // Archive all unresolved alerts associated with this turno
+    await prisma.opsAlertaRonda.updateMany({
+      where: {
+        turnoId: turno.id,
+        resuelta: false,
+        archivedAt: null,
+      },
+      data: {
+        archivedAt: now,
+      },
+    });
+
+    // Also archive orphan alerts (no turnoId) created during this turno
+    await prisma.opsAlertaRonda.updateMany({
+      where: {
+        tenantId: ctx.tenantId,
+        turnoId: null,
+        resuelta: false,
+        archivedAt: null,
+        createdAt: {
+          gte: turno.startedAt,
+          lte: now,
+        },
+      },
+      data: {
+        archivedAt: now,
+        turnoId: turno.id,
+      },
+    });
+
     const updated = await prisma.opsMonitoreoTurno.update({
       where: { id },
       data: {
@@ -135,6 +165,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
     const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
 
+    // Build structured data for resumen ejecutivo
+    const criticalAlertDetails = alertsData
+      .filter(a => a.severidad === "critical")
+      .map(a => ({
+        installationName: a.installation?.name ?? "Sin instalación",
+        tipo: a.tipo,
+        mensaje: a.mensaje,
+      }));
+
+    const warningAlerts = alertsData.filter(a => a.severidad === "warning").length;
+
+    // Per-installation summaries
+    const instMap = new Map<string, { name: string; rondas: typeof roundsData; alerts: typeof alertsData }>();
+    for (const r of roundsData) {
+      const instName = r.rondaTemplate?.installation?.name ?? "Sin instalación";
+      const instId = r.rondaTemplate?.installation?.name ?? r.id; // group by name
+      if (!instMap.has(instId)) instMap.set(instId, { name: instName, rondas: [], alerts: [] });
+      instMap.get(instId)!.rondas.push(r);
+    }
+    for (const a of alertsData) {
+      const instName = a.installation?.name ?? "Sin instalación";
+      if (!instMap.has(instName)) instMap.set(instName, { name: instName, rondas: [], alerts: [] });
+      instMap.get(instName)!.alerts.push(a);
+    }
+    const installationSummaries = Array.from(instMap.values()).map(({ name, rondas, alerts }) => ({
+      name,
+      totalRondas: rondas.length,
+      completadas: rondas.filter(r => r.status === "completada").length,
+      alertCount: alerts.length,
+      trustAvg: rondas.length > 0
+        ? Math.round(rondas.reduce((s, r) => s + (r.trustScore ?? 0), 0) / rondas.length)
+        : 0,
+    }));
+
     sendMonitorTurnoEmail(
       {
         turnoId: id,
@@ -154,6 +218,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         operatorComments: parsed.data.operatorComments,
         aiSummary,
         baseUrl,
+        criticalAlertDetails,
+        warningAlerts,
+        installationSummaries,
       },
       parsed.data.emailRecipients ?? undefined,
     ).catch((err) => console.error("[RONDAS] Email send failed:", err));

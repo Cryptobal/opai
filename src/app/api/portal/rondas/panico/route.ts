@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -50,6 +52,8 @@ export async function POST(request: NextRequest) {
     const guardiaNombre =
       `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
 
+    const turnoId = await getActiveTurnoId(tenantId);
+
     // Create incident + alert in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const incidente = await tx.opsRondaIncidente.create({
@@ -73,6 +77,7 @@ export async function POST(request: NextRequest) {
           ejecucionId: ejecucionId || null,
           installationId,
           guardiaId,
+          turnoId,
           tipo: "panico",
           severidad: "critical",
           mensaje: `Boton de panico activado por ${guardiaNombre}`,
@@ -105,6 +110,16 @@ export async function POST(request: NextRequest) {
     } catch (pusherErr) {
       // Non-blocking: alert is already saved in DB
       console.error("[PANICO] Pusher trigger failed:", pusherErr);
+    }
+
+    // Push + chat notification for panic alert (fire-and-forget, bypasses cooldown)
+    if (result.alerta) {
+      notifyCriticalAlert({
+        tenantId,
+        tipo: "panico",
+        severidad: "critical",
+        mensaje: result.alerta.mensaje,
+      }).catch((err) => console.error("[PANICO] Alert notification failed:", err));
     }
 
     return NextResponse.json({

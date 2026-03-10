@@ -26,6 +26,7 @@ export interface CoberturaInstalacion {
   presentes: number;
   extras: number;
   noViene: { nombre: string; notes: string | null }[];
+  notes: string | null; // Installation-level operator notes
 }
 
 export interface CoberturaSnapshot {
@@ -148,6 +149,7 @@ export function buildCoberturaSnapshot(
     guardiasRequeridos: number;
     guardiasPresentes: number;
     coberturaStatus: string;
+    notes?: string | null;
     guardias: {
       guardiaNombre: string;
       status: string;
@@ -205,6 +207,7 @@ export function buildCoberturaSnapshot(
       presentes,
       extras,
       noViene,
+      notes: inst.notes ?? null,
     };
   });
 
@@ -341,7 +344,7 @@ export function buildCoberturaEmailHtml(
             ? ' <span style="background:#7c3aed;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">EXTRA</span>'
             : ' <span style="background:#e2e8f0;color:#475569;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">PAUTA</span>';
           const notesStr =
-            g.notes && g.status === "no_viene"
+            g.notes
               ? `<br/><span style="color:#94a3b8;font-size:10px;padding-left:16px">↳ ${escapeHtml(g.notes)}</span>`
               : "";
           return `<span style="color:${gColor};font-size:11px">${icon} ${escapeHtml(g.nombre)}${extraBadge}${arrival}</span>${notesStr}`;
@@ -361,17 +364,25 @@ export function buildCoberturaEmailHtml(
               .join("<br/>")
           : '<span style="color:#94a3b8;font-size:11px">—</span>';
 
+      const instNotesRow = inst.notes
+        ? `<tr style="background:${bgColor}">
+        <td colspan="5" style="padding:4px 12px 10px;border-bottom:1px solid #e2e8f0;${borderLeft}">
+          <span style="color:#64748b;font-size:10px;font-style:italic">📝 ${escapeHtml(inst.notes)}</span>
+        </td>
+      </tr>`
+        : "";
+
       return `<tr style="background:${bgColor}">
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#1e293b;font-weight:500;${borderLeft}">${escapeHtml(inst.name)}${isDescubierta ? '<br/><span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ PUESTO DESCUBIERTO</span>' : ""}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b;text-align:center;font-weight:600">
+        <td style="padding:10px 12px;${inst.notes ? "" : "border-bottom:1px solid #e2e8f0;"}font-size:12px;color:#1e293b;font-weight:500;${borderLeft}">${escapeHtml(inst.name)}${isDescubierta ? '<br/><span style="color:#dc2626;font-size:10px;font-weight:700">⚠️ PUESTO DESCUBIERTO</span>' : ""}</td>
+        <td style="padding:10px 12px;${inst.notes ? "" : "border-bottom:1px solid #e2e8f0;"}font-size:13px;color:#1e293b;text-align:center;font-weight:600">
           <span style="color:${inst.presentes >= inst.guardiasRequeridos ? "#15803d" : inst.presentes > 0 ? "#d97706" : "#dc2626"}">${inst.presentes}</span>/${inst.guardiasRequeridos}${inst.extras > 0 ? `<br/><span style="font-size:10px;color:#7c3aed">+${inst.extras} extra</span>` : ""}
         </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center">
+        <td style="padding:10px 12px;${inst.notes ? "" : "border-bottom:1px solid #e2e8f0;"}text-align:center">
           <span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:10px;font-weight:700;color:#fff;background:${color}">${statusLabel(inst.coberturaStatus)}</span>
         </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${guardLines || '<span style="color:#94a3b8;font-size:11px">—</span>'}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${noVieneStr}</td>
-      </tr>`;
+        <td style="padding:10px 12px;${inst.notes ? "" : "border-bottom:1px solid #e2e8f0;"}">${guardLines || '<span style="color:#94a3b8;font-size:11px">—</span>'}</td>
+        <td style="padding:10px 12px;${inst.notes ? "" : "border-bottom:1px solid #e2e8f0;"}">${noVieneStr}</td>
+      </tr>${instNotesRow}`;
     })
     .join("\n");
 

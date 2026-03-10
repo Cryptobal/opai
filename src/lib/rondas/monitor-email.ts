@@ -8,6 +8,20 @@
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
+interface CriticalAlertDetail {
+  installationName: string;
+  tipo: string;
+  mensaje: string;
+}
+
+interface InstallationSummary {
+  name: string;
+  totalRondas: number;
+  completadas: number;
+  alertCount: number;
+  trustAvg: number;
+}
+
 interface MonitorEmailData {
   turnoId: string;
   tenantId: string;
@@ -26,6 +40,10 @@ interface MonitorEmailData {
   operatorComments?: string | null;
   aiSummary: string;
   baseUrl: string;
+  // New: structured data for resumen ejecutivo
+  criticalAlertDetails?: CriticalAlertDetail[];
+  warningAlerts?: number;
+  installationSummaries?: InstallationSummary[];
 }
 
 function escapeHtml(str: string): string {
@@ -50,6 +68,92 @@ function trustColor(score: number): string {
   if (score >= 80) return "#15803d";
   if (score >= 60) return "#d97706";
   return "#dc2626";
+}
+
+function formatAlertType(tipo: string): string {
+  const labels: Record<string, string> = {
+    geo_fuera_rango: "Fuera de rango",
+    guardia_estatico: "Guardia estático",
+    velocidad_anomala: "Velocidad anómala",
+    checkpoint_saltado: "Checkpoint saltado",
+    ronda_no_iniciada: "Ronda no iniciada",
+    ronda_no_realizada: "Ronda no realizada",
+    ronda_libre_timeout: "Ronda libre timeout",
+    mismo_punto_repetido: "Punto repetido",
+    sin_movimiento: "Sin movimiento",
+    bateria_baja: "Batería baja",
+    panico: "PÁNICO",
+  };
+  return labels[tipo] || tipo;
+}
+
+function buildResumenEjecutivo(data: MonitorEmailData): string {
+  const lines: string[] = [];
+
+  // Rondas status
+  if (data.completadas > 0) {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#14532d">✅ ${data.completadas} rondas completadas</p>`);
+  }
+  if (data.noRealizadas > 0) {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#d97706">⚠️ ${data.noRealizadas} rondas no realizadas</p>`);
+  }
+  if (data.incompletas > 0) {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#d97706">⚠️ ${data.incompletas} rondas incompletas</p>`);
+  }
+
+  // Critical alerts
+  if (data.criticalAlerts > 0) {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#dc2626;font-weight:600">🚨 ${data.criticalAlerts} alerta${data.criticalAlerts !== 1 ? "s" : ""} crítica${data.criticalAlerts !== 1 ? "s" : ""}:</p>`);
+    if (data.criticalAlertDetails && data.criticalAlertDetails.length > 0) {
+      const shown = data.criticalAlertDetails.slice(0, 5);
+      for (const alert of shown) {
+        lines.push(`<p style="margin:0 0 2px;font-size:12px;color:#991b1b;padding-left:16px">• ${escapeHtml(formatAlertType(alert.tipo))}: ${escapeHtml(alert.installationName)}</p>`);
+      }
+      if (data.criticalAlertDetails.length > 5) {
+        lines.push(`<p style="margin:0 0 2px;font-size:12px;color:#991b1b;padding-left:16px">... y ${data.criticalAlertDetails.length - 5} más</p>`);
+      }
+    }
+  } else {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#15803d">✅ Sin alertas críticas</p>`);
+  }
+
+  // Warning alerts
+  const warningCount = data.warningAlerts ?? (data.totalAlerts - data.criticalAlerts);
+  if (warningCount > 0) {
+    lines.push(`<p style="margin:0 0 4px;font-size:13px;color:#64748b">ℹ️ ${warningCount} alerta${warningCount !== 1 ? "s" : ""} warning</p>`);
+  }
+
+  return lines.join("\n");
+}
+
+function buildInstallationDetail(summaries: InstallationSummary[]): string {
+  if (!summaries || summaries.length === 0) return "";
+
+  const rows = summaries.map((inst) => {
+    const statusIcon = inst.completadas === inst.totalRondas && inst.totalRondas > 0
+      ? "✅"
+      : inst.completadas === 0 && inst.totalRondas > 0
+        ? "❌"
+        : "⚠️";
+    const alertBadge = inst.alertCount > 0
+      ? ` <span style="color:#dc2626;font-size:11px">${inst.alertCount} alerta${inst.alertCount !== 1 ? "s" : ""}</span>`
+      : "";
+    const trustBadge = inst.totalRondas > 0
+      ? ` <span style="color:${trustColor(inst.trustAvg)};font-size:11px">Trust: ${inst.trustAvg}</span>`
+      : "";
+
+    return `<p style="margin:0 0 4px;font-size:12px;color:#334155">${statusIcon} ${escapeHtml(inst.name)} — ${inst.completadas}/${inst.totalRondas}${trustBadge}${alertBadge}</p>`;
+  }).join("\n");
+
+  return `
+        <tr>
+          <td style="padding:0 32px 16px">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 8px;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase">Detalle por Instalación</p>
+              ${rows}
+            </div>
+          </td>
+        </tr>`;
 }
 
 function buildHtml(data: MonitorEmailData): string {
@@ -114,12 +218,12 @@ function buildHtml(data: MonitorEmailData): string {
             </table>
           </td>
         </tr>
-        <!-- Summary -->
+        <!-- Resumen Ejecutivo -->
         <tr>
           <td style="padding:0 32px 16px">
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:6px;padding:12px 16px">
-              <p style="margin:0 0 4px;font-size:11px;color:#15803d;font-weight:600;text-transform:uppercase">Resumen del turno</p>
-              <p style="margin:0;font-size:13px;color:#14532d;line-height:1.5;white-space:pre-wrap">${escapeHtml(data.aiSummary)}</p>
+            <div style="background:${data.criticalAlerts > 0 ? "#fef2f2" : "#f0fdf4"};border:1px solid ${data.criticalAlerts > 0 ? "#fecaca" : "#bbf7d0"};border-left:4px solid ${data.criticalAlerts > 0 ? "#dc2626" : "#22c55e"};border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 8px;font-size:11px;color:${data.criticalAlerts > 0 ? "#dc2626" : "#15803d"};font-weight:600;text-transform:uppercase">Resumen Ejecutivo</p>
+              ${buildResumenEjecutivo(data)}
             </div>
           </td>
         </tr>
@@ -133,6 +237,16 @@ function buildHtml(data: MonitorEmailData): string {
             </div>
           </td>
         </tr>` : ""}
+        ${buildInstallationDetail(data.installationSummaries ?? [])}
+        <!-- Detail summary -->
+        <tr>
+          <td style="padding:0 32px 16px">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 4px;font-size:11px;color:#15803d;font-weight:600;text-transform:uppercase">Detalle Completo</p>
+              <p style="margin:0;font-size:13px;color:#14532d;line-height:1.5;white-space:pre-wrap">${escapeHtml(data.aiSummary)}</p>
+            </div>
+          </td>
+        </tr>
         <!-- CTA -->
         <tr>
           <td style="padding:0 32px 24px" align="center">
