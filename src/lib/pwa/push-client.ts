@@ -39,6 +39,19 @@ export async function subscribeToPush(params: {
       }),
     });
 
+    // Store context in SW cache for pushsubscriptionchange re-subscribe
+    if (res.ok && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'STORE_PUSH_CONTEXT',
+        context: {
+          portalType: params.portalType,
+          userType: params.userType,
+          userId: params.userId,
+          tenantId: params.tenantId,
+        },
+      });
+    }
+
     return res.ok;
   } catch (error) {
     console.error('[push] Subscription failed:', error);
