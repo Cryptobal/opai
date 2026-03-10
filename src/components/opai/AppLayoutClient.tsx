@@ -23,7 +23,6 @@ import {
   FolderOpen,
   Wallet,
   BarChart3,
-  Bell,
   User,
   ClipboardCheck,
   Landmark,
@@ -39,7 +38,7 @@ import {
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
-import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
@@ -77,8 +76,6 @@ function AppLayoutClientInner({
   // Use simulated permissions when active, otherwise real permissions
   const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
-  // Notification unread count from centralized context (no more independent polling)
-  const { unreadCount: notificationUnreadCount } = useNotifications();
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
   const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
@@ -137,13 +134,6 @@ function AppLayoutClientInner({
       icon: MessageCircle,
       show: true,
       badge: chatUnreadTotal,
-    },
-    {
-      href: '/opai/notificaciones',
-      label: 'Notificaciones',
-      icon: Bell,
-      show: true,
-      badge: notificationUnreadCount,
     },
     {
       href: '/crm',
@@ -247,7 +237,7 @@ function AppLayoutClientInner({
         { href: '/portal/acceso', label: 'Control de Acceso', icon: Fingerprint },
       ],
     },
-  ], [permissions, isAdmin, notificationUnreadCount, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
+  ], [permissions, isAdmin, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge, chatUnreadTotal]);
 
   return (
     <InAppNotificationProvider
@@ -271,7 +261,6 @@ function AppLayoutClientInner({
           userName={userName ?? undefined}
           userEmail={userEmail ?? undefined}
           userRole={userRole}
-          notificationUnreadCount={notificationUnreadCount}
         >
           {currentUserId && tenantId && (
             <PushPermissionPrompt

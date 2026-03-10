@@ -43,7 +43,6 @@ export interface AppShellProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
-  notificationUnreadCount?: number;
   className?: string;
 }
 
@@ -64,7 +63,6 @@ export function AppShell({
   userName,
   userEmail,
   userRole,
-  notificationUnreadCount = 0,
   className,
 }: AppShellProps) {
   const router = useRouter();
